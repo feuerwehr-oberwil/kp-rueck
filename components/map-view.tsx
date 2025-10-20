@@ -20,6 +20,7 @@ interface Operation {
 interface MapViewProps {
   operations: Operation[]
   onMarkerClick?: (id: string) => void
+  selectedOperationId?: string | null
 }
 
 // Get icon based on incident type
@@ -93,34 +94,73 @@ function createCustomIcon(incidentType: string, priority: "high" | "medium" | "l
 }
 
 // Component to handle map bounds
-function MapBounds({ operations }: { operations: Operation[] }) {
+function MapBounds({ operations, selectedOperationId }: { operations: Operation[], selectedOperationId?: string | null }) {
   const map = useMap()
 
   useEffect(() => {
+    // If a specific operation is selected, zoom to it
+    if (selectedOperationId) {
+      const selectedOp = operations.find(op => op.id === selectedOperationId)
+      if (selectedOp) {
+        map.setView(selectedOp.coordinates, 16, { animate: true })
+        return
+      }
+    }
+
+    // Otherwise, fit all operations in view
     if (operations.length > 0) {
       const bounds = L.latLngBounds(operations.map((op) => op.coordinates))
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
     }
-  }, [operations, map])
+  }, [operations, map, selectedOperationId])
 
   return null
 }
 
-export default function MapView({ operations, onMarkerClick }: MapViewProps) {
-  // Calculate center from operations or use default
-  const center: [number, number] =
-    operations.length > 0
-      ? operations.reduce(
-          (acc, op) => [acc[0] + op.coordinates[0], acc[1] + op.coordinates[1]],
-          [0, 0]
-        ).map((sum) => sum / operations.length) as [number, number]
-      : [51.1657, 10.4515]
+export default function MapView({ operations, onMarkerClick, selectedOperationId }: MapViewProps) {
+  // Fire station coordinates (Oberwil Baselland)
+  const fireStationCoords: [number, number] = [47.51637699933488, 7.561800450458299]
+
+  // Default center on fire station
+  const center: [number, number] = fireStationCoords
+
+  // Create fire station icon
+  const fireStationIcon = L.divIcon({
+    html: `
+      <div style="position: relative; width: 50px; height: 50px;">
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 50px;
+          height: 50px;
+          background-color: #dc2626;
+          border: 4px solid white;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        "></div>
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -60%);
+          font-size: 24px;
+          z-index: 10;
+        ">🚒</div>
+      </div>
+    `,
+    className: "fire-station-marker",
+    iconSize: [50, 50],
+    iconAnchor: [25, 50],
+    popupAnchor: [0, -50],
+  })
 
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden">
       <MapContainer
         center={center}
-        zoom={13}
+        zoom={14}
         className="w-full h-full z-0"
         zoomControl={true}
       >
@@ -129,6 +169,23 @@ export default function MapView({ operations, onMarkerClick }: MapViewProps) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        {/* Fire Station Marker */}
+        <Marker position={fireStationCoords} icon={fireStationIcon}>
+          <Popup>
+            <div className="space-y-2 min-w-[200px]">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🚒</span>
+                <span className="font-bold text-sm">Feuerwehr Oberwil</span>
+              </div>
+              <p className="text-xs text-gray-600">Hauptstandort</p>
+              <p className="text-xs text-gray-500">
+                {fireStationCoords[0].toFixed(6)}, {fireStationCoords[1].toFixed(6)}
+              </p>
+            </div>
+          </Popup>
+        </Marker>
+
+        {/* Operation Markers */}
         {operations.map((op) => (
           <Marker
             key={op.id}
@@ -178,7 +235,7 @@ export default function MapView({ operations, onMarkerClick }: MapViewProps) {
           </Marker>
         ))}
 
-        <MapBounds operations={operations} />
+        <MapBounds operations={operations} selectedOperationId={selectedOperationId} />
       </MapContainer>
 
       {/* Legend */}
