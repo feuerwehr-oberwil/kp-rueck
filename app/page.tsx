@@ -18,9 +18,12 @@ import {
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import { useDraggable, useDroppable } from "@dnd-kit/core"
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable"
+import { Filter } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -67,10 +70,11 @@ function getTimeSince(date: Date): string {
   return `${hours}h ${mins}m`
 }
 
-function DraggablePerson({ person }: { person: Person }) {
+function DraggablePerson({ person, onClick, disabled }: { person: Person; onClick?: () => void; disabled?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `person-${person.id}`,
     data: { type: "person", person },
+    disabled: disabled || person.status === "assigned",
   })
 
   const style = {
@@ -78,13 +82,16 @@ function DraggablePerson({ person }: { person: Person }) {
     opacity: isDragging ? 0.5 : 1,
   }
 
+  const canDrag = !disabled && person.status === "available"
+
   return (
     <Card
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className="cursor-move border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:border-primary/50 hover:shadow-md hover:bg-card"
+      {...(canDrag ? listeners : {})}
+      {...(canDrag ? attributes : {})}
+      onClick={onClick}
+      className={`border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:border-primary/50 hover:shadow-md hover:bg-card ${canDrag ? "cursor-move" : "cursor-pointer"} ${person.status === "assigned" ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -103,10 +110,11 @@ function DraggablePerson({ person }: { person: Person }) {
   )
 }
 
-function DraggableMaterial({ material }: { material: Material }) {
+function DraggableMaterial({ material, onClick, disabled }: { material: Material; onClick?: () => void; disabled?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `material-${material.id}`,
     data: { type: "material", material },
+    disabled: disabled || material.status === "assigned",
   })
 
   const style = {
@@ -114,13 +122,16 @@ function DraggableMaterial({ material }: { material: Material }) {
     opacity: isDragging ? 0.5 : 1,
   }
 
+  const canDrag = !disabled && material.status === "available"
+
   return (
     <Card
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className="cursor-move border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:border-primary/50 hover:shadow-md hover:bg-card"
+      {...(canDrag ? listeners : {})}
+      {...(canDrag ? attributes : {})}
+      onClick={onClick}
+      className={`border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:border-primary/50 hover:shadow-md hover:bg-card ${canDrag ? "cursor-move" : "cursor-pointer"} ${material.status === "assigned" ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -143,6 +154,7 @@ function DraggableOperation({
   onRemoveMaterial,
   onClick,
   onHover,
+  isHighlighted,
 }: {
   operation: Operation
   columnColor: string
@@ -150,26 +162,35 @@ function DraggableOperation({
   onRemoveMaterial: (materialId: string) => void
   onClick: () => void
   onHover: (opId: string | null) => void
+  isHighlighted?: boolean
 }) {
-  const { attributes, listeners, setNodeRef: setDraggableRef, transform, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: `operation-${operation.id}`,
     data: { type: "operation", operation },
   })
 
-  // Allow drops for both people/materials AND operations
+  // Also allow drops for people/materials
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: `operation-drop-${operation.id}`,
     data: { type: "operation-drop", operationId: operation.id },
   })
 
   const style = {
-    transform: CSS.Translate.toString(transform),
+    transform: CSS.Transform.toString(transform),
+    transition,
     opacity: isDragging ? 0.5 : 1,
   }
 
   // Combine both refs
   const setRefs = (element: HTMLDivElement | null) => {
-    setDraggableRef(element)
+    setNodeRef(element)
     setDroppableRef(element)
   }
 
@@ -179,7 +200,7 @@ function DraggableOperation({
       style={style}
       {...listeners}
       {...attributes}
-      className={`${columnColor} cursor-move border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""}`}
+      className={`${columnColor} cursor-move border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
       onClick={onClick}
       onMouseEnter={() => onHover(operation.id)}
       onMouseLeave={() => onHover(null)}
@@ -290,6 +311,7 @@ function DroppableColumn({
   onRemoveMaterial,
   onCardClick,
   onCardHover,
+  highlightedOperationId,
 }: {
   column: (typeof columns)[0]
   operations: Operation[]
@@ -297,11 +319,14 @@ function DroppableColumn({
   onRemoveMaterial: (operationId: string, materialId: string) => void
   onCardClick: (operation: Operation) => void
   onCardHover: (opId: string | null) => void
+  highlightedOperationId: string | null
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.id}`,
     data: { type: "column", columnId: column.id },
   })
+
+  const operationIds = operations.map(op => `operation-${op.id}`)
 
   return (
     <div ref={setNodeRef} className={`flex w-80 flex-shrink-0 flex-col ${isOver ? "ring-2 ring-primary/50 rounded-lg" : ""}`}>
@@ -311,17 +336,20 @@ function DroppableColumn({
       </div>
 
       <div className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-colors min-h-[200px] ${isOver ? "bg-primary/10" : ""}`}>
-        {operations.map((operation) => (
-          <DraggableOperation
-            key={operation.id}
-            operation={operation}
-            columnColor={column.color}
-            onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
-            onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
-            onClick={() => onCardClick(operation)}
-            onHover={onCardHover}
-          />
-        ))}
+        <SortableContext items={operationIds} strategy={verticalListSortingStrategy}>
+          {operations.map((operation) => (
+            <DraggableOperation
+              key={operation.id}
+              operation={operation}
+              columnColor={column.color}
+              onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
+              onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
+              onClick={() => onCardClick(operation)}
+              onHover={onCardHover}
+              isHighlighted={highlightedOperationId === operation.id}
+            />
+          ))}
+        </SortableContext>
       </div>
     </div>
   )
@@ -957,6 +985,10 @@ export default function FireStationDashboard() {
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
+  const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
+  const [filterVehicle, setFilterVehicle] = useState<string>("all")
+  const [filterPriority, setFilterPriority] = useState<string>("all")
+  const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1085,42 +1117,64 @@ export default function FireStationDashboard() {
       const person = activeData.person as Person
       const operationId = overData.operationId as string
 
-      setOperations((ops) =>
-        ops.map((op) => {
-          if (op.id === operationId && !op.crew.includes(person.name)) {
-            return {
-              ...op,
-              crew: [...op.crew, person.name],
+      // Only allow assignment if person is available (not already assigned)
+      if (person.status === "available") {
+        setOperations((ops) =>
+          ops.map((op) => {
+            if (op.id === operationId && !op.crew.includes(person.name)) {
+              return {
+                ...op,
+                crew: [...op.crew, person.name],
+              }
             }
-          }
-          return op
-        }),
-      )
+            return op
+          }),
+        )
 
-      setPersonnel((people) =>
-        people.map((p) => (p.id === person.id ? { ...p, status: "assigned" as PersonStatus } : p)),
-      )
+        setPersonnel((people) =>
+          people.map((p) => (p.id === person.id ? { ...p, status: "assigned" as PersonStatus } : p)),
+        )
+      }
     }
 
     if (activeData?.type === "material" && overData?.type === "operation-drop") {
       const material = activeData.material as Material
       const operationId = overData.operationId as string
 
-      setOperations((ops) =>
-        ops.map((op) => {
-          if (op.id === operationId && !op.materials.includes(material.id)) {
-            return {
-              ...op,
-              materials: [...op.materials, material.id],
+      // Only allow assignment if material is available (not already assigned)
+      if (material.status === "available") {
+        setOperations((ops) =>
+          ops.map((op) => {
+            if (op.id === operationId && !op.materials.includes(material.id)) {
+              return {
+                ...op,
+                materials: [...op.materials, material.id],
+              }
             }
-          }
-          return op
-        }),
-      )
+            return op
+          }),
+        )
 
-      setMaterials((mats) =>
-        mats.map((m) => (m.id === material.id ? { ...m, status: "assigned" as Material["status"] } : m)),
-      )
+        setMaterials((mats) =>
+          mats.map((m) => (m.id === material.id ? { ...m, status: "assigned" as Material["status"] } : m)),
+        )
+      }
+    }
+
+    // Operation reordering within same column
+    if (activeData?.type === "operation" && overData?.type === "operation") {
+      const activeOp = activeData.operation as Operation
+      const overOp = overData.operation as Operation
+
+      // Only reorder if in the same column
+      if (activeOp.status === overOp.status && active.id !== over.id) {
+        setOperations((ops) => {
+          const activeIndex = ops.findIndex((op) => op.id === activeOp.id)
+          const overIndex = ops.findIndex((op) => op.id === overOp.id)
+
+          return arrayMove(ops, activeIndex, overIndex)
+        })
+      }
     }
 
     // Operation dropped on column
@@ -1179,12 +1233,49 @@ export default function FireStationDashboard() {
     {} as Record<string, Material[]>,
   )
 
-  const filteredOperations = operations.filter(
-    (op) =>
+  const filteredOperations = operations.filter((op) => {
+    // Text search filter
+    const matchesSearch =
       op.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
       op.incidentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (op.vehicle && op.vehicle.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
+      (op.vehicle && op.vehicle.toLowerCase().includes(searchQuery.toLowerCase()))
+
+    // Vehicle filter
+    const matchesVehicle =
+      filterVehicle === "all" ||
+      (filterVehicle === "none" && !op.vehicle) ||
+      op.vehicle === filterVehicle
+
+    // Priority filter
+    const matchesPriority = filterPriority === "all" || op.priority === filterPriority
+
+    // Incident type filter
+    const matchesIncidentType = filterIncidentType === "all" || op.incidentType === filterIncidentType
+
+    return matchesSearch && matchesVehicle && matchesPriority && matchesIncidentType
+  })
+
+  const handlePersonClick = (person: Person) => {
+    if (person.status === "assigned") {
+      // Find the operation this person is assigned to
+      const assignedOp = operations.find(op => op.crew.includes(person.name))
+      if (assignedOp) {
+        setHighlightedOperationId(assignedOp.id)
+        setTimeout(() => setHighlightedOperationId(null), 3000)
+      }
+    }
+  }
+
+  const handleMaterialClick = (material: Material) => {
+    if (material.status === "assigned") {
+      // Find the operation this material is assigned to
+      const assignedOp = operations.find(op => op.materials.includes(material.id))
+      if (assignedOp) {
+        setHighlightedOperationId(assignedOp.id)
+        setTimeout(() => setHighlightedOperationId(null), 3000)
+      }
+    }
+  }
 
   const activeDragItem = activeId
     ? personnel.find((p) => `person-${p.id}` === activeId) || 
@@ -1230,6 +1321,50 @@ export default function FireStationDashboard() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-72 pl-9"
               />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={filterVehicle} onValueChange={setFilterVehicle}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Fahrzeug" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle</SelectItem>
+                  <SelectItem value="none">Keine</SelectItem>
+                  {vehicleTypes.map((vt) => (
+                    <SelectItem key={vt.name} value={vt.name || ""}>
+                      {vt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Priorität" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                  <SelectItem value="medium">Mittel</SelectItem>
+                  <SelectItem value="low">Niedrig</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterIncidentType} onValueChange={setFilterIncidentType}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Einsatzart" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle</SelectItem>
+                  {emergencyTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
@@ -1283,7 +1418,11 @@ export default function FireStationDashboard() {
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
                   <div className="space-y-2">
                     {groupedPersonnel[role]?.map((person) => (
-                      <DraggablePerson key={person.id} person={person} />
+                      <DraggablePerson
+                        key={person.id}
+                        person={person}
+                        onClick={() => handlePersonClick(person)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1305,6 +1444,7 @@ export default function FireStationDashboard() {
                     onRemoveMaterial={removeMaterial}
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
+                    highlightedOperationId={highlightedOperationId}
                   />
                 )
               })}
@@ -1336,7 +1476,11 @@ export default function FireStationDashboard() {
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
                   <div className="space-y-2">
                     {items.map((material) => (
-                      <DraggableMaterial key={material.id} material={material} />
+                      <DraggableMaterial
+                        key={material.id}
+                        material={material}
+                        onClick={() => handleMaterialClick(material)}
+                      />
                     ))}
                   </div>
                 </div>
