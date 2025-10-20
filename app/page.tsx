@@ -732,6 +732,8 @@ export default function FireStationDashboard() {
 
   const [currentTime, setCurrentTime] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState("")
+  const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
+  const [materialSearchQuery, setMaterialSearchQuery] = useState("")
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
@@ -906,7 +908,17 @@ export default function FireStationDashboard() {
     }
   }
 
-  const groupedPersonnel = personnel.reduce(
+  const filteredPersonnel = personnel.filter((p) =>
+    p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
+    p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
+  )
+
+  const filteredMaterials = materials.filter((m) =>
+    m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
+    m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
+  )
+
+  const groupedPersonnel = filteredPersonnel.reduce(
     (acc, person) => {
       if (!acc[person.role]) acc[person.role] = []
       acc[person.role].push(person)
@@ -915,7 +927,7 @@ export default function FireStationDashboard() {
     {} as Record<PersonRole, Person[]>,
   )
 
-  const groupedMaterials = materials.reduce(
+  const groupedMaterials = filteredMaterials.reduce(
     (acc, material) => {
       if (!acc[material.category]) acc[material.category] = []
       acc[material.category].push(material)
@@ -1009,6 +1021,17 @@ export default function FireStationDashboard() {
               </p>
             </div>
 
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Suchen..."
+                value={personnelSearchQuery}
+                onChange={(e) => setPersonnelSearchQuery(e.target.value)}
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
+
             <div className="space-y-4">
               {(["Fahrer", "Reko/EL/FU", "Mannschaft"] as PersonRole[]).map((role) => (
                 <div key={role}>
@@ -1049,6 +1072,17 @@ export default function FireStationDashboard() {
               <p className="text-sm text-muted-foreground mt-0.5">
                 {materials.filter((m) => m.status === "available").length} verfügbar
               </p>
+            </div>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Suchen..."
+                value={materialSearchQuery}
+                onChange={(e) => setMaterialSearchQuery(e.target.value)}
+                className="h-8 pl-7 text-xs"
+              />
             </div>
 
             <div className="space-y-4">
