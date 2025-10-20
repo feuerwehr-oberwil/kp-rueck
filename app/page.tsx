@@ -26,11 +26,12 @@ import { Label } from "@/components/ui/label"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType, initialMaterials } from "@/lib/contexts/operations-context"
 
 const columns = [
-  { id: "incoming", title: "Eingegangen / Bereit", status: ["incoming", "ready"], color: "bg-zinc-800/50" },
-  { id: "enroute", title: "Unterwegs", status: ["enroute"], color: "bg-blue-900/30" },
-  { id: "active", title: "Erkundung / Einsatz", status: ["active"], color: "bg-orange-900/30" },
-  { id: "returning", title: "AS-Raum / Rückmeldung", status: ["returning"], color: "bg-green-900/30" },
-  { id: "complete", title: "Abschluss / Archiv", status: ["complete"], color: "bg-zinc-900/50" },
+  { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
+  { id: "ready", title: "REKO", status: ["ready"], color: "bg-blue-800/30" },
+  { id: "enroute", title: "DISPONIERT / UNTERWEGS", status: ["enroute"], color: "bg-blue-900/30" },
+  { id: "active", title: "EINSATZ", status: ["active"], color: "bg-orange-900/30" },
+  { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: "bg-green-900/30" },
+  { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: "bg-zinc-900/50" },
 ]
 
 const vehicleTypes: { key: string; name: VehicleType }[] = [
@@ -123,13 +124,15 @@ function DraggableOperation({
   columnColor,
   onRemoveCrew,
   onRemoveMaterial,
-  onClick
+  onClick,
+  onHover
 }: {
   operation: Operation
   columnColor: string
   onRemoveCrew: (crewName: string) => void
   onRemoveMaterial: (materialId: string) => void
   onClick: () => void
+  onHover: (opId: string | null) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `operation-${operation.id}`,
@@ -147,6 +150,8 @@ function DraggableOperation({
       style={style}
       className={`${columnColor} cursor-pointer border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg`}
       onClick={onClick}
+      onMouseEnter={() => onHover(operation.id)}
+      onMouseLeave={() => onHover(null)}
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
@@ -245,12 +250,14 @@ function DroppableColumn({
   onRemoveCrew,
   onRemoveMaterial,
   onCardClick,
+  onCardHover,
 }: {
   column: (typeof columns)[0]
   operations: Operation[]
   onRemoveCrew: (operationId: string, crewName: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
   onCardClick: (operation: Operation) => void
+  onCardHover: (opId: string | null) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.id}`,
@@ -273,6 +280,7 @@ function DroppableColumn({
             onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
             onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
             onClick={() => onCardClick(operation)}
+            onHover={onCardHover}
           />
         ))}
       </div>
@@ -285,13 +293,15 @@ function DroppableOperationCard({
   columnColor,
   onRemoveCrew,
   onRemoveMaterial,
-  onClick
+  onClick,
+  onHover
 }: {
   operation: Operation
   columnColor: string
   onRemoveCrew: (crewName: string) => void
   onRemoveMaterial: (materialId: string) => void
   onClick: () => void
+  onHover: (opId: string | null) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `operation-drop-${operation.id}`,
@@ -306,6 +316,7 @@ function DroppableOperationCard({
         onRemoveCrew={onRemoveCrew}
         onRemoveMaterial={onRemoveMaterial}
         onClick={onClick}
+        onHover={onHover}
       />
     </div>
   )
@@ -505,7 +516,7 @@ export default function FireStationDashboard() {
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
-  const [focusedOperationId, setFocusedOperationId] = useState<string | null>(null)
+  const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -560,25 +571,25 @@ export default function FireStationDashboard() {
         return
       }
 
-      // Vehicle assignment shortcuts (1-5)
+      // Vehicle assignment shortcuts (1-5) - works on hovered operation
       const vehicleShortcut = vehicleTypes.find(vt => vt.key === e.key)
-      if (vehicleShortcut && focusedOperationId) {
-        setOperations(ops => ops.map(op => 
-          op.id === focusedOperationId ? { ...op, vehicle: vehicleShortcut.name } : op
+      if (vehicleShortcut && hoveredOperationId) {
+        setOperations(ops => ops.map(op =>
+          op.id === hoveredOperationId ? { ...op, vehicle: vehicleShortcut.name } : op
         ))
         return
       }
 
-      // Navigation shortcuts
+      // Navigation shortcuts - works on hovered operation
       if (e.key === '>' || e.key === '.') {
         e.preventDefault()
-        if (focusedOperationId) {
-          moveOperationRight(focusedOperationId)
+        if (hoveredOperationId) {
+          moveOperationRight(hoveredOperationId)
         }
       } else if (e.key === '<' || e.key === ',') {
         e.preventDefault()
-        if (focusedOperationId) {
-          moveOperationLeft(focusedOperationId)
+        if (hoveredOperationId) {
+          moveOperationLeft(hoveredOperationId)
         }
       } else if (e.key === '/') {
         e.preventDefault()
@@ -591,7 +602,7 @@ export default function FireStationDashboard() {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [focusedOperationId, moveOperationLeft, moveOperationRight])
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, setOperations])
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
@@ -697,7 +708,6 @@ export default function FireStationDashboard() {
   const handleCardClick = (operation: Operation) => {
     setSelectedOperation(operation)
     setDetailModalOpen(true)
-    setFocusedOperationId(operation.id)
   }
 
   const handleOperationUpdate = (updates: Partial<Operation>) => {
@@ -794,6 +804,7 @@ export default function FireStationDashboard() {
                     onRemoveCrew={removeCrew}
                     onRemoveMaterial={removeMaterial}
                     onCardClick={handleCardClick}
+                    onCardHover={setHoveredOperationId}
                   />
                 )
               })}
