@@ -11,7 +11,8 @@ import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, H
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -19,6 +20,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import { useDraggable, useDroppable } from "@dnd-kit/core"
@@ -1043,6 +1045,32 @@ export default function FireStationDashboard() {
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
 
+  // Custom collision detection that prioritizes operation-drop over column
+  const customCollisionDetection: CollisionDetection = (args) => {
+    const { active, droppableContainers } = args
+    const activeData = active.data.current
+
+    // For person/material drag, prioritize operation-drop droppables
+    if (activeData?.type === "person" || activeData?.type === "material") {
+      const operationDroppables = Array.from(droppableContainers.values())
+        .filter(container => container.data.current?.type === "operation-drop")
+
+      if (operationDroppables.length > 0) {
+        // Use closestCenter but only for operation droppables
+        const collisions = closestCenter({
+          ...args,
+          droppableContainers: operationDroppables,
+        })
+        if (collisions.length > 0) {
+          return collisions
+        }
+      }
+    }
+
+    // For everything else, use normal closestCenter
+    return closestCenter(args)
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -1383,7 +1411,7 @@ export default function FireStationDashboard() {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={customCollisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}

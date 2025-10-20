@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode } from "react"
 
 // Types
 export type PersonStatus = "available" | "assigned"
@@ -141,6 +141,34 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [personnel, setPersonnel] = useState<Person[]>(initialPersonnel)
   const [materials, setMaterials] = useState<Material[]>(initialMaterials)
   const [operations, setOperations] = useState<Operation[]>(initialOperations)
+
+  // Sync personnel and materials status based on operations on mount
+  useEffect(() => {
+    const assignedPersonnel = new Set<string>()
+    const assignedMaterials = new Set<string>()
+
+    // Collect all assigned personnel and materials
+    operations.forEach(op => {
+      op.crew.forEach(name => assignedPersonnel.add(name))
+      op.materials.forEach(id => assignedMaterials.add(id))
+    })
+
+    // Update personnel status
+    setPersonnel(people =>
+      people.map(p => ({
+        ...p,
+        status: assignedPersonnel.has(p.name) ? "assigned" : "available"
+      }))
+    )
+
+    // Update materials status
+    setMaterials(mats =>
+      mats.map(m => ({
+        ...m,
+        status: assignedMaterials.has(m.id) ? "assigned" : "available"
+      }))
+    )
+  }, []) // Run only on mount
 
   const removeCrew = (operationId: string, crewName: string) => {
     setOperations((ops) =>
