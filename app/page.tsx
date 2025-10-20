@@ -332,6 +332,8 @@ function DroppableColumn({
   onCardHover,
   highlightedOperationId,
   isDraggingRef,
+  activeId,
+  overId,
 }: {
   column: (typeof columns)[0]
   operations: Operation[]
@@ -341,6 +343,8 @@ function DroppableColumn({
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
   isDraggingRef: React.MutableRefObject<boolean>
+  activeId: string | null
+  overId: string | null
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.id}`,
@@ -349,28 +353,50 @@ function DroppableColumn({
 
   const operationIds = operations.map(op => `operation-${op.id}`)
 
+  // Check if we're dragging an operation (not a person or material)
+  const isDraggingOperation = activeId?.startsWith('operation-') || false
+
+  // Check if the dragged operation is already in this column
+  const draggedOperationId = activeId?.replace('operation-', '')
+  const isDraggedOperationInThisColumn = operations.some(op => op.id === draggedOperationId)
+
+  // Check if we're hovering over this column or any operation card in this column
+  const isOverColumn = overId === `column-${column.id}`
+  const isOverOperationInColumn = operations.some(op => overId === `operation-drop-${op.id}` || overId === `operation-${op.id}`)
+
+  // Only show indicator if: hovering over this column (or any card in it) AND not the column it's currently in
+  const shouldShowDropIndicator = isDraggingOperation && (isOverColumn || isOverOperationInColumn) && !isDraggedOperationInThisColumn
+
   return (
-    <div ref={setNodeRef} className={`flex w-80 flex-shrink-0 flex-col ${isOver ? "ring-2 ring-primary/50 rounded-lg" : ""}`}>
-      <div className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3`}>
+    <div ref={setNodeRef} className={`flex w-80 flex-shrink-0 flex-col transition-all ${shouldShowDropIndicator ? "ring-2 ring-primary rounded-lg scale-[1.02]" : ""}`}>
+      <div className={`mb-3 rounded-lg ${column.color} border ${shouldShowDropIndicator ? "border-primary border-2" : "border-border/50"} px-4 py-3 transition-all`}>
         <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">{column.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
       </div>
 
-      <div className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-colors min-h-[200px] ${isOver ? "bg-primary/10" : ""}`}>
+      <div className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative ${shouldShowDropIndicator ? "bg-primary/20 border-2 border-dashed border-primary" : ""}`}>
+        {shouldShowDropIndicator && (
+          <>
+            {/* Full overlay for extra visibility */}
+            <div className="absolute inset-0 bg-primary/10 pointer-events-none z-10 rounded-lg" />
+          </>
+        )}
         <SortableContext items={operationIds} strategy={verticalListSortingStrategy}>
-          {operations.map((operation) => (
-            <DraggableOperation
-              key={operation.id}
-              operation={operation}
-              columnColor={column.color}
-              onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
-              onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
-              onClick={() => onCardClick(operation)}
-              onHover={onCardHover}
-              isHighlighted={highlightedOperationId === operation.id}
-              isDraggingRef={isDraggingRef}
-            />
-          ))}
+          <div className={`${shouldShowDropIndicator ? "opacity-40 blur-[2px]" : ""} transition-all duration-200 space-y-3 relative z-0`}>
+            {operations.map((operation) => (
+              <DraggableOperation
+                key={operation.id}
+                operation={operation}
+                columnColor={column.color}
+                onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
+                onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
+                onClick={() => onCardClick(operation)}
+                onHover={onCardHover}
+                isHighlighted={highlightedOperationId === operation.id}
+                isDraggingRef={isDraggingRef}
+              />
+            ))}
+          </div>
         </SortableContext>
       </div>
     </div>
@@ -1002,6 +1028,7 @@ export default function FireStationDashboard() {
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
@@ -1132,9 +1159,14 @@ export default function FireStationDashboard() {
     }
   }
 
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over?.id as string | null)
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
+    setOverId(null)
 
     // Reset dragging state after a delay to prevent click from firing
     if (isDraggingOperationRef.current) {
@@ -1352,6 +1384,7 @@ export default function FireStationDashboard() {
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-screen flex-col bg-background text-foreground">
@@ -1541,6 +1574,8 @@ export default function FireStationDashboard() {
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
                     isDraggingRef={isDraggingOperationRef}
+                    activeId={activeId}
+                    overId={overId}
                   />
                 )
               })}
