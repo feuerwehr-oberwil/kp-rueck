@@ -382,9 +382,9 @@ function DroppableColumn({
           </>
         )}
         <SortableContext items={operationIds} strategy={verticalListSortingStrategy}>
-          <div className={`${shouldShowDropIndicator ? "opacity-40 blur-[2px]" : ""} transition-all duration-200 space-y-3 relative z-0 pointer-events-none`}>
+          <div className={`${shouldShowDropIndicator ? "opacity-40 blur-[2px] pointer-events-none" : ""} transition-all duration-200 space-y-3 relative z-0`}>
             {operations.map((operation) => (
-              <div key={operation.id} className="pointer-events-auto">
+              <div key={operation.id} className={shouldShowDropIndicator ? "pointer-events-auto" : ""}>
                 <DraggableOperation
                   operation={operation}
                   columnColor={column.color}
