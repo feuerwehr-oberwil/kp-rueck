@@ -515,8 +515,220 @@ function ShortcutsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (
   )
 }
 
+function NewEmergencyModal({
+  open,
+  onOpenChange,
+  onCreateOperation,
+  nextOperationId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreateOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
+  nextOperationId: string
+}) {
+  const [formData, setFormData] = useState({
+    location: "",
+    incidentType: "",
+    priority: "medium" as "high" | "medium" | "low",
+    vehicle: null as VehicleType,
+    coordinates: [51.1657, 10.4515] as [number, number],
+    status: "incoming" as OperationStatus,
+    crew: [] as string[],
+    materials: [] as string[],
+    notes: "",
+    contact: "",
+  })
+
+  const handleSubmit = () => {
+    if (!formData.location || !formData.incidentType) {
+      return
+    }
+
+    onCreateOperation(formData)
+
+    // Reset form
+    setFormData({
+      location: "",
+      incidentType: "",
+      priority: "medium",
+      vehicle: null,
+      coordinates: [51.1657, 10.4515],
+      status: "incoming",
+      crew: [],
+      materials: [],
+      notes: "",
+      contact: "",
+    })
+
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl flex items-center gap-3">
+            <Plus className="h-6 w-6 text-primary" />
+            Neuer Einsatz
+          </DialogTitle>
+          <DialogDescription className="text-base">
+            Einsatz-ID: {nextOperationId} (wird automatisch vergeben)
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Basic Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="location" className="text-sm font-semibold text-muted-foreground">
+                Einsatzort *
+              </Label>
+              <Input
+                id="location"
+                placeholder="z.B. Hauptstraße 45"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="mt-2"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
+                Einsatzart *
+              </Label>
+              <Input
+                id="incidentType"
+                placeholder="z.B. Wohnungsbrand, Technische Hilfe"
+                value={formData.incidentType}
+                onChange={(e) => setFormData({ ...formData, incidentType: e.target.value })}
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
+                Priorität
+              </Label>
+              <select
+                id="priority"
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as "high" | "medium" | "low" })}
+                className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="low">Niedrig</option>
+                <option value="medium">Mittel</option>
+                <option value="high">Hoch</option>
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="vehicle" className="text-sm font-semibold text-muted-foreground">
+                Fahrzeug
+              </Label>
+              <select
+                id="vehicle"
+                value={formData.vehicle || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, vehicle: (e.target.value || null) as VehicleType })
+                }
+                className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Nicht zugewiesen</option>
+                {vehicleTypes.map((vt) => (
+                  <option key={vt.name} value={vt.name}>
+                    {vt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="lat" className="text-sm font-semibold text-muted-foreground">
+                Breitengrad
+              </Label>
+              <Input
+                id="lat"
+                type="number"
+                step="0.0001"
+                value={formData.coordinates[0]}
+                onChange={(e) =>
+                  setFormData({ ...formData, coordinates: [parseFloat(e.target.value) || 0, formData.coordinates[1]] })
+                }
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="lng" className="text-sm font-semibold text-muted-foreground">
+                Längengrad
+              </Label>
+              <Input
+                id="lng"
+                type="number"
+                step="0.0001"
+                value={formData.coordinates[1]}
+                onChange={(e) =>
+                  setFormData({ ...formData, coordinates: [formData.coordinates[0], parseFloat(e.target.value) || 0] })
+                }
+                className="mt-2"
+              />
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div>
+            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">
+              Kontakt / Melder
+            </Label>
+            <Input
+              id="contact"
+              placeholder="Name, Telefonnummer..."
+              value={formData.contact}
+              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+              className="mt-2"
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">
+              Zusätzliche Informationen
+            </Label>
+            <Textarea
+              id="notes"
+              placeholder="Notizen, Besonderheiten, Gefahren..."
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="mt-2 min-h-[100px]"
+            />
+          </div>
+
+          {/* Info */}
+          <div className="bg-secondary/30 p-3 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t">
+            <Button onClick={handleSubmit} disabled={!formData.location || !formData.incidentType} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Einsatz erstellen
+            </Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Abbrechen
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function FireStationDashboard() {
-  const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, removeCrew, removeMaterial, updateOperation } = useOperations()
+  const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, removeCrew, removeMaterial, updateOperation, createOperation, getNextOperationId } = useOperations()
 
   const [currentTime, setCurrentTime] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState("")
@@ -524,6 +736,7 @@ export default function FireStationDashboard() {
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
+  const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
 
   const sensors = useSensors(
@@ -615,8 +828,7 @@ export default function FireStationDashboard() {
         setShortcutsModalOpen(true)
       } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
-        // TODO: Open new emergency modal
-        console.log('Open new emergency modal - to be implemented')
+        setNewEmergencyModalOpen(true)
       }
     }
 
@@ -857,7 +1069,7 @@ export default function FireStationDashboard() {
         <footer className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
-              <Button size="sm" className="gap-2">
+              <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Neuer Einsatz
               </Button>
@@ -906,6 +1118,13 @@ export default function FireStationDashboard() {
         <ShortcutsModal
           open={shortcutsModalOpen}
           onOpenChange={setShortcutsModalOpen}
+        />
+
+        <NewEmergencyModal
+          open={newEmergencyModalOpen}
+          onOpenChange={setNewEmergencyModalOpen}
+          onCreateOperation={createOperation}
+          nextOperationId={getNextOperationId()}
         />
       </div>
     </DndContext>

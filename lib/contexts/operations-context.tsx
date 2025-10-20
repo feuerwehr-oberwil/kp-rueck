@@ -131,6 +131,8 @@ interface OperationsContextType {
   removeCrew: (operationId: string, crewName: string) => void
   removeMaterial: (operationId: string, materialId: string) => void
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
+  createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
+  getNextOperationId: () => string
 }
 
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
@@ -194,6 +196,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const getNextOperationId = () => {
+    const maxId = Math.max(...operations.map(op => parseInt(op.id) || 0))
+    return String(maxId + 1)
+  }
+
+  const createOperation = (operation: Omit<Operation, "id" | "dispatchTime">) => {
+    const newOperation: Operation = {
+      ...operation,
+      id: getNextOperationId(),
+      dispatchTime: new Date(),
+    }
+    setOperations((ops) => [newOperation, ...ops])
+  }
+
   return (
     <OperationsContext.Provider
       value={{
@@ -206,6 +222,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         removeCrew,
         removeMaterial,
         updateOperation,
+        createOperation,
+        getNextOperationId,
       }}
     >
       {children}
