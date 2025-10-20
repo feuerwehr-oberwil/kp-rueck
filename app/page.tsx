@@ -496,6 +496,14 @@ function ShortcutsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (
                 <Badge variant="outline" className="font-mono">/</Badge>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Suche verlassen</span>
+                <Badge variant="outline" className="font-mono">Esc</Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Neuer Einsatz</span>
+                <Badge variant="outline" className="font-mono">N</Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Diese Hilfe anzeigen</span>
                 <Badge variant="outline" className="font-mono">?</Badge>
               </div>
@@ -566,7 +574,15 @@ export default function FireStationDashboard() {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Ignore if typing in input/textarea
+      // Esc to blur search input
+      if (e.key === 'Escape') {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+          (e.target as HTMLElement).blur()
+          return
+        }
+      }
+
+      // Ignore other shortcuts if typing in input/textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return
       }
@@ -597,6 +613,10 @@ export default function FireStationDashboard() {
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsModalOpen(true)
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault()
+        // TODO: Open new emergency modal
+        console.log('Open new emergency modal - to be implemented')
       }
     }
 
@@ -844,7 +864,7 @@ export default function FireStationDashboard() {
             </div>
 
             <div className="text-xs text-muted-foreground">
-              Tastaturkürzel: 1-5 für Fahrzeuge • &lt; &gt; für Navigation • / für Suche • ? für Hilfe
+              Tastaturkürzel: 1-5 für Fahrzeuge • &lt; &gt; für Navigation • N für neuen Einsatz • / für Suche • Esc zum Verlassen • ? für Hilfe
             </div>
           </div>
         </footer>
