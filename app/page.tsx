@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Truck, MapPin, Flame, Clock, Users, Package, X, Printer, Send, ChevronRight, ChevronLeft, HelpCircle, Map } from 'lucide-react'
+import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -23,14 +24,15 @@ import { useDraggable, useDroppable } from "@dnd-kit/core"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType, initialMaterials } from "@/lib/contexts/operations-context"
 
 const columns = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
-  { id: "ready", title: "REKO", status: ["ready"], color: "bg-blue-800/30" },
+  { id: "ready", title: "REKO", status: ["ready"], color: "bg-green-800/30" },
   { id: "enroute", title: "DISPONIERT / UNTERWEGS", status: ["enroute"], color: "bg-blue-900/30" },
   { id: "active", title: "EINSATZ", status: ["active"], color: "bg-orange-900/30" },
-  { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: "bg-green-900/30" },
+  { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: "bg-blue-800/30" },
   { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: "bg-zinc-900/50" },
 ]
 
@@ -40,6 +42,21 @@ const vehicleTypes: { key: string; name: VehicleType }[] = [
   { key: "3", name: "Unimog" },
   { key: "4", name: "Trawa" },
   { key: "5", name: "Mawa" },
+]
+
+const emergencyTypes = [
+  "Wohnungsbrand",
+  "Fahrzeugbrand",
+  "Gebäudebrand",
+  "Waldbrand",
+  "Technische Hilfe",
+  "Verkehrsunfall",
+  "Ölspur",
+  "Fehlalarm",
+  "Wasserrettung",
+  "Tierrettung",
+  "Sturmschaden",
+  "Gasleck",
 ]
 
 function getTimeSince(date: Date): string {
@@ -125,7 +142,7 @@ function DraggableOperation({
   onRemoveCrew,
   onRemoveMaterial,
   onClick,
-  onHover
+  onHover,
 }: {
   operation: Operation
   columnColor: string
@@ -134,9 +151,15 @@ function DraggableOperation({
   onClick: () => void
   onHover: (opId: string | null) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDraggableRef, transform, isDragging } = useDraggable({
     id: `operation-${operation.id}`,
     data: { type: "operation", operation },
+  })
+
+  // Allow drops for both people/materials AND operations
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+    id: `operation-drop-${operation.id}`,
+    data: { type: "operation-drop", operationId: operation.id },
   })
 
   const style = {
@@ -144,11 +167,19 @@ function DraggableOperation({
     opacity: isDragging ? 0.5 : 1,
   }
 
+  // Combine both refs
+  const setRefs = (element: HTMLDivElement | null) => {
+    setDraggableRef(element)
+    setDroppableRef(element)
+  }
+
   return (
     <Card
-      ref={setNodeRef}
+      ref={setRefs}
       style={style}
-      className={`${columnColor} cursor-pointer border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg`}
+      {...listeners}
+      {...attributes}
+      className={`${columnColor} cursor-move border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""}`}
       onClick={onClick}
       onMouseEnter={() => onHover(operation.id)}
       onMouseLeave={() => onHover(null)}
@@ -164,14 +195,23 @@ function DraggableOperation({
               )}
             </div>
           </div>
-          <Badge
-            variant={
-              operation.priority === "high" ? "destructive" : operation.priority === "medium" ? "default" : "secondary"
-            }
-            className="text-xs flex-shrink-0"
-          >
-            {operation.priority === "high" ? "Hoch" : operation.priority === "medium" ? "Mittel" : "Niedrig"}
-          </Badge>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Link
+              href={`/map?highlight=${operation.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
+            >
+              <Map className="h-4 w-4 text-primary" />
+            </Link>
+            <Badge
+              variant={
+                operation.priority === "high" ? "destructive" : operation.priority === "medium" ? "default" : "secondary"
+              }
+              className="text-xs"
+            >
+              {operation.priority === "high" ? "Hoch" : operation.priority === "medium" ? "Mittel" : "Niedrig"}
+            </Badge>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -201,7 +241,6 @@ function DraggableOperation({
                       onRemoveCrew(member)
                     }}
                     className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    {...listeners}
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -265,15 +304,15 @@ function DroppableColumn({
   })
 
   return (
-    <div ref={setNodeRef} className="flex w-80 flex-shrink-0 flex-col">
-      <div className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3 ${isOver ? "ring-2 ring-primary" : ""}`}>
+    <div ref={setNodeRef} className={`flex w-80 flex-shrink-0 flex-col ${isOver ? "ring-2 ring-primary/50 rounded-lg" : ""}`}>
+      <div className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3`}>
         <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">{column.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto">
+      <div className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-colors min-h-[200px] ${isOver ? "bg-primary/10" : ""}`}>
         {operations.map((operation) => (
-          <DroppableOperationCard
+          <DraggableOperation
             key={operation.id}
             operation={operation}
             columnColor={column.color}
@@ -288,51 +327,81 @@ function DroppableColumn({
   )
 }
 
-function DroppableOperationCard({
+function OperationDetailModal({
   operation,
-  columnColor,
-  onRemoveCrew,
-  onRemoveMaterial,
-  onClick,
-  onHover
-}: {
-  operation: Operation
-  columnColor: string
-  onRemoveCrew: (crewName: string) => void
-  onRemoveMaterial: (materialId: string) => void
-  onClick: () => void
-  onHover: (opId: string | null) => void
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `operation-drop-${operation.id}`,
-    data: { type: "operation-drop", operationId: operation.id },
-  })
-
-  return (
-    <div ref={setNodeRef} className={isOver ? "ring-2 ring-primary rounded-lg" : ""}>
-      <DraggableOperation
-        operation={operation}
-        columnColor={columnColor}
-        onRemoveCrew={onRemoveCrew}
-        onRemoveMaterial={onRemoveMaterial}
-        onClick={onClick}
-        onHover={onHover}
-      />
-    </div>
-  )
-}
-
-function OperationDetailModal({ 
-  operation, 
-  open, 
+  open,
   onOpenChange,
   onUpdate
-}: { 
+}: {
   operation: Operation | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate: (updates: Partial<Operation>) => void
 }) {
+  const [locationSearchResults, setLocationSearchResults] = useState<Array<{
+    display_name: string
+    lat: string
+    lon: string
+  }>>([])
+  const [showLocationResults, setShowLocationResults] = useState(false)
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+
+  const searchLocation = async (query: string) => {
+    if (query.length < 3) {
+      setLocationSearchResults([])
+      setShowLocationResults(false)
+      return
+    }
+
+    setIsSearchingLocation(true)
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+        `q=${encodeURIComponent(query)}&` +
+        `format=json&` +
+        `addressdetails=1&` +
+        `limit=5&` +
+        `countrycodes=ch&` +
+        `viewbox=7.53,47.49,7.59,47.54&` +
+        `bounded=1`,
+        {
+          headers: {
+            'User-Agent': 'KP-Rueck-Dashboard/1.0'
+          }
+        }
+      )
+      const data = await response.json()
+      setLocationSearchResults(data)
+      setShowLocationResults(true)
+    } catch (error) {
+      console.error('Error searching location:', error)
+    } finally {
+      setIsSearchingLocation(false)
+    }
+  }
+
+  const handleLocationSelect = (result: typeof locationSearchResults[0]) => {
+    onUpdate({
+      location: result.display_name,
+      coordinates: [parseFloat(result.lat), parseFloat(result.lon)]
+    })
+    setShowLocationResults(false)
+    setLocationSearchResults([])
+  }
+
+  // Debounced search
+  useEffect(() => {
+    if (!operation) return
+
+    const timer = setTimeout(() => {
+      if (operation.location) {
+        searchLocation(operation.location)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [operation?.location])
+
   if (!operation) return null
 
   return (
@@ -341,7 +410,7 @@ function OperationDetailModal({
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-3">
             <MapPin className="h-6 w-6 text-primary" />
-            {operation.location}
+            Einsatz-Details
           </DialogTitle>
           <DialogDescription className="text-base">
             Einsatz-ID: {operation.id} • {getTimeSince(operation.dispatchTime)} seit Alarmierung
@@ -351,34 +420,104 @@ function OperationDetailModal({
         <div className="space-y-6 py-4">
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-semibold text-muted-foreground">Einsatzart</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span className="text-base font-medium">{operation.incidentType}</span>
+            <div className="relative">
+              <Label htmlFor="edit-location" className="text-sm font-semibold text-muted-foreground">
+                Einsatzort
+              </Label>
+              <div className="relative">
+                <Input
+                  id="edit-location"
+                  value={operation.location}
+                  onChange={(e) => onUpdate({ location: e.target.value })}
+                  onFocus={() => {
+                    if (locationSearchResults.length > 0) {
+                      setShowLocationResults(true)
+                    }
+                  }}
+                  className="mt-2"
+                />
+                {isSearchingLocation && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-1">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                )}
               </div>
+              {showLocationResults && locationSearchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-auto">
+                  {locationSearchResults.map((result, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleLocationSelect(result)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-b-0"
+                    >
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
+                        <span className="text-xs leading-relaxed">{result.display_name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
-              <Label className="text-sm font-semibold text-muted-foreground">Fahrzeug</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Truck className="h-4 w-4 text-primary" />
-                <span className="text-base font-medium">{operation.vehicle || "Nicht zugewiesen"}</span>
-              </div>
-            </div>
-            <div>
-              <Label className="text-sm font-semibold text-muted-foreground">Priorität</Label>
-              <Badge
-                variant={
-                  operation.priority === "high" ? "destructive" : operation.priority === "medium" ? "default" : "secondary"
-                }
-                className="mt-1"
+              <Label htmlFor="edit-incidentType" className="text-sm font-semibold text-muted-foreground">
+                Einsatzart
+              </Label>
+              <Select
+                value={operation.incidentType}
+                onValueChange={(value) => onUpdate({ incidentType: value })}
               >
-                {operation.priority === "high" ? "Hoch" : operation.priority === "medium" ? "Mittel" : "Niedrig"}
-              </Badge>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Einsatzart auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {emergencyTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <Label className="text-sm font-semibold text-muted-foreground">Status</Label>
-              <p className="text-base font-medium mt-1 capitalize">{operation.status}</p>
+              <Label htmlFor="edit-vehicle" className="text-sm font-semibold text-muted-foreground">
+                Fahrzeug
+              </Label>
+              <Select
+                value={operation.vehicle || "none"}
+                onValueChange={(value) => onUpdate({ vehicle: (value === "none" ? null : value) as VehicleType })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Nicht zugewiesen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                  {vehicleTypes.map((vt) => (
+                    <SelectItem key={vt.name} value={vt.name || ""}>
+                      {vt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
+                Priorität
+              </Label>
+              <Select
+                value={operation.priority}
+                onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Niedrig</SelectItem>
+                  <SelectItem value="medium">Mittel</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -531,13 +670,77 @@ function NewEmergencyModal({
     incidentType: "",
     priority: "medium" as "high" | "medium" | "low",
     vehicle: null as VehicleType,
-    coordinates: [51.1657, 10.4515] as [number, number],
+    coordinates: [47.51637699933488, 7.561800450458299] as [number, number],
     status: "incoming" as OperationStatus,
     crew: [] as string[],
     materials: [] as string[],
     notes: "",
     contact: "",
   })
+
+  const [locationSearchResults, setLocationSearchResults] = useState<Array<{
+    display_name: string
+    lat: string
+    lon: string
+  }>>([])
+  const [showLocationResults, setShowLocationResults] = useState(false)
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+
+  const searchLocation = async (query: string) => {
+    if (query.length < 3) {
+      setLocationSearchResults([])
+      setShowLocationResults(false)
+      return
+    }
+
+    setIsSearchingLocation(true)
+    try {
+      // Search within Oberwil and surrounding areas (viewbox: Oberwil, Basel-Landschaft)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+        `q=${encodeURIComponent(query)}&` +
+        `format=json&` +
+        `addressdetails=1&` +
+        `limit=5&` +
+        `countrycodes=ch&` +
+        `viewbox=7.53,47.49,7.59,47.54&` +
+        `bounded=1`,
+        {
+          headers: {
+            'User-Agent': 'KP-Rueck-Dashboard/1.0'
+          }
+        }
+      )
+      const data = await response.json()
+      setLocationSearchResults(data)
+      setShowLocationResults(true)
+    } catch (error) {
+      console.error('Error searching location:', error)
+    } finally {
+      setIsSearchingLocation(false)
+    }
+  }
+
+  const handleLocationSelect = (result: typeof locationSearchResults[0]) => {
+    setFormData({
+      ...formData,
+      location: result.display_name,
+      coordinates: [parseFloat(result.lat), parseFloat(result.lon)]
+    })
+    setShowLocationResults(false)
+    setLocationSearchResults([])
+  }
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.location) {
+        searchLocation(formData.location)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [formData.location])
 
   const handleSubmit = () => {
     if (!formData.location || !formData.incidentType) {
@@ -552,7 +755,7 @@ function NewEmergencyModal({
       incidentType: "",
       priority: "medium",
       vehicle: null,
-      coordinates: [51.1657, 10.4515],
+      coordinates: [47.51637699933488, 7.561800450458299],
       status: "incoming",
       crew: [],
       materials: [],
@@ -579,100 +782,111 @@ function NewEmergencyModal({
         <div className="space-y-6 py-4">
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="relative">
               <Label htmlFor="location" className="text-sm font-semibold text-muted-foreground">
                 Einsatzort *
               </Label>
-              <Input
-                id="location"
-                placeholder="z.B. Hauptstraße 45"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="mt-2"
-                autoFocus
-              />
+              <div className="relative">
+                <Input
+                  id="location"
+                  placeholder="z.B. Hauptstraße 45"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  onFocus={() => {
+                    if (locationSearchResults.length > 0) {
+                      setShowLocationResults(true)
+                    }
+                  }}
+                  className="mt-2"
+                  autoFocus
+                />
+                {isSearchingLocation && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-1">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                )}
+              </div>
+              {showLocationResults && locationSearchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-auto">
+                  {locationSearchResults.map((result, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleLocationSelect(result)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-b-0"
+                    >
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
+                        <span className="text-xs leading-relaxed">{result.display_name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
               <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
                 Einsatzart *
               </Label>
-              <Input
-                id="incidentType"
-                placeholder="z.B. Wohnungsbrand, Technische Hilfe"
+              <Select
                 value={formData.incidentType}
-                onChange={(e) => setFormData({ ...formData, incidentType: e.target.value })}
-                className="mt-2"
-              />
+                onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Einsatzart auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {emergencyTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
               <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
                 Priorität
               </Label>
-              <select
-                id="priority"
+              <Select
                 value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as "high" | "medium" | "low" })}
-                className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
               >
-                <option value="low">Niedrig</option>
-                <option value="medium">Mittel</option>
-                <option value="high">Hoch</option>
-              </select>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Niedrig</SelectItem>
+                  <SelectItem value="medium">Mittel</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
               <Label htmlFor="vehicle" className="text-sm font-semibold text-muted-foreground">
                 Fahrzeug
               </Label>
-              <select
-                id="vehicle"
-                value={formData.vehicle || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, vehicle: (e.target.value || null) as VehicleType })
+              <Select
+                value={formData.vehicle || "none"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, vehicle: (value === "none" ? null : value) as VehicleType })
                 }
-                className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">Nicht zugewiesen</option>
-                {vehicleTypes.map((vt) => (
-                  <option key={vt.name} value={vt.name}>
-                    {vt.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="lat" className="text-sm font-semibold text-muted-foreground">
-                Breitengrad
-              </Label>
-              <Input
-                id="lat"
-                type="number"
-                step="0.0001"
-                value={formData.coordinates[0]}
-                onChange={(e) =>
-                  setFormData({ ...formData, coordinates: [parseFloat(e.target.value) || 0, formData.coordinates[1]] })
-                }
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="lng" className="text-sm font-semibold text-muted-foreground">
-                Längengrad
-              </Label>
-              <Input
-                id="lng"
-                type="number"
-                step="0.0001"
-                value={formData.coordinates[1]}
-                onChange={(e) =>
-                  setFormData({ ...formData, coordinates: [formData.coordinates[0], parseFloat(e.target.value) || 0] })
-                }
-                className="mt-2"
-              />
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Nicht zugewiesen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                  {vehicleTypes.map((vt) => (
+                    <SelectItem key={vt.name} value={vt.name || ""}>
+                      {vt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -729,8 +943,11 @@ function NewEmergencyModal({
 
 export default function FireStationDashboard() {
   const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, removeCrew, removeMaterial, updateOperation, createOperation, getNextOperationId } = useOperations()
+  const searchParams = useSearchParams()
+  const highlightParam = searchParams.get("highlight")
 
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
@@ -783,9 +1000,21 @@ export default function FireStationDashboard() {
   }, [setOperations])
 
   useEffect(() => {
+    setIsMounted(true)
+    setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (highlightParam) {
+      const operation = operations.find(op => op.id === highlightParam)
+      if (operation) {
+        setSelectedOperation(operation)
+        setDetailModalOpen(true)
+      }
+    }
+  }, [highlightParam, operations])
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -906,6 +1135,20 @@ export default function FireStationDashboard() {
         setOperations((ops) => ops.map((op) => (op.id === operation.id ? { ...op, status: newStatus } : op)))
       }
     }
+
+    // Operation dropped on another operation card (when dragging operations)
+    // In this case, find the column containing the operation we're over and move to that column
+    if (activeData?.type === "operation" && overData?.type === "operation-drop") {
+      const draggedOperation = activeData.operation as Operation
+      const targetOperationId = overData.operationId as string
+
+      // Find which column contains the target operation
+      const targetOperation = operations.find(op => op.id === targetOperationId)
+      if (targetOperation) {
+        const newStatus = targetOperation.status
+        setOperations((ops) => ops.map((op) => (op.id === draggedOperation.id ? { ...op, status: newStatus } : op)))
+      }
+    }
   }
 
   const filteredPersonnel = personnel.filter((p) =>
@@ -991,7 +1234,9 @@ export default function FireStationDashboard() {
 
             <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-lg font-semibold tabular-nums">{currentTime.toLocaleTimeString("de-DE")}</span>
+              <span className="font-mono text-lg font-semibold tabular-nums">
+                {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+              </span>
             </div>
 
             <Link href="/map">
