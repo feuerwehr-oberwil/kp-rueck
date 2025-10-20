@@ -36,8 +36,9 @@ test.describe('Drag and Drop - Simple Verification', () => {
   });
 
   test('MANUAL: drag person onto operation card', async ({ page }) => {
-    // Find person with green dot (available)
-    const personCards = page.locator('.bg-card').filter({
+    // Find person with green dot (available) - use correct selector
+    const allPersonCards = page.locator('aside').first().locator('[class*="bg-card"]');
+    const personCards = allPersonCards.filter({
       has: page.locator('.bg-emerald-500')
     });
 
@@ -122,17 +123,15 @@ test.describe('Drag and Drop - Simple Verification', () => {
   });
 
   test('MANUAL: drag material onto operation card', async ({ page }) => {
-    // Find material with green dot (available)
+    // Find material with green dot (available) - use correct selector
     const materialSection = page.locator('text=Verfügbares Material');
     await expect(materialSection).toBeVisible();
 
-    // Find all cards, then filter for ones with green dots
-    const allMaterialCards = page.locator('.bg-card').filter({
+    // Find all material cards from the right sidebar
+    const allMaterialCards = page.locator('aside').last().locator('[class*="bg-card"]');
+    const materialCards = allMaterialCards.filter({
       has: page.locator('.bg-emerald-500')
     });
-
-    // Get only materials from the right sidebar
-    const materialCards = allMaterialCards.locator('visible=true');
 
     const materialCount = await materialCards.count();
     console.log('📦 Found', materialCount, 'available materials');
