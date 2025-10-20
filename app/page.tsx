@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map } from 'lucide-react'
+import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Edit, Filter } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -23,11 +23,11 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { useDraggable, useDroppable } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable"
-import { Filter } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType, initialMaterials } from "@/lib/contexts/operations-context"
 
 const columns = [
@@ -155,6 +155,7 @@ function DraggableOperation({
   onClick,
   onHover,
   isHighlighted,
+  isDraggingRef,
 }: {
   operation: Operation
   columnColor: string
@@ -163,6 +164,7 @@ function DraggableOperation({
   onClick: () => void
   onHover: (opId: string | null) => void
   isHighlighted?: boolean
+  isDraggingRef: React.MutableRefObject<boolean>
 }) {
   const {
     attributes,
@@ -198,16 +200,18 @@ function DraggableOperation({
     <Card
       ref={setRefs}
       style={style}
-      {...listeners}
-      {...attributes}
-      className={`${columnColor} cursor-move border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
-      onClick={onClick}
+      className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
       onMouseEnter={() => onHover(operation.id)}
       onMouseLeave={() => onHover(null)}
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-2 min-w-0 flex-1">
+          {/* Draggable area */}
+          <div
+            className="flex items-start gap-2 min-w-0 flex-1 cursor-move"
+            {...listeners}
+            {...attributes}
+          >
             <MapPin className="h-5 w-5 flex-shrink-0 text-primary mt-0.5" />
             <div className="min-w-0">
               <h3 className="font-bold text-base text-foreground leading-tight">{operation.location}</h3>
@@ -216,11 +220,26 @@ function DraggableOperation({
               )}
             </div>
           </div>
+          {/* Non-draggable icons area */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                // Don't trigger if currently dragging
+                if (!isDraggingRef.current) {
+                  onClick()
+                }
+              }}
+              className="p-1.5 rounded-md hover:bg-primary/20 transition-colors cursor-pointer"
+              title="Bearbeiten"
+            >
+              <Edit className="h-4 w-4 text-primary" />
+            </button>
             <Link
               href={`/map?highlight=${operation.id}`}
               onClick={(e) => e.stopPropagation()}
               className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
+              title="Auf Karte anzeigen"
             >
               <Map className="h-4 w-4 text-primary" />
             </Link>
@@ -312,6 +331,7 @@ function DroppableColumn({
   onCardClick,
   onCardHover,
   highlightedOperationId,
+  isDraggingRef,
 }: {
   column: (typeof columns)[0]
   operations: Operation[]
@@ -320,6 +340,7 @@ function DroppableColumn({
   onCardClick: (operation: Operation) => void
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
+  isDraggingRef: React.MutableRefObject<boolean>
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.id}`,
@@ -347,6 +368,7 @@ function DroppableColumn({
               onClick={() => onCardClick(operation)}
               onHover={onCardHover}
               isHighlighted={highlightedOperationId === operation.id}
+              isDraggingRef={isDraggingRef}
             />
           ))}
         </SortableContext>
@@ -990,6 +1012,9 @@ export default function FireStationDashboard() {
   const [filterPriority, setFilterPriority] = useState<string>("all")
   const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
 
+  // Use ref to track drag state more reliably
+  const isDraggingOperationRef = useRef(false)
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -1038,15 +1063,15 @@ export default function FireStationDashboard() {
     return () => clearInterval(timer)
   }, [])
 
+  // Just highlight the operation from the map, don't auto-open modal
   useEffect(() => {
     if (highlightParam) {
-      const operation = operations.find(op => op.id === highlightParam)
-      if (operation) {
-        setSelectedOperation(operation)
-        setDetailModalOpen(true)
-      }
+      setHighlightedOperationId(highlightParam)
+      // Clear highlight after 3 seconds
+      const timer = setTimeout(() => setHighlightedOperationId(null), 3000)
+      return () => clearTimeout(timer)
     }
-  }, [highlightParam, operations])
+  }, [highlightParam])
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -1101,11 +1126,22 @@ export default function FireStationDashboard() {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
+    const activeData = event.active.data.current
+    if (activeData?.type === "operation") {
+      isDraggingOperationRef.current = true
+    }
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
+
+    // Reset dragging state after a delay to prevent click from firing
+    if (isDraggingOperationRef.current) {
+      setTimeout(() => {
+        isDraggingOperationRef.current = false
+      }, 200)
+    }
 
     if (!over) return
 
@@ -1174,6 +1210,10 @@ export default function FireStationDashboard() {
 
           return arrayMove(ops, activeIndex, overIndex)
         })
+      } else if (activeOp.status !== overOp.status) {
+        // If different columns, move the dragged operation to the target's column
+        const newStatus = overOp.status
+        setOperations((ops) => ops.map((op) => (op.id === activeOp.id ? { ...op, status: newStatus } : op)))
       }
     }
 
@@ -1284,6 +1324,10 @@ export default function FireStationDashboard() {
     : null
 
   const handleCardClick = (operation: Operation) => {
+    // Don't open modal if we just finished dragging
+    if (isDraggingOperationRef.current) {
+      return
+    }
     setSelectedOperation(operation)
     setDetailModalOpen(true)
   }
@@ -1292,6 +1336,15 @@ export default function FireStationDashboard() {
     if (!selectedOperation) return
     updateOperation(selectedOperation.id, updates)
     setSelectedOperation({ ...selectedOperation, ...updates })
+  }
+
+  // Don't render drag and drop until client-side to avoid hydration errors
+  if (!isMounted) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background text-foreground">
+        <div className="text-muted-foreground">Laden...</div>
+      </div>
+    )
   }
 
   return (
@@ -1323,49 +1376,91 @@ export default function FireStationDashboard() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filterVehicle} onValueChange={setFilterVehicle}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Fahrzeug" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle</SelectItem>
-                  <SelectItem value="none">Keine</SelectItem>
-                  {vehicleTypes.map((vt) => (
-                    <SelectItem key={vt.name} value={vt.name || ""}>
-                      {vt.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filter
+                  {(filterVehicle !== "all" || filterPriority !== "all" || filterIncidentType !== "all") && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                      {[filterVehicle !== "all", filterPriority !== "all", filterIncidentType !== "all"].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-sm mb-2">Filter</h4>
+                  </div>
 
-              <Select value={filterPriority} onValueChange={setFilterPriority}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Priorität" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
-                  <SelectItem value="medium">Mittel</SelectItem>
-                  <SelectItem value="low">Niedrig</SelectItem>
-                </SelectContent>
-              </Select>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Fahrzeug</Label>
+                    <Select value={filterVehicle} onValueChange={setFilterVehicle}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alle</SelectItem>
+                        <SelectItem value="none">Keine</SelectItem>
+                        {vehicleTypes.map((vt) => (
+                          <SelectItem key={vt.name} value={vt.name || ""}>
+                            {vt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <Select value={filterIncidentType} onValueChange={setFilterIncidentType}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Einsatzart" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle</SelectItem>
-                  {emergencyTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Priorität</Label>
+                    <Select value={filterPriority} onValueChange={setFilterPriority}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alle</SelectItem>
+                        <SelectItem value="high">Hoch</SelectItem>
+                        <SelectItem value="medium">Mittel</SelectItem>
+                        <SelectItem value="low">Niedrig</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Einsatzart</Label>
+                    <Select value={filterIncidentType} onValueChange={setFilterIncidentType}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alle</SelectItem>
+                        {emergencyTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(filterVehicle !== "all" || filterPriority !== "all" || filterIncidentType !== "all") && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setFilterVehicle("all")
+                        setFilterPriority("all")
+                        setFilterIncidentType("all")
+                      }}
+                    >
+                      Filter zurücksetzen
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
 
             <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -1445,6 +1540,7 @@ export default function FireStationDashboard() {
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
+                    isDraggingRef={isDraggingOperationRef}
                   />
                 )
               })}
