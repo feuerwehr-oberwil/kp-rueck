@@ -382,19 +382,20 @@ function DroppableColumn({
           </>
         )}
         <SortableContext items={operationIds} strategy={verticalListSortingStrategy}>
-          <div className={`${shouldShowDropIndicator ? "opacity-40 blur-[2px]" : ""} transition-all duration-200 space-y-3 relative z-0`}>
+          <div className={`${shouldShowDropIndicator ? "opacity-40 blur-[2px]" : ""} transition-all duration-200 space-y-3 relative z-0 pointer-events-none`}>
             {operations.map((operation) => (
-              <DraggableOperation
-                key={operation.id}
-                operation={operation}
-                columnColor={column.color}
-                onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
-                onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
-                onClick={() => onCardClick(operation)}
-                onHover={onCardHover}
-                isHighlighted={highlightedOperationId === operation.id}
-                isDraggingRef={isDraggingRef}
-              />
+              <div key={operation.id} className="pointer-events-auto">
+                <DraggableOperation
+                  operation={operation}
+                  columnColor={column.color}
+                  onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
+                  onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
+                  onClick={() => onCardClick(operation)}
+                  onHover={onCardHover}
+                  isHighlighted={highlightedOperationId === operation.id}
+                  isDraggingRef={isDraggingRef}
+                />
+              </div>
             ))}
           </div>
         </SortableContext>
