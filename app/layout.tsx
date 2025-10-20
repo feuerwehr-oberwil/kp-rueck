@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { OperationsProvider } from '@/lib/contexts/operations-context'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -27,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
-        {children}
+        <OperationsProvider>
+          {children}
+        </OperationsProvider>
       </body>
     </html>
   )

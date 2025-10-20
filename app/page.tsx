@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Truck, MapPin, Flame, Clock, Users, Package, X, Printer, Send, ChevronRight, ChevronLeft, HelpCircle } from 'lucide-react'
+import { Search, Plus, Truck, MapPin, Flame, Clock, Users, Package, X, Printer, Send, ChevronRight, ChevronLeft, HelpCircle, Map } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -22,122 +23,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-
-type PersonStatus = "available" | "assigned"
-type PersonRole = "Mannschaft" | "Fahrer" | "Reko/EL/FU"
-
-interface Person {
-  id: string
-  name: string
-  role: PersonRole
-  status: PersonStatus
-}
-
-type OperationStatus = "incoming" | "ready" | "enroute" | "active" | "returning" | "complete"
-type VehicleType = "TLF" | "Pio" | "Unimog" | "Trawa" | "Mawa" | null
-
-interface Operation {
-  id: string
-  location: string
-  vehicle: VehicleType
-  incidentType: string
-  dispatchTime: Date
-  crew: string[]
-  priority: "high" | "medium" | "low"
-  status: OperationStatus
-  coordinates: [number, number]
-  materials: string[]
-  notes: string
-  contact: string
-}
-
-interface Material {
-  id: string
-  name: string
-  category: string
-  status: "available" | "assigned"
-}
-
-const initialMaterials: Material[] = [
-  { id: "m1", name: "Wasserpumpe TP 15/8", category: "Pumpen", status: "available" },
-  { id: "m2", name: "Schlauchpaket B", category: "Schläuche", status: "available" },
-  { id: "m3", name: "Schlauchpaket C", category: "Schläuche", status: "available" },
-  { id: "m4", name: "Atemschutzgerät", category: "Atemschutz", status: "assigned" },
-  { id: "m5", name: "Wärmebildkamera", category: "Spezialgerät", status: "available" },
-  { id: "m6", name: "Hydraulisches Rettungsgerät", category: "Spezialgerät", status: "available" },
-  { id: "m7", name: "Schaummittel 200L", category: "Löschmittel", status: "available" },
-  { id: "m8", name: "Stromerzeuger 5kW", category: "Technik", status: "available" },
-]
-
-const initialPersonnel: Person[] = [
-  { id: "1", name: "M. Schmidt", role: "Fahrer", status: "available" },
-  { id: "2", name: "A. Müller", role: "Reko/EL/FU", status: "available" },
-  { id: "3", name: "T. Weber", role: "Mannschaft", status: "available" },
-  { id: "4", name: "S. Fischer", role: "Mannschaft", status: "available" },
-  { id: "5", name: "K. Wagner", role: "Fahrer", status: "available" },
-  { id: "6", name: "L. Becker", role: "Mannschaft", status: "available" },
-  { id: "7", name: "P. Hoffmann", role: "Reko/EL/FU", status: "available" },
-  { id: "8", name: "J. Schulz", role: "Mannschaft", status: "available" },
-]
-
-const initialOperations: Operation[] = [
-  {
-    id: "1",
-    location: "Hauptstraße 45",
-    vehicle: "TLF",
-    incidentType: "Wohnungsbrand",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 12),
-    crew: ["M. Schmidt", "T. Weber"],
-    priority: "high",
-    status: "active",
-    coordinates: [51.1657, 10.4515],
-    materials: ["m1", "m4"],
-    notes: "",
-    contact: "",
-  },
-  {
-    id: "2",
-    location: "Industriepark Nord",
-    vehicle: "Pio",
-    incidentType: "Technische Hilfe",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 5),
-    crew: ["K. Wagner"],
-    priority: "medium",
-    status: "enroute",
-    coordinates: [51.1757, 10.4615],
-    materials: ["m6"],
-    notes: "",
-    contact: "",
-  },
-  {
-    id: "3",
-    location: "Bahnhofstraße 12",
-    vehicle: null,
-    incidentType: "Fehlalarm",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 45),
-    crew: [],
-    priority: "low",
-    status: "returning",
-    coordinates: [51.1557, 10.4415],
-    materials: [],
-    notes: "",
-    contact: "",
-  },
-  {
-    id: "4",
-    location: "Waldweg 8",
-    vehicle: null,
-    incidentType: "Ölspur",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 2),
-    crew: [],
-    priority: "low",
-    status: "ready",
-    coordinates: [51.1857, 10.4715],
-    materials: [],
-    notes: "",
-    contact: "",
-  },
-]
+import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType, initialMaterials } from "@/lib/contexts/operations-context"
 
 const columns = [
   { id: "incoming", title: "Eingegangen / Bereit", status: ["incoming", "ready"], color: "bg-zinc-800/50" },
@@ -232,15 +118,17 @@ function DraggableMaterial({ material }: { material: Material }) {
   )
 }
 
-function DraggableOperation({ 
-  operation, 
-  columnColor, 
+function DraggableOperation({
+  operation,
+  columnColor,
   onRemoveCrew,
-  onClick 
-}: { 
+  onRemoveMaterial,
+  onClick
+}: {
   operation: Operation
   columnColor: string
   onRemoveCrew: (crewName: string) => void
+  onRemoveMaterial: (materialId: string) => void
   onClick: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -319,9 +207,31 @@ function DraggableOperation({
         )}
 
         {operation.materials.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-xs text-muted-foreground">{operation.materials.length} Material(ien)</span>
+          <div className="flex items-start gap-2">
+            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <div className="flex flex-wrap gap-1.5">
+              {operation.materials.map((matId, idx) => {
+                const mat = initialMaterials.find(m => m.id === matId)
+                return (
+                  <Badge
+                    key={idx}
+                    variant="outline"
+                    className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                  >
+                    {mat?.name.substring(0, 15) || matId}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveMaterial(matId)
+                      }}
+                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -333,11 +243,13 @@ function DroppableColumn({
   column,
   operations,
   onRemoveCrew,
+  onRemoveMaterial,
   onCardClick,
 }: {
   column: (typeof columns)[0]
   operations: Operation[]
   onRemoveCrew: (operationId: string, crewName: string) => void
+  onRemoveMaterial: (operationId: string, materialId: string) => void
   onCardClick: (operation: Operation) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -354,11 +266,12 @@ function DroppableColumn({
 
       <div className="flex-1 space-y-3 overflow-y-auto">
         {operations.map((operation) => (
-          <DroppableOperationCard 
-            key={operation.id} 
-            operation={operation} 
+          <DroppableOperationCard
+            key={operation.id}
+            operation={operation}
             columnColor={column.color}
             onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
+            onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
             onClick={() => onCardClick(operation)}
           />
         ))}
@@ -367,15 +280,17 @@ function DroppableColumn({
   )
 }
 
-function DroppableOperationCard({ 
-  operation, 
+function DroppableOperationCard({
+  operation,
   columnColor,
   onRemoveCrew,
+  onRemoveMaterial,
   onClick
-}: { 
+}: {
   operation: Operation
   columnColor: string
   onRemoveCrew: (crewName: string) => void
+  onRemoveMaterial: (materialId: string) => void
   onClick: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -385,10 +300,11 @@ function DroppableOperationCard({
 
   return (
     <div ref={setNodeRef} className={isOver ? "ring-2 ring-primary rounded-lg" : ""}>
-      <DraggableOperation 
-        operation={operation} 
+      <DraggableOperation
+        operation={operation}
         columnColor={columnColor}
         onRemoveCrew={onRemoveCrew}
+        onRemoveMaterial={onRemoveMaterial}
         onClick={onClick}
       />
     </div>
@@ -581,11 +497,10 @@ function ShortcutsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (
 }
 
 export default function FireStationDashboard() {
+  const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, removeCrew, removeMaterial, updateOperation } = useOperations()
+
   const [currentTime, setCurrentTime] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState("")
-  const [personnel, setPersonnel] = useState<Person[]>(initialPersonnel)
-  const [materials, setMaterials] = useState<Material[]>(initialMaterials)
-  const [operations, setOperations] = useState<Operation[]>(initialOperations)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
@@ -779,30 +694,6 @@ export default function FireStationDashboard() {
       operations.find((op) => `operation-${op.id}` === activeId)
     : null
 
-  const handleRemoveCrew = (operationId: string, crewName: string) => {
-    setOperations((ops) =>
-      ops.map((op) => {
-        if (op.id === operationId) {
-          return {
-            ...op,
-            crew: op.crew.filter((name) => name !== crewName),
-          }
-        }
-        return op
-      }),
-    )
-
-    const person = personnel.find((p) => p.name === crewName)
-    if (person) {
-      const stillAssigned = operations.some(op => op.id !== operationId && op.crew.includes(crewName))
-      if (!stillAssigned) {
-        setPersonnel((people) =>
-          people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p)),
-        )
-      }
-    }
-  }
-
   const handleCardClick = (operation: Operation) => {
     setSelectedOperation(operation)
     setDetailModalOpen(true)
@@ -811,10 +702,7 @@ export default function FireStationDashboard() {
 
   const handleOperationUpdate = (updates: Partial<Operation>) => {
     if (!selectedOperation) return
-    
-    setOperations(ops => ops.map(op => 
-      op.id === selectedOperation.id ? { ...op, ...updates } : op
-    ))
+    updateOperation(selectedOperation.id, updates)
     setSelectedOperation({ ...selectedOperation, ...updates })
   }
 
@@ -851,6 +739,13 @@ export default function FireStationDashboard() {
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="font-mono text-lg font-semibold tabular-nums">{currentTime.toLocaleTimeString("de-DE")}</span>
             </div>
+
+            <Link href="/map">
+              <Button variant="outline" className="gap-2">
+                <Map className="h-4 w-4" />
+                Lagekarte
+              </Button>
+            </Link>
 
             <Button
               variant="ghost"
@@ -892,11 +787,12 @@ export default function FireStationDashboard() {
               {columns.map((column) => {
                 const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
                 return (
-                  <DroppableColumn 
-                    key={column.id} 
-                    column={column} 
+                  <DroppableColumn
+                    key={column.id}
+                    column={column}
                     operations={columnOps}
-                    onRemoveCrew={handleRemoveCrew}
+                    onRemoveCrew={removeCrew}
+                    onRemoveMaterial={removeMaterial}
                     onCardClick={handleCardClick}
                   />
                 )
