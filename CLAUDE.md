@@ -151,18 +151,22 @@ kp-rueck/
 
 ### Database Schema (Key Tables)
 
-- **operations**: Fire operations with location, crew, materials, status, training flag
+- **incidents**: Fire/rescue incidents with location, crew, materials, status, training flag
 - **personnel**: Firefighters with roles and availability status
+- **vehicles**: Fire apparatus (TLF, DLK, MTW) with type and status
 - **materials**: Equipment/resources with availability and location
-- **incident_assignments**: Many-to-many resource assignments to operations
+- **incident_assignments**: Many-to-many resource assignments to incidents
 - **reko_reports**: Field reconnaissance reports linked to incidents
-- **status_transitions**: Audit trail of operation workflow changes
+- **status_transitions**: Audit trail of incident workflow changes
 - **audit_log**: Comprehensive action logging
+- **users**: User accounts with roles (editor/viewer)
+- **settings**: System configuration key-value store
 
 ### API Endpoints
 
-Operations: `/api/operations` (GET, POST, PUT, DELETE)
+Incidents: `/api/incidents` (GET, POST, PUT, DELETE)
 Personnel: `/api/personnel` (GET, POST, PUT)
+Vehicles: `/api/vehicles` (GET, POST, PUT)
 Materials: `/api/materials` (GET, POST, PUT)
 
 Full docs: http://localhost:8000/docs (Swagger UI)
@@ -200,8 +204,51 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Frontend uses Next.js 15 patterns**: App Router, Server Components by default
 - **State management**: Centralized in React Context with API sync
 - **Polling over WebSockets**: Keep it simple in MVP (WebSockets are future enhancement)
-- **Training vs Live**: Same database, filtered by `training_flag` on operations
+- **Training vs Live**: Same database, filtered by `training_flag` on incidents
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
+
+## Common Pitfalls & Lessons Learned
+
+### Database Schema Changes Require Multi-Layer Updates
+
+**Issue**: When refactoring database models (e.g., renaming `Operation` → `Incident`, changing `int` IDs → `UUID`), it's easy to forget that changes must propagate through ALL application layers.
+
+**What Happened (2025-10-23)**:
+- Updated `models.py` with new schema (Operation → Incident, int → UUID)
+- Created Alembic migrations successfully
+- **Forgot to update** `schemas.py`, `crud.py`, and `routes.py`
+- Railway deployment failed with: `AttributeError: module 'app.models' has no attribute 'Operation'`
+
+**Root Cause**:
+The API layer (routes.py, crud.py) was still importing and referencing the old `Operation` model that no longer existed in models.py.
+
+**Required Changes Checklist**:
+When changing database models, update ALL of these layers in order:
+1. ✅ `models.py` - Database models (SQLAlchemy)
+2. ✅ `alembic/versions/*.py` - Database migrations
+3. ✅ `schemas.py` - Pydantic request/response schemas
+4. ✅ `crud.py` - CRUD operations using the models
+5. ✅ `api/routes.py` - API endpoints using schemas and CRUD
+6. ⚠️ `tests/` - Update test fixtures and test data
+7. ⚠️ Frontend - Update API client and TypeScript types
+
+**Prevention**:
+- Before pushing schema changes, search codebase for references to old model names
+- Run tests locally before deploying (`uv run pytest`)
+- Test the server locally (`uv run uvicorn app.main:app`)
+- Consider using IDE find/replace to catch all references
+
+**Example Commands**:
+```bash
+# Search for stale references before committing
+grep -r "Operation" backend/app/  # Should only find in comments/docs
+grep -r "operation_id" backend/app/  # Check for old parameter names
+
+# Test locally before deploying
+cd backend
+uv run pytest  # Run all tests
+uv run uvicorn app.main:app  # Start server and check logs
+```
 
 ## Important Files & Documentation
 

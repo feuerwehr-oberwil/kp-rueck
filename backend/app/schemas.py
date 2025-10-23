@@ -1,83 +1,226 @@
-from pydantic import BaseModel
+"""Pydantic schemas for request/response validation."""
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
+from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict
+
+
+# ============================================
 # Personnel Schemas
+# ============================================
+
+
 class PersonnelBase(BaseModel):
+    """Base personnel schema."""
+
     name: str
-    role: str
-    status: str
+    role: Optional[str] = None
+    availability: str  # 'available', 'assigned', 'unavailable'
+
 
 class PersonnelCreate(PersonnelBase):
+    """Schema for creating personnel."""
+
     pass
+
 
 class PersonnelUpdate(BaseModel):
+    """Schema for updating personnel."""
+
     name: Optional[str] = None
     role: Optional[str] = None
-    status: Optional[str] = None
+    availability: Optional[str] = None
+
 
 class Personnel(PersonnelBase):
-    id: int
-    created_at: datetime
+    """Full personnel schema with database fields."""
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-# Material Schemas
-class MaterialBase(BaseModel):
-    name: str
-    category: str
-    status: str
-
-class MaterialCreate(MaterialBase):
-    pass
-
-class MaterialUpdate(BaseModel):
-    name: Optional[str] = None
-    category: Optional[str] = None
-    status: Optional[str] = None
-
-class Material(MaterialBase):
-    id: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-# Operation Schemas
-class OperationBase(BaseModel):
-    location: str
-    vehicle: Optional[str] = None
-    incident_type: str
-    dispatch_time: datetime
-    crew: List[str] = []
-    priority: str
-    status: str
-    coordinates: List[float]
-    materials: List[str] = []
-    notes: str = ""
-    contact: str = ""
-
-class OperationCreate(OperationBase):
-    pass
-
-class OperationUpdate(BaseModel):
-    location: Optional[str] = None
-    vehicle: Optional[str] = None
-    incident_type: Optional[str] = None
-    dispatch_time: Optional[datetime] = None
-    crew: Optional[List[str]] = None
-    priority: Optional[str] = None
-    status: Optional[str] = None
-    coordinates: Optional[List[float]] = None
-    materials: Optional[List[str]] = None
-    notes: Optional[str] = None
-    contact: Optional[str] = None
-
-class Operation(OperationBase):
-    id: int
+    id: UUID
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+
+# ============================================
+# Vehicle Schemas
+# ============================================
+
+
+class VehicleBase(BaseModel):
+    """Base vehicle schema."""
+
+    name: str
+    type: str  # 'TLF', 'DLK', 'MTW'
+    status: str  # 'available', 'assigned', 'maintenance'
+
+
+class VehicleCreate(VehicleBase):
+    """Schema for creating vehicle."""
+
+    pass
+
+
+class VehicleUpdate(BaseModel):
+    """Schema for updating vehicle."""
+
+    name: Optional[str] = None
+    type: Optional[str] = None
+    status: Optional[str] = None
+
+
+class Vehicle(VehicleBase):
+    """Full vehicle schema with database fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+# ============================================
+# Material Schemas
+# ============================================
+
+
+class MaterialBase(BaseModel):
+    """Base material schema."""
+
+    name: str
+    type: Optional[str] = None  # 'Stromerzeuger', 'Pumpe', 'Beleuchtung'
+    status: str  # 'available', 'assigned', 'maintenance'
+    location: Optional[str] = None  # 'TLF 1', 'Lager Raum 3'
+
+
+class MaterialCreate(MaterialBase):
+    """Schema for creating material."""
+
+    pass
+
+
+class MaterialUpdate(BaseModel):
+    """Schema for updating material."""
+
+    name: Optional[str] = None
+    type: Optional[str] = None
+    status: Optional[str] = None
+    location: Optional[str] = None
+
+
+class Material(MaterialBase):
+    """Full material schema with database fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+# ============================================
+# Incident Schemas (formerly Operation)
+# ============================================
+
+
+class IncidentBase(BaseModel):
+    """Base incident schema."""
+
+    title: str
+    type: str  # 'fire', 'medical', 'technical', 'hazmat', 'other'
+    priority: str  # 'low', 'medium', 'high', 'critical'
+    location_address: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    status: str = "eingegangen"  # 'eingegangen', 'reko', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss'
+    training_flag: bool = False
+    description: Optional[str] = None
+
+
+class IncidentCreate(IncidentBase):
+    """Schema for creating incident."""
+
+    pass
+
+
+class IncidentUpdate(BaseModel):
+    """Schema for updating incident."""
+
+    title: Optional[str] = None
+    type: Optional[str] = None
+    priority: Optional[str] = None
+    location_address: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    status: Optional[str] = None
+    training_flag: Optional[bool] = None
+    description: Optional[str] = None
+    completed_at: Optional[datetime] = None
+
+
+class Incident(IncidentBase):
+    """Full incident schema with database fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    created_by: Optional[UUID] = None
+    completed_at: Optional[datetime] = None
+
+
+# ============================================
+# User Schemas
+# ============================================
+
+
+class UserBase(BaseModel):
+    """Base user schema."""
+
+    username: str
+    role: str  # 'editor', 'viewer'
+
+
+class UserCreate(UserBase):
+    """Schema for creating user."""
+
+    password: str
+
+
+class User(UserBase):
+    """Full user schema with database fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+
+# ============================================
+# Setting Schemas
+# ============================================
+
+
+class SettingBase(BaseModel):
+    """Base setting schema."""
+
+    key: str
+    value: str
+
+
+class SettingUpdate(BaseModel):
+    """Schema for updating setting."""
+
+    value: str
+
+
+class Setting(SettingBase):
+    """Full setting schema with database fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    updated_at: datetime
+    updated_by: Optional[UUID] = None
