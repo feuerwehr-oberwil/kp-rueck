@@ -10,3 +10,10 @@ venv/
 *.egg-info/
 dist/
 build/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
