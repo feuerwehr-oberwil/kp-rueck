@@ -155,7 +155,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials)
   const [operations, setOperations] = useState<Operation[]>(initialOperations)
   const [isLoaded, setIsLoaded] = useState(false)
-  const updateTimeoutRef = useRef<NodeJS.Timeout>()
+  const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
   const apiOperationToOperation = (apiOp: ApiOperation): Operation => ({
