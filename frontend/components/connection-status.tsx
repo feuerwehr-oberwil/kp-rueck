@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-
-// Get API URL from same source as api-client
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { getApiUrl } from "@/lib/env"
 
 export function ConnectionStatus() {
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking")
   const [lastCheck, setLastCheck] = useState<Date>(new Date())
-  const [apiUrl] = useState(API_URL)
+  const [apiUrl] = useState(getApiUrl())
 
   const checkConnection = async () => {
     try {

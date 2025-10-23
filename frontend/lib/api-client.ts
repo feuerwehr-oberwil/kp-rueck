@@ -3,7 +3,9 @@
  * Handles all HTTP requests to the FastAPI backend
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { getApiUrl } from './env'
+
+const API_URL = getApiUrl()
 
 export interface ApiOperation {
   id: number
