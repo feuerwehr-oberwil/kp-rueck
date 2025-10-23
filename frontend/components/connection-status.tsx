@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Badge } from "@/components/ui/badge"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { getApiUrl } from "@/lib/env"
 
 export function ConnectionStatus() {
@@ -37,36 +37,59 @@ export function ConnectionStatus() {
   const getStatusColor = () => {
     switch (status) {
       case "connected":
-        return "bg-green-500 hover:bg-green-600"
+        return "bg-green-500"
       case "disconnected":
-        return "bg-red-500 hover:bg-red-600"
+        return "bg-red-500"
       case "checking":
-        return "bg-yellow-500 hover:bg-yellow-600"
+        return "bg-yellow-500"
     }
   }
 
   const getStatusText = () => {
     switch (status) {
       case "connected":
-        return "Backend Connected"
+        return "Connected"
       case "disconnected":
-        return "Backend Offline"
+        return "Offline"
       case "checking":
         return "Checking..."
     }
   }
 
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      <Badge className={getStatusColor()}>
-        <div className="flex items-center gap-2">
-          <div className={`h-2 w-2 rounded-full ${status === "connected" ? "bg-white animate-pulse" : "bg-white"}`} />
-          {getStatusText()}
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={`h-3 w-3 rounded-full ${getStatusColor()} ${status === "connected" ? "animate-pulse" : ""} cursor-pointer transition-all hover:scale-110`}
+          aria-label="Backend connection status"
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-64" align="end">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Backend Status</span>
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
+              <span className="text-sm">{getStatusText()}</span>
+            </div>
+          </div>
+          <div className="border-t pt-2 space-y-1">
+            <div className="text-xs text-muted-foreground">
+              <span className="font-medium">Backend URL:</span>
+              <div className="mt-1 font-mono text-xs break-all">
+                {apiUrl}
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <span className="font-medium">Last check:</span> {formatTime(lastCheck)}
+            </div>
+          </div>
         </div>
-      </Badge>
-      <span className="text-xs text-muted-foreground">
-        {apiUrl ? new URL(apiUrl).host : 'localhost:8000'}
-      </span>
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
