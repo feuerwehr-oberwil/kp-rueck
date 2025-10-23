@@ -3,17 +3,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from .config import auth_settings
-
-# Bcrypt password context (recommended by OWASP)
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12,  # Cost factor (higher = more secure but slower)
-)
 
 
 def hash_password(password: str) -> str:
@@ -35,7 +28,11 @@ def hash_password(password: str) -> str:
     if len(password) > auth_settings.MAX_PASSWORD_LENGTH:
         raise ValueError(f"Password must not exceed {auth_settings.MAX_PASSWORD_LENGTH} characters")
 
-    return pwd_context.hash(password)
+    # Hash password with bcrypt (12 rounds = cost factor)
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -49,7 +46,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    password_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
