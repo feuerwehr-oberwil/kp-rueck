@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck"
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def convert_postgres_url(cls, v: str) -> str:
+        """Convert postgresql:// to postgresql+asyncpg:// for Railway compatibility."""
+        if v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     # CORS
     cors_origins: list[str] | str = ["http://localhost:3000", "http://localhost:3001"]
 
