@@ -1,0 +1,141 @@
+/**
+ * API Client for KP Rück Backend
+ * Handles all HTTP requests to the FastAPI backend
+ */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+export interface ApiOperation {
+  id: number
+  location: string
+  vehicle: string | null
+  incident_type: string
+  dispatch_time: string
+  crew: string[]
+  priority: string
+  status: string
+  coordinates: number[]
+  materials: string[]
+  notes: string
+  contact: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiPerson {
+  id: number
+  name: string
+  role: string
+  status: string
+  created_at: string
+}
+
+export interface ApiMaterial {
+  id: number
+  name: string
+  category: string
+  status: string
+  created_at: string
+}
+
+class ApiClient {
+  private baseUrl: string
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl
+  }
+
+  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  // Operations
+  async getOperations(): Promise<ApiOperation[]> {
+    return this.request<ApiOperation[]>('/api/operations')
+  }
+
+  async getOperation(id: number): Promise<ApiOperation> {
+    return this.request<ApiOperation>(`/api/operations/${id}`)
+  }
+
+  async createOperation(data: Partial<ApiOperation>): Promise<ApiOperation> {
+    return this.request<ApiOperation>('/api/operations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateOperation(id: number, data: Partial<ApiOperation>): Promise<ApiOperation> {
+    return this.request<ApiOperation>(`/api/operations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteOperation(id: number): Promise<void> {
+    return this.request<void>(`/api/operations/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Personnel
+  async getPersonnel(): Promise<ApiPerson[]> {
+    return this.request<ApiPerson[]>('/api/personnel')
+  }
+
+  async getPerson(id: number): Promise<ApiPerson> {
+    return this.request<ApiPerson>(`/api/personnel/${id}`)
+  }
+
+  async createPerson(data: Partial<ApiPerson>): Promise<ApiPerson> {
+    return this.request<ApiPerson>('/api/personnel', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updatePerson(id: number, data: Partial<ApiPerson>): Promise<ApiPerson> {
+    return this.request<ApiPerson>(`/api/personnel/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Materials
+  async getMaterials(): Promise<ApiMaterial[]> {
+    return this.request<ApiMaterial[]>('/api/materials')
+  }
+
+  async getMaterial(id: number): Promise<ApiMaterial> {
+    return this.request<ApiMaterial>(`/api/materials/${id}`)
+  }
+
+  async createMaterial(data: Partial<ApiMaterial>): Promise<ApiMaterial> {
+    return this.request<ApiMaterial>('/api/materials', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateMaterial(id: number, data: Partial<ApiMaterial>): Promise<ApiMaterial> {
+    return this.request<ApiMaterial>(`/api/materials/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+}
+
+export const apiClient = new ApiClient(API_URL)
