@@ -39,87 +39,7 @@ export interface Material {
   status: "available" | "assigned"
 }
 
-// Initial data
-export const initialMaterials: Material[] = [
-  { id: "m1", name: "Wasserpumpe TP 15/8", category: "Pumpen", status: "available" },
-  { id: "m2", name: "Schlauchpaket B", category: "Schläuche", status: "available" },
-  { id: "m3", name: "Schlauchpaket C", category: "Schläuche", status: "available" },
-  { id: "m4", name: "Atemschutzgerät", category: "Atemschutz", status: "assigned" },
-  { id: "m5", name: "Wärmebildkamera", category: "Spezialgerät", status: "available" },
-  { id: "m6", name: "Hydraulisches Rettungsgerät", category: "Spezialgerät", status: "available" },
-  { id: "m7", name: "Schaummittel 200L", category: "Löschmittel", status: "available" },
-  { id: "m8", name: "Stromerzeuger 5kW", category: "Technik", status: "available" },
-]
-
-export const initialPersonnel: Person[] = [
-  { id: "1", name: "M. Schmidt", role: "Fahrer", status: "available" },
-  { id: "2", name: "A. Müller", role: "Reko/EL/FU", status: "available" },
-  { id: "3", name: "T. Weber", role: "Mannschaft", status: "available" },
-  { id: "4", name: "S. Fischer", role: "Mannschaft", status: "available" },
-  { id: "5", name: "K. Wagner", role: "Fahrer", status: "available" },
-  { id: "6", name: "L. Becker", role: "Mannschaft", status: "available" },
-  { id: "7", name: "P. Hoffmann", role: "Reko/EL/FU", status: "available" },
-  { id: "8", name: "J. Schulz", role: "Mannschaft", status: "available" },
-]
-
-export const initialOperations: Operation[] = [
-  {
-    id: "1",
-    location: "Hauptstraße 45",
-    vehicle: "TLF",
-    incidentType: "Wohnungsbrand",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 12),
-    crew: ["M. Schmidt", "T. Weber"],
-    priority: "high",
-    status: "active",
-    coordinates: [47.5180, 7.5640],
-    materials: ["m1", "m4"],
-    notes: "",
-    contact: "",
-  },
-  {
-    id: "2",
-    location: "Industriepark Nord",
-    vehicle: "Pio",
-    incidentType: "Technische Hilfe",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 5),
-    crew: ["K. Wagner"],
-    priority: "medium",
-    status: "enroute",
-    coordinates: [47.5145, 7.5595],
-    materials: ["m6"],
-    notes: "",
-    contact: "",
-  },
-  {
-    id: "3",
-    location: "Bahnhofstraße 12",
-    vehicle: null,
-    incidentType: "Fehlalarm",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 45),
-    crew: [],
-    priority: "low",
-    status: "returning",
-    coordinates: [47.5125, 7.5670],
-    materials: [],
-    notes: "",
-    contact: "",
-  },
-  {
-    id: "4",
-    location: "Waldweg 8",
-    vehicle: null,
-    incidentType: "Ölspur",
-    dispatchTime: new Date(Date.now() - 1000 * 60 * 2),
-    crew: [],
-    priority: "low",
-    status: "ready",
-    coordinates: [47.5200, 7.5585],
-    materials: [],
-    notes: "",
-    contact: "",
-  },
-]
+// No initial/dummy data - all data comes from the backend database
 
 /**
  * Context interface for managing operations, personnel, and materials.
@@ -151,9 +71,9 @@ interface OperationsContextType {
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
-  const [personnel, setPersonnel] = useState<Person[]>(initialPersonnel)
-  const [materials, setMaterials] = useState<Material[]>(initialMaterials)
-  const [operations, setOperations] = useState<Operation[]>(initialOperations)
+  const [personnel, setPersonnel] = useState<Person[]>([])
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [operations, setOperations] = useState<Operation[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
@@ -217,7 +137,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setIsLoaded(true)
       } catch (error) {
         console.error("Failed to load data from API:", error)
-        // Keep using initial data as fallback
+        // Leave arrays empty if API fails - no fallback data
         setIsLoaded(true)
       }
     }
