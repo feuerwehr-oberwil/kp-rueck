@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType, initialMaterials } from "@/lib/contexts/operations-context"
+import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType } from "@/lib/contexts/operations-context"
 import { ConnectionStatus } from "@/components/connection-status"
 
 const columns = [
@@ -159,6 +159,7 @@ function DraggableOperation({
   onHover,
   isHighlighted,
   isDraggingRef,
+  materials,
 }: {
   operation: Operation
   columnColor: string
@@ -168,6 +169,7 @@ function DraggableOperation({
   onHover: (opId: string | null) => void
   isHighlighted?: boolean
   isDraggingRef: React.MutableRefObject<boolean>
+  materials: Material[]
 }) {
   const {
     attributes,
@@ -298,7 +300,7 @@ function DraggableOperation({
             <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="flex flex-wrap gap-1.5">
               {operation.materials.map((matId, idx) => {
-                const mat = initialMaterials.find(m => m.id === matId)
+                const mat = materials.find(m => m.id === matId)
                 return (
                   <Badge
                     key={idx}
@@ -337,6 +339,7 @@ function DroppableColumn({
   isDraggingRef,
   activeId,
   overId,
+  materials,
 }: {
   column: (typeof columns)[0]
   operations: Operation[]
@@ -348,6 +351,7 @@ function DroppableColumn({
   isDraggingRef: React.MutableRefObject<boolean>
   activeId: string | null
   overId: string | null
+  materials: Material[]
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.id}`,
@@ -397,6 +401,7 @@ function DroppableColumn({
                   onHover={onCardHover}
                   isHighlighted={highlightedOperationId === operation.id}
                   isDraggingRef={isDraggingRef}
+                  materials={materials}
                 />
               </div>
             ))}
@@ -411,12 +416,14 @@ function OperationDetailModal({
   operation,
   open,
   onOpenChange,
-  onUpdate
+  onUpdate,
+  materials,
 }: {
   operation: Operation | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate: (updates: Partial<Operation>) => void
+  materials: Material[]
 }) {
   const [locationSearchResults, setLocationSearchResults] = useState<Array<{
     display_name: string
@@ -624,7 +631,7 @@ function OperationDetailModal({
               {operation.materials.length > 0 ? (
                 operation.materials.map((matId, idx) => (
                   <Badge key={idx} variant="outline" className="text-sm px-3 py-1">
-                    {initialMaterials.find(m => m.id === matId)?.name || matId}
+                    {materials.find(m => m.id === matId)?.name || matId}
                   </Badge>
                 ))
               ) : (
@@ -1569,6 +1576,7 @@ export default function FireStationDashboard() {
                     isDraggingRef={isDraggingOperationRef}
                     activeId={activeId}
                     overId={overId}
+                    materials={materials}
                   />
                 )
               })}
@@ -1660,6 +1668,7 @@ export default function FireStationDashboard() {
           open={detailModalOpen}
           onOpenChange={setDetailModalOpen}
           onUpdate={handleOperationUpdate}
+          materials={materials}
         />
 
         <ShortcutsModal
