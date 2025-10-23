@@ -1,31 +1,86 @@
-"""Database models."""
+"""Database models for KP Rück system."""
 from datetime import datetime
+from typing import Optional
+from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
 
-class Operation(Base):
-    """Operation model."""
+# ============================================
+# USERS & AUTHENTICATION
+# ============================================
 
-    __tablename__ = "operations"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    location: Mapped[str] = mapped_column(String, nullable=False)
-    vehicle: Mapped[str | None] = mapped_column(String, nullable=True)
-    incident_type: Mapped[str] = mapped_column(String, nullable=False)
-    dispatch_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    crew: Mapped[list] = mapped_column(JSON, default=list)
-    priority: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    coordinates: Mapped[list] = mapped_column(JSON, nullable=False)
-    materials: Mapped[list] = mapped_column(JSON, default=list)
-    notes: Mapped[str] = mapped_column(Text, default="")
-    contact: Mapped[str] = mapped_column(Text, default="")
+class User(Base):
+    """User model for authentication and authorization."""
+
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    created_incidents: Mapped[list["Incident"]] = relationship(
+        "Incident", back_populates="creator", foreign_keys="Incident.created_by"
+    )
+    assignments: Mapped[list["IncidentAssignment"]] = relationship(
+        "IncidentAssignment", back_populates="assigner"
+    )
+    status_transitions: Mapped[list["StatusTransition"]] = relationship(
+        "StatusTransition", back_populates="user"
+    )
+    audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
+    setting_updates: Mapped[list["Setting"]] = relationship("Setting", back_populates="updater")
+
+    __table_args__ = (CheckConstraint("role IN ('editor', 'viewer')", name="valid_user_role"),)
+
+
+# ============================================
+# MASTER LISTS
+# ============================================
+
+
+class Vehicle(Base):
+    """Vehicle model."""
+
+    __tablename__ = "vehicles"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('available', 'assigned', 'maintenance')", name="valid_vehicle_status"
+        ),
+    )
 
 
 class Personnel(Base):
@@ -33,11 +88,21 @@ class Personnel(Base):
 
     __tablename__ = "personnel"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    role: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    availability: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "availability IN ('available', 'assigned', 'unavailable')",
+            name="valid_personnel_availability",
+        ),
+    )
 
 
 class Material(Base):
@@ -45,8 +110,236 @@ class Material(Base):
 
     __tablename__ = "materials"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    category: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('available', 'assigned', 'maintenance')", name="valid_material_status"
+        ),
+    )
+
+
+# ============================================
+# INCIDENTS
+# ============================================
+
+
+class Incident(Base):
+    """Incident model."""
+
+    __tablename__ = "incidents"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    priority: Mapped[str] = mapped_column(String(20), nullable=False)
+    location_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    location_lat: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
+    location_lng: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="eingegangen")
+    training_flag: Mapped[bool] = mapped_column(Boolean, default=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+    created_by: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    creator: Mapped[Optional["User"]] = relationship(
+        "User", back_populates="created_incidents", foreign_keys=[created_by]
+    )
+    assignments: Mapped[list["IncidentAssignment"]] = relationship(
+        "IncidentAssignment", back_populates="incident", cascade="all, delete-orphan"
+    )
+    reko_reports: Mapped[list["RekoReport"]] = relationship(
+        "RekoReport", back_populates="incident", cascade="all, delete-orphan"
+    )
+    status_transitions: Mapped[list["StatusTransition"]] = relationship(
+        "StatusTransition", back_populates="incident", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "priority IN ('low', 'medium', 'high', 'critical')", name="valid_priority"
+        ),
+        CheckConstraint(
+            "status IN ('eingegangen', 'reko', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss')",
+            name="valid_status",
+        ),
+        CheckConstraint(
+            "(location_lat IS NULL AND location_lng IS NULL) OR "
+            "(location_lat IS NOT NULL AND location_lng IS NOT NULL)",
+            name="valid_location",
+        ),
+    )
+
+
+# ============================================
+# ASSIGNMENTS (Many-to-Many Junction)
+# ============================================
+
+
+class IncidentAssignment(Base):
+    """Junction table for incident resource assignments."""
+
+    __tablename__ = "incident_assignments"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    resource_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    assigned_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    assigned_by: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    unassigned_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
+    assigner: Mapped[Optional["User"]] = relationship("User", back_populates="assignments")
+
+    __table_args__ = (
+        CheckConstraint(
+            "resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"
+        ),
+        UniqueConstraint(
+            "incident_id", "resource_type", "resource_id", "unassigned_at", name="unique_assignment"
+        ),
+        Index("idx_assignments_incident", "incident_id"),
+        Index("idx_assignments_resource", "resource_type", "resource_id"),
+    )
+
+
+# ============================================
+# REKO FIELD REPORTS
+# ============================================
+
+
+class RekoReport(Base):
+    """Reko field reconnaissance report."""
+
+    __tablename__ = "reko_reports"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    token: Mapped[str] = mapped_column(String(255), nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    # Form fields
+    is_relevant: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    dangers_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    effort_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    power_supply: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    photos_json: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
+    summary_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    additional_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Metadata
+    submitted_by_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Relationships
+    incident: Mapped["Incident"] = relationship("Incident", back_populates="reko_reports")
+
+    __table_args__ = (
+        Index("idx_reko_incident", "incident_id"),
+        Index("idx_reko_token", "token"),
+    )
+
+
+# ============================================
+# AUDIT LOGGING
+# ============================================
+
+
+class StatusTransition(Base):
+    """Status transition tracking for incidents."""
+
+    __tablename__ = "status_transitions"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    from_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    to_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    user_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    incident: Mapped["Incident"] = relationship("Incident", back_populates="status_transitions")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="status_transitions")
+
+    __table_args__ = (Index("idx_transitions_incident", "incident_id"),)
+
+
+class AuditLog(Base):
+    """Comprehensive audit log for all actions."""
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    action_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_id: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    changes_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="audit_logs")
+
+    __table_args__ = (
+        Index("idx_audit_user", "user_id"),
+        Index("idx_audit_resource", "resource_type", "resource_id"),
+        Index("idx_audit_timestamp", timestamp.desc()),
+    )
+
+
+# ============================================
+# SETTINGS & CONFIGURATION
+# ============================================
+
+
+class Setting(Base):
+    """System settings and configuration."""
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+    updated_by: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+
+    # Relationships
+    updater: Mapped[Optional["User"]] = relationship("User", back_populates="setting_updates")
