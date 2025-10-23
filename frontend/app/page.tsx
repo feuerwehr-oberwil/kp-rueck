@@ -8,23 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Edit, Filter } from 'lucide-react'
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  pointerWithin,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-  type DragOverEvent,
-  type CollisionDetection,
-} from "@dnd-kit/core"
-import { CSS } from "@dnd-kit/utilities"
-import { useDraggable, useDroppable } from "@dnd-kit/core"
-import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable"
+import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
+import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
+import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -74,26 +61,28 @@ function getTimeSince(date: Date): string {
 }
 
 function DraggablePerson({ person, onClick, disabled }: { person: Person; onClick?: () => void; disabled?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `person-${person.id}`,
-    data: { type: "person", person },
-    disabled: disabled || person.status === "assigned",
-  })
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-  }
+  const ref = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const canDrag = !disabled && person.status === "available"
 
+  useEffect(() => {
+    const element = ref.current
+    if (!element || !canDrag) return
+
+    return draggable({
+      element,
+      getInitialData: () => ({ type: "person", person }),
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+    })
+  }, [person, canDrag])
+
   return (
     <Card
-      ref={setNodeRef}
-      style={style}
-      {...(canDrag ? listeners : {})}
-      {...(canDrag ? attributes : {})}
+      ref={ref}
       onClick={onClick}
+      style={{ opacity: isDragging ? 0.5 : 1 }}
       className={`border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:border-primary/50 hover:shadow-md hover:bg-card ${canDrag ? "cursor-move" : "cursor-pointer"} ${person.status === "assigned" ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -114,26 +103,28 @@ function DraggablePerson({ person, onClick, disabled }: { person: Person; onClic
 }
 
 function DraggableMaterial({ material, onClick, disabled }: { material: Material; onClick?: () => void; disabled?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `material-${material.id}`,
-    data: { type: "material", material },
-    disabled: disabled || material.status === "assigned",
-  })
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-  }
+  const ref = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const canDrag = !disabled && material.status === "available"
 
+  useEffect(() => {
+    const element = ref.current
+    if (!element || !canDrag) return
+
+    return draggable({
+      element,
+      getInitialData: () => ({ type: "material", material }),
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+    })
+  }, [material, canDrag])
+
   return (
     <Card
-      ref={setNodeRef}
-      style={style}
-      {...(canDrag ? listeners : {})}
-      {...(canDrag ? attributes : {})}
+      ref={ref}
       onClick={onClick}
+      style={{ opacity: isDragging ? 0.5 : 1 }}
       className={`border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:border-primary/50 hover:shadow-md hover:bg-card ${canDrag ? "cursor-move" : "cursor-pointer"} ${material.status === "assigned" ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -160,6 +151,8 @@ function DraggableOperation({
   isHighlighted,
   isDraggingRef,
   materials,
+  index,
+  columnOperations,
 }: {
   operation: Operation
   columnColor: string
@@ -170,161 +163,190 @@ function DraggableOperation({
   isHighlighted?: boolean
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
+  index: number
+  columnOperations: Operation[]
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: `operation-${operation.id}`,
-    data: { type: "operation", operation },
-  })
+  const ref = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isOver, setIsOver] = useState(false)
+  const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
 
-  // Also allow drops for people/materials
-  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
-    id: `operation-drop-${operation.id}`,
-    data: { type: "operation-drop", operationId: operation.id },
-  })
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  // Combine both refs
-  const setRefs = (element: HTMLDivElement | null) => {
-    setNodeRef(element)
-    setDroppableRef(element)
-  }
+    return combine(
+      draggable({
+        element,
+        getInitialData: () => ({ type: "operation", operation, index }),
+        onDragStart: () => {
+          setIsDragging(true)
+          isDraggingRef.current = true
+        },
+        onDrop: () => {
+          setIsDragging(false)
+          // Delay to prevent click from firing
+          setTimeout(() => {
+            isDraggingRef.current = false
+          }, 200)
+        },
+      }),
+      dropTargetForElements({
+        element,
+        canDrop: ({ source }) => {
+          // Can drop anything on operation cards
+          return true
+        },
+        getData: ({ input }) => {
+          return attachClosestEdge(
+            { type: "operation-drop", operationId: operation.id, index },
+            { element, input, allowedEdges: ['top', 'bottom'] }
+          )
+        },
+        onDragEnter: ({ self }) => {
+          setIsOver(true)
+          const edge = extractClosestEdge(self.data)
+          setClosestEdge(edge)
+        },
+        onDrag: ({ self }) => {
+          const edge = extractClosestEdge(self.data)
+          setClosestEdge(edge)
+        },
+        onDragLeave: () => {
+          setIsOver(false)
+          setClosestEdge(null)
+        },
+        onDrop: () => {
+          setIsOver(false)
+          setClosestEdge(null)
+        },
+      })
+    )
+  }, [operation, index, isDraggingRef])
 
   return (
-    <Card
-      ref={setRefs}
-      style={style}
-      className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
-      onMouseEnter={() => onHover(operation.id)}
-      onMouseLeave={() => onHover(null)}
-    >
-      <div className="space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          {/* Draggable area */}
-          <div
-            className="flex items-start gap-2 min-w-0 flex-1 cursor-move"
-            {...listeners}
-            {...attributes}
-          >
-            <MapPin className="h-5 w-5 flex-shrink-0 text-primary mt-0.5" />
-            <div className="min-w-0">
-              <h3 className="font-bold text-base text-foreground leading-tight">{operation.location}</h3>
-              {operation.vehicle && (
-                <p className="text-xs text-muted-foreground mt-0.5">Fahrzeug: {operation.vehicle}</p>
-              )}
+    <div className="relative">
+      {closestEdge === 'top' && <DropIndicator edge="top" gap="4px" />}
+      <Card
+        ref={ref}
+        style={{ opacity: isDragging ? 0.5 : 1 }}
+        className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
+        onMouseEnter={() => onHover(operation.id)}
+        onMouseLeave={() => onHover(null)}
+      >
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            {/* Draggable area */}
+            <div className="flex items-start gap-2 min-w-0 flex-1 cursor-move">
+              <MapPin className="h-5 w-5 flex-shrink-0 text-primary mt-0.5" />
+              <div className="min-w-0">
+                <h3 className="font-bold text-base text-foreground leading-tight">{operation.location}</h3>
+                {operation.vehicle && (
+                  <p className="text-xs text-muted-foreground mt-0.5">Fahrzeug: {operation.vehicle}</p>
+                )}
+              </div>
             </div>
-          </div>
-          {/* Non-draggable icons area */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                // Don't trigger if currently dragging
-                if (!isDraggingRef.current) {
-                  onClick()
+            {/* Non-draggable icons area */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!isDraggingRef.current) {
+                    onClick()
+                  }
+                }}
+                className="p-1.5 rounded-md hover:bg-primary/20 transition-colors cursor-pointer"
+                title="Bearbeiten"
+              >
+                <Edit className="h-4 w-4 text-primary" />
+              </button>
+              <Link
+                href={`/map?highlight=${operation.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
+                title="Auf Karte anzeigen"
+              >
+                <Map className="h-4 w-4 text-primary" />
+              </Link>
+              <Badge
+                variant={
+                  operation.priority === "high" ? "destructive" : operation.priority === "medium" ? "default" : "secondary"
                 }
-              }}
-              className="p-1.5 rounded-md hover:bg-primary/20 transition-colors cursor-pointer"
-              title="Bearbeiten"
-            >
-              <Edit className="h-4 w-4 text-primary" />
-            </button>
-            <Link
-              href={`/map?highlight=${operation.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
-              title="Auf Karte anzeigen"
-            >
-              <Map className="h-4 w-4 text-primary" />
-            </Link>
-            <Badge
-              variant={
-                operation.priority === "high" ? "destructive" : operation.priority === "medium" ? "default" : "secondary"
-              }
-              className="text-xs"
-            >
-              {operation.priority === "high" ? "Hoch" : operation.priority === "medium" ? "Mittel" : "Niedrig"}
-            </Badge>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Flame className="h-4 w-4 text-orange-500 flex-shrink-0" />
-          <span className="text-sm font-medium text-foreground">{operation.incidentType}</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="font-mono text-sm text-muted-foreground">{getTimeSince(operation.dispatchTime)}</span>
-        </div>
-
-        {operation.crew.length > 0 && (
-          <div className="flex items-start gap-2">
-            <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <div className="flex flex-wrap gap-1.5">
-              {operation.crew.map((member, idx) => (
-                <Badge 
-                  key={idx} 
-                  variant="secondary" 
-                  className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                >
-                  {member.split(" ")[0][0]}.{member.split(" ")[1][0]}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onRemoveCrew(member)
-                    }}
-                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
+                className="text-xs"
+              >
+                {operation.priority === "high" ? "Hoch" : operation.priority === "medium" ? "Mittel" : "Niedrig"}
+              </Badge>
             </div>
           </div>
-        )}
 
-        {operation.materials.length > 0 && (
-          <div className="flex items-start gap-2">
-            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <div className="flex flex-wrap gap-1.5">
-              {operation.materials.map((matId, idx) => {
-                const mat = materials.find(m => m.id === matId)
-                return (
+          <div className="flex items-center gap-2">
+            <Flame className="h-4 w-4 text-orange-500 flex-shrink-0" />
+            <span className="text-sm font-medium text-foreground">{operation.incidentType}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="font-mono text-sm text-muted-foreground">{getTimeSince(operation.dispatchTime)}</span>
+          </div>
+
+          {operation.crew.length > 0 && (
+            <div className="flex items-start gap-2">
+              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <div className="flex flex-wrap gap-1.5">
+                {operation.crew.map((member, idx) => (
                   <Badge
                     key={idx}
-                    variant="outline"
+                    variant="secondary"
                     className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
                   >
-                    {mat?.name.substring(0, 15) || matId}
+                    {member.split(" ")[0][0]}.{member.split(" ")[1][0]}
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        onRemoveMaterial(matId)
+                        onRemoveCrew(member)
                       }}
                       className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
-                )
-              })}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    </Card>
+          )}
+
+          {operation.materials.length > 0 && (
+            <div className="flex items-start gap-2">
+              <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <div className="flex flex-wrap gap-1.5">
+                {operation.materials.map((matId, idx) => {
+                  const mat = materials.find(m => m.id === matId)
+                  return (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                    >
+                      {mat?.name.substring(0, 15) || matId}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveMaterial(matId)
+                        }}
+                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+      {closestEdge === 'bottom' && <DropIndicator edge="bottom" gap="4px" />}
+    </div>
   )
 }
 
@@ -337,8 +359,6 @@ function DroppableColumn({
   onCardHover,
   highlightedOperationId,
   isDraggingRef,
-  activeId,
-  overId,
   materials,
 }: {
   column: (typeof columns)[0]
@@ -349,64 +369,57 @@ function DroppableColumn({
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
   isDraggingRef: React.MutableRefObject<boolean>
-  activeId: string | null
-  overId: string | null
   materials: Material[]
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `column-${column.id}`,
-    data: { type: "column", columnId: column.id },
-  })
+  const ref = useRef<HTMLDivElement>(null)
+  const [isOver, setIsOver] = useState(false)
 
-  const operationIds = operations.map(op => `operation-${op.id}`)
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
 
-  // Check if we're dragging an operation (not a person or material)
-  const isDraggingOperation = activeId?.startsWith('operation-') || false
-
-  // Check if the dragged operation is already in this column
-  const draggedOperationId = activeId?.replace('operation-', '')
-  const isDraggedOperationInThisColumn = operations.some(op => op.id === draggedOperationId)
-
-  // Check if we're hovering over this column or any operation card in this column
-  const isOverColumn = overId === `column-${column.id}`
-  const isOverOperationInColumn = operations.some(op => overId === `operation-drop-${op.id}` || overId === `operation-${op.id}`)
-
-  // Only show indicator if: hovering over this column (or any card in it) AND not the column it's currently in
-  const shouldShowDropIndicator = isDraggingOperation && (isOverColumn || isOverOperationInColumn) && !isDraggedOperationInThisColumn
+    return dropTargetForElements({
+      element,
+      canDrop: ({ source }) => {
+        // Only allow operations to be dropped on empty columns
+        return source.data.type === "operation"
+      },
+      getData: () => ({ type: "column", columnId: column.id }),
+      onDragEnter: () => setIsOver(true),
+      onDragLeave: () => setIsOver(false),
+      onDrop: () => setIsOver(false),
+    })
+  }, [column.id])
 
   return (
-    <div ref={setNodeRef} className={`flex w-80 flex-shrink-0 flex-col transition-all ${shouldShowDropIndicator ? "ring-2 ring-primary rounded-lg scale-[1.02]" : ""}`}>
-      <div className={`mb-3 rounded-lg ${column.color} border ${shouldShowDropIndicator ? "border-primary border-2" : "border-border/50"} px-4 py-3 transition-all`}>
+    <div className={`flex w-80 flex-shrink-0 flex-col transition-all ${isOver ? "ring-2 ring-primary rounded-lg scale-[1.02]" : ""}`}>
+      <div className={`mb-3 rounded-lg ${column.color} border ${isOver ? "border-primary border-2" : "border-border/50"} px-4 py-3 transition-all`}>
         <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">{column.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
       </div>
 
-      <div className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative ${shouldShowDropIndicator ? "bg-primary/20 border-2 border-dashed border-primary" : ""}`}>
-        {shouldShowDropIndicator && (
-          <>
-            {/* Full overlay for extra visibility */}
-            <div className="absolute inset-0 bg-primary/10 pointer-events-none z-10 rounded-lg" />
-          </>
+      <div ref={ref} className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative ${isOver && operations.length === 0 ? "bg-primary/20 border-2 border-dashed border-primary" : ""}`}>
+        {isOver && operations.length === 0 && (
+          <div className="absolute inset-0 bg-primary/10 pointer-events-none z-10 rounded-lg" />
         )}
-        <SortableContext items={operationIds} strategy={verticalListSortingStrategy}>
-          <div className={`${shouldShowDropIndicator ? "opacity-40 blur-[2px] pointer-events-none" : ""} transition-all duration-200 space-y-3 relative z-0`}>
-            {operations.map((operation) => (
-              <div key={operation.id} className={shouldShowDropIndicator ? "pointer-events-auto" : ""}>
-                <DraggableOperation
-                  operation={operation}
-                  columnColor={column.color}
-                  onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
-                  onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
-                  onClick={() => onCardClick(operation)}
-                  onHover={onCardHover}
-                  isHighlighted={highlightedOperationId === operation.id}
-                  isDraggingRef={isDraggingRef}
-                  materials={materials}
-                />
-              </div>
-            ))}
-          </div>
-        </SortableContext>
+        <div className="space-y-3">
+          {operations.map((operation, index) => (
+            <DraggableOperation
+              key={operation.id}
+              operation={operation}
+              columnColor={column.color}
+              onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
+              onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
+              onClick={() => onCardClick(operation)}
+              onHover={onCardHover}
+              isHighlighted={highlightedOperationId === operation.id}
+              isDraggingRef={isDraggingRef}
+              materials={materials}
+              index={index}
+              columnOperations={operations}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -1038,8 +1051,6 @@ export default function FireStationDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [overId, setOverId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
@@ -1049,44 +1060,10 @@ export default function FireStationDashboard() {
   const [filterVehicle, setFilterVehicle] = useState<string>("all")
   const [filterPriority, setFilterPriority] = useState<string>("all")
   const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
+  const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
-
-  // Custom collision detection that prioritizes operation-drop over column
-  const customCollisionDetection: CollisionDetection = (args) => {
-    const { active, droppableContainers } = args
-    const activeData = active.data.current
-
-    // For person/material drag, prioritize operation-drop droppables
-    if (activeData?.type === "person" || activeData?.type === "material") {
-      const operationDroppables = Array.from(droppableContainers.values())
-        .filter(container => container.data.current?.type === "operation-drop")
-
-      if (operationDroppables.length > 0) {
-        // Use closestCenter but only for operation droppables
-        const collisions = closestCenter({
-          ...args,
-          droppableContainers: operationDroppables,
-        })
-        if (collisions.length > 0) {
-          return collisions
-        }
-      }
-    }
-
-    // For everything else, use normal closestCenter
-    return closestCenter(args)
-  }
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor),
-  )
 
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -1178,102 +1155,141 @@ export default function FireStationDashboard() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [hoveredOperationId, moveOperationLeft, moveOperationRight, setOperations])
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-    const activeData = event.active.data.current
-    if (activeData?.type === "operation") {
-      isDraggingOperationRef.current = true
-    }
-  }
+  // Monitor drag events globally
+  useEffect(() => {
+    if (!isMounted) return
 
-  const handleDragOver = (event: DragOverEvent) => {
-    setOverId(event.over?.id as string | null)
-  }
+    const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveId(null)
-    setOverId(null)
+    return monitorForElements({
+      onDragStart({ source }: any) {
+        const data = source.data
+        if (data.type === "person") {
+          setDraggingItem(data.person as Person)
+        } else if (data.type === "material") {
+          setDraggingItem(data.material as Material)
+        } else if (data.type === "operation") {
+          setDraggingItem(data.operation as Operation)
+        }
+      },
+      onDrop({ source, location }: any) {
+        setDraggingItem(null)
 
-    // Reset dragging state after a delay to prevent click from firing
-    if (isDraggingOperationRef.current) {
-      setTimeout(() => {
-        isDraggingOperationRef.current = false
-      }, 200)
-    }
+        const destination = location.current.dropTargets[0]
+        if (!destination) return
 
-    if (!over) return
+        const sourceData = source.data
+        const destData = destination.data
 
-    const activeData = active.data.current
-    const overData = over.data.current
+        // Person dropped on operation
+        if (sourceData.type === "person" && destData.type === "operation-drop") {
+          const person = sourceData.person as Person
+          const operationId = destData.operationId as string
 
-    // Person dropped on operation
-    if (activeData?.type === "person" && overData?.type === "operation-drop") {
-      const person = activeData.person as Person
-      const operationId = overData.operationId as string
+          if (person.status === "available") {
+            assignPersonToOperation(person.id, person.name, operationId)
+          }
+        }
 
-      // Only allow assignment if person is available (not already assigned)
-      if (person.status === "available") {
-        assignPersonToOperation(person.id, person.name, operationId)
-      }
-    }
+        // Material dropped on operation
+        if (sourceData.type === "material" && destData.type === "operation-drop") {
+          const material = sourceData.material as Material
+          const operationId = destData.operationId as string
 
-    if (activeData?.type === "material" && overData?.type === "operation-drop") {
-      const material = activeData.material as Material
-      const operationId = overData.operationId as string
+          if (material.status === "available") {
+            assignMaterialToOperation(material.id, operationId)
+          }
+        }
 
-      // Only allow assignment if material is available (not already assigned)
-      if (material.status === "available") {
-        assignMaterialToOperation(material.id, operationId)
-      }
-    }
+        // Operation reordering/moving
+        if (sourceData.type === "operation") {
+          const draggedOp = sourceData.operation as Operation
+          const sourceIndex = sourceData.index as number
 
-    // Operation reordering within same column
-    if (activeData?.type === "operation" && overData?.type === "operation") {
-      const activeOp = activeData.operation as Operation
-      const overOp = overData.operation as Operation
+          // Dropped on another operation
+          if (destData.type === "operation-drop") {
+            const targetOpId = destData.operationId as string
+            const targetIndex = destData.index as number
+            const edge = extractClosestEdge(destData)
 
-      // Only reorder if in the same column
-      if (activeOp.status === overOp.status && active.id !== over.id) {
-        setOperations((ops) => {
-          const activeIndex = ops.findIndex((op) => op.id === activeOp.id)
-          const overIndex = ops.findIndex((op) => op.id === overOp.id)
+            // Find the target operation to determine its column
+            const targetOp = operations.find(op => op.id === targetOpId)
+            if (!targetOp) return
 
-          return arrayMove(ops, activeIndex, overIndex)
-        })
-      } else if (activeOp.status !== overOp.status) {
-        // If different columns, move the dragged operation to the target's column
-        const newStatus = overOp.status
-        updateOperation(activeOp.id, { status: newStatus })
-      }
-    }
+            // Same column - reorder
+            if (draggedOp.status === targetOp.status) {
+              setOperations((ops) => {
+                const sameColumnOps = ops.filter(op => op.status === draggedOp.status)
+                const otherOps = ops.filter(op => op.status !== draggedOp.status)
 
-    // Operation dropped on column
-    if (activeData?.type === "operation" && overData?.type === "column") {
-      const operation = activeData.operation as Operation
-      const columnId = overData.columnId as string
-      const targetColumn = columns.find((col) => col.id === columnId)
+                // Remove dragged operation
+                const filtered = sameColumnOps.filter(op => op.id !== draggedOp.id)
 
-      if (targetColumn) {
-        const newStatus = targetColumn.status[0] as OperationStatus
-        updateOperation(operation.id, { status: newStatus })
-      }
-    }
+                // Calculate new index based on edge
+                let newIndex = targetIndex
+                if (edge === 'bottom') {
+                  newIndex = targetIndex + 1
+                }
 
-    // Operation dropped on another operation card (when dragging operations)
-    // In this case, find the column containing the operation we're over and move to that column
-    if (activeData?.type === "operation" && overData?.type === "operation-drop") {
-      const draggedOperation = activeData.operation as Operation
-      const targetOperationId = overData.operationId as string
+                // Adjust index if we're moving down in the same list
+                if (sourceIndex < targetIndex) {
+                  newIndex = newIndex - 1
+                }
 
-      // Find which column contains the target operation
-      const targetOperation = operations.find(op => op.id === targetOperationId)
-      if (targetOperation && draggedOperation.status !== targetOperation.status) {
-        const newStatus = targetOperation.status
-        updateOperation(draggedOperation.id, { status: newStatus })
-      }
-    }
-  }
+                // Insert at new position
+                const reordered = [
+                  ...filtered.slice(0, newIndex),
+                  draggedOp,
+                  ...filtered.slice(newIndex)
+                ]
+
+                return [...otherOps, ...reordered]
+              })
+            } else {
+              // Different column - move to new column with position
+              const targetColumnOps = operations.filter(op => op.status === targetOp.status)
+
+              setOperations((ops) => {
+                // Update status
+                const updatedOp = { ...draggedOp, status: targetOp.status }
+
+                // Remove from old position
+                const withoutDragged = ops.filter(op => op.id !== draggedOp.id)
+
+                // Get operations in target column
+                const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
+                const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
+
+                // Calculate insert index
+                let insertIndex = targetIndex
+                if (edge === 'bottom') {
+                  insertIndex = targetIndex + 1
+                }
+
+                // Insert at position
+                const reordered = [
+                  ...targetColOps.slice(0, insertIndex),
+                  updatedOp,
+                  ...targetColOps.slice(insertIndex)
+                ]
+
+                return [...otherOps, ...reordered]
+              })
+            }
+          }
+          // Dropped on empty column area
+          else if (destData.type === "column") {
+            const targetColumnId = destData.columnId as string
+            const targetColumn = columns.find(col => col.id === targetColumnId)
+
+            if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
+              updateOperation(draggedOp.id, { status: targetColumn.status[0] as OperationStatus })
+            }
+          }
+        }
+      },
+    })
+  }, [isMounted, operations, assignPersonToOperation, assignMaterialToOperation, setOperations, updateOperation])
 
   const filteredPersonnel = personnel.filter((p) =>
     p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
@@ -1347,12 +1363,6 @@ export default function FireStationDashboard() {
     }
   }
 
-  const activeDragItem = activeId
-    ? personnel.find((p) => `person-${p.id}` === activeId) || 
-      materials.find((m) => `material-${m.id}` === activeId) ||
-      operations.find((op) => `operation-${op.id}` === activeId)
-    : null
-
   const handleCardClick = (operation: Operation) => {
     // Don't open modal if we just finished dragging
     if (isDraggingOperationRef.current) {
@@ -1378,13 +1388,7 @@ export default function FireStationDashboard() {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={customCollisionDetection}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+    <>
       <div className="flex h-screen flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
           <div className="flex items-center gap-3">
@@ -1574,8 +1578,6 @@ export default function FireStationDashboard() {
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
                     isDraggingRef={isDraggingOperationRef}
-                    activeId={activeId}
-                    overId={overId}
                     materials={materials}
                   />
                 )
@@ -1635,54 +1637,63 @@ export default function FireStationDashboard() {
             </div>
           </div>
         </footer>
-
-        <DragOverlay>
-          {activeId && activeDragItem ? (
-            "role" in activeDragItem ? (
-              <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="font-medium text-sm text-foreground">{activeDragItem.name}</span>
-                </div>
-              </Card>
-            ) : "category" in activeDragItem ? (
-              <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-sm text-foreground">{activeDragItem.name}</span>
-                </div>
-              </Card>
-            ) : (
-              <Card className="cursor-move border-2 border-primary p-4 shadow-2xl bg-zinc-800/90 backdrop-blur">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  <span className="font-bold text-foreground">{activeDragItem.location}</span>
-                </div>
-              </Card>
-            )
-          ) : null}
-        </DragOverlay>
-
-        <OperationDetailModal
-          operation={selectedOperation}
-          open={detailModalOpen}
-          onOpenChange={setDetailModalOpen}
-          onUpdate={handleOperationUpdate}
-          materials={materials}
-        />
-
-        <ShortcutsModal
-          open={shortcutsModalOpen}
-          onOpenChange={setShortcutsModalOpen}
-        />
-
-        <NewEmergencyModal
-          open={newEmergencyModalOpen}
-          onOpenChange={setNewEmergencyModalOpen}
-          onCreateOperation={createOperation}
-          nextOperationId={getNextOperationId()}
-        />
       </div>
-    </DndContext>
+
+      {/* Drag Preview Overlay */}
+      {draggingItem && (
+        <div
+          style={{
+            position: 'fixed',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            left: 0,
+            top: 0,
+          }}
+        >
+          {"role" in draggingItem ? (
+            <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl opacity-80">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="font-medium text-sm text-foreground">{draggingItem.name}</span>
+              </div>
+            </Card>
+          ) : "category" in draggingItem ? (
+            <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl opacity-80">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm text-foreground">{draggingItem.name}</span>
+              </div>
+            </Card>
+          ) : (
+            <Card className="cursor-move border-2 border-primary p-4 shadow-2xl bg-zinc-800/90 backdrop-blur opacity-80">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                <span className="font-bold text-foreground">{draggingItem.location}</span>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      <OperationDetailModal
+        operation={selectedOperation}
+        open={detailModalOpen}
+        onOpenChange={setDetailModalOpen}
+        onUpdate={handleOperationUpdate}
+        materials={materials}
+      />
+
+      <ShortcutsModal
+        open={shortcutsModalOpen}
+        onOpenChange={setShortcutsModalOpen}
+      />
+
+      <NewEmergencyModal
+        open={newEmergencyModalOpen}
+        onOpenChange={setNewEmergencyModalOpen}
+        onCreateOperation={createOperation}
+        nextOperationId={getNextOperationId()}
+      />
+    </>
   )
 }
