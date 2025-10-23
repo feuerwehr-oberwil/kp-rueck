@@ -38,8 +38,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     created_incidents: Mapped[list["Incident"]] = relationship(
@@ -71,9 +71,9 @@ class Vehicle(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     __table_args__ = (
@@ -92,9 +92,9 @@ class Personnel(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     __table_args__ = (
@@ -115,9 +115,9 @@ class Material(Base):
     type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     __table_args__ = (
@@ -147,14 +147,14 @@ class Incident(Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="eingegangen")
     training_flag: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     created_by: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(
@@ -172,6 +172,9 @@ class Incident(Base):
 
     __table_args__ = (
         CheckConstraint(
+            "type IN ('fire', 'medical', 'technical', 'hazmat', 'other')", name="valid_incident_type"
+        ),
+        CheckConstraint(
             "priority IN ('low', 'medium', 'high', 'critical')", name="valid_priority"
         ),
         CheckConstraint(
@@ -183,6 +186,8 @@ class Incident(Base):
             "(location_lat IS NOT NULL AND location_lng IS NOT NULL)",
             name="valid_location",
         ),
+        Index('idx_incidents_training', 'training_flag'),
+        Index('idx_incidents_status', 'status'),
     )
 
 
@@ -202,11 +207,11 @@ class IncidentAssignment(Base):
     )
     resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
     resource_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
-    assigned_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     assigned_by: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    unassigned_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    unassigned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
@@ -239,9 +244,9 @@ class RekoReport(Base):
         PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
     )
     token: Mapped[str] = mapped_column(String(255), nullable=False)
-    submitted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     # Form fields
@@ -282,7 +287,7 @@ class StatusTransition(Base):
     )
     from_status: Mapped[str] = mapped_column(String(50), nullable=False)
     to_status: Mapped[str] = mapped_column(String(50), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     user_id: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
@@ -292,7 +297,10 @@ class StatusTransition(Base):
     incident: Mapped["Incident"] = relationship("Incident", back_populates="status_transitions")
     user: Mapped[Optional["User"]] = relationship("User", back_populates="status_transitions")
 
-    __table_args__ = (Index("idx_transitions_incident", "incident_id"),)
+    __table_args__ = (
+        Index("idx_transitions_incident", "incident_id"),
+        Index("idx_transitions_timestamp", "timestamp"),
+    )
 
 
 class AuditLog(Base):
@@ -308,7 +316,7 @@ class AuditLog(Base):
     resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
     resource_id: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
     changes_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     ip_address: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -335,7 +343,7 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     updated_by: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
