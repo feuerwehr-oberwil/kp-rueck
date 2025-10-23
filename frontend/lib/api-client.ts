@@ -47,19 +47,31 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    })
 
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`)
+    console.log(`[API] ${options?.method || 'GET'} ${endpoint}`)
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log(`[API Success] ${options?.method || 'GET'} ${endpoint}`, data)
+      return data
+    } catch (error) {
+      console.error(`[API Exception] ${options?.method || 'GET'} ${endpoint}:`, error)
+      throw error
     }
-
-    return response.json()
   }
 
   // Operations
