@@ -46,10 +46,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware with Railway domain support
+def get_cors_origins() -> list[str]:
+    """Get CORS origins including automatic Railway domain support."""
+    origins = list(settings.cors_origins)
+
+    # Automatically allow all Railway domains in production
+    # This allows frontend and backend to communicate without manual configuration
+    railway_patterns = [
+        "https://*.railway.app",
+        "https://*.up.railway.app",
+    ]
+    origins.extend(railway_patterns)
+
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=get_cors_origins(),
+    allow_origin_regex=r"https://.*\.(railway\.app|up\.railway\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
