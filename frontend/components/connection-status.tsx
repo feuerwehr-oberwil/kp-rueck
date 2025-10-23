@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { apiClient } from "@/lib/api-client"
+
+// Get API URL from same source as api-client
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export function ConnectionStatus() {
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking")
   const [lastCheck, setLastCheck] = useState<Date>(new Date())
+  const [apiUrl] = useState(API_URL)
 
   const checkConnection = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/health`)
+      const response = await fetch(`${apiUrl}/health`)
       if (response.ok) {
         setStatus("connected")
       } else {
@@ -64,7 +67,7 @@ export function ConnectionStatus() {
         </div>
       </Badge>
       <span className="text-xs text-muted-foreground">
-        {process.env.NEXT_PUBLIC_API_URL ? new URL(process.env.NEXT_PUBLIC_API_URL).host : 'localhost:8000'}
+        {apiUrl ? new URL(apiUrl).host : 'localhost:8000'}
       </span>
     </div>
   )
