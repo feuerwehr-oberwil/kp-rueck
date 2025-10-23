@@ -55,6 +55,7 @@ class ApiClient {
     try {
       const response = await fetch(url, {
         ...options,
+        credentials: 'include', // Send cookies for authentication
         headers: {
           'Content-Type': 'application/json',
           ...options?.headers,
