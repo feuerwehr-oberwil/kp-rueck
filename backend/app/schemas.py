@@ -199,6 +199,10 @@ class User(UserBase):
     last_login: Optional[datetime] = None
 
 
+# Alias for API responses (matches task specification)
+UserResponse = User
+
+
 # ============================================
 # Setting Schemas
 # ============================================
