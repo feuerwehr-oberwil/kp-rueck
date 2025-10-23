@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Edit, Filter } from 'lucide-react'
+import { ProtectedRoute } from "@/components/protected-route"
+import { UserMenu } from "@/components/user-menu"
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -1388,7 +1390,7 @@ export default function FireStationDashboard() {
   }
 
   return (
-    <>
+    <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
           <div className="flex items-center gap-3">
@@ -1399,6 +1401,8 @@ export default function FireStationDashboard() {
           </div>
 
           <div className="flex items-center gap-4">
+            <UserMenu />
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -1694,6 +1698,6 @@ export default function FireStationDashboard() {
         onCreateOperation={createOperation}
         nextOperationId={getNextOperationId()}
       />
-    </>
+    </ProtectedRoute>
   )
 }

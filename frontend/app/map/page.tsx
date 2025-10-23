@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { ArrowLeft, MapPin, Clock, Users, Package, FileText } from "lucide-react"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { ProtectedRoute } from "@/components/protected-route"
+import { UserMenu } from "@/components/user-menu"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -51,7 +53,8 @@ export default function MapPage() {
   }, [highlightParam])
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
+    <ProtectedRoute>
+      <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
         <div className="flex items-center gap-3">
           <Link href="/">
@@ -65,12 +68,16 @@ export default function MapPage() {
           <h1 className="text-2xl font-bold tracking-tight">Lagekarte</h1>
         </div>
 
-        <Link href="/">
-          <Button variant="outline" className="gap-2">
-            <MapPin className="h-4 w-4" />
-            Zur Übersicht
-          </Button>
-        </Link>
+        <div className="flex items-center gap-4">
+          <UserMenu />
+
+          <Link href="/">
+            <Button variant="outline" className="gap-2">
+              <MapPin className="h-4 w-4" />
+              Zur Übersicht
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -176,6 +183,6 @@ export default function MapPage() {
           </div>
         </aside>
       </div>
-    </div>
+    </ProtectedRoute>
   )
 }
