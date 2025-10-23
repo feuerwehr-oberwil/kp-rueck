@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kprueck-db
+    environment:
+      POSTGRES_USER: kprueck
+      POSTGRES_PASSWORD: kprueck
+      POSTGRES_DB: kprueck
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kprueck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kprueck-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kprueck-backend
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@postgres:5432/kprueck
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kprueck-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: ${FRONTEND_TARGET:-runner}
+    container_name: kprueck-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - kprueck-network
+
+networks:
+  kprueck-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
