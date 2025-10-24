@@ -234,7 +234,7 @@ Each task file is:
 
 All task files reference:
 - **DESIGN_DOC.md**: System requirements and architecture
-- **IMPLEMENTATION_PLAN.md**: Phased implementation strategy
+- **DECISIONS.md**: Phased implementation strategy
 - **External Documentation**: Framework and library documentation
 
 ## Maintenance
