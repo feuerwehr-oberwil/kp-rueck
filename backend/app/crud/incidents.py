@@ -4,8 +4,9 @@ from typing import Optional
 import uuid
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..models import Incident, StatusTransition, User
@@ -30,9 +31,9 @@ async def get_incidents(
         status: Filter by status
 
     Returns:
-        List of incidents
+        List of incidents with status_changed_at populated (excludes soft-deleted incidents)
     """
-    query = select(Incident).order_by(Incident.created_at.desc())
+    query = select(Incident).where(Incident.deleted_at.is_(None)).order_by(Incident.created_at.desc())
 
     if training_only is not None:
         query = query.where(Incident.training_flag == training_only)
@@ -43,13 +44,46 @@ async def get_incidents(
     query = query.offset(skip).limit(limit)
 
     result = await db.execute(query)
-    return list(result.scalars().all())
+    incidents = list(result.scalars().all())
+
+    # Get latest status transition timestamp for each incident
+    for incident in incidents:
+        # Query the most recent status transition for this incident
+        latest_transition_query = (
+            select(StatusTransition.timestamp)
+            .where(StatusTransition.incident_id == incident.id)
+            .order_by(StatusTransition.timestamp.desc())
+            .limit(1)
+        )
+        transition_result = await db.execute(latest_transition_query)
+        latest_timestamp = transition_result.scalar_one_or_none()
+
+        # Set status_changed_at to latest transition timestamp, or created_at if no transitions exist
+        incident.status_changed_at = latest_timestamp if latest_timestamp else incident.created_at
+
+    return incidents
 
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
-    """Get incident by ID."""
+    """Get incident by ID with status_changed_at populated."""
     result = await db.execute(select(Incident).where(Incident.id == incident_id))
-    return result.scalar_one_or_none()
+    incident = result.scalar_one_or_none()
+
+    if incident:
+        # Get latest status transition timestamp
+        latest_transition_query = (
+            select(StatusTransition.timestamp)
+            .where(StatusTransition.incident_id == incident.id)
+            .order_by(StatusTransition.timestamp.desc())
+            .limit(1)
+        )
+        transition_result = await db.execute(latest_transition_query)
+        latest_timestamp = transition_result.scalar_one_or_none()
+
+        # Set status_changed_at to latest transition timestamp, or created_at if no transitions exist
+        incident.status_changed_at = latest_timestamp if latest_timestamp else incident.created_at
+
+    return incident
 
 
 async def create_incident(
@@ -237,9 +271,10 @@ async def delete_incident(
         await db.delete(incident)
         action = "delete"
     else:
-        # Soft delete live incidents (mark archived)
-        incident.status = "abschluss"
-        incident.completed_at = datetime.utcnow()
+        # Soft delete live incidents (mark deleted)
+        incident.deleted_at = datetime.utcnow()
+        if not incident.completed_at:
+            incident.completed_at = datetime.utcnow()
         action = "archive"
 
     await log_action(

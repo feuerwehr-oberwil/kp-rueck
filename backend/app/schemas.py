@@ -207,6 +207,7 @@ class IncidentResponse(IncidentBase):
     updated_at: datetime
     created_by: Optional[UUID] = None
     completed_at: Optional[datetime] = None
+    status_changed_at: Optional[datetime] = None  # Timestamp of last status transition
 
     @field_serializer('location_lat', 'location_lng')
     def serialize_decimal(self, value):

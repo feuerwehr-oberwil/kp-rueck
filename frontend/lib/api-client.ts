@@ -172,6 +172,7 @@ export interface ApiIncident {
   updated_at: string
   created_by: string | null // UUID
   completed_at: string | null
+  status_changed_at: string | null // Timestamp of last status transition
 }
 
 export interface ApiIncidentCreate {
@@ -233,6 +234,13 @@ class ApiClient {
         const errorText = await response.text()
         console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
         throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+
+      // Handle empty responses (e.g., DELETE operations with 204 No Content)
+      const contentType = response.headers.get('content-type')
+      if (response.status === 204 || !contentType || contentType.indexOf('application/json') === -1) {
+        console.log(`[API Success] ${options?.method || 'GET'} ${endpoint} (no content)`)
+        return undefined as T
       }
 
       const data = await response.json()
