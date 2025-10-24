@@ -153,6 +153,7 @@ function DraggableOperation({
   columnColor,
   onRemoveCrew,
   onRemoveMaterial,
+  onRemoveVehicle,
   onClick,
   onHover,
   isHighlighted,
@@ -166,6 +167,7 @@ function DraggableOperation({
   columnColor: string
   onRemoveCrew: (crewName: string) => void
   onRemoveMaterial: (materialId: string) => void
+  onRemoveVehicle: (vehicleName: string) => void
   onClick: () => void
   onHover: (opId: string | null) => void
   isHighlighted?: boolean
@@ -261,9 +263,6 @@ function DraggableOperation({
               />
               <div className="min-w-0 flex-1">
                 <h3 className="font-bold text-base text-foreground leading-tight break-words">{formatLocation(operation.location)}</h3>
-                {operation.vehicle && (
-                  <p className="text-xs text-muted-foreground mt-0.5 break-words">Fahrzeug: {operation.vehicle}</p>
-                )}
               </div>
             </div>
             {/* Non-draggable icons area */}
@@ -294,6 +293,32 @@ function DraggableOperation({
               {getTimeSince(operation.statusChangedAt || operation.dispatchTime)}
             </span>
           </div>
+
+          {operation.vehicles.length > 0 && (
+            <div className="flex items-start gap-2">
+              <Flame className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <div className="flex flex-wrap gap-1.5">
+                {operation.vehicles.map((vehicleName, idx) => (
+                  <Badge
+                    key={idx}
+                    variant="default"
+                    className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                  >
+                    {vehicleName}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveVehicle(vehicleName)
+                      }}
+                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
           {operation.crew.length > 0 && (
             <div className="flex items-start gap-2">
@@ -361,6 +386,7 @@ function DroppableColumn({
   operations,
   onRemoveCrew,
   onRemoveMaterial,
+  onRemoveVehicle,
   onCardClick,
   onCardHover,
   highlightedOperationId,
@@ -372,6 +398,7 @@ function DroppableColumn({
   operations: Operation[]
   onRemoveCrew: (operationId: string, crewName: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
+  onRemoveVehicle: (operationId: string, vehicleName: string) => void
   onCardClick: (operation: Operation) => void
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
@@ -415,6 +442,7 @@ function DroppableColumn({
               columnColor={column.color}
               onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
               onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
+              onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
               onClick={() => onCardClick(operation)}
               onHover={onCardHover}
               isHighlighted={highlightedOperationId === operation.id}
@@ -755,6 +783,22 @@ function OperationDetailModal({
             </div>
           </div>
 
+          {/* Assigned Vehicles */}
+          <div>
+            <Label className="text-sm font-semibold text-muted-foreground">Zugewiesene Fahrzeuge ({operation.vehicles.length})</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {operation.vehicles.length > 0 ? (
+                operation.vehicles.map((vehicleName, idx) => (
+                  <Badge key={idx} variant="default" className="text-sm px-3 py-1">
+                    {vehicleName}
+                  </Badge>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Keine Fahrzeuge zugewiesen (verwenden Sie Tastaturkürzel 1-5)</p>
+              )}
+            </div>
+          </div>
+
           {/* Crew */}
           <div>
             <Label className="text-sm font-semibold text-muted-foreground">Mannschaft ({operation.crew.length})</Label>
@@ -965,6 +1009,8 @@ function NewEmergencyModal({
     statusChangedAt: null as Date | null,
     crewAssignments: new Map(),
     materialAssignments: new Map(),
+    vehicles: [] as string[],
+    vehicleAssignments: new Map(),
   })
 
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
@@ -1109,6 +1155,8 @@ function NewEmergencyModal({
       statusChangedAt: null,
       crewAssignments: new Map(),
       materialAssignments: new Map(),
+      vehicles: [],
+      vehicleAssignments: new Map(),
     })
 
     onOpenChange(false)
@@ -1303,7 +1351,7 @@ function NewEmergencyModal({
 }
 
 export default function FireStationDashboard() {
-  const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, homeCity, formatLocation, refreshOperations, removeCrew, removeMaterial, updateOperation, createOperation, getNextOperationId, assignPersonToOperation, assignMaterialToOperation, deleteOperation } = useOperations()
+  const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, homeCity, formatLocation, refreshOperations, removeCrew, removeMaterial, removeVehicle, updateOperation, createOperation, getNextOperationId, assignPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, deleteOperation } = useOperations()
   const searchParams = useSearchParams()
   const highlightParam = searchParams.get("highlight")
 
@@ -1322,7 +1370,7 @@ export default function FireStationDashboard() {
   const [filterPriority, setFilterPriority] = useState<string>("all")
   const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string }>>([])
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -1363,11 +1411,11 @@ export default function FireStationDashboard() {
     const loadVehicles = async () => {
       try {
         const vehicles = await apiClient.getVehicles()
-        // Create vehicle types array with keyboard shortcuts (1-5)
-        const uniqueTypes = Array.from(new Set(vehicles.map((v) => v.name)))
-        const typesWithKeys = uniqueTypes.slice(0, 5).map((name, index) => ({
+        // Create vehicle types array with keyboard shortcuts (1-5), including IDs
+        const typesWithKeys = vehicles.slice(0, 5).map((vehicle, index) => ({
           key: String(index + 1),
-          name: name
+          name: vehicle.name,
+          id: vehicle.id
         }))
         setVehicleTypes(typesWithKeys)
       } catch (error) {
@@ -1408,9 +1456,21 @@ export default function FireStationDashboard() {
       }
 
       // Vehicle assignment shortcuts (1-5) - works on hovered operation
+      // Toggle vehicle assignment: assign if not assigned, unassign if assigned
       const vehicleShortcut = vehicleTypes.find(vt => vt.key === e.key)
       if (vehicleShortcut && hoveredOperationId) {
-        updateOperation(hoveredOperationId, { vehicle: vehicleShortcut.name })
+        const operation = operations.find(op => op.id === hoveredOperationId)
+        if (operation) {
+          // Check if vehicle is already assigned
+          const isAssigned = operation.vehicles.includes(vehicleShortcut.name)
+          if (isAssigned) {
+            // Unassign the vehicle
+            removeVehicle(hoveredOperationId, vehicleShortcut.name)
+          } else {
+            // Assign the vehicle
+            assignVehicleToOperation(vehicleShortcut.id, vehicleShortcut.name, hoveredOperationId)
+          }
+        }
         return
       }
 
@@ -1462,7 +1522,7 @@ export default function FireStationDashboard() {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, setOperations])
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation])
 
   // Monitor drag events globally
   useEffect(() => {
@@ -1889,6 +1949,7 @@ export default function FireStationDashboard() {
                     operations={columnOps}
                     onRemoveCrew={removeCrew}
                     onRemoveMaterial={removeMaterial}
+                    onRemoveVehicle={removeVehicle}
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
