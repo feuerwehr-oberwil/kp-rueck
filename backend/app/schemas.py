@@ -6,7 +6,7 @@ from ipaddress import IPv4Address, IPv6Address
 from typing import Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 
 # ============================================
@@ -170,8 +170,8 @@ class IncidentBase(BaseModel):
     type: IncidentType
     priority: IncidentPriority
     location_address: Optional[str] = None
-    location_lat: Optional[Decimal] = None
-    location_lng: Optional[Decimal] = None
+    location_lat: Optional[Union[str, Decimal]] = None
+    location_lng: Optional[Union[str, Decimal]] = None
     status: IncidentStatus = IncidentStatus.EINGEGANGEN
     training_flag: bool = False
     description: Optional[str] = None
@@ -190,8 +190,8 @@ class IncidentUpdate(BaseModel):
     type: Optional[IncidentType] = None
     priority: Optional[IncidentPriority] = None
     location_address: Optional[str] = None
-    location_lat: Optional[Decimal] = None
-    location_lng: Optional[Decimal] = None
+    location_lat: Optional[Union[str, Decimal]] = None
+    location_lng: Optional[Union[str, Decimal]] = None
     status: Optional[IncidentStatus] = None
     description: Optional[str] = None
     # training_flag intentionally excluded (use separate endpoint)
@@ -207,6 +207,13 @@ class IncidentResponse(IncidentBase):
     updated_at: datetime
     created_by: Optional[UUID] = None
     completed_at: Optional[datetime] = None
+
+    @field_serializer('location_lat', 'location_lng')
+    def serialize_decimal(self, value):
+        """Convert Decimal to string for JSON serialization."""
+        if value is None:
+            return None
+        return str(value)
 
 
 # Alias for backwards compatibility
