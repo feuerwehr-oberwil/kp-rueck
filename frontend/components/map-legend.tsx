@@ -55,55 +55,23 @@ export function MapLegend() {
         </div>
       </div>
 
-      {/* Type Legend (showing most common types) */}
+      {/* Marker Design Explanation */}
       <div className="space-y-2 pt-3 border-t border-border">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Einsatzarten (Auswahl)
+          Marker-Design
         </p>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">🔥</span>
-            <span className="text-xs">Brand</span>
+        <div className="flex items-center gap-2">
+          <div className="relative w-6 h-6 rounded-full bg-blue-900 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">🔧</span>
-            <span className="text-xs">Technisch</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">🚗</span>
-            <span className="text-xs">Strasse</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">🛢️</span>
-            <span className="text-xs">Öl</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">⚠️</span>
-            <span className="text-xs">Fehlalarm</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">🌊</span>
-            <span className="text-xs">Element</span>
-          </div>
+          <span className="text-xs">Äusserer Ring: Status, Innerer Kreis: Priorität</span>
         </div>
-      </div>
-
-      {/* Training Mode Indicator */}
-      <div className="mt-3 pt-3 border-t border-border">
         <div className="flex items-center gap-2">
           <div
             className="w-4 h-4 rounded-full border-2 border-dashed border-blue-500 flex-shrink-0"
             style={{ borderWidth: "2px" }}
           />
-          <span className="text-xs">Übungsmodus</span>
-        </div>
-      </div>
-
-      {/* Firestation Marker */}
-      <div className="mt-3 pt-3 border-t border-border">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🚒</span>
-          <span className="text-xs">Magazin</span>
+          <span className="text-xs">Gestrichelte Linie: Übungsmodus</span>
         </div>
       </div>
     </div>

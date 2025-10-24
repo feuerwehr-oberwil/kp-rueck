@@ -52,20 +52,38 @@ function getIncidentTypeDisplayName(type: string): string {
   return displayNameMap[type] || type
 }
 
-// Create custom colored icon for incident markers (simplified circle without emoji)
+// Priority color mapping
+const PRIORITY_COLORS: Record<string, string> = {
+  high: "#ef4444", // red-500
+  medium: "#eab308", // yellow-500
+  low: "#22c55e", // green-500
+}
+
+// Create custom colored icon for incident markers (two-tone: outer ring = status, inner circle = priority)
 function createIncidentIcon(incident: Incident): L.DivIcon {
-  const color = STATUS_COLORS[incident.status] || "#6b7280"
+  const statusColor = STATUS_COLORS[incident.status] || "#6b7280"
+  const priorityColor = PRIORITY_COLORS[incident.priority] || "#6b7280"
 
   const html = `
     <div style="
       width: 24px;
       height: 24px;
-      background-color: ${color};
+      background-color: ${statusColor};
       border: 2px solid white;
       border-radius: 50%;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
       ${incident.training_flag ? 'border-style: dashed;' : ''}
-    "></div>
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="
+        width: 10px;
+        height: 10px;
+        background-color: ${priorityColor};
+        border-radius: 50%;
+      "></div>
+    </div>
   `
 
   return L.divIcon({
@@ -156,7 +174,7 @@ function IncidentPopup({ incident, formatLocation }: { incident: Incident; forma
           </p>
         )}
         {incident.training_flag && (
-          <p className="text-blue-600 font-bold mt-2">🎓 Übungsmodus</p>
+          <p className="text-blue-600 font-bold mt-2">Übungsmodus</p>
         )}
       </div>
 
@@ -233,28 +251,6 @@ export default function MapView({
     return firestationCoords
   }, [mappableIncidents, firestationCoords])
 
-  // Create firestation icon (larger circle to distinguish from incidents)
-  const firestationIcon = useMemo(
-    () =>
-      L.divIcon({
-        html: `
-      <div style="
-        width: 32px;
-        height: 32px;
-        background-color: #dc2626;
-        border: 3px solid white;
-        border-radius: 50%;
-        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
-      "></div>
-    `,
-        className: "fire-station-marker",
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        popupAnchor: [0, -16],
-      }),
-    []
-  )
-
   // Zoom to selected incident
   useEffect(() => {
     if (selectedIncidentId) {
@@ -278,22 +274,6 @@ export default function MapView({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-
-        {/* Firestation Marker */}
-        <Marker position={firestationCoords} icon={firestationIcon}>
-          <Popup>
-            <div className="space-y-2 min-w-[200px]">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🚒</span>
-                <span className="font-bold text-sm">{firestationName}</span>
-              </div>
-              <p className="text-xs text-gray-600">Hauptstandort</p>
-              <p className="text-xs text-gray-500">
-                {firestationCoords[0].toFixed(6)}, {firestationCoords[1].toFixed(6)}
-              </p>
-            </div>
-          </Popup>
-        </Marker>
 
         {/* Incident Markers */}
         {mappableIncidents.map((incident) => (
