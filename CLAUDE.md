@@ -299,6 +299,52 @@ async getAllSettings() {
 - Frontend API calls: `frontend/lib/api-client.ts`
 - Backend routes: `backend/app/api/*.py` (router definitions)
 
+### Database Enum Values Must Match Schema Definitions
+
+**Issue**: Backend fails with `ResponseValidationError` when returning data that doesn't match Pydantic enum definitions.
+
+**What Happened (2025-10-24)**:
+- Database contained old seed data with English enum values (`'fire'`, `'other'`, `'technical'`)
+- Pydantic schemas expected German enum values (`'brandbekaempfung'`, `'strassenrettung'`, etc.)
+- FastAPI validation failed when trying to serialize incidents with old values
+- Error: `ResponseValidationError: Input should be 'brandbekaempfung', 'elementarereignis', ...`
+
+**Root Cause**:
+Database data was seeded with old enum values that no longer match the current schema definitions. When enum values change in `models.py` and `schemas.py`, existing database records must be migrated or reset.
+
+**Solution**:
+Reset and re-seed the database to use correct enum values.
+
+**Local Development**:
+```bash
+make clean  # Remove containers and volumes
+make dev    # Restart with fresh database (auto-seeds)
+```
+
+**Railway Production**:
+See `RAILWAY.md` → "Database Reset (If Needed)" section for instructions on resetting Railway database.
+
+**Prevention**:
+- When changing enum values in models, create an Alembic migration to update existing data
+- Alternatively, document that database reset is required after enum changes
+- Ensure seed script (`app/seed.py`) always uses values that match schema enums
+- Test API endpoints after schema changes to catch validation errors early
+
+**Example Migration for Enum Changes**:
+```python
+# alembic/versions/xxx_update_incident_types.py
+def upgrade():
+    # Update existing values to new enum values
+    op.execute("UPDATE incidents SET type = 'brandbekaempfung' WHERE type = 'fire'")
+    op.execute("UPDATE incidents SET type = 'strassenrettung' WHERE type = 'technical'")
+    # ... etc
+```
+
+**Related Files**:
+- Schema definitions: `backend/app/schemas.py` (Pydantic enums)
+- Model constraints: `backend/app/models.py` (database CHECK constraints)
+- Seed script: `backend/app/seed.py` (must use matching values)
+
 ## Important Files & Documentation
 
 - `DESIGN_DOC.md` - Complete system requirements and architecture specification

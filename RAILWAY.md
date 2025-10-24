@@ -198,6 +198,52 @@ Railway PostgreSQL includes:
 - Point-in-time recovery
 - Manual snapshot creation
 
+## Database Reset (If Needed)
+
+If the Railway database contains stale data with incorrect enum values, you can reset it:
+
+### Option 1: Via Railway Dashboard
+
+1. Go to your Railway project
+2. Click on the PostgreSQL service
+3. Go to "Data" tab
+4. Click "Reset Database" (this will delete all data and tables)
+5. Redeploy the backend service to trigger automatic re-seeding
+
+### Option 2: Via Railway CLI
+
+```bash
+# Connect to Railway project
+railway link
+
+# Open Railway shell for backend service
+railway run bash
+
+# Inside the shell, reset database
+PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+# Exit shell
+exit
+
+# Trigger redeployment to re-seed
+railway up
+```
+
+### Option 3: Manual SQL Reset
+
+1. Open Railway dashboard
+2. Navigate to PostgreSQL service → "Data" tab
+3. Run SQL query:
+   ```sql
+   DROP SCHEMA public CASCADE;
+   CREATE SCHEMA public;
+   ```
+4. Redeploy backend service
+
+After reset, the backend's `start.sh` script will automatically:
+- Run Alembic migrations to recreate tables
+- Seed initial data with correct values
+
 ## Troubleshooting
 
 ### Backend not connecting to database
