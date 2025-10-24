@@ -17,7 +17,7 @@ export interface Person {
 }
 
 export type OperationStatus = "incoming" | "ready" | "enroute" | "active" | "returning" | "complete"
-export type VehicleType = "TLF" | "Pio" | "Unimog" | "Trawa" | "Mawa" | null
+export type VehicleType = string | null
 
 export interface Operation {
   id: string
