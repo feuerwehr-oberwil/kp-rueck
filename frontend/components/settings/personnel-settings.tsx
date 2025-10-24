@@ -143,7 +143,7 @@ export function PersonnelSettings() {
                   <SelectContent>
                     <SelectItem value="available">Verfügbar</SelectItem>
                     <SelectItem value="assigned">Zugewiesen</SelectItem>
-                    <SelectItem value="off_duty">Außer Dienst</SelectItem>
+                    <SelectItem value="off_duty">Ausser Dienst</SelectItem>
                     <SelectItem value="inactive">Inaktiv</SelectItem>
                   </SelectContent>
                 </Select>
@@ -187,7 +187,7 @@ export function PersonnelSettings() {
                 >
                   {person.availability === 'available' ? 'Verfügbar' :
                    person.availability === 'assigned' ? 'Zugewiesen' :
-                   person.availability === 'off_duty' ? 'Außer Dienst' : 'Inaktiv'}
+                   person.availability === 'off_duty' ? 'Ausser Dienst' : 'Inaktiv'}
                 </span>
               </TableCell>
               <TableCell className="text-right">
