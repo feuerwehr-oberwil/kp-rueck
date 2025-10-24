@@ -4,12 +4,12 @@ from typing import Optional
 import uuid
 
 from fastapi import Request
-from sqlalchemy import select, func
+from sqlalchemy import and_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, StatusTransition, User
+from ..models import Incident, IncidentAssignment, StatusTransition, User, Vehicle
 from ..services.audit import calculate_changes, log_action
 
 
@@ -31,7 +31,7 @@ async def get_incidents(
         status: Filter by status
 
     Returns:
-        List of incidents with status_changed_at populated (excludes soft-deleted incidents)
+        List of incidents with status_changed_at and assigned_vehicles populated (excludes soft-deleted incidents)
     """
     query = select(Incident).where(Incident.deleted_at.is_(None)).order_by(Incident.created_at.desc())
 
@@ -46,7 +46,7 @@ async def get_incidents(
     result = await db.execute(query)
     incidents = list(result.scalars().all())
 
-    # Get latest status transition timestamp for each incident
+    # Populate status_changed_at and assigned_vehicles for each incident
     for incident in incidents:
         # Query the most recent status transition for this incident
         latest_transition_query = (
@@ -61,11 +61,14 @@ async def get_incidents(
         # Set status_changed_at to latest transition timestamp, or created_at if no transitions exist
         incident.status_changed_at = latest_timestamp if latest_timestamp else incident.created_at
 
+        # Load assigned vehicles
+        incident.assigned_vehicles = await _get_assigned_vehicles(db, incident.id)
+
     return incidents
 
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
-    """Get incident by ID with status_changed_at populated."""
+    """Get incident by ID with status_changed_at and assigned_vehicles populated."""
     result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = result.scalar_one_or_none()
 
@@ -82,6 +85,9 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 
         # Set status_changed_at to latest transition timestamp, or created_at if no transitions exist
         incident.status_changed_at = latest_timestamp if latest_timestamp else incident.created_at
+
+        # Load assigned vehicles
+        incident.assigned_vehicles = await _get_assigned_vehicles(db, incident.id)
 
     return incident
 
@@ -300,3 +306,40 @@ async def get_incident_status_history(
         .order_by(StatusTransition.timestamp.asc())
     )
     return list(result.scalars().all())
+
+
+async def _get_assigned_vehicles(
+    db: AsyncSession, incident_id: uuid.UUID
+) -> list[schemas.AssignedVehicle]:
+    """
+    Get all assigned vehicles for an incident with vehicle details.
+
+    Internal helper function to populate assigned_vehicles in incident responses.
+    """
+    # Query active vehicle assignments with vehicle details
+    result = await db.execute(
+        select(IncidentAssignment, Vehicle)
+        .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
+        .where(
+            and_(
+                IncidentAssignment.incident_id == incident_id,
+                IncidentAssignment.resource_type == "vehicle",
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+        .order_by(IncidentAssignment.assigned_at.asc())
+    )
+
+    assigned_vehicles = []
+    for assignment, vehicle in result.all():
+        assigned_vehicles.append(
+            schemas.AssignedVehicle(
+                assignment_id=assignment.id,
+                vehicle_id=vehicle.id,
+                name=vehicle.name,
+                type=vehicle.type,
+                assigned_at=assignment.assigned_at,
+            )
+        )
+
+    return assigned_vehicles
