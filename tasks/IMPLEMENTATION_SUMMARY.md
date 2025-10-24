@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-I have created a **complete, production-ready task documentation suite** for the KP Rück Digital Einsatz-Board project. All tasks from DESIGN_DOC.md and IMPLEMENTATION_PLAN.md are now documented with comprehensive implementation guides.
+I have created a **complete, production-ready task documentation suite** for the KP Rück Digital Einsatz-Board project. All tasks from DESIGN_DOC.md and DECISIONS.md are now documented with comprehensive implementation guides.
 
 ### What Was Missing (Now Added)
 
@@ -141,7 +141,7 @@ Each task file includes:
 7. ✅ Acceptance Criteria (checklist format)
 8. ✅ Security Considerations
 9. ✅ Performance Notes
-10. ✅ References to DESIGN_DOC.md and IMPLEMENTATION_PLAN.md
+10. ✅ References to DESIGN_DOC.md and DECISIONS.md
 
 ### Code Examples Provided
 - **Backend**: FastAPI endpoints, SQLAlchemy models, Pydantic schemas, pytest tests
@@ -323,7 +323,7 @@ All tasks specify performance requirements:
 ### Need Help?
 - Check task's References section
 - Review DESIGN_DOC.md for requirements
-- Review IMPLEMENTATION_PLAN.md for architecture
+- Review DECISIONS.md for architecture
 - Ask Claude Code for clarification
 
 ---
@@ -332,7 +332,7 @@ All tasks specify performance requirements:
 
 ### Completeness
 - ✅ All DESIGN_DOC.md features mapped to tasks
-- ✅ All IMPLEMENTATION_PLAN.md phases documented
+- ✅ All DECISIONS.md phases documented
 - ✅ Zero missing functionality gaps
 - ✅ Complete MVP → Production Ready → Post-MVP path
 
@@ -381,7 +381,7 @@ All tasks specify performance requirements:
 
 ## Conclusion
 
-**All tasks from DESIGN_DOC.md and IMPLEMENTATION_PLAN.md are now fully documented** with production-ready implementation guides. The KP Rück project has:
+**All tasks from DESIGN_DOC.md and DECISIONS.md are now fully documented** with production-ready implementation guides. The KP Rück project has:
 
 ✅ **25 comprehensive task files** covering every feature
 ✅ **Complete MVP roadmap** (Phases 1-7, excluding 5.2)

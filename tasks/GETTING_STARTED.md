@@ -297,7 +297,7 @@ pnpm dev
 ### Resources
 
 1. **Task Documentation**: Your primary guide
-2. **IMPLEMENTATION_PLAN.md**: Architectural decisions
+2. **DECISIONS.md**: Architectural decisions
 3. **DESIGN_DOC.md**: Business requirements
 4. **CLAUDE.md**: Project-specific instructions
 5. **Makefile**: Quick command reference

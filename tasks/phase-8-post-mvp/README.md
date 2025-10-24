@@ -374,7 +374,7 @@ Before implementing any Phase 8 feature:
 For any Phase 8 feature approved:
 1. Create detailed task file (similar to Phases 1-7)
 2. Update DESIGN_DOC.md with new requirements
-3. Add to IMPLEMENTATION_PLAN.md timeline
+3. Add to DECISIONS.md timeline
 4. Get user feedback before starting
 5. Build prototype/mockup for validation
 
