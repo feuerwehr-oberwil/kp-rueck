@@ -137,6 +137,31 @@ function PanToSelected({ selectedIncidentId, incidents }: { selectedIncidentId: 
   return null
 }
 
+// Component to reset zoom to show all incidents
+function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Incident[] }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (trigger === 0) return
+
+    if (incidents.length === 0) return
+
+    const validIncidents = incidents.filter(
+      (inc) => inc.location_lat !== null && inc.location_lng !== null
+    )
+
+    if (validIncidents.length === 0) return
+
+    const bounds = L.latLngBounds(
+      validIncidents.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number])
+    )
+
+    map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 })
+  }, [trigger, incidents, map])
+
+  return null
+}
+
 // Warning banner for incidents without valid coordinates
 function MissingLocationsWarning({ count }: { count: number }) {
   if (count === 0) return null
@@ -153,12 +178,14 @@ interface MapViewProps {
   selectedIncidentId?: string | null
   onMarkerClick?: (incidentId: string) => void
   onDetailsClick?: (incident: Incident) => void
+  resetZoomTrigger?: number // Counter to trigger zoom reset
 }
 
 export default function MapView({
   selectedIncidentId,
   onMarkerClick,
   onDetailsClick,
+  resetZoomTrigger = 0,
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -252,6 +279,9 @@ export default function MapView({
 
         {/* Pan to selected incident */}
         <PanToSelected selectedIncidentId={selectedIncidentId ?? null} incidents={mappableIncidents} />
+
+        {/* Reset zoom on trigger */}
+        <ResetZoom trigger={resetZoomTrigger} incidents={mappableIncidents} />
       </MapContainer>
 
       {/* Warning for incidents without location */}
