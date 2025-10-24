@@ -129,57 +129,125 @@ function MissingLocationsWarning({ count }: { count: number }) {
   )
 }
 
+// Helper function to format time since incident creation
+function getTimeSince(date: Date): string {
+  const minutes = Math.floor((Date.now() - date.getTime()) / 1000 / 60)
+  if (minutes < 60) return `${minutes} Min`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}h ${mins}m`
+}
+
+// Helper function to format time
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('de-CH', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 // Incident popup content
-function IncidentPopup({ incident, formatLocation }: { incident: Incident; formatLocation: (address: string) => string }) {
-  const priorityColor =
+function IncidentPopup({
+  incident,
+  formatLocation,
+  onDetailsClick
+}: {
+  incident: Incident
+  formatLocation: (address: string) => string
+  onDetailsClick: (incident: Incident) => void
+}) {
+  const priorityVariant =
     incident.priority === "high"
-      ? "text-red-600"
+      ? "bg-red-100 text-red-800 border-red-300"
       : incident.priority === "medium"
-      ? "text-yellow-600"
-      : "text-gray-600"
+      ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+      : "bg-gray-100 text-gray-800 border-gray-300"
+
+  const priorityLabel =
+    incident.priority === "high"
+      ? "Hoch"
+      : incident.priority === "medium"
+      ? "Mittel"
+      : "Niedrig"
 
   return (
-    <div className="min-w-[200px]">
-      <h3 className="font-bold text-lg mb-2">{incident.title}</h3>
-
-      <div className="space-y-1 text-sm">
-        <p>
-          <strong>Type:</strong> {getIncidentTypeDisplayName(incident.type)}
-        </p>
-        <p>
-          <strong>Priorität:</strong>{" "}
-          <span className={`font-bold ${priorityColor}`}>
-            {incident.priority === "high"
-              ? "Hoch"
-              : incident.priority === "medium"
-              ? "Mittel"
-              : "Niedrig"}
-          </span>
-        </p>
-        <p>
-          <strong>Status:</strong> {incident.status}
-        </p>
+    <div className="min-w-[280px] max-w-[320px]">
+      {/* Title */}
+      <div className="mb-3">
+        <h3 className="font-bold text-base leading-tight mb-1">{incident.title}</h3>
         {incident.location_address && (
-          <p>
-            <strong>Adresse:</strong> {formatLocation(incident.location_address)}
+          <p className="text-xs text-gray-600 truncate">
+            {formatLocation(incident.location_address)}
           </p>
-        )}
-        {incident.description && (
-          <p className="mt-2">
-            <strong>Beschreibung:</strong> {incident.description}
-          </p>
-        )}
-        {incident.training_flag && (
-          <p className="text-blue-600 font-bold mt-2">Übungsmodus</p>
         )}
       </div>
 
+      {/* Incident type */}
+      <div className="mb-2">
+        <p className="text-sm font-medium">
+          {getIncidentTypeDisplayName(incident.type)}
+        </p>
+      </div>
+
+      {/* Time information */}
+      <div className="flex items-center gap-2 text-xs text-gray-600 mb-3">
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span className="font-mono">
+          {formatTime(incident.created_at)} • {getTimeSince(incident.created_at)}
+        </span>
+      </div>
+
+      {/* Priority and Training badges */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${priorityVariant}`}>
+          {priorityLabel}
+        </span>
+        {incident.training_flag && (
+          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+            Übungsmodus
+          </span>
+        )}
+      </div>
+
+      {/* Description preview */}
+      {incident.description && (
+        <p className="text-xs text-gray-600 line-clamp-2 mb-3">
+          {incident.description}
+        </p>
+      )}
+
+      {/* Assigned vehicles */}
+      {incident.assigned_vehicles && incident.assigned_vehicles.length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <svg className="h-3.5 w-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+            </svg>
+            <span className="text-xs text-gray-600">
+              {incident.assigned_vehicles.length} Fahrzeug{incident.assigned_vehicles.length !== 1 ? 'e' : ''}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {incident.assigned_vehicles.slice(0, 3).map((vehicle, idx) => (
+              <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 border border-gray-200">
+                {vehicle.vehicle_name}
+              </span>
+            ))}
+            {incident.assigned_vehicles.length > 3 && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 border border-gray-200">
+                +{incident.assigned_vehicles.length - 3}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Details button */}
       <button
-        className="mt-3 w-full bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
-        onClick={() => {
-          // Navigate to dashboard with incident highlighted
-          window.location.href = `/?incident=${incident.id}`
-        }}
+        className="mt-2 w-full bg-blue-500 text-white px-3 py-2 rounded text-sm font-medium hover:bg-blue-600 transition-colors"
+        onClick={() => onDetailsClick(incident)}
       >
         Details anzeigen
       </button>
@@ -190,11 +258,13 @@ function IncidentPopup({ incident, formatLocation }: { incident: Incident; forma
 interface MapViewProps {
   selectedIncidentId?: string | null
   onMarkerClick?: (incidentId: string) => void
+  onDetailsClick?: (incident: Incident) => void
 }
 
 export default function MapView({
   selectedIncidentId,
   onMarkerClick,
+  onDetailsClick,
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -282,7 +352,11 @@ export default function MapView({
             }}
           >
             <Popup>
-              <IncidentPopup incident={incident} formatLocation={formatLocation} />
+              <IncidentPopup
+                incident={incident}
+                formatLocation={formatLocation}
+                onDetailsClick={(inc) => onDetailsClick?.(inc)}
+              />
             </Popup>
           </Marker>
         ))}

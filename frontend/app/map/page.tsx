@@ -7,10 +7,12 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, MapPin, Clock, FileText } from "lucide-react"
+import { ArrowLeft, FileText } from "lucide-react"
 import { useIncidents } from "@/lib/contexts/incidents-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
+import { IncidentForm } from "@/components/incidents/incident-form"
+import type { Incident } from "@/lib/types/incidents"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -22,43 +24,23 @@ const MapView = dynamic(() => import("@/components/map-view"), {
   ),
 })
 
-function getTimeSince(date: Date): string {
-  const minutes = Math.floor((Date.now() - date.getTime()) / 1000 / 60)
-  if (minutes < 60) return `${minutes} Min`
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-  return `${hours}h ${mins}m`
-}
-
-function getIncidentTypeDisplayName(type: string): string {
-  const displayNameMap: Record<string, string> = {
-    brandbekaempfung: "Brandbekämpfung",
-    elementarereignis: "Elementarereignis",
-    strassenrettung: "Strassenrettung",
-    technische_hilfeleistung: "Technische Hilfeleistung",
-    oelwehr: "Ölwehr",
-    chemiewehr: "Chemiewehr",
-    strahlenwehr: "Strahlenwehr",
-    einsatz_bahnanlagen: "Einsatz Bahnanlagen",
-    bma_unechte_alarme: "BMA / Unechte Alarme",
-    dienstleistungen: "Dienstleistungen",
-    diverse_einsaetze: "Diverse Einsätze",
-    gerettete_menschen: "Gerettete Menschen",
-    gerettete_tiere: "Gerettete Tiere",
-  }
-  return displayNameMap[type] || type
-}
-
 function getStatusDisplayName(status: string): string {
   const statusMap: Record<string, string> = {
     eingegangen: "Eingegangen",
     reko: "Reko",
     disponiert: "Disponiert",
     einsatz: "Einsatz",
-    einsatz_beendet: "Einsatz Beendet",
+    einsatz_beendet: "Beendet",
     abschluss: "Abschluss",
   }
   return statusMap[status] || status
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('de-CH', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 export default function MapPage() {
@@ -68,11 +50,18 @@ export default function MapPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
   )
+  const [incidentForModal, setIncidentForModal] = useState<Incident | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
 
   const selectedIncident = useMemo(
     () => incidents.find((inc) => inc.id === selectedIncidentId),
     [incidents, selectedIncidentId]
   )
+
+  const handleDetailsClick = (incident: Incident) => {
+    setIncidentForModal(incident)
+    setFormOpen(true)
+  }
 
   // Filter out completed incidents for the active list
   const activeIncidents = useMemo(
@@ -121,6 +110,7 @@ export default function MapPage() {
             <MapView
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={setSelectedIncidentId}
+              onDetailsClick={handleDetailsClick}
             />
           </main>
 
@@ -140,7 +130,7 @@ export default function MapPage() {
                   activeIncidents.map((incident) => (
                     <Card
                       key={incident.id}
-                      className={`p-4 cursor-pointer transition-all hover:border-primary/50 ${
+                      className={`p-3 cursor-pointer transition-all hover:border-primary/50 ${
                         selectedIncidentId === incident.id
                           ? "border-primary ring-2 ring-primary/20"
                           : ""
@@ -148,72 +138,48 @@ export default function MapPage() {
                       onClick={() => setSelectedIncidentId(incident.id)}
                     >
                       <div className="space-y-2">
+                        {/* Location and Details button */}
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2 min-w-0 flex-1">
-                            <MapPin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
-                            <div className="min-w-0">
-                              <h3 className="font-bold text-sm leading-tight">
-                                {incident.location_address ? formatLocation(incident.location_address) : incident.title}
-                              </h3>
-                              {incident.type && (
-                                <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                  {getIncidentTypeDisplayName(incident.type)}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <Link
-                              href={`/?incident=${incident.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
-                              title="Im Kanban anzeigen"
-                            >
-                              <FileText className="h-4 w-4 text-primary" />
-                            </Link>
-                            <Badge
-                              variant={
-                                incident.priority === "high"
-                                  ? "destructive"
-                                  : incident.priority === "medium"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs"
-                            >
-                              {incident.priority === "high"
-                                ? "Hoch"
+                          <h3 className="font-bold text-sm leading-tight flex-1">
+                            {incident.location_address ? formatLocation(incident.location_address) : incident.title}
+                          </h3>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDetailsClick(incident)
+                            }}
+                            className="p-1 rounded-md hover:bg-primary/20 transition-colors flex-shrink-0"
+                            title="Details anzeigen"
+                          >
+                            <FileText className="h-4 w-4 text-primary" />
+                          </button>
+                        </div>
+
+                        {/* Priority, Time, and Status */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant={
+                              incident.priority === "high"
+                                ? "destructive"
                                 : incident.priority === "medium"
-                                ? "Mittel"
-                                : "Niedrig"}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <p className="text-sm font-medium">
-                          {getIncidentTypeDisplayName(incident.type)}
-                        </p>
-
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>{getTimeSince(incident.created_at)}</span>
-                        </div>
-
-                        {incident.training_flag && (
-                          <Badge variant="outline" className="text-xs">
-                            Übungsmodus
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {incident.priority === "high"
+                              ? "Hoch"
+                              : incident.priority === "medium"
+                              ? "Mittel"
+                              : "Niedrig"}
                           </Badge>
-                        )}
-
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {getStatusDisplayName(incident.status)}
-                        </Badge>
-
-                        {incident.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
-                            {incident.description}
-                          </p>
-                        )}
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {formatTime(incident.created_at)}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {getStatusDisplayName(incident.status)}
+                          </Badge>
+                        </div>
                       </div>
                     </Card>
                   ))
@@ -222,6 +188,14 @@ export default function MapPage() {
             </div>
           </aside>
         </div>
+
+        {/* Incident Form Modal */}
+        <IncidentForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          incident={incidentForModal}
+          mode="edit"
+        />
       </div>
     </ProtectedRoute>
   )
