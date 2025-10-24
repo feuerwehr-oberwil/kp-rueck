@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { IncidentsProvider } from '@/lib/contexts/incidents-context'
+import { Toaster } from '@/components/ui/sonner'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -37,6 +38,7 @@ export default function RootLayout({
             </OperationsProvider>
           </IncidentsProvider>
         </AuthProvider>
+        <Toaster />
       </body>
     </html>
   )
