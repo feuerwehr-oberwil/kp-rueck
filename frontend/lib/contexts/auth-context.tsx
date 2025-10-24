@@ -29,9 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(setUser)
       .finally(() => setLoading(false));
 
-    // Set up token refresh interval (13 minutes - before 15 min expiration)
+    // Set up token refresh interval (110 minutes - before 120 min expiration)
+    // Only runs once on mount, checks user state inside the callback
     const refreshInterval = setInterval(async () => {
-      if (user) {
+      try {
         const refreshedUser = await refreshToken();
         if (refreshedUser) {
           setUser(refreshedUser);
@@ -39,11 +40,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Refresh failed, user is logged out
           setUser(null);
         }
+      } catch (error) {
+        console.error('Token refresh failed:', error);
       }
-    }, 13 * 60 * 1000); // 13 minutes
+    }, 110 * 60 * 1000); // 110 minutes (10 min before 2h expiration)
 
     return () => clearInterval(refreshInterval);
-  }, [user]);
+  }, []); // Empty dependency array - only run once on mount
 
   const login = async (username: string, password: string) => {
     const loggedInUser = await apiLogin(username, password);
