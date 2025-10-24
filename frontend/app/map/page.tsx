@@ -212,7 +212,7 @@ export default function MapPage() {
 
                         {incident.training_flag && (
                           <Badge variant="outline" className="text-xs">
-                            🎓 Übungsmodus
+                            Übungsmodus
                           </Badge>
                         )}
 
