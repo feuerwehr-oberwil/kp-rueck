@@ -939,6 +939,8 @@ function NewEmergencyModal({
     notes: "",
     contact: "",
     statusChangedAt: null as Date | null,
+    crewAssignments: new Map<string, string>(),
+    materialAssignments: new Map<string, string>(),
   })
 
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
