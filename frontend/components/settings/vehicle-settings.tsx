@@ -52,6 +52,9 @@ export function VehicleSettings() {
     }
   };
 
+  // Get unique vehicle types from existing vehicles
+  const availableVehicleTypes = Array.from(new Set(vehicles.map(v => v.type))).sort();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -118,27 +121,37 @@ export function VehicleSettings() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="z.B. TLF 1, DLK 2"
+                  placeholder="z.B. TLF 1, MTW 2"
                   required
                 />
               </div>
               <div>
                 <Label htmlFor="type">Fahrzeugtyp</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Typ auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TLF">TLF (Tanklöschfahrzeug)</SelectItem>
-                    <SelectItem value="DLK">DLK (Drehleiter)</SelectItem>
-                    <SelectItem value="MTW">MTW (Mannschaftstransportwagen)</SelectItem>
-                    <SelectItem value="RW">RW (Rüstwagen)</SelectItem>
-                    <SelectItem value="KdoW">KdoW (Kommandowagen)</SelectItem>
-                  </SelectContent>
-                </Select>
+                {availableVehicleTypes.length > 0 ? (
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Typ auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableVehicleTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="type"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    placeholder="Fahrzeugtyp eingeben (z.B. TLF, DLK, MTW)"
+                    required
+                  />
+                )}
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>

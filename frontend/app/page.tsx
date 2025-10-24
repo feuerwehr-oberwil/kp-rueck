@@ -34,47 +34,29 @@ const columns = [
   { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: "bg-zinc-900/50" },
 ]
 
-const vehicleTypes: { key: string; name: VehicleType }[] = [
-  { key: "1", name: "TLF" },
-  { key: "2", name: "Pio" },
-  { key: "3", name: "Unimog" },
-  { key: "4", name: "Trawa" },
-  { key: "5", name: "Mawa" },
-]
+// Incident types mapping - matches database constraint
+const incidentTypeLabels: Record<string, string> = {
+  brandbekaempfung: 'Brandbekämpfung',
+  elementarereignis: 'Elementarereignis',
+  strassenrettung: 'Strassenrettung',
+  technische_hilfeleistung: 'Technische Hilfeleistung',
+  oelwehr: 'Ölwehr',
+  chemiewehr: 'Chemiewehr',
+  strahlenwehr: 'Strahlenwehr',
+  einsatz_bahnanlagen: 'Einsatz Bahnanlagen',
+  bma_unechte_alarme: 'BMA / Unechte Alarme',
+  dienstleistungen: 'Dienstleistungen',
+  diverse_einsaetze: 'Diverse Einsätze',
+  gerettete_menschen: 'Gerettete Menschen',
+  gerettete_tiere: 'Gerettete Tiere',
+}
 
-const emergencyTypes = [
-  "Wohnungsbrand",
-  "Fahrzeugbrand",
-  "Gebäudebrand",
-  "Waldbrand",
-  "Technische Hilfe",
-  "Verkehrsunfall",
-  "Ölspur",
-  "Fehlalarm",
-  "Wasserrettung",
-  "Tierrettung",
-  "Sturmschaden",
-  "Gasleck",
-]
+// Get all incident type keys for dropdowns
+const incidentTypeKeys = Object.keys(incidentTypeLabels)
 
 // Helper function to format incident types to German labels
 function getIncidentTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    brandbekaempfung: 'Brandbekämpfung',
-    elementarereignis: 'Elementarereignis',
-    strassenrettung: 'Strassenrettung',
-    technische_hilfeleistung: 'Technische Hilfeleistung',
-    oelwehr: 'Ölwehr',
-    chemiewehr: 'Chemiewehr',
-    strahlenwehr: 'Strahlenwehr',
-    einsatz_bahnanlagen: 'Einsatz Bahnanlagen',
-    bma_unechte_alarme: 'BMA / Unechte Alarme',
-    dienstleistungen: 'Dienstleistungen',
-    diverse_einsaetze: 'Diverse Einsätze',
-    gerettete_menschen: 'Gerettete Menschen',
-    gerettete_tiere: 'Gerettete Tiere',
-  }
-  return labels[type] || type
+  return incidentTypeLabels[type] || type
 }
 
 function getTimeSince(date: Date): string {
@@ -456,6 +438,7 @@ function OperationDetailModal({
   onUpdate,
   onDelete,
   materials,
+  vehicleTypes,
 }: {
   operation: Operation | null
   open: boolean
@@ -463,6 +446,7 @@ function OperationDetailModal({
   onUpdate: (updates: Partial<Operation>) => void
   onDelete: (operationId: string) => void
   materials: Material[]
+  vehicleTypes: Array<{ key: string; name: string }>
 }) {
   const { formatLocation } = useOperations()
   const [locationSearchResults, setLocationSearchResults] = useState<Array<{
@@ -698,9 +682,9 @@ function OperationDetailModal({
                   <SelectValue placeholder="Einsatzart auswählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  {emergencyTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                  {incidentTypeKeys.map((typeKey) => (
+                    <SelectItem key={typeKey} value={typeKey}>
+                      {getIncidentTypeLabel(typeKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -859,7 +843,7 @@ function OperationDetailModal({
   )
 }
 
-function ShortcutsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function ShortcutsModal({ open, onOpenChange, vehicleTypes }: { open: boolean; onOpenChange: (open: boolean) => void; vehicleTypes: Array<{ key: string; name: string }> }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -1197,9 +1181,9 @@ function NewEmergencyModal({
                   <SelectValue placeholder="Einsatzart auswählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  {emergencyTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                  {incidentTypeKeys.map((typeKey) => (
+                    <SelectItem key={typeKey} value={typeKey}>
+                      {getIncidentTypeLabel(typeKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1322,6 +1306,7 @@ export default function FireStationDashboard() {
   const [filterPriority, setFilterPriority] = useState<string>("all")
   const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string }>>([])
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -1355,6 +1340,28 @@ export default function FireStationDashboard() {
     setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
+  }, [])
+
+  // Load vehicles from API to populate vehicle types for shortcuts
+  useEffect(() => {
+    const loadVehicles = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/vehicles/`)
+        if (response.ok) {
+          const vehicles = await response.json()
+          // Create vehicle types array with keyboard shortcuts (1-5)
+          const uniqueTypes = Array.from(new Set(vehicles.map((v: any) => v.name as string)))
+          const typesWithKeys = uniqueTypes.slice(0, 5).map((name, index) => ({
+            key: String(index + 1),
+            name: name as string
+          }))
+          setVehicleTypes(typesWithKeys)
+        }
+      } catch (error) {
+        console.error('Failed to load vehicles:', error)
+      }
+    }
+    loadVehicles()
   }, [])
 
   // Refresh operations immediately when Kanban page loads
@@ -1776,9 +1783,9 @@ export default function FireStationDashboard() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Alle</SelectItem>
-                        {emergencyTypes.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
+                        {incidentTypeKeys.map((typeKey) => (
+                          <SelectItem key={typeKey} value={typeKey}>
+                            {getIncidentTypeLabel(typeKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2029,11 +2036,13 @@ export default function FireStationDashboard() {
         onUpdate={handleOperationUpdate}
         onDelete={handleOperationDelete}
         materials={materials}
+        vehicleTypes={vehicleTypes}
       />
 
       <ShortcutsModal
         open={shortcutsModalOpen}
         onOpenChange={setShortcutsModalOpen}
+        vehicleTypes={vehicleTypes}
       />
 
       <NewEmergencyModal
