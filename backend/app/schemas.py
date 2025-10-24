@@ -214,6 +214,32 @@ Incident = IncidentResponse
 
 
 # ============================================
+# Assignment Schemas
+# ============================================
+
+
+class AssignmentCreate(BaseModel):
+    """Schema for creating resource assignment."""
+
+    resource_type: str  # 'personnel', 'vehicle', 'material'
+    resource_id: UUID
+
+
+class AssignmentResponse(BaseModel):
+    """Assignment response schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    incident_id: UUID
+    resource_type: str
+    resource_id: UUID
+    assigned_at: datetime
+    unassigned_at: Optional[datetime] = None
+    assigned_by: Optional[UUID] = None
+
+
+# ============================================
 # Status Transition Schemas
 # ============================================
 
