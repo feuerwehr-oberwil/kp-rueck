@@ -180,9 +180,7 @@ export default function MapPage() {
                             </Link>
                             <Badge
                               variant={
-                                incident.priority === "critical"
-                                  ? "destructive"
-                                  : incident.priority === "high"
+                                incident.priority === "high"
                                   ? "destructive"
                                   : incident.priority === "medium"
                                   ? "default"
@@ -190,9 +188,7 @@ export default function MapPage() {
                               }
                               className="text-xs"
                             >
-                              {incident.priority === "critical"
-                                ? "Kritisch"
-                                : incident.priority === "high"
+                              {incident.priority === "high"
                                 ? "Hoch"
                                 : incident.priority === "medium"
                                 ? "Mittel"

@@ -147,7 +147,7 @@ export type IncidentType =
   | "gerettete_menschen"
   | "gerettete_tiere"
 
-export type IncidentPriority = "low" | "medium" | "high" | "critical"
+export type IncidentPriority = "low" | "medium" | "high"
 
 export type IncidentStatus =
   | "eingegangen"

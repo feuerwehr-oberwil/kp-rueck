@@ -654,7 +654,7 @@ function OperationDetailModal({
                       ]
                     })
                   }
-                  placeholder="47.5164"
+                  placeholder="47.51637699"
                   className="mt-1"
                 />
               </div>
@@ -677,7 +677,7 @@ function OperationDetailModal({
                       ]
                     })
                   }
-                  placeholder="7.5618"
+                  placeholder="7.56180045"
                   className="mt-1"
                 />
               </div>
@@ -878,6 +878,24 @@ function ShortcutsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (
                   <Kbd>{vt.key}</Kbd>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Prioritäts-Zuweisung (im Einsatzformular)</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Niedrig</span>
+                <Kbd>Shift+1</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Mittel</span>
+                <Kbd>Shift+2</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Hoch</span>
+                <Kbd>Shift+3</Kbd>
+              </div>
             </div>
           </div>
 
@@ -1372,6 +1390,23 @@ export default function FireStationDashboard() {
       if (vehicleShortcut && hoveredOperationId) {
         updateOperation(hoveredOperationId, { vehicle: vehicleShortcut.name })
         return
+      }
+
+      // Priority assignment shortcuts (Shift+1-3) - works on hovered operation
+      if (e.shiftKey && hoveredOperationId) {
+        if (e.key === '1' || e.key === '!') {
+          e.preventDefault()
+          updateOperation(hoveredOperationId, { priority: 'low' })
+          return
+        } else if (e.key === '2' || e.key === '@') {
+          e.preventDefault()
+          updateOperation(hoveredOperationId, { priority: 'medium' })
+          return
+        } else if (e.key === '3' || e.key === '#') {
+          e.preventDefault()
+          updateOperation(hoveredOperationId, { priority: 'high' })
+          return
+        }
       }
 
       // Navigation shortcuts - works on hovered operation

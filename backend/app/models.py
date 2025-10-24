@@ -181,7 +181,7 @@ class Incident(Base):
             name="valid_incident_type"
         ),
         CheckConstraint(
-            "priority IN ('low', 'medium', 'high', 'critical')", name="valid_priority"
+            "priority IN ('low', 'medium', 'high')", name="valid_priority"
         ),
         CheckConstraint(
             "status IN ('eingegangen', 'reko', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss')",
