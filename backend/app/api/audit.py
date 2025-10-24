@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +23,8 @@ async def query_audit_log(
     resource_id: Optional[uuid.UUID] = None,
     user_id: Optional[uuid.UUID] = None,
     action_type: Optional[str] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     limit: int = Query(default=100, le=1000),
     offset: int = 0,
 ):
@@ -36,11 +36,40 @@ async def query_audit_log(
         - resource_id: Filter by specific resource UUID
         - user_id: Filter by user who performed action
         - action_type: Filter by action type (create, update, etc.)
-        - start_date: Filter by timestamp >= start_date
-        - end_date: Filter by timestamp <= end_date
+        - start_date: Filter by timestamp >= start_date (ISO format datetime string)
+        - end_date: Filter by timestamp <= end_date (ISO format datetime string)
 
     Returns up to 1000 entries (paginated). Returns empty array if no entries found.
     """
+    # Parse datetime strings
+    start_dt: Optional[datetime] = None
+    end_dt: Optional[datetime] = None
+
+    if start_date:
+        try:
+            # Handle URL encoding issues: + becomes space in URLs
+            # So "2025-10-24T08:00:00+00:00" becomes "2025-10-24T08:00:00 00:00"
+            # We need to replace " 00:00" back to "+00:00"
+            normalized_start = start_date.replace('Z', '+00:00')
+            # If there's a space before the timezone offset, replace it with +
+            if ' ' in normalized_start and ':' in normalized_start.split(' ')[-1]:
+                parts = normalized_start.rsplit(' ', 1)
+                normalized_start = parts[0] + '+' + parts[1]
+            start_dt = datetime.fromisoformat(normalized_start)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid start_date format: {start_date}")
+
+    if end_date:
+        try:
+            # Handle URL encoding issues
+            normalized_end = end_date.replace('Z', '+00:00')
+            if ' ' in normalized_end and ':' in normalized_end.split(' ')[-1]:
+                parts = normalized_end.rsplit(' ', 1)
+                normalized_end = parts[0] + '+' + parts[1]
+            end_dt = datetime.fromisoformat(normalized_end)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid end_date format: {end_date}")
+
     query = select(AuditLog).order_by(AuditLog.timestamp.desc())
 
     # Apply filters
@@ -56,11 +85,11 @@ async def query_audit_log(
     if action_type:
         query = query.where(AuditLog.action_type == action_type)
 
-    if start_date:
-        query = query.where(AuditLog.timestamp >= start_date)
+    if start_dt:
+        query = query.where(AuditLog.timestamp >= start_dt)
 
-    if end_date:
-        query = query.where(AuditLog.timestamp <= end_date)
+    if end_dt:
+        query = query.where(AuditLog.timestamp <= end_dt)
 
     # Pagination
     query = query.limit(limit).offset(offset)
