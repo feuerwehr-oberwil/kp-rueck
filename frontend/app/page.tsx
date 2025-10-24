@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Edit, Filter, Trash2, Check } from 'lucide-react'
+import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Filter, Trash2, Check } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { UserMenu } from "@/components/user-menu"
@@ -257,14 +257,20 @@ function DraggableOperation({
       <Card
         ref={ref}
         style={{ opacity: isDragging ? 0.5 : 1 }}
-        className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
+        className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
         onMouseEnter={() => onHover(operation.id)}
         onMouseLeave={() => onHover(null)}
+        onClick={(e) => {
+          // Only trigger click if not dragging
+          if (!isDraggingRef.current) {
+            onClick()
+          }
+        }}
       >
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-2">
             {/* Draggable area */}
-            <div className="flex items-start gap-2 min-w-0 flex-1 cursor-move">
+            <div className="flex items-start gap-2 min-w-0 flex-1">
               <div
                 className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
                   operation.priority === "high" ? "bg-red-500" : operation.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
@@ -280,18 +286,6 @@ function DraggableOperation({
             </div>
             {/* Non-draggable icons area */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (!isDraggingRef.current) {
-                    onClick()
-                  }
-                }}
-                className="p-1.5 rounded-md hover:bg-primary/20 transition-colors cursor-pointer"
-                title="Bearbeiten"
-              >
-                <Edit className="h-4 w-4 text-primary" />
-              </button>
               <Link
                 href={`/map?highlight=${operation.id}`}
                 onClick={(e) => e.stopPropagation()}
@@ -424,16 +418,13 @@ function DroppableColumn({
   }, [column.id])
 
   return (
-    <div className={`flex w-80 flex-shrink-0 flex-col transition-all ${isOver ? "ring-2 ring-primary rounded-lg scale-[1.02]" : ""}`}>
-      <div className={`mb-3 rounded-lg ${column.color} border ${isOver ? "border-primary border-2" : "border-border/50"} px-4 py-3 transition-all`}>
+    <div className="flex w-80 flex-shrink-0 flex-col transition-all">
+      <div className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3 transition-all`}>
         <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">{column.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
       </div>
 
-      <div ref={ref} className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative ${isOver && operations.length === 0 ? "bg-primary/20 border-2 border-dashed border-primary" : ""}`}>
-        {isOver && operations.length === 0 && (
-          <div className="absolute inset-0 bg-primary/10 pointer-events-none z-10 rounded-lg" />
-        )}
+      <div ref={ref} className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative ${isOver && operations.length === 0 ? "border-2 border-dashed border-primary" : ""}`}>
         <div className="space-y-3">
           {operations.map((operation, index) => (
             <DraggableOperation
