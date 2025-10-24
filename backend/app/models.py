@@ -78,7 +78,7 @@ class Vehicle(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('available', 'assigned', 'maintenance')", name="valid_vehicle_status"
+            "status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_vehicle_status"
         ),
     )
 
@@ -112,7 +112,6 @@ class Material(Base):
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -122,7 +121,7 @@ class Material(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('available', 'assigned', 'maintenance')", name="valid_material_status"
+            "status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_material_status"
         ),
     )
 

@@ -307,3 +307,4 @@ async getAllSettings() {
 - `Makefile` - Quick reference for common commands
 - `backend/README.md` - Backend-specific setup and API docs
 - `frontend/package.json` - Frontend scripts and dependencies
+- Ensure commits are always! pushed to the main branch otherwise other worktrees don't have access
