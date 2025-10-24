@@ -55,6 +55,7 @@ async def seed_database() -> None:
                 ("firestation_name", "Feuerwehr Oberwil"),
                 ("firestation_latitude", "47.51637699933488"),
                 ("firestation_longitude", "7.561800450458299"),
+                ("home_city", "Oberwil, 4104, Switzerland"),
             ]
 
             settings_created = 0
@@ -209,7 +210,7 @@ async def seed_database() -> None:
             incidents_data = [
                 {
                     "title": "Wohnungsbrand",
-                    "type": "fire",
+                    "type": "brandbekaempfung",
                     "priority": "high",
                     "location_address": "Hauptstraße 45, 79576 Weil am Rhein",
                     "location_lat": 47.5180,
@@ -221,7 +222,7 @@ async def seed_database() -> None:
                 },
                 {
                     "title": "Verkehrsunfall mit eingeklemmter Person",
-                    "type": "technical",
+                    "type": "strassenrettung",
                     "priority": "critical",
                     "location_address": "Industriepark Nord, 79576 Weil am Rhein",
                     "location_lat": 47.5145,
@@ -233,7 +234,7 @@ async def seed_database() -> None:
                 },
                 {
                     "title": "Fehlalarm BMA",
-                    "type": "other",
+                    "type": "bma_unechte_alarme",
                     "priority": "low",
                     "location_address": "Bahnhofstraße 12, 79576 Weil am Rhein",
                     "location_lat": 47.5125,
@@ -246,7 +247,7 @@ async def seed_database() -> None:
                 },
                 {
                     "title": "Ölspur auf Fahrbahn",
-                    "type": "technical",
+                    "type": "technische_hilfeleistung",
                     "priority": "medium",
                     "location_address": "Waldweg 8, 79576 Weil am Rhein",
                     "location_lat": 47.5200,
@@ -258,7 +259,7 @@ async def seed_database() -> None:
                 },
                 {
                     "title": "Übung: Brandbekämpfung Industriehalle",
-                    "type": "fire",
+                    "type": "brandbekaempfung",
                     "priority": "medium",
                     "location_address": "Übungsgelände Feuerwehr",
                     "location_lat": 47.5160,
