@@ -78,7 +78,7 @@ export function MaterialSettings() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this material?')) {
+    if (confirm('Sind Sie sicher, dass Sie dieses Material löschen möchten?')) {
       try {
         await apiClient.deleteMaterialResource(id);
         await loadMaterials();
@@ -97,18 +97,18 @@ export function MaterialSettings() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Material Management</h2>
+        <h2 className="text-2xl font-semibold">Materialverwaltung</h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditingMaterial(null)}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Material
+              Material hinzufügen
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingMaterial ? 'Edit Material' : 'Add New Material'}
+                {editingMaterial ? 'Material bearbeiten' : 'Neues Material hinzufügen'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -118,7 +118,7 @@ export function MaterialSettings() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., pump small from car 1"
+                  placeholder="z.B. Pumpe klein von Auto 1"
                   required
                 />
               </div>
@@ -132,28 +132,28 @@ export function MaterialSettings() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="assigned">Assigned</SelectItem>
-                    <SelectItem value="planned">Planned</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="available">Verfügbar</SelectItem>
+                    <SelectItem value="assigned">Zugewiesen</SelectItem>
+                    <SelectItem value="planned">Geplant</SelectItem>
+                    <SelectItem value="maintenance">Wartung</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="location">Location</Label>
+                <Label htmlFor="location">Standort</Label>
                 <Input
                   id="location"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Storage location"
+                  placeholder="Lagerort"
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                  Cancel
+                  Abbrechen
                 </Button>
                 <Button type="submit">
-                  {editingMaterial ? 'Update' : 'Create'}
+                  {editingMaterial ? 'Aktualisieren' : 'Erstellen'}
                 </Button>
               </div>
             </form>
@@ -166,8 +166,8 @@ export function MaterialSettings() {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>Standort</TableHead>
+            <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -184,7 +184,9 @@ export function MaterialSettings() {
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {material.status}
+                  {material.status === 'available' ? 'Verfügbar' :
+                   material.status === 'assigned' ? 'Zugewiesen' :
+                   material.status === 'planned' ? 'Geplant' : 'Wartung'}
                 </span>
               </TableCell>
               <TableCell>{material.location || '-'}</TableCell>

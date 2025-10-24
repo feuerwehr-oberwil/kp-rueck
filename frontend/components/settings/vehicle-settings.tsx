@@ -78,7 +78,7 @@ export function VehicleSettings() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this vehicle?')) {
+    if (confirm('Sind Sie sicher, dass Sie dieses Fahrzeug löschen möchten?')) {
       try {
         await apiClient.deleteVehicle(id);
         await loadVehicles();
@@ -97,46 +97,46 @@ export function VehicleSettings() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Vehicle Management</h2>
+        <h2 className="text-2xl font-semibold">Fahrzeugverwaltung</h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditingVehicle(null)}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Vehicle
+              Fahrzeug hinzufügen
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingVehicle ? 'Edit Vehicle' : 'Add New Vehicle'}
+                {editingVehicle ? 'Fahrzeug bearbeiten' : 'Neues Fahrzeug hinzufügen'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="name">Name / Call Sign</Label>
+                <Label htmlFor="name">Name / Rufzeichen</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., TLF 1, DLK 2"
+                  placeholder="z.B. TLF 1, DLK 2"
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="type">Vehicle Type</Label>
+                <Label htmlFor="type">Fahrzeugtyp</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value) => setFormData({ ...formData, type: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Typ auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TLF">TLF (Tank Fire Engine)</SelectItem>
-                    <SelectItem value="DLK">DLK (Turntable Ladder)</SelectItem>
-                    <SelectItem value="MTW">MTW (Multi-Purpose Vehicle)</SelectItem>
-                    <SelectItem value="RW">RW (Rescue Vehicle)</SelectItem>
-                    <SelectItem value="KdoW">KdoW (Command Vehicle)</SelectItem>
+                    <SelectItem value="TLF">TLF (Tanklöschfahrzeug)</SelectItem>
+                    <SelectItem value="DLK">DLK (Drehleiter)</SelectItem>
+                    <SelectItem value="MTW">MTW (Mannschaftstransportwagen)</SelectItem>
+                    <SelectItem value="RW">RW (Rüstwagen)</SelectItem>
+                    <SelectItem value="KdoW">KdoW (Kommandowagen)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -150,19 +150,19 @@ export function VehicleSettings() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="assigned">Assigned</SelectItem>
-                    <SelectItem value="planned">Planned</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="available">Verfügbar</SelectItem>
+                    <SelectItem value="assigned">Zugewiesen</SelectItem>
+                    <SelectItem value="planned">Geplant</SelectItem>
+                    <SelectItem value="maintenance">Wartung</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                  Cancel
+                  Abbrechen
                 </Button>
                 <Button type="submit">
-                  {editingVehicle ? 'Update' : 'Create'}
+                  {editingVehicle ? 'Aktualisieren' : 'Erstellen'}
                 </Button>
               </div>
             </form>
@@ -173,10 +173,10 @@ export function VehicleSettings() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name / Call Sign</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead>Name / Rufzeichen</TableHead>
+            <TableHead>Typ</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -194,7 +194,9 @@ export function VehicleSettings() {
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {vehicle.status}
+                  {vehicle.status === 'available' ? 'Verfügbar' :
+                   vehicle.status === 'assigned' ? 'Zugewiesen' :
+                   vehicle.status === 'planned' ? 'Geplant' : 'Wartung'}
                 </span>
               </TableCell>
               <TableCell className="text-right">
