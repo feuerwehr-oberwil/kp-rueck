@@ -180,7 +180,7 @@ async def refresh_token(
 async def logout(
     request: Request,
     response: Response,
-    current_user: CurrentUser,
+    access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -188,11 +188,23 @@ async def logout(
 
     Note: JWT tokens are stateless, so we can't "revoke" them.
     We rely on short expiration times (15 min).
+    Works whether authenticated or not - just clears cookies.
     """
-    # Log logout event
-    await log_logout(db=db, user=current_user, request=request)
-    await db.commit()
+    # Try to get current user for logging purposes (but don't require it)
+    current_user = None
+    if access_token:
+        try:
+            current_user = await get_current_user(request=request, access_token=access_token, db=db)
+        except HTTPException:
+            # If token is invalid/expired, that's fine - just clear cookies
+            pass
 
+    # Log logout event if we have a user
+    if current_user:
+        await log_logout(db=db, user=current_user, request=request)
+        await db.commit()
+
+    # Always clear cookies
     response.delete_cookie(key="access_token")
     response.delete_cookie(key="refresh_token")
     return {"message": "Erfolgreich abgemeldet"}
