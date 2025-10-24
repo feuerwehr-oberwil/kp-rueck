@@ -957,8 +957,8 @@ function NewEmergencyModal({
     notes: "",
     contact: "",
     statusChangedAt: null as Date | null,
-    crewAssignments: new Map<string, string>(),
-    materialAssignments: new Map<string, string>(),
+    crewAssignments: new Map(),
+    materialAssignments: new Map(),
   })
 
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
@@ -1107,6 +1107,8 @@ function NewEmergencyModal({
       notes: "",
       contact: "",
       statusChangedAt: null,
+      crewAssignments: new Map(),
+      materialAssignments: new Map(),
     })
 
     onOpenChange(false)
