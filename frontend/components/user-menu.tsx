@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut } from 'lucide-react';
+import { Settings, User, FileText, LogOut, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,12 +56,20 @@ export function UserMenu() {
           </Link>
         </DropdownMenuItem>
         {isEditor && (
-          <DropdownMenuItem asChild>
-            <Link href="/admin/audit" className="cursor-pointer">
-              <FileText className="mr-2 h-4 w-4" />
-              <span>Audit-Protokoll</span>
-            </Link>
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/resources" className="cursor-pointer">
+                <Users className="mr-2 h-4 w-4" />
+                <span>Ressourcen</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/audit" className="cursor-pointer">
+                <FileText className="mr-2 h-4 w-4" />
+                <span>Audit-Protokoll</span>
+              </Link>
+            </DropdownMenuItem>
+          </>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} variant="destructive">
