@@ -2,7 +2,7 @@
 from typing import Annotated
 import uuid
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ from .security import decode_token
 
 
 async def get_current_user(
+    request: Request,
     access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db)
 ) -> User:
@@ -63,6 +64,9 @@ async def get_current_user(
 
     if user is None:
         raise credentials_exception
+
+    # Set user on request state for middleware access
+    request.state.user = user
 
     return user
 
