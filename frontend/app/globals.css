@@ -158,4 +158,30 @@
   textarea:focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
   }
+
+  /* Custom scrollbar styling for dark theme */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.3 0 0) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: oklch(0.3 0 0);
+    border-radius: 6px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.4 0 0);
+    background-clip: padding-box;
+  }
 }
