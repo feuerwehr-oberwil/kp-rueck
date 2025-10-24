@@ -53,8 +53,8 @@ class VehicleBase(BaseModel):
     """Base vehicle schema."""
 
     name: str
-    type: str  # 'TLF', 'DLK', 'MTW'
-    status: str  # 'available', 'assigned', 'maintenance'
+    type: str  # Configurable vehicle types (e.g., 'TLF', 'DLK', 'MTW')
+    status: str  # 'available', 'assigned', 'planned', 'maintenance'
 
 
 class VehicleCreate(VehicleBase):
@@ -89,10 +89,9 @@ class Vehicle(VehicleBase):
 class MaterialBase(BaseModel):
     """Base material schema."""
 
-    name: str
-    type: Optional[str] = None  # 'Stromerzeuger', 'Pumpe', 'Beleuchtung'
-    status: str  # 'available', 'assigned', 'maintenance'
-    location: Optional[str] = None  # 'TLF 1', 'Lager Raum 3'
+    name: str  # Descriptive name including type/location (e.g., 'pump small from car 1')
+    status: str  # 'available', 'assigned', 'planned', 'maintenance'
+    location: Optional[str] = None  # Storage location (e.g., 'TLF 1', 'Lager Raum 3')
 
 
 class MaterialCreate(MaterialBase):
@@ -105,7 +104,6 @@ class MaterialUpdate(BaseModel):
     """Schema for updating material."""
 
     name: Optional[str] = None
-    type: Optional[str] = None
     status: Optional[str] = None
     location: Optional[str] = None
 

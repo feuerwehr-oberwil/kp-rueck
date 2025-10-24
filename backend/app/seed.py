@@ -140,62 +140,52 @@ async def seed_database() -> None:
             print("Creating materials...")
             materials_data = [
                 {
-                    "name": "Wasserpumpe TP 15/8",
-                    "type": "Pumpen",
+                    "name": "Wasserpumpe TP 15/8 from TLF 1",
                     "status": "assigned",
                     "location": "TLF 1",
                 },
                 {
                     "name": "Schlauchpaket B",
-                    "type": "Schläuche",
                     "status": "available",
                     "location": "Lager Raum 3",
                 },
                 {
                     "name": "Schlauchpaket C",
-                    "type": "Schläuche",
                     "status": "available",
                     "location": "Lager Raum 3",
                 },
                 {
-                    "name": "Atemschutzgerät",
-                    "type": "Atemschutz",
+                    "name": "Atemschutzgerät from TLF 1",
                     "status": "assigned",
                     "location": "TLF 1",
                 },
                 {
                     "name": "Wärmebildkamera",
-                    "type": "Spezialgerät",
                     "status": "available",
                     "location": "MTW 1",
                 },
                 {
-                    "name": "Hydraulisches Rettungsgerät",
-                    "type": "Spezialgerät",
+                    "name": "Hydraulisches Rettungsgerät from Pio",
                     "status": "assigned",
                     "location": "Pio",
                 },
                 {
                     "name": "Schaummittel 200L",
-                    "type": "Löschmittel",
                     "status": "available",
                     "location": "Lager Raum 1",
                 },
                 {
                     "name": "Stromerzeuger 5kW",
-                    "type": "Technik",
                     "status": "available",
                     "location": "DLK",
                 },
                 {
-                    "name": "Funkgerät HRT 1",
-                    "type": "Kommunikation",
+                    "name": "Funkgerät HRT 1 from KdoW",
                     "status": "assigned",
                     "location": "KdoW",
                 },
                 {
                     "name": "Erste-Hilfe-Koffer",
-                    "type": "Sanitär",
                     "status": "available",
                     "location": "Lager Raum 2",
                 },
