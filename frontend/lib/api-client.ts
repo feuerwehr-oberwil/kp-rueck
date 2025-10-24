@@ -195,7 +195,7 @@ class ApiClient {
 
   // Settings
   async getAllSettings(): Promise<Record<string, string>> {
-    return this.request<Record<string, string>>('/api/settings')
+    return this.request<Record<string, string>>('/api/settings/')
   }
 
   async getSetting(key: string): Promise<{ key: string; value: string }> {
