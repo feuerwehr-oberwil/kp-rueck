@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 import uuid
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError
 from sqlalchemy import select
@@ -20,12 +20,14 @@ from ..auth.security import (
 from ..auth.config import auth_settings
 from ..database import get_db
 from ..models import User
+from ..services.audit import log_login, log_logout
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/login", response_model=schemas.UserResponse)
 async def login(
+    request: Request,
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: AsyncSession = Depends(get_db)
@@ -40,7 +42,8 @@ async def login(
         2. Generate JWT tokens
         3. Set httpOnly cookies
         4. Update last_login timestamp
-        5. Return user data
+        5. Log login attempt
+        6. Return user data
     """
     # Find user by username
     result = await db.execute(
@@ -50,6 +53,11 @@ async def login(
 
     # Verify credentials
     if not user or not verify_password(form_data.password, user.password_hash):
+        # Log failed login attempt if user exists
+        if user:
+            await log_login(db=db, user=user, request=request, success=False)
+            await db.commit()
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Falscher Benutzername oder Passwort",
@@ -90,6 +98,10 @@ async def login(
 
     # Update last login
     user.last_login = datetime.now(timezone.utc)
+
+    # Log successful login
+    await log_login(db=db, user=user, request=request, success=True)
+
     await db.commit()
 
     return user
@@ -165,13 +177,22 @@ async def refresh_token(
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(
+    request: Request,
+    response: Response,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Logout by clearing cookies.
 
     Note: JWT tokens are stateless, so we can't "revoke" them.
     We rely on short expiration times (15 min).
     """
+    # Log logout event
+    await log_logout(db=db, user=current_user, request=request)
+    await db.commit()
+
     response.delete_cookie(key="access_token")
     response.delete_cookie(key="refresh_token")
     return {"message": "Erfolgreich abgemeldet"}

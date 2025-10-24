@@ -1,9 +1,10 @@
 """Pydantic schemas for request/response validation."""
 from datetime import datetime
-from typing import Optional
+from ipaddress import IPv4Address, IPv6Address
+from typing import Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 # ============================================
@@ -228,3 +229,31 @@ class Setting(SettingBase):
 
     updated_at: datetime
     updated_by: Optional[UUID] = None
+
+
+# ============================================
+# Audit Log Schemas
+# ============================================
+
+
+class AuditLogEntry(BaseModel):
+    """Audit log entry schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: Optional[UUID] = None
+    action_type: str
+    resource_type: str
+    resource_id: Optional[UUID] = None
+    changes_json: Optional[dict] = None
+    timestamp: datetime
+    ip_address: Optional[Union[str, IPv4Address, IPv6Address]] = None
+    user_agent: Optional[str] = None
+
+    @field_serializer('ip_address')
+    def serialize_ip_address(self, ip_address: Optional[Union[str, IPv4Address, IPv6Address]], _info) -> Optional[str]:
+        """Convert IPv4Address/IPv6Address to string."""
+        if ip_address is None:
+            return None
+        return str(ip_address)
