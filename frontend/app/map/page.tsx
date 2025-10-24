@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, FileText } from "lucide-react"
+import { ArrowLeft, FileText, Clock, Users, Package, Truck } from "lucide-react"
 import { useIncidents } from "@/lib/contexts/incidents-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -41,6 +41,33 @@ function formatTime(date: Date): string {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+function getIncidentTypeDisplayName(type: string): string {
+  const displayNameMap: Record<string, string> = {
+    brandbekaempfung: "Brandbekämpfung",
+    elementarereignis: "Elementarereignis",
+    strassenrettung: "Straßenrettung",
+    technische_hilfeleistung: "Technische Hilfeleistung",
+    oelwehr: "Ölwehr",
+    chemiewehr: "Chemiewehr",
+    strahlenwehr: "Strahlenwehr",
+    einsatz_bahnanlagen: "Einsatz Bahnanlagen",
+    bma_unechte_alarme: "BMA / Unechte Alarme",
+    dienstleistungen: "Dienstleistungen",
+    diverse_einsaetze: "Diverse Einsätze",
+    gerettete_menschen: "Gerettete Menschen",
+    gerettete_tiere: "Gerettete Tiere",
+  }
+  return displayNameMap[type] || type
+}
+
+function getTimeSince(date: Date): string {
+  const minutes = Math.floor((Date.now() - date.getTime()) / 1000 / 60)
+  if (minutes < 60) return `${minutes}'`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}h ${mins}'`
 }
 
 export default function MapPage() {
@@ -127,62 +154,114 @@ export default function MapPage() {
                     Keine aktiven Einsätze
                   </p>
                 ) : (
-                  activeIncidents.map((incident) => (
-                    <Card
-                      key={incident.id}
-                      className={`p-3 cursor-pointer transition-all hover:border-primary/50 ${
-                        selectedIncidentId === incident.id
-                          ? "border-primary ring-2 ring-primary/20"
-                          : ""
-                      }`}
-                      onClick={() => setSelectedIncidentId(incident.id)}
-                    >
-                      <div className="space-y-2">
-                        {/* Location and Details button */}
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-bold text-sm leading-tight flex-1">
-                            {incident.location_address ? formatLocation(incident.location_address) : incident.title}
-                          </h3>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDetailsClick(incident)
-                            }}
-                            className="p-1 rounded-md hover:bg-primary/20 transition-colors flex-shrink-0"
-                            title="Details anzeigen"
-                          >
-                            <FileText className="h-4 w-4 text-primary" />
-                          </button>
-                        </div>
+                  activeIncidents.map((incident) => {
+                    const isExpanded = selectedIncidentId === incident.id
+                    return (
+                      <Card
+                        key={incident.id}
+                        className={`p-4 cursor-pointer transition-all hover:border-primary/50 ${
+                          isExpanded
+                            ? "border-primary ring-2 ring-primary/20 scale-[1.02]"
+                            : ""
+                        }`}
+                        onClick={() => setSelectedIncidentId(incident.id)}
+                      >
+                        <div className="space-y-3">
+                          {/* Location and Details button */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-base leading-tight">
+                                {incident.location_address ? formatLocation(incident.location_address) : incident.title}
+                              </h3>
+                              {incident.title && incident.title !== incident.location_address && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {incident.title}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDetailsClick(incident)
+                              }}
+                              className="p-1.5 rounded-md hover:bg-primary/20 transition-colors flex-shrink-0"
+                              title="Details anzeigen"
+                            >
+                              <FileText className="h-4 w-4 text-primary" />
+                            </button>
+                          </div>
 
-                        {/* Priority, Time, and Status */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge
-                            variant={
-                              incident.priority === "high"
-                                ? "destructive"
+                          {/* Incident Type */}
+                          {isExpanded && (
+                            <div className="text-sm font-medium text-foreground">
+                              {getIncidentTypeDisplayName(incident.type)}
+                            </div>
+                          )}
+
+                          {/* Priority, Time, and Status */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge
+                              variant={
+                                incident.priority === "high"
+                                  ? "destructive"
+                                  : incident.priority === "medium"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className="text-xs"
+                            >
+                              {incident.priority === "high"
+                                ? "Hoch"
                                 : incident.priority === "medium"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {incident.priority === "high"
-                              ? "Hoch"
-                              : incident.priority === "medium"
-                              ? "Mittel"
-                              : "Niedrig"}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {formatTime(incident.created_at)}
-                          </span>
-                          <Badge variant="outline" className="text-xs">
-                            {getStatusDisplayName(incident.status)}
-                          </Badge>
+                                ? "Mittel"
+                                : "Niedrig"}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {formatTime(incident.created_at)}
+                            </span>
+                            {isExpanded && (
+                              <span className="text-xs text-muted-foreground font-mono">
+                                • {getTimeSince(incident.created_at)}
+                              </span>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {getStatusDisplayName(incident.status)}
+                            </Badge>
+                            {incident.training_flag && (
+                              <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 border-amber-300">
+                                Übung
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Description (only when expanded) */}
+                          {isExpanded && incident.description && (
+                            <p className="text-sm text-muted-foreground">
+                              {incident.description}
+                            </p>
+                          )}
+
+                          {/* Assigned Vehicles (only when expanded) */}
+                          {isExpanded && incident.assigned_vehicles && incident.assigned_vehicles.length > 0 && (
+                            <div className="flex items-start gap-2">
+                              <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                              <div className="flex flex-wrap gap-1.5 flex-1">
+                                {incident.assigned_vehicles.map((vehicle, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {vehicle.name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </Card>
-                  ))
+                      </Card>
+                    )
+                  })
                 )}
               </div>
             </div>
