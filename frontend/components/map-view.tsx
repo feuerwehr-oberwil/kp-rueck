@@ -132,10 +132,8 @@ function MissingLocationsWarning({ count }: { count: number }) {
 // Incident popup content
 function IncidentPopup({ incident, formatLocation }: { incident: Incident; formatLocation: (address: string) => string }) {
   const priorityColor =
-    incident.priority === "critical"
+    incident.priority === "high"
       ? "text-red-600"
-      : incident.priority === "high"
-      ? "text-orange-600"
       : incident.priority === "medium"
       ? "text-yellow-600"
       : "text-gray-600"
@@ -151,9 +149,7 @@ function IncidentPopup({ incident, formatLocation }: { incident: Incident; forma
         <p>
           <strong>Priorität:</strong>{" "}
           <span className={`font-bold ${priorityColor}`}>
-            {incident.priority === "critical"
-              ? "Kritisch"
-              : incident.priority === "high"
+            {incident.priority === "high"
               ? "Hoch"
               : incident.priority === "medium"
               ? "Mittel"

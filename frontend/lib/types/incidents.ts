@@ -116,7 +116,6 @@ export const PRIORITY_LABELS: Record<IncidentPriority, string> = {
   low: 'Niedrig',
   medium: 'Mittel',
   high: 'Hoch',
-  critical: 'Kritisch',
 }
 
 /**

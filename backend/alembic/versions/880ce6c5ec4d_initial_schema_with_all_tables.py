@@ -74,7 +74,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('created_by', sa.UUID(), nullable=True),
     sa.Column('completed_at', sa.DateTime(), nullable=True),
-    sa.CheckConstraint("priority IN ('low', 'medium', 'high', 'critical')", name='valid_priority'),
+    sa.CheckConstraint("priority IN ('low', 'medium', 'high')", name='valid_priority'),
     sa.CheckConstraint("status IN ('eingegangen', 'reko', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss')", name='valid_status'),
     sa.CheckConstraint('(location_lat IS NULL AND location_lng IS NULL) OR (location_lat IS NOT NULL AND location_lng IS NOT NULL)', name='valid_location'),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),

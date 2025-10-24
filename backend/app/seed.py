@@ -223,7 +223,7 @@ async def seed_database() -> None:
                 {
                     "title": "Verkehrsunfall mit eingeklemmter Person",
                     "type": "strassenrettung",
-                    "priority": "critical",
+                    "priority": "high",
                     "location_address": "Industriepark Nord, 79576 Weil am Rhein",
                     "location_lat": 47.5145,
                     "location_lng": 7.5595,
