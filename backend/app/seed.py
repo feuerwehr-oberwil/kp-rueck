@@ -52,6 +52,9 @@ async def seed_database() -> None:
                 ("auto_archive_timeout_hours", "24"),
                 ("notification_enabled", "false"),
                 ("alarm_webhook_secret", "CHANGE_ME_IN_PRODUCTION"),
+                ("firestation_name", "Feuerwehr Oberwil"),
+                ("firestation_latitude", "47.51637699933488"),
+                ("firestation_longitude", "7.561800450458299"),
             ]
 
             settings_created = 0
