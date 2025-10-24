@@ -157,6 +157,14 @@ export type IncidentStatus =
   | "einsatz_beendet"
   | "abschluss"
 
+export interface ApiAssignedVehicle {
+  assignment_id: string // UUID
+  vehicle_id: string
+  name: string
+  type: string
+  assigned_at: string
+}
+
 export interface ApiIncident {
   id: string // UUID
   title: string
@@ -173,6 +181,7 @@ export interface ApiIncident {
   created_by: string | null // UUID
   completed_at: string | null
   status_changed_at: string | null // Timestamp of last status transition
+  assigned_vehicles: ApiAssignedVehicle[]
 }
 
 export interface ApiIncidentCreate {

@@ -197,6 +197,18 @@ class IncidentUpdate(BaseModel):
     # training_flag intentionally excluded (use separate endpoint)
 
 
+class AssignedVehicle(BaseModel):
+    """Vehicle with assignment information."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    assignment_id: UUID  # ID of the assignment record
+    vehicle_id: UUID
+    name: str
+    type: str
+    assigned_at: datetime
+
+
 class IncidentResponse(IncidentBase):
     """Full incident schema with database fields."""
 
@@ -208,6 +220,7 @@ class IncidentResponse(IncidentBase):
     created_by: Optional[UUID] = None
     completed_at: Optional[datetime] = None
     status_changed_at: Optional[datetime] = None  # Timestamp of last status transition
+    assigned_vehicles: list[AssignedVehicle] = []  # List of assigned vehicles with details
 
     @field_serializer('location_lat', 'location_lng')
     def serialize_decimal(self, value):
