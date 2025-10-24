@@ -7,12 +7,14 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, FileText, Clock, Users, Package, Truck } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search } from "lucide-react"
 import { useIncidents } from "@/lib/contexts/incidents-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { IncidentForm } from "@/components/incidents/incident-form"
 import type { Incident } from "@/lib/types/incidents"
+import { Kbd } from "@/components/ui/kbd"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -79,6 +81,8 @@ export default function MapPage() {
   )
   const [incidentForModal, setIncidentForModal] = useState<Incident | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+  const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("")
 
   const selectedIncident = useMemo(
     () => incidents.find((inc) => inc.id === selectedIncidentId),
@@ -92,8 +96,21 @@ export default function MapPage() {
 
   // Filter out completed incidents for the active list
   const activeIncidents = useMemo(
-    () => incidents.filter((inc) => inc.status !== "abschluss"),
-    [incidents]
+    () => {
+      const active = incidents.filter((inc) => inc.status !== "abschluss")
+
+      // Filter by search query
+      if (!searchQuery) return active
+
+      const lowerQuery = searchQuery.toLowerCase()
+      return active.filter((inc) =>
+        (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
+        (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
+        getIncidentTypeDisplayName(inc.type).toLowerCase().includes(lowerQuery) ||
+        getStatusDisplayName(inc.status).toLowerCase().includes(lowerQuery)
+      )
+    },
+    [incidents, searchQuery]
   )
 
   // Refresh incidents immediately when map page loads
@@ -106,6 +123,26 @@ export default function MapPage() {
       setSelectedIncidentId(highlightParam)
     }
   }, [highlightParam])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Ignore if typing in input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // 'z' key to zoom out
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault()
+        setResetZoomTrigger((prev) => prev + 1)
+        setSelectedIncidentId(null) // Deselect any selected incident
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [])
 
   return (
     <ProtectedRoute>
@@ -138,15 +175,31 @@ export default function MapPage() {
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={setSelectedIncidentId}
               onDetailsClick={handleDetailsClick}
+              resetZoomTrigger={resetZoomTrigger}
             />
           </main>
 
           {/* Sidebar */}
           <aside className="w-96 border-l border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto">
             <div className="p-4">
-              <h2 className="text-lg font-bold mb-4">
+              <h2 className="text-lg font-bold mb-3">
                 Aktive Einsätze ({activeIncidents.length})
               </h2>
+
+              {/* Search bar */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Suchen..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-8"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <Kbd className="text-xs">Z</Kbd>
+                </div>
+              </div>
 
               <div className="space-y-3">
                 {activeIncidents.length === 0 ? (
