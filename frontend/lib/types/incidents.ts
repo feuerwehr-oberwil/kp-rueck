@@ -33,6 +33,7 @@ export interface Incident {
   updated_at: Date
   created_by: string | null // UUID
   completed_at: Date | null
+  status_changed_at: Date | null // Timestamp of last status transition
 }
 
 /**

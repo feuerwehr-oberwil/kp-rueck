@@ -154,6 +154,7 @@ class Incident(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(

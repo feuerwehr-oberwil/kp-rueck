@@ -1,7 +1,9 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react"
-import { apiClient, type ApiOperation, type ApiPerson, type ApiMaterial } from "@/lib/api-client"
+import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
+import { apiClient, type ApiOperation, type ApiPersonnel, type ApiMaterialResource } from "@/lib/api-client"
+import { formatLocationForDisplay } from "@/lib/utils"
+import { useAuth } from "./auth-context"
 
 // Types
 export type PersonStatus = "available" | "assigned"
@@ -30,6 +32,7 @@ export interface Operation {
   materials: string[]
   notes: string
   contact: string
+  statusChangedAt: Date | null // Timestamp when the operation moved to its current status
 }
 
 export interface Material {
@@ -52,6 +55,11 @@ interface OperationsContextType {
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
   operations: Operation[]
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
+  homeCity: string
+  /** Format a location address for display based on home city */
+  formatLocation: (fullAddress: string) => string
+  /** Refresh operations from the server */
+  refreshOperations: () => Promise<void>
   /** Remove a crew member from an operation (persists to DB) */
   removeCrew: (operationId: string, crewName: string) => void
   /** Remove material from an operation (persists to DB) */
@@ -66,15 +74,20 @@ interface OperationsContextType {
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
   /** Assign material to an operation (persists both operation and material status to DB) */
   assignMaterialToOperation: (materialId: string, operationId: string) => void
+  /** Delete an operation (persists to DB) */
+  deleteOperation: (operationId: string) => Promise<void>
 }
 
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [personnel, setPersonnel] = useState<Person[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [operations, setOperations] = useState<Operation[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [homeCity, setHomeCity] = useState<string>("")
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
@@ -91,6 +104,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     materials: apiOp.materials,
     notes: apiOp.notes,
     contact: apiOp.contact,
+    statusChangedAt: null, // Legacy operation format doesn't have this field
   })
 
   const operationToApiOperation = (op: Operation) => ({
@@ -114,11 +128,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     status: apiPerson.availability as PersonStatus, // Backend uses 'availability' field
   })
 
-  const apiMaterialToMaterial = (apiMat: ApiMaterial): Material => ({
+  const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({
     id: String(apiMat.id),
     name: apiMat.name,
-    category: apiMat.category,
-    status: apiMat.status as "available" | "assigned",
+    category: apiMat.location || "General",
+    status: (apiMat.status === "available" ? "available" : "assigned") as "available" | "assigned",
   })
 
   // Helper to convert Incident to Operation
@@ -148,32 +162,77 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       materials: [], // Not directly in incident schema
       notes: incident.description || "",
       contact: "", // Not in incident schema
+      statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
     }
   }
 
-  // Load initial data from API
+  // Refresh operations from server
+  const refreshOperations = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
+        apiClient.getIncidents(),
+        apiClient.getAllPersonnel(),
+        apiClient.getAllMaterials(),
+        apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
+      ])
+
+      setOperations(apiIncidents.map(apiIncidentToOperation))
+      setPersonnel(apiPersonnel.map(apiPersonToPerson))
+      setMaterials(apiMats.map(apiMaterialToMaterial))
+      setHomeCity(settings.home_city || "")
+    } catch (error) {
+      console.error("Failed to load data from API:", error)
+      // Leave arrays empty if API fails - no fallback data
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Load initial data from API - only when authenticated
   useEffect(() => {
+    // Don't load data if auth is still loading or user is not authenticated
+    if (authLoading || !isAuthenticated) {
+      setIsLoading(false)
+      return
+    }
+
     const loadData = async () => {
       try {
-        const [apiIncidents, apiPersonnel, apiMats] = await Promise.all([
+        setIsLoading(true)
+        const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
           apiClient.getIncidents(),
           apiClient.getAllPersonnel(),
           apiClient.getAllMaterials(),
+          apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
         ])
 
         setOperations(apiIncidents.map(apiIncidentToOperation))
         setPersonnel(apiPersonnel.map(apiPersonToPerson))
         setMaterials(apiMats.map(apiMaterialToMaterial))
+        setHomeCity(settings.home_city || "")
         setIsLoaded(true)
       } catch (error) {
         console.error("Failed to load data from API:", error)
         // Leave arrays empty if API fails - no fallback data
         setIsLoaded(true)
+      } finally {
+        setIsLoading(false)
       }
     }
 
     loadData()
-  }, [])
+
+    // Poll for updates every 5 seconds
+    const pollInterval = setInterval(() => {
+      // Only poll if not currently loading
+      if (!isLoading) {
+        loadData()
+      }
+    }, 5000)
+
+    return () => clearInterval(pollInterval)
+  }, [authLoading, isAuthenticated])
 
   const removeCrew = (operationId: string, crewName: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -260,17 +319,30 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         clearTimeout(updateTimeoutRef.current)
       }
       updateTimeoutRef.current = setTimeout(() => {
+        // Map frontend status to backend status
+        const statusToBackend: Record<OperationStatus, string> = {
+          "incoming": "eingegangen",
+          "ready": "reko",
+          "enroute": "disponiert",
+          "active": "einsatz",
+          "returning": "einsatz_beendet",
+          "complete": "abschluss",
+        }
+
         const apiUpdates: any = {}
-        if (updates.location !== undefined) apiUpdates.location = updates.location
+        if (updates.location !== undefined) apiUpdates.location_address = updates.location
         if (updates.vehicle !== undefined) apiUpdates.vehicle = updates.vehicle
-        if (updates.incidentType !== undefined) apiUpdates.incident_type = updates.incidentType
+        if (updates.incidentType !== undefined) apiUpdates.type = updates.incidentType
         if (updates.dispatchTime !== undefined) apiUpdates.dispatch_time = updates.dispatchTime.toISOString()
         if (updates.crew !== undefined) apiUpdates.crew = updates.crew
         if (updates.priority !== undefined) apiUpdates.priority = updates.priority
-        if (updates.status !== undefined) apiUpdates.status = updates.status
-        if (updates.coordinates !== undefined) apiUpdates.coordinates = updates.coordinates
+        if (updates.status !== undefined) apiUpdates.status = statusToBackend[updates.status]
+        if (updates.coordinates !== undefined) {
+          apiUpdates.location_lat = updates.coordinates[0]?.toString()
+          apiUpdates.location_lng = updates.coordinates[1]?.toString()
+        }
         if (updates.materials !== undefined) apiUpdates.materials = updates.materials
-        if (updates.notes !== undefined) apiUpdates.notes = updates.notes
+        if (updates.notes !== undefined) apiUpdates.description = updates.notes
         if (updates.contact !== undefined) apiUpdates.contact = updates.contact
 
         apiClient.updateIncident(operationId, apiUpdates)
@@ -318,6 +390,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           materials: [],
           notes: apiIncident.description || "",
           contact: operation.contact,
+          statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
         }
         setOperations((ops) => [newOperation, ...ops])
       } catch (error) {
@@ -329,6 +402,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         ...operation,
         id: getNextOperationId(),
         dispatchTime: new Date(),
+        statusChangedAt: null,
       }
       setOperations((ops) => [newOperation, ...ops])
     }
@@ -407,6 +481,79 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /**
+   * Deletes an operation from the system.
+   * Updates frontend state and persists to the database.
+   * Also releases any assigned personnel and materials.
+   *
+   * @param operationId - The ID of the operation to delete
+   */
+  const deleteOperation = async (operationId: string): Promise<void> => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation) {
+      console.error("Operation not found:", operationId)
+      return
+    }
+
+    try {
+      // Delete from backend first
+      if (isLoaded) {
+        await apiClient.deleteIncident(operationId)
+      }
+
+      // Release assigned personnel
+      for (const crewName of operation.crew) {
+        const person = personnel.find(p => p.name === crewName)
+        if (person) {
+          const stillAssigned = operations.some(op => op.id !== operationId && op.crew.includes(crewName))
+          if (!stillAssigned) {
+            setPersonnel((people) =>
+              people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p))
+            )
+            if (isLoaded) {
+              apiClient.updatePersonnel(person.id, {
+                availability: "available",
+              }).catch(err => console.error("Failed to update person:", err))
+            }
+          }
+        }
+      }
+
+      // Release assigned materials
+      for (const materialId of operation.materials) {
+        const material = materials.find(m => m.id === materialId)
+        if (material) {
+          const stillAssigned = operations.some(op => op.id !== operationId && op.materials.includes(materialId))
+          if (!stillAssigned) {
+            setMaterials((mats) =>
+              mats.map((m) => (m.id === material.id ? { ...m, status: "available" as Material["status"] } : m))
+            )
+            if (isLoaded) {
+              apiClient.updateMaterialResource(material.id, {
+                status: "available",
+              }).catch(err => console.error("Failed to update material:", err))
+            }
+          }
+        }
+      }
+
+      // Remove from frontend state
+      setOperations((ops) => ops.filter((op) => op.id !== operationId))
+    } catch (error) {
+      console.error("Failed to delete operation:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Format a location for display based on home city setting.
+   * @param fullAddress - The complete address to format
+   * @returns Formatted address string
+   */
+  const formatLocation = (fullAddress: string): string => {
+    return formatLocationForDisplay(fullAddress, homeCity)
+  }
+
   return (
     <OperationsContext.Provider
       value={{
@@ -416,6 +563,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials,
         operations,
         setOperations,
+        homeCity,
+        formatLocation,
+        refreshOperations,
         removeCrew,
         removeMaterial,
         updateOperation,
@@ -423,6 +573,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         getNextOperationId,
         assignPersonToOperation,
         assignMaterialToOperation,
+        deleteOperation,
       }}
     >
       {children}
