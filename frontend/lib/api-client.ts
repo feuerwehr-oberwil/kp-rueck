@@ -40,6 +40,85 @@ export interface ApiMaterial {
   created_at: string
 }
 
+// Resource Management Types (Task 2.2)
+export interface ApiPersonnel {
+  id: string // UUID
+  name: string
+  role?: string | null // e.g., "Firefighter", "Paramedic", "Driver"
+  availability: string // available, assigned, unavailable
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiPersonnelCreate {
+  name: string
+  role?: string | null
+  availability: string
+}
+
+export interface ApiPersonnelUpdate {
+  name?: string
+  role?: string | null
+  availability?: string
+}
+
+export interface ApiVehicle {
+  id: string // UUID
+  name: string // e.g., "TLF 1", "DLK 2"
+  type: string // e.g., "TLF", "DLK", "MTW"
+  status: string // available, assigned, planned, maintenance
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiVehicleCreate {
+  name: string
+  type: string
+  status: string
+}
+
+export interface ApiVehicleUpdate {
+  name?: string
+  type?: string
+  status?: string
+}
+
+export interface ApiMaterialResource {
+  id: string // UUID
+  name: string
+  status: string // available, assigned, planned, maintenance
+  location?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiMaterialCreate {
+  name: string
+  status: string
+  location?: string | null
+}
+
+export interface ApiMaterialUpdate {
+  name?: string
+  status?: string
+  location?: string | null
+}
+
+export interface ApiAssignment {
+  id: string // UUID
+  incident_id: string
+  resource_type: string // 'personnel' | 'vehicle' | 'material'
+  resource_id: string
+  assigned_at: string
+  unassigned_at: string | null
+  assigned_by: string
+}
+
+export interface ApiAssignmentCreate {
+  resource_type: string
+  resource_id: string
+}
+
 export interface ApiAuditLog {
   id: string
   user_id: string | null
@@ -362,6 +441,117 @@ class ApiClient {
   async deleteIncident(id: string): Promise<void> {
     return this.request<void>(`/api/incidents/${id}`, {
       method: 'DELETE',
+    })
+  }
+
+  // Resource Management - Personnel
+  async getAllPersonnel(): Promise<ApiPersonnel[]> {
+    return this.request<ApiPersonnel[]>('/api/personnel/')
+  }
+
+  async getPersonnelById(id: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(`/api/personnel/${id}`)
+  }
+
+  async createPersonnel(data: ApiPersonnelCreate): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>('/api/personnel/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updatePersonnel(id: string, data: ApiPersonnelUpdate): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(`/api/personnel/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deletePersonnel(id: string): Promise<void> {
+    return this.request<void>(`/api/personnel/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Resource Management - Vehicles
+  async getVehicles(): Promise<ApiVehicle[]> {
+    return this.request<ApiVehicle[]>('/api/vehicles/')
+  }
+
+  async getVehicleById(id: string): Promise<ApiVehicle> {
+    return this.request<ApiVehicle>(`/api/vehicles/${id}`)
+  }
+
+  async createVehicle(data: ApiVehicleCreate): Promise<ApiVehicle> {
+    return this.request<ApiVehicle>('/api/vehicles/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateVehicle(id: string, data: ApiVehicleUpdate): Promise<ApiVehicle> {
+    return this.request<ApiVehicle>(`/api/vehicles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteVehicle(id: string): Promise<void> {
+    return this.request<void>(`/api/vehicles/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Resource Management - Materials
+  async getAllMaterials(): Promise<ApiMaterialResource[]> {
+    return this.request<ApiMaterialResource[]>('/api/materials/')
+  }
+
+  async getMaterialById(id: string): Promise<ApiMaterialResource> {
+    return this.request<ApiMaterialResource>(`/api/materials/${id}`)
+  }
+
+  async createMaterialResource(data: ApiMaterialCreate): Promise<ApiMaterialResource> {
+    return this.request<ApiMaterialResource>('/api/materials/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateMaterialResource(id: string, data: ApiMaterialUpdate): Promise<ApiMaterialResource> {
+    return this.request<ApiMaterialResource>(`/api/materials/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteMaterialResource(id: string): Promise<void> {
+    return this.request<void>(`/api/materials/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Assignments
+  async assignResource(incidentId: string, data: ApiAssignmentCreate): Promise<ApiAssignment> {
+    return this.request<ApiAssignment>(`/api/incidents/${incidentId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async unassignResource(incidentId: string, assignmentId: string): Promise<void> {
+    return this.request<void>(`/api/incidents/${incidentId}/unassign/${assignmentId}`, {
+      method: 'POST',
+    })
+  }
+
+  async getIncidentAssignments(incidentId: string): Promise<ApiAssignment[]> {
+    return this.request<ApiAssignment[]>(`/api/incidents/${incidentId}/assignments`)
+  }
+
+  async releaseAllResources(incidentId: string): Promise<void> {
+    return this.request<void>(`/api/incidents/${incidentId}/release-all`, {
+      method: 'POST',
     })
   }
 }
