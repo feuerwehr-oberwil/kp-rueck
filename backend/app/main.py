@@ -9,10 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import routes
 from .api.auth import router as auth_router
 from .api.audit import router as audit_router
+from .api.settings import router as settings_router
 from .config import settings
-from .database import Base, engine
+from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
 from .seed import seed_database
+from .services.settings import initialize_default_settings
 
 
 @asynccontextmanager
@@ -25,6 +27,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("Database tables created.")
+
+    # Initialize default settings
+    print("Initializing default settings...")
+    async for db in get_db():
+        try:
+            await initialize_default_settings(db)
+            print("Default settings initialized.")
+        except Exception as e:
+            print(f"Warning: Default settings initialization failed: {e}")
+        finally:
+            break  # Only need one session
 
     # Seed database if requested
     if os.getenv("SEED_DATABASE", "").lower() == "true":
@@ -79,6 +92,7 @@ app.add_middleware(AuditMiddleware)
 # Include routers
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
+app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
 
