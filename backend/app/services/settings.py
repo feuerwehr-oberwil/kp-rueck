@@ -1,5 +1,5 @@
 """Settings management service."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -44,7 +44,7 @@ async def update_setting(
     if setting:
         setting.value = value
         setting.updated_by = user_id
-        setting.updated_at = datetime.utcnow()
+        setting.updated_at = datetime.now(timezone.utc)
     else:
         setting = Setting(key=key, value=value, updated_by=user_id)
         db.add(setting)
