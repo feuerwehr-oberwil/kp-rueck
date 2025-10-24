@@ -183,6 +183,7 @@ export default function MapPage() {
           </div>
         </aside>
       </div>
+      </div>
     </ProtectedRoute>
   )
 }
