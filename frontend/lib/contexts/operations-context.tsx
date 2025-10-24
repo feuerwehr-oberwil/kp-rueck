@@ -107,11 +107,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     contact: op.contact,
   })
 
-  const apiPersonToPerson = (apiPerson: ApiPerson): Person => ({
+  const apiPersonToPerson = (apiPerson: any): Person => ({
     id: String(apiPerson.id),
     name: apiPerson.name,
     role: apiPerson.role as PersonRole,
-    status: apiPerson.status as PersonStatus,
+    status: apiPerson.availability as PersonStatus, // Backend uses 'availability' field
   })
 
   const apiMaterialToMaterial = (apiMat: ApiMaterial): Material => ({
@@ -121,17 +121,47 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     status: apiMat.status as "available" | "assigned",
   })
 
+  // Helper to convert Incident to Operation
+  const apiIncidentToOperation = (incident: any): Operation => {
+    // Map incident status to operation status
+    const statusMap: Record<string, OperationStatus> = {
+      "eingegangen": "incoming",
+      "reko": "ready",
+      "disponiert": "enroute",
+      "einsatz": "active",
+      "einsatz_beendet": "returning",
+      "abschluss": "complete",
+    }
+
+    return {
+      id: incident.id,
+      location: incident.location_address || incident.title,
+      vehicle: null, // Not in incident schema
+      incidentType: incident.type || "Technische Hilfe",
+      dispatchTime: new Date(incident.created_at),
+      crew: [], // Not directly in incident schema
+      priority: incident.priority as "high" | "medium" | "low",
+      status: statusMap[incident.status] || "incoming",
+      coordinates: incident.location_lat && incident.location_lng
+        ? [parseFloat(incident.location_lat), parseFloat(incident.location_lng)]
+        : [47.51637699933488, 7.561800450458299],
+      materials: [], // Not directly in incident schema
+      notes: incident.description || "",
+      contact: "", // Not in incident schema
+    }
+  }
+
   // Load initial data from API
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [apiOps, apiPersonnel, apiMats] = await Promise.all([
-          apiClient.getOperations(),
-          apiClient.getPersonnel(),
-          apiClient.getMaterials(),
+        const [apiIncidents, apiPersonnel, apiMats] = await Promise.all([
+          apiClient.getIncidents(),
+          apiClient.getAllPersonnel(),
+          apiClient.getAllMaterials(),
         ])
 
-        setOperations(apiOps.map(apiOperationToOperation))
+        setOperations(apiIncidents.map(apiIncidentToOperation))
         setPersonnel(apiPersonnel.map(apiPersonToPerson))
         setMaterials(apiMats.map(apiMaterialToMaterial))
         setIsLoaded(true)
@@ -160,8 +190,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // Update API
     if (isLoaded) {
-      apiClient.updateOperation(parseInt(operationId), {
-        crew: updatedOp.crew,
+      apiClient.updateIncident(operationId, {
+        // crew: updatedOp.crew, // TODO: Add crew field to incident schema
       }).catch(err => console.error("Failed to update operation:", err))
     }
 
@@ -174,8 +204,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
         // Update API
         if (isLoaded) {
-          apiClient.updatePerson(parseInt(person.id), {
-            status: "available",
+          apiClient.updatePersonnel(person.id, {
+            availability: "available",
           }).catch(err => console.error("Failed to update person:", err))
         }
       }
@@ -197,8 +227,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // Update API
     if (isLoaded) {
-      apiClient.updateOperation(parseInt(operationId), {
-        materials: updatedOp.materials,
+      apiClient.updateIncident(operationId, {
+        // materials: updatedOp.materials, // TODO: Add materials field to incident schema
       }).catch(err => console.error("Failed to update operation:", err))
     }
 
@@ -211,7 +241,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
         // Update API
         if (isLoaded) {
-          apiClient.updateMaterial(parseInt(material.id), {
+          apiClient.updateMaterialResource(material.id, {
             status: "available",
           }).catch(err => console.error("Failed to update material:", err))
         }
@@ -243,7 +273,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (updates.notes !== undefined) apiUpdates.notes = updates.notes
         if (updates.contact !== undefined) apiUpdates.contact = updates.contact
 
-        apiClient.updateOperation(parseInt(operationId), apiUpdates)
+        apiClient.updateIncident(operationId, apiUpdates)
           .catch(err => console.error("Failed to update operation:", err))
       }, 500)
     }
@@ -257,20 +287,38 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">) => {
     if (isLoaded) {
       try {
-        const apiOp = await apiClient.createOperation({
-          location: operation.location,
-          vehicle: operation.vehicle,
-          incident_type: operation.incidentType,
-          dispatch_time: new Date().toISOString(),
-          crew: operation.crew,
-          priority: operation.priority,
-          status: operation.status,
-          coordinates: operation.coordinates,
-          materials: operation.materials,
-          notes: operation.notes,
+        // Transform Operation format to Incident format
+        const incidentData = {
+          title: operation.location,
+          type: "technische_hilfeleistung" as const, // Default type
+          priority: operation.priority as "low" | "medium" | "high",
+          location_address: operation.location,
+          location_lat: operation.coordinates[0]?.toString(),
+          location_lng: operation.coordinates[1]?.toString(),
+          status: "eingegangen" as const, // Always start as eingegangen
+          training_flag: false,
+          description: operation.notes || null,
+        }
+
+        const apiIncident = await apiClient.createIncident(incidentData)
+
+        // Transform Incident back to Operation for frontend state
+        const newOperation: Operation = {
+          id: apiIncident.id,
+          location: apiIncident.location_address || apiIncident.title,
+          vehicle: operation.vehicle, // Keep vehicle from form (not in incident schema yet)
+          incidentType: operation.incidentType,
+          dispatchTime: new Date(apiIncident.created_at),
+          crew: [],
+          priority: apiIncident.priority as "low" | "medium" | "high",
+          status: "incoming", // Map eingegangen to incoming
+          coordinates: apiIncident.location_lat && apiIncident.location_lng
+            ? [parseFloat(apiIncident.location_lat), parseFloat(apiIncident.location_lng)]
+            : operation.coordinates,
+          materials: [],
+          notes: apiIncident.description || "",
           contact: operation.contact,
-        })
-        const newOperation = apiOperationToOperation(apiOp)
+        }
         setOperations((ops) => [newOperation, ...ops])
       } catch (error) {
         console.error("Failed to create operation:", error)
@@ -313,12 +361,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // Persist to database
     if (isLoaded) {
-      apiClient.updateOperation(parseInt(operationId), {
-        crew: updatedCrew,
+      apiClient.updateIncident(operationId, {
+        // crew: updatedCrew, // TODO: Add crew field to incident schema
       }).catch(err => console.error("Failed to update operation crew:", err))
 
-      apiClient.updatePerson(parseInt(personId), {
-        status: "assigned",
+      apiClient.updatePersonnel(personId, {
+        availability: "assigned",
       }).catch(err => console.error("Failed to update person status:", err))
     }
   }
@@ -349,11 +397,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // Persist to database
     if (isLoaded) {
-      apiClient.updateOperation(parseInt(operationId), {
-        materials: updatedMaterials,
+      apiClient.updateIncident(operationId, {
+        // materials: updatedMaterials, // TODO: Add materials field to incident schema
       }).catch(err => console.error("Failed to update operation materials:", err))
 
-      apiClient.updateMaterial(parseInt(materialId), {
+      apiClient.updateMaterialResource(materialId, {
         status: "assigned",
       }).catch(err => console.error("Failed to update material status:", err))
     }
