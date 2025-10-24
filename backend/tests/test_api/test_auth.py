@@ -119,7 +119,7 @@ async def test_login_wrong_password(client: AsyncClient, test_editor_user: User)
 
     assert response.status_code == 401
     assert "access_token" not in response.cookies
-    assert response.json()["detail"] == "Incorrect username or password"
+    assert response.json()["detail"] == "Falscher Benutzername oder Passwort"
 
 
 @pytest.mark.asyncio
@@ -178,7 +178,7 @@ async def test_viewer_cannot_create(authenticated_viewer_client: AsyncClient):
         },
     )
     assert response.status_code == 403
-    assert "Editor role required" in response.json()["detail"]
+    assert "Editor-Berechtigung erforderlich" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -239,7 +239,7 @@ async def test_logout_clears_cookies(authenticated_editor_client: AsyncClient):
     """Test logout removes cookies."""
     response = await authenticated_editor_client.post("/api/auth/logout")
     assert response.status_code == 200
-    assert response.json()["message"] == "Logged out successfully"
+    assert response.json()["message"] == "Erfolgreich abgemeldet"
 
     # Verify cookies are deleted (they should be present but with max_age=0 or empty)
     # Note: httpx doesn't automatically clear cookies, but the response will have delete instructions

@@ -27,7 +27,7 @@ async def get_current_user(
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Anmeldedaten konnten nicht validiert werden",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -82,7 +82,7 @@ async def get_current_editor(
     if current_user.role != "editor":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Editor role required for this operation"
+            detail="Editor-Berechtigung erforderlich"
         )
     return current_user
 

@@ -52,7 +52,7 @@ async def login(
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Falscher Benutzername oder Passwort",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -109,7 +109,7 @@ async def refresh_token(
     if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token missing"
+            detail="Refresh-Token fehlt"
         )
 
     try:
@@ -119,7 +119,7 @@ async def refresh_token(
         if payload.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type"
+                detail="Ungültiger Token-Typ"
             )
 
         user_id = uuid.UUID(payload.get("sub"))
@@ -127,7 +127,7 @@ async def refresh_token(
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
+            detail="Ungültiger Refresh-Token"
         )
 
     # Load user
@@ -139,7 +139,7 @@ async def refresh_token(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
+            detail="Benutzer nicht gefunden"
         )
 
     # Create new access token
@@ -174,7 +174,7 @@ async def logout(response: Response):
     """
     response.delete_cookie(key="access_token")
     response.delete_cookie(key="refresh_token")
-    return {"message": "Logged out successfully"}
+    return {"message": "Erfolgreich abgemeldet"}
 
 
 @router.get("/me", response_model=schemas.UserResponse)
