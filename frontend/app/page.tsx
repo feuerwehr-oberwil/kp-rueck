@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Filter, Trash2, Check } from 'lucide-react'
+import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Check } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { UserMenu } from "@/components/user-menu"
@@ -292,7 +292,7 @@ function DraggableOperation({
                 className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
                 title="Auf Karte anzeigen"
               >
-                <Map className="h-4 w-4 text-primary" />
+                <MapIcon className="h-4 w-4 text-primary" />
               </Link>
             </div>
           </div>
@@ -1814,7 +1814,7 @@ export default function FireStationDashboard() {
 
             <Link href="/map">
               <Button variant="outline" className="gap-2">
-                <Map className="h-4 w-4" />
+                <MapIcon className="h-4 w-4" />
                 Lagekarte
               </Button>
             </Link>
