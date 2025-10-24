@@ -52,6 +52,82 @@ export interface ApiAuditLog {
   user_agent: string | null
 }
 
+// Incident Types (new schema)
+export type IncidentType =
+  | "brandbekaempfung"
+  | "elementarereignis"
+  | "strassenrettung"
+  | "technische_hilfeleistung"
+  | "oelwehr"
+  | "chemiewehr"
+  | "strahlenwehr"
+  | "einsatz_bahnanlagen"
+  | "bma_unechte_alarme"
+  | "dienstleistungen"
+  | "diverse_einsaetze"
+  | "gerettete_menschen"
+  | "gerettete_tiere"
+
+export type IncidentPriority = "low" | "medium" | "high" | "critical"
+
+export type IncidentStatus =
+  | "eingegangen"
+  | "reko"
+  | "disponiert"
+  | "einsatz"
+  | "einsatz_beendet"
+  | "abschluss"
+
+export interface ApiIncident {
+  id: string // UUID
+  title: string
+  type: IncidentType
+  priority: IncidentPriority
+  location_address: string | null
+  location_lat: string | null  // Decimal as string
+  location_lng: string | null  // Decimal as string
+  status: IncidentStatus
+  training_flag: boolean
+  description: string | null
+  created_at: string
+  updated_at: string
+  created_by: string | null // UUID
+  completed_at: string | null
+}
+
+export interface ApiIncidentCreate {
+  title: string
+  type: IncidentType
+  priority: IncidentPriority
+  location_address?: string | null
+  location_lat?: string | null
+  location_lng?: string | null
+  status?: IncidentStatus
+  training_flag?: boolean
+  description?: string | null
+}
+
+export interface ApiIncidentUpdate {
+  title?: string
+  type?: IncidentType
+  priority?: IncidentPriority
+  location_address?: string | null
+  location_lat?: string | null
+  location_lng?: string | null
+  status?: IncidentStatus
+  description?: string | null
+}
+
+export interface ApiStatusTransition {
+  id: string
+  incident_id: string
+  from_status: string
+  to_status: string
+  timestamp: string
+  user_id: string | null
+  notes: string | null
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -206,6 +282,86 @@ class ApiClient {
     return this.request<{ key: string; value: string }>(`/api/settings/${key}`, {
       method: 'PATCH',
       body: JSON.stringify({ value }),
+    })
+  }
+
+  // Incidents
+  async getIncidents(params?: {
+    training_only?: boolean
+    status?: IncidentStatus
+    skip?: number
+    limit?: number
+  }): Promise<ApiIncident[]> {
+    const queryParams = new URLSearchParams()
+
+    if (params) {
+      if (params.training_only !== undefined) {
+        queryParams.append('training_only', String(params.training_only))
+      }
+      if (params.status) {
+        queryParams.append('status', params.status)
+      }
+      if (params.skip !== undefined) {
+        queryParams.append('skip', String(params.skip))
+      }
+      if (params.limit !== undefined) {
+        queryParams.append('limit', String(params.limit))
+      }
+    }
+
+    const endpoint = `/api/incidents/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return this.request<ApiIncident[]>(endpoint)
+  }
+
+  async getIncident(id: string): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/incidents/${id}`)
+  }
+
+  async createIncident(data: ApiIncidentCreate): Promise<ApiIncident> {
+    return this.request<ApiIncident>('/api/incidents/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateIncident(
+    id: string,
+    data: ApiIncidentUpdate,
+    expectedUpdatedAt?: string
+  ): Promise<ApiIncident> {
+    const queryParams = expectedUpdatedAt
+      ? `?expected_updated_at=${encodeURIComponent(expectedUpdatedAt)}`
+      : ''
+
+    return this.request<ApiIncident>(`/api/incidents/${id}${queryParams}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateIncidentStatus(
+    id: string,
+    fromStatus: IncidentStatus,
+    toStatus: IncidentStatus,
+    notes?: string
+  ): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/incidents/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({
+        from_status: fromStatus,
+        to_status: toStatus,
+        notes,
+      }),
+    })
+  }
+
+  async getIncidentStatusHistory(id: string): Promise<ApiStatusTransition[]> {
+    return this.request<ApiStatusTransition[]>(`/api/incidents/${id}/history`)
+  }
+
+  async deleteIncident(id: string): Promise<void> {
+    return this.request<void>(`/api/incidents/${id}`, {
+      method: 'DELETE',
     })
   }
 }
