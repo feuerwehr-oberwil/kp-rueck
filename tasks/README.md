@@ -104,9 +104,9 @@ git worktree remove ../kp-rueck-task-1.1
   - Status-based coloring
   - Time: 8-10 hours
 
-### Phase 4: Reko Field Input (Week 6)
-**Priority**: Unique firefighting feature
-**Goal**: Field data collection
+### Phase 4: Field Operations & Data Collection (Week 6)
+**Priority**: Unique firefighting features
+**Goal**: Field personnel check-in and reconnaissance data collection
 
 - **4.1**: [Reko Forms Backend](phase-4-reko/4.1-reko-forms-backend.md)
   - Token-based access
@@ -114,13 +114,19 @@ git worktree remove ../kp-rueck-task-1.1
   - Draft save functionality
   - Time: 8-10 hours
 
-- **4.2**: [Reko Forms Frontend](phase-4-reko/4.2-reko-forms-frontend.md)
+- **4.2**: [Personnel Check-In System](phase-4-reko/4.2-personnel-check-in.md)
+  - Token-based mobile check-in
+  - QR code access
+  - On-site presence tracking
+  - Time: 6-8 hours
+
+- **4.3**: [Reko Forms Frontend](phase-4-reko/4.3-reko-forms-frontend.md)
   - Mobile-optimized form UI
   - Auto-save drafts
   - Resume capability
   - Time: 10-12 hours
 
-- **4.3**: [Photo Upload & Storage](phase-4-reko/4.3-photo-upload-storage.md)
+- **4.4**: [Photo Upload & Storage](phase-4-reko/4.4-photo-upload-storage.md)
   - Filesystem storage
   - Automatic compression
   - Secure serving
@@ -135,6 +141,13 @@ git worktree remove ../kp-rueck-task-1.1
   - Auto-create incidents
   - Payload validation
   - Time: 6-8 hours
+
+- **5.2**: [DIVERA API Integration](phase-5-integrations/5.2-divera-integration.md)
+  - DIVERA 24/7 API polling
+  - Bi-directional sync
+  - Personnel notifications
+  - Time: 10-14 hours
+  - **Note**: Production Ready phase (March 2026), not MVP
 
 ### Phase 6: Production Readiness (Weeks 8-9)
 **Priority**: Deployment and polish
@@ -187,6 +200,30 @@ git worktree remove ../kp-rueck-task-1.1
   - Cross-browser testing
   - Time: 12-16 hours
 
+### Phase 8: Post-MVP Enhancements (Summer 2026+)
+**Priority**: Future work / Nice-to-haves
+**Goal**: Enhancements based on real-world usage feedback
+
+**See**: [Phase 8 README](phase-8-post-mvp/README.md) for full details
+
+This phase includes potential enhancements from DESIGN_DOC.md Section 16:
+- Real-time WebSocket updates (if polling insufficient)
+- Offline-first PWA mode (if needed for field operations)
+- Advanced role-based permissions (beyond Editor/Viewer)
+- DIVERA → WhatsApp notification bridge
+- Map clustering for high incident volume
+- Dashboard KPIs and analytics
+- Mobile native app (React Native)
+- AI-assisted incident classification
+- Video/audio attachments for Reko reports
+- Integration with other emergency services
+
+**⚠️ Important**: Phase 8 features should **only be implemented** if:
+- Real-world usage demonstrates clear need
+- Users explicitly request the feature
+- Analytics/audit logs show measurable pain points
+- Core MVP and Production Ready features are stable
+
 ## Task Dependency Graph
 
 ```
@@ -201,9 +238,11 @@ git worktree remove ../kp-rueck-task-1.1
  │    │    │    ├─→ 3.1 Geocoding
  │    │    │    │    └─→ 3.2 Map UI
  │    │    │    ├─→ 4.1 Reko Backend
- │    │    │    │    ├─→ 4.2 Reko Frontend
- │    │    │    │    └─→ 4.3 Photo Upload
- │    │    │    └─→ 5.1 Alarm Webhook
+ │    │    │    │    ├─→ 4.3 Reko Frontend
+ │    │    │    │    └─→ 4.4 Photo Upload
+ │    │    │    ├─→ 4.2 Personnel Check-In
+ │    │    │    ├─→ 5.1 Alarm Webhook
+ │    │    │    └─→ 5.2 DIVERA Integration (March 2026)
  │    │    └─→ 6.1 Railway Deployment
  │    │         ├─→ 6.2 Backup & Sync
  │    │         ├─→ 6.3 UI Polish
@@ -220,12 +259,14 @@ git worktree remove ../kp-rueck-task-1.1
 | Phase 1 | 2 weeks | No (sequential) | None |
 | Phase 2 | 2 weeks | 2.3 & 2.4 can parallelize after 2.1+2.2 | Phase 1 complete |
 | Phase 3 | 1 week | Can parallelize with Phase 4 | Phase 2.1 complete |
-| Phase 4 | 1 week | Can parallelize with Phase 3 | Phase 2.1 complete |
-| Phase 5 | 1 week | Can parallelize with Phase 6 | Phase 2.1 complete |
+| Phase 4 | 1 week | 4.2 can parallelize with Phase 3, 4.1/4.3/4.4 sequential | Phase 2.1 complete |
+| Phase 5 | 1 week (5.1 only for MVP) | 5.2 is March 2026 enhancement | Phase 2.1 complete |
 | Phase 6 | 2 weeks | 6.1-6.4 can run in parallel | Phase 2.3 complete (need UI) |
 | Phase 7 | Throughout + 1 week final | All tasks have tests | None (parallel) |
+| Phase 8 | Post-MVP (Summer 2026+) | User-driven implementation | All core features stable |
 
-**Total**: 10 weeks with parallel work, ~16 weeks if fully sequential
+**Total (MVP)**: 10 weeks with parallel work, ~16 weeks if fully sequential
+**Total (Production Ready with DIVERA)**: +2 weeks for Task 5.2 (March 2026)
 
 ## Task File Format
 
