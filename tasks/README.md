@@ -318,7 +318,7 @@ Each task file includes:
 If a task is unclear or you encounter issues:
 
 1. Check the **References** section for design doc context
-2. Review **IMPLEMENTATION_PLAN.md** for architectural decisions
+2. Review **DECISIONS.md** for architectural decisions
 3. Check **DESIGN_DOC.md** for business requirements
 4. Look at existing code for patterns to follow
 5. Ask Claude Code for clarification on specific sections
