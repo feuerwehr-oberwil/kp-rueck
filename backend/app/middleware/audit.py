@@ -6,7 +6,8 @@ from fastapi import BackgroundTasks, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..services.audit import log_action
-from ..database import audit_session_maker
+from ..database import async_session_maker, audit_session_maker
+from ..config import settings
 
 
 async def _log_api_request(
@@ -14,12 +15,14 @@ async def _log_api_request(
     path: str,
     method: str,
     duration_ms: float,
+    test_db_session=None,
 ):
     """Background task to log API request to audit log using separate connection pool."""
-    async with audit_session_maker() as db:
+    # In test mode with injected session, use that session directly (no commit needed)
+    if test_db_session is not None:
         try:
             await log_action(
-                db=db,
+                db=test_db_session,
                 action_type=f"{method.lower()}_request",
                 resource_type="api",
                 user=user,
@@ -28,12 +31,30 @@ async def _log_api_request(
                     "method": method,
                     "duration_ms": duration_ms,
                 },
-                request=None,  # Request object not available in background task
+                request=None,
             )
-            await db.commit()
+            await test_db_session.commit()
         except Exception as e:
-            # Never fail request due to audit logging
             print(f"Audit logging failed: {e}")
+    else:
+        # Production: use separate connection pool
+        async with audit_session_maker() as db:
+            try:
+                await log_action(
+                    db=db,
+                    action_type=f"{method.lower()}_request",
+                    resource_type="api",
+                    user=user,
+                    changes={
+                        "path": path,
+                        "method": method,
+                        "duration_ms": duration_ms,
+                    },
+                    request=None,
+                )
+                await db.commit()
+            except Exception as e:
+                print(f"Audit logging failed: {e}")
 
 
 class AuditMiddleware(BaseHTTPMiddleware):
@@ -57,24 +78,38 @@ class AuditMiddleware(BaseHTTPMiddleware):
             and request.url.path.startswith("/api/")
             and request.url.path != "/api/health"
         ):
-            # Schedule audit logging using separate connection pool to avoid conflicts
             duration_ms = round((time.time() - start_time) * 1000, 2)
             user = getattr(request.state, "user", None)
 
-            # Get or create background_tasks
-            if not hasattr(response, "background") or response.background is None:
-                background_tasks = BackgroundTasks()
+            # Check if test session is injected
+            test_db_session = getattr(request.app.state, "test_db_session", None)
+
+            # In test mode, log synchronously to ensure tests can verify immediately
+            if test_db_session is not None:
+                # Test mode: use injected session synchronously
+                await _log_api_request(
+                    user=user,
+                    path=request.url.path,
+                    method=request.method,
+                    duration_ms=duration_ms,
+                    test_db_session=test_db_session,
+                )
             else:
-                background_tasks = response.background
+                # Production: Use background tasks with separate connection pool
+                if not hasattr(response, "background") or response.background is None:
+                    background_tasks = BackgroundTasks()
+                else:
+                    background_tasks = response.background
 
-            background_tasks.add_task(
-                _log_api_request,
-                user=user,
-                path=request.url.path,
-                method=request.method,
-                duration_ms=duration_ms,
-            )
+                background_tasks.add_task(
+                    _log_api_request,
+                    user=user,
+                    path=request.url.path,
+                    method=request.method,
+                    duration_ms=duration_ms,
+                    test_db_session=None,
+                )
 
-            response.background = background_tasks
+                response.background = background_tasks
 
         return response
