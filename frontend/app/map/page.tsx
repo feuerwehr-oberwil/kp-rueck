@@ -129,11 +129,20 @@ export default function MapPage() {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Ignore if typing in input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // Allow Esc to blur from input
+        if (e.key === 'Escape') {
+          (e.target as HTMLElement).blur()
+        }
         return
       }
 
+      // '/' key to focus search
+      if (e.key === '/') {
+        e.preventDefault()
+        document.getElementById('map-search-input')?.focus()
+      }
       // 'z' key to zoom out
-      if (e.key === 'z' || e.key === 'Z') {
+      else if (e.key === 'z' || e.key === 'Z') {
         e.preventDefault()
         setResetZoomTrigger((prev) => prev + 1)
         setSelectedIncidentId(null) // Deselect any selected incident
@@ -190,6 +199,7 @@ export default function MapPage() {
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  id="map-search-input"
                   type="text"
                   placeholder="Suchen..."
                   value={searchQuery}
@@ -197,7 +207,7 @@ export default function MapPage() {
                   className="pl-9 pr-8"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Kbd className="text-xs">Z</Kbd>
+                  <Kbd className="text-xs">/</Kbd>
                 </div>
               </div>
 
