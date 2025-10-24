@@ -770,7 +770,7 @@ function NewEmergencyModal({
   const [formData, setFormData] = useState({
     location: "",
     incidentType: "",
-    priority: "medium" as "high" | "medium" | "low",
+    priority: "low" as "high" | "medium" | "low",
     vehicle: null as VehicleType,
     coordinates: [47.51637699933488, 7.561800450458299] as [number, number],
     status: "incoming" as OperationStatus,
@@ -780,6 +780,10 @@ function NewEmergencyModal({
     contact: "",
   })
 
+  const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
+  const [homeCity, setHomeCity] = useState<string>("")
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true)
+
   const [locationSearchResults, setLocationSearchResults] = useState<Array<{
     display_name: string
     lat: string
@@ -787,6 +791,63 @@ function NewEmergencyModal({
   }>>([])
   const [showLocationResults, setShowLocationResults] = useState(false)
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+
+  // Load vehicles and settings when modal opens
+  useEffect(() => {
+    const loadModalData = async () => {
+      if (!open) return
+
+      setIsLoadingSettings(true)
+      try {
+        // Fetch vehicles and settings in parallel
+        const [vehiclesResponse, settingsResponse] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/vehicles/`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/settings/`)
+        ])
+
+        if (vehiclesResponse.ok) {
+          const vehicles = await vehiclesResponse.json()
+          setAvailableVehicles(vehicles.map((v: any) => ({ name: v.name, type: v.type })))
+        }
+
+        if (settingsResponse.ok) {
+          const settings = await settingsResponse.json()
+          if (settings.home_city) {
+            setHomeCity(settings.home_city)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load modal data:', error)
+      } finally {
+        setIsLoadingSettings(false)
+      }
+    }
+
+    loadModalData()
+  }, [open])
+
+  // Smart location formatting based on home city
+  const formatLocationForDisplay = (fullAddress: string): string => {
+    if (!homeCity) return fullAddress
+
+    // Parse the full address to extract components
+    const parts = fullAddress.split(',').map(s => s.trim())
+
+    // Check if the address contains the home city
+    const homeCityParts = homeCity.split(',').map(s => s.trim())
+    const addressContainsHomeCity = homeCityParts.some(part =>
+      parts.some(addressPart => addressPart.includes(part))
+    )
+
+    if (addressContainsHomeCity) {
+      // Return only the street name (first part)
+      return parts[0] || fullAddress
+    } else {
+      // Address is outside home city, include street and city
+      // Typically: "Street, Town, Region, Country" -> "Street, Town"
+      return parts.slice(0, 2).join(', ')
+    }
+  }
 
   const searchLocation = async (query: string) => {
     if (query.length < 3) {
@@ -824,9 +885,10 @@ function NewEmergencyModal({
   }
 
   const handleLocationSelect = (result: typeof locationSearchResults[0]) => {
+    const formattedLocation = formatLocationForDisplay(result.display_name)
     setFormData({
       ...formData,
-      location: result.display_name,
+      location: formattedLocation,
       coordinates: [parseFloat(result.lat), parseFloat(result.lon)]
     })
     setShowLocationResults(false)
@@ -855,7 +917,7 @@ function NewEmergencyModal({
     setFormData({
       location: "",
       incidentType: "",
-      priority: "medium",
+      priority: "low",
       vehicle: null,
       coordinates: [47.51637699933488, 7.561800450458299],
       status: "incoming",
@@ -882,51 +944,55 @@ function NewEmergencyModal({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Location - Full Width */}
+          <div className="relative">
+            <Label htmlFor="location" className="text-sm font-semibold text-muted-foreground">
+              Einsatzort *
+            </Label>
             <div className="relative">
-              <Label htmlFor="location" className="text-sm font-semibold text-muted-foreground">
-                Einsatzort *
-              </Label>
-              <div className="relative">
-                <Input
-                  id="location"
-                  placeholder="z.B. Hauptstrasse 45"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  onFocus={() => {
-                    if (locationSearchResults.length > 0) {
-                      setShowLocationResults(true)
-                    }
-                  }}
-                  className="mt-2"
-                  autoFocus
-                />
-                {isSearchingLocation && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-1">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  </div>
-                )}
-              </div>
-              {showLocationResults && locationSearchResults.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-auto">
-                  {locationSearchResults.map((result, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleLocationSelect(result)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-b-0"
-                    >
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
-                        <span className="text-xs leading-relaxed">{result.display_name}</span>
-                      </div>
-                    </button>
-                  ))}
+              <Input
+                id="location"
+                placeholder="z.B. Hauptstrasse 45"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                onFocus={() => {
+                  if (locationSearchResults.length > 0) {
+                    setShowLocationResults(true)
+                  }
+                }}
+                className="mt-2"
+                autoFocus
+              />
+              {isSearchingLocation && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-1">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
               )}
             </div>
+            {showLocationResults && locationSearchResults.length > 0 && (
+              <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-auto">
+                {locationSearchResults.map((result, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleLocationSelect(result)}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-b-0"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 flex-shrink-0 text-primary" />
+                        <span className="text-sm font-medium">{formatLocationForDisplay(result.display_name)}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground pl-6">{result.display_name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
+          {/* Other fields - Grid */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
                 Einsatzart *
@@ -976,15 +1042,16 @@ function NewEmergencyModal({
                 onValueChange={(value) =>
                   setFormData({ ...formData, vehicle: (value === "none" ? null : value) as VehicleType })
                 }
+                disabled={isLoadingSettings}
               >
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Nicht zugewiesen" />
+                  <SelectValue placeholder={isLoadingSettings ? "Laden..." : "Nicht zugewiesen"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                  {vehicleTypes.map((vt) => (
-                    <SelectItem key={vt.name} value={vt.name || ""}>
-                      {vt.name}
+                  {availableVehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.name} value={vehicle.name}>
+                      {vehicle.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -244,80 +244,8 @@ class ApiClient {
     }
   }
 
-  // Operations
-  async getOperations(): Promise<ApiOperation[]> {
-    return this.request<ApiOperation[]>('/api/operations')
-  }
-
-  async getOperation(id: number): Promise<ApiOperation> {
-    return this.request<ApiOperation>(`/api/operations/${id}`)
-  }
-
-  async createOperation(data: Partial<ApiOperation>): Promise<ApiOperation> {
-    return this.request<ApiOperation>('/api/operations', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async updateOperation(id: number, data: Partial<ApiOperation>): Promise<ApiOperation> {
-    return this.request<ApiOperation>(`/api/operations/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async deleteOperation(id: number): Promise<void> {
-    return this.request<void>(`/api/operations/${id}`, {
-      method: 'DELETE',
-    })
-  }
-
-  // Personnel
-  async getPersonnel(): Promise<ApiPerson[]> {
-    return this.request<ApiPerson[]>('/api/personnel')
-  }
-
-  async getPerson(id: number): Promise<ApiPerson> {
-    return this.request<ApiPerson>(`/api/personnel/${id}`)
-  }
-
-  async createPerson(data: Partial<ApiPerson>): Promise<ApiPerson> {
-    return this.request<ApiPerson>('/api/personnel', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async updatePerson(id: number, data: Partial<ApiPerson>): Promise<ApiPerson> {
-    return this.request<ApiPerson>(`/api/personnel/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    })
-  }
-
-  // Materials
-  async getMaterials(): Promise<ApiMaterial[]> {
-    return this.request<ApiMaterial[]>('/api/materials')
-  }
-
-  async getMaterial(id: number): Promise<ApiMaterial> {
-    return this.request<ApiMaterial>(`/api/materials/${id}`)
-  }
-
-  async createMaterial(data: Partial<ApiMaterial>): Promise<ApiMaterial> {
-    return this.request<ApiMaterial>('/api/materials', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async updateMaterial(id: number, data: Partial<ApiMaterial>): Promise<ApiMaterial> {
-    return this.request<ApiMaterial>(`/api/materials/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    })
-  }
+  // Legacy types kept for backward compatibility in operations-context
+  // Use the new getAllPersonnel(), getAllMaterials(), etc. for new code
 
   // Audit Logs
   async getAuditLogs(params?: {
