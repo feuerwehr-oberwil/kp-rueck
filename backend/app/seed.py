@@ -46,35 +46,32 @@ async def seed_database() -> None:
             # 2. SEED DEFAULT SETTINGS
             # ============================================
             print("Creating default settings...")
-            default_settings = [
-                models.Setting(
-                    key="polling_interval_ms",
-                    value="5000",
-                    updated_by=admin_user.id,
-                ),
-                models.Setting(
-                    key="training_mode",
-                    value="false",
-                    updated_by=admin_user.id,
-                ),
-                models.Setting(
-                    key="auto_archive_timeout_hours",
-                    value="24",
-                    updated_by=admin_user.id,
-                ),
-                models.Setting(
-                    key="notification_enabled",
-                    value="false",
-                    updated_by=admin_user.id,
-                ),
-                models.Setting(
-                    key="alarm_webhook_secret",
-                    value="CHANGE_ME_IN_PRODUCTION",
-                    updated_by=admin_user.id,
-                ),
+            default_settings_data = [
+                ("polling_interval_ms", "5000"),
+                ("training_mode", "false"),
+                ("auto_archive_timeout_hours", "24"),
+                ("notification_enabled", "false"),
+                ("alarm_webhook_secret", "CHANGE_ME_IN_PRODUCTION"),
             ]
-            for setting in default_settings:
-                db.add(setting)
+
+            settings_created = 0
+            for key, value in default_settings_data:
+                # Check if setting already exists
+                result = await db.execute(
+                    select(models.Setting).where(models.Setting.key == key)
+                )
+                existing = result.scalar_one_or_none()
+
+                if not existing:
+                    setting = models.Setting(
+                        key=key,
+                        value=value,
+                        updated_by=admin_user.id,
+                    )
+                    db.add(setting)
+                    settings_created += 1
+
+            print(f"  - Settings: {settings_created} new, {len(default_settings_data) - settings_created} already exist")
 
             # ============================================
             # 3. SEED VEHICLES
@@ -395,7 +392,7 @@ async def seed_database() -> None:
             await db.commit()
             print("\n✅ Database seeded successfully!")
             print(f"  - Created admin user: admin / changeme123 (CHANGE IN PRODUCTION)")
-            print(f"  - Created {len(default_settings)} default settings")
+            print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")
             print(f"  - Created {len(materials)} materials")
