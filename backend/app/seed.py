@@ -99,12 +99,12 @@ async def seed_database() -> None:
                 },
                 {
                     "name": "Pio",
-                    "type": "Pionier",
+                    "type": "RW",
                     "status": "maintenance",
                 },
                 {
                     "name": "KdoW",
-                    "type": "Kommando",
+                    "type": "KdoW",
                     "status": "available",
                 },
             ]
