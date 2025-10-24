@@ -162,11 +162,28 @@ async def update_incident(
         "description": incident.description,
     }
 
+    old_status = incident.status
+
     # Apply updates
     for field, value in incident_update.model_dump(exclude_unset=True).items():
         setattr(incident, field, value)
 
     incident.updated_at = datetime.utcnow()
+
+    # If status changed, create a status transition record
+    if incident.status != old_status:
+        transition = StatusTransition(
+            incident_id=incident.id,
+            from_status=old_status,
+            to_status=incident.status,
+            user_id=current_user.id,
+            notes=None,
+        )
+        db.add(transition)
+
+        # Mark completed if moved to abschluss
+        if incident.status == "abschluss" and not incident.completed_at:
+            incident.completed_at = datetime.utcnow()
 
     # Capture after state
     after_state = {
