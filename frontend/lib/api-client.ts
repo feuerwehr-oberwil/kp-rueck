@@ -192,6 +192,22 @@ class ApiClient {
   async getResourceHistory(resourceType: string, resourceId: string): Promise<ApiAuditLog[]> {
     return this.request<ApiAuditLog[]>(`/api/audit/resource/${resourceType}/${resourceId}`)
   }
+
+  // Settings
+  async getAllSettings(): Promise<Record<string, string>> {
+    return this.request<Record<string, string>>('/api/settings')
+  }
+
+  async getSetting(key: string): Promise<{ key: string; value: string }> {
+    return this.request<{ key: string; value: string }>(`/api/settings/${key}`)
+  }
+
+  async updateSetting(key: string, value: string): Promise<{ key: string; value: string }> {
+    return this.request<{ key: string; value: string }>(`/api/settings/${key}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ value }),
+    })
+  }
 }
 
 export const apiClient = new ApiClient(API_URL)
