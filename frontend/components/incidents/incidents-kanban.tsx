@@ -127,6 +127,7 @@ export function IncidentsKanban() {
                         incident={incident}
                         columnColor={column.color}
                         onEdit={() => handleEditClick(incident)}
+                        onUpdate={refreshIncidents}
                         isDraggable={false} // Disable dragging for now (can be enabled with drag-and-drop implementation)
                       />
                     ))

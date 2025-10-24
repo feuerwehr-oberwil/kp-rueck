@@ -15,6 +15,17 @@ export type IncidentPriority = ApiIncidentPriority
 export type IncidentStatus = ApiIncidentStatus
 
 /**
+ * Assigned vehicle with details
+ */
+export interface AssignedVehicle {
+  assignment_id: string // UUID of assignment record
+  vehicle_id: string // UUID of vehicle
+  name: string // Vehicle name (e.g., "TLF 1")
+  type: string // Vehicle type (e.g., "TLF", "DLK")
+  assigned_at: Date
+}
+
+/**
  * Frontend incident representation
  * Coordinates are parsed to numbers, dates to Date objects
  */
@@ -34,6 +45,7 @@ export interface Incident {
   created_by: string | null // UUID
   completed_at: Date | null
   status_changed_at: Date | null // Timestamp of last status transition
+  assigned_vehicles: AssignedVehicle[] // List of assigned vehicles
 }
 
 /**
