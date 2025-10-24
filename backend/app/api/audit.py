@@ -15,7 +15,7 @@ from ..models import AuditLog
 router = APIRouter(prefix="/audit", tags=["audit"])
 
 
-@router.get("/", response_model=list[schemas.AuditLogEntry])
+@router.get("", response_model=list[schemas.AuditLogEntry])
 async def query_audit_log(
     current_user: CurrentEditor,  # Editor-only
     db: AsyncSession = Depends(get_db),
