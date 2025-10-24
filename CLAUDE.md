@@ -258,6 +258,47 @@ uv run pytest  # Run all tests
 uv run uvicorn app.main:app  # Start server and check logs
 ```
 
+### FastAPI Trailing Slash 307 Redirects
+
+**Issue**: Frontend API calls fail with "Load failed" and backend logs show `307 Temporary Redirect` errors.
+
+**What Happened (2025-10-24)**:
+- Backend FastAPI route defined with trailing slash: `@router.get("/", ...)` on `APIRouter(prefix="/settings")`
+- This creates endpoint: `/api/settings/` (with trailing slash)
+- Frontend API client called: `/api/settings` (without trailing slash)
+- FastAPI automatically redirects `/api/settings` → `/api/settings/` with HTTP 307
+- Frontend fetch fails because it doesn't follow the redirect properly
+
+**Root Cause**:
+FastAPI enforces strict trailing slash matching. When a route is defined with a trailing slash, requests without the trailing slash will receive a 307 redirect to add it. This causes issues with authenticated requests because cookies may not be forwarded correctly on redirect.
+
+**Solution**:
+Always match trailing slashes between frontend API calls and backend route definitions:
+- **Option 1** (Recommended): Add trailing slash to frontend calls: `/api/settings/`
+- **Option 2**: Remove trailing slash from backend routes (change `@router.get("/")` to `@router.get("")`)
+
+**Prevention**:
+- When adding new API endpoints, verify trailing slash consistency
+- Test API calls in browser DevTools Network tab to catch 307 redirects
+- Check backend logs for 307 responses - they indicate trailing slash mismatches
+
+**Example**:
+```typescript
+// ❌ Wrong - missing trailing slash
+async getAllSettings() {
+  return this.request('/api/settings')  // Returns 307 redirect
+}
+
+// ✅ Correct - includes trailing slash
+async getAllSettings() {
+  return this.request('/api/settings/')  // Works correctly
+}
+```
+
+**Related Files**:
+- Frontend API calls: `frontend/lib/api-client.ts`
+- Backend routes: `backend/app/api/*.py` (router definitions)
+
 ## Important Files & Documentation
 
 - `DESIGN_DOC.md` - Complete system requirements and architecture specification
