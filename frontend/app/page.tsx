@@ -23,7 +23,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType } from "@/lib/contexts/operations-context"
-import { ConnectionStatus } from "@/components/connection-status"
 
 const columns = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
@@ -1702,9 +1701,6 @@ export default function FireStationDashboard() {
       <div className="flex h-screen flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-orange-600 text-2xl shadow-lg">
-              🚒
-            </div>
             <h1 className="text-2xl font-bold tracking-tight">KP Rück Dashboard</h1>
           </div>
 
@@ -1809,8 +1805,6 @@ export default function FireStationDashboard() {
                 </div>
               </PopoverContent>
             </Popover>
-
-            <ConnectionStatus />
 
             <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
               <Clock className="h-4 w-4 text-muted-foreground" />
