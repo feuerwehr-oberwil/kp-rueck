@@ -5,11 +5,13 @@
  * Displays current user info and logout button in a settings dropdown
  */
 
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Settings, User, FileText, LogOut, Users } from 'lucide-react';
+import { getApiUrl } from '@/lib/env';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +24,27 @@ import {
 export function UserMenu() {
   const { user, logout, isEditor, isAuthenticated } = useAuth();
   const router = useRouter();
+  const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
+  const [apiUrl] = useState(getApiUrl());
+
+  const checkConnection = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/health`);
+      if (response.ok) {
+        setStatus("connected");
+      } else {
+        setStatus("disconnected");
+      }
+    } catch (error) {
+      setStatus("disconnected");
+    }
+  };
+
+  useEffect(() => {
+    checkConnection();
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (!isAuthenticated || !user) {
     return null;
@@ -30,6 +53,28 @@ export function UserMenu() {
   const handleLogout = async () => {
     await logout();
     router.push('/login');
+  };
+
+  const getStatusColor = () => {
+    switch (status) {
+      case "connected":
+        return "bg-green-500";
+      case "disconnected":
+        return "bg-red-500";
+      case "checking":
+        return "bg-yellow-500";
+    }
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case "connected":
+        return "Verbunden";
+      case "disconnected":
+        return "Offline";
+      case "checking":
+        return "Prüfen...";
+    }
   };
 
   return (
@@ -46,6 +91,16 @@ export function UserMenu() {
             <p className="text-xs leading-none text-muted-foreground">
               {isEditor ? 'Editor' : 'Betrachter'}
             </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Backend</span>
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
+              <span className="text-xs">{getStatusText()}</span>
+            </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
