@@ -75,3 +75,5 @@ async def delete_incident(
     success = await crud.delete_incident(db, incident_id=incident_id)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
+
+
