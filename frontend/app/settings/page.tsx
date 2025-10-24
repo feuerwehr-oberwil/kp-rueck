@@ -24,6 +24,7 @@ import {
 import { ArrowLeft, Settings2, Save, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { PageNavigation } from '@/components/page-navigation';
 
 interface SettingConfig {
   key: string;
@@ -221,6 +222,10 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <PageNavigation currentPage="settings" />
           </div>
         </header>
 
