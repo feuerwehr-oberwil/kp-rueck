@@ -16,7 +16,6 @@ class TestMaterialModel:
         material = Material(
             id=uuid4(),
             name="Wasserpumpe",
-            type="Pumpen",
             status="available",
             location="Lager Raum 3",
         )
@@ -26,7 +25,6 @@ class TestMaterialModel:
 
         assert material.id is not None
         assert material.name == "Wasserpumpe"
-        assert material.type == "Pumpen"
         assert material.status == "available"
         assert material.location == "Lager Raum 3"
         assert material.created_at is not None
@@ -37,7 +35,6 @@ class TestMaterialModel:
         material = Material(
             id=uuid4(),
             name="Test Material",
-            type=None,
             status="available",
             location=None,
         )
@@ -45,7 +42,6 @@ class TestMaterialModel:
         await db_session.commit()
         await db_session.refresh(material)
 
-        assert material.type is None
         assert material.location is None
 
     async def test_material_status_constraint(self, db_session: AsyncSession):
@@ -53,7 +49,6 @@ class TestMaterialModel:
         material = Material(
             id=uuid4(),
             name="Test Material",
-            type="Test",
             status="invalid_status",  # Invalid
             location=None,
         )
@@ -70,7 +65,6 @@ class TestMaterialModel:
             material = Material(
                 id=uuid4(),
                 name=f"Material {status}",
-                type="Test",
                 status=status,
                 location="Test",
             )
@@ -84,7 +78,6 @@ class TestMaterialModel:
         material = Material(
             id=uuid4(),
             name="Test Equipment",
-            type="Spezialgerät",
             status="assigned",
             location="TLF 1",
         )

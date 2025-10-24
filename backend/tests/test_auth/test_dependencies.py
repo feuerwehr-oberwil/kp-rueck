@@ -1,6 +1,7 @@
 """Tests for authentication dependency injection functions."""
 from datetime import timedelta
 from uuid import uuid4
+from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
@@ -12,13 +13,21 @@ from app.auth.security import create_access_token, create_refresh_token
 from app.models import User
 
 
+@pytest.fixture
+def mock_request():
+    """Create a mock request object for dependency tests."""
+    request = MagicMock()
+    request.state = MagicMock()
+    return request
+
+
 # ============================================
 # get_current_user Tests
 # ============================================
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_valid_token(db_session: AsyncSession):
+async def test_get_current_user_valid_token(db_session: AsyncSession, mock_request):
     """Test get_current_user returns user with valid token."""
     # Create test user
     user = User(
@@ -35,7 +44,7 @@ async def test_get_current_user_valid_token(db_session: AsyncSession):
     access_token = create_access_token(data={"sub": str(user.id)})
 
     # Mock function call
-    result = await get_current_user(access_token=access_token, db=db_session)
+    result = await get_current_user(request=mock_request, access_token=access_token, db=db_session)
 
     assert result.id == user.id
     assert result.username == "testuser"
@@ -43,17 +52,17 @@ async def test_get_current_user_valid_token(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_no_token(db_session: AsyncSession):
+async def test_get_current_user_no_token(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when no token provided."""
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=None, db=db_session)
+        await get_current_user(request=mock_request, access_token=None, db=db_session)
 
     assert exc_info.value.status_code == 401
     assert "Anmeldedaten konnten nicht validiert werden" in exc_info.value.detail
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_expired_token(db_session: AsyncSession):
+async def test_get_current_user_expired_token(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 with expired token."""
     user = User(
         id=uuid4(),
@@ -71,24 +80,24 @@ async def test_get_current_user_expired_token(db_session: AsyncSession):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=expired_token, db=db_session)
+        await get_current_user(request=mock_request, access_token=expired_token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_invalid_token_format(db_session: AsyncSession):
+async def test_get_current_user_invalid_token_format(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 with malformed token."""
     invalid_token = "invalid.jwt.token"
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=invalid_token, db=db_session)
+        await get_current_user(request=mock_request, access_token=invalid_token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_wrong_token_type(db_session: AsyncSession):
+async def test_get_current_user_wrong_token_type(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when refresh token is used."""
     user = User(
         id=uuid4(),
@@ -103,26 +112,26 @@ async def test_get_current_user_wrong_token_type(db_session: AsyncSession):
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=refresh_token, db=db_session)
+        await get_current_user(request=mock_request, access_token=refresh_token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_nonexistent_user(db_session: AsyncSession):
+async def test_get_current_user_nonexistent_user(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when user not found in database."""
     # Create token for non-existent user
     fake_user_id = uuid4()
     access_token = create_access_token(data={"sub": str(fake_user_id)})
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=access_token, db=db_session)
+        await get_current_user(request=mock_request, access_token=access_token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_missing_sub_claim(db_session: AsyncSession):
+async def test_get_current_user_missing_sub_claim(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when token missing 'sub' claim."""
     # Manually create token without 'sub' claim
     from app.auth.config import auth_settings
@@ -137,13 +146,13 @@ async def test_get_current_user_missing_sub_claim(db_session: AsyncSession):
     token = jwt.encode(token_data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=token, db=db_session)
+        await get_current_user(request=mock_request, access_token=token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_invalid_uuid_format(db_session: AsyncSession):
+async def test_get_current_user_invalid_uuid_format(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when 'sub' is not valid UUID."""
     from app.auth.config import auth_settings
     from datetime import datetime, timezone
@@ -157,13 +166,13 @@ async def test_get_current_user_invalid_uuid_format(db_session: AsyncSession):
     token = jwt.encode(token_data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=token, db=db_session)
+        await get_current_user(request=mock_request, access_token=token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_tampered_token(db_session: AsyncSession):
+async def test_get_current_user_tampered_token(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 with tampered token."""
     user = User(
         id=uuid4(),
@@ -179,7 +188,7 @@ async def test_get_current_user_tampered_token(db_session: AsyncSession):
     tampered_token = valid_token[:-5] + "XXXXX"
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=tampered_token, db=db_session)
+        await get_current_user(request=mock_request, access_token=tampered_token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
@@ -288,7 +297,7 @@ async def test_invalid_role_rejected():
 
 
 @pytest.mark.asyncio
-async def test_full_dependency_chain_editor(db_session: AsyncSession):
+async def test_full_dependency_chain_editor(db_session: AsyncSession, mock_request):
     """Test complete dependency chain for editor user."""
     # Create editor user
     editor = User(
@@ -305,7 +314,7 @@ async def test_full_dependency_chain_editor(db_session: AsyncSession):
     access_token = create_access_token(data={"sub": str(editor.id)})
 
     # First dependency: get_current_user
-    current_user = await get_current_user(access_token=access_token, db=db_session)
+    current_user = await get_current_user(request=mock_request, access_token=access_token, db=db_session)
     assert current_user.id == editor.id
 
     # Second dependency: get_current_editor
@@ -315,7 +324,7 @@ async def test_full_dependency_chain_editor(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_full_dependency_chain_viewer(db_session: AsyncSession):
+async def test_full_dependency_chain_viewer(db_session: AsyncSession, mock_request):
     """Test dependency chain rejects viewer at editor check."""
     # Create viewer user
     viewer = User(
@@ -332,7 +341,7 @@ async def test_full_dependency_chain_viewer(db_session: AsyncSession):
     access_token = create_access_token(data={"sub": str(viewer.id)})
 
     # First dependency: get_current_user - should succeed
-    current_user = await get_current_user(access_token=access_token, db=db_session)
+    current_user = await get_current_user(request=mock_request, access_token=access_token, db=db_session)
     assert current_user.id == viewer.id
 
     # Second dependency: get_current_editor - should fail
@@ -343,15 +352,14 @@ async def test_full_dependency_chain_viewer(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_www_authenticate_header():
+async def test_www_authenticate_header(mock_request):
     """Test 401 responses include WWW-Authenticate header."""
     from app.auth.dependencies import get_current_user
-    from unittest.mock import MagicMock
 
     db_mock = MagicMock()
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=None, db=db_mock)
+        await get_current_user(request=mock_request, access_token=None, db=db_mock)
 
     assert exc_info.value.status_code == 401
     assert "WWW-Authenticate" in exc_info.value.headers
@@ -364,7 +372,7 @@ async def test_www_authenticate_header():
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_with_deleted_user(db_session: AsyncSession):
+async def test_get_current_user_with_deleted_user(db_session: AsyncSession, mock_request):
     """Test get_current_user handles case where user was deleted after token creation."""
     # Create user and token
     user = User(
@@ -385,15 +393,15 @@ async def test_get_current_user_with_deleted_user(db_session: AsyncSession):
 
     # Token should now be invalid
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token=access_token, db=db_session)
+        await get_current_user(request=mock_request, access_token=access_token, db=db_session)
 
     assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_empty_string_token(db_session: AsyncSession):
+async def test_empty_string_token(db_session: AsyncSession, mock_request):
     """Test empty string token is rejected."""
     with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(access_token="", db=db_session)
+        await get_current_user(request=mock_request, access_token="", db=db_session)
 
     assert exc_info.value.status_code == 401
