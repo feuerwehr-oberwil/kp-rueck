@@ -49,17 +49,21 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings" className="cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Einstellungen</span>
+          </Link>
+        </DropdownMenuItem>
         {isEditor && (
-          <>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/audit" className="cursor-pointer">
-                <FileText className="mr-2 h-4 w-4" />
-                <span>Audit-Protokoll</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
+          <DropdownMenuItem asChild>
+            <Link href="/admin/audit" className="cursor-pointer">
+              <FileText className="mr-2 h-4 w-4" />
+              <span>Audit-Protokoll</span>
+            </Link>
+          </DropdownMenuItem>
         )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} variant="destructive">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Abmelden</span>
