@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Edit, Map } from 'lucide-react'
+import { MapPin, Clock, Edit, Map, Truck } from 'lucide-react'
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { VehicleTags } from "./vehicle-tags"
 
 interface IncidentCardProps {
   incident: Incident
@@ -15,6 +16,7 @@ interface IncidentCardProps {
   onEdit?: () => void
   isHighlighted?: boolean
   isDraggable?: boolean
+  onUpdate?: () => void
 }
 
 function getTimeSince(date: Date): string {
@@ -38,6 +40,7 @@ export function IncidentCard({
   onEdit,
   isHighlighted,
   isDraggable = true,
+  onUpdate,
 }: IncidentCardProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -141,6 +144,19 @@ export function IncidentCard({
           <p className="text-xs text-muted-foreground line-clamp-2">
             {incident.description}
           </p>
+        )}
+
+        {/* Assigned Vehicles */}
+        {(incident.assigned_vehicles.length > 0 || onEdit) && (
+          <div className="flex items-start gap-2">
+            <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <VehicleTags
+              incidentId={incident.id}
+              assignedVehicles={incident.assigned_vehicles}
+              onUpdate={onUpdate}
+              readOnly={!onEdit}
+            />
+          </div>
         )}
       </div>
     </Card>
