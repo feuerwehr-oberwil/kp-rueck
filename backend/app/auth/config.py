@@ -9,12 +9,12 @@ class AuthSettings(BaseSettings):
     # JWT Configuration
     SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_USE_OPENSSL_RAND"  # openssl rand -hex 32
     ALGORITHM: str = "HS256"  # Use RS256 for distributed systems
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Short-lived for security
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours for firefighting operations
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Longer-lived refresh token
 
     # Password Policy
     MIN_PASSWORD_LENGTH: int = 8
-    MAX_PASSWORD_LENGTH: int = 128
+    MAX_PASSWORD_LENGTH: int = 72  # Bcrypt has a hard limit of 72 bytes
 
     # Cookie Security
     COOKIE_SECURE: bool = False  # HTTPS only in production (set to False for local dev)

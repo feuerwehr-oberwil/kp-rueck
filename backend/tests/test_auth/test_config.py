@@ -17,12 +17,12 @@ def test_auth_settings_defaults():
     # JWT Configuration
     assert settings.SECRET_KEY == "CHANGE_THIS_IN_PRODUCTION_USE_OPENSSL_RAND"
     assert settings.ALGORITHM == "HS256"
-    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES == 15
+    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES == 120  # 2 hours for firefighting operations
     assert settings.REFRESH_TOKEN_EXPIRE_DAYS == 7
 
     # Password Policy
     assert settings.MIN_PASSWORD_LENGTH == 8
-    assert settings.MAX_PASSWORD_LENGTH == 128
+    assert settings.MAX_PASSWORD_LENGTH == 72  # Bcrypt limitation
 
     # Cookie Security
     assert settings.COOKIE_SECURE is False  # False for local dev
@@ -55,8 +55,8 @@ def test_token_expiration_reasonable():
     """Test token expiration times are reasonable."""
     settings = AuthSettings()
 
-    # Access token should be short-lived (security best practice)
-    assert 5 <= settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 60
+    # Access token should be reasonable for firefighting operations (up to 3 hours)
+    assert 5 <= settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 180
 
     # Refresh token should be longer than access token
     access_token_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
@@ -242,11 +242,12 @@ def test_httponly_always_true():
 
 
 def test_access_token_short_lived():
-    """Test access token is short-lived (security best practice)."""
+    """Test access token is appropriately scoped for firefighting operations."""
     settings = AuthSettings()
 
-    # Access tokens should expire quickly to limit damage if stolen
-    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 30
+    # Access tokens should expire within a reasonable timeframe for firefighting operations
+    # Maximum 3 hours to balance security with operational needs
+    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 180
 
 
 def test_refresh_token_longer_lived():
