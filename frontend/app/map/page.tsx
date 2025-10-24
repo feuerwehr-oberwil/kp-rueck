@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card"
 import { ArrowLeft, MapPin, Clock, FileText } from "lucide-react"
 import { useIncidents } from "@/lib/contexts/incidents-context"
 import { ProtectedRoute } from "@/components/protected-route"
-import { UserMenu } from "@/components/user-menu"
+import { PageNavigation } from "@/components/page-navigation"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -111,14 +111,7 @@ export default function MapPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <UserMenu />
-
-            <Link href="/">
-              <Button variant="outline" className="gap-2">
-                <MapPin className="h-4 w-4" />
-                Zum Kanban
-              </Button>
-            </Link>
+            <PageNavigation currentPage="map" />
           </div>
         </header>
 
