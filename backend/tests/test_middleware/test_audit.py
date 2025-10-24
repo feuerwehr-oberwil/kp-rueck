@@ -23,12 +23,16 @@ async def client(db_session: AsyncSession) -> AsyncClient:
 
     app.dependency_overrides[get_db] = override_get_db
 
+    # Inject test db_session for middleware to use
+    app.state.test_db_session = db_session
+
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         yield ac
 
     app.dependency_overrides.clear()
+    delattr(app.state, 'test_db_session')
 
 
 @pytest_asyncio.fixture

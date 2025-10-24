@@ -46,5 +46,17 @@ class Settings(BaseSettings):
     port: int = 8000
     reload: bool = False  # Set to False in production
 
+    @property
+    def is_testing(self) -> bool:
+        """Check if we're in test mode."""
+        import os
+        import sys
+        # Check multiple indicators of test mode
+        return (
+            "pytest" in sys.modules  # pytest is running
+            or os.getenv("PYTEST_CURRENT_TEST") is not None  # pytest env var
+            or "test" in self.database_url.lower()  # test database
+        )
+
 
 settings = Settings()
