@@ -690,7 +690,7 @@ function OperationDetailModal({
               Senden
             </Button>
             <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
-              Schließen
+              Schliessen
             </Button>
           </div>
         </div>
@@ -891,7 +891,7 @@ function NewEmergencyModal({
               <div className="relative">
                 <Input
                   id="location"
-                  placeholder="z.B. Hauptstraße 45"
+                  placeholder="z.B. Hauptstrasse 45"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   onFocus={() => {
