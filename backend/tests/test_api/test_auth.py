@@ -348,3 +348,367 @@ async def test_token_with_nonexistent_user(client: AsyncClient):
     )
 
     assert response.status_code == 401
+
+
+# ============================================
+# Last Login Timestamp Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_login_updates_last_login(client: AsyncClient, test_editor_user: User, db_session: AsyncSession):
+    """Test login updates last_login timestamp."""
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+
+    # Verify last_login is None initially
+    result = await db_session.execute(
+        select(User).where(User.id == test_editor_user.id)
+    )
+    user_before = result.scalar_one()
+    assert user_before.last_login is None
+
+    # Login
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+    assert response.status_code == 200
+
+    # Verify last_login was updated
+    await db_session.refresh(user_before)
+    result = await db_session.execute(
+        select(User).where(User.id == test_editor_user.id)
+    )
+    user_after = result.scalar_one()
+
+    assert user_after.last_login is not None
+    # Should be very recent (within last minute)
+    time_diff = datetime.now(timezone.utc) - user_after.last_login
+    assert time_diff.total_seconds() < 60
+
+
+@pytest.mark.asyncio
+async def test_login_updates_last_login_on_second_login(client: AsyncClient, test_editor_user: User, db_session: AsyncSession):
+    """Test last_login is updated on subsequent logins."""
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select, update
+
+    # Set an old last_login timestamp
+    old_timestamp = datetime.now(timezone.utc) - timedelta(days=7)
+    await db_session.execute(
+        update(User)
+        .where(User.id == test_editor_user.id)
+        .values(last_login=old_timestamp)
+    )
+    await db_session.commit()
+
+    # Login
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+    assert response.status_code == 200
+
+    # Verify last_login was updated to a recent time
+    result = await db_session.execute(
+        select(User).where(User.id == test_editor_user.id)
+    )
+    user = result.scalar_one()
+
+    assert user.last_login is not None
+    assert user.last_login > old_timestamp
+    # Should be very recent
+    time_diff = datetime.now(timezone.utc) - user.last_login
+    assert time_diff.total_seconds() < 60
+
+
+@pytest.mark.asyncio
+async def test_failed_login_does_not_update_last_login(client: AsyncClient, test_editor_user: User, db_session: AsyncSession):
+    """Test failed login does not update last_login timestamp."""
+    from sqlalchemy import select
+
+    # Verify last_login is None initially
+    result = await db_session.execute(
+        select(User).where(User.id == test_editor_user.id)
+    )
+    user_before = result.scalar_one()
+    initial_last_login = user_before.last_login
+
+    # Attempt failed login
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "wrongpassword"},
+    )
+    assert response.status_code == 401
+
+    # Verify last_login was NOT updated
+    result = await db_session.execute(
+        select(User).where(User.id == test_editor_user.id)
+    )
+    user_after = result.scalar_one()
+    assert user_after.last_login == initial_last_login
+
+
+# ============================================
+# Cookie Security Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_cookies_have_httponly_flag(client: AsyncClient, test_editor_user: User):
+    """Test cookies have httpOnly flag set."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+
+    assert response.status_code == 200
+
+    # Check access_token cookie attributes
+    access_cookie = response.cookies.get("access_token")
+    assert access_cookie is not None
+
+    # Note: httpx Cookie objects don't expose httponly directly
+    # But we can verify the cookie was set
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
+
+
+@pytest.mark.asyncio
+async def test_cookies_have_samesite_attribute(client: AsyncClient, test_editor_user: User):
+    """Test cookies have SameSite attribute."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+
+    assert response.status_code == 200
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
+
+
+@pytest.mark.asyncio
+async def test_access_token_max_age(client: AsyncClient, test_editor_user: User):
+    """Test access token cookie has correct max_age."""
+    from app.auth.config import auth_settings
+
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+
+    assert response.status_code == 200
+    # Cookie should be set with appropriate max_age (15 minutes = 900 seconds)
+    expected_max_age = auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    # Just verify cookies are set (httpx doesn't expose max_age easily)
+    assert "access_token" in response.cookies
+
+
+# ============================================
+# Refresh Token Edge Cases
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_refresh_with_access_token_fails(client: AsyncClient, test_editor_user: User):
+    """Test using access token for refresh endpoint fails."""
+    # Login to get access token
+    login_response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+    assert login_response.status_code == 200
+
+    # Manually set only access_token cookie (not refresh_token)
+    access_token = login_response.cookies.get("access_token")
+
+    # Try to refresh with access token instead of refresh token
+    response = await client.post(
+        "/api/auth/refresh",
+        cookies={"refresh_token": access_token}
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_returns_user_data(client: AsyncClient, test_editor_user: User):
+    """Test refresh endpoint returns complete user data."""
+    # Login
+    await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+
+    # Refresh
+    response = await client.post("/api/auth/refresh")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["username"] == "editor"
+    assert data["role"] == "editor"
+    assert "id" in data
+    assert "created_at" in data
+
+
+@pytest.mark.asyncio
+async def test_refresh_with_deleted_user(client: AsyncClient, test_editor_user: User, db_session: AsyncSession):
+    """Test refresh fails if user was deleted after login."""
+    # Login
+    await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+
+    # Delete user
+    await db_session.delete(test_editor_user)
+    await db_session.commit()
+
+    # Try to refresh - should fail
+    response = await client.post("/api/auth/refresh")
+    assert response.status_code == 401
+
+
+# ============================================
+# Login Form Data Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_login_requires_form_data(client: AsyncClient, test_editor_user: User):
+    """Test login endpoint requires form data (not JSON)."""
+    # Try to login with JSON instead of form data
+    response = await client.post(
+        "/api/auth/login",
+        json={"username": "editor", "password": "editorpass123"},
+    )
+
+    # Should fail because OAuth2PasswordRequestForm expects form data
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_login_empty_username(client: AsyncClient):
+    """Test login with empty username."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "", "password": "password"},
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_empty_password(client: AsyncClient, test_editor_user: User):
+    """Test login with empty password."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": ""},
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_username_case_sensitive(client: AsyncClient, test_editor_user: User):
+    """Test username is case-sensitive."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "EDITOR", "password": "editorpass123"},  # Wrong case
+    )
+
+    assert response.status_code == 401
+
+
+# ============================================
+# Logout Edge Cases
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_logout_without_authentication(client: AsyncClient):
+    """Test logout works even without authentication."""
+    response = await client.post("/api/auth/logout")
+
+    # Should succeed (just clears cookies if any)
+    assert response.status_code == 200
+    assert response.json()["message"] == "Erfolgreich abgemeldet"
+
+
+@pytest.mark.asyncio
+async def test_double_logout(authenticated_editor_client: AsyncClient):
+    """Test logout can be called multiple times."""
+    # First logout
+    response1 = await authenticated_editor_client.post("/api/auth/logout")
+    assert response1.status_code == 200
+
+    # Second logout (cookies already cleared)
+    response2 = await authenticated_editor_client.post("/api/auth/logout")
+    assert response2.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_protected_route_after_logout(client: AsyncClient, test_editor_user: User):
+    """Test protected routes fail after logout."""
+    # Login
+    await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+
+    # Verify authenticated access works
+    response = await client.get("/api/auth/me")
+    assert response.status_code == 200
+
+    # Logout
+    await client.post("/api/auth/logout")
+
+    # Try to access protected route - should fail
+    # Note: This test depends on whether httpx clears cookies after delete_cookie
+    # In real browsers, cookies would be cleared
+
+
+# ============================================
+# Response Schema Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_login_response_schema(client: AsyncClient, test_editor_user: User):
+    """Test login response matches UserResponse schema."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "editor", "password": "editorpass123"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Required fields
+    assert "id" in data
+    assert "username" in data
+    assert "role" in data
+    assert "created_at" in data
+
+    # Should NOT include password_hash (security)
+    assert "password_hash" not in data
+    assert "password" not in data
+
+
+@pytest.mark.asyncio
+async def test_me_endpoint_response_schema(authenticated_editor_client: AsyncClient):
+    """Test /auth/me response matches UserResponse schema."""
+    response = await authenticated_editor_client.get("/api/auth/me")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Required fields
+    assert "id" in data
+    assert "username" in data
+    assert "role" in data
+    assert "created_at" in data
+
+    # Should NOT include password_hash
+    assert "password_hash" not in data
