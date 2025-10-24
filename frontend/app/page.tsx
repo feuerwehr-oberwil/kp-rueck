@@ -7,14 +7,16 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Edit, Filter } from 'lucide-react'
+import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Edit, Filter, Trash2, Check } from 'lucide-react'
 import { ProtectedRoute } from "@/components/protected-route"
 import { UserMenu } from "@/components/user-menu"
+import { toast } from "sonner"
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -54,12 +56,32 @@ const emergencyTypes = [
   "Gasleck",
 ]
 
+// Helper function to format incident types to German labels
+function getIncidentTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    brandbekaempfung: 'Brandbekämpfung',
+    elementarereignis: 'Elementarereignis',
+    strassenrettung: 'Strassenrettung',
+    technische_hilfeleistung: 'Technische Hilfeleistung',
+    oelwehr: 'Ölwehr',
+    chemiewehr: 'Chemiewehr',
+    strahlenwehr: 'Strahlenwehr',
+    einsatz_bahnanlagen: 'Einsatz Bahnanlagen',
+    bma_unechte_alarme: 'BMA / Unechte Alarme',
+    dienstleistungen: 'Dienstleistungen',
+    diverse_einsaetze: 'Diverse Einsätze',
+    gerettete_menschen: 'Gerettete Menschen',
+    gerettete_tiere: 'Gerettete Tiere',
+  }
+  return labels[type] || type
+}
+
 function getTimeSince(date: Date): string {
   const minutes = Math.floor((Date.now() - date.getTime()) / 1000 / 60)
-  if (minutes < 60) return `${minutes} Min`
+  if (minutes < 60) return `${minutes}'`
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  return `${hours}h ${mins}m`
+  return `${hours}h ${mins}'`
 }
 
 function DraggablePerson({ person, onClick, disabled }: { person: Person; onClick?: () => void; disabled?: boolean }) {
@@ -155,6 +177,7 @@ function DraggableOperation({
   materials,
   index,
   columnOperations,
+  formatLocation,
 }: {
   operation: Operation
   columnColor: string
@@ -167,6 +190,7 @@ function DraggableOperation({
   materials: Material[]
   index: number
   columnOperations: Operation[]
+  formatLocation: (address: string) => string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -227,7 +251,7 @@ function DraggableOperation({
   }, [operation, index, isDraggingRef])
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       {closestEdge === 'top' && <DropIndicator edge="top" gap="4px" />}
       <Card
         ref={ref}
@@ -240,11 +264,16 @@ function DraggableOperation({
           <div className="flex items-start justify-between gap-2">
             {/* Draggable area */}
             <div className="flex items-start gap-2 min-w-0 flex-1 cursor-move">
-              <MapPin className="h-5 w-5 flex-shrink-0 text-primary mt-0.5" />
-              <div className="min-w-0">
-                <h3 className="font-bold text-base text-foreground leading-tight">{operation.location}</h3>
+              <div
+                className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
+                  operation.priority === "high" ? "bg-red-500" : operation.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
+                }`}
+                title={operation.priority === "high" ? "Hohe Priorität" : operation.priority === "medium" ? "Mittlere Priorität" : "Niedrige Priorität"}
+              />
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-base text-foreground leading-tight break-words">{formatLocation(operation.location)}</h3>
                 {operation.vehicle && (
-                  <p className="text-xs text-muted-foreground mt-0.5">Fahrzeug: {operation.vehicle}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 break-words">Fahrzeug: {operation.vehicle}</p>
                 )}
               </div>
             </div>
@@ -270,25 +299,23 @@ function DraggableOperation({
               >
                 <Map className="h-4 w-4 text-primary" />
               </Link>
-              <Badge
-                variant={
-                  operation.priority === "high" ? "destructive" : operation.priority === "medium" ? "default" : "secondary"
-                }
-                className="text-xs"
-              >
-                {operation.priority === "high" ? "Hoch" : operation.priority === "medium" ? "Mittel" : "Niedrig"}
-              </Badge>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Flame className="h-4 w-4 text-orange-500 flex-shrink-0" />
-            <span className="text-sm font-medium text-foreground">{operation.incidentType}</span>
+            <span className="text-sm font-medium text-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="font-mono text-sm text-muted-foreground">{getTimeSince(operation.dispatchTime)}</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="font-mono text-sm text-muted-foreground">
+                {operation.dispatchTime.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground">
+              {getTimeSince(operation.statusChangedAt || operation.dispatchTime)}
+            </span>
           </div>
 
           {operation.crew.length > 0 && (
@@ -362,6 +389,7 @@ function DroppableColumn({
   highlightedOperationId,
   isDraggingRef,
   materials,
+  formatLocation,
 }: {
   column: (typeof columns)[0]
   operations: Operation[]
@@ -372,6 +400,7 @@ function DroppableColumn({
   highlightedOperationId: string | null
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
+  formatLocation: (address: string) => string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -419,6 +448,7 @@ function DroppableColumn({
               materials={materials}
               index={index}
               columnOperations={operations}
+              formatLocation={formatLocation}
             />
           ))}
         </div>
@@ -432,14 +462,17 @@ function OperationDetailModal({
   open,
   onOpenChange,
   onUpdate,
+  onDelete,
   materials,
 }: {
   operation: Operation | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate: (updates: Partial<Operation>) => void
+  onDelete: (operationId: string) => void
   materials: Material[]
 }) {
+  const { formatLocation } = useOperations()
   const [locationSearchResults, setLocationSearchResults] = useState<Array<{
     display_name: string
     lat: string
@@ -447,6 +480,15 @@ function OperationDetailModal({
   }>>([])
   const [showLocationResults, setShowLocationResults] = useState(false)
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [editingLocation, setEditingLocation] = useState("")
+
+  // Sync editingLocation with operation.location when modal opens
+  useEffect(() => {
+    if (operation) {
+      setEditingLocation(operation.location)
+    }
+  }, [operation?.id])
 
   const searchLocation = async (query: string) => {
     if (query.length < 3) {
@@ -483,6 +525,8 @@ function OperationDetailModal({
   }
 
   const handleLocationSelect = (result: typeof locationSearchResults[0]) => {
+    // Store the full address from Nominatim for geocoding purposes
+    setEditingLocation(result.display_name)
     onUpdate({
       location: result.display_name,
       coordinates: [parseFloat(result.lat), parseFloat(result.lon)]
@@ -493,18 +537,29 @@ function OperationDetailModal({
 
   // Debounced search
   useEffect(() => {
-    if (!operation) return
+    if (!editingLocation) return
 
     const timer = setTimeout(() => {
-      if (operation.location) {
-        searchLocation(operation.location)
-      }
+      searchLocation(editingLocation)
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [operation?.location])
+  }, [editingLocation])
 
   if (!operation) return null
+
+  // Check if coordinates are valid
+  const hasValidCoordinates =
+    operation.coordinates &&
+    operation.coordinates.length === 2 &&
+    typeof operation.coordinates[0] === 'number' &&
+    typeof operation.coordinates[1] === 'number' &&
+    !isNaN(operation.coordinates[0]) &&
+    !isNaN(operation.coordinates[1]) &&
+    operation.coordinates[0] >= -90 &&
+    operation.coordinates[0] <= 90 &&
+    operation.coordinates[1] >= -180 &&
+    operation.coordinates[1] <= 180
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -512,56 +567,133 @@ function OperationDetailModal({
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-3">
             <MapPin className="h-6 w-6 text-primary" />
-            Einsatz-Details
+            {operation.location ? formatLocation(operation.location) : "Einsatz-Details"}
           </DialogTitle>
-          <DialogDescription className="text-base">
+          <DialogDescription className="text-sm">
             Einsatz-ID: {operation.id} • {getTimeSince(operation.dispatchTime)} seit Alarmierung
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Location - Full Width */}
+          <div className="relative col-span-full">
+            <Label htmlFor="edit-location" className="text-sm font-semibold text-muted-foreground">
+              Einsatzort
+            </Label>
             <div className="relative">
-              <Label htmlFor="edit-location" className="text-sm font-semibold text-muted-foreground">
-                Einsatzort
-              </Label>
-              <div className="relative">
-                <Input
-                  id="edit-location"
-                  value={operation.location}
-                  onChange={(e) => onUpdate({ location: e.target.value })}
-                  onFocus={() => {
-                    if (locationSearchResults.length > 0) {
-                      setShowLocationResults(true)
-                    }
-                  }}
-                  className="mt-2"
-                />
-                {isSearchingLocation && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-1">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  </div>
-                )}
-              </div>
-              {showLocationResults && locationSearchResults.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-auto">
-                  {locationSearchResults.map((result, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleLocationSelect(result)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-b-0"
-                    >
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
-                        <span className="text-xs leading-relaxed">{result.display_name}</span>
-                      </div>
-                    </button>
-                  ))}
+              <Input
+                id="edit-location"
+                value={editingLocation}
+                onChange={(e) => {
+                  setEditingLocation(e.target.value)
+                  onUpdate({ location: e.target.value })
+                }}
+                onFocus={() => {
+                  if (locationSearchResults.length > 0) {
+                    setShowLocationResults(true)
+                  }
+                }}
+                onBlur={() => {
+                  // Close dropdown after a short delay to allow click on dropdown item
+                  setTimeout(() => setShowLocationResults(false), 200)
+                }}
+                className="mt-2"
+              />
+              {isSearchingLocation && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-1">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
               )}
             </div>
+            {showLocationResults && locationSearchResults.length > 0 && (
+              <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-auto">
+                {locationSearchResults.map((result, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onMouseDown={(e) => {
+                      // Use onMouseDown instead of onClick to fire before onBlur
+                      e.preventDefault()
+                      handleLocationSelect(result)
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-b-0"
+                  >
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
+                      <span className="text-xs leading-relaxed">{result.display_name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Coordinates */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-muted-foreground">
+                Koordinaten
+              </Label>
+              {hasValidCoordinates && (
+                <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <Check className="h-3.5 w-3.5" />
+                  <span className="font-medium">Gültige Koordinaten</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Latitude */}
+              <div>
+                <Label htmlFor="edit-location-lat" className="text-xs text-muted-foreground">
+                  Breitengrad (Lat)
+                </Label>
+                <Input
+                  id="edit-location-lat"
+                  type="number"
+                  step="any"
+                  value={operation.coordinates?.[0] ?? ''}
+                  onChange={(e) =>
+                    onUpdate({
+                      coordinates: [
+                        e.target.value ? parseFloat(e.target.value) : 0,
+                        operation.coordinates?.[1] ?? 0
+                      ]
+                    })
+                  }
+                  placeholder="47.5164"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Longitude */}
+              <div>
+                <Label htmlFor="edit-location-lng" className="text-xs text-muted-foreground">
+                  Längengrad (Lng)
+                </Label>
+                <Input
+                  id="edit-location-lng"
+                  type="number"
+                  step="any"
+                  value={operation.coordinates?.[1] ?? ''}
+                  onChange={(e) =>
+                    onUpdate({
+                      coordinates: [
+                        operation.coordinates?.[0] ?? 0,
+                        e.target.value ? parseFloat(e.target.value) : 0
+                      ]
+                    })
+                  }
+                  placeholder="7.5618"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Other fields - Grid */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="edit-incidentType" className="text-sm font-semibold text-muted-foreground">
                 Einsatzart
@@ -582,6 +714,26 @@ function OperationDetailModal({
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
+                Priorität
+              </Label>
+              <Select
+                value={operation.priority}
+                onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Niedrig</SelectItem>
+                  <SelectItem value="medium">Mittel</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label htmlFor="edit-vehicle" className="text-sm font-semibold text-muted-foreground">
                 Fahrzeug
@@ -600,24 +752,6 @@ function OperationDetailModal({
                       {vt.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
-                Priorität
-              </Label>
-              <Select
-                value={operation.priority}
-                onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Niedrig</SelectItem>
-                  <SelectItem value="medium">Mittel</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -689,12 +823,46 @@ function OperationDetailModal({
               <Send className="h-4 w-4" />
               Senden
             </Button>
+            {operation.status === "complete" && (
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Löschen
+              </Button>
+            )}
             <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
               Schliessen
             </Button>
           </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Einsatz wirklich löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "{operation.location}" wird permanent gelöscht.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                onDelete(operation.id)
+                setShowDeleteConfirm(false)
+                onOpenChange(false)
+              }}
+            >
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
@@ -778,6 +946,7 @@ function NewEmergencyModal({
     materials: [] as string[],
     notes: "",
     contact: "",
+    statusChangedAt: null as Date | null,
   })
 
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
@@ -885,10 +1054,10 @@ function NewEmergencyModal({
   }
 
   const handleLocationSelect = (result: typeof locationSearchResults[0]) => {
-    const formattedLocation = formatLocationForDisplay(result.display_name)
+    // Store the FULL address for geocoding, not the formatted one
     setFormData({
       ...formData,
-      location: formattedLocation,
+      location: result.display_name,
       coordinates: [parseFloat(result.lat), parseFloat(result.lon)]
     })
     setShowLocationResults(false)
@@ -925,6 +1094,7 @@ function NewEmergencyModal({
       materials: [],
       notes: "",
       contact: "",
+      statusChangedAt: null,
     })
 
     onOpenChange(false)
@@ -960,6 +1130,10 @@ function NewEmergencyModal({
                     setShowLocationResults(true)
                   }
                 }}
+                onBlur={() => {
+                  // Close dropdown after a short delay to allow click on dropdown item
+                  setTimeout(() => setShowLocationResults(false), 200)
+                }}
                 className="mt-2"
                 autoFocus
               />
@@ -975,7 +1149,11 @@ function NewEmergencyModal({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => handleLocationSelect(result)}
+                    onMouseDown={(e) => {
+                      // Use onMouseDown instead of onClick to fire before onBlur
+                      e.preventDefault()
+                      handleLocationSelect(result)
+                    }}
                     className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/50 last:border-b-0"
                   >
                     <div className="flex flex-col gap-1">
@@ -1111,7 +1289,7 @@ function NewEmergencyModal({
 }
 
 export default function FireStationDashboard() {
-  const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, removeCrew, removeMaterial, updateOperation, createOperation, getNextOperationId, assignPersonToOperation, assignMaterialToOperation } = useOperations()
+  const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, homeCity, formatLocation, refreshOperations, removeCrew, removeMaterial, updateOperation, createOperation, getNextOperationId, assignPersonToOperation, assignMaterialToOperation, deleteOperation } = useOperations()
   const searchParams = useSearchParams()
   const highlightParam = searchParams.get("highlight")
 
@@ -1165,6 +1343,11 @@ export default function FireStationDashboard() {
     return () => clearInterval(timer)
   }, [])
 
+  // Refresh operations immediately when Kanban page loads
+  useEffect(() => {
+    refreshOperations()
+  }, [])
+
   // Just highlight the operation from the map, don't auto-open modal
   useEffect(() => {
     if (highlightParam) {
@@ -1211,6 +1394,12 @@ export default function FireStationDashboard() {
       } else if (e.key === '/') {
         e.preventDefault()
         document.getElementById('search-input')?.focus()
+      } else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault()
+        document.getElementById('personnel-search-input')?.focus()
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault()
+        document.getElementById('material-search-input')?.focus()
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsModalOpen(true)
@@ -1447,6 +1636,20 @@ export default function FireStationDashboard() {
     setSelectedOperation({ ...selectedOperation, ...updates })
   }
 
+  const handleOperationDelete = async (operationId: string) => {
+    try {
+      await deleteOperation(operationId)
+      toast.success("Einsatz gelöscht", {
+        description: "Der Einsatz wurde erfolgreich aus der Datenbank entfernt.",
+      })
+    } catch (error) {
+      console.error('Failed to delete operation:', error)
+      toast.error("Fehler beim Löschen", {
+        description: "Der Einsatz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+      })
+    }
+  }
+
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
     return (
@@ -1607,8 +1810,9 @@ export default function FireStationDashboard() {
             <div className="relative mb-4">
               <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
               <Input
+                id="personnel-search-input"
                 type="text"
-                placeholder="Suchen..."
+                placeholder="Suchen... (Taste P)"
                 value={personnelSearchQuery}
                 onChange={(e) => setPersonnelSearchQuery(e.target.value)}
                 className="h-8 pl-7 text-xs"
@@ -1650,6 +1854,7 @@ export default function FireStationDashboard() {
                     highlightedOperationId={highlightedOperationId}
                     isDraggingRef={isDraggingOperationRef}
                     materials={materials}
+                    formatLocation={formatLocation}
                   />
                 )
               })}
@@ -1667,8 +1872,9 @@ export default function FireStationDashboard() {
             <div className="relative mb-4">
               <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
               <Input
+                id="material-search-input"
                 type="text"
-                placeholder="Suchen..."
+                placeholder="Suchen... (Taste M)"
                 value={materialSearchQuery}
                 onChange={(e) => setMaterialSearchQuery(e.target.value)}
                 className="h-8 pl-7 text-xs"
@@ -1751,6 +1957,7 @@ export default function FireStationDashboard() {
         open={detailModalOpen}
         onOpenChange={setDetailModalOpen}
         onUpdate={handleOperationUpdate}
+        onDelete={handleOperationDelete}
         materials={materials}
       />
 
