@@ -100,6 +100,13 @@ export function IncidentsProvider({ children }: { children: ReactNode }) {
     created_by: apiIncident.created_by,
     completed_at: apiIncident.completed_at ? new Date(apiIncident.completed_at) : null,
     status_changed_at: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
+    assigned_vehicles: (apiIncident.assigned_vehicles || []).map(av => ({
+      assignment_id: av.assignment_id,
+      vehicle_id: av.vehicle_id,
+      name: av.name,
+      type: av.type,
+      assigned_at: new Date(av.assigned_at),
+    })),
   })
 
   const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
