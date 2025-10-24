@@ -37,7 +37,7 @@ async def read_incident(
     """Get a specific incident (requires authentication)."""
     db_incident = await crud.get_incident(db, incident_id=incident_id)
     if db_incident is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
     return db_incident
 
 
@@ -61,7 +61,7 @@ async def update_incident(
     """Update an incident (editor only)."""
     db_incident = await crud.update_incident(db, incident_id=incident_id, incident=incident)
     if db_incident is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
     return db_incident
 
 
@@ -74,7 +74,7 @@ async def delete_incident(
     """Delete an incident (editor only)."""
     success = await crud.delete_incident(db, incident_id=incident_id)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
 
 
 # ============================================
@@ -103,7 +103,7 @@ async def read_person(
     """Get a specific person (requires authentication)."""
     db_person = await crud.get_person(db, person_id=person_id)
     if db_person is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person nicht gefunden")
     return db_person
 
 
@@ -127,7 +127,7 @@ async def update_person(
     """Update a person (editor only)."""
     db_person = await crud.update_person(db, person_id=person_id, person=person)
     if db_person is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person nicht gefunden")
     return db_person
 
 
@@ -157,7 +157,7 @@ async def read_vehicle(
     """Get a specific vehicle (requires authentication)."""
     db_vehicle = await crud.get_vehicle(db, vehicle_id=vehicle_id)
     if db_vehicle is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fahrzeug nicht gefunden")
     return db_vehicle
 
 
@@ -181,7 +181,7 @@ async def update_vehicle(
     """Update a vehicle (editor only)."""
     db_vehicle = await crud.update_vehicle(db, vehicle_id=vehicle_id, vehicle=vehicle)
     if db_vehicle is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fahrzeug nicht gefunden")
     return db_vehicle
 
 
@@ -211,7 +211,7 @@ async def read_material(
     """Get a specific material (requires authentication)."""
     db_material = await crud.get_material(db, material_id=material_id)
     if db_material is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material nicht gefunden")
     return db_material
 
 
@@ -235,5 +235,5 @@ async def update_material(
     """Update a material (editor only)."""
     db_material = await crud.update_material(db, material_id=material_id, material=material)
     if db_material is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material nicht gefunden")
     return db_material
