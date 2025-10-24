@@ -17,8 +17,8 @@ RUN uv sync --frozen --no-dev
 # Copy application code
 COPY . .
 
-# Make start script executable
-RUN chmod +x start.sh
+# Make start scripts executable
+RUN chmod +x start.sh start-dev.sh
 
 # Expose port (Railway will set PORT env var)
 EXPOSE ${PORT:-8000}

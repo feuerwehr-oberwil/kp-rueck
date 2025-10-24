@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Flame, Edit, Map } from 'lucide-react'
+import { MapPin, Clock, Edit, Map } from 'lucide-react'
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
@@ -23,6 +23,13 @@ function getTimeSince(date: Date): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return `${hours}h ${mins}m`
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('de-CH', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 export function IncidentCard({
@@ -58,11 +65,11 @@ export function IncidentCard({
     <Card
       ref={ref}
       style={{ opacity: isDragging ? 0.5 : 1 }}
-      className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${
+      className={`w-full ${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${
         isHighlighted ? "ring-4 ring-accent animate-pulse" : ""
       } ${isDraggable ? "cursor-move" : "cursor-default"}`}
     >
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {/* Header with title and actions */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 min-w-0 flex-1">
@@ -101,34 +108,33 @@ export function IncidentCard({
                 <Map className="h-4 w-4 text-primary" />
               </Link>
             )}
-            <Badge variant={priorityVariant} className="text-xs">
-              {PRIORITY_LABELS[incident.priority]}
-            </Badge>
           </div>
         </div>
 
         {/* Incident type */}
-        <div className="flex items-center gap-2">
-          <Flame className="h-4 w-4 text-orange-500 flex-shrink-0" />
-          <span className="text-sm font-medium text-foreground">
-            {INCIDENT_TYPE_LABELS[incident.type]}
+        <div className="text-sm font-medium text-foreground">
+          {INCIDENT_TYPE_LABELS[incident.type]}
+        </div>
+
+        {/* Time information */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="font-mono">
+            {formatTime(incident.created_at)} • {getTimeSince(incident.created_at)}
           </span>
         </div>
 
-        {/* Time since creation */}
+        {/* Priority badge row */}
         <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="font-mono text-sm text-muted-foreground">
-            {getTimeSince(incident.created_at)}
-          </span>
-        </div>
-
-        {/* Training mode indicator */}
-        {incident.training_flag && (
-          <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20">
-            Übungsmodus
+          <Badge variant={priorityVariant} className="text-xs">
+            {PRIORITY_LABELS[incident.priority]}
           </Badge>
-        )}
+          {incident.training_flag && (
+            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20">
+              Übungsmodus
+            </Badge>
+          )}
+        </div>
 
         {/* Description preview if available */}
         {incident.description && (

@@ -49,7 +49,7 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(),
                type_=sa.DateTime(timezone=True),
                existing_nullable=True)
-    op.create_check_constraint('valid_incident_type', 'incidents', "type IN ('fire', 'medical', 'technical', 'hazmat', 'other')")
+    op.create_check_constraint('valid_incident_type', 'incidents', "type IN ('brandbekaempfung', 'elementarereignis', 'strassenrettung', 'technische_hilfeleistung', 'oelwehr', 'chemiewehr', 'strahlenwehr', 'einsatz_bahnanlagen', 'bma_unechte_alarme', 'dienstleistungen', 'diverse_einsaetze', 'gerettete_menschen', 'gerettete_tiere')")
     op.create_index('idx_incidents_status', 'incidents', ['status'], unique=False)
     op.create_index('idx_incidents_training', 'incidents', ['training_flag'], unique=False)
     op.alter_column('materials', 'created_at',

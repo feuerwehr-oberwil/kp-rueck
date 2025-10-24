@@ -138,13 +138,13 @@ def upgrade() -> None:
     )
     op.create_index('idx_transitions_incident', 'status_transitions', ['incident_id'], unique=False)
 
-    # Drop old tables that need schema changes
-    op.drop_index(op.f('ix_operations_id'), table_name='operations')
-    op.drop_table('operations')
-    op.drop_index(op.f('ix_materials_id'), table_name='materials')
-    op.drop_table('materials')
-    op.drop_index(op.f('ix_personnel_id'), table_name='personnel')
-    op.drop_table('personnel')
+    # Drop old tables that need schema changes (if they exist)
+    op.drop_index(op.f('ix_operations_id'), table_name='operations', if_exists=True)
+    op.drop_table('operations', if_exists=True)
+    op.drop_index(op.f('ix_materials_id'), table_name='materials', if_exists=True)
+    op.drop_table('materials', if_exists=True)
+    op.drop_index(op.f('ix_personnel_id'), table_name='personnel', if_exists=True)
+    op.drop_table('personnel', if_exists=True)
 
     # Recreate materials table with new schema
     op.create_table('materials',
