@@ -33,6 +33,9 @@ export interface Operation {
   notes: string
   contact: string
   statusChangedAt: Date | null // Timestamp when the operation moved to its current status
+  // Track assignment IDs for unassignment
+  crewAssignments: Map<string, string> // name -> assignment_id
+  materialAssignments: Map<string, string> // material_id -> assignment_id
 }
 
 export interface Material {
@@ -153,16 +156,18 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       vehicle: null, // Not in incident schema
       incidentType: incident.type || "Technische Hilfe",
       dispatchTime: new Date(incident.created_at),
-      crew: [], // Not directly in incident schema
+      crew: [], // Will be populated from assignments
       priority: incident.priority as "high" | "medium" | "low",
       status: statusMap[incident.status] || "incoming",
       coordinates: incident.location_lat && incident.location_lng
         ? [parseFloat(incident.location_lat), parseFloat(incident.location_lng)]
         : [47.51637699933488, 7.561800450458299],
-      materials: [], // Not directly in incident schema
+      materials: [], // Will be populated from assignments
       notes: incident.description || "",
       contact: "", // Not in incident schema
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
+      crewAssignments: new Map(),
+      materialAssignments: new Map(),
     }
   }
 
@@ -207,9 +212,41 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
         ])
 
-        setOperations(apiIncidents.map(apiIncidentToOperation))
-        setPersonnel(apiPersonnel.map(apiPersonToPerson))
-        setMaterials(apiMats.map(apiMaterialToMaterial))
+        // Convert to frontend types
+        const personnelList = apiPersonnel.map(apiPersonToPerson)
+        const materialsList = apiMats.map(apiMaterialToMaterial)
+        const operations = apiIncidents.map(apiIncidentToOperation)
+
+        // Fetch assignments for each incident and populate crew/materials
+        await Promise.all(
+          operations.map(async (operation) => {
+            try {
+              const assignments = await apiClient.getIncidentAssignments(operation.id)
+
+              for (const assignment of assignments) {
+                if (assignment.resource_type === "personnel") {
+                  // Find person by ID to get their name
+                  const person = personnelList.find(p => p.id === assignment.resource_id)
+                  if (person) {
+                    operation.crew.push(person.name)
+                    operation.crewAssignments.set(person.name, assignment.id)
+                  }
+                } else if (assignment.resource_type === "material") {
+                  // Add material ID to materials array
+                  operation.materials.push(assignment.resource_id)
+                  operation.materialAssignments.set(assignment.resource_id, assignment.id)
+                }
+                // Note: vehicle assignments would be handled here if needed
+              }
+            } catch (error) {
+              console.error(`Failed to load assignments for incident ${operation.id}:`, error)
+            }
+          })
+        )
+
+        setOperations(operations)
+        setPersonnel(personnelList)
+        setMaterials(materialsList)
         setHomeCity(settings.home_city || "")
         setIsLoaded(true)
       } catch (error) {
@@ -238,22 +275,31 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
 
-    const updatedOp = {
-      ...operation,
-      crew: operation.crew.filter((name) => name !== crewName),
+    // Get assignment ID from the map
+    const assignmentId = operation.crewAssignments.get(crewName)
+    if (!assignmentId) {
+      console.warn(`No assignment ID found for crew member ${crewName}`)
+      return
     }
 
+    // Update frontend state immediately
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? updatedOp : op))
+      ops.map((op) => {
+        if (op.id === operationId) {
+          const newCrewAssignments = new Map(op.crewAssignments)
+          newCrewAssignments.delete(crewName)
+          return {
+            ...op,
+            crew: op.crew.filter((name) => name !== crewName),
+            crewAssignments: newCrewAssignments,
+          }
+        }
+        return op
+      })
     )
 
-    // Update API
-    if (isLoaded) {
-      apiClient.updateIncident(operationId, {
-        // crew: updatedOp.crew, // TODO: Add crew field to incident schema
-      }).catch(err => console.error("Failed to update operation:", err))
-    }
-
+    // The API unassignment will automatically update the person's status to "available"
+    // So we just need to update our local state
     const person = personnel.find((p) => p.name === crewName)
     if (person) {
       const stillAssigned = operations.some(op => op.id !== operationId && op.crew.includes(crewName))
@@ -261,13 +307,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setPersonnel((people) =>
           people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p)),
         )
-        // Update API
-        if (isLoaded) {
-          apiClient.updatePersonnel(person.id, {
-            availability: "available",
-          }).catch(err => console.error("Failed to update person:", err))
-        }
       }
+    }
+
+    // Call unassignment API
+    if (isLoaded) {
+      apiClient.unassignResource(operationId, assignmentId)
+        .catch(err => console.error("Failed to unassign crew:", err))
     }
   }
 
@@ -275,22 +321,31 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
 
-    const updatedOp = {
-      ...operation,
-      materials: operation.materials.filter((id) => id !== materialId),
+    // Get assignment ID from the map
+    const assignmentId = operation.materialAssignments.get(materialId)
+    if (!assignmentId) {
+      console.warn(`No assignment ID found for material ${materialId}`)
+      return
     }
 
+    // Update frontend state immediately
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? updatedOp : op))
+      ops.map((op) => {
+        if (op.id === operationId) {
+          const newMaterialAssignments = new Map(op.materialAssignments)
+          newMaterialAssignments.delete(materialId)
+          return {
+            ...op,
+            materials: op.materials.filter((id) => id !== materialId),
+            materialAssignments: newMaterialAssignments,
+          }
+        }
+        return op
+      })
     )
 
-    // Update API
-    if (isLoaded) {
-      apiClient.updateIncident(operationId, {
-        // materials: updatedOp.materials, // TODO: Add materials field to incident schema
-      }).catch(err => console.error("Failed to update operation:", err))
-    }
-
+    // The API unassignment will automatically update the material's status to "available"
+    // So we just need to update our local state
     const material = materials.find((m) => m.id === materialId)
     if (material) {
       const stillAssigned = operations.some(op => op.id !== operationId && op.materials.includes(materialId))
@@ -298,13 +353,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials((mats) =>
           mats.map((m) => (m.id === material.id ? { ...m, status: "available" as Material["status"] } : m)),
         )
-        // Update API
-        if (isLoaded) {
-          apiClient.updateMaterialResource(material.id, {
-            status: "available",
-          }).catch(err => console.error("Failed to update material:", err))
-        }
       }
+    }
+
+    // Call unassignment API
+    if (isLoaded) {
+      apiClient.unassignResource(operationId, assignmentId)
+        .catch(err => console.error("Failed to unassign material:", err))
     }
   }
 
@@ -391,6 +446,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           notes: apiIncident.description || "",
           contact: operation.contact,
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
+          crewAssignments: new Map(),
+          materialAssignments: new Map(),
         }
         setOperations((ops) => [newOperation, ...ops])
       } catch (error) {
@@ -403,6 +460,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         id: getNextOperationId(),
         dispatchTime: new Date(),
         statusChangedAt: null,
+        crewAssignments: new Map(),
+        materialAssignments: new Map(),
       }
       setOperations((ops) => [newOperation, ...ops])
     }
@@ -416,7 +475,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
    * @param personName - The name of the person (for operation crew list)
    * @param operationId - The ID of the operation to assign the person to
    */
-  const assignPersonToOperation = (personId: string, personName: string, operationId: string) => {
+  const assignPersonToOperation = async (personId: string, personName: string, operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
@@ -424,24 +483,43 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Update frontend state
-    const updatedCrew = [...operation.crew, personName]
+    // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, crew: updatedCrew } : op))
+      ops.map((op) => (op.id === operationId ? { ...op, crew: [...op.crew, personName] } : op))
     )
     setPersonnel((people) =>
       people.map((p) => (p.id === personId ? { ...p, status: "assigned" as PersonStatus } : p))
     )
 
-    // Persist to database
+    // Persist to database via assignment API
     if (isLoaded) {
-      apiClient.updateIncident(operationId, {
-        // crew: updatedCrew, // TODO: Add crew field to incident schema
-      }).catch(err => console.error("Failed to update operation crew:", err))
+      try {
+        const assignment = await apiClient.assignResource(operationId, {
+          resource_type: "personnel",
+          resource_id: personId,
+        })
 
-      apiClient.updatePersonnel(personId, {
-        availability: "assigned",
-      }).catch(err => console.error("Failed to update person status:", err))
+        // Store assignment ID for later unassignment
+        setOperations((ops) =>
+          ops.map((op) => {
+            if (op.id === operationId) {
+              const newCrewAssignments = new Map(op.crewAssignments)
+              newCrewAssignments.set(personName, assignment.id)
+              return { ...op, crewAssignments: newCrewAssignments }
+            }
+            return op
+          })
+        )
+      } catch (err) {
+        console.error("Failed to assign person:", err)
+        // Revert optimistic update on error
+        setOperations((ops) =>
+          ops.map((op) => (op.id === operationId ? { ...op, crew: op.crew.filter(n => n !== personName) } : op))
+        )
+        setPersonnel((people) =>
+          people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
+        )
+      }
     }
   }
 
@@ -452,7 +530,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
    * @param materialId - The ID of the material to assign
    * @param operationId - The ID of the operation to assign the material to
    */
-  const assignMaterialToOperation = (materialId: string, operationId: string) => {
+  const assignMaterialToOperation = async (materialId: string, operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     const material = materials.find(m => m.id === materialId)
 
@@ -460,24 +538,43 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Update frontend state
-    const updatedMaterials = [...operation.materials, materialId]
+    // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, materials: updatedMaterials } : op))
+      ops.map((op) => (op.id === operationId ? { ...op, materials: [...op.materials, materialId] } : op))
     )
     setMaterials((mats) =>
       mats.map((m) => (m.id === materialId ? { ...m, status: "assigned" as Material["status"] } : m))
     )
 
-    // Persist to database
+    // Persist to database via assignment API
     if (isLoaded) {
-      apiClient.updateIncident(operationId, {
-        // materials: updatedMaterials, // TODO: Add materials field to incident schema
-      }).catch(err => console.error("Failed to update operation materials:", err))
+      try {
+        const assignment = await apiClient.assignResource(operationId, {
+          resource_type: "material",
+          resource_id: materialId,
+        })
 
-      apiClient.updateMaterialResource(materialId, {
-        status: "assigned",
-      }).catch(err => console.error("Failed to update material status:", err))
+        // Store assignment ID for later unassignment
+        setOperations((ops) =>
+          ops.map((op) => {
+            if (op.id === operationId) {
+              const newMaterialAssignments = new Map(op.materialAssignments)
+              newMaterialAssignments.set(materialId, assignment.id)
+              return { ...op, materialAssignments: newMaterialAssignments }
+            }
+            return op
+          })
+        )
+      } catch (err) {
+        console.error("Failed to assign material:", err)
+        // Revert optimistic update on error
+        setOperations((ops) =>
+          ops.map((op) => (op.id === operationId ? { ...op, materials: op.materials.filter(id => id !== materialId) } : op))
+        )
+        setMaterials((mats) =>
+          mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
+        )
+      }
     }
   }
 
