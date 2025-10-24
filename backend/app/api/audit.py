@@ -39,7 +39,7 @@ async def query_audit_log(
         - start_date: Filter by timestamp >= start_date
         - end_date: Filter by timestamp <= end_date
 
-    Returns up to 1000 entries (paginated).
+    Returns up to 1000 entries (paginated). Returns empty array if no entries found.
     """
     query = select(AuditLog).order_by(AuditLog.timestamp.desc())
 
@@ -68,7 +68,8 @@ async def query_audit_log(
     result = await db.execute(query)
     entries = result.scalars().all()
 
-    return entries
+    # Always return a list, even if empty
+    return list(entries) if entries else []
 
 
 @router.get("/resource/{resource_type}/{resource_id}", response_model=list[schemas.AuditLogEntry])
