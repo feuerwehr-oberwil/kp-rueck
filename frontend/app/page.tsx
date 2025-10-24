@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Check } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
-import { UserMenu } from "@/components/user-menu"
+import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
@@ -1813,23 +1813,11 @@ export default function FireStationDashboard() {
               </span>
             </div>
 
-            <Link href="/map">
-              <Button variant="outline" className="gap-2">
-                <MapIcon className="h-4 w-4" />
-                Lagekarte
-              </Button>
-            </Link>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShortcutsModalOpen(true)}
-              className="rounded-lg"
-            >
-              <HelpCircle className="h-5 w-5" />
-            </Button>
-
-            <UserMenu />
+            <PageNavigation
+              currentPage="kanban"
+              vehicleTypes={vehicleTypes}
+              onShortcutsOpen={() => setShortcutsModalOpen(true)}
+            />
           </div>
         </header>
 
