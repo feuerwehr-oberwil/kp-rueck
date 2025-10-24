@@ -92,7 +92,9 @@ export default function AuditLogPage() {
       setEntries(data);
     } catch (err) {
       console.error('Failed to fetch audit logs:', err);
-      setError('Fehler beim Laden der Audit-Protokolle');
+      // Show actual error message for debugging
+      const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Audit-Protokolle';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
