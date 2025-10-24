@@ -366,8 +366,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   const updateOperation = (operationId: string, updates: Partial<Operation>) => {
+    // If status is being updated, also update statusChangedAt to current time
+    const enhancedUpdates = updates.status
+      ? { ...updates, statusChangedAt: new Date() }
+      : updates
+
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, ...updates } : op)),
+      ops.map((op) => (op.id === operationId ? { ...op, ...enhancedUpdates } : op)),
     )
 
     // Debounce API updates to avoid too many requests
