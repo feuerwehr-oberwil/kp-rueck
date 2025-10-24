@@ -6,8 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **IMPORTANT**: This repository is a git worktree. When making commits:
 1. Always check that everything is up to date first: `git pull --rebase`
-2. After committing, push changes to main: `git push origin main`
-3. Never leave commits unpushed - the worktree setup requires pushing to main immediately
+2. **Test thoroughly before committing**: Run builds, tests, and verify functionality works as expected
+3. Once everything is tested and you're confident it works, create a commit and push to main
+4. After committing, push changes to main: `git push origin main`
+5. Never leave commits unpushed - the worktree setup requires pushing to main immediately
+
+**Testing Checklist Before Commit:**
+- Frontend: `cd frontend && pnpm build` (verify no compilation errors)
+- Backend: `cd backend && uv run uvicorn app.main:app` (verify server starts)
+- Run any relevant tests: `pnpm test` or `uv run pytest`
+- Manually test the feature in the browser/application if applicable
 
 ## Common Development Commands
 

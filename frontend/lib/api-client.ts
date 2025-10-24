@@ -40,6 +40,18 @@ export interface ApiMaterial {
   created_at: string
 }
 
+export interface ApiAuditLog {
+  id: string
+  user_id: string | null
+  action_type: string
+  resource_type: string
+  resource_id: string | null
+  changes_json: Record<string, any> | null
+  timestamp: string
+  ip_address: string | null
+  user_agent: string | null
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -150,6 +162,35 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify(data),
     })
+  }
+
+  // Audit Logs
+  async getAuditLogs(params?: {
+    resource_type?: string
+    resource_id?: string
+    user_id?: string
+    action_type?: string
+    start_date?: string
+    end_date?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiAuditLog[]> {
+    const queryParams = new URLSearchParams()
+
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString())
+        }
+      })
+    }
+
+    const endpoint = `/api/audit${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return this.request<ApiAuditLog[]>(endpoint)
+  }
+
+  async getResourceHistory(resourceType: string, resourceId: string): Promise<ApiAuditLog[]> {
+    return this.request<ApiAuditLog[]>(`/api/audit/resource/${resourceType}/${resourceId}`)
   }
 }
 
