@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
-import { apiClient, type ApiIncident, type ApiPerson, type ApiMaterial } from "@/lib/api-client"
+import { apiClient, type ApiIncident, type ApiPersonnel, type ApiMaterialResource } from "@/lib/api-client"
 import type {
   Incident,
   IncidentCreate,
@@ -9,6 +9,8 @@ import type {
   IncidentStatus,
   StatusTransition,
 } from "@/lib/types/incidents"
+import { useAuth } from "./auth-context"
+import { formatLocationForDisplay } from "@/lib/utils"
 
 // Re-export personnel and material types from operations-context for consistency
 export type PersonStatus = "available" | "assigned"
@@ -40,12 +42,16 @@ interface IncidentsContextType {
   isLoading: boolean
   error: string | null
   trainingMode: boolean
+  homeCity: string
 
   // Setters (for internal use and advanced cases)
   setIncidents: React.Dispatch<React.SetStateAction<Incident[]>>
   setPersonnel: React.Dispatch<React.SetStateAction<Person[]>>
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
   setTrainingMode: (mode: boolean) => void
+
+  // Utilities
+  formatLocation: (address: string) => string
 
   // Incident CRUD
   createIncident: (data: IncidentCreate) => Promise<Incident | null>
@@ -67,12 +73,14 @@ interface IncidentsContextType {
 const IncidentsContext = createContext<IncidentsContextType | undefined>(undefined)
 
 export function IncidentsProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [personnel, setPersonnel] = useState<Person[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [trainingMode, setTrainingMode] = useState(false)
+  const [homeCity, setHomeCity] = useState<string>("")
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
@@ -91,20 +99,21 @@ export function IncidentsProvider({ children }: { children: ReactNode }) {
     updated_at: new Date(apiIncident.updated_at),
     created_by: apiIncident.created_by,
     completed_at: apiIncident.completed_at ? new Date(apiIncident.completed_at) : null,
+    status_changed_at: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
   })
 
-  const apiPersonToPerson = (apiPerson: ApiPerson): Person => ({
+  const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
     id: String(apiPerson.id),
     name: apiPerson.name,
-    role: apiPerson.role as PersonRole,
-    status: apiPerson.status as PersonStatus,
+    role: (apiPerson.role || "Mannschaft") as PersonRole,
+    status: (apiPerson.availability === "available" ? "available" : "assigned") as PersonStatus,
   })
 
-  const apiMaterialToMaterial = (apiMat: ApiMaterial): Material => ({
+  const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({
     id: String(apiMat.id),
     name: apiMat.name,
-    category: apiMat.category,
-    status: apiMat.status as "available" | "assigned",
+    category: apiMat.location || "General",
+    status: (apiMat.status === "available" ? "available" : "assigned") as "available" | "assigned",
   })
 
   // Load incidents from API
@@ -125,24 +134,32 @@ export function IncidentsProvider({ children }: { children: ReactNode }) {
     }
   }, [trainingMode])
 
-  // Load initial data
+  // Load initial data - only when authenticated
   useEffect(() => {
+    // Don't load data if auth is still loading or user is not authenticated
+    if (authLoading || !isAuthenticated) {
+      setIsLoading(false)
+      return
+    }
+
     const loadData = async () => {
       try {
         setIsLoading(true)
         setError(null)
 
-        const [apiIncidents, apiPersonnel, apiMats] = await Promise.all([
+        const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
           apiClient.getIncidents({
             training_only: trainingMode ? true : undefined,
           }),
-          apiClient.getPersonnel(),
-          apiClient.getMaterials(),
+          apiClient.getAllPersonnel(),
+          apiClient.getAllMaterials(),
+          apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
         ])
 
         setIncidents(apiIncidents.map(apiIncidentToIncident))
         setPersonnel(apiPersonnel.map(apiPersonToPerson))
         setMaterials(apiMats.map(apiMaterialToMaterial))
+        setHomeCity(settings.home_city || "")
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load data'
         setError(errorMessage)
@@ -153,7 +170,17 @@ export function IncidentsProvider({ children }: { children: ReactNode }) {
     }
 
     loadData()
-  }, [trainingMode])
+
+    // Poll for updates every 5 seconds
+    const pollInterval = setInterval(() => {
+      // Only poll if not currently loading
+      if (!isLoading) {
+        loadData()
+      }
+    }, 5000)
+
+    return () => clearInterval(pollInterval)
+  }, [authLoading, isAuthenticated, trainingMode])
 
   // Create incident
   const createIncident = async (data: IncidentCreate): Promise<Incident | null> => {
@@ -268,6 +295,15 @@ export function IncidentsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /**
+   * Format a location for display based on home city setting.
+   * @param fullAddress - The complete address to format
+   * @returns Formatted address string
+   */
+  const formatLocation = (fullAddress: string): string => {
+    return formatLocationForDisplay(fullAddress, homeCity)
+  }
+
   const value: IncidentsContextType = {
     incidents,
     personnel,
@@ -275,10 +311,12 @@ export function IncidentsProvider({ children }: { children: ReactNode }) {
     isLoading,
     error,
     trainingMode,
+    homeCity,
     setIncidents,
     setPersonnel,
     setMaterials,
     setTrainingMode,
+    formatLocation,
     createIncident,
     updateIncident,
     deleteIncident,
