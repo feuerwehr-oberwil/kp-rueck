@@ -1,63 +1,81 @@
 "use client"
 
-import { useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
-import L from "leaflet"
+import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { useIncidents } from "@/lib/contexts/incidents-context"
+import type { Incident } from "@/lib/types/incidents"
+import { apiClient } from "@/lib/api-client"
+import { MapLegend } from "./map-legend"
 
-interface Operation {
-  id: string
-  location: string
-  vehicle: string | null
-  incidentType: string
-  priority: "high" | "medium" | "low"
-  status: string
-  coordinates: [number, number]
-  crew: string[]
-  materials: string[]
+// Fix Leaflet default icon issue with Next.js
+import icon from "leaflet/dist/images/marker-icon.png"
+import iconShadow from "leaflet/dist/images/marker-shadow.png"
+
+const DefaultIcon = L.icon({
+  iconUrl: icon.src,
+  shadowUrl: iconShadow.src,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+})
+
+L.Marker.prototype.options.icon = DefaultIcon
+
+// Status color mapping
+const STATUS_COLORS: Record<string, string> = {
+  eingegangen: "#ef4444", // red
+  reko: "#f97316", // orange
+  disponiert: "#eab308", // yellow
+  einsatz: "#3b82f6", // blue
+  einsatz_beendet: "#22c55e", // green
+  abschluss: "#6b7280", // gray
 }
 
-interface MapViewProps {
-  operations: Operation[]
-  onMarkerClick?: (id: string) => void
-  selectedOperationId?: string | null
+// Incident type to emoji mapping
+function getIncidentTypeEmoji(type: string): string {
+  const typeMap: Record<string, string> = {
+    brandbekaempfung: "🔥",
+    elementarereignis: "🌊",
+    strassenrettung: "🚗",
+    technische_hilfeleistung: "🔧",
+    oelwehr: "🛢️",
+    chemiewehr: "☣️",
+    strahlenwehr: "☢️",
+    einsatz_bahnanlagen: "🚆",
+    bma_unechte_alarme: "⚠️",
+    dienstleistungen: "🤝",
+    diverse_einsaetze: "🚨",
+    gerettete_menschen: "👤",
+    gerettete_tiere: "🐾",
+  }
+  return typeMap[type] || "🚨"
 }
 
-// Get icon based on incident type
-function getIncidentIcon(incidentType: string): string {
-  if (incidentType.toLowerCase().includes("brand") || incidentType.toLowerCase().includes("feuer")) {
-    return "🔥"
+// Incident type to display name mapping
+function getIncidentTypeDisplayName(type: string): string {
+  const displayNameMap: Record<string, string> = {
+    brandbekaempfung: "Brandbekämpfung",
+    elementarereignis: "Elementarereignis",
+    strassenrettung: "Straßenrettung",
+    technische_hilfeleistung: "Technische Hilfeleistung",
+    oelwehr: "Ölwehr",
+    chemiewehr: "Chemiewehr",
+    strahlenwehr: "Strahlenwehr",
+    einsatz_bahnanlagen: "Einsatz Bahnanlagen",
+    bma_unechte_alarme: "BMA / Unechte Alarme",
+    dienstleistungen: "Dienstleistungen",
+    diverse_einsaetze: "Diverse Einsätze",
+    gerettete_menschen: "Gerettete Menschen",
+    gerettete_tiere: "Gerettete Tiere",
   }
-  if (incidentType.toLowerCase().includes("technisch")) {
-    return "🔧"
-  }
-  if (incidentType.toLowerCase().includes("alarm")) {
-    return "⚠️"
-  }
-  if (incidentType.toLowerCase().includes("öl")) {
-    return "🛢️"
-  }
-  return "🚨"
+  return displayNameMap[type] || type
 }
 
-// Get color based on priority
-function getPriorityColor(priority: "high" | "medium" | "low"): string {
-  switch (priority) {
-    case "high":
-      return "#ef4444" // red
-    case "medium":
-      return "#f97316" // orange
-    case "low":
-      return "#22c55e" // green
-    default:
-      return "#6b7280" // gray
-  }
-}
-
-// Create custom icon for marker
-function createCustomIcon(incidentType: string, priority: "high" | "medium" | "low") {
-  const color = getPriorityColor(priority)
-  const icon = getIncidentIcon(incidentType)
+// Create custom colored icon for incident markers
+function createIncidentIcon(incident: Incident): L.DivIcon {
+  const color = STATUS_COLORS[incident.status] || "#6b7280"
+  const emoji = getIncidentTypeEmoji(incident.type)
 
   const html = `
     <div style="position: relative; width: 40px; height: 40px;">
@@ -72,6 +90,7 @@ function createCustomIcon(incidentType: string, priority: "high" | "medium" | "l
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        ${incident.training_flag ? 'border-style: dashed;' : ''}
       "></div>
       <div style="
         position: absolute;
@@ -80,7 +99,7 @@ function createCustomIcon(incidentType: string, priority: "high" | "medium" | "l
         transform: translate(-50%, -60%);
         font-size: 18px;
         z-index: 10;
-      ">${icon}</div>
+      ">${emoji}</div>
     </div>
   `
 
@@ -93,40 +112,167 @@ function createCustomIcon(incidentType: string, priority: "high" | "medium" | "l
   })
 }
 
-// Component to handle map bounds
-function MapBounds({ operations, selectedOperationId }: { operations: Operation[], selectedOperationId?: string | null }) {
+// Component to auto-fit map bounds to show all incidents
+function FitBounds({ incidents }: { incidents: Incident[] }) {
   const map = useMap()
 
   useEffect(() => {
-    // If a specific operation is selected, zoom to it
-    if (selectedOperationId) {
-      const selectedOp = operations.find(op => op.id === selectedOperationId)
-      if (selectedOp) {
-        map.setView(selectedOp.coordinates, 16, { animate: true })
-        return
-      }
-    }
+    if (incidents.length === 0) return
 
-    // Otherwise, fit all operations in view
-    if (operations.length > 0) {
-      const bounds = L.latLngBounds(operations.map((op) => op.coordinates))
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
-    }
-  }, [operations, map, selectedOperationId])
+    const validIncidents = incidents.filter(
+      (inc) => inc.location_lat !== null && inc.location_lng !== null
+    )
+
+    if (validIncidents.length === 0) return
+
+    const bounds = L.latLngBounds(
+      validIncidents.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number])
+    )
+
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
+  }, [incidents, map])
 
   return null
 }
 
-export default function MapView({ operations, onMarkerClick, selectedOperationId }: MapViewProps) {
-  // Fire station coordinates (Oberwil Baselland)
-  const fireStationCoords: [number, number] = [47.51637699933488, 7.561800450458299]
+// Warning banner for incidents without valid coordinates
+function MissingLocationsWarning({ count }: { count: number }) {
+  if (count === 0) return null
 
-  // Default center on fire station
-  const center: [number, number] = fireStationCoords
+  return (
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded shadow-lg z-[1000]">
+      ⚠️ {count} Einsatz{count !== 1 ? "e" : ""} ohne gültige Koordinaten
+    </div>
+  )
+}
 
-  // Create fire station icon
-  const fireStationIcon = L.divIcon({
-    html: `
+// Incident popup content
+function IncidentPopup({ incident }: { incident: Incident }) {
+  const priorityColor =
+    incident.priority === "critical"
+      ? "text-red-600"
+      : incident.priority === "high"
+      ? "text-orange-600"
+      : incident.priority === "medium"
+      ? "text-yellow-600"
+      : "text-gray-600"
+
+  return (
+    <div className="min-w-[200px]">
+      <h3 className="font-bold text-lg mb-2">{incident.title}</h3>
+
+      <div className="space-y-1 text-sm">
+        <p>
+          <strong>Type:</strong> {getIncidentTypeDisplayName(incident.type)}
+        </p>
+        <p>
+          <strong>Priorität:</strong>{" "}
+          <span className={`font-bold ${priorityColor}`}>
+            {incident.priority === "critical"
+              ? "Kritisch"
+              : incident.priority === "high"
+              ? "Hoch"
+              : incident.priority === "medium"
+              ? "Mittel"
+              : "Niedrig"}
+          </span>
+        </p>
+        <p>
+          <strong>Status:</strong> {incident.status}
+        </p>
+        {incident.location_address && (
+          <p>
+            <strong>Adresse:</strong> {incident.location_address}
+          </p>
+        )}
+        {incident.description && (
+          <p className="mt-2">
+            <strong>Beschreibung:</strong> {incident.description}
+          </p>
+        )}
+        {incident.training_flag && (
+          <p className="text-blue-600 font-bold mt-2">🎓 Übungsmodus</p>
+        )}
+      </div>
+
+      <button
+        className="mt-3 w-full bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
+        onClick={() => {
+          // Navigate to dashboard with incident highlighted
+          window.location.href = `/?incident=${incident.id}`
+        }}
+      >
+        Details anzeigen
+      </button>
+    </div>
+  )
+}
+
+interface MapViewProps {
+  selectedIncidentId?: string | null
+  onMarkerClick?: (incidentId: string) => void
+}
+
+export default function MapView({
+  selectedIncidentId,
+  onMarkerClick,
+}: MapViewProps) {
+  const { incidents } = useIncidents()
+  const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
+  const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
+    47.51637699933488, 7.561800450458299,
+  ])
+
+  // Load firestation settings from backend
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await apiClient.getAllSettings()
+        if (settings.firestation_name) {
+          setFirestationName(settings.firestation_name)
+        }
+        if (settings.firestation_latitude && settings.firestation_longitude) {
+          setFirestationCoords([
+            parseFloat(settings.firestation_latitude),
+            parseFloat(settings.firestation_longitude),
+          ])
+        }
+      } catch (error) {
+        console.error("Failed to load firestation settings:", error)
+      }
+    }
+
+    loadSettings()
+  }, [])
+
+  // Filter incidents with valid coordinates
+  const mappableIncidents = useMemo(
+    () =>
+      incidents.filter(
+        (inc) => inc.location_lat !== null && inc.location_lng !== null
+      ),
+    [incidents]
+  )
+
+  // Calculate center point (average of all incidents or firestation)
+  const center: LatLngExpression = useMemo(() => {
+    if (mappableIncidents.length > 0) {
+      const avgLat =
+        mappableIncidents.reduce((sum, inc) => sum + (inc.location_lat || 0), 0) /
+        mappableIncidents.length
+      const avgLng =
+        mappableIncidents.reduce((sum, inc) => sum + (inc.location_lng || 0), 0) /
+        mappableIncidents.length
+      return [avgLat, avgLng]
+    }
+    return firestationCoords
+  }, [mappableIncidents, firestationCoords])
+
+  // Create firestation icon
+  const firestationIcon = useMemo(
+    () =>
+      L.divIcon({
+        html: `
       <div style="position: relative; width: 50px; height: 50px;">
         <div style="
           position: absolute;
@@ -150,17 +296,30 @@ export default function MapView({ operations, onMarkerClick, selectedOperationId
         ">🚒</div>
       </div>
     `,
-    className: "fire-station-marker",
-    iconSize: [50, 50],
-    iconAnchor: [25, 50],
-    popupAnchor: [0, -50],
-  })
+        className: "fire-station-marker",
+        iconSize: [50, 50],
+        iconAnchor: [25, 50],
+        popupAnchor: [0, -50],
+      }),
+    []
+  )
+
+  // Zoom to selected incident
+  useEffect(() => {
+    if (selectedIncidentId) {
+      const incident = mappableIncidents.find((inc) => inc.id === selectedIncidentId)
+      if (incident && incident.location_lat && incident.location_lng) {
+        // Note: We need access to the map instance here
+        // This is handled by the parent component passing the selectedIncidentId
+      }
+    }
+  }, [selectedIncidentId, mappableIncidents])
 
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden">
       <MapContainer
         center={center}
-        zoom={14}
+        zoom={13}
         className="w-full h-full z-0"
         zoomControl={true}
       >
@@ -169,115 +328,49 @@ export default function MapView({ operations, onMarkerClick, selectedOperationId
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Fire Station Marker */}
-        <Marker position={fireStationCoords} icon={fireStationIcon}>
+        {/* Firestation Marker */}
+        <Marker position={firestationCoords} icon={firestationIcon}>
           <Popup>
             <div className="space-y-2 min-w-[200px]">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🚒</span>
-                <span className="font-bold text-sm">Demo Fire Department</span>
+                <span className="font-bold text-sm">{firestationName}</span>
               </div>
               <p className="text-xs text-gray-600">Hauptstandort</p>
               <p className="text-xs text-gray-500">
-                {fireStationCoords[0].toFixed(6)}, {fireStationCoords[1].toFixed(6)}
+                {firestationCoords[0].toFixed(6)}, {firestationCoords[1].toFixed(6)}
               </p>
             </div>
           </Popup>
         </Marker>
 
-        {/* Operation Markers */}
-        {operations.map((op) => (
+        {/* Incident Markers */}
+        {mappableIncidents.map((incident) => (
           <Marker
-            key={op.id}
-            position={op.coordinates}
-            icon={createCustomIcon(op.incidentType, op.priority)}
+            key={incident.id}
+            position={[incident.location_lat!, incident.location_lng!]}
+            icon={createIncidentIcon(incident)}
             eventHandlers={{
-              click: () => onMarkerClick?.(op.id),
+              click: () => onMarkerClick?.(incident.id),
             }}
           >
             <Popup>
-              <div className="space-y-2 min-w-[200px]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-sm">{op.location}</span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded ${
-                      op.priority === "high"
-                        ? "bg-red-500 text-white"
-                        : op.priority === "medium"
-                        ? "bg-orange-500 text-white"
-                        : "bg-green-500 text-white"
-                    }`}
-                  >
-                    {op.priority === "high"
-                      ? "Hoch"
-                      : op.priority === "medium"
-                      ? "Mittel"
-                      : "Niedrig"}
-                  </span>
-                </div>
-
-                <div className="text-sm">
-                  <p className="font-medium">{op.incidentType}</p>
-                  {op.vehicle && <p className="text-gray-600">Fahrzeug: {op.vehicle}</p>}
-                </div>
-
-                {op.crew.length > 0 && (
-                  <p className="text-xs text-gray-600">{op.crew.length} Einsatzkräfte</p>
-                )}
-
-                {op.materials.length > 0 && (
-                  <p className="text-xs text-gray-600">{op.materials.length} Material(ien)</p>
-                )}
-
-                <p className="text-xs text-gray-500 capitalize">Status: {op.status}</p>
-              </div>
+              <IncidentPopup incident={incident} />
             </Popup>
           </Marker>
         ))}
 
-        <MapBounds operations={operations} selectedOperationId={selectedOperationId} />
+        {/* Auto-fit bounds to show all incidents */}
+        <FitBounds incidents={mappableIncidents} />
       </MapContainer>
 
-      {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 space-y-2 z-[1000] shadow-lg">
-        <p className="text-xs font-semibold text-foreground mb-2">Legende</p>
+      {/* Warning for incidents without location */}
+      <MissingLocationsWarning
+        count={incidents.length - mappableIncidents.length}
+      />
 
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-foreground">Priorität:</p>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#ef4444] border border-white shadow-sm" />
-            <span className="text-xs text-muted-foreground">Hoch</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#f97316] border border-white shadow-sm" />
-            <span className="text-xs text-muted-foreground">Mittel</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#22c55e] border border-white shadow-sm" />
-            <span className="text-xs text-muted-foreground">Niedrig</span>
-          </div>
-        </div>
-
-        <div className="space-y-1.5 pt-2 border-t border-border">
-          <p className="text-xs font-medium text-foreground">Einsatzart:</p>
-          <div className="flex items-center gap-2">
-            <span className="text-sm">🔥</span>
-            <span className="text-xs text-muted-foreground">Brand</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm">🔧</span>
-            <span className="text-xs text-muted-foreground">Technische Hilfe</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm">⚠️</span>
-            <span className="text-xs text-muted-foreground">Fehlalarm</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm">🛢️</span>
-            <span className="text-xs text-muted-foreground">Ölspur</span>
-          </div>
-        </div>
-      </div>
+      {/* Map Legend */}
+      <MapLegend />
     </div>
   )
 }

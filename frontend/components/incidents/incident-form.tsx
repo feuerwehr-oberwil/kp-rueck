@@ -128,7 +128,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="z.B. Wohnungsbrand Hauptstraße 45"
+              placeholder="z.B. Wohnungsbrand Hauptstrasse 45"
               className="mt-2"
               required
               autoFocus={mode === 'create'}
@@ -190,7 +190,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
               id="location_address"
               value={formData.location_address || ''}
               onChange={(e) => setFormData({ ...formData, location_address: e.target.value || null })}
-              placeholder="Straße, Hausnummer, PLZ, Ort"
+              placeholder="Strasse, Hausnummer, PLZ, Ort"
               className="mt-2"
             />
           </div>
