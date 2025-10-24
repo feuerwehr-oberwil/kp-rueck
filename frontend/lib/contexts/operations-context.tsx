@@ -108,6 +108,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     notes: apiOp.notes,
     contact: apiOp.contact,
     statusChangedAt: null, // Legacy operation format doesn't have this field
+    crewAssignments: new Map(),
+    materialAssignments: new Map(),
   })
 
   const operationToApiOperation = (op: Operation) => ({
