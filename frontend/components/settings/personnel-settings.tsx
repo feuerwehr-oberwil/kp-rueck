@@ -78,7 +78,7 @@ export function PersonnelSettings() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this personnel?')) {
+    if (confirm('Sind Sie sicher, dass Sie diese Person löschen möchten?')) {
       try {
         await apiClient.deletePersonnel(id);
         await loadPersonnel();
@@ -97,18 +97,18 @@ export function PersonnelSettings() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Personnel Management</h2>
+        <h2 className="text-2xl font-semibold">Personalverwaltung</h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditingPersonnel(null)}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Personnel
+              Personal hinzufügen
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingPersonnel ? 'Edit Personnel' : 'Add New Personnel'}
+                {editingPersonnel ? 'Personal bearbeiten' : 'Neues Personal hinzufügen'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -122,17 +122,17 @@ export function PersonnelSettings() {
                 />
               </div>
               <div>
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="role">Rolle</Label>
                 <Input
                   id="role"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="e.g., Firefighter, Paramedic, Driver"
+                  placeholder="z.B. Feuerwehrmann, Sanitäter, Fahrer"
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="availability">Availability</Label>
+                <Label htmlFor="availability">Verfügbarkeit</Label>
                 <Select
                   value={formData.availability}
                   onValueChange={(value) => setFormData({ ...formData, availability: value })}
@@ -141,19 +141,19 @@ export function PersonnelSettings() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="assigned">Assigned</SelectItem>
-                    <SelectItem value="off_duty">Off Duty</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="available">Verfügbar</SelectItem>
+                    <SelectItem value="assigned">Zugewiesen</SelectItem>
+                    <SelectItem value="off_duty">Außer Dienst</SelectItem>
+                    <SelectItem value="inactive">Inaktiv</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                  Cancel
+                  Abbrechen
                 </Button>
                 <Button type="submit">
-                  {editingPersonnel ? 'Update' : 'Create'}
+                  {editingPersonnel ? 'Aktualisieren' : 'Erstellen'}
                 </Button>
               </div>
             </form>
@@ -165,9 +165,9 @@ export function PersonnelSettings() {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Availability</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>Rolle</TableHead>
+            <TableHead>Verfügbarkeit</TableHead>
+            <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -185,7 +185,9 @@ export function PersonnelSettings() {
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {person.availability}
+                  {person.availability === 'available' ? 'Verfügbar' :
+                   person.availability === 'assigned' ? 'Zugewiesen' :
+                   person.availability === 'off_duty' ? 'Außer Dienst' : 'Inaktiv'}
                 </span>
               </TableCell>
               <TableCell className="text-right">
