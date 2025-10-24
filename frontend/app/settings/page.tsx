@@ -7,7 +7,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { apiClient } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -73,19 +72,11 @@ const SETTING_CONFIGS: SettingConfig[] = [
 ];
 
 export default function SettingsPage() {
-  const { isEditor, isAuthenticated } = useAuth();
-  const router = useRouter();
+  const { isEditor } = useAuth();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
-
-  // Redirect non-authenticated users
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, router]);
 
   // Fetch all settings on mount
   const fetchSettings = async () => {
@@ -106,10 +97,8 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchSettings();
-    }
-  }, [isAuthenticated]);
+    fetchSettings();
+  }, []);
 
   const updateSetting = async (key: string, value: string) => {
     if (!isEditor) {
@@ -201,10 +190,6 @@ export default function SettingsPage() {
       />
     );
   };
-
-  if (!isAuthenticated) {
-    return null;
-  }
 
   return (
     <ProtectedRoute>
