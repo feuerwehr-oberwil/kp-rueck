@@ -1,16 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Save, MapPin, Check } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Plus, Save, MapPin, Check, ChevronsUpDown } from 'lucide-react'
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { useIncidents } from "@/lib/contexts/incidents-context"
+import { cn } from "@/lib/utils"
 
 interface IncidentFormProps {
   open: boolean
@@ -22,6 +25,7 @@ interface IncidentFormProps {
 export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: IncidentFormProps) {
   const { createIncident, updateIncident, trainingMode } = useIncidents()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [incidentTypeOpen, setIncidentTypeOpen] = useState(false)
 
   const [formData, setFormData] = useState<IncidentCreate>({
     title: incident?.title || '',
@@ -33,6 +37,38 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
     description: incident?.description || null,
     status: incident?.status || 'eingegangen',
   })
+
+  // Keyboard shortcuts for priority (Shift+1-3)
+  useEffect(() => {
+    if (!open) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger if Shift is pressed and not in an input field
+      if (e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const target = e.target as HTMLElement
+        // Don't trigger if user is typing in an input/textarea
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+
+        switch (e.key) {
+          case '1':
+            e.preventDefault()
+            setFormData(prev => ({ ...prev, priority: 'low' }))
+            break
+          case '2':
+            e.preventDefault()
+            setFormData(prev => ({ ...prev, priority: 'medium' }))
+            break
+          case '3':
+            e.preventDefault()
+            setFormData(prev => ({ ...prev, priority: 'high' }))
+            break
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open])
 
   // Check if coordinates are valid
   const hasValidCoordinates =
@@ -147,32 +183,58 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Type */}
+            {/* Type - Searchable Combobox */}
             <div>
               <Label htmlFor="type" className="text-sm font-semibold text-muted-foreground">
                 Einsatzart *
               </Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => setFormData({ ...formData, type: value as IncidentType })}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(INCIDENT_TYPE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={incidentTypeOpen} onOpenChange={setIncidentTypeOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={incidentTypeOpen}
+                    className="mt-2 w-full justify-between"
+                  >
+                    {formData.type ? INCIDENT_TYPE_LABELS[formData.type] : "Einsatzart wählen..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Einsatzart suchen..." />
+                    <CommandList>
+                      <CommandEmpty>Keine Einsatzart gefunden.</CommandEmpty>
+                      <CommandGroup>
+                        {Object.entries(INCIDENT_TYPE_LABELS).map(([key, label]) => (
+                          <CommandItem
+                            key={key}
+                            value={label}
+                            onSelect={() => {
+                              setFormData({ ...formData, type: key as IncidentType })
+                              setIncidentTypeOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.type === key ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {label}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Priority */}
             <div>
               <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
-                Priorität *
+                Priorität * <span className="text-xs text-muted-foreground/60">(Shift+1-3)</span>
               </Label>
               <Select
                 value={formData.priority}
@@ -238,7 +300,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
                       location_lat: e.target.value ? parseFloat(e.target.value) : null,
                     })
                   }
-                  placeholder="47.5164"
+                  placeholder="47.51637699"
                   className="mt-1"
                 />
               </div>
@@ -259,7 +321,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
                       location_lng: e.target.value ? parseFloat(e.target.value) : null,
                     })
                   }
-                  placeholder="7.5618"
+                  placeholder="7.56180045"
                   className="mt-1"
                 />
               </div>

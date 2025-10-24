@@ -60,8 +60,7 @@ export function IncidentCard({
   const priorityVariant = {
     low: "secondary" as const,
     medium: "default" as const,
-    high: "default" as const,
-    critical: "destructive" as const,
+    high: "destructive" as const,
   }[incident.priority]
 
   return (
