@@ -22,7 +22,8 @@ export type VehicleType = string | null
 export interface Operation {
   id: string
   location: string
-  vehicle: VehicleType
+  vehicle: VehicleType // Legacy field for backward compatibility
+  vehicles: string[] // Array of vehicle names
   incidentType: string
   dispatchTime: Date
   crew: string[]
@@ -36,6 +37,7 @@ export interface Operation {
   // Track assignment IDs for unassignment
   crewAssignments: Map<string, string> // name -> assignment_id
   materialAssignments: Map<string, string> // material_id -> assignment_id
+  vehicleAssignments: Map<string, string> // vehicle_name -> assignment_id
 }
 
 export interface Material {
@@ -67,6 +69,8 @@ interface OperationsContextType {
   removeCrew: (operationId: string, crewName: string) => void
   /** Remove material from an operation (persists to DB) */
   removeMaterial: (operationId: string, materialId: string) => void
+  /** Remove vehicle from an operation (persists to DB) */
+  removeVehicle: (operationId: string, vehicleName: string) => void
   /** Update operation properties (persists to DB with debouncing) */
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   /** Create a new operation (persists to DB) */
@@ -77,6 +81,8 @@ interface OperationsContextType {
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
   /** Assign material to an operation (persists both operation and material status to DB) */
   assignMaterialToOperation: (materialId: string, operationId: string) => void
+  /** Assign vehicle to an operation (persists to DB) */
+  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
   /** Delete an operation (persists to DB) */
   deleteOperation: (operationId: string) => Promise<void>
 }
@@ -98,6 +104,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     id: String(apiOp.id),
     location: apiOp.location,
     vehicle: apiOp.vehicle as VehicleType,
+    vehicles: [],
     incidentType: apiOp.incident_type,
     dispatchTime: new Date(apiOp.dispatch_time),
     crew: apiOp.crew,
@@ -110,6 +117,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     statusChangedAt: null, // Legacy operation format doesn't have this field
     crewAssignments: new Map(),
     materialAssignments: new Map(),
+    vehicleAssignments: new Map(),
   })
 
   const operationToApiOperation = (op: Operation) => ({
@@ -155,7 +163,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return {
       id: incident.id,
       location: incident.location_address || incident.title,
-      vehicle: null, // Not in incident schema
+      vehicle: null, // Legacy field - kept for backward compatibility
+      vehicles: [], // Will be populated from assignments
       incidentType: incident.type || "Technische Hilfe",
       dispatchTime: new Date(incident.created_at),
       crew: [], // Will be populated from assignments
@@ -170,6 +179,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       crewAssignments: new Map(),
       materialAssignments: new Map(),
+      vehicleAssignments: new Map(),
     }
   }
 
@@ -219,7 +229,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const materialsList = apiMats.map(apiMaterialToMaterial)
         const operations = apiIncidents.map(apiIncidentToOperation)
 
-        // Fetch assignments for each incident and populate crew/materials
+        // Fetch vehicles for vehicle assignment lookups
+        const vehiclesList = await apiClient.getVehicles()
+
+        // Fetch assignments for each incident and populate crew/materials/vehicles
         await Promise.all(
           operations.map(async (operation) => {
             try {
@@ -237,8 +250,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
                   // Add material ID to materials array
                   operation.materials.push(assignment.resource_id)
                   operation.materialAssignments.set(assignment.resource_id, assignment.id)
+                } else if (assignment.resource_type === "vehicle") {
+                  // Find vehicle by ID to get its name
+                  const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+                  if (vehicle) {
+                    operation.vehicles.push(vehicle.name)
+                    operation.vehicleAssignments.set(vehicle.name, assignment.id)
+                  }
                 }
-                // Note: vehicle assignments would be handled here if needed
               }
             } catch (error) {
               console.error(`Failed to load assignments for incident ${operation.id}:`, error)
@@ -441,6 +460,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           id: apiIncident.id,
           location: apiIncident.location_address || apiIncident.title,
           vehicle: operation.vehicle, // Keep vehicle from form (not in incident schema yet)
+          vehicles: [],
           incidentType: operation.incidentType,
           dispatchTime: new Date(apiIncident.created_at),
           crew: [],
@@ -455,6 +475,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           crewAssignments: new Map(),
           materialAssignments: new Map(),
+          vehicleAssignments: new Map(),
         }
         setOperations((ops) => [newOperation, ...ops])
       } catch (error) {
@@ -469,6 +490,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         statusChangedAt: null,
         crewAssignments: new Map(),
         materialAssignments: new Map(),
+        vehicleAssignments: new Map(),
       }
       setOperations((ops) => [newOperation, ...ops])
     }
@@ -586,6 +608,96 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   /**
+   * Assigns a vehicle to an operation.
+   * Updates both frontend state and persists to the database.
+   *
+   * @param vehicleId - The ID of the vehicle to assign
+   * @param vehicleName - The name of the vehicle (for operation vehicles list)
+   * @param operationId - The ID of the operation to assign the vehicle to
+   */
+  const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+
+    if (!operation || operation.vehicles.includes(vehicleName)) {
+      return
+    }
+
+    // Update frontend state immediately (optimistic update)
+    setOperations((ops) =>
+      ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
+    )
+
+    // Persist to database via assignment API
+    if (isLoaded) {
+      try {
+        const assignment = await apiClient.assignResource(operationId, {
+          resource_type: "vehicle",
+          resource_id: vehicleId,
+        })
+
+        // Store assignment ID for later unassignment
+        setOperations((ops) =>
+          ops.map((op) => {
+            if (op.id === operationId) {
+              const newVehicleAssignments = new Map(op.vehicleAssignments)
+              newVehicleAssignments.set(vehicleName, assignment.id)
+              return { ...op, vehicleAssignments: newVehicleAssignments }
+            }
+            return op
+          })
+        )
+      } catch (err) {
+        console.error("Failed to assign vehicle:", err)
+        // Revert optimistic update on error
+        setOperations((ops) =>
+          ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
+        )
+      }
+    }
+  }
+
+  /**
+   * Removes a vehicle from an operation (unassigns it).
+   * Updates frontend state and persists to the database.
+   *
+   * @param operationId - The ID of the operation to remove the vehicle from
+   * @param vehicleName - The name of the vehicle to remove
+   */
+  const removeVehicle = (operationId: string, vehicleName: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation) return
+
+    // Get assignment ID from the map
+    const assignmentId = operation.vehicleAssignments.get(vehicleName)
+    if (!assignmentId) {
+      console.warn(`No assignment ID found for vehicle ${vehicleName}`)
+      return
+    }
+
+    // Update frontend state immediately
+    setOperations((ops) =>
+      ops.map((op) => {
+        if (op.id === operationId) {
+          const newVehicleAssignments = new Map(op.vehicleAssignments)
+          newVehicleAssignments.delete(vehicleName)
+          return {
+            ...op,
+            vehicles: op.vehicles.filter((name) => name !== vehicleName),
+            vehicleAssignments: newVehicleAssignments,
+          }
+        }
+        return op
+      })
+    )
+
+    // Call unassignment API
+    if (isLoaded) {
+      apiClient.unassignResource(operationId, assignmentId)
+        .catch(err => console.error("Failed to unassign vehicle:", err))
+    }
+  }
+
+  /**
    * Deletes an operation from the system.
    * Updates frontend state and persists to the database.
    * Also releases any assigned personnel and materials.
@@ -672,11 +784,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         refreshOperations,
         removeCrew,
         removeMaterial,
+        removeVehicle,
         updateOperation,
         createOperation,
         getNextOperationId,
         assignPersonToOperation,
         assignMaterialToOperation,
+        assignVehicleToOperation,
         deleteOperation,
       }}
     >
