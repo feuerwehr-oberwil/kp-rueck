@@ -1,5 +1,7 @@
 """Pydantic schemas for request/response validation."""
 from datetime import datetime
+from decimal import Decimal
+from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
 from typing import Optional, Union
 from uuid import UUID
@@ -123,16 +125,54 @@ class Material(MaterialBase):
 # ============================================
 
 
+class IncidentType(str, Enum):
+    """Incident type enumeration."""
+
+    BRANDBEKAEMPFUNG = "brandbekaempfung"
+    ELEMENTAREREIGNIS = "elementarereignis"
+    STRASSENRETTUNG = "strassenrettung"
+    TECHNISCHE_HILFELEISTUNG = "technische_hilfeleistung"
+    OELWEHR = "oelwehr"
+    CHEMIEWEHR = "chemiewehr"
+    STRAHLENWEHR = "strahlenwehr"
+    EINSATZ_BAHNANLAGEN = "einsatz_bahnanlagen"
+    BMA_UNECHTE_ALARME = "bma_unechte_alarme"
+    DIENSTLEISTUNGEN = "dienstleistungen"
+    DIVERSE_EINSAETZE = "diverse_einsaetze"
+    GERETTETE_MENSCHEN = "gerettete_menschen"
+    GERETTETE_TIERE = "gerettete_tiere"
+
+
+class IncidentPriority(str, Enum):
+    """Incident priority enumeration."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class IncidentStatus(str, Enum):
+    """Incident status enumeration."""
+
+    EINGEGANGEN = "eingegangen"
+    REKO = "reko"
+    DISPONIERT = "disponiert"
+    EINSATZ = "einsatz"
+    EINSATZ_BEENDET = "einsatz_beendet"
+    ABSCHLUSS = "abschluss"
+
+
 class IncidentBase(BaseModel):
     """Base incident schema."""
 
     title: str
-    type: str  # 'fire', 'medical', 'technical', 'hazmat', 'other'
-    priority: str  # 'low', 'medium', 'high', 'critical'
+    type: IncidentType
+    priority: IncidentPriority
     location_address: Optional[str] = None
-    location_lat: Optional[float] = None
-    location_lng: Optional[float] = None
-    status: str = "eingegangen"  # 'eingegangen', 'reko', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss'
+    location_lat: Optional[Decimal] = None
+    location_lng: Optional[Decimal] = None
+    status: IncidentStatus = IncidentStatus.EINGEGANGEN
     training_flag: bool = False
     description: Optional[str] = None
 
@@ -147,18 +187,17 @@ class IncidentUpdate(BaseModel):
     """Schema for updating incident."""
 
     title: Optional[str] = None
-    type: Optional[str] = None
-    priority: Optional[str] = None
+    type: Optional[IncidentType] = None
+    priority: Optional[IncidentPriority] = None
     location_address: Optional[str] = None
-    location_lat: Optional[float] = None
-    location_lng: Optional[float] = None
-    status: Optional[str] = None
-    training_flag: Optional[bool] = None
+    location_lat: Optional[Decimal] = None
+    location_lng: Optional[Decimal] = None
+    status: Optional[IncidentStatus] = None
     description: Optional[str] = None
-    completed_at: Optional[datetime] = None
+    # training_flag intentionally excluded (use separate endpoint)
 
 
-class Incident(IncidentBase):
+class IncidentResponse(IncidentBase):
     """Full incident schema with database fields."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -168,6 +207,37 @@ class Incident(IncidentBase):
     updated_at: datetime
     created_by: Optional[UUID] = None
     completed_at: Optional[datetime] = None
+
+
+# Alias for backwards compatibility
+Incident = IncidentResponse
+
+
+# ============================================
+# Status Transition Schemas
+# ============================================
+
+
+class StatusTransitionCreate(BaseModel):
+    """Schema for creating status transition."""
+
+    from_status: IncidentStatus
+    to_status: IncidentStatus
+    notes: Optional[str] = None
+
+
+class StatusTransitionResponse(BaseModel):
+    """Status transition response schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    incident_id: UUID
+    from_status: str
+    to_status: str
+    timestamp: datetime
+    user_id: Optional[UUID] = None
+    notes: Optional[str] = None
 
 
 # ============================================

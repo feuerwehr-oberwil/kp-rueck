@@ -171,7 +171,13 @@ class Incident(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "type IN ('fire', 'medical', 'technical', 'hazmat', 'other')", name="valid_incident_type"
+            "type IN ("
+            "'brandbekaempfung', 'elementarereignis', 'strassenrettung', "
+            "'technische_hilfeleistung', 'oelwehr', 'chemiewehr', 'strahlenwehr', "
+            "'einsatz_bahnanlagen', 'bma_unechte_alarme', 'dienstleistungen', "
+            "'diverse_einsaetze', 'gerettete_menschen', 'gerettete_tiere'"
+            ")",
+            name="valid_incident_type"
         ),
         CheckConstraint(
             "priority IN ('low', 'medium', 'high', 'critical')", name="valid_priority"
