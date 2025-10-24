@@ -1,0 +1,279 @@
+"use client"
+
+import { useState } from "react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Save } from 'lucide-react'
+import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
+import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
+import { useIncidents } from "@/lib/contexts/incidents-context"
+
+interface IncidentFormProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  incident?: Incident | null
+  mode?: 'create' | 'edit'
+}
+
+export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: IncidentFormProps) {
+  const { createIncident, updateIncident, trainingMode } = useIncidents()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [formData, setFormData] = useState<IncidentCreate>({
+    title: incident?.title || '',
+    type: incident?.type || 'technische_hilfeleistung',
+    priority: incident?.priority || 'medium',
+    location_address: incident?.location_address || null,
+    location_lat: incident?.location_lat || null,
+    location_lng: incident?.location_lng || null,
+    description: incident?.description || null,
+    status: incident?.status || 'eingegangen',
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      if (mode === 'create') {
+        await createIncident(formData)
+      } else if (incident) {
+        const updateData: IncidentUpdate = {
+          title: formData.title,
+          type: formData.type,
+          priority: formData.priority,
+          location_address: formData.location_address,
+          location_lat: formData.location_lat,
+          location_lng: formData.location_lng,
+          description: formData.description,
+        }
+        await updateIncident(incident.id, updateData)
+      }
+
+      // Reset form and close
+      setFormData({
+        title: '',
+        type: 'technische_hilfeleistung',
+        priority: 'medium',
+        location_address: null,
+        location_lat: null,
+        location_lng: null,
+        description: null,
+        status: 'eingegangen',
+      })
+      onOpenChange(false)
+    } catch (error) {
+      console.error('Failed to save incident:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Reset form when incident changes or modal opens
+  useState(() => {
+    if (open && incident && mode === 'edit') {
+      setFormData({
+        title: incident.title,
+        type: incident.type,
+        priority: incident.priority,
+        location_address: incident.location_address,
+        location_lat: incident.location_lat,
+        location_lng: incident.location_lng,
+        description: incident.description,
+        status: incident.status,
+      })
+    }
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl flex items-center gap-3">
+            {mode === 'create' ? (
+              <>
+                <Plus className="h-6 w-6 text-primary" />
+                Neuer Einsatz
+              </>
+            ) : (
+              <>
+                <Save className="h-6 w-6 text-primary" />
+                Einsatz bearbeiten
+              </>
+            )}
+          </DialogTitle>
+          <DialogDescription className="text-base">
+            {trainingMode && (
+              <span className="inline-flex items-center gap-2 px-2 py-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                Übungsmodus aktiv
+              </span>
+            )}
+            {mode === 'edit' && incident && (
+              <span className="ml-2">ID: {incident.id}</span>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          {/* Title */}
+          <div>
+            <Label htmlFor="title" className="text-sm font-semibold text-muted-foreground">
+              Titel / Einsatzbezeichnung *
+            </Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="z.B. Wohnungsbrand Hauptstraße 45"
+              className="mt-2"
+              required
+              autoFocus={mode === 'create'}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Type */}
+            <div>
+              <Label htmlFor="type" className="text-sm font-semibold text-muted-foreground">
+                Einsatzart *
+              </Label>
+              <Select
+                value={formData.type}
+                onValueChange={(value) => setFormData({ ...formData, type: value as IncidentType })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(INCIDENT_TYPE_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Priority */}
+            <div>
+              <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
+                Priorität *
+              </Label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData({ ...formData, priority: value as IncidentPriority })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Location */}
+          <div>
+            <Label htmlFor="location_address" className="text-sm font-semibold text-muted-foreground">
+              Einsatzort
+            </Label>
+            <Input
+              id="location_address"
+              value={formData.location_address || ''}
+              onChange={(e) => setFormData({ ...formData, location_address: e.target.value || null })}
+              placeholder="Straße, Hausnummer, PLZ, Ort"
+              className="mt-2"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Latitude */}
+            <div>
+              <Label htmlFor="location_lat" className="text-sm font-semibold text-muted-foreground">
+                Breitengrad (Lat)
+              </Label>
+              <Input
+                id="location_lat"
+                type="number"
+                step="any"
+                value={formData.location_lat ?? ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    location_lat: e.target.value ? parseFloat(e.target.value) : null,
+                  })
+                }
+                placeholder="47.5164"
+                className="mt-2"
+              />
+            </div>
+
+            {/* Longitude */}
+            <div>
+              <Label htmlFor="location_lng" className="text-sm font-semibold text-muted-foreground">
+                Längengrad (Lng)
+              </Label>
+              <Input
+                id="location_lng"
+                type="number"
+                step="any"
+                value={formData.location_lng ?? ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    location_lng: e.target.value ? parseFloat(e.target.value) : null,
+                  })
+                }
+                placeholder="7.5618"
+                className="mt-2"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <Label htmlFor="description" className="text-sm font-semibold text-muted-foreground">
+              Beschreibung / Notizen
+            </Label>
+            <Textarea
+              id="description"
+              value={formData.description || ''}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
+              placeholder="Zusätzliche Informationen, Besonderheiten, Gefahren..."
+              className="mt-2 min-h-[100px]"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t">
+            <Button type="submit" disabled={isSubmitting || !formData.title} className="gap-2">
+              {mode === 'create' ? (
+                <>
+                  <Plus className="h-4 w-4" />
+                  Einsatz erstellen
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Änderungen speichern
+                </>
+              )}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Abbrechen
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
