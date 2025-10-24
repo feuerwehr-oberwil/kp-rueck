@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType } from "@/lib/contexts/operations-context"
+import { apiClient } from "@/lib/api-client"
 
 const columns = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
@@ -457,6 +458,27 @@ function OperationDetailModal({
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editingLocation, setEditingLocation] = useState("")
+  const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
+
+  // Load vehicles when modal opens
+  useEffect(() => {
+    const loadVehicles = async () => {
+      if (!open) return
+
+      setIsLoadingVehicles(true)
+      try {
+        const vehicles = await apiClient.getVehicles()
+        setAvailableVehicles(vehicles.map((v) => ({ name: v.name, type: v.type })))
+      } catch (error) {
+        console.error('Failed to load vehicles:', error)
+      } finally {
+        setIsLoadingVehicles(false)
+      }
+    }
+
+    loadVehicles()
+  }, [open])
 
   // Sync editingLocation with operation.location when modal opens
   useEffect(() => {
@@ -716,15 +738,16 @@ function OperationDetailModal({
               <Select
                 value={operation.vehicle || "none"}
                 onValueChange={(value) => onUpdate({ vehicle: (value === "none" ? null : value) as VehicleType })}
+                disabled={isLoadingVehicles}
               >
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Nicht zugewiesen" />
+                  <SelectValue placeholder={isLoadingVehicles ? "Laden..." : "Nicht zugewiesen"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                  {vehicleTypes.map((vt) => (
-                    <SelectItem key={vt.name} value={vt.name || ""}>
-                      {vt.name}
+                  {availableVehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.name} value={vehicle.name}>
+                      {vehicle.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -964,21 +987,15 @@ function NewEmergencyModal({
       setIsLoadingSettings(true)
       try {
         // Fetch vehicles and settings in parallel
-        const [vehiclesResponse, settingsResponse] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/vehicles/`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/settings/`)
+        const [vehicles, settings] = await Promise.all([
+          apiClient.getVehicles(),
+          apiClient.getAllSettings()
         ])
 
-        if (vehiclesResponse.ok) {
-          const vehicles = await vehiclesResponse.json()
-          setAvailableVehicles(vehicles.map((v: any) => ({ name: v.name, type: v.type })))
-        }
+        setAvailableVehicles(vehicles.map((v) => ({ name: v.name, type: v.type })))
 
-        if (settingsResponse.ok) {
-          const settings = await settingsResponse.json()
-          if (settings.home_city) {
-            setHomeCity(settings.home_city)
-          }
+        if (settings.home_city) {
+          setHomeCity(settings.home_city)
         }
       } catch (error) {
         console.error('Failed to load modal data:', error)
@@ -1345,17 +1362,14 @@ export default function FireStationDashboard() {
   useEffect(() => {
     const loadVehicles = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/vehicles/`)
-        if (response.ok) {
-          const vehicles = await response.json()
-          // Create vehicle types array with keyboard shortcuts (1-5)
-          const uniqueTypes = Array.from(new Set(vehicles.map((v: any) => v.name as string)))
-          const typesWithKeys = uniqueTypes.slice(0, 5).map((name, index) => ({
-            key: String(index + 1),
-            name: name as string
-          }))
-          setVehicleTypes(typesWithKeys)
-        }
+        const vehicles = await apiClient.getVehicles()
+        // Create vehicle types array with keyboard shortcuts (1-5)
+        const uniqueTypes = Array.from(new Set(vehicles.map((v) => v.name)))
+        const typesWithKeys = uniqueTypes.slice(0, 5).map((name, index) => ({
+          key: String(index + 1),
+          name: name
+        }))
+        setVehicleTypes(typesWithKeys)
       } catch (error) {
         console.error('Failed to load vehicles:', error)
       }
