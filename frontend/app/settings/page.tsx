@@ -36,6 +36,12 @@ interface SettingConfig {
 
 const SETTING_CONFIGS: SettingConfig[] = [
   {
+    key: 'home_city',
+    label: 'Heimatort',
+    description: 'Haupteinsatzgebiet für vereinfachte Adressanzeige (z.B. "Oberwil" oder "Oberwil, Basel-Landschaft")',
+    type: 'text',
+  },
+  {
     key: 'polling_interval_ms',
     label: 'Polling-Intervall',
     description: 'Zeitintervall für automatische Datenaktualisierung',

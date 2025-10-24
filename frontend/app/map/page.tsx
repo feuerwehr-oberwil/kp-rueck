@@ -62,7 +62,7 @@ function getStatusDisplayName(status: string): string {
 }
 
 export default function MapPage() {
-  const { incidents } = useIncidents()
+  const { incidents, formatLocation, refreshIncidents } = useIncidents()
   const searchParams = useSearchParams()
   const highlightParam = searchParams.get("highlight")
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
@@ -79,6 +79,11 @@ export default function MapPage() {
     () => incidents.filter((inc) => inc.status !== "abschluss"),
     [incidents]
   )
+
+  // Refresh incidents immediately when map page loads
+  useEffect(() => {
+    refreshIncidents()
+  }, [])
 
   useEffect(() => {
     if (highlightParam) {
@@ -155,11 +160,11 @@ export default function MapPage() {
                             <MapPin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
                             <div className="min-w-0">
                               <h3 className="font-bold text-sm leading-tight">
-                                {incident.title}
+                                {incident.location_address ? formatLocation(incident.location_address) : incident.title}
                               </h3>
-                              {incident.location_address && (
+                              {incident.type && (
                                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                  {incident.location_address}
+                                  {getIncidentTypeDisplayName(incident.type)}
                                 </p>
                               )}
                             </div>
