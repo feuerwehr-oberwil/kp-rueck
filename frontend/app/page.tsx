@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map, Edit, Filter, Trash2, Check } from 'lucide-react'
+import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { UserMenu } from "@/components/user-menu"
 import { toast } from "sonner"
@@ -883,7 +884,7 @@ function ShortcutsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (
               {vehicleTypes.map((vt) => (
                 <div key={vt.key} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                   <span className="text-sm font-medium">{vt.name}</span>
-                  <Badge variant="outline" className="font-mono">{vt.key}</Badge>
+                  <Kbd>{vt.key}</Kbd>
                 </div>
               ))}
             </div>
@@ -894,27 +895,27 @@ function ShortcutsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (
             <div className="space-y-2">
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Karte nach rechts bewegen</span>
-                <Badge variant="outline" className="font-mono">&gt;</Badge>
+                <Kbd>&gt;</Kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Karte nach links bewegen</span>
-                <Badge variant="outline" className="font-mono">&lt;</Badge>
+                <Kbd>&lt;</Kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Suche fokussieren</span>
-                <Badge variant="outline" className="font-mono">/</Badge>
+                <Kbd>/</Kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Suche verlassen</span>
-                <Badge variant="outline" className="font-mono">Esc</Badge>
+                <Kbd>Esc</Kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Neuer Einsatz</span>
-                <Badge variant="outline" className="font-mono">N</Badge>
+                <Kbd>N</Kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Diese Hilfe anzeigen</span>
-                <Badge variant="outline" className="font-mono">?</Badge>
+                <Kbd>?</Kbd>
               </div>
             </div>
           </div>
@@ -1676,11 +1677,14 @@ export default function FireStationDashboard() {
               <Input
                 id="search-input"
                 type="text"
-                placeholder="Suchen... (Taste /)"
+                placeholder="Suchen..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-72 pl-9"
               />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Kbd>/</Kbd>
+              </div>
             </div>
 
             <Popover>
@@ -1812,11 +1816,14 @@ export default function FireStationDashboard() {
               <Input
                 id="personnel-search-input"
                 type="text"
-                placeholder="Suchen... (Taste P)"
+                placeholder="Suchen..."
                 value={personnelSearchQuery}
                 onChange={(e) => setPersonnelSearchQuery(e.target.value)}
-                className="h-8 pl-7 text-xs"
+                className="h-8 pl-7 pr-8 text-xs"
               />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Kbd className="h-4 text-[10px]">P</Kbd>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -1874,11 +1881,14 @@ export default function FireStationDashboard() {
               <Input
                 id="material-search-input"
                 type="text"
-                placeholder="Suchen... (Taste M)"
+                placeholder="Suchen..."
                 value={materialSearchQuery}
                 onChange={(e) => setMaterialSearchQuery(e.target.value)}
-                className="h-8 pl-7 text-xs"
+                className="h-8 pl-7 pr-8 text-xs"
               />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Kbd className="h-4 text-[10px]">M</Kbd>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -1909,8 +1919,38 @@ export default function FireStationDashboard() {
               </Button>
             </div>
 
-            <div className="text-xs text-muted-foreground">
-              Tastaturkürzel: 1-5 für Fahrzeuge • &lt; &gt; für Navigation • N für neuen Einsatz • / für Suche • Esc zum Verlassen • ? für Hilfe
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Tastaturkürzel:</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">1-5</Kbd>
+                <span>Fahrzeuge</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">&lt;</Kbd>
+                <Kbd className="h-4 text-[10px]">&gt;</Kbd>
+                <span>Navigation</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">N</Kbd>
+                <span>Neuer Einsatz</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">/</Kbd>
+                <span>Suche</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">Esc</Kbd>
+                <span>Verlassen</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">?</Kbd>
+                <span>Hilfe</span>
+              </div>
             </div>
           </div>
         </footer>

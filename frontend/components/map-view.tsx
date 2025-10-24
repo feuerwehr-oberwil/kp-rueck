@@ -22,34 +22,14 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon
 
-// Status color mapping
+// Status color mapping (matching kanban board colors)
 const STATUS_COLORS: Record<string, string> = {
-  eingegangen: "#ef4444", // red
-  reko: "#f97316", // orange
-  disponiert: "#eab308", // yellow
-  einsatz: "#3b82f6", // blue
-  einsatz_beendet: "#22c55e", // green
-  abschluss: "#6b7280", // gray
-}
-
-// Incident type to emoji mapping
-function getIncidentTypeEmoji(type: string): string {
-  const typeMap: Record<string, string> = {
-    brandbekaempfung: "🔥",
-    elementarereignis: "🌊",
-    strassenrettung: "🚗",
-    technische_hilfeleistung: "🔧",
-    oelwehr: "🛢️",
-    chemiewehr: "☣️",
-    strahlenwehr: "☢️",
-    einsatz_bahnanlagen: "🚆",
-    bma_unechte_alarme: "⚠️",
-    dienstleistungen: "🤝",
-    diverse_einsaetze: "🚨",
-    gerettete_menschen: "👤",
-    gerettete_tiere: "🐾",
-  }
-  return typeMap[type] || "🚨"
+  eingegangen: "#27272a", // zinc-800 (matching kanban "incoming")
+  reko: "#166534", // green-800 (matching kanban "ready")
+  disponiert: "#1e3a8a", // blue-900 (matching kanban "enroute")
+  einsatz: "#7c2d12", // orange-900 (matching kanban "active")
+  einsatz_beendet: "#1e40af", // blue-800 (matching kanban "returning")
+  abschluss: "#18181b", // zinc-900 (matching kanban "complete")
 }
 
 // Incident type to display name mapping
@@ -72,43 +52,28 @@ function getIncidentTypeDisplayName(type: string): string {
   return displayNameMap[type] || type
 }
 
-// Create custom colored icon for incident markers
+// Create custom colored icon for incident markers (simplified circle without emoji)
 function createIncidentIcon(incident: Incident): L.DivIcon {
   const color = STATUS_COLORS[incident.status] || "#6b7280"
-  const emoji = getIncidentTypeEmoji(incident.type)
 
   const html = `
-    <div style="position: relative; width: 40px; height: 40px;">
-      <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 40px;
-        height: 40px;
-        background-color: ${color};
-        border: 3px solid white;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        ${incident.training_flag ? 'border-style: dashed;' : ''}
-      "></div>
-      <div style="
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -60%);
-        font-size: 18px;
-        z-index: 10;
-      ">${emoji}</div>
-    </div>
+    <div style="
+      width: 24px;
+      height: 24px;
+      background-color: ${color};
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      ${incident.training_flag ? 'border-style: dashed;' : ''}
+    "></div>
   `
 
   return L.divIcon({
     html,
     className: "custom-marker",
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-    popupAnchor: [0, -40],
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
   })
 }
 
@@ -147,7 +112,7 @@ function MissingLocationsWarning({ count }: { count: number }) {
 }
 
 // Incident popup content
-function IncidentPopup({ incident }: { incident: Incident }) {
+function IncidentPopup({ incident, formatLocation }: { incident: Incident; formatLocation: (address: string) => string }) {
   const priorityColor =
     incident.priority === "critical"
       ? "text-red-600"
@@ -182,7 +147,7 @@ function IncidentPopup({ incident }: { incident: Incident }) {
         </p>
         {incident.location_address && (
           <p>
-            <strong>Adresse:</strong> {incident.location_address}
+            <strong>Adresse:</strong> {formatLocation(incident.location_address)}
           </p>
         )}
         {incident.description && (
@@ -217,7 +182,7 @@ export default function MapView({
   selectedIncidentId,
   onMarkerClick,
 }: MapViewProps) {
-  const { incidents } = useIncidents()
+  const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
     47.51637699933488, 7.561800450458299,
@@ -245,11 +210,11 @@ export default function MapView({
     loadSettings()
   }, [])
 
-  // Filter incidents with valid coordinates
+  // Filter incidents with valid coordinates and exclude completed incidents
   const mappableIncidents = useMemo(
     () =>
       incidents.filter(
-        (inc) => inc.location_lat !== null && inc.location_lng !== null
+        (inc) => inc.location_lat !== null && inc.location_lng !== null && inc.status !== "abschluss"
       ),
     [incidents]
   )
@@ -268,38 +233,24 @@ export default function MapView({
     return firestationCoords
   }, [mappableIncidents, firestationCoords])
 
-  // Create firestation icon
+  // Create firestation icon (larger circle to distinguish from incidents)
   const firestationIcon = useMemo(
     () =>
       L.divIcon({
         html: `
-      <div style="position: relative; width: 50px; height: 50px;">
-        <div style="
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 50px;
-          height: 50px;
-          background-color: #dc2626;
-          border: 4px solid white;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-        "></div>
-        <div style="
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -60%);
-          font-size: 24px;
-          z-index: 10;
-        ">🚒</div>
-      </div>
+      <div style="
+        width: 32px;
+        height: 32px;
+        background-color: #dc2626;
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+      "></div>
     `,
         className: "fire-station-marker",
-        iconSize: [50, 50],
-        iconAnchor: [25, 50],
-        popupAnchor: [0, -50],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16],
       }),
     []
   )
@@ -355,7 +306,7 @@ export default function MapView({
             }}
           >
             <Popup>
-              <IncidentPopup incident={incident} />
+              <IncidentPopup incident={incident} formatLocation={formatLocation} />
             </Popup>
           </Marker>
         ))}

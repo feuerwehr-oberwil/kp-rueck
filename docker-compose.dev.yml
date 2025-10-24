@@ -24,7 +24,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: kprueck-backend-dev
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: ./start-dev.sh
     volumes:
       - ./backend:/app
     ports:
