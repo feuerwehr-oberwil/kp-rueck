@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import routes
 from .api.auth import router as auth_router
 from .api.audit import router as audit_router
+from .api.incidents import router as incidents_router
 from .api.settings import router as settings_router
 from .config import settings
 from .database import Base, engine, get_db
@@ -92,6 +93,7 @@ app.add_middleware(AuditMiddleware)
 # Include routers
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
+app.include_router(incidents_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
