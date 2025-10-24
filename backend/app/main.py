@@ -8,8 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import routes
 from .api.auth import router as auth_router
+from .api.audit import router as audit_router
 from .config import settings
 from .database import Base, engine
+from .middleware.audit import AuditMiddleware
 from .seed import seed_database
 
 
@@ -71,8 +73,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add audit middleware
+app.add_middleware(AuditMiddleware)
+
 # Include routers
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
+app.include_router(audit_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
 
