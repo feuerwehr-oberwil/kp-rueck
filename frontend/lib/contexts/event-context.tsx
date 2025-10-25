@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { apiClient, type ApiEvent } from '@/lib/api-client'
 import type { Event, EventCreate, EventUpdate } from '@/lib/types/incidents'
+import { useAuth } from './auth-context'
 
 interface EventContextType {
   selectedEvent: Event | null
@@ -35,13 +36,18 @@ const apiEventToEvent = (apiEvent: ApiEvent): Event => ({
 })
 
 export function EventProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [selectedEvent, setSelectedEventState] = useState<Event | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Load selected event from localStorage on mount
+  // Load selected event from localStorage on mount (only when authenticated)
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      return
+    }
+
     const savedEventId = localStorage.getItem(SELECTED_EVENT_KEY)
     if (savedEventId) {
       apiClient.getEvent(savedEventId)
@@ -51,7 +57,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem(SELECTED_EVENT_KEY)
         })
     }
-  }, [])
+  }, [authLoading, isAuthenticated])
 
   // Save selected event to localStorage when it changes
   const setSelectedEvent = useCallback((event: Event | null) => {
@@ -99,10 +105,15 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     await refreshEvents()
   }, [selectedEvent, setSelectedEvent, refreshEvents])
 
-  // Load events on mount
+  // Load events on mount (only when authenticated)
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setIsLoading(false)
+      return
+    }
+
     refreshEvents()
-  }, [refreshEvents])
+  }, [authLoading, isAuthenticated, refreshEvents])
 
   return (
     <EventContext.Provider
