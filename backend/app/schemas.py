@@ -73,6 +73,7 @@ class PersonnelCheckInResponse(BaseModel):
     checked_in: bool
     checked_in_at: Optional[datetime] = None
     checked_out_at: Optional[datetime] = None
+    is_assigned: bool = False  # Whether assigned to any incident in this event
 
 
 class PersonnelListItem(BaseModel):
@@ -84,6 +85,15 @@ class PersonnelListItem(BaseModel):
     name: str
     role: Optional[str] = None
     checked_in: bool
+    is_assigned: bool = False  # Whether assigned to any incident in this event
+
+
+class CheckInListResponse(BaseModel):
+    """Response for check-in list with event information."""
+
+    personnel: list[PersonnelListItem]
+    event_id: UUID
+    event_name: str
 
 
 # ============================================
