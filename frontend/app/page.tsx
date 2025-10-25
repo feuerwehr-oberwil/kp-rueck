@@ -979,6 +979,20 @@ function ShortcutsModal({ open, onOpenChange, vehicleTypes }: { open: boolean; o
               </div>
             </div>
           </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Seitenleisten</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Personen-Seitenleiste ein/ausblenden</span>
+                <Kbd>[</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Material-Seitenleiste ein/ausblenden</span>
+                <Kbd>]</Kbd>
+              </div>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -1372,6 +1386,8 @@ export default function FireStationDashboard() {
   const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true)
+  const [showRightSidebar, setShowRightSidebar] = useState(true)
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -1518,6 +1534,12 @@ export default function FireStationDashboard() {
       } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
         setNewEmergencyModalOpen(true)
+      } else if (e.key === '[') {
+        e.preventDefault()
+        setShowLeftSidebar(prev => !prev)
+      } else if (e.key === ']') {
+        e.preventDefault()
+        setShowRightSidebar(prev => !prev)
       }
     }
 
@@ -1897,13 +1919,14 @@ export default function FireStationDashboard() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-          <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-foreground">Verfügbare Personen</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {personnel.filter((p) => p.status === "available").length} verfügbar
-              </p>
-            </div>
+          {showLeftSidebar && (
+            <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
+              <div className="mb-4">
+                <h2 className="text-base font-bold text-foreground">Verfügbare Personen</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {personnel.filter((p) => p.status === "available").length} verfügbar
+                </p>
+              </div>
 
             <div className="relative mb-4">
               <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
@@ -1937,6 +1960,7 @@ export default function FireStationDashboard() {
               ))}
             </div>
           </aside>
+          )}
 
           {/* Main Kanban Board */}
           <main className="flex-1 overflow-x-auto p-4 bg-zinc-950/20">
@@ -1963,13 +1987,14 @@ export default function FireStationDashboard() {
             </div>
           </main>
 
-          <aside className="w-64 border-l border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-foreground">Verfügbares Material</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {materials.filter((m) => m.status === "available").length} verfügbar
-              </p>
-            </div>
+          {showRightSidebar && (
+            <aside className="w-64 border-l border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
+              <div className="mb-4">
+                <h2 className="text-base font-bold text-foreground">Verfügbares Material</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {materials.filter((m) => m.status === "available").length} verfügbar
+                </p>
+              </div>
 
             <div className="relative mb-4">
               <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
@@ -2003,6 +2028,7 @@ export default function FireStationDashboard() {
               ))}
             </div>
           </aside>
+          )}
         </div>
 
         <footer className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-6 py-3">
@@ -2040,6 +2066,16 @@ export default function FireStationDashboard() {
               <div className="flex items-center gap-1">
                 <Kbd className="h-4 text-[10px]">Esc</Kbd>
                 <span>Verlassen</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">[</Kbd>
+                <span>Personen</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">]</Kbd>
+                <span>Material</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
