@@ -121,7 +121,7 @@ class Material(MaterialBase):
 
 
 # ============================================
-# Incident Schemas (formerly Operation)
+# Incident Schemas
 # ============================================
 
 
@@ -227,10 +227,6 @@ class IncidentResponse(IncidentBase):
         if value is None:
             return None
         return str(value)
-
-
-# Alias for backwards compatibility
-Incident = IncidentResponse
 
 
 # ============================================

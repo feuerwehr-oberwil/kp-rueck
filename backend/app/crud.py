@@ -8,7 +8,7 @@ from . import models, schemas
 
 
 # ============================================
-# Incident CRUD (formerly Operations)
+# Incident CRUD
 # ============================================
 
 
