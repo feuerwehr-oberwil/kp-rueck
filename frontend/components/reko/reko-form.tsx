@@ -5,11 +5,14 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { CheckCircle2, AlertCircle, Save, Send, Loader2 } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CheckCircle2, AlertCircle, Save, Send, Loader2, MapPin, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
@@ -55,6 +58,11 @@ export default function RekoForm() {
 
   const [formData, setFormData] = useState<RekoFormData>(INITIAL_FORM_DATA)
   const [incidentTitle, setIncidentTitle] = useState<string>('')
+  const [incidentDetails, setIncidentDetails] = useState<{
+    location?: string
+    type?: string
+    description?: string
+  }>({})
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -75,6 +83,11 @@ export default function RekoForm() {
         const data = await apiClient.getRekoForm(incidentId, token)
 
         setIncidentTitle(data.incident_title || 'Unbekannt')
+        setIncidentDetails({
+          location: data.incident_location || undefined,
+          type: data.incident_type || undefined,
+          description: data.incident_description || undefined
+        })
 
         // Load existing report/draft
         setFormData({
@@ -155,9 +168,9 @@ export default function RekoForm() {
 
       toast.success('Meldung erfolgreich übermittelt')
 
-      // Redirect to success page
+      // Redirect to success page with token for back button functionality
       setTimeout(() => {
-        router.push(`/reko/success?id=${incidentId}`)
+        router.push(`/reko/success?id=${incidentId}&token=${token}`)
       }, 1000)
     } catch (error) {
       console.error('Submit failed:', error)
@@ -193,11 +206,28 @@ export default function RekoForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Incident Info */}
-      <div className="rounded-lg bg-muted p-4">
-        <h3 className="font-semibold">Einsatz</h3>
-        <p className="text-sm text-muted-foreground">{incidentTitle}</p>
-      </div>
+      {/* Incident Info Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            {incidentDetails.location || incidentTitle}
+          </CardTitle>
+          {incidentDetails.type && (
+            <CardDescription className="capitalize">
+              {incidentDetails.type.replace(/_/g, ' ')}
+            </CardDescription>
+          )}
+        </CardHeader>
+        {incidentDetails.description && (
+          <CardContent className="pt-0">
+            <div className="flex items-start gap-2 text-sm">
+              <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <span className="text-muted-foreground">{incidentDetails.description}</span>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Section 1: Basic Confirmation */}
       <div className="space-y-3">
@@ -255,15 +285,13 @@ export default function RekoForm() {
             { key: 'electrical', label: 'Elektrische Gefahr' }
           ].map(({ key, label }) => (
             <div key={key} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id={`danger-${key}`}
                 checked={formData.dangers_json[key as keyof ApiDangersAssessment] as boolean}
-                onChange={(e) => updateFormData('dangers_json', {
+                onCheckedChange={(checked) => updateFormData('dangers_json', {
                   ...formData.dangers_json,
-                  [key]: e.target.checked
+                  [key]: checked === true
                 })}
-                className="h-4 w-4 rounded border-input"
               />
               <Label htmlFor={`danger-${key}`} className="font-normal cursor-pointer">
                 {label}
@@ -301,7 +329,7 @@ export default function RekoForm() {
         <div className="space-y-3">
           <div>
             <Label htmlFor="personnel-count">Geschätzter Personalaufwand (Anzahl Personen)</Label>
-            <input
+            <Input
               id="personnel-count"
               type="number"
               min="0"
@@ -310,14 +338,13 @@ export default function RekoForm() {
                 ...formData.effort_json,
                 personnel_count: e.target.value ? parseInt(e.target.value) : null
               })}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="z.B. 10"
             />
           </div>
 
           <div>
             <Label htmlFor="duration">Geschätzte Dauer (Stunden)</Label>
-            <input
+            <Input
               id="duration"
               type="number"
               min="0"
@@ -327,7 +354,6 @@ export default function RekoForm() {
                 ...formData.effort_json,
                 estimated_duration_hours: e.target.value ? parseFloat(e.target.value) : null
               })}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="z.B. 2.5"
             />
           </div>

@@ -43,10 +43,13 @@ async def get_reko_form(
         )
         incident = incident_result.scalar_one_or_none()
 
-        # Convert to response schema with incident_title
+        # Convert to response schema with incident details
         response_data = schemas.RekoReportResponse.model_validate(report)
         if incident:
             response_data.incident_title = incident.title
+            response_data.incident_location = incident.location_address
+            response_data.incident_type = incident.type
+            response_data.incident_description = incident.description
 
         return response_data
     except ValueError as e:
@@ -84,10 +87,13 @@ async def submit_reko_report(
     )
     incident = incident_result.scalar_one_or_none()
 
-    # Convert to response schema with incident_title
+    # Convert to response schema with incident details
     response_data = schemas.RekoReportResponse.model_validate(updated)
     if incident:
         response_data.incident_title = incident.title
+        response_data.incident_location = incident.location_address
+        response_data.incident_type = incident.type
+        response_data.incident_description = incident.description
 
     return response_data
 
@@ -109,10 +115,13 @@ async def update_report(
         )
         incident = incident_result.scalar_one_or_none()
 
-        # Convert to response schema with incident_title
+        # Convert to response schema with incident details
         response_data = schemas.RekoReportResponse.model_validate(updated)
         if incident:
             response_data.incident_title = incident.title
+            response_data.incident_location = incident.location_address
+            response_data.incident_type = incident.type
+            response_data.incident_description = incident.description
 
         return response_data
     except ValueError as e:
@@ -139,10 +148,13 @@ async def get_report(
     )
     incident = incident_result.scalar_one_or_none()
 
-    # Convert to response schema with incident_title
+    # Convert to response schema with incident details
     response_data = schemas.RekoReportResponse.model_validate(report)
     if incident:
         response_data.incident_title = incident.title
+        response_data.incident_location = incident.location_address
+        response_data.incident_type = incident.type
+        response_data.incident_description = incident.description
 
     return response_data
 
@@ -162,11 +174,15 @@ async def get_incident_reports(
     incident = incident_result.scalar_one_or_none()
     incident_title = incident.title if incident else None
 
-    # Convert to response schemas with incident_title
+    # Convert to response schemas with incident details
     response_list = []
     for report in reports:
         response_data = schemas.RekoReportResponse.model_validate(report)
         response_data.incident_title = incident_title
+        if incident:
+            response_data.incident_location = incident.location_address
+            response_data.incident_type = incident.type
+            response_data.incident_description = incident.description
         response_list.append(response_data)
 
     return response_list
