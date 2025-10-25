@@ -1,4 +1,6 @@
-"""Token generation and validation for check-in forms."""
+"""Token generation and validation for check-in forms and reko forms."""
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
@@ -57,3 +59,43 @@ def validate_checkin_token(token: str) -> Optional[UUID]:
         return UUID(event_id_str)
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
         return None
+
+
+# ============================================
+# REKO FORM TOKENS
+# ============================================
+
+
+def generate_form_token(incident_id: str, form_type: str = "reko") -> str:
+    """
+    Generate a reusable token for a form type.
+
+    Tokens are deterministic for same incident+type (allows sharing).
+
+    Args:
+        incident_id: Incident UUID
+        form_type: Type of form (e.g., 'reko')
+
+    Returns:
+        URL-safe token string
+    """
+    # Deterministic token based on incident + form type + secret_key
+    data = f"{incident_id}:{form_type}:{settings.secret_key}"
+    hash_obj = hashlib.sha256(data.encode())
+    return hash_obj.hexdigest()[:32]
+
+
+def validate_form_token(token: str, incident_id: str, form_type: str = "reko") -> bool:
+    """
+    Verify token matches incident and form type.
+
+    Args:
+        token: Token to validate
+        incident_id: Incident UUID
+        form_type: Type of form (e.g., 'reko')
+
+    Returns:
+        True if token is valid, False otherwise
+    """
+    expected = generate_form_token(incident_id, form_type)
+    return secrets.compare_digest(token, expected)
