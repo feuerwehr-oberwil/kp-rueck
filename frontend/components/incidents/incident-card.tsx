@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Edit, Map, Truck } from 'lucide-react'
+import { MapPin, Clock, Edit, Map, Truck, Siren } from 'lucide-react'
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
@@ -114,8 +114,11 @@ export function IncidentCard({
         </div>
 
         {/* Incident type */}
-        <div className="text-sm font-medium text-foreground">
-          {INCIDENT_TYPE_LABELS[incident.type]}
+        <div className="flex items-start gap-2">
+          <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+          <div className="text-sm font-medium text-foreground">
+            {INCIDENT_TYPE_LABELS[incident.type]}
+          </div>
         </div>
 
         {/* Time information */}
