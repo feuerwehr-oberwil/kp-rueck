@@ -280,7 +280,7 @@ function DraggableOperation({
 
           <div className="flex items-center gap-2">
             <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm font-medium text-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
+            <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
 
           <div className="flex items-center justify-between gap-2">
