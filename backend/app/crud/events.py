@@ -121,6 +121,28 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     return event
 
 
+async def unarchive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
+    """
+    Unarchive an event (restore from archive).
+
+    Args:
+        db: Database session
+        event_id: Event ID to unarchive
+
+    Returns:
+        Unarchived event or None if not found
+    """
+    event = await get_event_by_id(db, event_id)
+    if not event:
+        return None
+
+    event.archived_at = None
+    event.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(event)
+    return event
+
+
 async def delete_event(db: AsyncSession, event_id: uuid.UUID) -> bool:
     """
     Permanently delete an event (only if archived).

@@ -14,6 +14,7 @@ interface EventContextType {
   refreshEvents: () => Promise<void>
   createEvent: (name: string, trainingFlag: boolean) => Promise<Event>
   archiveEvent: (eventId: string) => Promise<void>
+  unarchiveEvent: (eventId: string) => Promise<void>
   deleteEvent: (eventId: string) => Promise<void>
 }
 
@@ -97,6 +98,11 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     await refreshEvents()
   }, [selectedEvent, setSelectedEvent, refreshEvents])
 
+  const unarchiveEvent = useCallback(async (eventId: string) => {
+    await apiClient.unarchiveEvent(eventId)
+    await refreshEvents()
+  }, [refreshEvents])
+
   const deleteEvent = useCallback(async (eventId: string) => {
     await apiClient.deleteEvent(eventId)
     if (selectedEvent?.id === eventId) {
@@ -126,6 +132,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
         refreshEvents,
         createEvent,
         archiveEvent,
+        unarchiveEvent,
         deleteEvent,
       }}
     >

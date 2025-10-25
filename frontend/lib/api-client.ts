@@ -335,6 +335,12 @@ class ApiClient {
     })
   }
 
+  async unarchiveEvent(eventId: string): Promise<ApiEvent> {
+    return this.request<ApiEvent>(`/api/events/${eventId}/unarchive/`, {
+      method: 'POST',
+    })
+  }
+
   async deleteEvent(eventId: string): Promise<void> {
     return this.request<void>(`/api/events/${eventId}/`, {
       method: 'DELETE',

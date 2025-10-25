@@ -169,6 +169,35 @@ async def archive_event(
     return schemas.EventResponse.model_validate(event_dict)
 
 
+@router.post("/{event_id}/unarchive", response_model=schemas.EventResponse)
+async def unarchive_event(
+    event_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """Unarchive an event (restore from archive, editor only)."""
+    event = await crud.unarchive_event(db, event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found"
+        )
+
+    incident_count = await crud.get_event_incident_count(db, event.id)
+    event_dict = {
+        "id": event.id,
+        "name": event.name,
+        "training_flag": event.training_flag,
+        "created_at": event.created_at,
+        "updated_at": event.updated_at,
+        "archived_at": event.archived_at,
+        "last_activity_at": event.last_activity_at,
+        "incident_count": incident_count,
+    }
+
+    return schemas.EventResponse.model_validate(event_dict)
+
+
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_event(
     event_id: uuid.UUID,
