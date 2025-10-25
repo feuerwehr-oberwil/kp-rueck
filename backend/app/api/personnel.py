@@ -17,13 +17,18 @@ async def list_personnel(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
     checked_in_only: bool = False,
+    event_id: uuid.UUID | None = None,
 ):
     """
     List all personnel.
 
-    Use checked_in_only=true in assignment sidebar to show only present personnel.
+    Use checked_in_only=true with event_id to show only personnel checked in for a specific event.
     """
-    return await crud.get_all_personnel(db, checked_in_only=checked_in_only)
+    return await crud.get_all_personnel(
+        db,
+        checked_in_only=checked_in_only,
+        event_id=event_id
+    )
 
 
 @router.get("/{personnel_id}", response_model=schemas.Personnel)

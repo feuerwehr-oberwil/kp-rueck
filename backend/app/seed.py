@@ -120,16 +120,16 @@ async def seed_database() -> None:
             # ============================================
             print("Creating personnel...")
             personnel_data = [
-                {"name": "M. Schmidt", "role": "Fahrer", "availability": "assigned"},
-                {"name": "A. Müller", "role": "Reko/EL/FU", "availability": "available"},
-                {"name": "T. Weber", "role": "Mannschaft", "availability": "assigned"},
-                {"name": "S. Fischer", "role": "Mannschaft", "availability": "available"},
-                {"name": "K. Wagner", "role": "Fahrer", "availability": "assigned"},
-                {"name": "L. Becker", "role": "Mannschaft", "availability": "available"},
-                {"name": "P. Hoffmann", "role": "Reko/EL/FU", "availability": "available"},
-                {"name": "J. Schulz", "role": "Mannschaft", "availability": "available"},
-                {"name": "D. Richter", "role": "Gruppenführer", "availability": "available"},
-                {"name": "F. Klein", "role": "Maschinist", "availability": "assigned"},
+                {"name": "Marco Schmidt", "role": "Fahrer", "availability": "assigned"},
+                {"name": "Anna Müller", "role": "Reko/EL/FU", "availability": "available"},
+                {"name": "Thomas Weber", "role": "Mannschaft", "availability": "assigned"},
+                {"name": "Sarah Fischer", "role": "Mannschaft", "availability": "available"},
+                {"name": "Klaus Wagner", "role": "Fahrer", "availability": "assigned"},
+                {"name": "Laura Becker", "role": "Mannschaft", "availability": "available"},
+                {"name": "Peter Hoffmann", "role": "Reko/EL/FU", "availability": "available"},
+                {"name": "Julia Schulz", "role": "Mannschaft", "availability": "available"},
+                {"name": "Daniel Richter", "role": "Gruppenführer", "availability": "available"},
+                {"name": "Felix Klein", "role": "Maschinist", "availability": "assigned"},
             ]
 
             personnel = []
