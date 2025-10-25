@@ -17,13 +17,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, AlertCircle, Search, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 
 export default function EventsPage() {
   const router = useRouter()
-  const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, deleteEvent } = useEvent()
+  const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
@@ -92,6 +92,14 @@ export default function EventsPage() {
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to archive event:', error)
+    }
+  }
+
+  const handleUnarchive = async (event: Event) => {
+    try {
+      await unarchiveEvent(event.id)
+    } catch (error) {
+      console.error('Failed to unarchive event:', error)
     }
   }
 
@@ -239,15 +247,22 @@ export default function EventsPage() {
 
                             <div className="flex gap-2 mt-4">
                               <Button
-                                variant="destructive"
+                                variant="outline"
                                 className="flex-1"
+                                onClick={() => handleUnarchive(event)}
+                              >
+                                <ArchiveRestore className="mr-2 h-4 w-4" />
+                                Wiederherstellen
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="icon"
                                 onClick={() => {
                                   setTargetEvent(event)
                                   setShowDeleteDialog(true)
                                 }}
                               >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Löschen
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </CardContent>
