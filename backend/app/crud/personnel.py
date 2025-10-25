@@ -13,13 +13,24 @@ from ..services.audit import calculate_changes, log_action
 
 
 async def get_all_personnel(
-    db: AsyncSession, training_only: bool = False
+    db: AsyncSession, checked_in_only: bool = False
 ) -> list[Personnel]:
-    """Get all personnel, optionally filtered by training flag."""
-    query = select(Personnel).order_by(Personnel.name.asc())
+    """
+    Get all personnel, optionally filtered by check-in status.
 
-    # Note: Personnel doesn't have training flag in current schema
-    # This is for future extensibility if needed
+    Args:
+        db: Database session
+        checked_in_only: If True, only return checked-in personnel
+
+    Returns:
+        List of personnel
+    """
+    query = select(Personnel)
+
+    if checked_in_only:
+        query = query.where(Personnel.checked_in == True)
+
+    query = query.order_by(Personnel.name.asc())
 
     result = await db.execute(query)
     return list(result.scalars().all())
