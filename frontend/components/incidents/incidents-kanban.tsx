@@ -5,7 +5,7 @@ import { IncidentCard } from "./incident-card"
 import { IncidentForm } from "./incident-form"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, RefreshCw, Edit } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { useIncidents } from "@/lib/contexts/operations-context"
 import type { Incident } from "@/lib/types/incidents"
 import { KANBAN_COLUMNS } from "@/lib/types/incidents"
@@ -152,7 +152,7 @@ export function IncidentsKanban() {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Zum Bearbeiten auf <Edit className="inline h-3 w-3 mx-1" /> klicken
+            Zum Bearbeiten auf Einsatzkarte klicken
           </div>
         </div>
       </footer>

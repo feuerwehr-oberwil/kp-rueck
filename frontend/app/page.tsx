@@ -23,10 +23,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Separator } from "@/components/ui/separator"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { QRCodeSVG } from 'qrcode.react'
+import RekoReportSection from "@/components/reko/reko-report-section"
 
 const columns = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
@@ -902,6 +904,17 @@ function OperationDetailModal({
               onChange={(e) => onUpdate({ contact: e.target.value })}
               className="mt-2"
             />
+          </div>
+
+          {/* Reko Reports */}
+          <div>
+            <Separator className="my-6" />
+            <Label className="text-sm font-semibold text-muted-foreground">
+              Rekognoszierungs-Meldungen
+            </Label>
+            <div className="mt-3">
+              <RekoReportSection incidentId={operation.id} />
+            </div>
           </div>
 
           {/* Actions */}
