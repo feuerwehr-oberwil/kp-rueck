@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Check, Siren } from 'lucide-react'
+import { Search, Plus, MapPin, Truck, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Check, Siren } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -297,7 +297,7 @@ function DraggableOperation({
 
           {operation.vehicles.length > 0 && (
             <div className="flex items-start gap-2">
-              <Flame className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div className="flex flex-wrap gap-1.5">
                 {operation.vehicles.map((vehicleName, idx) => (
                   <Badge
@@ -759,43 +759,90 @@ function OperationDetailModal({
                 </SelectContent>
               </Select>
             </div>
-
-            <div>
-              <Label htmlFor="edit-vehicle" className="text-sm font-semibold text-muted-foreground">
-                Fahrzeug
-              </Label>
-              <Select
-                value={operation.vehicle || "none"}
-                onValueChange={(value) => onUpdate({ vehicle: (value === "none" ? null : value) as VehicleType })}
-                disabled={isLoadingVehicles}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder={isLoadingVehicles ? "Laden..." : "Nicht zugewiesen"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                  {availableVehicles.map((vehicle) => (
-                    <SelectItem key={vehicle.name} value={vehicle.name}>
-                      {vehicle.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {/* Assigned Vehicles */}
           <div>
             <Label className="text-sm font-semibold text-muted-foreground">Zugewiesene Fahrzeuge ({operation.vehicles.length})</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {operation.vehicles.length > 0 ? (
-                operation.vehicles.map((vehicleName, idx) => (
-                  <Badge key={idx} variant="default" className="text-sm px-3 py-1">
-                    {vehicleName}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Keine Fahrzeuge zugewiesen (verwenden Sie Tastaturkürzel 1-5)</p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {operation.vehicles.map((vehicleName, idx) => (
+                <Badge
+                  key={idx}
+                  variant="default"
+                  className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                >
+                  <Truck className="h-3 w-3" />
+                  {vehicleName}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const vehicleIndex = operation.vehicles.indexOf(vehicleName)
+                      if (vehicleIndex > -1) {
+                        const newVehicles = [...operation.vehicles]
+                        newVehicles.splice(vehicleIndex, 1)
+                        onUpdate({ vehicles: newVehicles })
+                      }
+                    }}
+                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Fahrzeug entfernen"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+
+              {/* Add Vehicle Button */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 gap-1 text-xs"
+                    title="Fahrzeug zuweisen"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <Truck className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="space-y-1">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      Fahrzeug zuweisen
+                    </div>
+                    {isLoadingVehicles ? (
+                      <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                        Lade Fahrzeuge...
+                      </div>
+                    ) : availableVehicles.filter(v => !operation.vehicles.includes(v.name)).length === 0 ? (
+                      <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                        Alle Fahrzeuge zugewiesen
+                      </div>
+                    ) : (
+                      availableVehicles
+                        .filter(v => !operation.vehicles.includes(v.name))
+                        .map((vehicle) => (
+                          <button
+                            key={vehicle.name}
+                            onClick={() => {
+                              const newVehicles = [...operation.vehicles, vehicle.name]
+                              onUpdate({ vehicles: newVehicles })
+                            }}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors"
+                          >
+                            <Truck className="h-4 w-4 text-muted-foreground" />
+                            <div className="text-left">
+                              <div className="font-medium">{vehicle.name}</div>
+                              <div className="text-xs text-muted-foreground">{vehicle.type}</div>
+                            </div>
+                          </button>
+                        ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {operation.vehicles.length === 0 && (
+                <p className="text-sm text-muted-foreground">Keine Fahrzeuge zugewiesen</p>
               )}
             </div>
           </div>
