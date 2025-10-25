@@ -358,13 +358,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     loadData()
 
-    // Poll for updates every 5 seconds
+    // Poll for updates every 3 seconds (increased frequency for faster reko updates)
     const pollInterval = setInterval(() => {
       // Only poll if not currently loading
       if (!isLoading) {
         loadData()
       }
-    }, 5000)
+    }, 3000)
 
     return () => clearInterval(pollInterval)
   }, [authLoading, isAuthenticated, selectedEvent])
