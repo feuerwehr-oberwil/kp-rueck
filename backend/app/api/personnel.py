@@ -16,9 +16,14 @@ router = APIRouter(prefix="/personnel", tags=["personnel"])
 async def list_personnel(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
+    checked_in_only: bool = False,
 ):
-    """List all personnel (all users)."""
-    return await crud.get_all_personnel(db)
+    """
+    List all personnel.
+
+    Use checked_in_only=true in assignment sidebar to show only present personnel.
+    """
+    return await crud.get_all_personnel(db, checked_in_only=checked_in_only)
 
 
 @router.get("/{personnel_id}", response_model=schemas.Personnel)

@@ -42,8 +42,48 @@ class Personnel(PersonnelBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    checked_in: bool = False
+    checked_in_at: Optional[datetime] = None
+    checked_out_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+
+# ============================================
+# Personnel Check-In Schemas
+# ============================================
+
+
+class PersonnelCheckInRequest(BaseModel):
+    """Request to check in/out a person."""
+
+    personnel_id: UUID
+    checked_in: bool  # True = check in, False = check out
+
+
+class PersonnelCheckInResponse(BaseModel):
+    """Response with check-in status."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    role: Optional[str] = None
+    availability: str
+    checked_in: bool
+    checked_in_at: Optional[datetime] = None
+    checked_out_at: Optional[datetime] = None
+
+
+class PersonnelListItem(BaseModel):
+    """Simplified personnel info for check-in list."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    role: Optional[str] = None
+    checked_in: bool
 
 
 # ============================================
