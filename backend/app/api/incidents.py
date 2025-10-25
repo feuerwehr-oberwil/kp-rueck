@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import incidents as crud
+from ..crud import events as events_crud
 from ..database import get_db
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
@@ -18,17 +19,25 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 async def list_incidents(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-    training_only: Optional[bool] = None,
+    event_id: uuid.UUID,  # Required: filter by event
     status: Optional[str] = None,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
 ):
-    """List incidents with filters."""
+    """
+    List incidents for a specific event.
+
+    Args:
+        event_id: Event ID to filter incidents (required)
+        status: Optional status filter
+        skip: Pagination offset
+        limit: Max number of results (max 500)
+    """
     incidents = await crud.get_incidents(
         db=db,
+        event_id=event_id,
         skip=skip,
         limit=limit,
-        training_only=training_only,
         status=status,
     )
     return incidents
@@ -56,7 +65,19 @@ async def create_incident(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ):
-    """Create new incident (editor only)."""
+    """
+    Create new incident (editor only).
+
+    Verifies that the event exists before creating the incident.
+    """
+    # Verify event exists
+    event = await events_crud.get_event_by_id(db, incident.event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found"
+        )
+
     return await crud.create_incident(
         db=db,
         incident=incident,

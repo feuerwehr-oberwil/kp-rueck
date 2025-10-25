@@ -11,13 +11,14 @@ from sqlalchemy.orm import selectinload
 from .. import schemas
 from ..models import Incident, IncidentAssignment, StatusTransition, User, Vehicle
 from ..services.audit import calculate_changes, log_action
+from . import events as events_crud
 
 
 async def get_incidents(
     db: AsyncSession,
+    event_id: Optional[uuid.UUID] = None,
     skip: int = 0,
     limit: int = 100,
-    training_only: Optional[bool] = None,
     status: Optional[str] = None,
 ) -> list[Incident]:
     """
@@ -25,9 +26,9 @@ async def get_incidents(
 
     Args:
         db: Database session
+        event_id: Filter by event ID (required in API, optional here for flexibility)
         skip: Pagination offset
         limit: Max results
-        training_only: If True, only training; if False, only live; if None, all
         status: Filter by status
 
     Returns:
@@ -35,8 +36,9 @@ async def get_incidents(
     """
     query = select(Incident).where(Incident.deleted_at.is_(None)).order_by(Incident.created_at.desc())
 
-    if training_only is not None:
-        query = query.where(Incident.training_flag == training_only)
+    # Filter by event if provided
+    if event_id is not None:
+        query = query.where(Incident.event_id == event_id)
 
     if status:
         query = query.where(Incident.status == status)
@@ -117,6 +119,9 @@ async def create_incident(
         changes={"created": incident.model_dump()},
         request=request,
     )
+
+    # Update event activity timestamp
+    await events_crud.update_event_activity(db, db_incident.event_id)
 
     await db.commit()
     await db.refresh(db_incident)
@@ -210,6 +215,9 @@ async def update_incident(
             request=request,
         )
 
+    # Update event activity timestamp
+    await events_crud.update_event_activity(db, incident.event_id)
+
     await db.commit()
     await db.refresh(incident)
 
@@ -267,6 +275,9 @@ async def update_incident_status(
         request=request,
     )
 
+    # Update event activity timestamp
+    await events_crud.update_event_activity(db, incident.event_id)
+
     await db.commit()
     await db.refresh(incident)
 
@@ -280,34 +291,30 @@ async def delete_incident(
     request: Request,
 ) -> bool:
     """
-    Soft delete incident (move to archive).
+    Soft delete incident (mark as deleted).
 
-    Note: For training incidents, this is a hard delete.
-    For live incidents, we just mark completed_at.
+    All incidents are soft deleted by setting deleted_at timestamp.
     """
     incident = await get_incident(db, incident_id)
     if not incident:
         return False
 
-    if incident.training_flag:
-        # Hard delete training incidents
-        await db.delete(incident)
-        action = "delete"
-    else:
-        # Soft delete live incidents (mark deleted)
-        incident.deleted_at = datetime.utcnow()
-        if not incident.completed_at:
-            incident.completed_at = datetime.utcnow()
-        action = "archive"
+    # Soft delete (mark deleted)
+    incident.deleted_at = datetime.utcnow()
+    if not incident.completed_at:
+        incident.completed_at = datetime.utcnow()
 
     await log_action(
         db=db,
-        action_type=action,
+        action_type="archive",
         resource_type="incident",
         resource_id=incident.id,
         user=current_user,
         request=request,
     )
+
+    # Update event activity timestamp
+    await events_crud.update_event_activity(db, incident.event_id)
 
     await db.commit()
     return True

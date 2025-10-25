@@ -127,16 +127,58 @@ class Material(Base):
 
 
 # ============================================
+# EVENTS
+# ============================================
+
+
+class Event(Base):
+    """Event (Ereignis) - High-level container for emergency scenarios."""
+
+    __tablename__ = "events"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    training_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_activity_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    incidents: Mapped[list["Incident"]] = relationship(
+        "Incident", back_populates="event", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<Event {self.name} (training={self.training_flag})>"
+
+
+# ============================================
 # INCIDENTS
 # ============================================
 
 
 class Incident(Base):
-    """Incident model."""
+    """Incident (Einsatz) - Individual emergency card on kanban board."""
 
     __tablename__ = "incidents"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Event relationship
+    event_id: Mapped[UUID] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event: Mapped["Event"] = relationship("Event", back_populates="incidents")
+
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     priority: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -144,7 +186,6 @@ class Incident(Base):
     location_lat: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
     location_lng: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="eingegangen")
-    training_flag: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -192,7 +233,6 @@ class Incident(Base):
             "(location_lat IS NOT NULL AND location_lng IS NOT NULL)",
             name="valid_location",
         ),
-        Index('idx_incidents_training', 'training_flag'),
         Index('idx_incidents_status', 'status'),
     )
 
