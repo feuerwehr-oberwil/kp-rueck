@@ -92,6 +92,12 @@ class Personnel(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    # Check-in tracking
+    checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    checked_in_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -102,6 +108,12 @@ class Personnel(Base):
             "availability IN ('available', 'assigned', 'unavailable')",
             name="valid_personnel_availability",
         ),
+        # Check-in only allowed if not unavailable
+        CheckConstraint(
+            "(checked_in = false) OR (checked_in = true AND availability != 'unavailable')",
+            name="valid_checkin_availability"
+        ),
+        Index('idx_personnel_checked_in', 'checked_in'),
     )
 
 
