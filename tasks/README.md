@@ -106,7 +106,15 @@ git worktree remove ../kp-rueck-task-1.1
 
 ### Phase 4: Field Operations & Data Collection (Week 6)
 **Priority**: Unique firefighting features
-**Goal**: Field personnel check-in and reconnaissance data collection
+**Goal**: Multi-event management, field personnel check-in, and reconnaissance data collection
+
+- **4.0**: [Event Management System](phase-4-reko/4.0-event-management-system.md) ⭐ START HERE
+  - Multi-event scenario support
+  - Event selection and creation UI
+  - Training flag at event level
+  - Archive & delete workflow
+  - Event-scoped incidents and assignments
+  - Time: 14-18 hours
 
 - **4.1**: [Reko Forms Backend](phase-4-reko/4.1-reko-forms-backend.md)
   - Token-based access
@@ -232,17 +240,18 @@ This phase includes potential enhancements from DESIGN_DOC.md Section 16:
  │    ├─→ 1.3 Audit Logging
  │    │    ├─→ 1.4 Settings
  │    │    ├─→ 2.1 Incident CRUD
- │    │    │    ├─→ 2.2 Assignments
- │    │    │    │    ├─→ 2.3 Kanban UI
- │    │    │    │    └─→ 2.4 Master Lists UI
- │    │    │    ├─→ 3.1 Geocoding
- │    │    │    │    └─→ 3.2 Map UI
- │    │    │    ├─→ 4.1 Reko Backend
- │    │    │    │    ├─→ 4.3 Reko Frontend
- │    │    │    │    └─→ 4.4 Photo Upload
- │    │    │    ├─→ 4.2 Personnel Check-In
- │    │    │    ├─→ 5.1 Alarm Webhook
- │    │    │    └─→ 5.2 DIVERA Integration (March 2026)
+ │    │    │    ├─→ 4.0 Event Management ⭐ NEW
+ │    │    │    │    ├─→ 2.2 Assignments (now event-scoped)
+ │    │    │    │    │    ├─→ 2.3 Kanban UI (filtered by event)
+ │    │    │    │    │    └─→ 2.4 Master Lists UI
+ │    │    │    │    ├─→ 3.1 Geocoding
+ │    │    │    │    │    └─→ 3.2 Map UI (filtered by event)
+ │    │    │    │    ├─→ 4.1 Reko Backend (event-scoped)
+ │    │    │    │    │    ├─→ 4.3 Reko Frontend
+ │    │    │    │    │    └─→ 4.4 Photo Upload
+ │    │    │    │    ├─→ 4.2 Personnel Check-In
+ │    │    │    │    ├─→ 5.1 Alarm Webhook
+ │    │    │    │    └─→ 5.2 DIVERA Integration (March 2026)
  │    │    └─→ 6.1 Railway Deployment
  │    │         ├─→ 6.2 Backup & Sync
  │    │         ├─→ 6.3 UI Polish
@@ -258,8 +267,8 @@ This phase includes potential enhancements from DESIGN_DOC.md Section 16:
 |-------|----------|----------------------|----------|
 | Phase 1 | 2 weeks | No (sequential) | None |
 | Phase 2 | 2 weeks | 2.3 & 2.4 can parallelize after 2.1+2.2 | Phase 1 complete |
-| Phase 3 | 1 week | Can parallelize with Phase 4 | Phase 2.1 complete |
-| Phase 4 | 1 week | 4.2 can parallelize with Phase 3, 4.1/4.3/4.4 sequential | Phase 2.1 complete |
+| Phase 3 | 1 week | Can parallelize with Phase 4 after 4.0 | Phase 2.1 + 4.0 complete |
+| Phase 4 | 1.5-2 weeks | **Must start with 4.0**, then 4.2 can parallelize with Phase 3, 4.1/4.3/4.4 sequential | Phase 2.1 complete |
 | Phase 5 | 1 week (5.1 only for MVP) | 5.2 is March 2026 enhancement | Phase 2.1 complete |
 | Phase 6 | 2 weeks | 6.1-6.4 can run in parallel | Phase 2.3 complete (need UI) |
 | Phase 7 | Throughout + 1 week final | All tasks have tests | None (parallel) |
