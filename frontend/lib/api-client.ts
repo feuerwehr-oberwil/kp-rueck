@@ -7,40 +7,7 @@ import { getApiUrl } from './env'
 
 const API_URL = getApiUrl()
 
-export interface ApiOperation {
-  id: number
-  location: string
-  vehicle: string | null
-  incident_type: string
-  dispatch_time: string
-  crew: string[]
-  priority: string
-  status: string
-  coordinates: number[]
-  materials: string[]
-  notes: string
-  contact: string
-  created_at: string
-  updated_at: string
-}
-
-export interface ApiPerson {
-  id: number
-  name: string
-  role: string
-  status: string
-  created_at: string
-}
-
-export interface ApiMaterial {
-  id: number
-  name: string
-  category: string
-  status: string
-  created_at: string
-}
-
-// Resource Management Types (Task 2.2)
+// Resource Management Types
 export interface ApiPersonnel {
   id: string // UUID
   name: string
@@ -260,9 +227,6 @@ class ApiClient {
       throw error
     }
   }
-
-  // Legacy types kept for backward compatibility in operations-context
-  // Use the new getAllPersonnel(), getAllMaterials(), etc. for new code
 
   // Audit Logs
   async getAuditLogs(params?: {
