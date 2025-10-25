@@ -223,6 +223,51 @@ export interface ApiStatusTransition {
   notes: string | null
 }
 
+// Reko Report Types
+export interface ApiDangersAssessment {
+  fire: boolean
+  explosion: boolean
+  collapse: boolean
+  chemical: boolean
+  electrical: boolean
+  other_notes: string | null
+}
+
+export interface ApiEffortEstimation {
+  personnel_count: number | null
+  vehicles_needed: string[]
+  equipment_needed: string[]
+  estimated_duration_hours: number | null
+}
+
+export interface ApiRekoReportBase {
+  is_relevant: boolean | null
+  dangers_json: ApiDangersAssessment | null
+  effort_json: ApiEffortEstimation | null
+  power_supply: string | null  // 'available' | 'unavailable' | 'emergency_needed'
+  summary_text: string | null
+  additional_notes: string | null
+  is_draft: boolean
+}
+
+export interface ApiRekoReportCreate extends ApiRekoReportBase {
+  incident_id: string
+  token: string
+}
+
+export interface ApiRekoReportResponse extends ApiRekoReportBase {
+  id: string
+  incident_id: string
+  incident_title?: string | null
+  submitted_at: string
+  updated_at: string
+  photos_json: string[]
+}
+
+export interface ApiRekoFormResponse extends ApiRekoReportResponse {
+  // Same as ApiRekoReportResponse, backend returns this on GET /form
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -595,6 +640,62 @@ class ApiClient {
     return this.request<{ total_available: number; checked_in: number; checked_out: number }>(
       `/api/personnel/check-in/stats?token=${encodeURIComponent(token)}`
     )
+  }
+
+  // Reko Forms
+  async generateRekoLink(incidentId: string): Promise<{ incident_id: string; token: string; link: string; qr_code_url: string }> {
+    return this.request<{ incident_id: string; token: string; link: string; qr_code_url: string }>(
+      `/api/reko/generate-link?incident_id=${encodeURIComponent(incidentId)}`, {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getRekoForm(incidentId: string, token: string, reportId?: string | null): Promise<ApiRekoFormResponse> {
+    const params = new URLSearchParams()
+    params.append('incident_id', incidentId)
+    params.append('token', token)
+
+    return this.request<ApiRekoFormResponse>(`/api/reko/form?${params.toString()}`)
+  }
+
+  async saveRekoDraft(incidentId: string, token: string, data: ApiRekoReportCreate): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(`/api/reko/?submit=false`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, incident_id: incidentId, token }),
+    })
+  }
+
+  async submitRekoReport(incidentId: string, token: string, data: ApiRekoReportCreate): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(`/api/reko/?submit=true`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, incident_id: incidentId, token }),
+    })
+  }
+
+  async uploadRekoPhoto(incidentId: string, token: string, file: File): Promise<{ filename: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const url = `${this.baseUrl}/api/reko/${incidentId}/photos`
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Reko-Token': token
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error('Photo upload failed')
+    }
+
+    return response.json()
+  }
+
+  async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
+    return this.request<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
   }
 }
 
