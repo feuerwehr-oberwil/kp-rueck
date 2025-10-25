@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     try {
       await login(username, password);
-      router.push('/');  // Redirect to dashboard
+      router.push('/events');  // Redirect to event selection
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Anmeldedaten.');
     } finally {

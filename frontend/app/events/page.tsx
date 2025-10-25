@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEvent } from '@/lib/contexts/event-context'
 import type { Event } from '@/lib/types/incidents'
@@ -17,7 +17,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, AlertCircle } from 'lucide-react'
+import { Plus, Archive, AlertCircle, Search, Calendar, CheckCircle2 } from 'lucide-react'
+import { PageNavigation } from '@/components/page-navigation'
+import { ProtectedRoute } from '@/components/protected-route'
 
 export default function EventsPage() {
   const router = useRouter()
@@ -31,6 +33,16 @@ export default function EventsPage() {
   const [newEventName, setNewEventName] = useState('')
   const [newEventTraining, setNewEventTraining] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Filter events based on search query
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return events
+    const query = searchQuery.toLowerCase()
+    return events.filter(event =>
+      event.name.toLowerCase().includes(query)
+    )
+  }, [events, searchQuery])
 
   const handleCreateEvent = async () => {
     if (!newEventName.trim()) return
@@ -80,71 +92,106 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Ereignisse (Events)</h1>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Neues Ereignis
-        </Button>
-      </div>
+    <ProtectedRoute>
+      <div className="flex flex-col h-screen">
+        <PageNavigation currentPage="settings" />
 
-      {events.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            Keine Ereignisse vorhanden. Erstellen Sie ein neues Ereignis, um zu beginnen.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {events.map((event) => (
-            <Card
-              key={event.id}
-              className={`cursor-pointer transition-all hover:shadow-lg ${
-                selectedEvent?.id === event.id ? 'ring-2 ring-primary' : ''
-              }`}
-            >
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{event.name}</CardTitle>
-                  <Badge variant={event.training_flag ? 'secondary' : 'destructive'}>
-                    {event.training_flag ? 'Übung' : 'Live'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div>Einsätze: {event.incident_count}</div>
-                  <div>Erstellt: {new Date(event.created_at).toLocaleDateString('de-CH')}</div>
-                  <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
-                </div>
+        <div className="flex-1 overflow-auto p-6">
+          <div className="container mx-auto">
+            {/* Header with title and active event */}
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-4">
+                <h1 className="text-3xl font-bold">Ereignisse</h1>
+                {selectedEvent && (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <span className="text-lg font-medium">{selectedEvent.name}</span>
+                    <Badge variant={selectedEvent.training_flag ? 'secondary' : 'destructive'}>
+                      {selectedEvent.training_flag ? 'Übung' : 'Live'}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Neues Ereignis
+              </Button>
+            </div>
 
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    className="flex-1"
-                    onClick={() => handleSelectEvent(event)}
+            {/* Search bar */}
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Ereignisse durchsuchen..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Events grid */}
+            {filteredEvents.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6 text-center text-muted-foreground">
+                  {events.length === 0
+                    ? 'Keine Ereignisse vorhanden. Erstellen Sie ein neues Ereignis, um zu beginnen.'
+                    : 'Keine Ereignisse gefunden.'}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredEvents.map((event) => (
+                  <Card
+                    key={event.id}
+                    className={`cursor-pointer transition-all hover:shadow-lg ${
+                      selectedEvent?.id === event.id ? 'ring-2 ring-primary' : ''
+                    }`}
                   >
-                    Auswählen
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setTargetEvent(event)
-                      setShowArchiveDialog(true)
-                    }}
-                  >
-                    <Archive className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{event.name}</CardTitle>
+                        <Badge variant={event.training_flag ? 'secondary' : 'destructive'}>
+                          {event.training_flag ? 'Übung' : 'Live'}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div>Einsätze: {event.incident_count}</div>
+                        <div>Erstellt: {new Date(event.created_at).toLocaleDateString('de-CH')}</div>
+                        <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
+                      </div>
+
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          className="flex-1"
+                          onClick={() => handleSelectEvent(event)}
+                        >
+                          Auswählen
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            setTargetEvent(event)
+                            setShowArchiveDialog(true)
+                          }}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Create Event Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        {/* Create Event Dialog */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Neues Ereignis erstellen</DialogTitle>
@@ -202,6 +249,7 @@ export default function EventsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }
