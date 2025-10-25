@@ -16,24 +16,24 @@ router = APIRouter()
 # ============================================
 
 
-@router.get("/incidents", response_model=list[schemas.Incident])
+@router.get("/incidents", response_model=list[schemas.IncidentResponse])
 async def read_incidents(
     current_user: CurrentUser,
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
-) -> list[schemas.Incident]:
+) -> list[schemas.IncidentResponse]:
     """Get all incidents (requires authentication)."""
     incidents = await crud.get_incidents(db, skip=skip, limit=limit)
     return incidents
 
 
-@router.get("/incidents/{incident_id}", response_model=schemas.Incident)
+@router.get("/incidents/{incident_id}", response_model=schemas.IncidentResponse)
 async def read_incident(
     incident_id: UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
-) -> schemas.Incident:
+) -> schemas.IncidentResponse:
     """Get a specific incident (requires authentication)."""
     db_incident = await crud.get_incident(db, incident_id=incident_id)
     if db_incident is None:
@@ -41,23 +41,23 @@ async def read_incident(
     return db_incident
 
 
-@router.post("/incidents", response_model=schemas.Incident, status_code=status.HTTP_201_CREATED)
+@router.post("/incidents", response_model=schemas.IncidentResponse, status_code=status.HTTP_201_CREATED)
 async def create_incident(
     incident: schemas.IncidentCreate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db)
-) -> schemas.Incident:
+) -> schemas.IncidentResponse:
     """Create a new incident (editor only)."""
     return await crud.create_incident(db=db, incident=incident)
 
 
-@router.put("/incidents/{incident_id}", response_model=schemas.Incident)
+@router.put("/incidents/{incident_id}", response_model=schemas.IncidentResponse)
 async def update_incident(
     incident_id: UUID,
     incident: schemas.IncidentUpdate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db)
-) -> schemas.Incident:
+) -> schemas.IncidentResponse:
     """Update an incident (editor only)."""
     db_incident = await crud.update_incident(db, incident_id=incident_id, incident=incident)
     if db_incident is None:
