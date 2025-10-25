@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Check } from 'lucide-react'
+import { Search, Plus, MapPin, Flame, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Check, Siren } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -279,6 +279,7 @@ function DraggableOperation({
           </div>
 
           <div className="flex items-center gap-2">
+            <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="text-sm font-medium text-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
 
