@@ -73,7 +73,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await apiClient.getEvents(false) // Exclude archived
+      const response = await apiClient.getEvents(true) // Include archived
       setEvents(response.events.map(apiEventToEvent))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load events')

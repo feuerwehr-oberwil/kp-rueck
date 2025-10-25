@@ -17,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, AlertCircle, Search, Calendar, CheckCircle2 } from 'lucide-react'
+import { Plus, Archive, AlertCircle, Search, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 
@@ -35,14 +35,29 @@ export default function EventsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Separate active and archived events
+  const { activeEvents, archivedEvents } = useMemo(() => {
+    const active = events.filter(e => !e.archived_at)
+    const archived = events.filter(e => e.archived_at)
+    return { activeEvents: active, archivedEvents: archived }
+  }, [events])
+
   // Filter events based on search query
-  const filteredEvents = useMemo(() => {
-    if (!searchQuery.trim()) return events
+  const filteredActiveEvents = useMemo(() => {
+    if (!searchQuery.trim()) return activeEvents
     const query = searchQuery.toLowerCase()
-    return events.filter(event =>
+    return activeEvents.filter(event =>
       event.name.toLowerCase().includes(query)
     )
-  }, [events, searchQuery])
+  }, [activeEvents, searchQuery])
+
+  const filteredArchivedEvents = useMemo(() => {
+    if (!searchQuery.trim()) return archivedEvents
+    const query = searchQuery.toLowerCase()
+    return archivedEvents.filter(event =>
+      event.name.toLowerCase().includes(query)
+    )
+  }, [archivedEvents, searchQuery])
 
   const handleCreateEvent = async () => {
     if (!newEventName.trim()) return
@@ -138,8 +153,8 @@ export default function EventsPage() {
               </div>
             </div>
 
-            {/* Events grid */}
-            {filteredEvents.length === 0 ? (
+            {/* Active Events */}
+            {filteredActiveEvents.length === 0 && filteredArchivedEvents.length === 0 ? (
               <Card>
                 <CardContent className="pt-6 text-center text-muted-foreground">
                   {events.length === 0
@@ -148,48 +163,99 @@ export default function EventsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredEvents.map((event) => (
-                  <Card
-                    key={event.id}
-                    className={`cursor-pointer transition-all hover:shadow-lg ${
-                      selectedEvent?.id === event.id ? 'border-2 border-red-600' : ''
-                    }`}
-                  >
-                    <CardHeader>
-                      <CardTitle className="text-lg">{event.name}</CardTitle>
-                      {event.training_flag && (
-                        <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
-                      )}
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm text-muted-foreground">
-                        <div>Einsätze: {event.incident_count}</div>
-                        <div>Erstellt: {new Date(event.created_at).toLocaleDateString('de-CH')}</div>
-                        <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
-                      </div>
+              <div className="space-y-8">
+                {/* Active Events Section */}
+                {filteredActiveEvents.length > 0 && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Aktive Ereignisse</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredActiveEvents.map((event) => (
+                        <Card
+                          key={event.id}
+                          className={`cursor-pointer transition-all hover:shadow-lg ${
+                            selectedEvent?.id === event.id ? 'border-2 border-red-600' : ''
+                          }`}
+                        >
+                          <CardHeader>
+                            <CardTitle className="text-lg">{event.name}</CardTitle>
+                            {event.training_flag && (
+                              <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
+                            )}
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2 text-sm text-muted-foreground">
+                              <div>Einsätze: {event.incident_count}</div>
+                              <div>Erstellt: {new Date(event.created_at).toLocaleDateString('de-CH')}</div>
+                              <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
+                            </div>
 
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          className="flex-1"
-                          onClick={() => handleSelectEvent(event)}
+                            <div className="flex gap-2 mt-4">
+                              <Button
+                                className="flex-1"
+                                onClick={() => handleSelectEvent(event)}
+                              >
+                                Auswählen
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  setTargetEvent(event)
+                                  setShowArchiveDialog(true)
+                                }}
+                              >
+                                <Archive className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Archived Events Section */}
+                {filteredArchivedEvents.length > 0 && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 text-muted-foreground">Archivierte Ereignisse</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredArchivedEvents.map((event) => (
+                        <Card
+                          key={event.id}
+                          className="opacity-50 border-dashed"
                         >
-                          Auswählen
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            setTargetEvent(event)
-                            setShowArchiveDialog(true)
-                          }}
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                          <CardHeader>
+                            <CardTitle className="text-lg text-muted-foreground">{event.name}</CardTitle>
+                            {event.training_flag && (
+                              <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
+                            )}
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2 text-sm text-muted-foreground">
+                              <div>Einsätze: {event.incident_count}</div>
+                              <div>Erstellt: {new Date(event.created_at).toLocaleDateString('de-CH')}</div>
+                              <div>Archiviert: {new Date(event.archived_at!).toLocaleDateString('de-CH')}</div>
+                            </div>
+
+                            <div className="flex gap-2 mt-4">
+                              <Button
+                                variant="destructive"
+                                className="flex-1"
+                                onClick={() => {
+                                  setTargetEvent(event)
+                                  setShowDeleteDialog(true)
+                                }}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Löschen
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -250,6 +316,32 @@ export default function EventsPage() {
             </Button>
             <Button variant="destructive" onClick={handleArchive}>
               Archivieren
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ereignis dauerhaft löschen?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="font-semibold text-destructive">
+              Warnung: Dieser Vorgang kann nicht rückgängig gemacht werden!
+            </p>
+            <p>Möchten Sie das Ereignis "{targetEvent?.name}" und alle zugehörigen Einsätze wirklich dauerhaft löschen?</p>
+            <p className="text-sm text-muted-foreground">
+              Dies betrifft {targetEvent?.incident_count || 0} Einsätze und alle zugehörigen Daten.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Dauerhaft löschen
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -169,9 +169,74 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
       ])
 
-      setOperations(apiIncidents.map(apiIncidentToOperation))
-      setPersonnel(apiPersonnel.map(apiPersonToPerson))
-      setMaterials(apiMats.map(apiMaterialToMaterial))
+      // Convert to frontend types
+      const personnelList = apiPersonnel.map(apiPersonToPerson)
+      const materialsList = apiMats.map(apiMaterialToMaterial)
+      const operations = apiIncidents.map(apiIncidentToOperation)
+
+      // Fetch vehicles for vehicle assignment lookups
+      const vehiclesList = await apiClient.getVehicles()
+
+      // Fetch assignments for each incident and populate crew/materials/vehicles
+      await Promise.all(
+        operations.map(async (operation) => {
+          try {
+            const assignments = await apiClient.getIncidentAssignments(operation.id)
+
+            for (const assignment of assignments) {
+              if (assignment.resource_type === "personnel") {
+                const person = personnelList.find(p => p.id === assignment.resource_id)
+                if (person) {
+                  operation.crew.push(person.name)
+                  operation.crewAssignments.set(person.name, assignment.id)
+                }
+              } else if (assignment.resource_type === "material") {
+                operation.materials.push(assignment.resource_id)
+                operation.materialAssignments.set(assignment.resource_id, assignment.id)
+              } else if (assignment.resource_type === "vehicle") {
+                const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+                if (vehicle) {
+                  operation.vehicles.push(vehicle.name)
+                  operation.vehicleAssignments.set(vehicle.name, assignment.id)
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to load assignments for incident ${operation.id}:`, error)
+          }
+        })
+      )
+
+      // Calculate event-scoped availability
+      const assignedPersonIds = new Set<string>()
+      const assignedMaterialIds = new Set<string>()
+
+      operations.forEach(operation => {
+        operation.crew.forEach(crewName => {
+          const person = personnelList.find(p => p.name === crewName)
+          if (person) {
+            assignedPersonIds.add(person.id)
+          }
+        })
+        operation.materials.forEach(materialId => {
+          assignedMaterialIds.add(materialId)
+        })
+      })
+
+      // Update personnel/material status based on event-scoped assignments
+      const eventScopedPersonnel = personnelList.map(person => ({
+        ...person,
+        status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus
+      }))
+
+      const eventScopedMaterials = materialsList.map(material => ({
+        ...material,
+        status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
+      }))
+
+      setOperations(operations)
+      setPersonnel(eventScopedPersonnel)
+      setMaterials(eventScopedMaterials)
       setHomeCity(settings.home_city || "")
     } catch (error) {
       console.error("Failed to load data from API:", error)
@@ -248,9 +313,38 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         )
 
+        // Calculate event-scoped availability:
+        // A person/material is "assigned" only if assigned to an incident in THIS event
+        const assignedPersonIds = new Set<string>()
+        const assignedMaterialIds = new Set<string>()
+
+        operations.forEach(operation => {
+          operation.crew.forEach(crewName => {
+            const person = personnelList.find(p => p.name === crewName)
+            if (person) {
+              assignedPersonIds.add(person.id)
+            }
+          })
+          operation.materials.forEach(materialId => {
+            assignedMaterialIds.add(materialId)
+          })
+        })
+
+        // Update personnel status based on event-scoped assignments
+        const eventScopedPersonnel = personnelList.map(person => ({
+          ...person,
+          status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus
+        }))
+
+        // Update material status based on event-scoped assignments
+        const eventScopedMaterials = materialsList.map(material => ({
+          ...material,
+          status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
+        }))
+
         setOperations(operations)
-        setPersonnel(personnelList)
-        setMaterials(materialsList)
+        setPersonnel(eventScopedPersonnel)
+        setMaterials(eventScopedMaterials)
         setHomeCity(settings.home_city || "")
         setIsLoaded(true)
       } catch (error) {
