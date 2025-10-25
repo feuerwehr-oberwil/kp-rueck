@@ -494,6 +494,7 @@ class RekoReportResponse(RekoReportBase):
 
     id: UUID
     incident_id: UUID
+    incident_title: Optional[str] = None  # Computed from incident.title
     submitted_at: datetime
     updated_at: datetime
     photos_json: list[str] = []  # Array of photo filenames
