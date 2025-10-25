@@ -168,9 +168,43 @@ class Event(Base):
     incidents: Mapped[list["Incident"]] = relationship(
         "Incident", back_populates="event", cascade="all, delete-orphan"
     )
+    attendance_records: Mapped[list["EventAttendance"]] = relationship(
+        "EventAttendance", back_populates="event", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Event {self.name} (training={self.training_flag})>"
+
+
+class EventAttendance(Base):
+    """Event-specific personnel attendance tracking."""
+
+    __tablename__ = "event_attendance"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    personnel_id: Mapped[UUID] = mapped_column(
+        ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    checked_in_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    event: Mapped["Event"] = relationship("Event", back_populates="attendance_records")
+
+    __table_args__ = (
+        UniqueConstraint("event_id", "personnel_id", name="unique_event_personnel_attendance"),
+        Index("idx_event_attendance_event", "event_id"),
+        Index("idx_event_attendance_personnel", "personnel_id"),
+        Index("idx_event_attendance_checked_in", "event_id", "checked_in"),
+    )
 
 
 # ============================================

@@ -4,30 +4,44 @@ from typing import Optional
 import uuid
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Personnel, User
+from ..models import Personnel, User, EventAttendance
 from ..services.audit import calculate_changes, log_action
 
 
 async def get_all_personnel(
-    db: AsyncSession, checked_in_only: bool = False
+    db: AsyncSession,
+    checked_in_only: bool = False,
+    event_id: Optional[uuid.UUID] = None
 ) -> list[Personnel]:
     """
-    Get all personnel, optionally filtered by check-in status.
+    Get all personnel, optionally filtered by event-specific check-in status.
 
     Args:
         db: Database session
         checked_in_only: If True, only return checked-in personnel
+        event_id: If provided with checked_in_only, filter by event-specific attendance
 
     Returns:
         List of personnel
     """
     query = select(Personnel)
 
-    if checked_in_only:
+    if checked_in_only and event_id:
+        # Event-specific check-in filtering
+        query = query.join(
+            EventAttendance,
+            and_(
+                EventAttendance.personnel_id == Personnel.id,
+                EventAttendance.event_id == event_id,
+                EventAttendance.checked_in == True
+            )
+        )
+    elif checked_in_only:
+        # Legacy: fallback to global checked_in field if no event_id provided
         query = query.where(Personnel.checked_in == True)
 
     query = query.order_by(Personnel.name.asc())

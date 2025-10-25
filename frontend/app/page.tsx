@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MapPin, Truck, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Check, Siren } from 'lucide-react'
+import { CopyButton } from "@/components/ui/copy-button"
+import { Search, Plus, MapPin, Truck, Clock, Users, Package, X, Printer, Send, HelpCircle, Map as MapIcon, Filter, Trash2, Siren, QrCode, Check } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -25,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
+import { QRCodeSVG } from 'qrcode.react'
 
 const columns = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
@@ -1435,6 +1437,8 @@ export default function FireStationDashboard() {
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
+  const [qrDialogOpen, setQrDialogOpen] = useState(false)
+  const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -1851,6 +1855,28 @@ export default function FireStationDashboard() {
     }
   }
 
+  const generateCheckInQR = async () => {
+    if (!selectedEvent) {
+      toast.error('Fehler', {
+        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      })
+      return
+    }
+
+    try {
+      const response = await apiClient.generateCheckInLink(selectedEvent.id)
+      // Build full URL for QR code
+      const fullUrl = `${window.location.origin}${response.link}`
+      setCheckInUrl(fullUrl)
+      setQrDialogOpen(true)
+    } catch (error) {
+      console.error('Failed to generate check-in link:', error)
+      toast.error('Fehler', {
+        description: 'QR-Code konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      })
+    }
+  }
+
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
     return (
@@ -2000,7 +2026,7 @@ export default function FireStationDashboard() {
               <div className="mb-4">
                 <h2 className="text-base font-bold text-foreground">Verfügbare Personen</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {personnel.filter((p) => p.status === "available").length} verfügbar
+                  {personnel.filter((p) => p.status === "available").length} von {personnel.length} verfügbar
                 </p>
               </div>
 
@@ -2020,11 +2046,11 @@ export default function FireStationDashboard() {
             </div>
 
             <div className="space-y-4">
-              {(["Fahrer", "Reko/EL/FU", "Mannschaft"] as PersonRole[]).map((role) => (
+              {Object.keys(groupedPersonnel).map((role) => (
                 <div key={role}>
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
                   <div className="space-y-2">
-                    {groupedPersonnel[role]?.map((person) => (
+                    {groupedPersonnel[role as PersonRole]?.map((person) => (
                       <DraggablePerson
                         key={person.id}
                         person={person}
@@ -2068,7 +2094,7 @@ export default function FireStationDashboard() {
               <div className="mb-4">
                 <h2 className="text-base font-bold text-foreground">Verfügbares Material</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {materials.filter((m) => m.status === "available").length} verfügbar
+                  {materials.filter((m) => m.status === "available").length} von {materials.length} verfügbar
                 </p>
               </div>
 
@@ -2113,6 +2139,10 @@ export default function FireStationDashboard() {
               <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Neuer Einsatz
+              </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={generateCheckInQR}>
+                <QrCode className="h-4 w-4" />
+                Check-In QR
               </Button>
             </div>
 
@@ -2223,6 +2253,39 @@ export default function FireStationDashboard() {
         onCreateOperation={createOperation}
         nextOperationId={getNextOperationId()}
       />
+
+      {/* QR Code Dialog */}
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Personal Check-In QR-Code</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            {checkInUrl && (
+              <>
+                <QRCodeSVG
+                  value={checkInUrl}
+                  size={300}
+                  level="H"
+                  includeMargin
+                />
+                <p className="text-sm text-muted-foreground text-center">
+                  Scannen Sie diesen QR-Code, um auf die Personal Check-In Seite zuzugreifen.
+                </p>
+                <div className="w-full flex items-center gap-2">
+                  <div className="flex-1 p-2 bg-secondary rounded text-xs font-mono break-all">
+                    {checkInUrl}
+                  </div>
+                  <CopyButton
+                    text={checkInUrl}
+                    className="flex-shrink-0"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </ProtectedRoute>
   )
 }

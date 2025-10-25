@@ -8,7 +8,7 @@ import { useEvent } from "./event-context"
 
 // Types
 export type PersonStatus = "available" | "assigned"
-export type PersonRole = "Mannschaft" | "Fahrer" | "Reko/EL/FU"
+export type PersonRole = string // Dynamic role - can be any string from backend
 
 export interface Person {
   id: string
@@ -164,7 +164,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
         apiClient.getIncidents(selectedEvent.id),
-        apiClient.getAllPersonnel(),
+        apiClient.getAllPersonnel({ checked_in_only: true, event_id: selectedEvent.id }), // Only show checked-in personnel for this event
         apiClient.getAllMaterials(),
         apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
       ])
@@ -267,7 +267,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setIsLoading(true)
         const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
           apiClient.getIncidents(selectedEvent.id),
-          apiClient.getAllPersonnel(),
+          apiClient.getAllPersonnel({ checked_in_only: true, event_id: selectedEvent.id }), // Only show checked-in personnel for this event
           apiClient.getAllMaterials(),
           apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
         ])

@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     port: int = 8000
     reload: bool = False  # Set to False in production
 
+    # Security
+    secret_key: str = "dev-secret-key-change-in-production"  # Override via SECRET_KEY env var
+
     @property
     def is_testing(self) -> bool:
         """Check if we're in test mode."""
@@ -60,3 +63,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_settings() -> Settings:
+    """Get application settings (for dependency injection)."""
+    return settings

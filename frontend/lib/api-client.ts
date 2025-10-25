@@ -41,8 +41,19 @@ export interface ApiPersonnel {
   name: string
   role?: string | null // e.g., "Firefighter", "Paramedic", "Driver"
   availability: string // available, assigned, unavailable
+  checked_in: boolean
+  checked_in_at: string | null
+  checked_out_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface ApiPersonnelListItem {
+  id: string
+  name: string
+  role?: string | null
+  checked_in: boolean
+  is_assigned?: boolean  // Whether assigned to any incident in this event
 }
 
 export interface ApiPersonnelCreate {
@@ -237,7 +248,7 @@ class ApiClient {
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
-        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`)
+        throw new Error(`API-Fehler: ${response.status} ${response.statusText} - ${errorText}`)
       }
 
       // Handle empty responses (e.g., DELETE operations with 204 No Content)
@@ -252,6 +263,12 @@ class ApiClient {
       return data
     } catch (error) {
       console.error(`[API Exception] ${options?.method || 'GET'} ${endpoint}:`, error)
+
+      // Provide better German error messages for common fetch failures
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie, ob der Server läuft.')
+      }
+
       throw error
     }
   }
@@ -425,8 +442,16 @@ class ApiClient {
   }
 
   // Resource Management - Personnel
-  async getAllPersonnel(): Promise<ApiPersonnel[]> {
-    return this.request<ApiPersonnel[]>('/api/personnel/')
+  async getAllPersonnel(params?: { checked_in_only?: boolean; event_id?: string }): Promise<ApiPersonnel[]> {
+    const queryParams = new URLSearchParams()
+    if (params?.checked_in_only) {
+      queryParams.append('checked_in_only', 'true')
+    }
+    if (params?.event_id) {
+      queryParams.append('event_id', params.event_id)
+    }
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : ''
+    return this.request<ApiPersonnel[]>(`/api/personnel/${query}`)
   }
 
   async getPersonnelById(id: string): Promise<ApiPersonnel> {
@@ -533,6 +558,43 @@ class ApiClient {
     return this.request<void>(`/api/incidents/${incidentId}/release-all`, {
       method: 'POST',
     })
+  }
+
+  // Personnel Check-In
+  async generateCheckInLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
+    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(`/api/personnel/check-in/generate-link?event_id=${encodeURIComponent(eventId)}`, {
+      method: 'POST',
+    })
+  }
+
+  async getCheckInList(token: string, checkedInOnly: boolean = false): Promise<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }> {
+    return this.request<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }>(
+      `/api/personnel/check-in/list?token=${encodeURIComponent(token)}&checked_in_only=${checkedInOnly}`
+    )
+  }
+
+  async checkInPersonnel(personnelId: string, token: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}/in?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async checkOutPersonnel(personnelId: string, token: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}/out?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getCheckInStats(token: string): Promise<{ total_available: number; checked_in: number; checked_out: number }> {
+    return this.request<{ total_available: number; checked_in: number; checked_out: number }>(
+      `/api/personnel/check-in/stats?token=${encodeURIComponent(token)}`
+    )
   }
 }
 
