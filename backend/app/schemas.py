@@ -438,6 +438,68 @@ class Setting(SettingBase):
 
 
 # ============================================
+# Reko Report Schemas
+# ============================================
+
+
+class DangersAssessment(BaseModel):
+    """Structured danger checklist."""
+
+    fire: bool = False
+    explosion: bool = False
+    collapse: bool = False
+    chemical: bool = False
+    electrical: bool = False
+    other_notes: Optional[str] = None
+
+
+class EffortEstimation(BaseModel):
+    """Resource effort estimation."""
+
+    personnel_count: Optional[int] = None
+    vehicles_needed: list[str] = []
+    equipment_needed: list[str] = []
+    estimated_duration_hours: Optional[float] = None
+
+
+class RekoReportBase(BaseModel):
+    """Base schema for Reko reports."""
+
+    is_relevant: Optional[bool] = None
+    dangers_json: Optional[DangersAssessment] = None
+    effort_json: Optional[EffortEstimation] = None
+    power_supply: Optional[str] = None  # 'available' | 'unavailable' | 'emergency_needed'
+    summary_text: Optional[str] = None
+    additional_notes: Optional[str] = None
+    is_draft: bool = False
+
+
+class RekoReportCreate(RekoReportBase):
+    """Schema for creating Reko report."""
+
+    incident_id: UUID
+    token: str
+
+
+class RekoReportUpdate(RekoReportBase):
+    """Schema for updating Reko report."""
+
+    pass
+
+
+class RekoReportResponse(RekoReportBase):
+    """Full Reko report schema with database fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    incident_id: UUID
+    submitted_at: datetime
+    updated_at: datetime
+    photos_json: list[str] = []  # Array of photo filenames
+
+
+# ============================================
 # Audit Log Schemas
 # ============================================
 
