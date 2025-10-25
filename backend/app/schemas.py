@@ -121,6 +121,52 @@ class Material(MaterialBase):
 
 
 # ============================================
+# Event Schemas
+# ============================================
+
+
+class EventBase(BaseModel):
+    """Base schema for Event."""
+
+    name: str
+    training_flag: bool = False
+
+
+class EventCreate(EventBase):
+    """Schema for creating a new event."""
+
+    pass
+
+
+class EventUpdate(BaseModel):
+    """Schema for updating an event."""
+
+    name: Optional[str] = None
+    training_flag: Optional[bool] = None
+    archived_at: Optional[datetime] = None  # For archiving
+
+
+class EventResponse(EventBase):
+    """Schema for event responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    archived_at: Optional[datetime] = None
+    last_activity_at: datetime
+    incident_count: int = 0  # Computed field
+
+
+class EventListResponse(BaseModel):
+    """Schema for event list responses."""
+
+    events: list[EventResponse]
+    total: int
+
+
+# ============================================
 # Incident Schemas
 # ============================================
 
@@ -172,14 +218,13 @@ class IncidentBase(BaseModel):
     location_lat: Optional[Union[str, Decimal]] = None
     location_lng: Optional[Union[str, Decimal]] = None
     status: IncidentStatus = IncidentStatus.EINGEGANGEN
-    training_flag: bool = False
     description: Optional[str] = None
 
 
 class IncidentCreate(IncidentBase):
     """Schema for creating incident."""
 
-    pass
+    event_id: UUID  # Required for creating incidents
 
 
 class IncidentUpdate(BaseModel):
@@ -214,6 +259,7 @@ class IncidentResponse(IncidentBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    event_id: UUID  # Include event_id in responses
     created_at: datetime
     updated_at: datetime
     created_by: Optional[UUID] = None
