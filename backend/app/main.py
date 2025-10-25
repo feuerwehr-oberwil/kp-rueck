@@ -15,7 +15,7 @@ from .api.incidents import router as incidents_router
 from .api.materials import router as materials_router
 from .api.personnel import router as personnel_router
 from .api.personnel_checkin import router as personnel_checkin_router
-from .api.reko import router as reko_router
+from .api.reko import router as reko_router, photos_router
 from .api.settings import router as settings_router
 from .api.vehicles import router as vehicles_router
 from .config import settings
@@ -108,6 +108,7 @@ app.include_router(personnel_checkin_router, prefix=settings.api_v1_prefix)
 app.include_router(vehicles_router, prefix=settings.api_v1_prefix)
 app.include_router(materials_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_router, prefix=settings.api_v1_prefix)
+app.include_router(photos_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
