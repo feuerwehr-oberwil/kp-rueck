@@ -134,11 +134,6 @@ export function IncidentCard({
           <Badge variant={priorityVariant} className="text-xs">
             {PRIORITY_LABELS[incident.priority]}
           </Badge>
-          {incident.training_flag && (
-            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20">
-              Übungsmodus
-            </Badge>
-          )}
         </div>
 
         {/* Description preview if available */}

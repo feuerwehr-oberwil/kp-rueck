@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/contexts/auth-context'
+import { EventProvider } from '@/lib/contexts/event-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -31,9 +32,11 @@ export default function RootLayout({
     <html lang="de">
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <AuthProvider>
-          <OperationsProvider>
-            {children}
-          </OperationsProvider>
+          <EventProvider>
+            <OperationsProvider>
+              {children}
+            </OperationsProvider>
+          </EventProvider>
         </AuthProvider>
         <Toaster />
       </body>

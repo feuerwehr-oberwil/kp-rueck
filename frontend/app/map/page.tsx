@@ -290,11 +290,6 @@ export default function MapPage() {
                             <Badge variant="outline" className="text-xs">
                               {getStatusDisplayName(incident.status)}
                             </Badge>
-                            {incident.training_flag && (
-                              <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 border-amber-300">
-                                Übung
-                              </Badge>
-                            )}
                           </div>
 
                           {/* Description (only when expanded) */}

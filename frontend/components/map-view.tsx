@@ -72,7 +72,6 @@ function createIncidentIcon(incident: Incident): L.DivIcon {
       border: 2px solid white;
       border-radius: 50%;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      ${incident.training_flag ? 'border-style: dashed;' : ''}
       display: flex;
       align-items: center;
       justify-content: center;
