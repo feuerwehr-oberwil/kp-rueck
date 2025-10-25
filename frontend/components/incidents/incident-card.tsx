@@ -114,11 +114,11 @@ export function IncidentCard({
         </div>
 
         {/* Incident type */}
-        <div className="flex items-start gap-2">
-          <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-          <div className="text-sm font-medium text-foreground">
+        <div className="flex items-center gap-2">
+          <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="text-sm font-medium text-foreground">
             {INCIDENT_TYPE_LABELS[incident.type]}
-          </div>
+          </span>
         </div>
 
         {/* Time information */}
