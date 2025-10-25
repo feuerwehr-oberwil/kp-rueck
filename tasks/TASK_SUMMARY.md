@@ -4,8 +4,8 @@ This document provides an overview of all comprehensive task documentation files
 
 ## Overview
 
-**Total Tasks Created**: 10 comprehensive task documentation files
-**Total Documentation**: ~200KB of production-ready implementation guides
+**Total Tasks Created**: 11 comprehensive task documentation files
+**Total Documentation**: ~265KB of production-ready implementation guides
 **Coverage**: Phases 3-7 of the implementation plan
 
 ## Created Task Files
@@ -25,7 +25,24 @@ This document provides an overview of all comprehensive task documentation files
   - Switzerland bounds validation
 - **Complexity**: Medium
 
-### Phase 4: Reko Forms
+### Phase 4: Field Operations & Data Collection
+
+#### 4.0 Event Management System (`tasks/phase-4-reko/4.0-event-management-system.md`) ⭐ NEW
+- **Size**: 65KB
+- **Estimated Time**: 14-18 hours
+- **Purpose**: Multi-event scenario management and organization
+- **Key Features**:
+  - Event (Ereignis) containers for incidents
+  - Training flag at event level (not incident level)
+  - Event selection and creation UI
+  - Archive and delete workflow (two-step process)
+  - Event-scoped incidents and assignments
+  - Resource independence across events
+  - localStorage event persistence
+  - Event name in kanban header
+  - ZSKarte-inspired event switching
+- **Complexity**: High
+- **Impact**: Foundational change affecting all incident-related features
 
 #### 4.2 Reko Forms Frontend (`tasks/phase-4-reko/4.2-reko-forms-frontend.md`)
 - **Size**: 39KB
@@ -186,16 +203,17 @@ All task files include:
 
 ### Estimated Total Time
 - Phase 3 (Map): 6-8 hours
-- Phase 4 (Reko): 22-28 hours
+- Phase 4 (Events + Reko): 36-46 hours
 - Phase 5 (Integrations): 20-26 hours
 - Phase 6 (Production): 34-40 hours
 - Phase 7 (Testing): 24-28 hours
 
-**Total**: 106-130 hours (~3-4 weeks of focused development)
+**Total**: 120-148 hours (~3.5-4.5 weeks of focused development)
 
 ### Priority Order
 
 1. **Critical**:
+   - **4.0 Event Management System** (foundational architecture change)
    - 6.2 Database Backup and Sync (disaster recovery)
    - 5.1 Alarm Webhook (core integration)
    - 6.4 Performance Optimization (production requirement)
