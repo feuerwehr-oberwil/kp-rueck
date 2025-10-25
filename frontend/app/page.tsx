@@ -29,6 +29,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { QRCodeSVG } from 'qrcode.react'
 import RekoReportSection from "@/components/reko/reko-report-section"
+import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 
 const columns = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
@@ -246,6 +247,7 @@ function DraggableOperation({
       <Card
         ref={ref}
         style={{ opacity: isDragging ? 0.5 : 1 }}
+        data-incident-id={operation.id}
         className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
         onMouseEnter={() => onHover(operation.id)}
         onMouseLeave={() => onHover(null)}
@@ -1431,6 +1433,9 @@ export default function FireStationDashboard() {
   const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
   const highlightParam = searchParams.get("highlight")
+
+  // Enable reko notifications for all incidents
+  useRekoNotifications(operations)
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [isMounted, setIsMounted] = useState(false)
