@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type PersonStatus, type OperationStatus, type VehicleType } from "@/lib/contexts/operations-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 
 const columns = [
@@ -1412,6 +1413,7 @@ function NewEmergencyModal({
 
 export default function FireStationDashboard() {
   const { personnel, setPersonnel, materials, setMaterials, operations, setOperations, homeCity, formatLocation, refreshOperations, removeCrew, removeMaterial, removeVehicle, updateOperation, createOperation, getNextOperationId, assignPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, deleteOperation } = useOperations()
+  const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
   const highlightParam = searchParams.get("highlight")
 
@@ -1864,6 +1866,15 @@ export default function FireStationDashboard() {
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight">KP Rück Dashboard</h1>
+            {selectedEvent && (
+              <>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-lg font-medium text-foreground">{selectedEvent.name}</span>
+                <Badge variant={selectedEvent.training_flag ? 'secondary' : 'destructive'}>
+                  {selectedEvent.training_flag ? 'Übung' : 'Live'}
+                </Badge>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

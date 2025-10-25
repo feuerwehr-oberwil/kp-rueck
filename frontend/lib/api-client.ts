@@ -7,6 +7,34 @@ import { getApiUrl } from './env'
 
 const API_URL = getApiUrl()
 
+// Event Management Types
+export interface ApiEvent {
+  id: string // UUID
+  name: string
+  training_flag: boolean
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+  last_activity_at: string
+  incident_count: number
+}
+
+export interface ApiEventCreate {
+  name: string
+  training_flag: boolean
+}
+
+export interface ApiEventUpdate {
+  name?: string
+  training_flag?: boolean
+  archived_at?: string | null
+}
+
+export interface ApiEventListResponse {
+  events: ApiEvent[]
+  total: number
+}
+
 // Resource Management Types
 export interface ApiPersonnel {
   id: string // UUID
@@ -134,6 +162,7 @@ export interface ApiAssignedVehicle {
 
 export interface ApiIncident {
   id: string // UUID
+  event_id: string // UUID - reference to parent event
   title: string
   type: IncidentType
   priority: IncidentPriority
@@ -141,7 +170,6 @@ export interface ApiIncident {
   location_lat: string | null  // Decimal as string
   location_lng: string | null  // Decimal as string
   status: IncidentStatus
-  training_flag: boolean
   description: string | null
   created_at: string
   updated_at: string
@@ -152,6 +180,7 @@ export interface ApiIncident {
 }
 
 export interface ApiIncidentCreate {
+  event_id: string // UUID - required for all new incidents
   title: string
   type: IncidentType
   priority: IncidentPriority
@@ -159,7 +188,6 @@ export interface ApiIncidentCreate {
   location_lat?: string | null
   location_lng?: string | null
   status?: IncidentStatus
-  training_flag?: boolean
   description?: string | null
 }
 
@@ -273,19 +301,56 @@ class ApiClient {
     })
   }
 
-  // Incidents
-  async getIncidents(params?: {
-    training_only?: boolean
+  // Event endpoints
+  async getEvents(includeArchived: boolean = false): Promise<ApiEventListResponse> {
+    const params = new URLSearchParams()
+    if (includeArchived) {
+      params.append('include_archived', 'true')
+    }
+    const endpoint = `/api/events/${params.toString() ? `?${params.toString()}` : ''}`
+    return this.request<ApiEventListResponse>(endpoint)
+  }
+
+  async getEvent(eventId: string): Promise<ApiEvent> {
+    return this.request<ApiEvent>(`/api/events/${eventId}/`)
+  }
+
+  async createEvent(data: ApiEventCreate): Promise<ApiEvent> {
+    return this.request<ApiEvent>('/api/events/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateEvent(eventId: string, data: ApiEventUpdate): Promise<ApiEvent> {
+    return this.request<ApiEvent>(`/api/events/${eventId}/`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async archiveEvent(eventId: string): Promise<ApiEvent> {
+    return this.request<ApiEvent>(`/api/events/${eventId}/archive/`, {
+      method: 'POST',
+    })
+  }
+
+  async deleteEvent(eventId: string): Promise<void> {
+    return this.request<void>(`/api/events/${eventId}/`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Incidents (now event-scoped)
+  async getIncidents(eventId: string, params?: {
     status?: IncidentStatus
     skip?: number
     limit?: number
   }): Promise<ApiIncident[]> {
     const queryParams = new URLSearchParams()
+    queryParams.append('event_id', eventId)
 
     if (params) {
-      if (params.training_only !== undefined) {
-        queryParams.append('training_only', String(params.training_only))
-      }
       if (params.status) {
         queryParams.append('status', params.status)
       }

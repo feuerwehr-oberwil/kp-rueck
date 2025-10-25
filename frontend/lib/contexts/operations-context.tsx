@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useRef, useC
 import { apiClient, type ApiPersonnel, type ApiMaterialResource } from "@/lib/api-client"
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
+import { useEvent } from "./event-context"
 
 // Types
 export type PersonStatus = "available" | "assigned"
@@ -91,6 +92,7 @@ const OperationsContext = createContext<OperationsContextType | undefined>(undef
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
+  const { selectedEvent } = useEvent()
   const [personnel, setPersonnel] = useState<Person[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [operations, setOperations] = useState<Operation[]>([])
@@ -151,10 +153,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // Refresh operations from server
   const refreshOperations = useCallback(async () => {
+    // Don't load data if no event is selected
+    if (!selectedEvent) {
+      setOperations([])
+      setIsLoading(false)
+      return
+    }
+
     try {
       setIsLoading(true)
       const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
-        apiClient.getIncidents(),
+        apiClient.getIncidents(selectedEvent.id),
         apiClient.getAllPersonnel(),
         apiClient.getAllMaterials(),
         apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
@@ -170,9 +179,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [selectedEvent])
 
-  // Load initial data from API - only when authenticated
+  // Load initial data from API - only when authenticated and event selected
   useEffect(() => {
     // Don't load data if auth is still loading or user is not authenticated
     if (authLoading || !isAuthenticated) {
@@ -180,11 +189,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // Don't load data if no event is selected
+    if (!selectedEvent) {
+      setOperations([])
+      setIsLoading(false)
+      setIsLoaded(true)
+      return
+    }
+
     const loadData = async () => {
       try {
         setIsLoading(true)
         const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
-          apiClient.getIncidents(),
+          apiClient.getIncidents(selectedEvent.id),
           apiClient.getAllPersonnel(),
           apiClient.getAllMaterials(),
           apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
@@ -256,7 +273,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }, 5000)
 
     return () => clearInterval(pollInterval)
-  }, [authLoading, isAuthenticated])
+  }, [authLoading, isAuthenticated, selectedEvent])
 
   const removeCrew = (operationId: string, crewName: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -404,10 +421,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">) => {
+    // Don't create if no event is selected
+    if (!selectedEvent) {
+      console.error("Cannot create operation without selected event")
+      return
+    }
+
     if (isLoaded) {
       try {
         // Transform Operation format to Incident format
         const incidentData = {
+          event_id: selectedEvent.id, // Use selected event's ID
           title: operation.location,
           type: "technische_hilfeleistung" as const, // Default type
           priority: operation.priority as "low" | "medium" | "high",
@@ -415,7 +439,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           location_lat: operation.coordinates[0]?.toString(),
           location_lng: operation.coordinates[1]?.toString(),
           status: "eingegangen" as const, // Always start as eingegangen
-          training_flag: false,
           description: operation.notes || null,
         }
 
@@ -779,6 +802,8 @@ export function useOperations() {
  */
 export function useIncidents() {
   const context = useContext(OperationsContext)
+  const { selectedEvent } = useEvent()
+
   if (context === undefined) {
     throw new Error("useIncidents must be used within an OperationsProvider")
   }
@@ -786,6 +811,7 @@ export function useIncidents() {
   // Convert operations to incidents format for compatibility
   const incidents = context.operations.map((op) => ({
     id: op.id,
+    event_id: selectedEvent?.id || "", // Use selected event's ID
     title: op.location,
     type: op.incidentType as any,
     priority: op.priority as "low" | "medium" | "high",
@@ -793,7 +819,6 @@ export function useIncidents() {
     location_lat: op.coordinates?.[0] ?? null,
     location_lng: op.coordinates?.[1] ?? null,
     status: op.status as any,
-    training_flag: false, // Not tracked in operations
     description: op.notes,
     created_at: op.dispatchTime,
     updated_at: op.dispatchTime,
