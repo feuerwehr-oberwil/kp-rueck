@@ -93,30 +93,37 @@ export default function EventsPage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex flex-col h-screen">
-        <PageNavigation currentPage="settings" />
-
-        <div className="flex-1 overflow-auto p-6">
-          <div className="container mx-auto">
-            {/* Header with title and active event */}
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <h1 className="text-3xl font-bold">Ereignisse</h1>
+      <div className="flex h-screen flex-col bg-background text-foreground">
+        {/* Header */}
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-orange-600 to-red-600 text-2xl shadow-lg">
+                <Calendar className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">Ereignisse</h1>
                 {selectedEvent && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    <span className="text-lg font-medium">{selectedEvent.name}</span>
-                    <Badge variant={selectedEvent.training_flag ? 'secondary' : 'destructive'}>
-                      {selectedEvent.training_flag ? 'Übung' : 'Live'}
-                    </Badge>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Aktiv: {selectedEvent.name}
+                  </p>
                 )}
               </div>
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Neues Ereignis
-              </Button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Neues Ereignis
+            </Button>
+            <PageNavigation currentPage="settings" />
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 overflow-auto p-6">
+          <div className="container mx-auto">
 
             {/* Search bar */}
             <div className="mb-6">
@@ -146,16 +153,14 @@ export default function EventsPage() {
                   <Card
                     key={event.id}
                     className={`cursor-pointer transition-all hover:shadow-lg ${
-                      selectedEvent?.id === event.id ? 'ring-2 ring-primary' : ''
+                      selectedEvent?.id === event.id ? 'border-2 border-red-600' : ''
                     }`}
                   >
                     <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{event.name}</CardTitle>
-                        <Badge variant={event.training_flag ? 'secondary' : 'destructive'}>
-                          {event.training_flag ? 'Übung' : 'Live'}
-                        </Badge>
-                      </div>
+                      <CardTitle className="text-lg">{event.name}</CardTitle>
+                      {event.training_flag && (
+                        <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
+                      )}
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2 text-sm text-muted-foreground">
@@ -188,7 +193,7 @@ export default function EventsPage() {
               </div>
             )}
           </div>
-        </div>
+        </main>
 
         {/* Create Event Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>

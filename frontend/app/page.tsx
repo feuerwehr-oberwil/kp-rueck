@@ -1865,15 +1865,15 @@ export default function FireStationDashboard() {
       <div className="flex h-screen flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">KP Rück Dashboard</h1>
-            {selectedEvent && (
+            {selectedEvent ? (
               <>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-lg font-medium text-foreground">{selectedEvent.name}</span>
-                <Badge variant={selectedEvent.training_flag ? 'secondary' : 'destructive'}>
-                  {selectedEvent.training_flag ? 'Übung' : 'Live'}
-                </Badge>
+                <h1 className="text-2xl font-bold tracking-tight">{selectedEvent.name}</h1>
+                {selectedEvent.training_flag && (
+                  <Badge variant="secondary">Übung</Badge>
+                )}
               </>
+            ) : (
+              <h1 className="text-2xl font-bold tracking-tight text-muted-foreground">Kein Ereignis ausgewählt</h1>
             )}
           </div>
 
