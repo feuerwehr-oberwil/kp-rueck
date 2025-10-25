@@ -12,7 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Plus, Save, MapPin, Check, ChevronsUpDown } from 'lucide-react'
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
-import { useIncidents } from "@/lib/contexts/incidents-context"
+import { useIncidents } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
 
 interface IncidentFormProps {

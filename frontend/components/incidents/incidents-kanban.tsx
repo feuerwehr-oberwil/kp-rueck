@@ -6,7 +6,7 @@ import { IncidentForm } from "./incident-form"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, RefreshCw, Edit } from 'lucide-react'
-import { useIncidents } from "@/lib/contexts/incidents-context"
+import { useIncidents } from "@/lib/contexts/operations-context"
 import type { Incident } from "@/lib/types/incidents"
 import { KANBAN_COLUMNS } from "@/lib/types/incidents"
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
-import { apiClient, type ApiOperation, type ApiPersonnel, type ApiMaterialResource } from "@/lib/api-client"
+import { apiClient, type ApiPersonnel, type ApiMaterialResource } from "@/lib/api-client"
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 
@@ -100,40 +100,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
-  const apiOperationToOperation = (apiOp: ApiOperation): Operation => ({
-    id: String(apiOp.id),
-    location: apiOp.location,
-    vehicle: apiOp.vehicle as VehicleType,
-    vehicles: [],
-    incidentType: apiOp.incident_type,
-    dispatchTime: new Date(apiOp.dispatch_time),
-    crew: apiOp.crew,
-    priority: apiOp.priority as "high" | "medium" | "low",
-    status: apiOp.status as OperationStatus,
-    coordinates: [apiOp.coordinates[0], apiOp.coordinates[1]] as [number, number],
-    materials: apiOp.materials,
-    notes: apiOp.notes,
-    contact: apiOp.contact,
-    statusChangedAt: null, // Legacy operation format doesn't have this field
-    crewAssignments: new Map(),
-    materialAssignments: new Map(),
-    vehicleAssignments: new Map(),
-  })
-
-  const operationToApiOperation = (op: Operation) => ({
-    location: op.location,
-    vehicle: op.vehicle,
-    incident_type: op.incidentType,
-    dispatch_time: op.dispatchTime.toISOString(),
-    crew: op.crew,
-    priority: op.priority,
-    status: op.status,
-    coordinates: op.coordinates,
-    materials: op.materials,
-    notes: op.notes,
-    contact: op.contact,
-  })
-
   const apiPersonToPerson = (apiPerson: any): Person => ({
     id: String(apiPerson.id),
     name: apiPerson.name,
@@ -805,4 +771,71 @@ export function useOperations() {
     throw new Error("useOperations must be used within an OperationsProvider")
   }
   return context
+}
+
+/**
+ * useIncidents - Compatibility hook for components that only need incident data
+ * Returns a subset of the operations context data without assignment tracking
+ */
+export function useIncidents() {
+  const context = useContext(OperationsContext)
+  if (context === undefined) {
+    throw new Error("useIncidents must be used within an OperationsProvider")
+  }
+
+  // Convert operations to incidents format for compatibility
+  const incidents = context.operations.map((op) => ({
+    id: op.id,
+    title: op.location,
+    type: op.incidentType as any,
+    priority: op.priority as "low" | "medium" | "high",
+    location_address: op.location,
+    location_lat: op.coordinates?.[0] ?? null,
+    location_lng: op.coordinates?.[1] ?? null,
+    status: op.status as any,
+    training_flag: false, // Not tracked in operations
+    description: op.notes,
+    created_at: op.dispatchTime,
+    updated_at: op.dispatchTime,
+    created_by: null,
+    completed_at: op.status === "complete" ? new Date() : null,
+    status_changed_at: op.statusChangedAt,
+    assigned_vehicles: op.vehicles.map((name) => ({
+      assignment_id: "",
+      vehicle_id: "",
+      name,
+      type: "",
+      assigned_at: new Date(),
+    })),
+  }))
+
+  return {
+    incidents,
+    personnel: context.personnel,
+    materials: context.materials,
+    isLoading: false,
+    error: null,
+    trainingMode: false,
+    homeCity: context.homeCity,
+    setIncidents: () => {}, // No-op for compatibility
+    setPersonnel: context.setPersonnel,
+    setMaterials: context.setMaterials,
+    setTrainingMode: (_trainingMode: boolean) => {}, // No-op for compatibility
+    formatLocation: context.formatLocation,
+    createIncident: async (data: any) => {
+      const apiIncident = await apiClient.createIncident(data)
+      await context.refreshOperations()
+      return apiIncident
+    },
+    updateIncident: async (id: string, data: any) => {
+      await apiClient.updateIncident(id, data)
+      await context.refreshOperations()
+    },
+    deleteIncident: async (id: string) => {
+      await context.deleteOperation(id)
+    },
+    refreshIncidents: context.refreshOperations,
+    updateIncidentStatus: async () => {}, // Not needed by map/form
+    getStatusHistory: async () => [],
+  }
 }
