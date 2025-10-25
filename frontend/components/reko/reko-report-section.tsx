@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2 } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2 } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import Image from 'next/image'
@@ -17,7 +16,6 @@ interface RekoReportSectionProps {
 export default function RekoReportSection({ incidentId }: RekoReportSectionProps) {
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [expandedReportId, setExpandedReportId] = useState<string | null>(null)
 
   useEffect(() => {
     loadReports()
@@ -59,8 +57,6 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
           key={report.id}
           report={report}
           incidentId={incidentId}
-          isExpanded={expandedReportId === report.id}
-          onToggle={() => setExpandedReportId(expandedReportId === report.id ? null : report.id)}
         />
       ))}
       <div className="pt-2">
@@ -73,11 +69,9 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
 interface RekoReportCardProps {
   report: ApiRekoReportResponse
   incidentId: string
-  isExpanded: boolean
-  onToggle: () => void
 }
 
-function RekoReportCard({ report, incidentId, isExpanded, onToggle }: RekoReportCardProps) {
+function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
   function getPhotoUrl(filename: string): string {
     const apiUrl = getApiUrl()
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
@@ -85,32 +79,22 @@ function RekoReportCard({ report, incidentId, isExpanded, onToggle }: RekoReport
 
   return (
     <div className="rounded-lg border">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 hover:bg-accent transition-colors"
-      >
-        <div className="flex items-center gap-3">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
           {report.is_relevant ? (
             <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
           ) : (
             <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
           )}
-          <div className="text-left">
+          <div>
             <h4 className="font-semibold">Reko-Meldung</h4>
             <p className="text-sm text-muted-foreground">
               {report.is_relevant ? 'Einsatz relevant' : 'Kein Einsatz nötig'}
             </p>
           </div>
         </div>
-        {isExpanded ? (
-          <ChevronUp className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        ) : (
-          <ChevronDown className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        )}
-      </button>
 
-      {isExpanded && (
-        <div className="p-4 pt-0 space-y-4">
+        <div className="space-y-4">
           <Separator />
 
           {/* Dangers */}
@@ -235,7 +219,7 @@ function RekoReportCard({ report, incidentId, isExpanded, onToggle }: RekoReport
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
