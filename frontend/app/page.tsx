@@ -468,6 +468,8 @@ function OperationDetailModal({
   onDelete,
   materials,
   vehicleTypes,
+  onAssignVehicle,
+  onRemoveVehicle,
 }: {
   operation: Operation | null
   open: boolean
@@ -476,6 +478,8 @@ function OperationDetailModal({
   onDelete: (operationId: string) => void
   materials: Material[]
   vehicleTypes: Array<{ key: string; name: string }>
+  onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
+  onRemoveVehicle: (operationId: string, vehicleName: string) => void
 }) {
   const { formatLocation } = useOperations()
   const [locationSearchResults, setLocationSearchResults] = useState<Array<{
@@ -487,7 +491,7 @@ function OperationDetailModal({
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editingLocation, setEditingLocation] = useState("")
-  const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
+  const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
 
   // Load vehicles when modal opens
@@ -498,7 +502,7 @@ function OperationDetailModal({
       setIsLoadingVehicles(true)
       try {
         const vehicles = await apiClient.getVehicles()
-        setAvailableVehicles(vehicles.map((v) => ({ name: v.name, type: v.type })))
+        setAvailableVehicles(vehicles.map((v) => ({ id: v.id, name: v.name, type: v.type })))
       } catch (error) {
         console.error('Failed to load vehicles:', error)
       } finally {
@@ -776,12 +780,7 @@ function OperationDetailModal({
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      const vehicleIndex = operation.vehicles.indexOf(vehicleName)
-                      if (vehicleIndex > -1) {
-                        const newVehicles = [...operation.vehicles]
-                        newVehicles.splice(vehicleIndex, 1)
-                        onUpdate({ vehicles: newVehicles })
-                      }
+                      onRemoveVehicle(operation.id, vehicleName)
                     }}
                     className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Fahrzeug entfernen"
@@ -822,10 +821,9 @@ function OperationDetailModal({
                         .filter(v => !operation.vehicles.includes(v.name))
                         .map((vehicle) => (
                           <button
-                            key={vehicle.name}
+                            key={vehicle.id}
                             onClick={() => {
-                              const newVehicles = [...operation.vehicles, vehicle.name]
-                              onUpdate({ vehicles: newVehicles })
+                              onAssignVehicle(vehicle.id, vehicle.name, operation.id)
                             }}
                             className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors"
                           >
@@ -2178,6 +2176,8 @@ export default function FireStationDashboard() {
         onDelete={handleOperationDelete}
         materials={materials}
         vehicleTypes={vehicleTypes}
+        onAssignVehicle={assignVehicleToOperation}
+        onRemoveVehicle={removeVehicle}
       />
 
       <ShortcutsModal
