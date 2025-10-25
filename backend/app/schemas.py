@@ -499,6 +499,14 @@ class RekoReportResponse(RekoReportBase):
     updated_at: datetime
     photos_json: list[str] = []  # Array of photo filenames
 
+    @field_validator('photos_json', mode='before')
+    @classmethod
+    def ensure_photos_list(cls, v):
+        """Convert None to empty list for photos_json."""
+        if v is None:
+            return []
+        return v
+
 
 # ============================================
 # Audit Log Schemas

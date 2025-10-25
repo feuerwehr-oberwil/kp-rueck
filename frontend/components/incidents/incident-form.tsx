@@ -9,12 +9,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Separator } from "@/components/ui/separator"
 import { Plus, Save, MapPin, Check, ChevronsUpDown } from 'lucide-react'
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { useIncidents } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { cn } from "@/lib/utils"
+import RekoReportSection from "@/components/reko/reko-report-section"
 
 interface IncidentFormProps {
   open: boolean
@@ -346,6 +348,19 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
               className="mt-2 min-h-[100px]"
             />
           </div>
+
+          {/* Reko Reports (only in edit mode) */}
+          {mode === 'edit' && incident && (
+            <div>
+              <Separator className="my-6" />
+              <Label className="text-sm font-semibold text-muted-foreground">
+                Rekognoszierungs-Meldungen
+              </Label>
+              <div className="mt-3">
+                <RekoReportSection incidentId={incident.id} />
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t">

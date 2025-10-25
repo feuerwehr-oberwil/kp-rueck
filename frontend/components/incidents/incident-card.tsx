@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Edit, Map, Truck, Siren } from 'lucide-react'
+import { MapPin, Clock, Map, Truck, Siren } from 'lucide-react'
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
@@ -67,9 +67,10 @@ export function IncidentCard({
     <Card
       ref={ref}
       style={{ opacity: isDragging ? 0.5 : 1 }}
+      onClick={onEdit}
       className={`w-full ${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${
         isHighlighted ? "ring-4 ring-accent animate-pulse" : ""
-      } ${isDraggable ? "cursor-move" : "cursor-default"}`}
+      } ${isDraggable ? "cursor-move" : onEdit ? "cursor-pointer" : "cursor-default"}`}
     >
       <div className="space-y-2.5">
         {/* Header with title and actions */}
@@ -88,18 +89,6 @@ export function IncidentCard({
 
           {/* Action buttons */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {onEdit && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEdit()
-                }}
-                className="p-1.5 rounded-md hover:bg-primary/20 transition-colors cursor-pointer"
-                title="Bearbeiten"
-              >
-                <Edit className="h-4 w-4 text-primary" />
-              </button>
-            )}
             {incident.location_lat && incident.location_lng && (
               <Link
                 href={`/map?highlight=${incident.id}`}
