@@ -1,6 +1,6 @@
 /**
- * Frontend types for Incident management
- * Maps to backend incident schema with client-side convenience
+ * Frontend types for Incident and Event management
+ * Maps to backend incident/event schema with client-side convenience
  */
 
 import type {
@@ -13,6 +13,37 @@ import type {
 export type IncidentType = ApiIncidentType
 export type IncidentPriority = ApiIncidentPriority
 export type IncidentStatus = ApiIncidentStatus
+
+/**
+ * Event (Ereignis) - High-level container for emergency scenarios
+ */
+export interface Event {
+  id: string // UUID
+  name: string
+  training_flag: boolean
+  created_at: Date
+  updated_at: Date
+  archived_at: Date | null
+  last_activity_at: Date
+  incident_count: number
+}
+
+/**
+ * Event creation payload
+ */
+export interface EventCreate {
+  name: string
+  training_flag: boolean
+}
+
+/**
+ * Event update payload (all fields optional)
+ */
+export interface EventUpdate {
+  name?: string
+  training_flag?: boolean
+  archived_at?: Date | null
+}
 
 /**
  * Assigned vehicle with details
@@ -31,6 +62,7 @@ export interface AssignedVehicle {
  */
 export interface Incident {
   id: string // UUID
+  event_id: string // UUID - reference to parent event
   title: string
   type: IncidentType
   priority: IncidentPriority
@@ -38,7 +70,6 @@ export interface Incident {
   location_lat: number | null
   location_lng: number | null
   status: IncidentStatus
-  training_flag: boolean
   description: string | null
   created_at: Date
   updated_at: Date
@@ -52,6 +83,7 @@ export interface Incident {
  * Incident creation payload
  */
 export interface IncidentCreate {
+  event_id: string // UUID - required for all new incidents
   title: string
   type: IncidentType
   priority: IncidentPriority
@@ -59,7 +91,6 @@ export interface IncidentCreate {
   location_lat?: number | null
   location_lng?: number | null
   status?: IncidentStatus
-  training_flag?: boolean
   description?: string | null
 }
 
