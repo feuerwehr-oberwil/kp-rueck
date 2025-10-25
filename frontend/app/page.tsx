@@ -1815,6 +1815,26 @@ export default function FireStationDashboard() {
     setSelectedOperation({ ...selectedOperation, ...updates })
   }
 
+  const handleVehicleRemove = (operationId: string, vehicleName: string) => {
+    if (!selectedOperation) return
+    removeVehicle(operationId, vehicleName)
+    // Update selectedOperation to remove the vehicle from the UI immediately
+    setSelectedOperation({
+      ...selectedOperation,
+      vehicles: selectedOperation.vehicles.filter(v => v !== vehicleName)
+    })
+  }
+
+  const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
+    if (!selectedOperation) return
+    assignVehicleToOperation(vehicleId, vehicleName, operationId)
+    // Update selectedOperation to add the vehicle to the UI immediately
+    setSelectedOperation({
+      ...selectedOperation,
+      vehicles: [...selectedOperation.vehicles, vehicleName]
+    })
+  }
+
   const handleOperationDelete = async (operationId: string) => {
     try {
       await deleteOperation(operationId)
@@ -2176,8 +2196,8 @@ export default function FireStationDashboard() {
         onDelete={handleOperationDelete}
         materials={materials}
         vehicleTypes={vehicleTypes}
-        onAssignVehicle={assignVehicleToOperation}
-        onRemoveVehicle={removeVehicle}
+        onAssignVehicle={handleVehicleAssign}
+        onRemoveVehicle={handleVehicleRemove}
       />
 
       <ShortcutsModal
