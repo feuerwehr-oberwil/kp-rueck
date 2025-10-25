@@ -13,6 +13,7 @@ import { Plus, Save, MapPin, Check, ChevronsUpDown } from 'lucide-react'
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { useIncidents } from "@/lib/contexts/operations-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { cn } from "@/lib/utils"
 
 interface IncidentFormProps {
@@ -24,10 +25,12 @@ interface IncidentFormProps {
 
 export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: IncidentFormProps) {
   const { createIncident, updateIncident, trainingMode } = useIncidents()
+  const { selectedEvent } = useEvent()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [incidentTypeOpen, setIncidentTypeOpen] = useState(false)
 
   const [formData, setFormData] = useState<IncidentCreate>({
+    event_id: incident?.event_id || selectedEvent?.id || '',
     title: incident?.title || '',
     type: incident?.type || 'technische_hilfeleistung',
     priority: incident?.priority || 'medium',
@@ -103,6 +106,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
 
       // Reset form and close
       setFormData({
+        event_id: selectedEvent?.id || '',
         title: '',
         type: 'technische_hilfeleistung',
         priority: 'medium',
@@ -124,6 +128,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
   useState(() => {
     if (open && incident && mode === 'edit') {
       setFormData({
+        event_id: incident.event_id,
         title: incident.title,
         type: incident.type,
         priority: incident.priority,
