@@ -3,13 +3,14 @@
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search, Siren } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
@@ -54,7 +55,9 @@ export default function MapPage() {
     assignVehicleToOperation,
     deleteOperation
   } = useOperations()
+  const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const highlightParam = searchParams.get("highlight")
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
@@ -167,6 +170,13 @@ export default function MapPage() {
       setSelectedIncidentId(highlightParam)
     }
   }, [highlightParam])
+
+  // Redirect to events page if no event is selected
+  useEffect(() => {
+    if (!selectedEvent) {
+      router.push('/events')
+    }
+  }, [selectedEvent, router])
 
   // Keyboard shortcuts
   useEffect(() => {
