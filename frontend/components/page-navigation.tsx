@@ -7,14 +7,14 @@
 
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
-import { Map as MapIcon, List, HelpCircle, Calendar } from 'lucide-react';
+import { Map as MapIcon, List, HelpCircle, Calendar, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
 
 interface PageNavigationProps {
-  currentPage: 'kanban' | 'map' | 'events' | 'settings';
+  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined';
   vehicleTypes?: Array<{ key: string; name: string }>;
   onShortcutsOpen?: () => void;
   hasSelectedEvent?: boolean;
@@ -57,6 +57,19 @@ export function PageNavigation({ currentPage, vehicleTypes = [], onShortcutsOpen
             title="Lagekarte"
           >
             <MapIcon className="h-5 w-5" />
+          </Button>
+        </Link>
+
+        {/* Combined View Icon */}
+        <Link href="/combined" className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`rounded-lg ${currentPage === 'combined' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
+            disabled={currentPage === 'combined' || !hasSelectedEvent}
+            title="Kombinierte Ansicht"
+          >
+            <LayoutGrid className="h-5 w-5" />
           </Button>
         </Link>
 

@@ -29,27 +29,37 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "#22c55e", // green-500
 }
 
-// Create simple priority-based marker icon
-function createIncidentIcon(incident: Incident): L.DivIcon {
+// Create simple priority-based marker icon with optional highlighting
+function createIncidentIcon(incident: Incident, isHighlighted: boolean = false): L.DivIcon {
   const priorityColor = PRIORITY_COLORS[incident.priority] || "#6b7280"
+  const size = isHighlighted ? 32 : 24
+  const pulse = isHighlighted ? 'animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
 
   const html = `
+    <style>
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+    </style>
     <div style="
-      width: 24px;
-      height: 24px;
+      width: ${size}px;
+      height: ${size}px;
       background-color: ${priorityColor};
-      border: 2px solid white;
+      border: 3px solid ${isHighlighted ? '#3b82f6' : 'white'};
       border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 ${isHighlighted ? 4 : 2}px ${isHighlighted ? 8 : 4}px rgba(0, 0, 0, ${isHighlighted ? 0.5 : 0.3});
+      ${pulse}
+      transition: all 0.2s ease;
     "></div>
   `
 
   return L.divIcon({
     html,
     className: "custom-marker",
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
   })
 }
 
@@ -221,16 +231,19 @@ export default function MapView({
         />
 
         {/* Incident Markers */}
-        {mappableIncidents.map((incident) => (
-          <Marker
-            key={incident.id}
-            position={[incident.location_lat!, incident.location_lng!]}
-            icon={createIncidentIcon(incident)}
-            eventHandlers={{
-              click: () => onMarkerClick?.(incident.id),
-            }}
-          />
-        ))}
+        {mappableIncidents.map((incident) => {
+          const isHighlighted = selectedIncidentId === incident.id
+          return (
+            <Marker
+              key={incident.id}
+              position={[incident.location_lat!, incident.location_lng!]}
+              icon={createIncidentIcon(incident, isHighlighted)}
+              eventHandlers={{
+                click: () => onMarkerClick?.(incident.id),
+              }}
+            />
+          )
+        })}
 
         {/* Auto-fit bounds to show all incidents */}
         <FitBounds incidents={mappableIncidents} />
