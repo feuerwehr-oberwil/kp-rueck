@@ -447,3 +447,52 @@ class Setting(Base):
 
     # Relationships
     updater: Mapped[Optional["User"]] = relationship("User", back_populates="setting_updates")
+
+
+# ============================================
+# NOTIFICATIONS
+# ============================================
+
+
+class Notification(Base):
+    """Notification for time delays, resource constraints, and data quality issues."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Optional associations
+    incident_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    event_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    dismissed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    dismissed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    dismissed_by: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "severity IN ('critical', 'warning', 'info')", name="valid_notification_severity"
+        ),
+        CheckConstraint(
+            "type IN ("
+            "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
+            "'missing_location', 'missing_personnel', 'missing_vehicle', 'event_size_limit'"
+            ")",
+            name="valid_notification_type"
+        ),
+        Index('idx_notifications_event', 'event_id'),
+        Index('idx_notifications_incident', 'incident_id'),
+        Index('idx_notifications_dismissed', 'dismissed'),
+        Index('idx_notifications_created_at', 'created_at'),
+    )

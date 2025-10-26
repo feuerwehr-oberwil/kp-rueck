@@ -14,6 +14,7 @@ from .api.audit import router as audit_router
 from .api.events import router as events_router
 from .api.incidents import router as incidents_router
 from .api.materials import router as materials_router
+from .api.notifications import router as notifications_router
 from .api.personnel import router as personnel_router
 from .api.personnel_checkin import router as personnel_checkin_router
 from .api.reko import router as reko_router, photos_router
@@ -112,6 +113,7 @@ app.include_router(materials_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_router, prefix=settings.api_v1_prefix)
 app.include_router(photos_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
+app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
 
