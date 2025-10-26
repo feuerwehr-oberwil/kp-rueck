@@ -902,6 +902,16 @@ export function useIncidents() {
     throw new Error("useIncidents must be used within an OperationsProvider")
   }
 
+  // Map operation status to incident status
+  const operationToIncidentStatus: Record<OperationStatus, string> = {
+    "incoming": "eingegangen",
+    "ready": "reko",
+    "enroute": "disponiert",
+    "active": "einsatz",
+    "returning": "einsatz_beendet",
+    "complete": "abschluss",
+  }
+
   // Convert operations to incidents format for compatibility
   const incidents = context.operations.map((op) => ({
     id: op.id,
@@ -912,7 +922,7 @@ export function useIncidents() {
     location_address: op.location,
     location_lat: op.coordinates?.[0] ?? null,
     location_lng: op.coordinates?.[1] ?? null,
-    status: op.status as any,
+    status: operationToIncidentStatus[op.status] as any,
     description: op.notes,
     created_at: op.dispatchTime,
     updated_at: op.dispatchTime,
@@ -926,6 +936,22 @@ export function useIncidents() {
       type: "",
       assigned_at: new Date(),
     })),
+    assigned_personnel: op.crew.map((name) => ({
+      assignment_id: "",
+      personnel_id: "",
+      name,
+      role: "",
+      assigned_at: new Date(),
+    })),
+    assigned_materials: op.materials.map((id) => {
+      const material = context.materials.find(m => m.id === id)
+      return {
+        assignment_id: "",
+        material_id: id,
+        name: material?.name || id,
+        assigned_at: new Date(),
+      }
+    }),
   }))
 
   return {
