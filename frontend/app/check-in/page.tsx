@@ -145,7 +145,7 @@ export default function CheckInPage() {
         )}
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span>Gesamt: {stats.total}</span>
-          <span className="text-green-500 font-semibold">
+          <span className="text-blue-500 font-semibold">
             Anwesend: {stats.checkedIn}
           </span>
           <span>Nicht anwesend: {stats.total - stats.checkedIn}</span>
@@ -235,7 +235,7 @@ export default function CheckInPage() {
                   isDisabled
                     ? 'border-orange-500 bg-orange-500/10 cursor-not-allowed opacity-75'
                     : person.checked_in
-                    ? 'border-green-500 bg-green-500/10'
+                    ? 'border-blue-500 bg-blue-500/10'
                     : 'border-border bg-card hover:border-muted-foreground'
                 }
               `}
@@ -243,7 +243,7 @@ export default function CheckInPage() {
               {/* Check Icon */}
               <div className="flex-shrink-0">
                 {person.checked_in ? (
-                  <CheckCircle className="h-8 w-8 text-green-500" />
+                  <CheckCircle className="h-8 w-8 text-blue-500" />
                 ) : (
                   <Circle className="h-8 w-8 text-muted-foreground" />
                 )}
@@ -261,7 +261,7 @@ export default function CheckInPage() {
                     Im Einsatz
                   </span>
                 ) : person.checked_in ? (
-                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
                     Anwesend
                   </span>
                 ) : (

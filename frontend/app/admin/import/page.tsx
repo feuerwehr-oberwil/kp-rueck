@@ -186,7 +186,7 @@ export default function ImportExportPage() {
               </Button>
             </Link>
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-green-600 to-emerald-600 text-2xl shadow-lg">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-2xl shadow-lg">
                 <FileSpreadsheet className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -226,12 +226,12 @@ export default function ImportExportPage() {
             )}
 
             {success && (
-              <Card className="p-4 border-green-600 bg-green-600/10">
+              <Card className="p-4 border-blue-600 bg-blue-600/10">
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-medium text-green-600">Erfolg</p>
-                    <p className="text-sm text-green-600/90 mt-1">{success}</p>
+                    <p className="font-medium text-blue-600">Erfolg</p>
+                    <p className="text-sm text-blue-600/90 mt-1">{success}</p>
                   </div>
                   <Button
                     variant="ghost"
@@ -264,7 +264,7 @@ export default function ImportExportPage() {
             {/* Import Section */}
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-4">
-                <Upload className="h-5 w-5 text-green-600" />
+                <Upload className="h-5 w-5 text-blue-600" />
                 <h2 className="text-xl font-semibold">Daten Importieren</h2>
               </div>
 
