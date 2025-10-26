@@ -56,6 +56,7 @@ export default function CombinedViewPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [isMounted, setIsMounted] = useState(false)
+  const [mapResetTrigger, setMapResetTrigger] = useState(0)
 
   // Set mounted state
   useEffect(() => {
@@ -179,7 +180,14 @@ export default function CombinedViewPage() {
 
         {/* Main Content - Resizable Split View */}
         <main className="flex-1 overflow-hidden p-4">
-          <ResizablePanelGroup direction="horizontal" className="h-full gap-4">
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full gap-4"
+            onLayout={() => {
+              // Trigger map resize when panel layout changes
+              setMapResetTrigger(prev => prev + 1)
+            }}
+          >
             {/* Kanban Board Panel - 60% default */}
             <ResizablePanel defaultSize={60} minSize={30}>
               <div className="h-full rounded-lg border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
@@ -195,7 +203,14 @@ export default function CombinedViewPage() {
             <ResizableHandle withHandle />
 
             {/* Map Panel - 40% default */}
-            <ResizablePanel defaultSize={40} minSize={25}>
+            <ResizablePanel
+              defaultSize={40}
+              minSize={25}
+              onResize={() => {
+                // Trigger map resize when this specific panel is resized
+                setMapResetTrigger(prev => prev + 1)
+              }}
+            >
               <div className="h-full rounded-lg border border-border/50 overflow-hidden">
                 <MapView
                   selectedIncidentId={hoveredOperationId}
@@ -206,6 +221,7 @@ export default function CombinedViewPage() {
                       handleDetailsClick(operation)
                     }
                   }}
+                  resetZoomTrigger={mapResetTrigger}
                 />
               </div>
             </ResizablePanel>
