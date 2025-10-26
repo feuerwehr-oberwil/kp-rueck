@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEvent } from '@/lib/contexts/event-context'
 import type { Event } from '@/lib/types/incidents'
@@ -34,6 +34,8 @@ export default function EventsPage() {
   const [newEventTraining, setNewEventTraining] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [gPrefixActive, setGPrefixActive] = useState(false)
+  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Separate active and archived events
   const { activeEvents, archivedEvents } = useMemo(() => {
@@ -113,6 +115,78 @@ export default function EventsPage() {
       console.error('Failed to delete event:', error)
     }
   }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Esc to blur input or cancel g-prefix mode
+      if (e.key === 'Escape') {
+        if (gPrefixActive) {
+          setGPrefixActive(false)
+          if (gPrefixTimeoutRef.current) {
+            clearTimeout(gPrefixTimeoutRef.current)
+            gPrefixTimeoutRef.current = null
+          }
+          return
+        }
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+          (e.target as HTMLElement).blur()
+          return
+        }
+      }
+
+      // Ignore if typing in input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Handle g-prefix navigation
+      if (gPrefixActive) {
+        e.preventDefault()
+        setGPrefixActive(false)
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+          gPrefixTimeoutRef.current = null
+        }
+
+        if (e.key === 'k' || e.key === 'K') {
+          router.push('/')
+          return
+        } else if (e.key === 'm' || e.key === 'M') {
+          router.push('/map')
+          return
+        } else if (e.key === 'e' || e.key === 'E') {
+          // Already on Events, do nothing
+          return
+        }
+        return
+      }
+
+      // Activate g-prefix mode
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setGPrefixActive(true)
+        // Reset g-prefix mode after 1.5 seconds
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+        }
+        gPrefixTimeoutRef.current = setTimeout(() => {
+          setGPrefixActive(false)
+          gPrefixTimeoutRef.current = null
+        }, 1500)
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      // Clean up timeout on unmount
+      if (gPrefixTimeoutRef.current) {
+        clearTimeout(gPrefixTimeoutRef.current)
+      }
+    }
+  }, [gPrefixActive, router])
 
   return (
     <ProtectedRoute>
