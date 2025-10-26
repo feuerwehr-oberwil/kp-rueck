@@ -22,6 +22,7 @@ interface DraggableOperationProps {
   onClick: () => void
   onHover: (opId: string | null) => void
   isHighlighted?: boolean
+  isKeyboardFocused?: boolean
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
   index: number
@@ -38,6 +39,7 @@ export function DraggableOperation({
   onClick,
   onHover,
   isHighlighted,
+  isKeyboardFocused,
   isDraggingRef,
   materials,
   index,
@@ -109,7 +111,7 @@ export function DraggableOperation({
         ref={ref}
         style={{ opacity: isDragging ? 0.5 : 1 }}
         data-incident-id={operation.id}
-        className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""}`}
+        className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""} ${isKeyboardFocused && !isHighlighted ? "ring-2 ring-blue-500/50 shadow-xl" : ""}`}
         onMouseEnter={() => onHover(operation.id)}
         onMouseLeave={() => onHover(null)}
         onClick={(e) => {
