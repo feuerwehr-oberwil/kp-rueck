@@ -10,11 +10,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { Kbd } from "@/components/ui/kbd"
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable"
 
 interface CombinedKanbanBoardProps {
   onCardHover: (operationId: string | null) => void
@@ -45,17 +40,10 @@ export default function CombinedKanbanBoard({
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
   const [highlightedOperationIdLocal, setHighlightedOperationIdLocal] = useState<string | null>(null)
-  const [personnelFilter, setPersonnelFilter] = useState<"all" | "available" | "assigned">("all")
-  const [materialFilter, setMaterialFilter] = useState<"all" | "available" | "assigned">("all")
   const [sectionView, setSectionView] = useState<"both" | "personnel" | "materials">("both")
-  const [sidebarSize, setSidebarSize] = useState(15) // Percentage of viewport width
   const isDraggingRef = useRef(false)
   const kanbanScrollRef = useRef<HTMLDivElement>(null)
   const operationRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-
-  // Determine layout based on sidebar size
-  // Threshold: ~25% = two column layout, <25% = one column layout
-  const isTwoColumnLayout = sidebarSize >= 25
 
   useEffect(() => {
     setIsMounted(true)
@@ -210,25 +198,15 @@ export default function CombinedKanbanBoard({
   }, [isMounted, operations, assignPersonToOperation, assignMaterialToOperation, setOperations, updateOperation])
 
   // Filter personnel and materials
-  const filteredPersonnel = personnel.filter((p) => {
-    // Status filter
-    if (personnelFilter === "available" && p.status !== "available") return false
-    if (personnelFilter === "assigned" && p.status !== "assigned") return false
+  const filteredPersonnel = personnel.filter((p) =>
+    p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
+    p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
+  )
 
-    // Search filter
-    return p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
-      p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
-  })
-
-  const filteredMaterials = materials.filter((m) => {
-    // Status filter
-    if (materialFilter === "available" && m.status !== "available") return false
-    if (materialFilter === "assigned" && m.status !== "assigned") return false
-
-    // Search filter
-    return m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
-      m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
-  })
+  const filteredMaterials = materials.filter((m) =>
+    m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
+    m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
+  )
 
   const groupedPersonnel = filteredPersonnel.reduce(
     (acc, person) => {
@@ -270,148 +248,6 @@ export default function CombinedKanbanBoard({
     }
   }
 
-  // Render Personnel Section Content
-  const renderPersonnelSection = () => (
-    <>
-      <h2 className="text-base font-bold text-foreground mb-2">Personen</h2>
-
-      {/* Filter Buttons */}
-      <div className="flex gap-1 mb-3">
-        <Button
-          variant={personnelFilter === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setPersonnelFilter("all")}
-          className="flex-1 h-7 text-xs"
-        >
-          Alle
-        </Button>
-        <Button
-          variant={personnelFilter === "available" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setPersonnelFilter("available")}
-          className="flex-1 h-7 text-xs"
-        >
-          Verfügbar
-        </Button>
-        <Button
-          variant={personnelFilter === "assigned" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setPersonnelFilter("assigned")}
-          className="flex-1 h-7 text-xs"
-        >
-          Zugewiesen
-        </Button>
-      </div>
-
-      <p className="text-sm text-muted-foreground mb-3">
-        {filteredPersonnel.length} von {personnel.length} angezeigt
-      </p>
-
-      <div className="relative mb-4">
-        <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          id="personnel-search-input"
-          type="text"
-          placeholder="Suchen..."
-          value={personnelSearchQuery}
-          onChange={(e) => setPersonnelSearchQuery(e.target.value)}
-          className="h-8 pl-7 pr-8 text-xs"
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-          <Kbd className="h-4 text-[10px]">P</Kbd>
-        </div>
-      </div>
-
-      <div className="space-y-4 overflow-y-auto flex-1">
-        {Object.keys(groupedPersonnel).map((role) => (
-          <div key={role}>
-            <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
-            <div className="space-y-2">
-              {groupedPersonnel[role as PersonRole]?.map((person) => (
-                <DraggablePerson
-                  key={person.id}
-                  person={person}
-                  onClick={() => handlePersonClick(person)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  )
-
-  // Render Materials Section Content
-  const renderMaterialsSection = () => (
-    <>
-      <h2 className="text-base font-bold text-foreground mb-2">Material</h2>
-
-      {/* Filter Buttons */}
-      <div className="flex gap-1 mb-3">
-        <Button
-          variant={materialFilter === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMaterialFilter("all")}
-          className="flex-1 h-7 text-xs"
-        >
-          Alle
-        </Button>
-        <Button
-          variant={materialFilter === "available" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMaterialFilter("available")}
-          className="flex-1 h-7 text-xs"
-        >
-          Verfügbar
-        </Button>
-        <Button
-          variant={materialFilter === "assigned" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMaterialFilter("assigned")}
-          className="flex-1 h-7 text-xs"
-        >
-          Zugewiesen
-        </Button>
-      </div>
-
-      <p className="text-sm text-muted-foreground mb-3">
-        {filteredMaterials.length} von {materials.length} angezeigt
-      </p>
-
-      <div className="relative mb-4">
-        <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          id="material-search-input"
-          type="text"
-          placeholder="Suchen..."
-          value={materialSearchQuery}
-          onChange={(e) => setMaterialSearchQuery(e.target.value)}
-          className="h-8 pl-7 pr-8 text-xs"
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-          <Kbd className="h-4 text-[10px]">M</Kbd>
-        </div>
-      </div>
-
-      <div className="space-y-4 overflow-y-auto flex-1">
-        {Object.entries(groupedMaterials).map(([category, items]) => (
-          <div key={category}>
-            <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
-            <div className="space-y-2">
-              {items.map((material) => (
-                <DraggableMaterial
-                  key={material.id}
-                  material={material}
-                  onClick={() => handleMaterialClick(material)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  )
-
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
     return (
@@ -422,87 +258,131 @@ export default function CombinedKanbanBoard({
   }
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
+    <div className="flex h-full">
       {/* Left Sidebar - Personnel and Materials */}
-      <ResizablePanel
-        defaultSize={12}
-        minSize={8}
-        maxSize={40}
-        onResize={(size) => setSidebarSize(size)}
-        className="border-r border-border/50 bg-card/30 backdrop-blur-sm"
-      >
-        <aside className="h-full overflow-y-auto">
-          <div className={`p-4 ${isTwoColumnLayout ? 'h-full flex flex-col' : ''}`}>
-            {/* Two Column Layout - Side by Side */}
-            {isTwoColumnLayout ? (
-              <div className="flex gap-4 h-full overflow-hidden">
-                {/* Personnel Column */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  {renderPersonnelSection()}
-                </div>
-
-                {/* Materials Column */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  {renderMaterialsSection()}
-                </div>
-              </div>
-            ) : (
-              /* Single Column Layout - Stacked with Toggle */
-              <>
-                {/* Section Toggle */}
-                <div className="mb-4 pb-4 border-b border-border/50">
-                  <div className="flex gap-1">
-                    <Button
-                      variant={sectionView === "both" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSectionView("both")}
-                      className="flex-1 h-8 text-xs"
-                    >
-                      Beide
-                    </Button>
-                    <Button
-                      variant={sectionView === "personnel" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSectionView("personnel")}
-                      className="flex-1 h-8 text-xs"
-                    >
-                      Personen
-                    </Button>
-                    <Button
-                      variant={sectionView === "materials" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSectionView("materials")}
-                      className="flex-1 h-8 text-xs"
-                    >
-                      Material
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Personnel Section */}
-                {(sectionView === "both" || sectionView === "personnel") && (
-                  <div className="mb-6">
-                    {renderPersonnelSection()}
-                  </div>
-                )}
-
-                {/* Materials Section */}
-                {(sectionView === "both" || sectionView === "materials") && (
-                  <div>
-                    {renderMaterialsSection()}
-                  </div>
-                )}
-              </>
-            )}
+      <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
+        {/* Section Toggle */}
+        <div className="mb-4 pb-4 border-b border-border/50">
+          <div className="flex gap-1">
+            <Button
+              variant={sectionView === "both" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSectionView("both")}
+              className="flex-1 h-8 text-xs"
+            >
+              Beide
+            </Button>
+            <Button
+              variant={sectionView === "personnel" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSectionView("personnel")}
+              className="flex-1 h-8 text-xs"
+            >
+              Personen
+            </Button>
+            <Button
+              variant={sectionView === "materials" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSectionView("materials")}
+              className="flex-1 h-8 text-xs"
+            >
+              Material
+            </Button>
           </div>
-        </aside>
-      </ResizablePanel>
+        </div>
 
-      <ResizableHandle withHandle />
+        {/* Personnel Section */}
+        {(sectionView === "both" || sectionView === "personnel") && (
+          <div className="mb-6">
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-foreground">Verfügbare Personen</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {personnel.filter((p) => p.status === "available").length} von {personnel.length} verfügbar
+              </p>
+            </div>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="personnel-search-input"
+                type="text"
+                placeholder="Suchen..."
+                value={personnelSearchQuery}
+                onChange={(e) => setPersonnelSearchQuery(e.target.value)}
+                className="h-8 pl-7 pr-8 text-xs"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Kbd className="h-4 text-[10px]">P</Kbd>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {Object.keys(groupedPersonnel).map((role) => (
+                <div key={role}>
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
+                  <div className="space-y-2">
+                    {groupedPersonnel[role as PersonRole]?.map((person) => (
+                      <DraggablePerson
+                        key={person.id}
+                        person={person}
+                        onClick={() => handlePersonClick(person)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Materials Section */}
+        {(sectionView === "both" || sectionView === "materials") && (
+          <div>
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-foreground">Verfügbares Material</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {materials.filter((m) => m.status === "available").length} von {materials.length} verfügbar
+              </p>
+            </div>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="material-search-input"
+                type="text"
+                placeholder="Suchen..."
+                value={materialSearchQuery}
+                onChange={(e) => setMaterialSearchQuery(e.target.value)}
+                className="h-8 pl-7 pr-8 text-xs"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Kbd className="h-4 text-[10px]">M</Kbd>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {Object.entries(groupedMaterials).map(([category, items]) => (
+                <div key={category}>
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
+                  <div className="space-y-2">
+                    {items.map((material) => (
+                      <DraggableMaterial
+                        key={material.id}
+                        material={material}
+                        onClick={() => handleMaterialClick(material)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </aside>
 
       {/* Main Kanban Board */}
-      <ResizablePanel defaultSize={88} minSize={60}>
-        <div ref={kanbanScrollRef} className="flex h-full gap-4 overflow-x-auto p-4 bg-zinc-950/20">
+      <main className="flex-1 overflow-x-auto p-4 bg-zinc-950/20">
+        <div ref={kanbanScrollRef} className="flex h-full gap-4">
           {columns.map((column) => {
             const columnOps = operations.filter((op) => column.status.includes(op.status))
             return (
@@ -531,7 +411,7 @@ export default function CombinedKanbanBoard({
             )
           })}
         </div>
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      </main>
+    </div>
   )
 }
