@@ -105,12 +105,17 @@ function PanToSelected({ selectedIncidentId, incidents }: { selectedIncidentId: 
   return null
 }
 
-// Component to reset zoom to show all incidents
+// Component to reset zoom to show all incidents and handle map resize
 function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Incident[] }) {
   const map = useMap()
 
   useEffect(() => {
     if (trigger === 0) return
+
+    // Always invalidate size when trigger changes (handles panel resize)
+    setTimeout(() => {
+      map.invalidateSize()
+    }, 100)
 
     if (incidents.length === 0) return
 
@@ -124,7 +129,10 @@ function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Inciden
       validIncidents.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number])
     )
 
-    map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 })
+    // Delay to ensure size is invalidated first
+    setTimeout(() => {
+      map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 })
+    }, 200)
   }, [trigger, incidents, map])
 
   return null
