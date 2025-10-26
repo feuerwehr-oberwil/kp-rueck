@@ -271,6 +271,27 @@ export interface ApiRekoFormResponse extends ApiRekoReportResponse {
   // Same as ApiRekoReportResponse, backend returns this on GET /form
 }
 
+// Excel Import/Export Types
+export interface ApiExcelImportPreview {
+  personnel_preview: Array<Record<string, any>>
+  personnel_total: number
+  vehicles_preview: Array<Record<string, any>>
+  vehicles_total: number
+  materials_preview: Array<Record<string, any>>
+  materials_total: number
+}
+
+export interface ApiExcelImportResult {
+  success: boolean
+  mode: string
+  counts: {
+    personnel: number
+    vehicles: number
+    materials: number
+  }
+  timestamp: string
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -699,6 +720,72 @@ class ApiClient {
 
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
     return this.request<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
+  }
+
+  // Excel Import/Export
+  async downloadImportTemplate(): Promise<Blob> {
+    const url = `${this.baseUrl}/api/admin/import/template`
+    const response = await fetch(url, {
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to download template: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
+  async previewExcelImport(file: File): Promise<ApiExcelImportPreview> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const url = `${this.baseUrl}/api/admin/import/preview`
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Preview failed: ${errorText}`)
+    }
+
+    return response.json()
+  }
+
+  async executeExcelImport(file: File, mode: 'replace' | 'append' = 'replace'): Promise<ApiExcelImportResult> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('mode', mode)
+
+    const url = `${this.baseUrl}/api/admin/import/execute`
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Import failed: ${errorText}`)
+    }
+
+    return response.json()
+  }
+
+  async exportAllData(): Promise<Blob> {
+    const url = `${this.baseUrl}/api/admin/export/data`
+    const response = await fetch(url, {
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
   }
 }
 
