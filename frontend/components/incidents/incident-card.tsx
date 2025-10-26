@@ -96,7 +96,7 @@ export function IncidentCard({
                 className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
                 title="Auf Karte anzeigen"
               >
-                <Map className="h-4 w-4 text-primary" />
+                <Map className="h-4 w-4 text-muted-foreground" />
               </Link>
             )}
           </div>
