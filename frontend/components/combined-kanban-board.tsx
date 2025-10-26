@@ -1,9 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type Material, type Person, type PersonRole } from "@/lib/contexts/operations-context"
 import { columns } from "@/lib/kanban-utils"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
+import { DraggablePerson } from "@/components/kanban/draggable-person"
+import { DraggableMaterial } from "@/components/kanban/draggable-material"
+import { Input } from "@/components/ui/input"
+import { Search } from "lucide-react"
+import { Kbd } from "@/components/ui/kbd"
 
 interface CombinedKanbanBoardProps {
   onCardHover: (operationId: string | null) => void
@@ -19,6 +24,7 @@ export default function CombinedKanbanBoard({
   const {
     operations,
     materials,
+    personnel,
     formatLocation,
     removeCrew,
     removeMaterial,
@@ -30,6 +36,9 @@ export default function CombinedKanbanBoard({
   } = useOperations()
 
   const [isMounted, setIsMounted] = useState(false)
+  const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
+  const [materialSearchQuery, setMaterialSearchQuery] = useState("")
+  const [highlightedOperationIdLocal, setHighlightedOperationIdLocal] = useState<string | null>(null)
   const isDraggingRef = useRef(false)
 
   useEffect(() => {
@@ -169,6 +178,57 @@ export default function CombinedKanbanBoard({
     })
   }, [isMounted, operations, assignPersonToOperation, assignMaterialToOperation, setOperations, updateOperation])
 
+  // Filter personnel and materials
+  const filteredPersonnel = personnel.filter((p) =>
+    p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
+    p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
+  )
+
+  const filteredMaterials = materials.filter((m) =>
+    m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
+    m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
+  )
+
+  const groupedPersonnel = filteredPersonnel.reduce(
+    (acc, person) => {
+      if (!acc[person.role]) acc[person.role] = []
+      acc[person.role].push(person)
+      return acc
+    },
+    {} as Record<PersonRole, Person[]>
+  )
+
+  const groupedMaterials = filteredMaterials.reduce(
+    (acc, material) => {
+      if (!acc[material.category]) acc[material.category] = []
+      acc[material.category].push(material)
+      return acc
+    },
+    {} as Record<string, Material[]>
+  )
+
+  const handlePersonClick = (person: Person) => {
+    if (person.status === "assigned") {
+      // Find the operation this person is assigned to
+      const assignedOp = operations.find(op => op.crew.includes(person.name))
+      if (assignedOp) {
+        setHighlightedOperationIdLocal(assignedOp.id)
+        setTimeout(() => setHighlightedOperationIdLocal(null), 3000)
+      }
+    }
+  }
+
+  const handleMaterialClick = (material: Material) => {
+    if (material.status === "assigned") {
+      // Find the operation this material is assigned to
+      const assignedOp = operations.find(op => op.materials.includes(material.id))
+      if (assignedOp) {
+        setHighlightedOperationIdLocal(assignedOp.id)
+        setTimeout(() => setHighlightedOperationIdLocal(null), 3000)
+      }
+    }
+  }
+
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
     return (
@@ -179,27 +239,115 @@ export default function CombinedKanbanBoard({
   }
 
   return (
-    <div className="flex h-full gap-3 overflow-x-auto p-4 bg-zinc-950/20">
-      {columns.map((column) => {
-        const columnOps = operations.filter((op) => column.status.includes(op.status))
-        return (
-          <DroppableColumn
-            key={column.id}
-            column={column}
-            operations={columnOps}
-            onRemoveCrew={removeCrew}
-            onRemoveMaterial={removeMaterial}
-            onRemoveVehicle={removeVehicle}
-            onCardClick={onCardClick}
-            onCardHover={onCardHover}
-            highlightedOperationId={highlightedOperationId}
-            hoveredOperationId={null}
-            isDraggingRef={isDraggingRef}
-            materials={materials}
-            formatLocation={formatLocation}
-          />
-        )
-      })}
+    <div className="flex h-full overflow-hidden">
+      {/* Left Sidebar - Personnel and Materials */}
+      <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto">
+        <div className="p-4">
+          {/* Personnel Section */}
+          <div className="mb-6">
+            <h2 className="text-base font-bold text-foreground mb-2">Verfügbare Personen</h2>
+            <p className="text-sm text-muted-foreground mb-3">
+              {personnel.filter((p) => p.status === "available").length} von {personnel.length} verfügbar
+            </p>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="personnel-search-input"
+                type="text"
+                placeholder="Suchen..."
+                value={personnelSearchQuery}
+                onChange={(e) => setPersonnelSearchQuery(e.target.value)}
+                className="h-8 pl-7 pr-8 text-xs"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Kbd className="h-4 text-[10px]">P</Kbd>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {Object.keys(groupedPersonnel).map((role) => (
+                <div key={role}>
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
+                  <div className="space-y-2">
+                    {groupedPersonnel[role as PersonRole]?.map((person) => (
+                      <DraggablePerson
+                        key={person.id}
+                        person={person}
+                        onClick={() => handlePersonClick(person)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Materials Section */}
+          <div>
+            <h2 className="text-base font-bold text-foreground mb-2">Verfügbares Material</h2>
+            <p className="text-sm text-muted-foreground mb-3">
+              {materials.filter((m) => m.status === "available").length} von {materials.length} verfügbar
+            </p>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="material-search-input"
+                type="text"
+                placeholder="Suchen..."
+                value={materialSearchQuery}
+                onChange={(e) => setMaterialSearchQuery(e.target.value)}
+                className="h-8 pl-7 pr-8 text-xs"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Kbd className="h-4 text-[10px]">M</Kbd>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {Object.entries(groupedMaterials).map(([category, items]) => (
+                <div key={category}>
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
+                  <div className="space-y-2">
+                    {items.map((material) => (
+                      <DraggableMaterial
+                        key={material.id}
+                        material={material}
+                        onClick={() => handleMaterialClick(material)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Kanban Board */}
+      <div className="flex-1 flex h-full gap-3 overflow-x-auto p-4 bg-zinc-950/20">
+        {columns.map((column) => {
+          const columnOps = operations.filter((op) => column.status.includes(op.status))
+          return (
+            <DroppableColumn
+              key={column.id}
+              column={column}
+              operations={columnOps}
+              onRemoveCrew={removeCrew}
+              onRemoveMaterial={removeMaterial}
+              onRemoveVehicle={removeVehicle}
+              onCardClick={onCardClick}
+              onCardHover={onCardHover}
+              highlightedOperationId={highlightedOperationId || highlightedOperationIdLocal}
+              hoveredOperationId={null}
+              isDraggingRef={isDraggingRef}
+              materials={materials}
+              formatLocation={formatLocation}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }
