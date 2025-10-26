@@ -131,8 +131,8 @@ export default function MapPage() {
       return active.filter((inc) =>
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-        INCIDENT_TYPE_LABELS[inc.type].toLowerCase().includes(lowerQuery) ||
-        STATUS_LABELS[inc.status].toLowerCase().includes(lowerQuery)
+        (INCIDENT_TYPE_LABELS[inc.type as keyof typeof INCIDENT_TYPE_LABELS]?.toLowerCase().includes(lowerQuery)) ||
+        (STATUS_LABELS[inc.status as keyof typeof STATUS_LABELS]?.toLowerCase().includes(lowerQuery))
       )
     },
     [incidents, searchQuery]
@@ -318,7 +318,7 @@ export default function MapPage() {
                           {/* Incident Type */}
                           <div className="flex items-center gap-2">
                             <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm text-muted-foreground">{INCIDENT_TYPE_LABELS[incident.type]}</span>
+                            <span className="text-sm text-muted-foreground">{INCIDENT_TYPE_LABELS[incident.type as keyof typeof INCIDENT_TYPE_LABELS]}</span>
                           </div>
 
                           {/* Time and Status */}
@@ -335,7 +335,7 @@ export default function MapPage() {
                               </span>
                             )}
                             <Badge variant="outline" className="text-xs">
-                              {STATUS_LABELS[incident.status]}
+                              {STATUS_LABELS[incident.status as keyof typeof STATUS_LABELS]}
                             </Badge>
                           </div>
 
