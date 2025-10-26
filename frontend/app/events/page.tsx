@@ -140,7 +140,7 @@ export default function EventsPage() {
               <Plus className="mr-2 h-4 w-4" />
               Neues Ereignis
             </Button>
-            <PageNavigation currentPage="events" />
+            <PageNavigation currentPage="events" hasSelectedEvent={!!selectedEvent} />
           </div>
         </header>
 
