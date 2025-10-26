@@ -32,7 +32,7 @@ export function ShortcutsModal({ open, onOpenChange, vehicleTypes }: ShortcutsMo
           </div>
 
           <div>
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Prioritäts-Zuweisung (im Einsatzformular)</h3>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Prioritäts-Zuweisung (beim Hover über Einsatz)</h3>
             <div className="space-y-2">
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Niedrig</span>
@@ -65,6 +65,14 @@ export function ShortcutsModal({ open, onOpenChange, vehicleTypes }: ShortcutsMo
                 <Kbd>/</Kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Personen-Suche fokussieren</span>
+                <Kbd>P</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Material-Suche fokussieren</span>
+                <Kbd>M</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Suche verlassen</span>
                 <Kbd>Esc</Kbd>
               </div>
@@ -73,8 +81,79 @@ export function ShortcutsModal({ open, onOpenChange, vehicleTypes }: ShortcutsMo
                 <Kbd>N</Kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Daten aktualisieren</span>
+                <div className="flex gap-1">
+                  <Kbd>R</Kbd>
+                  <span className="text-muted-foreground text-xs">oder</span>
+                  <Kbd>F5</Kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <span className="text-sm font-medium">Diese Hilfe anzeigen</span>
                 <Kbd>?</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Befehlspalette öffnen</span>
+                <Kbd>⌘K</Kbd>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Einsatz-Aktionen (beim Hover)</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Einsatz bearbeiten</span>
+                <div className="flex gap-1">
+                  <Kbd>E</Kbd>
+                  <span className="text-muted-foreground text-xs">oder</span>
+                  <Kbd>Enter</Kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Einsatz löschen</span>
+                <Kbd>Delete</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Zwischen Einsätzen navigieren</span>
+                <div className="flex gap-1">
+                  <Kbd>↑</Kbd>
+                  <Kbd>↓</Kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Nächster Einsatz</span>
+                <Kbd>Tab</Kbd>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Schnell-Navigation (G + Taste)</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Zur Kanban-Ansicht</span>
+                <div className="flex gap-1">
+                  <Kbd>G</Kbd>
+                  <span className="text-muted-foreground">dann</span>
+                  <Kbd>K</Kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Zur Karten-Ansicht</span>
+                <div className="flex gap-1">
+                  <Kbd>G</Kbd>
+                  <span className="text-muted-foreground">dann</span>
+                  <Kbd>M</Kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Zur Ereignis-Auswahl</span>
+                <div className="flex gap-1">
+                  <Kbd>G</Kbd>
+                  <span className="text-muted-foreground">dann</span>
+                  <Kbd>E</Kbd>
+                </div>
               </div>
             </div>
           </div>
