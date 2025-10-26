@@ -188,8 +188,8 @@ export default function ImportExportPage() {
               </Button>
             </Link>
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-green-600 to-blue-600 text-2xl shadow-lg">
-                📊
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-green-600 to-emerald-600 text-2xl shadow-lg">
+                <FileSpreadsheet className="h-6 w-6 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">Daten Import/Export</h1>
