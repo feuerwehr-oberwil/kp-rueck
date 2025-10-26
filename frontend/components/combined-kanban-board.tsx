@@ -42,6 +42,7 @@ export default function CombinedKanbanBoard({
   const [highlightedOperationIdLocal, setHighlightedOperationIdLocal] = useState<string | null>(null)
   const [personnelFilter, setPersonnelFilter] = useState<"all" | "available" | "assigned">("all")
   const [materialFilter, setMaterialFilter] = useState<"all" | "available" | "assigned">("all")
+  const [sectionView, setSectionView] = useState<"both" | "personnel" | "materials">("both")
   const isDraggingRef = useRef(false)
 
   useEffect(() => {
@@ -256,7 +257,38 @@ export default function CombinedKanbanBoard({
       {/* Left Sidebar - Personnel and Materials */}
       <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto">
         <div className="p-4">
+          {/* Section Toggle */}
+          <div className="mb-4 pb-4 border-b border-border/50">
+            <div className="flex gap-1">
+              <Button
+                variant={sectionView === "both" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSectionView("both")}
+                className="flex-1 h-8 text-xs"
+              >
+                Beide
+              </Button>
+              <Button
+                variant={sectionView === "personnel" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSectionView("personnel")}
+                className="flex-1 h-8 text-xs"
+              >
+                Personen
+              </Button>
+              <Button
+                variant={sectionView === "materials" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSectionView("materials")}
+                className="flex-1 h-8 text-xs"
+              >
+                Material
+              </Button>
+            </div>
+          </div>
+
           {/* Personnel Section */}
+          {(sectionView === "both" || sectionView === "personnel") && (
           <div className="mb-6">
             <h2 className="text-base font-bold text-foreground mb-2">Personen</h2>
 
@@ -324,8 +356,10 @@ export default function CombinedKanbanBoard({
               ))}
             </div>
           </div>
+          )}
 
           {/* Materials Section */}
+          {(sectionView === "both" || sectionView === "materials") && (
           <div>
             <h2 className="text-base font-bold text-foreground mb-2">Material</h2>
 
@@ -393,6 +427,7 @@ export default function CombinedKanbanBoard({
               ))}
             </div>
           </div>
+          )}
         </div>
       </aside>
 
