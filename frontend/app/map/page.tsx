@@ -8,13 +8,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search } from "lucide-react"
-import { useIncidents } from "@/lib/contexts/operations-context"
+import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search, Siren } from "lucide-react"
+import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
-import { IncidentForm } from "@/components/incidents/incident-form"
+import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import type { Incident } from "@/lib/types/incidents"
+import { STATUS_LABELS, INCIDENT_TYPE_LABELS } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -26,42 +29,11 @@ const MapView = dynamic(() => import("@/components/map-view"), {
   ),
 })
 
-function getStatusDisplayName(status: string): string {
-  const statusMap: Record<string, string> = {
-    eingegangen: "Eingegangen",
-    reko: "Reko",
-    disponiert: "Disponiert",
-    einsatz: "Einsatz",
-    einsatz_beendet: "Beendet",
-    abschluss: "Abschluss",
-  }
-  return statusMap[status] || status
-}
-
 function formatTime(date: Date): string {
   return date.toLocaleTimeString('de-CH', {
     hour: '2-digit',
     minute: '2-digit'
   })
-}
-
-function getIncidentTypeDisplayName(type: string): string {
-  const displayNameMap: Record<string, string> = {
-    brandbekaempfung: "Brandbekämpfung",
-    elementarereignis: "Elementarereignis",
-    strassenrettung: "Straßenrettung",
-    technische_hilfeleistung: "Technische Hilfeleistung",
-    oelwehr: "Ölwehr",
-    chemiewehr: "Chemiewehr",
-    strahlenwehr: "Strahlenwehr",
-    einsatz_bahnanlagen: "Einsatz Bahnanlagen",
-    bma_unechte_alarme: "BMA / Unechte Alarme",
-    dienstleistungen: "Dienstleistungen",
-    diverse_einsaetze: "Diverse Einsätze",
-    gerettete_menschen: "Gerettete Menschen",
-    gerettete_tiere: "Gerettete Tiere",
-  }
-  return displayNameMap[type] || type
 }
 
 function getTimeSince(date: Date): string {
@@ -74,15 +46,24 @@ function getTimeSince(date: Date): string {
 
 export default function MapPage() {
   const { incidents, formatLocation, refreshIncidents } = useIncidents()
+  const {
+    operations,
+    materials,
+    updateOperation,
+    removeVehicle: removeVehicleFromOperation,
+    assignVehicleToOperation,
+    deleteOperation
+  } = useOperations()
   const searchParams = useSearchParams()
   const highlightParam = searchParams.get("highlight")
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
   )
-  const [incidentForModal, setIncidentForModal] = useState<Incident | null>(null)
-  const [formOpen, setFormOpen] = useState(false)
+  const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
 
   const selectedIncident = useMemo(
     () => incidents.find((inc) => inc.id === selectedIncidentId),
@@ -90,8 +71,52 @@ export default function MapPage() {
   )
 
   const handleDetailsClick = (incident: Incident) => {
-    setIncidentForModal(incident)
-    setFormOpen(true)
+    // Find the corresponding operation
+    const operation = operations.find(op => op.id === incident.id)
+    if (operation) {
+      setSelectedOperation(operation)
+      setDetailModalOpen(true)
+    }
+  }
+
+  const handleOperationUpdate = (updates: Partial<Operation>) => {
+    if (!selectedOperation) return
+    updateOperation(selectedOperation.id, updates)
+    setSelectedOperation({ ...selectedOperation, ...updates })
+  }
+
+  const handleVehicleRemove = (operationId: string, vehicleName: string) => {
+    if (!selectedOperation) return
+    removeVehicleFromOperation(operationId, vehicleName)
+    // Update selectedOperation to remove the vehicle from the UI immediately
+    setSelectedOperation({
+      ...selectedOperation,
+      vehicles: selectedOperation.vehicles.filter(v => v !== vehicleName)
+    })
+  }
+
+  const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
+    if (!selectedOperation) return
+    assignVehicleToOperation(vehicleId, vehicleName, operationId)
+    // Update selectedOperation to add the vehicle to the UI immediately
+    setSelectedOperation({
+      ...selectedOperation,
+      vehicles: [...selectedOperation.vehicles, vehicleName]
+    })
+  }
+
+  const handleOperationDelete = async (operationId: string) => {
+    try {
+      await deleteOperation(operationId)
+      toast.success("Einsatz gelöscht", {
+        description: "Der Einsatz wurde erfolgreich aus der Datenbank entfernt.",
+      })
+    } catch (error) {
+      console.error('Failed to delete operation:', error)
+      toast.error("Fehler beim Löschen", {
+        description: "Der Einsatz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+      })
+    }
   }
 
   // Filter out completed incidents for the active list
@@ -106,12 +131,31 @@ export default function MapPage() {
       return active.filter((inc) =>
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-        getIncidentTypeDisplayName(inc.type).toLowerCase().includes(lowerQuery) ||
-        getStatusDisplayName(inc.status).toLowerCase().includes(lowerQuery)
+        INCIDENT_TYPE_LABELS[inc.type].toLowerCase().includes(lowerQuery) ||
+        STATUS_LABELS[inc.status].toLowerCase().includes(lowerQuery)
       )
     },
     [incidents, searchQuery]
   )
+
+  // Load vehicles from API
+  useEffect(() => {
+    const loadVehicles = async () => {
+      try {
+        const vehicles = await apiClient.getVehicles()
+        // Create vehicle types array with keyboard shortcuts (1-5), including IDs
+        const typesWithKeys = vehicles.slice(0, 5).map((vehicle, index) => ({
+          key: String(index + 1),
+          name: vehicle.name,
+          id: vehicle.id
+        }))
+        setVehicleTypes(typesWithKeys)
+      } catch (error) {
+        console.error('Failed to load vehicles:', error)
+      }
+    }
+    loadVehicles()
+  }, [])
 
   // Refresh incidents immediately when map page loads
   useEffect(() => {
@@ -163,7 +207,7 @@ export default function MapPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-orange-600 text-2xl shadow-lg">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-2xl shadow-lg">
               🚒
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Lagekarte</h1>
@@ -179,7 +223,16 @@ export default function MapPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Map */}
-          <main className="flex-1 p-4">
+          <main
+            className="flex-1 p-4"
+            onClick={(e) => {
+              // Check if click was on the main container (not on a child element)
+              if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('leaflet-container')) {
+                setSelectedIncidentId(null)
+                setResetZoomTrigger((prev) => prev + 1)
+              }
+            }}
+          >
             <MapView
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={setSelectedIncidentId}
@@ -232,15 +285,23 @@ export default function MapPage() {
                         <div className="space-y-3">
                           {/* Location and Details button */}
                           <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-base leading-tight">
-                                {incident.location_address ? formatLocation(incident.location_address) : incident.title}
-                              </h3>
-                              {incident.title && incident.title !== incident.location_address && (
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {incident.title}
-                                </p>
-                              )}
+                            <div className="flex items-start gap-2 min-w-0 flex-1">
+                              <div
+                                className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
+                                  incident.priority === "high" ? "bg-red-500" : incident.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
+                                }`}
+                                title={incident.priority === "high" ? "Hohe Priorität" : incident.priority === "medium" ? "Mittlere Priorität" : "Niedrige Priorität"}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-bold text-base leading-tight">
+                                  {incident.location_address ? formatLocation(incident.location_address) : incident.title}
+                                </h3>
+                                {incident.title && incident.title !== incident.location_address && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {incident.title}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                             <button
                               onClick={(e) => {
@@ -250,45 +311,31 @@ export default function MapPage() {
                               className="p-1.5 rounded-md hover:bg-primary/20 transition-colors flex-shrink-0"
                               title="Details anzeigen"
                             >
-                              <FileText className="h-4 w-4 text-primary" />
+                              <FileText className="h-4 w-4 text-muted-foreground" />
                             </button>
                           </div>
 
                           {/* Incident Type */}
-                          {isExpanded && (
-                            <div className="text-sm font-medium text-foreground">
-                              {getIncidentTypeDisplayName(incident.type)}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm text-muted-foreground">{INCIDENT_TYPE_LABELS[incident.type]}</span>
+                          </div>
 
-                          {/* Priority, Time, and Status */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge
-                              variant={
-                                incident.priority === "high"
-                                  ? "destructive"
-                                  : incident.priority === "medium"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs"
-                            >
-                              {incident.priority === "high"
-                                ? "Hoch"
-                                : incident.priority === "medium"
-                                ? "Mittel"
-                                : "Niedrig"}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground font-mono">
-                              {formatTime(incident.created_at)}
-                            </span>
+                          {/* Time and Status */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm text-muted-foreground font-mono">
+                                {formatTime(incident.created_at)}
+                              </span>
+                            </div>
                             {isExpanded && (
                               <span className="text-xs text-muted-foreground font-mono">
-                                • {getTimeSince(incident.created_at)}
+                                {getTimeSince(incident.created_at)}
                               </span>
                             )}
                             <Badge variant="outline" className="text-xs">
-                              {getStatusDisplayName(incident.status)}
+                              {STATUS_LABELS[incident.status]}
                             </Badge>
                           </div>
 
@@ -316,6 +363,42 @@ export default function MapPage() {
                               </div>
                             </div>
                           )}
+
+                          {/* Assigned Crew (only when expanded) */}
+                          {isExpanded && incident.assigned_personnel && incident.assigned_personnel.length > 0 && (
+                            <div className="flex items-start gap-2">
+                              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                              <div className="flex flex-wrap gap-1.5 flex-1">
+                                {incident.assigned_personnel.map((person, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {person.name.split(" ")[0][0]}.{person.name.split(" ")[1]?.[0] || ""}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Assigned Materials (only when expanded) */}
+                          {isExpanded && incident.assigned_materials && incident.assigned_materials.length > 0 && (
+                            <div className="flex items-start gap-2">
+                              <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                              <div className="flex flex-wrap gap-1.5 flex-1">
+                                {incident.assigned_materials.map((material, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className="text-xs"
+                                  >
+                                    {material.name.substring(0, 15)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </Card>
                     )
@@ -326,12 +409,17 @@ export default function MapPage() {
           </aside>
         </div>
 
-        {/* Incident Form Modal */}
-        <IncidentForm
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          incident={incidentForModal}
-          mode="edit"
+        {/* Operation Detail Modal */}
+        <OperationDetailModal
+          operation={selectedOperation}
+          open={detailModalOpen}
+          onOpenChange={setDetailModalOpen}
+          onUpdate={handleOperationUpdate}
+          onDelete={handleOperationDelete}
+          materials={materials}
+          vehicleTypes={vehicleTypes}
+          onAssignVehicle={handleVehicleAssign}
+          onRemoveVehicle={handleVehicleRemove}
         />
       </div>
     </ProtectedRoute>
