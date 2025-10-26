@@ -34,7 +34,7 @@ MATERIAL_COLUMNS = [
 ]
 
 # Valid enum values
-VEHICLE_TYPES = ["TLF", "DLK", "MTW", "KDO", "VRW", "Anhänger"]
+VEHICLE_TYPES = ["TLF", "DLK", "MTW", "KDO", "KdoW", "VRW", "RW", "Anhänger"]
 VEHICLE_STATUSES = ["available", "assigned", "maintenance"]
 PERSONNEL_STATUSES = ["available", "not-available", "assigned"]
 MATERIAL_TYPES = ["Atemschutz", "Schläuche", "Werkzeug", "Pumpen", "Beleuchtung", "Sonstiges"]
@@ -164,13 +164,7 @@ def validate_and_parse_excel(
                 if not row_data.get(field):
                     raise ExcelImportError(f"Vehicles row {row_idx}: '{field}' is required")
 
-            # Validate enums
-            if row_data["type"] not in VEHICLE_TYPES:
-                raise ExcelImportError(
-                    f"Vehicles row {row_idx}: Invalid type '{row_data['type']}'. "
-                    f"Must be one of: {VEHICLE_TYPES}"
-                )
-
+            # Validate status enum
             if row_data["status"] not in VEHICLE_STATUSES:
                 raise ExcelImportError(
                     f"Vehicles row {row_idx}: Invalid status '{row_data['status']}'. "
