@@ -20,6 +20,7 @@ interface DroppableColumnProps {
   onCardClick: (operation: Operation) => void
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
+  hoveredOperationId?: string | null
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
   formatLocation: (address: string) => string
@@ -34,6 +35,7 @@ export function DroppableColumn({
   onCardClick,
   onCardHover,
   highlightedOperationId,
+  hoveredOperationId,
   isDraggingRef,
   materials,
   formatLocation,
@@ -78,6 +80,7 @@ export function DroppableColumn({
               onClick={() => onCardClick(operation)}
               onHover={onCardHover}
               isHighlighted={highlightedOperationId === operation.id}
+              isKeyboardFocused={hoveredOperationId === operation.id}
               isDraggingRef={isDraggingRef}
               materials={materials}
               index={index}

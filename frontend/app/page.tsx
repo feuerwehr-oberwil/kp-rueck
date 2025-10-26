@@ -29,6 +29,7 @@ import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
+import { CommandPalette } from "@/components/ui/command-palette"
 
 export default function FireStationDashboard() {
   const {
@@ -79,6 +80,8 @@ export default function FireStationDashboard() {
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [gPrefixActive, setGPrefixActive] = useState(false)
+  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -157,8 +160,16 @@ export default function FireStationDashboard() {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Esc to blur search input
+      // Esc to blur search input or cancel g-prefix mode
       if (e.key === 'Escape') {
+        if (gPrefixActive) {
+          setGPrefixActive(false)
+          if (gPrefixTimeoutRef.current) {
+            clearTimeout(gPrefixTimeoutRef.current)
+            gPrefixTimeoutRef.current = null
+          }
+          return
+        }
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
           (e.target as HTMLElement).blur()
           return
@@ -167,6 +178,90 @@ export default function FireStationDashboard() {
 
       // Ignore other shortcuts if typing in input/textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Handle g-prefix navigation
+      if (gPrefixActive) {
+        e.preventDefault()
+        setGPrefixActive(false)
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+          gPrefixTimeoutRef.current = null
+        }
+
+        if (e.key === 'k' || e.key === 'K') {
+          // Already on Kanban, do nothing (or could show a toast)
+          return
+        } else if (e.key === 'm' || e.key === 'M') {
+          router.push('/map')
+          return
+        } else if (e.key === 'e' || e.key === 'E') {
+          router.push('/events')
+          return
+        }
+        return
+      }
+
+      // Activate g-prefix mode
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setGPrefixActive(true)
+        // Reset g-prefix mode after 1.5 seconds
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+        }
+        gPrefixTimeoutRef.current = setTimeout(() => {
+          setGPrefixActive(false)
+          gPrefixTimeoutRef.current = null
+        }, 1500)
+        return
+      }
+
+      // Arrow key navigation between operations
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const allOps = operations
+        if (allOps.length === 0) return
+
+        if (!hoveredOperationId) {
+          // No operation selected, select first
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
+        if (currentIndex === -1) {
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        if (e.key === 'ArrowUp') {
+          // Move to previous operation
+          const newIndex = currentIndex > 0 ? currentIndex - 1 : allOps.length - 1
+          setHoveredOperationId(allOps[newIndex].id)
+        } else {
+          // Move to next operation
+          const newIndex = currentIndex < allOps.length - 1 ? currentIndex + 1 : 0
+          setHoveredOperationId(allOps[newIndex].id)
+        }
+        return
+      }
+
+      // Tab navigation - cycle through all operations
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        const allOps = operations
+        if (allOps.length === 0) return
+
+        if (!hoveredOperationId) {
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
+        const newIndex = (currentIndex + 1) % allOps.length
+        setHoveredOperationId(allOps[newIndex].id)
         return
       }
 
@@ -238,12 +333,48 @@ export default function FireStationDashboard() {
       } else if (e.key === ']') {
         e.preventDefault()
         setShowRightSidebar(prev => !prev)
+      } else if (e.key === 'e' || e.key === 'E' || e.key === 'Enter') {
+        // Open detail modal for hovered operation
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            e.preventDefault()
+            setSelectedOperation(operation)
+            setDetailModalOpen(true)
+          }
+        }
+      } else if (e.key === 'r' || e.key === 'R' || e.key === 'F5') {
+        e.preventDefault()
+        refreshOperations()
+        toast.success("Daten aktualisiert")
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Delete hovered operation with confirmation
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            e.preventDefault()
+            if (confirm(`Einsatz "${operation.location}" wirklich löschen?`)) {
+              deleteOperation(hoveredOperationId).then(() => {
+                toast.success("Einsatz gelöscht")
+              }).catch((error) => {
+                console.error('Failed to delete operation:', error)
+                toast.error("Fehler beim Löschen")
+              })
+            }
+          }
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation])
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      // Clean up timeout on unmount
+      if (gPrefixTimeoutRef.current) {
+        clearTimeout(gPrefixTimeoutRef.current)
+      }
+    }
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation])
 
   // Monitor drag events globally
   useEffect(() => {
@@ -739,6 +870,7 @@ export default function FireStationDashboard() {
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
+                    hoveredOperationId={hoveredOperationId}
                     isDraggingRef={isDraggingOperationRef}
                     materials={materials}
                     formatLocation={formatLocation}
@@ -808,44 +940,44 @@ export default function FireStationDashboard() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Tastaturkürzel:</span>
               <div className="flex items-center gap-1">
+                <Kbd className="h-4 text-[10px]">E</Kbd>
+                <span>Bearbeiten</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
                 <Kbd className="h-4 text-[10px]">1-5</Kbd>
                 <span>Fahrzeuge</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">&lt;</Kbd>
-                <Kbd className="h-4 text-[10px]">&gt;</Kbd>
+                <Kbd className="h-4 text-[10px]">↑</Kbd>
+                <Kbd className="h-4 text-[10px]">↓</Kbd>
                 <span>Navigation</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
                 <Kbd className="h-4 text-[10px]">N</Kbd>
-                <span>Neuer Einsatz</span>
+                <span>Neu</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">/</Kbd>
-                <span>Suche</span>
+                <Kbd className="h-4 text-[10px]">R</Kbd>
+                <span>Refresh</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">Esc</Kbd>
-                <span>Verlassen</span>
+                <Kbd className="h-4 text-[10px]">G+K/M/E</Kbd>
+                <span>Seiten</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">[</Kbd>
-                <span>Personen</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">]</Kbd>
-                <span>Material</span>
+                <Kbd className="h-4 text-[10px]">⌘K</Kbd>
+                <span>Befehle</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
                 <Kbd className="h-4 text-[10px]">?</Kbd>
-                <span>Hilfe</span>
+                <span>Alle Kürzel</span>
               </div>
             </div>
           </div>
@@ -961,6 +1093,15 @@ export default function FireStationDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Command Palette */}
+      <CommandPalette
+        onNewOperation={() => setNewEmergencyModalOpen(true)}
+        onShowHelp={() => setShortcutsModalOpen(true)}
+        onRefresh={refreshOperations}
+        onToggleLeftSidebar={() => setShowLeftSidebar(prev => !prev)}
+        onToggleRightSidebar={() => setShowRightSidebar(prev => !prev)}
+      />
     </ProtectedRoute>
   )
 }
