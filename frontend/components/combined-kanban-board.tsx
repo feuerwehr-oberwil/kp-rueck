@@ -7,6 +7,7 @@ import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { Kbd } from "@/components/ui/kbd"
 
@@ -39,6 +40,8 @@ export default function CombinedKanbanBoard({
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
   const [highlightedOperationIdLocal, setHighlightedOperationIdLocal] = useState<string | null>(null)
+  const [personnelFilter, setPersonnelFilter] = useState<"all" | "available" | "assigned">("all")
+  const [materialFilter, setMaterialFilter] = useState<"all" | "available" | "assigned">("all")
   const isDraggingRef = useRef(false)
 
   useEffect(() => {
@@ -179,15 +182,25 @@ export default function CombinedKanbanBoard({
   }, [isMounted, operations, assignPersonToOperation, assignMaterialToOperation, setOperations, updateOperation])
 
   // Filter personnel and materials
-  const filteredPersonnel = personnel.filter((p) =>
-    p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
-    p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
-  )
+  const filteredPersonnel = personnel.filter((p) => {
+    // Status filter
+    if (personnelFilter === "available" && p.status !== "available") return false
+    if (personnelFilter === "assigned" && p.status !== "assigned") return false
 
-  const filteredMaterials = materials.filter((m) =>
-    m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
-    m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
-  )
+    // Search filter
+    return p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
+      p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
+  })
+
+  const filteredMaterials = materials.filter((m) => {
+    // Status filter
+    if (materialFilter === "available" && m.status !== "available") return false
+    if (materialFilter === "assigned" && m.status !== "assigned") return false
+
+    // Search filter
+    return m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
+      m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
+  })
 
   const groupedPersonnel = filteredPersonnel.reduce(
     (acc, person) => {
@@ -245,9 +258,38 @@ export default function CombinedKanbanBoard({
         <div className="p-4">
           {/* Personnel Section */}
           <div className="mb-6">
-            <h2 className="text-base font-bold text-foreground mb-2">Verfügbare Personen</h2>
+            <h2 className="text-base font-bold text-foreground mb-2">Personen</h2>
+
+            {/* Filter Buttons */}
+            <div className="flex gap-1 mb-3">
+              <Button
+                variant={personnelFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPersonnelFilter("all")}
+                className="flex-1 h-7 text-xs"
+              >
+                Alle
+              </Button>
+              <Button
+                variant={personnelFilter === "available" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPersonnelFilter("available")}
+                className="flex-1 h-7 text-xs"
+              >
+                Verfügbar
+              </Button>
+              <Button
+                variant={personnelFilter === "assigned" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPersonnelFilter("assigned")}
+                className="flex-1 h-7 text-xs"
+              >
+                Zugewiesen
+              </Button>
+            </div>
+
             <p className="text-sm text-muted-foreground mb-3">
-              {personnel.filter((p) => p.status === "available").length} von {personnel.length} verfügbar
+              {filteredPersonnel.length} von {personnel.length} angezeigt
             </p>
 
             <div className="relative mb-4">
@@ -285,9 +327,38 @@ export default function CombinedKanbanBoard({
 
           {/* Materials Section */}
           <div>
-            <h2 className="text-base font-bold text-foreground mb-2">Verfügbares Material</h2>
+            <h2 className="text-base font-bold text-foreground mb-2">Material</h2>
+
+            {/* Filter Buttons */}
+            <div className="flex gap-1 mb-3">
+              <Button
+                variant={materialFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMaterialFilter("all")}
+                className="flex-1 h-7 text-xs"
+              >
+                Alle
+              </Button>
+              <Button
+                variant={materialFilter === "available" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMaterialFilter("available")}
+                className="flex-1 h-7 text-xs"
+              >
+                Verfügbar
+              </Button>
+              <Button
+                variant={materialFilter === "assigned" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMaterialFilter("assigned")}
+                className="flex-1 h-7 text-xs"
+              >
+                Zugewiesen
+              </Button>
+            </div>
+
             <p className="text-sm text-muted-foreground mb-3">
-              {materials.filter((m) => m.status === "available").length} von {materials.length} verfügbar
+              {filteredMaterials.length} von {materials.length} angezeigt
             </p>
 
             <div className="relative mb-4">
