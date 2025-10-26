@@ -537,3 +537,28 @@ class AuditLogEntry(BaseModel):
         if ip_address is None:
             return None
         return str(ip_address)
+
+
+# ============================================
+# Excel Import/Export Schemas
+# ============================================
+
+
+class ExcelImportPreview(BaseModel):
+    """Preview of Excel import data."""
+
+    personnel_preview: list[dict]
+    personnel_total: int
+    vehicles_preview: list[dict]
+    vehicles_total: int
+    materials_preview: list[dict]
+    materials_total: int
+
+
+class ExcelImportResult(BaseModel):
+    """Result of Excel import operation."""
+
+    success: bool
+    mode: str
+    counts: dict[str, int]
+    timestamp: datetime
