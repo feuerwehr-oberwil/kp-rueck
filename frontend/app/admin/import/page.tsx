@@ -17,13 +17,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -39,6 +32,7 @@ export default function ImportExportPage() {
   const { selectedEvent } = useEvent();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -77,6 +71,10 @@ export default function ImportExportPage() {
     try {
       const result = await apiClient.previewExcelImport(selectedFile);
       setPreview(result);
+      // Scroll to preview after a short delay to ensure it's rendered
+      setTimeout(() => {
+        previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     } catch (err) {
       console.error('Preview failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Vorschau fehlgeschlagen';
@@ -248,18 +246,19 @@ export default function ImportExportPage() {
             )}
 
             {/* Export Section */}
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Download className="h-5 w-5 text-blue-600" />
-                <h2 className="text-xl font-semibold">Daten Exportieren</h2>
+            <Card className="p-6 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold mb-1">Daten Exportieren</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Exportieren Sie alle Personal-, Fahrzeug- und Materialdaten als Excel-Datei
+                  </p>
+                </div>
+                <Button onClick={handleExport} disabled={loading} variant="outline" className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Exportieren
+                </Button>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                Exportieren Sie alle Personal-, Fahrzeug- und Materialdaten als Excel-Datei.
-              </p>
-              <Button onClick={handleExport} disabled={loading} className="gap-2">
-                <Download className="h-4 w-4" />
-                Alle Daten Exportieren
-              </Button>
             </Card>
 
             {/* Import Section */}
@@ -271,36 +270,47 @@ export default function ImportExportPage() {
 
               {/* Download Template */}
               <div className="mb-6">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Laden Sie zuerst die Excel-Vorlage herunter und füllen Sie sie mit Ihren Daten aus.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={handleDownloadTemplate}
-                  disabled={loading}
-                  className="gap-2"
-                >
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Excel-Vorlage Herunterladen
-                </Button>
+                <div className="flex items-center justify-between gap-4 p-4 rounded-lg bg-muted/30 border border-border/50">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium mb-1">Excel-Vorlage</p>
+                    <p className="text-xs text-muted-foreground">
+                      Laden Sie die Vorlage herunter und füllen Sie sie mit Ihren Daten aus
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadTemplate}
+                    disabled={loading}
+                    className="gap-2 shrink-0"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Vorlage Herunterladen
+                  </Button>
+                </div>
               </div>
 
               {/* File Upload */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">Excel-Datei auswählen</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileSelect}
-                  className="block w-full text-sm text-muted-foreground
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-primary file:text-primary-foreground
-                    hover:file:bg-primary/90
-                    cursor-pointer"
-                />
+                <div className="relative">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {selectedFile ? selectedFile.name : 'Datei auswählen'}
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {selectedFile && (
@@ -308,29 +318,50 @@ export default function ImportExportPage() {
                   {/* Import Mode */}
                   <div className="mb-6">
                     <label className="block text-sm font-medium mb-2">Import-Modus</label>
-                    <Select value={importMode} onValueChange={(val) => setImportMode(val as 'replace' | 'append')}>
-                      <SelectTrigger className="w-full max-w-md">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="replace">
-                          <div>
-                            <div className="font-medium">Ersetzen</div>
-                            <div className="text-xs text-muted-foreground">
-                              Alle bestehenden Daten löschen und neue Daten importieren
-                            </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setImportMode('replace')}
+                        className={`
+                          relative rounded-lg border-2 p-4 text-left transition-all
+                          ${importMode === 'replace'
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-border bg-background hover:border-primary/50 hover:bg-accent/50'
+                          }
+                        `}
+                      >
+                        <div className="font-semibold text-base mb-1">Ersetzen</div>
+                        <div className="text-sm text-muted-foreground">
+                          Alle bestehenden Daten löschen und neue Daten importieren
+                        </div>
+                        {importMode === 'replace' && (
+                          <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                            <CheckCircle className="h-4 w-4 text-primary-foreground" />
                           </div>
-                        </SelectItem>
-                        <SelectItem value="append">
-                          <div>
-                            <div className="font-medium">Anhängen</div>
-                            <div className="text-xs text-muted-foreground">
-                              Bestehende Daten behalten und neue Daten hinzufügen
-                            </div>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImportMode('append')}
+                        className={`
+                          relative rounded-lg border-2 p-4 text-left transition-all
+                          ${importMode === 'append'
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-border bg-background hover:border-primary/50 hover:bg-accent/50'
+                          }
+                        `}
+                      >
+                        <div className="font-semibold text-base mb-1">Anhängen</div>
+                        <div className="text-sm text-muted-foreground">
+                          Bestehende Daten behalten und neue Daten hinzufügen
+                        </div>
+                        {importMode === 'append' && (
+                          <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                            <CheckCircle className="h-4 w-4 text-primary-foreground" />
                           </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Actions */}
@@ -355,7 +386,7 @@ export default function ImportExportPage() {
 
             {/* Preview */}
             {preview && (
-              <Card className="p-6">
+              <Card ref={previewRef} className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Import Vorschau (Erste 10 Zeilen)</h3>
 
                 {/* Personnel Preview */}

@@ -106,7 +106,9 @@ class VehicleBase(BaseModel):
 
     name: str
     type: str  # Configurable vehicle types (e.g., 'TLF', 'DLK', 'MTW')
+    display_order: int
     status: str  # 'available', 'assigned', 'planned', 'maintenance'
+    radio_call_sign: str
 
 
 class VehicleCreate(VehicleBase):
@@ -120,7 +122,9 @@ class VehicleUpdate(BaseModel):
 
     name: Optional[str] = None
     type: Optional[str] = None
+    display_order: Optional[int] = None
     status: Optional[str] = None
+    radio_call_sign: Optional[str] = None
 
 
 class Vehicle(VehicleBase):
@@ -141,9 +145,11 @@ class Vehicle(VehicleBase):
 class MaterialBase(BaseModel):
     """Base material schema."""
 
-    name: str  # Descriptive name including type/location (e.g., 'pump small from car 1')
-    status: str  # 'available', 'assigned', 'planned', 'maintenance'
-    location: Optional[str] = None  # Storage location (e.g., 'TLF 1', 'Lager Raum 3')
+    name: str
+    type: str  # Material type (e.g., 'Atemschutz', 'Schläuche', 'Werkzeug')
+    location: str  # Storage location (e.g., 'TLF 1', 'Lager Raum 3')
+    description: Optional[str] = None
+    status: str = "available"  # 'available', 'assigned', 'planned', 'maintenance'
 
 
 class MaterialCreate(MaterialBase):
@@ -156,8 +162,10 @@ class MaterialUpdate(BaseModel):
     """Schema for updating material."""
 
     name: Optional[str] = None
-    status: Optional[str] = None
+    type: Optional[str] = None
     location: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
 
 
 class Material(MaterialBase):

@@ -85,27 +85,37 @@ async def seed_database() -> None:
                 {
                     "name": "TLF 1",
                     "type": "TLF",
+                    "display_order": 1,
                     "status": "available",
+                    "radio_call_sign": "Florian Oberwil 1",
                 },
                 {
                     "name": "DLK",
                     "type": "DLK",
+                    "display_order": 2,
                     "status": "available",
+                    "radio_call_sign": "Florian Oberwil 2",
                 },
                 {
                     "name": "MTW 1",
                     "type": "MTW",
+                    "display_order": 3,
                     "status": "assigned",
+                    "radio_call_sign": "Florian Oberwil 3",
                 },
                 {
                     "name": "Pio",
                     "type": "RW",
+                    "display_order": 4,
                     "status": "maintenance",
+                    "radio_call_sign": "Florian Oberwil 4",
                 },
                 {
                     "name": "KdoW",
                     "type": "KdoW",
+                    "display_order": 5,
                     "status": "available",
+                    "radio_call_sign": "Florian Oberwil 5",
                 },
             ]
 
@@ -144,54 +154,74 @@ async def seed_database() -> None:
             print("Creating materials...")
             materials_data = [
                 {
-                    "name": "Wasserpumpe TP 15/8 from TLF 1",
-                    "status": "assigned",
+                    "name": "Wasserpumpe TP 15/8",
+                    "type": "Pumpen",
                     "location": "TLF 1",
+                    "description": "Tragkraftspritze TP 15/8",
+                    "status": "assigned",
                 },
                 {
                     "name": "Schlauchpaket B",
-                    "status": "available",
+                    "type": "Schläuche",
                     "location": "Lager Raum 3",
+                    "description": "B-Schläuche 20m",
+                    "status": "available",
                 },
                 {
                     "name": "Schlauchpaket C",
-                    "status": "available",
+                    "type": "Schläuche",
                     "location": "Lager Raum 3",
+                    "description": "C-Schläuche 15m",
+                    "status": "available",
                 },
                 {
-                    "name": "Atemschutzgerät from TLF 1",
-                    "status": "assigned",
+                    "name": "Atemschutzgerät",
+                    "type": "Atemschutz",
                     "location": "TLF 1",
+                    "description": "Dräger PSS 7000",
+                    "status": "assigned",
                 },
                 {
                     "name": "Wärmebildkamera",
-                    "status": "available",
+                    "type": "Werkzeug",
                     "location": "MTW 1",
+                    "description": "MSA Evolution 6000",
+                    "status": "available",
                 },
                 {
-                    "name": "Hydraulisches Rettungsgerät from Pio",
-                    "status": "assigned",
+                    "name": "Hydraulisches Rettungsgerät",
+                    "type": "Werkzeug",
                     "location": "Pio",
+                    "description": "Weber Rescue E2 Satz",
+                    "status": "assigned",
                 },
                 {
                     "name": "Schaummittel 200L",
-                    "status": "available",
+                    "type": "Sonstiges",
                     "location": "Lager Raum 1",
+                    "description": "Schaummittel AFFF 3%",
+                    "status": "available",
                 },
                 {
                     "name": "Stromerzeuger 5kW",
-                    "status": "available",
+                    "type": "Beleuchtung",
                     "location": "DLK",
+                    "description": "Honda EU50i",
+                    "status": "available",
                 },
                 {
-                    "name": "Funkgerät HRT 1 from KdoW",
-                    "status": "assigned",
+                    "name": "Funkgerät HRT 1",
+                    "type": "Sonstiges",
                     "location": "KdoW",
+                    "description": "Motorola DP4800",
+                    "status": "assigned",
                 },
                 {
                     "name": "Erste-Hilfe-Koffer",
-                    "status": "available",
+                    "type": "Sonstiges",
                     "location": "Lager Raum 2",
+                    "description": "Söhngen Notfallkoffer DIN 13157",
+                    "status": "available",
                 },
             ]
 
@@ -202,7 +232,30 @@ async def seed_database() -> None:
                 materials.append(material)
 
             # ============================================
-            # 6. SEED SAMPLE INCIDENTS
+            # 6. SEED SAMPLE EVENTS
+            # ============================================
+            print("Creating sample events...")
+
+            # Create operational event
+            operational_event = models.Event(
+                id=uuid4(),
+                name="Einsätze 26.10.2025",
+                training_flag=False,
+            )
+            db.add(operational_event)
+
+            # Create training event
+            training_event = models.Event(
+                id=uuid4(),
+                name="Übung 26.10.2025",
+                training_flag=True,
+            )
+            db.add(training_event)
+
+            await db.flush()  # Get event IDs for incidents
+
+            # ============================================
+            # 7. SEED SAMPLE INCIDENTS
             # ============================================
             print("Creating sample incidents...")
             now = datetime.now()
@@ -216,9 +269,9 @@ async def seed_database() -> None:
                     "location_lat": 47.5180,
                     "location_lng": 7.5640,
                     "status": "einsatz",
-                    "training_flag": False,
                     "description": "Rauchentwicklung aus Dachgeschoss gemeldet",
                     "created_by": admin_user.id,
+                    "event_id": operational_event.id,
                 },
                 {
                     "title": "Verkehrsunfall mit eingeklemmter Person",
@@ -228,9 +281,9 @@ async def seed_database() -> None:
                     "location_lat": 47.5145,
                     "location_lng": 7.5595,
                     "status": "disponiert",
-                    "training_flag": False,
                     "description": "PKW gegen Baum, Person eingeklemmt",
                     "created_by": admin_user.id,
+                    "event_id": operational_event.id,
                 },
                 {
                     "title": "Fehlalarm BMA",
@@ -240,10 +293,10 @@ async def seed_database() -> None:
                     "location_lat": 47.5125,
                     "location_lng": 7.5670,
                     "status": "abschluss",
-                    "training_flag": False,
                     "description": "Brandmeldeanlage ausgelöst, kein Feuer",
                     "created_by": admin_user.id,
                     "completed_at": now - timedelta(minutes=20),
+                    "event_id": operational_event.id,
                 },
                 {
                     "title": "Ölspur auf Fahrbahn",
@@ -253,9 +306,9 @@ async def seed_database() -> None:
                     "location_lat": 47.5200,
                     "location_lng": 7.5585,
                     "status": "eingegangen",
-                    "training_flag": False,
                     "description": "Ölspur ca. 50m Länge",
                     "created_by": admin_user.id,
+                    "event_id": operational_event.id,
                 },
                 {
                     "title": "Übung: Brandbekämpfung Industriehalle",
@@ -265,9 +318,9 @@ async def seed_database() -> None:
                     "location_lat": 47.5160,
                     "location_lng": 7.5620,
                     "status": "reko",
-                    "training_flag": True,  # Training incident
                     "description": "Großübung Brandbekämpfung mit Atemschutz",
                     "created_by": admin_user.id,
+                    "event_id": training_event.id,
                 },
             ]
 
@@ -280,7 +333,7 @@ async def seed_database() -> None:
             await db.flush()  # Get incident IDs for assignments
 
             # ============================================
-            # 7. SEED INCIDENT ASSIGNMENTS
+            # 8. SEED INCIDENT ASSIGNMENTS
             # ============================================
             print("Creating incident assignments...")
 
@@ -345,7 +398,7 @@ async def seed_database() -> None:
                 db.add(assignment)
 
             # ============================================
-            # 8. SEED STATUS TRANSITIONS
+            # 9. SEED STATUS TRANSITIONS
             # ============================================
             print("Creating status transitions...")
 
@@ -390,6 +443,7 @@ async def seed_database() -> None:
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")
             print(f"  - Created {len(materials)} materials")
+            print(f"  - Created 2 events (1 training, 1 operational)")
             print(f"  - Created {len(incidents)} incidents (1 training, 4 operational)")
             print(f"  - Created {len(assignments)} resource assignments")
             print(f"  - Created {len(transitions)} status transitions")
