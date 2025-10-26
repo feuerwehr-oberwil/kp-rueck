@@ -44,10 +44,27 @@ export default function CombinedKanbanBoard({
   const [materialFilter, setMaterialFilter] = useState<"all" | "available" | "assigned">("all")
   const [sectionView, setSectionView] = useState<"both" | "personnel" | "materials">("both")
   const isDraggingRef = useRef(false)
+  const kanbanScrollRef = useRef<HTMLDivElement>(null)
+  const operationRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Scroll to highlighted operation when it changes
+  useEffect(() => {
+    if (highlightedOperationId) {
+      const element = operationRefs.current.get(highlightedOperationId)
+      if (element && kanbanScrollRef.current) {
+        // Scroll the operation card into view with smooth behavior
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'center'
+        })
+      }
+    }
+  }, [highlightedOperationId])
 
   // Monitor drag events globally for drag-and-drop functionality
   useEffect(() => {
@@ -432,7 +449,7 @@ export default function CombinedKanbanBoard({
       </aside>
 
       {/* Main Kanban Board */}
-      <div className="flex-1 flex h-full gap-3 overflow-x-auto p-4 bg-zinc-950/20">
+      <div ref={kanbanScrollRef} className="flex-1 flex h-full gap-3 overflow-x-auto p-4 bg-zinc-950/20">
         {columns.map((column) => {
           const columnOps = operations.filter((op) => column.status.includes(op.status))
           return (
@@ -450,6 +467,13 @@ export default function CombinedKanbanBoard({
               isDraggingRef={isDraggingRef}
               materials={materials}
               formatLocation={formatLocation}
+              setOperationRef={(id, el) => {
+                if (el) {
+                  operationRefs.current.set(id, el)
+                } else {
+                  operationRefs.current.delete(id)
+                }
+              }}
             />
           )
         })}

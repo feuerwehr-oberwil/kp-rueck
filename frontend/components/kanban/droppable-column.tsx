@@ -24,6 +24,7 @@ interface DroppableColumnProps {
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
   formatLocation: (address: string) => string
+  setOperationRef?: (id: string, element: HTMLDivElement | null) => void
 }
 
 export function DroppableColumn({
@@ -39,6 +40,7 @@ export function DroppableColumn({
   isDraggingRef,
   materials,
   formatLocation,
+  setOperationRef,
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -70,23 +72,27 @@ export function DroppableColumn({
       <div ref={ref} className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative ${isOver && operations.length === 0 ? "border-2 border-dashed border-primary" : ""}`}>
         <div className="space-y-3">
           {operations.map((operation, index) => (
-            <DraggableOperation
+            <div
               key={operation.id}
-              operation={operation}
-              columnColor={column.color}
-              onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
-              onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
-              onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
-              onClick={() => onCardClick(operation)}
-              onHover={onCardHover}
-              isHighlighted={highlightedOperationId === operation.id}
-              isKeyboardFocused={hoveredOperationId === operation.id}
-              isDraggingRef={isDraggingRef}
-              materials={materials}
-              index={index}
-              columnOperations={operations}
-              formatLocation={formatLocation}
-            />
+              ref={(el) => setOperationRef?.(operation.id, el)}
+            >
+              <DraggableOperation
+                operation={operation}
+                columnColor={column.color}
+                onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
+                onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
+                onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
+                onClick={() => onCardClick(operation)}
+                onHover={onCardHover}
+                isHighlighted={highlightedOperationId === operation.id}
+                isKeyboardFocused={hoveredOperationId === operation.id}
+                isDraggingRef={isDraggingRef}
+                materials={materials}
+                index={index}
+                columnOperations={operations}
+                formatLocation={formatLocation}
+              />
+            </div>
           ))}
         </div>
       </div>
