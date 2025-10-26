@@ -22,67 +22,26 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon
 
-// Status color mapping (matching kanban board colors)
-const STATUS_COLORS: Record<string, string> = {
-  eingegangen: "#27272a", // zinc-800 (matching kanban "incoming")
-  reko: "#166534", // green-800 (matching kanban "ready")
-  disponiert: "#1e3a8a", // blue-900 (matching kanban "enroute")
-  einsatz: "#7c2d12", // orange-900 (matching kanban "active")
-  einsatz_beendet: "#1e40af", // blue-800 (matching kanban "returning")
-  abschluss: "#18181b", // zinc-900 (matching kanban "complete")
-}
-
-// Incident type to display name mapping
-function getIncidentTypeDisplayName(type: string): string {
-  const displayNameMap: Record<string, string> = {
-    brandbekaempfung: "Brandbekämpfung",
-    elementarereignis: "Elementarereignis",
-    strassenrettung: "Straßenrettung",
-    technische_hilfeleistung: "Technische Hilfeleistung",
-    oelwehr: "Ölwehr",
-    chemiewehr: "Chemiewehr",
-    strahlenwehr: "Strahlenwehr",
-    einsatz_bahnanlagen: "Einsatz Bahnanlagen",
-    bma_unechte_alarme: "BMA / Unechte Alarme",
-    dienstleistungen: "Dienstleistungen",
-    diverse_einsaetze: "Diverse Einsätze",
-    gerettete_menschen: "Gerettete Menschen",
-    gerettete_tiere: "Gerettete Tiere",
-  }
-  return displayNameMap[type] || type
-}
-
-// Priority color mapping
+// Priority color mapping - simplified to single color markers
 const PRIORITY_COLORS: Record<string, string> = {
   high: "#ef4444", // red-500
   medium: "#eab308", // yellow-500
   low: "#22c55e", // green-500
 }
 
-// Create custom colored icon for incident markers (two-tone: outer ring = status, inner circle = priority)
+// Create simple priority-based marker icon
 function createIncidentIcon(incident: Incident): L.DivIcon {
-  const statusColor = STATUS_COLORS[incident.status] || "#6b7280"
   const priorityColor = PRIORITY_COLORS[incident.priority] || "#6b7280"
 
   const html = `
     <div style="
       width: 24px;
       height: 24px;
-      background-color: ${statusColor};
+      background-color: ${priorityColor};
       border: 2px solid white;
       border-radius: 50%;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    ">
-      <div style="
-        width: 10px;
-        height: 10px;
-        background-color: ${priorityColor};
-        border-radius: 50%;
-      "></div>
-    </div>
+    "></div>
   `
 
   return L.divIcon({
