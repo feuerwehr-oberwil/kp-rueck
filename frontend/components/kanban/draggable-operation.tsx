@@ -141,7 +141,7 @@ export function DraggableOperation({
                 className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
                 title="Auf Karte anzeigen"
               >
-                <MapIcon className="h-4 w-4 text-primary" />
+                <MapIcon className="h-4 w-4 text-muted-foreground" />
               </Link>
             </div>
           </div>
@@ -170,7 +170,7 @@ export function DraggableOperation({
                 {operation.vehicles.map((vehicleName, idx) => (
                   <Badge
                     key={idx}
-                    variant="default"
+                    variant="secondary"
                     className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
                   >
                     {vehicleName}
