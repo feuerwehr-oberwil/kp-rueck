@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -67,6 +67,9 @@ export default function MapPage() {
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
+  const [gPrefixActive, setGPrefixActive] = useState(false)
+  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const mapRef = useRef<any>(null)
 
   const selectedIncident = useMemo(
     () => incidents.find((inc) => inc.id === selectedIncidentId),
@@ -181,12 +184,61 @@ export default function MapPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Esc to blur input or cancel g-prefix mode
+      if (e.key === 'Escape') {
+        if (gPrefixActive) {
+          setGPrefixActive(false)
+          if (gPrefixTimeoutRef.current) {
+            clearTimeout(gPrefixTimeoutRef.current)
+            gPrefixTimeoutRef.current = null
+          }
+          return
+        }
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+          (e.target as HTMLElement).blur()
+          return
+        }
+      }
+
       // Ignore if typing in input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        // Allow Esc to blur from input
-        if (e.key === 'Escape') {
-          (e.target as HTMLElement).blur()
+        return
+      }
+
+      // Handle g-prefix navigation
+      if (gPrefixActive) {
+        e.preventDefault()
+        setGPrefixActive(false)
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+          gPrefixTimeoutRef.current = null
         }
+
+        if (e.key === 'k' || e.key === 'K') {
+          router.push('/')
+          return
+        } else if (e.key === 'm' || e.key === 'M') {
+          // Already on Map, do nothing
+          return
+        } else if (e.key === 'e' || e.key === 'E') {
+          router.push('/events')
+          return
+        }
+        return
+      }
+
+      // Activate g-prefix mode
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setGPrefixActive(true)
+        // Reset g-prefix mode after 1.5 seconds
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+        }
+        gPrefixTimeoutRef.current = setTimeout(() => {
+          setGPrefixActive(false)
+          gPrefixTimeoutRef.current = null
+        }, 1500)
         return
       }
 
@@ -195,17 +247,40 @@ export default function MapPage() {
         e.preventDefault()
         document.getElementById('map-search-input')?.focus()
       }
-      // 'z' key to zoom out
+      // 'z' key to reset zoom
       else if (e.key === 'z' || e.key === 'Z') {
         e.preventDefault()
         setResetZoomTrigger((prev) => prev + 1)
-        setSelectedIncidentId(null) // Deselect any selected incident
+        setSelectedIncidentId(null)
       }
+      // 'e' or 'Enter' key to open details for selected incident
+      else if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && selectedIncidentId) {
+        e.preventDefault()
+        const incident = incidents.find(inc => inc.id === selectedIncidentId)
+        if (incident) {
+          handleDetailsClick(incident)
+        }
+      }
+      // 'r' or 'F5' key to refresh data
+      else if (e.key === 'r' || e.key === 'R' || e.key === 'F5') {
+        e.preventDefault()
+        refreshIncidents()
+        toast.success("Daten aktualisiert")
+      }
+      // Arrow keys to pan map (placeholder - would need to integrate with Leaflet map)
+      // Note: Actual map panning would require access to the Leaflet map instance
+      // For now, this is documented but not fully implemented
     }
 
     window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [])
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      // Clean up timeout on unmount
+      if (gPrefixTimeoutRef.current) {
+        clearTimeout(gPrefixTimeoutRef.current)
+      }
+    }
+  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick])
 
   return (
     <ProtectedRoute>
