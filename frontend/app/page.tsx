@@ -6,14 +6,13 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CopyButton } from "@/components/ui/copy-button"
-import { Search, Plus, Clock, Package, QrCode, Filter } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Filter, Copy, Check } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -78,6 +77,7 @@ export default function FireStationDashboard() {
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -514,6 +514,19 @@ export default function FireStationDashboard() {
     }
   }
 
+  const copyCheckInUrlToClipboard = async () => {
+    if (!checkInUrl) return
+
+    try {
+      await navigator.clipboard.writeText(checkInUrl)
+      setCopied(true)
+      toast.success('Link kopiert')
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      toast.error('Fehler beim Kopieren')
+    }
+  }
+
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
     return (
@@ -894,32 +907,49 @@ export default function FireStationDashboard() {
       <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Personal Check-In QR-Code</DialogTitle>
+            <DialogTitle>Personal Check-In</DialogTitle>
+            <DialogDescription>
+              QR-Code scannen oder Link teilen für mobilen Zugriff
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-4">
-            {checkInUrl && (
-              <>
+          {checkInUrl && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="rounded-lg border p-4 bg-white">
                 <QRCodeSVG
                   value={checkInUrl}
-                  size={300}
-                  level="H"
+                  size={200}
+                  level="M"
                   includeMargin
                 />
-                <p className="text-sm text-muted-foreground text-center">
-                  Scannen Sie diesen QR-Code, um auf die Personal Check-In Seite zuzugreifen.
-                </p>
-                <div className="w-full flex items-center gap-2">
-                  <div className="flex-1 p-2 bg-secondary rounded text-xs font-mono break-all">
-                    {checkInUrl}
-                  </div>
-                  <CopyButton
-                    text={checkInUrl}
-                    className="flex-shrink-0"
+              </div>
+
+              <div className="w-full">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={checkInUrl}
+                    readOnly
+                    className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
                   />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyCheckInUrlToClipboard}
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Dieser Link ermöglicht den Zugriff auf das Check-In ohne Anmeldung
+              </p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </ProtectedRoute>
