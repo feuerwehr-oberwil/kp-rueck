@@ -20,7 +20,7 @@ export function MapLegend() {
             <span className="text-xs">Mittel</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-green-500 border-2 border-white shadow-sm flex-shrink-0" />
+            <div className="w-6 h-6 rounded-full bg-zinc-500 border-2 border-white shadow-sm flex-shrink-0" />
             <span className="text-xs">Niedrig</span>
           </div>
         </div>

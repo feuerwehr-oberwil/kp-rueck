@@ -37,7 +37,7 @@ export function ConnectionStatus() {
   const getStatusColor = () => {
     switch (status) {
       case "connected":
-        return "bg-green-500"
+        return "bg-zinc-500"
       case "disconnected":
         return "bg-red-500"
       case "checking":

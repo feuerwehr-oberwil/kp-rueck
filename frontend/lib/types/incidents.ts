@@ -175,7 +175,7 @@ export const KANBAN_COLUMNS = [
     id: 'reko',
     title: 'REKO',
     status: ['reko'] as IncidentStatus[],
-    color: 'bg-green-800/30',
+    color: 'bg-zinc-800/50',
   },
   {
     id: 'disponiert',

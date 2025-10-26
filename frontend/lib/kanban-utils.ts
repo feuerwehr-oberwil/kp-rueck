@@ -8,7 +8,7 @@ export const columns: Array<{
   color: string
 }> = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-zinc-800/50" },
-  { id: "ready", title: "REKO", status: ["ready"], color: "bg-green-800/30" },
+  { id: "ready", title: "REKO", status: ["ready"], color: "bg-zinc-800/50" },
   { id: "enroute", title: "DISPONIERT / UNTERWEGS", status: ["enroute"], color: "bg-blue-900/30" },
   { id: "active", title: "EINSATZ", status: ["active"], color: "bg-orange-900/30" },
   { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: "bg-blue-800/30" },

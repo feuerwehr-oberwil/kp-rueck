@@ -5,41 +5,41 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Enhanced fire station theme with better contrast and readability */
+  /* Professional emergency services theme - burgundy red + emergency blue */
   --background: oklch(0.1 0 0);
   --foreground: oklch(0.98 0 0);
   --card: oklch(0.14 0 0);
   --card-foreground: oklch(0.98 0 0);
   --popover: oklch(0.14 0 0);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.68 0.25 30);
+  --primary: oklch(0.50 0.16 25);
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.2 0 0);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.2 0 0);
   --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.65 0.2 145);
+  --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.58 0.24 28);
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.24 0 0);
   --input: oklch(0.18 0 0);
-  --ring: oklch(0.68 0.25 30);
-  --chart-1: oklch(0.68 0.25 30);
-  --chart-2: oklch(0.62 0.2 240);
+  --ring: oklch(0.50 0.16 25);
+  --chart-1: oklch(0.50 0.16 25);
+  --chart-2: oklch(0.50 0.15 250);
   --chart-3: oklch(0.72 0.22 60);
-  --chart-4: oklch(0.65 0.2 145);
+  --chart-4: oklch(0.48 0.08 0);
   --chart-5: oklch(0.45 0.1 0);
   --radius: 0.5rem;
 
-  /* Refined status colors for better visual hierarchy */
-  --status-available: oklch(0.72 0.22 145);
+  /* Refined status colors - neutral greys and emergency blue */
+  --status-available: oklch(0.48 0.08 0);
   --status-assigned: oklch(0.5 0.1 0);
   --status-incoming: oklch(0.48 0.08 0);
   --status-ready: oklch(0.48 0.08 0);
-  --status-enroute: oklch(0.62 0.2 240);
+  --status-enroute: oklch(0.50 0.15 250);
   --status-active: oklch(0.72 0.22 60);
-  --status-returning: oklch(0.65 0.2 145);
+  --status-returning: oklch(0.50 0.15 250);
   --status-complete: oklch(0.42 0.08 0);
 }
 

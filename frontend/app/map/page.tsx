@@ -373,7 +373,7 @@ export default function MapPage() {
                             <div className="flex items-start gap-2 min-w-0 flex-1">
                               <div
                                 className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
-                                  incident.priority === "high" ? "bg-red-500" : incident.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
+                                  incident.priority === "high" ? "bg-red-500" : incident.priority === "medium" ? "bg-yellow-500" : "bg-zinc-500"
                                 }`}
                                 title={incident.priority === "high" ? "Hohe Priorität" : incident.priority === "medium" ? "Mittlere Priorität" : "Niedrige Priorität"}
                               />
