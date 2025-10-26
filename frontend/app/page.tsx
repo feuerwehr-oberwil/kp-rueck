@@ -315,16 +315,19 @@ export default function FireStationDashboard() {
       } else if (e.key === '/') {
         e.preventDefault()
         document.getElementById('search-input')?.focus()
-      } else if (e.key === 'p' || e.key === 'P') {
+      } else if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+p/ctrl+p for print)
         e.preventDefault()
         document.getElementById('personnel-search-input')?.focus()
-      } else if (e.key === 'm' || e.key === 'M') {
+      } else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+m for minimize on Mac)
         e.preventDefault()
         document.getElementById('material-search-input')?.focus()
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsModalOpen(true)
-      } else if (e.key === 'n' || e.key === 'N') {
+      } else if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+n/ctrl+n for new window)
         e.preventDefault()
         setNewEmergencyModalOpen(true)
       } else if (e.key === '[') {
@@ -333,8 +336,9 @@ export default function FireStationDashboard() {
       } else if (e.key === ']') {
         e.preventDefault()
         setShowRightSidebar(prev => !prev)
-      } else if (e.key === 'e' || e.key === 'E' || e.key === 'Enter') {
+      } else if (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') {
         // Open detail modal for hovered operation
+        // Only use 'e' if no modifier keys (Enter always works)
         if (hoveredOperationId) {
           const operation = operations.find(op => op.id === hoveredOperationId)
           if (operation) {
@@ -343,7 +347,9 @@ export default function FireStationDashboard() {
             setDetailModalOpen(true)
           }
         }
-      } else if (e.key === 'r' || e.key === 'R' || e.key === 'F5') {
+      } else if ((e.key === 'r' || e.key === 'R' || e.key === 'F5') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys are pressed
+        // This allows cmd+r / ctrl+r to work normally for browser refresh
         e.preventDefault()
         refreshOperations()
         toast.success("Daten aktualisiert")
