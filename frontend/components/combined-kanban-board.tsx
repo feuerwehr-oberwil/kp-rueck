@@ -502,7 +502,7 @@ export default function CombinedKanbanBoard({
 
       {/* Main Kanban Board */}
       <ResizablePanel defaultSize={85} minSize={50}>
-        <div ref={kanbanScrollRef} className="flex h-full gap-3 overflow-x-auto p-4 bg-zinc-950/20">
+        <div ref={kanbanScrollRef} className="flex h-full gap-4 overflow-x-auto p-4 bg-zinc-950/20">
           {columns.map((column) => {
             const columnOps = operations.filter((op) => column.status.includes(op.status))
             return (
