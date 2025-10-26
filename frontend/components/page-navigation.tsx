@@ -7,19 +7,20 @@
 
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
-import { Map as MapIcon, List, HelpCircle } from 'lucide-react';
+import { Map as MapIcon, List, HelpCircle, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
 
 interface PageNavigationProps {
-  currentPage: 'kanban' | 'map' | 'settings';
+  currentPage: 'kanban' | 'map' | 'events' | 'settings';
   vehicleTypes?: Array<{ key: string; name: string }>;
   onShortcutsOpen?: () => void;
+  hasSelectedEvent?: boolean;
 }
 
-export function PageNavigation({ currentPage, vehicleTypes = [], onShortcutsOpen }: PageNavigationProps) {
+export function PageNavigation({ currentPage, vehicleTypes = [], onShortcutsOpen, hasSelectedEvent = true }: PageNavigationProps) {
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
 
   const handleShortcutsClick = () => {
@@ -33,29 +34,42 @@ export function PageNavigation({ currentPage, vehicleTypes = [], onShortcutsOpen
   return (
     <>
       <div className="flex items-center gap-2">
-        {/* Map Icon */}
-        <Link href="/map">
+        {/* Kanban Icon */}
+        <Link href="/" className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"
-            className={`rounded-lg ${currentPage === 'map' ? 'opacity-40 cursor-default' : ''}`}
-            disabled={currentPage === 'map'}
+            className={`rounded-lg ${currentPage === 'kanban' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
+            disabled={currentPage === 'kanban' || !hasSelectedEvent}
+            title="Kanban Board"
+          >
+            <List className="h-5 w-5" />
+          </Button>
+        </Link>
+
+        {/* Map Icon */}
+        <Link href="/map" className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`rounded-lg ${currentPage === 'map' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
+            disabled={currentPage === 'map' || !hasSelectedEvent}
             title="Lagekarte"
           >
             <MapIcon className="h-5 w-5" />
           </Button>
         </Link>
 
-        {/* List Icon (Kanban) */}
-        <Link href="/">
+        {/* Events Icon */}
+        <Link href="/events">
           <Button
             variant="ghost"
             size="icon"
-            className={`rounded-lg ${currentPage === 'kanban' ? 'opacity-40 cursor-default' : ''}`}
-            disabled={currentPage === 'kanban'}
-            title="Kanban Board"
+            className={`rounded-lg ${currentPage === 'events' ? 'opacity-40 cursor-default' : ''}`}
+            disabled={currentPage === 'events'}
+            title="Ereignisse"
           >
-            <List className="h-5 w-5" />
+            <Calendar className="h-5 w-5" />
           </Button>
         </Link>
 

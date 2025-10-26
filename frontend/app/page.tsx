@@ -674,6 +674,7 @@ export default function FireStationDashboard() {
               currentPage="kanban"
               vehicleTypes={vehicleTypes}
               onShortcutsOpen={() => setShortcutsModalOpen(true)}
+              hasSelectedEvent={!!selectedEvent}
             />
           </div>
         </header>

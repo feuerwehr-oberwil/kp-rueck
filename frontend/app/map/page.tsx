@@ -227,7 +227,7 @@ export default function MapPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <PageNavigation currentPage="map" />
+            <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
           </div>
         </header>
 
