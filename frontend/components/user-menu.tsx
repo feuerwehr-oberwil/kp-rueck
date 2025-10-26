@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut, Users, Calendar } from 'lucide-react';
+import { Settings, User, FileText, LogOut, Users, Calendar, FileSpreadsheet } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import {
   DropdownMenu,
@@ -122,6 +122,12 @@ export function UserMenu() {
               <Link href="/resources" className="cursor-pointer">
                 <Users className="mr-2 h-4 w-4" />
                 <span>Ressourcen</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/import" className="cursor-pointer">
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                <span>Daten Import/Export</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
