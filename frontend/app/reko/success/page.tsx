@@ -23,8 +23,8 @@ export default function RekoSuccessPage() {
     <div className="min-h-screen bg-background p-4 md:p-6 flex items-center justify-center">
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle2 className="h-10 w-10 text-green-600" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+            <CheckCircle2 className="h-10 w-10 text-blue-600" />
           </div>
           <CardTitle>Meldung übermittelt</CardTitle>
           <CardDescription>

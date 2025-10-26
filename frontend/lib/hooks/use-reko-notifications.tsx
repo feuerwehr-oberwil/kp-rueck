@@ -57,7 +57,7 @@ export function useRekoNotifications(incidents: Array<{ id: string }>) {
             toast(
               <div className="flex items-start gap-3">
                 {isRelevant ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 ) : (
                   <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                 )}
