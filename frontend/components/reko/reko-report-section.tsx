@@ -6,7 +6,6 @@ import { Separator } from '@/components/ui/separator'
 import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2 } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
-import Image from 'next/image'
 import RekoQRCode from './reko-qr-code'
 
 interface RekoReportSectionProps {
@@ -181,13 +180,12 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
                     href={getPhotoUrl(filename)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
+                    className="block aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
                   >
-                    <Image
+                    <img
                       src={getPhotoUrl(filename)}
                       alt={`Reko photo ${index + 1}`}
-                      fill
-                      className="object-cover"
+                      className="w-full h-full object-cover"
                     />
                   </a>
                 ))}
