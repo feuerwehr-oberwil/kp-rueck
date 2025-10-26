@@ -41,14 +41,21 @@ Railway will deploy three separate services:
    - **Build Command**: (Auto-detected from Dockerfile)
    - **Start Command**: `./start.sh`
 
-3. Add environment variables:
+3. **Add Volume for Photo Storage**:
+   - Go to backend service → Settings → Volumes
+   - Click "New Volume"
+   - Mount path: `/mnt/data`
+   - Size: 5GB+ (adjust based on expected photo storage needs)
+
+4. Add environment variables:
    ```
    DATABASE_URL=${{Postgres.DATABASE_URL}}
    CORS_ORIGINS=https://your-frontend-url.railway.app
+   PHOTOS_DIR=/mnt/data/photos
    PORT=8000
    ```
 
-4. Click "Deploy"
+5. Click "Deploy"
 
 #### 4. Deploy Frontend Service
 
@@ -109,7 +116,10 @@ railway add --database postgresql
 |----------|-------|-------------|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Auto-linked from PostgreSQL service |
 | `CORS_ORIGINS` | `https://your-frontend.railway.app` | Frontend URL for CORS |
+| `PHOTOS_DIR` | `/mnt/data/photos` | Photo storage directory (requires volume) |
 | `PORT` | `8000` | Port (Railway sets automatically) |
+
+**Important**: The `PHOTOS_DIR` environment variable must point to the volume mount path. Without this, photos will be stored in ephemeral container storage and lost on restart.
 
 ### Frontend (`frontend` service)
 
@@ -272,12 +282,68 @@ Railway pricing (as of 2024):
 - **Compute**: Pay for what you use
 - **Bandwidth**: Generous free tier
 
+## Photo Storage (Reko Reports)
+
+The backend supports photo uploads for Reko (reconnaissance) reports. Photos require persistent storage to survive container restarts.
+
+### Volume Setup
+
+1. **Attach Volume to Backend Service:**
+   - Railway Dashboard → Backend Service → Settings → Volumes
+   - Click "New Volume"
+   - Mount path: `/mnt/data`
+   - Size: 5GB+ (recommended)
+
+2. **Set Environment Variable:**
+   ```bash
+   PHOTOS_DIR=/mnt/data/photos
+   ```
+
+3. **Verify Setup:**
+   - Check backend logs during startup for:
+     ```
+     Photo storage directory: /mnt/data/photos
+     Photos directory ready: /mnt/data/photos
+     ```
+
+### Storage Estimates
+
+- Average photo after compression: ~200KB
+- Max photos per report: 20
+- Max size per report: ~4MB
+
+Storage needs:
+- 100 reports: ~400MB
+- 1,000 reports: ~4GB
+- 10,000 reports: ~40GB
+
+### Troubleshooting Photos
+
+**Photos disappear after restart:**
+- Verify `PHOTOS_DIR=/mnt/data/photos` is set
+- Check volume is mounted at `/mnt/data`
+- Review backend startup logs
+
+**Upload fails:**
+- Check volume has available space
+- Verify mount path is correct
+- Review backend error logs
+
+**Detailed Documentation:**
+See `backend/PHOTO_STORAGE.md` for comprehensive photo storage documentation, including:
+- API endpoints
+- Testing procedures
+- Security considerations
+- Performance optimization
+
 ## Production Checklist
 
 - [ ] Set strong PostgreSQL password
 - [ ] Enable Railway's built-in DDoS protection
 - [ ] Set up custom domain with SSL
 - [ ] Configure environment variables
+- [ ] **Attach volume for photo storage (`/mnt/data`)**
+- [ ] **Set `PHOTOS_DIR=/mnt/data/photos` environment variable**
 - [ ] Enable automatic deployments from `main` branch
 - [ ] Set up monitoring and alerts
 - [ ] Configure backups retention policy

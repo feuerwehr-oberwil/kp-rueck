@@ -50,10 +50,16 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-key-change-in-production"  # Override via SECRET_KEY env var
 
     # Photo Storage
-    photos_dir: str = "data/photos"  # Directory for photo uploads
+    photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)
     max_photo_size_mb: int = 10  # Maximum file size in megabytes
     max_photos_per_report: int = 20  # Maximum photos per Reko report
     allowed_photo_extensions: list[str] = [".jpg", ".jpeg", ".png", ".webp"]
+
+    @property
+    def is_production(self) -> bool:
+        """Check if we're in production mode (Railway)."""
+        import os
+        return os.getenv("RAILWAY_ENVIRONMENT") is not None
 
     @property
     def is_testing(self) -> bool:
