@@ -425,9 +425,9 @@ export default function CombinedKanbanBoard({
     <ResizablePanelGroup direction="horizontal" className="h-full">
       {/* Left Sidebar - Personnel and Materials */}
       <ResizablePanel
-        defaultSize={15}
-        minSize={10}
-        maxSize={50}
+        defaultSize={12}
+        minSize={8}
+        maxSize={40}
         onResize={(size) => setSidebarSize(size)}
         className="border-r border-border/50 bg-card/30 backdrop-blur-sm"
       >
@@ -501,7 +501,7 @@ export default function CombinedKanbanBoard({
       <ResizableHandle withHandle />
 
       {/* Main Kanban Board */}
-      <ResizablePanel defaultSize={85} minSize={50}>
+      <ResizablePanel defaultSize={88} minSize={60}>
         <div ref={kanbanScrollRef} className="flex h-full gap-4 overflow-x-auto p-4 bg-zinc-950/20">
           {columns.map((column) => {
             const columnOps = operations.filter((op) => column.status.includes(op.status))
