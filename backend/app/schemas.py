@@ -570,3 +570,145 @@ class ExcelImportResult(BaseModel):
     mode: str
     counts: dict[str, int]
     timestamp: datetime
+
+
+# ============================================
+# Notification Schemas
+# ============================================
+
+
+class NotificationSeverity(str, Enum):
+    """Notification severity levels."""
+
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class NotificationType(str, Enum):
+    """Notification types."""
+
+    TIME_OVERDUE = "time_overdue"
+    NO_PERSONNEL = "no_personnel"
+    NO_MATERIALS = "no_materials"
+    PERSONNEL_FATIGUE = "personnel_fatigue"
+    MISSING_LOCATION = "missing_location"
+    MISSING_PERSONNEL = "missing_personnel"
+    MISSING_VEHICLE = "missing_vehicle"
+    EVENT_SIZE_LIMIT = "event_size_limit"
+
+
+class NotificationResponse(BaseModel):
+    """Notification response schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    type: NotificationType
+    severity: NotificationSeverity
+    message: str
+    incident_id: Optional[UUID] = None
+    event_id: Optional[UUID] = None
+    created_at: datetime
+    dismissed: bool
+    dismissed_at: Optional[datetime] = None
+    dismissed_by: Optional[UUID] = None
+
+
+class NotificationDismiss(BaseModel):
+    """Schema for dismissing a notification."""
+
+    pass  # No body needed, user comes from auth
+
+
+class NotificationSettings(BaseModel):
+    """Notification threshold settings for Training and Live modes."""
+
+    # Time thresholds (in minutes/hours)
+    live_eingegangen_min: int = 60
+    live_reko_min: int = 60
+    live_disponiert_min: int = 20
+    live_einsatz_hours: int = 2
+    live_rueckfahrt_min: int = 20
+    live_archive_hours: int = 1
+
+    training_eingegangen_min: int = 90
+    training_reko_min: int = 90
+    training_disponiert_min: int = 30
+    training_einsatz_hours: int = 3
+    training_rueckfahrt_min: int = 30
+    training_archive_hours: int = 2
+
+    # Resource thresholds
+    fatigue_hours: int = 4
+    material_depletion_threshold: dict[str, int] = {
+        "Atemschutz": 2,
+        "Schläuche": 5,
+        "Werkzeug": 3,
+        "Pumpen": 1,
+    }
+
+    # Event size limits (in GB)
+    database_size_limit_gb: int = 5
+    photo_size_limit_gb: int = 5
+
+    # Enabled alerts (can toggle individual types)
+    enabled_time_alerts: bool = True
+    enabled_resource_alerts: bool = True
+    enabled_data_quality_alerts: bool = True
+    enabled_event_alerts: bool = True
+
+    def get_threshold_minutes(self, status: str, is_training: bool) -> int:
+        """Get threshold in minutes for a given status and mode."""
+        prefix = "training" if is_training else "live"
+
+        # Map status to threshold field
+        status_map = {
+            "eingegangen": f"{prefix}_eingegangen_min",
+            "reko": f"{prefix}_reko_min",
+            "disponiert": f"{prefix}_disponiert_min",
+            "einsatz": f"{prefix}_einsatz_hours",
+            "einsatz_beendet": f"{prefix}_rueckfahrt_min",
+            "abschluss": f"{prefix}_archive_hours",
+        }
+
+        field_name = status_map.get(status)
+        if not field_name:
+            return 60  # Default fallback
+
+        value = getattr(self, field_name, 60)
+
+        # Convert hours to minutes for einsatz and abschluss
+        if "hours" in field_name:
+            return value * 60
+
+        return value
+
+
+class NotificationSettingsUpdate(BaseModel):
+    """Schema for updating notification settings."""
+
+    # All fields are optional for partial updates
+    live_eingegangen_min: Optional[int] = None
+    live_reko_min: Optional[int] = None
+    live_disponiert_min: Optional[int] = None
+    live_einsatz_hours: Optional[int] = None
+    live_rueckfahrt_min: Optional[int] = None
+    live_archive_hours: Optional[int] = None
+
+    training_eingegangen_min: Optional[int] = None
+    training_reko_min: Optional[int] = None
+    training_disponiert_min: Optional[int] = None
+    training_einsatz_hours: Optional[int] = None
+    training_rueckfahrt_min: Optional[int] = None
+    training_archive_hours: Optional[int] = None
+
+    fatigue_hours: Optional[int] = None
+    material_depletion_threshold: Optional[dict[str, int]] = None
+    database_size_limit_gb: Optional[int] = None
+    photo_size_limit_gb: Optional[int] = None
+
+    enabled_time_alerts: Optional[bool] = None
+    enabled_resource_alerts: Optional[bool] = None
+    enabled_data_quality_alerts: Optional[bool] = None
+    enabled_event_alerts: Optional[bool] = None
