@@ -248,13 +248,15 @@ export default function MapPage() {
         document.getElementById('map-search-input')?.focus()
       }
       // 'z' key to reset zoom
-      else if (e.key === 'z' || e.key === 'Z') {
+      else if ((e.key === 'z' || e.key === 'Z') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+z/ctrl+z for undo)
         e.preventDefault()
         setResetZoomTrigger((prev) => prev + 1)
         setSelectedIncidentId(null)
       }
       // 'e' or 'Enter' key to open details for selected incident
-      else if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && selectedIncidentId) {
+      else if ((((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') && selectedIncidentId) {
+        // Only use 'e' if no modifier keys (Enter always works)
         e.preventDefault()
         const incident = incidents.find(inc => inc.id === selectedIncidentId)
         if (incident) {
@@ -262,7 +264,9 @@ export default function MapPage() {
         }
       }
       // 'r' or 'F5' key to refresh data
-      else if (e.key === 'r' || e.key === 'R' || e.key === 'F5') {
+      else if ((e.key === 'r' || e.key === 'R' || e.key === 'F5') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys are pressed
+        // This allows cmd+r / ctrl+r to work normally for browser refresh
         e.preventDefault()
         refreshIncidents()
         toast.success("Daten aktualisiert")
