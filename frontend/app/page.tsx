@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -52,6 +52,7 @@ export default function FireStationDashboard() {
 
   const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const highlightParam = searchParams.get("highlight")
 
   // Enable reko notifications for all incidents
@@ -112,6 +113,13 @@ export default function FireStationDashboard() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  // Redirect to events page if no event is selected
+  useEffect(() => {
+    if (isMounted && !selectedEvent) {
+      router.push('/events')
+    }
+  }, [isMounted, selectedEvent, router])
 
   // Load vehicles from API to populate vehicle types for shortcuts
   useEffect(() => {
