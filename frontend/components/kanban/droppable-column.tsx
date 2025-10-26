@@ -63,7 +63,7 @@ export function DroppableColumn({
   }, [column.id])
 
   return (
-    <div className="flex w-80 flex-shrink-0 flex-col transition-all">
+    <div className="flex min-w-[360px] w-[360px] flex-shrink-0 flex-col transition-all">
       <div className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3 transition-all`}>
         <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">{column.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
