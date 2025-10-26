@@ -373,8 +373,6 @@ export default function ImportExportPage() {
                           <TableRow>
                             <TableHead>Name</TableHead>
                             <TableHead>Rolle</TableHead>
-                            <TableHead>Divera ID</TableHead>
-                            <TableHead>Telefon</TableHead>
                             <TableHead>Verfügbarkeit</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -383,10 +381,8 @@ export default function ImportExportPage() {
                             <TableRow key={idx}>
                               <TableCell>{row.name}</TableCell>
                               <TableCell>{row.role || '-'}</TableCell>
-                              <TableCell>{row.divera_alarm_id || '-'}</TableCell>
-                              <TableCell>{row.phone_number || '-'}</TableCell>
                               <TableCell>
-                                <Badge variant="outline">{row.availability_status}</Badge>
+                                <Badge variant="outline">{row.availability}</Badge>
                               </TableCell>
                             </TableRow>
                           ))}

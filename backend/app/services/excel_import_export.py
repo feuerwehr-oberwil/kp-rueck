@@ -15,9 +15,7 @@ from ..models import Personnel, Vehicle, Material
 PERSONNEL_COLUMNS = [
     ("name", True),  # (column_name, required)
     ("role", False),
-    ("divera_alarm_id", False),
-    ("phone_number", False),
-    ("availability_status", False),
+    ("availability", False),
 ]
 
 VEHICLE_COLUMNS = [
@@ -60,8 +58,8 @@ def generate_empty_template() -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example rows
-    ws_personnel.append(["Max Mustermann", "Fahrer", "DIV123", "+41791234567", "available"])
-    ws_personnel.append(["Anna Schmidt", "", "", "", "not-available"])
+    ws_personnel.append(["Max Mustermann", "Fahrer", "available"])
+    ws_personnel.append(["Anna Schmidt", "", "not-available"])
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -130,16 +128,16 @@ def validate_and_parse_excel(
                 raise ExcelImportError(f"Personnel row {row_idx}: 'name' is required")
 
             # Validate enum values
-            if row_data.get("availability_status") and \
-               row_data["availability_status"] not in PERSONNEL_STATUSES:
+            if row_data.get("availability") and \
+               row_data["availability"] not in PERSONNEL_STATUSES:
                 raise ExcelImportError(
-                    f"Personnel row {row_idx}: Invalid availability_status '{row_data['availability_status']}'. "
+                    f"Personnel row {row_idx}: Invalid availability '{row_data['availability']}'. "
                     f"Must be one of: {PERSONNEL_STATUSES}"
                 )
 
             # Set defaults
-            if not row_data.get("availability_status"):
-                row_data["availability_status"] = "not-available"
+            if not row_data.get("availability"):
+                row_data["availability"] = "not-available"
 
             result["personnel"].append(row_data)
 
@@ -297,9 +295,7 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
         ws_personnel.append([
             person.name,
             person.role or "",
-            person.divera_alarm_id or "",
-            person.phone_number or "",
-            person.availability_status,
+            person.availability,
         ])
 
     # Vehicles sheet
