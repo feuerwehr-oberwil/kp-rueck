@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut, Users, Calendar, FileSpreadsheet } from 'lucide-react';
+import { Settings, User, FileText, LogOut, Users, FileSpreadsheet } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import {
   DropdownMenu,
@@ -58,7 +58,7 @@ export function UserMenu() {
   const getStatusColor = () => {
     switch (status) {
       case "connected":
-        return "bg-zinc-500";
+        return "bg-green-500";
       case "disconnected":
         return "bg-red-500";
       case "checking":
@@ -81,7 +81,7 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-lg">
-          <Settings className="h-5 w-5" />
+          <User className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -104,12 +104,6 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/events" className="cursor-pointer">
-            <Calendar className="mr-2 h-4 w-4" />
-            <span>Ereignisse</span>
-          </Link>
-        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings" className="cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />

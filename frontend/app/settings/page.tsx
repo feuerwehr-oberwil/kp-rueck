@@ -25,6 +25,7 @@ import { ArrowLeft, Settings2, Save, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
+import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
 
 interface SettingConfig {
   key: string;
@@ -280,6 +281,11 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </Card>
+
+              {/* Notification Settings */}
+              <div className="mt-6">
+                <NotificationSettingsCard />
+              </div>
 
               {/* Help Text */}
               <div className="mt-6 text-sm text-muted-foreground">
