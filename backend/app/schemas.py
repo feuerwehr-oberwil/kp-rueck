@@ -719,3 +719,88 @@ class NotificationSettingsUpdate(BaseModel):
     enabled_resource_alerts: Optional[bool] = None
     enabled_data_quality_alerts: Optional[bool] = None
     enabled_event_alerts: Optional[bool] = None
+
+
+# ============================================
+# Training Automation Schemas
+# ============================================
+
+
+class EmergencyTemplateBase(BaseModel):
+    """Base schema for emergency template."""
+
+    title_pattern: str
+    incident_type: str
+    category: str  # 'normal' or 'critical'
+    message_pattern: str
+
+
+class EmergencyTemplateCreate(EmergencyTemplateBase):
+    """Schema for creating emergency template."""
+
+    pass
+
+
+class EmergencyTemplateResponse(EmergencyTemplateBase):
+    """Schema for emergency template response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    is_active: bool
+
+
+class TrainingLocationBase(BaseModel):
+    """Base schema for training location."""
+
+    street: str
+    house_number: str
+    postal_code: str = "4104"
+    city: str = "Oberwil"
+    building_type: Optional[str] = None
+    latitude: Optional[Union[str, Decimal]] = None
+    longitude: Optional[Union[str, Decimal]] = None
+
+    @field_serializer('latitude', 'longitude')
+    def serialize_decimal(self, value):
+        """Convert Decimal to string for JSON serialization."""
+        if value is None:
+            return None
+        return str(value)
+
+
+class TrainingLocationCreate(TrainingLocationBase):
+    """Schema for creating training location."""
+
+    pass
+
+
+class TrainingLocationResponse(TrainingLocationBase):
+    """Schema for training location response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    is_active: bool
+
+    def get_full_address(self) -> str:
+        return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
+
+
+class TrainingAutoGenSettings(BaseModel):
+    """Schema for training auto-generation settings."""
+
+    enabled: bool = False
+    min_interval_sec: int = 120
+    max_interval_sec: int = 420
+    normal_weight: int = 90
+    critical_weight: int = 10
+    early_multiplier: float = 2.0
+
+
+class GenerateEmergencyRequest(BaseModel):
+    """Schema for manual emergency generation request."""
+
+    category: Optional[str] = None  # 'normal', 'critical', or None for random
+    count: int = 1  # For burst generation (1-10)
