@@ -944,15 +944,9 @@ export default function FireStationDashboard() {
             </div>
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Tastaturkürzel:</span>
               <div className="flex items-center gap-1">
                 <Kbd className="h-4 text-[10px]">E</Kbd>
                 <span>Bearbeiten</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">1-5</Kbd>
-                <span>Fahrzeuge</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
@@ -962,28 +956,13 @@ export default function FireStationDashboard() {
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">N</Kbd>
-                <span>Neu</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">R</Kbd>
-                <span>Refresh</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">G+K/M/E</Kbd>
-                <span>Seiten</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
                 <Kbd className="h-4 text-[10px]">⌘K</Kbd>
                 <span>Befehle</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
                 <Kbd className="h-4 text-[10px]">?</Kbd>
-                <span>Alle Kürzel</span>
+                <span>Hilfe</span>
               </div>
             </div>
           </div>
