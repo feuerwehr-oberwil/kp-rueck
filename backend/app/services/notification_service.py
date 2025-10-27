@@ -1,6 +1,7 @@
 """Notification evaluation and management service."""
+
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -91,14 +92,32 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     # Deduplicate and save new notifications
     saved_notifications = await _deduplicate_and_save(db, notifications, event_id)
 
-    # Return all active notifications for this event
-    result = await db.execute(
+    # Return all active notifications AND recently dismissed ones (last 20 from last 24 hours)
+    # This ensures the frontend can show history while preventing stale dismissed notifications
+    twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    # Get active notifications
+    active_result = await db.execute(
         select(Notification)
         .where(Notification.event_id == event_id)
         .where(Notification.dismissed == False)
         .order_by(Notification.created_at.desc())
     )
-    return list(result.scalars().all())
+    active_notifications = list(active_result.scalars().all())
+
+    # Get recently dismissed notifications (last 20)
+    dismissed_result = await db.execute(
+        select(Notification)
+        .where(Notification.event_id == event_id)
+        .where(Notification.dismissed == True)
+        .where(Notification.dismissed_at >= twenty_four_hours_ago)
+        .order_by(Notification.dismissed_at.desc())
+        .limit(20)
+    )
+    dismissed_notifications = list(dismissed_result.scalars().all())
+
+    # Combine and return
+    return active_notifications + dismissed_notifications
 
 
 async def _check_time_based_alerts(
@@ -383,7 +402,8 @@ async def _deduplicate_and_save(
     Deduplicate notifications and save only new ones.
 
     A notification is considered duplicate if it has the same type, incident_id, and event_id
-    and was created within the last hour.
+    and was created within the last 30 minutes (whether dismissed or not).
+    This prevents notification spam when dismissing notifications for ongoing issues.
     """
     if not new_notifications:
         return []
@@ -391,15 +411,23 @@ async def _deduplicate_and_save(
     saved = []
 
     for notification in new_notifications:
-        # Check if similar notification exists and is not dismissed
-        one_hour_ago = datetime.now(timezone.utc).replace(microsecond=0)
-        one_hour_ago = one_hour_ago.replace(hour=one_hour_ago.hour - 1)
+        # Check if similar notification exists (dismissed OR active) within last 30 minutes
+        # This suppression window prevents immediate re-notification after dismissal
+        suppression_window = datetime.now(timezone.utc) - timedelta(minutes=30)
 
+        # Build base query for matching notification type and event
+        from sqlalchemy import or_, and_
         query = select(Notification).where(
             Notification.type == notification.type,
             Notification.event_id == event_id,
-            Notification.dismissed == False,
-            Notification.created_at >= one_hour_ago
+            # Suppress if created recently OR dismissed recently (handle NULL dismissed_at)
+            or_(
+                Notification.created_at >= suppression_window,
+                and_(
+                    Notification.dismissed_at.isnot(None),
+                    Notification.dismissed_at >= suppression_window
+                )
+            )
         )
 
         if notification.incident_id:
@@ -408,7 +436,7 @@ async def _deduplicate_and_save(
             query = query.where(Notification.incident_id.is_(None))
 
         result = await db.execute(query)
-        existing = result.scalar_one_or_none()
+        existing = result.scalars().first()
 
         if not existing:
             # New notification - save it
