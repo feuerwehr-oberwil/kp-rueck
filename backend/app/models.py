@@ -496,3 +496,77 @@ class Notification(Base):
         Index('idx_notifications_dismissed', 'dismissed'),
         Index('idx_notifications_created_at', 'created_at'),
     )
+
+
+# ============================================
+# TRAINING AUTOMATION
+# ============================================
+
+
+class EmergencyTemplate(Base):
+    """Pre-defined emergency scenarios for training exercises."""
+
+    __tablename__ = "emergency_templates"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Template metadata
+    title_pattern: Mapped[str] = mapped_column(String(255), nullable=False)
+    incident_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    category: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    # Scenario content
+    message_pattern: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Metadata
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('normal', 'critical')", name="valid_emergency_category"
+        ),
+        Index('ix_emergency_templates_category', 'category'),
+        Index('ix_emergency_templates_is_active', 'is_active'),
+    )
+
+    def __repr__(self):
+        return f"<EmergencyTemplate {self.title_pattern} ({self.category})>"
+
+
+class TrainingLocation(Base):
+    """Pool of realistic addresses for training scenarios."""
+
+    __tablename__ = "training_locations"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Address components
+    street: Mapped[str] = mapped_column(String(255), nullable=False)
+    house_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    postal_code: Mapped[str] = mapped_column(String(10), nullable=False, default="4104")
+    city: Mapped[str] = mapped_column(String(100), nullable=False, default="Oberwil")
+
+    # Building type (optional, for realism)
+    building_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Geocoding
+    latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
+
+    # Metadata
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        Index('ix_training_locations_is_active', 'is_active'),
+    )
+
+    def get_full_address(self) -> str:
+        return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
+
+    def __repr__(self):
+        return f"<TrainingLocation {self.get_full_address()}>"
