@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Filter, Copy, Check } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Filter, Copy, Check, Sparkles } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -941,6 +942,14 @@ export default function FireStationDashboard() {
                 <QrCode className="h-4 w-4" />
                 Check-In QR
               </Button>
+              {selectedEvent?.training_flag && (
+                <Link href="/training">
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <Sparkles className="h-4 w-4 text-orange-500" />
+                    Übungs-Steuerung
+                  </Button>
+                </Link>
+              )}
             </div>
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">

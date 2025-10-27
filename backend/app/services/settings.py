@@ -14,6 +14,7 @@ DEFAULT_SETTINGS = {
     'auto_archive_timeout_hours': '24',
     'notification_enabled': 'false',
     'alarm_webhook_secret': 'CHANGE_ME_IN_PRODUCTION',
+    'training_autogen_max_emergencies': '50',
 }
 
 

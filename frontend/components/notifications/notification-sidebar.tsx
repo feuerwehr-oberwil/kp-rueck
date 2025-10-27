@@ -117,7 +117,7 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
 
 export function NotificationSidebar() {
   const [isOpen, setIsOpen] = useState(false)
-  const { notifications, unreadCount, dismissNotification } = useNotifications()
+  const { notifications, unreadCount, dismissNotification, dismissAllNotifications } = useNotifications()
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
   const historicalNotifications = notifications
@@ -150,12 +150,23 @@ export function NotificationSidebar() {
         <div className="mt-4 px-2 space-y-4">
           {activeNotifications.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                Aktiv
-                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
-                  {activeNotifications.length}
-                </span>
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  Aktiv
+                  <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                    {activeNotifications.length}
+                  </span>
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={dismissAllNotifications}
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  aria-label="Alle schliessen"
+                >
+                  Alle schliessen
+                </Button>
+              </div>
               <div className="space-y-2">
                 {activeNotifications.map((notification) => (
                   <NotificationCard

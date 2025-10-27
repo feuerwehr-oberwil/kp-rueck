@@ -14,6 +14,7 @@ import { CheckCircle2, AlertCircle, Send, Loader2, MapPin, Info } from 'lucide-r
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
+import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
 
 interface RekoFormData {
   is_relevant: boolean | null
@@ -66,6 +67,81 @@ export default function RekoForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [isTraining, setIsTraining] = useState(false)
+
+  // Dummy data generation functions for training mode
+  const generateRandomDangers = (): Partial<ApiDangersAssessment> => {
+    const allDangers: Array<keyof ApiDangersAssessment> = ['fire', 'explosion', 'collapse', 'chemical', 'electrical'];
+    const selectedCount = Math.floor(Math.random() * 3) + 1; // 1-3 dangers
+    const selected: Partial<ApiDangersAssessment> = {};
+
+    // Randomly select dangers
+    const shuffled = [...allDangers].sort(() => Math.random() - 0.5);
+    shuffled.slice(0, selectedCount).forEach(danger => {
+      if (danger !== 'other_notes') {
+        (selected as any)[danger] = true;
+      }
+    });
+
+    return selected;
+  };
+
+  const generateRandomEffort = (): Partial<ApiEffortEstimation> => {
+    return {
+      personnel_count: Math.floor(Math.random() * 20) + 5, // 5-25 people
+      estimated_duration_hours: (Math.random() * 4) + 0.5, // 0.5-4.5 hours
+      vehicles_needed: [],
+      equipment_needed: []
+    };
+  };
+
+  const generateRandomPowerSupply = (): string => {
+    const options = ['available', 'unavailable', 'emergency_needed', 'unknown'];
+    return options[Math.floor(Math.random() * options.length)];
+  };
+
+  const generateRandomSummary = (): string => {
+    const summaries = [
+      'Situation unter Kontrolle. Einsatz kann wie geplant durchgeführt werden.',
+      'Zugang erschwert. Zusätzliches Material benötigt.',
+      'Lage stabil. Keine besonderen Vorkommnisse.',
+      'Mehrere Gebäudeteile betroffen. Einsatz wird länger dauern.',
+      'Bewohner kooperativ. Gute Zusammenarbeit vor Ort.',
+      'Zufahrt blockiert. Alternative Route notwendig.',
+      'Stromversorgung ausgefallen. Notstrom erforderlich.',
+      'Einsatzstelle gut zugänglich. Optimale Arbeitsbedingungen.'
+    ];
+    return summaries[Math.floor(Math.random() * summaries.length)];
+  };
+
+  const handleGenerateDummyData = () => {
+    const dummyData: RekoFormData = {
+      is_relevant: Math.random() > 0.2, // 80% relevant
+      dangers_json: {
+        fire: false,
+        explosion: false,
+        collapse: false,
+        chemical: false,
+        electrical: false,
+        other_notes: '',
+        ...generateRandomDangers()
+      },
+      effort_json: {
+        personnel_count: null,
+        vehicles_needed: [],
+        equipment_needed: [],
+        estimated_duration_hours: null,
+        ...generateRandomEffort()
+      },
+      power_supply: generateRandomPowerSupply(),
+      photos_json: formData.photos_json, // Keep existing photos
+      summary_text: generateRandomSummary(),
+      additional_notes: Math.random() > 0.5 ? 'Automatisch generierte Übungsdaten' : ''
+    };
+
+    setFormData(dummyData);
+    toast.success('Dummy-Daten generiert');
+  };
 
   // Validate access and load existing data
   useEffect(() => {
@@ -86,6 +162,12 @@ export default function RekoForm() {
           type: data.incident_type || undefined,
           description: data.incident_description || undefined
         })
+
+        // NOTE: When backend is implemented, the getRekoForm response should include
+        // the event's training_flag so we can enable training features
+        // For now, this will be false (production mode)
+        // Backend should add: event_training_flag: boolean to ApiRekoFormResponse
+        // setIsTraining(data.event_training_flag || false)
 
         // Load existing report/draft
         setFormData({
@@ -199,6 +281,12 @@ export default function RekoForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Training Mode Dummy Data Generator */}
+      <RekoDummyGenerator
+        isTraining={isTraining}
+        onGenerate={handleGenerateDummyData}
+      />
+
       {/* Incident Info Card */}
       <Card>
         <CardHeader>
