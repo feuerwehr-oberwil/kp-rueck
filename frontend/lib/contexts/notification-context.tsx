@@ -212,7 +212,7 @@ export function NotificationProvider({
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      <audio ref={audioRef} src="/alerts/critical.mp3" preload="auto" />
+      <audio ref={audioRef} src="/alerts/mixkit-digital-quick-tone-2866.wav" preload="auto" />
     </NotificationContext.Provider>
   )
 }

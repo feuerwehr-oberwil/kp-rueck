@@ -2,30 +2,24 @@
 
 This directory contains audio files for critical notification alerts.
 
-## Required File
+## Current Alert Sound
 
-- `critical.mp3` - Sound played when a critical notification is triggered
+- `mixkit-digital-quick-tone-2866.wav` - Digital quick tone for critical notifications
+
+Source: Mixkit (https://mixkit.co/free-sound-effects/)
 
 ## File Requirements
 
-- Format: MP3
+- Format: WAV or MP3
 - Duration: 1-3 seconds recommended
 - Volume: Normalized, not too loud
 - Type: Alert sound (e.g., bell, chime, alarm)
 
-## Adding the Audio File
+## Changing the Alert Sound
 
-1. Obtain or create an appropriate alert sound in MP3 format
-2. Name it `critical.mp3`
-3. Place it in this directory (`frontend/public/alerts/`)
+To use a different alert sound:
+1. Add your audio file to this directory
+2. Update the audio reference in `lib/contexts/notification-context.tsx`
+3. Update this README with the new filename and source
 
-The notification system will automatically use this file when critical notifications are triggered.
-
-## Free Sound Resources
-
-You can find free alert sounds at:
-- https://freesound.org/
-- https://mixkit.co/free-sound-effects/
-- https://www.zapsplat.com/
-
-Make sure to comply with the license terms of any sound you use.
+The notification system will play this sound when critical notifications are triggered.
