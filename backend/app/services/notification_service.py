@@ -401,39 +401,77 @@ async def _deduplicate_and_save(
     """
     Deduplicate notifications and save only new ones.
 
-    A notification is considered duplicate if it has the same type, incident_id, and event_id
-    and was created within the last 30 minutes (whether dismissed or not).
-    This prevents notification spam when dismissing notifications for ongoing issues.
+    A notification is considered duplicate based on:
+    - Same type, incident_id, and event_id
+    - For active (non-dismissed) notifications: suppress if created within last 30 minutes
+    - For dismissed notifications:
+      - If re_alarm_interval_min = 0 (default): NEVER re-create (permanent suppression)
+      - If re_alarm_interval_min > 0: suppress only within the configured interval
+
+    This ensures dismissed notifications don't re-appear unless re-alarming is explicitly enabled.
     """
     if not new_notifications:
         return []
 
+    # Get notification settings to check re-alarm configuration
+    settings = await get_notification_settings(db)
+    re_alarm_enabled = settings.re_alarm_interval_min > 0
+
     saved = []
 
     for notification in new_notifications:
-        # Check if similar notification exists (dismissed OR active) within last 30 minutes
-        # This suppression window prevents immediate re-notification after dismissal
-        suppression_window = datetime.now(timezone.utc) - timedelta(minutes=30)
-
-        # Build base query for matching notification type and event
         from sqlalchemy import or_, and_
-        query = select(Notification).where(
+
+        # Base query for matching notification type and event
+        base_conditions = [
             Notification.type == notification.type,
             Notification.event_id == event_id,
-            # Suppress if created recently OR dismissed recently (handle NULL dismissed_at)
-            or_(
-                Notification.created_at >= suppression_window,
+        ]
+
+        # Add incident_id matching
+        if notification.incident_id:
+            base_conditions.append(Notification.incident_id == notification.incident_id)
+        else:
+            base_conditions.append(Notification.incident_id.is_(None))
+
+        # Build suppression logic based on re-alarm settings
+        now = datetime.now(timezone.utc)
+
+        if re_alarm_enabled:
+            # Re-alarming enabled: suppress both active and dismissed notifications within intervals
+            active_suppression = now - timedelta(minutes=30)
+            dismissed_suppression = now - timedelta(minutes=settings.re_alarm_interval_min)
+
+            suppression_conditions = or_(
+                # Active notifications created recently
                 and_(
+                    Notification.dismissed == False,
+                    Notification.created_at >= active_suppression
+                ),
+                # Dismissed notifications within re-alarm interval
+                and_(
+                    Notification.dismissed == True,
                     Notification.dismissed_at.isnot(None),
-                    Notification.dismissed_at >= suppression_window
+                    Notification.dismissed_at >= dismissed_suppression
                 )
             )
-        )
-
-        if notification.incident_id:
-            query = query.where(Notification.incident_id == notification.incident_id)
         else:
-            query = query.where(Notification.incident_id.is_(None))
+            # Re-alarming disabled (default): suppress active notifications AND any dismissed notification
+            active_suppression = now - timedelta(minutes=30)
+
+            suppression_conditions = or_(
+                # Active notifications created recently
+                and_(
+                    Notification.dismissed == False,
+                    Notification.created_at >= active_suppression
+                ),
+                # ANY dismissed notification (permanent suppression)
+                Notification.dismissed == True
+            )
+
+        query = select(Notification).where(
+            and_(*base_conditions, suppression_conditions)
+        )
 
         result = await db.execute(query)
         existing = result.scalars().first()

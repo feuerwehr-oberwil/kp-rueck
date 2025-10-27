@@ -10,7 +10,7 @@ export function NotificationToasts() {
   const shownToastIds = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    // Filter for undismissed notifications that haven't been shown as toast yet
+    // Show new undismissed notifications as toasts
     const newNotifications = notifications.filter(
       (n) => !n.dismissed && !shownToastIds.current.has(n.id)
     )
@@ -46,6 +46,17 @@ export function NotificationToasts() {
           duration: 3000,
         })
       }
+    })
+
+    // Dismiss toasts for notifications that have been dismissed elsewhere (e.g., in sidebar)
+    const dismissedNotifications = notifications.filter(
+      (n) => n.dismissed && shownToastIds.current.has(n.id)
+    )
+
+    dismissedNotifications.forEach((notification) => {
+      // Remove the toast from the screen
+      toast.dismiss(notification.id)
+      // Keep in shownToastIds to prevent re-showing
     })
   }, [notifications, dismissNotification])
 

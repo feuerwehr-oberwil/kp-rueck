@@ -652,6 +652,11 @@ class NotificationSettings(BaseModel):
     database_size_limit_gb: int = 5
     photo_size_limit_gb: int = 5
 
+    # Re-alarm settings
+    # When 0 (default), dismissed notifications never re-appear
+    # When > 0, dismissed notifications can re-appear after this many minutes
+    re_alarm_interval_min: int = 0
+
     # Enabled alerts (can toggle individual types)
     enabled_time_alerts: bool = True
     enabled_resource_alerts: bool = True
@@ -707,6 +712,8 @@ class NotificationSettingsUpdate(BaseModel):
     material_depletion_threshold: Optional[dict[str, int]] = None
     database_size_limit_gb: Optional[int] = None
     photo_size_limit_gb: Optional[int] = None
+
+    re_alarm_interval_min: Optional[int] = None
 
     enabled_time_alerts: Optional[bool] = None
     enabled_resource_alerts: Optional[bool] = None

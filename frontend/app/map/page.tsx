@@ -55,7 +55,7 @@ export default function MapPage() {
     assignVehicleToOperation,
     deleteOperation
   } = useOperations()
-  const { selectedEvent } = useEvent()
+  const { selectedEvent, isEventLoaded } = useEvent()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -174,12 +174,12 @@ export default function MapPage() {
     }
   }, [highlightParam])
 
-  // Redirect to events page if no event is selected
+  // Redirect to events page if no event is selected (only after event is loaded from localStorage)
   useEffect(() => {
-    if (!selectedEvent) {
+    if (isEventLoaded && !selectedEvent) {
       router.push('/events')
     }
-  }, [selectedEvent, router])
+  }, [isEventLoaded, selectedEvent, router])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -377,7 +377,7 @@ export default function MapPage() {
                             <div className="flex items-start gap-2 min-w-0 flex-1">
                               <div
                                 className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
-                                  incident.priority === "high" ? "bg-red-500" : incident.priority === "medium" ? "bg-yellow-500" : "bg-zinc-500"
+                                  incident.priority === "high" ? "bg-red-500" : incident.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
                                 }`}
                                 title={incident.priority === "high" ? "Hohe Priorität" : incident.priority === "medium" ? "Mittlere Priorität" : "Niedrige Priorität"}
                               />

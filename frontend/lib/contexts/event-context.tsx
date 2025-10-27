@@ -10,6 +10,7 @@ interface EventContextType {
   setSelectedEvent: (event: Event | null) => void
   events: Event[]
   isLoading: boolean
+  isEventLoaded: boolean // Track if localStorage event has been loaded
   error: string | null
   refreshEvents: () => Promise<void>
   createEvent: (name: string, trainingFlag: boolean) => Promise<Event>
@@ -41,6 +42,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
   const [selectedEvent, setSelectedEventState] = useState<Event | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isEventLoaded, setIsEventLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Load selected event from localStorage on mount (only when authenticated)
@@ -57,6 +59,9 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
           console.error('Failed to load saved event:', err)
           localStorage.removeItem(SELECTED_EVENT_KEY)
         })
+        .finally(() => setIsEventLoaded(true))
+    } else {
+      setIsEventLoaded(true)
     }
   }, [authLoading, isAuthenticated])
 
@@ -128,6 +133,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
         setSelectedEvent,
         events,
         isLoading,
+        isEventLoaded,
         error,
         refreshEvents,
         createEvent,
