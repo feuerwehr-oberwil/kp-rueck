@@ -26,6 +26,13 @@ import {
   Search,
   Users,
   Package,
+  ArrowUp,
+  ArrowDown,
+  ArrowRight,
+  ArrowLeft,
+  Keyboard,
+  Edit,
+  Trash2,
 } from "lucide-react"
 
 interface CommandPaletteProps {
@@ -158,6 +165,56 @@ export function CommandPalette({
                 <Package className="mr-2 h-4 w-4" />
                 <span>Material durchsuchen</span>
                 <span className="ml-auto text-xs text-muted-foreground">M</span>
+              </CommandItem>
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            <CommandGroup heading="Tastaturkürzel">
+              <CommandItem disabled>
+                <Keyboard className="mr-2 h-4 w-4" />
+                <span className="text-xs italic">Drücke ? für Schnellreferenz</span>
+              </CommandItem>
+
+              <CommandItem disabled>
+                <ArrowUp className="mr-2 h-4 w-4" />
+                <span>Einsatz auswählen (hoch)</span>
+                <span className="ml-auto text-xs text-muted-foreground">↑</span>
+              </CommandItem>
+              <CommandItem disabled>
+                <ArrowDown className="mr-2 h-4 w-4" />
+                <span>Einsatz auswählen (runter)</span>
+                <span className="ml-auto text-xs text-muted-foreground">↓</span>
+              </CommandItem>
+              <CommandItem disabled>
+                <Edit className="mr-2 h-4 w-4" />
+                <span>Ausgewählten Einsatz bearbeiten</span>
+                <span className="ml-auto text-xs text-muted-foreground">E oder Enter</span>
+              </CommandItem>
+              <CommandItem disabled>
+                <ArrowRight className="mr-2 h-4 w-4" />
+                <span>Status vorwärts</span>
+                <span className="ml-auto text-xs text-muted-foreground">&gt; oder .</span>
+              </CommandItem>
+              <CommandItem disabled>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                <span>Status rückwärts</span>
+                <span className="ml-auto text-xs text-muted-foreground">&lt; oder ,</span>
+              </CommandItem>
+              <CommandItem disabled>
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>Ausgewählten Einsatz löschen</span>
+                <span className="ml-auto text-xs text-muted-foreground">Delete oder Backspace</span>
+              </CommandItem>
+              <CommandItem disabled>
+                <span className="mr-2 h-4 w-4 flex items-center justify-center font-bold text-xs">1-5</span>
+                <span>Fahrzeug zuweisen/entfernen</span>
+                <span className="ml-auto text-xs text-muted-foreground">1-5 (Kanban)</span>
+              </CommandItem>
+              <CommandItem disabled>
+                <span className="mr-2 h-4 w-4 flex items-center justify-center font-bold text-xs">⇧</span>
+                <span>Priorität setzen</span>
+                <span className="ml-auto text-xs text-muted-foreground">Shift+1/2/3</span>
               </CommandItem>
             </CommandGroup>
           </CommandList>
