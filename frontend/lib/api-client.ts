@@ -292,6 +292,29 @@ export interface ApiExcelImportResult {
   timestamp: string
 }
 
+// Training Automation Types
+export interface ApiEmergencyTemplate {
+  id: string // UUID
+  title_pattern: string
+  incident_type: string
+  category: 'normal' | 'critical'
+  message_pattern: string
+  created_at: string
+  is_active: boolean
+}
+
+export interface ApiTrainingLocation {
+  id: string // UUID
+  street: string
+  house_number: string
+  postal_code: string
+  city: string
+  building_type: string | null
+  latitude: number | null
+  longitude: number | null
+  is_active: boolean
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -786,6 +809,26 @@ class ApiClient {
     }
 
     return response.blob()
+  }
+
+  // Training Automation
+  async generateTrainingEmergency(
+    eventId: string,
+    request: { category?: 'normal' | 'critical' | null; count?: number }
+  ): Promise<ApiIncident[]> {
+    return this.request<ApiIncident[]>(`/api/training/events/${eventId}/generate/`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  async getEmergencyTemplates(category?: string): Promise<ApiEmergencyTemplate[]> {
+    const params = category ? `?category=${encodeURIComponent(category)}` : ''
+    return this.request<ApiEmergencyTemplate[]>(`/api/training/templates/${params}`)
+  }
+
+  async getTrainingLocations(): Promise<ApiTrainingLocation[]> {
+    return this.request<ApiTrainingLocation[]>('/api/training/locations/')
   }
 }
 

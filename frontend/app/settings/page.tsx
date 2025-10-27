@@ -51,16 +51,6 @@ const SETTING_CONFIGS: SettingConfig[] = [
     unit: 'ms',
   },
   {
-    key: 'training_mode',
-    label: 'Modus',
-    description: 'Trainingsmodus vs. Live-Einsätze',
-    type: 'boolean',
-    options: [
-      { value: 'false', label: 'Live-Modus' },
-      { value: 'true', label: 'Trainingsmodus' },
-    ],
-  },
-  {
     key: 'auto_archive_timeout_hours',
     label: 'Auto-Archivierung',
     description: 'Zeit bis zur automatischen Archivierung abgeschlossener Einsätze',

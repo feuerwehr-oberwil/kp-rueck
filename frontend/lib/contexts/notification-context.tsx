@@ -11,6 +11,7 @@ interface NotificationContextValue {
   unreadCount: number
   settings: NotificationSettings
   dismissNotification: (id: string) => Promise<void>
+  dismissAllNotifications: () => Promise<void>
   updateSettings: (settings: Partial<NotificationSettings>) => Promise<void>
   refetchNotifications: () => Promise<void>
 }
@@ -39,7 +40,13 @@ export function NotificationProvider({
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const previousNotificationIds = useRef<Set<string>>(new Set())
+
+  // Load previously seen notification IDs from localStorage on mount
+  const previousNotificationIds = useRef<Set<string>>(
+    typeof window !== 'undefined'
+      ? new Set(JSON.parse(localStorage.getItem('seenNotificationIds') || '[]'))
+      : new Set()
+  )
 
   // Fetch notifications from backend
   const fetchNotifications = async (): Promise<Notification[]> => {
@@ -126,6 +133,42 @@ export function NotificationProvider({
     }
   }
 
+  // Dismiss all active notifications
+  const dismissAllNotifications = async () => {
+    const activeNotifications = notifications.filter((n) => !n.dismissed)
+
+    if (activeNotifications.length === 0) {
+      return
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+      // Dismiss all notifications in parallel
+      const dismissPromises = activeNotifications.map((notification) =>
+        fetch(`${apiUrl}/api/notifications/${notification.id}/dismiss/`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+      )
+
+      const results = await Promise.allSettled(dismissPromises)
+
+      // Check for failures
+      const failures = results.filter((r) => r.status === 'rejected')
+      if (failures.length > 0) {
+        console.error('Failed to dismiss some notifications:', failures)
+      }
+
+      // Update local state for all notifications
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, dismissed: true }))
+      )
+    } catch (error) {
+      console.error('Error dismissing all notifications:', error)
+    }
+  }
+
   // Update notification settings
   const updateSettings = async (newSettings: Partial<NotificationSettings>) => {
     try {
@@ -174,6 +217,14 @@ export function NotificationProvider({
     // Update previous notification IDs
     previousNotificationIds.current = new Set(newNotifications.map((n) => n.id))
 
+    // Persist to localStorage to prevent retriggering on page reload
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        'seenNotificationIds',
+        JSON.stringify(Array.from(previousNotificationIds.current))
+      )
+    }
+
     setNotifications(newNotifications)
   }
 
@@ -205,6 +256,7 @@ export function NotificationProvider({
     unreadCount,
     settings,
     dismissNotification,
+    dismissAllNotifications,
     updateSettings,
     refetchNotifications,
   }

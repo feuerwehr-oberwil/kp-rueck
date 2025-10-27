@@ -5,14 +5,15 @@ from datetime import datetime, timedelta
 from typing import Literal
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.models import (
     EmergencyTemplate,
     TrainingLocation,
     Incident,
     Event,
-    Setting
+    Setting,
+    Notification
 )
 
 
@@ -123,6 +124,22 @@ class TrainingGenerator:
         self.db.add(incident)
         await self.db.commit()
         await self.db.refresh(incident)
+
+        # Create notification for new training incident
+        notification = Notification(
+            id=uuid4(),
+            type="training_emergency",
+            severity="critical" if category == "critical" else "warning",
+            message=f"Neuer Übungs-Einsatz: {incident.title} ({full_address})",
+            incident_id=incident.id,
+            event_id=event_id,
+            dismissed=False,
+        )
+        self.db.add(notification)
+        await self.db.commit()
+
+        # Log emergency creation
+        print(f"✓ Training emergency created: {incident.title} at {full_address} (category: {category})")
 
         return incident
 
