@@ -7,16 +7,13 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Filter, Copy, Check, Sparkles } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
@@ -71,9 +68,6 @@ export default function FireStationDashboard() {
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
-  const [filterVehicle, setFilterVehicle] = useState<string>("all")
-  const [filterPriority, setFilterPriority] = useState<string>("all")
-  const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
@@ -547,27 +541,42 @@ export default function FireStationDashboard() {
   )
 
   // Memoize filtered operations to avoid unnecessary recalculations on every render
-  const filteredOperations = useMemo(() => operations.filter((op) => {
-    // Text search filter
-    const matchesSearch =
-      op.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      op.incidentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (op.vehicle && op.vehicle.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredOperations = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return operations
+    }
 
-    // Vehicle filter
-    const matchesVehicle =
-      filterVehicle === "all" ||
-      (filterVehicle === "none" && !op.vehicle) ||
-      op.vehicle === filterVehicle
+    const query = searchQuery.toLowerCase()
 
-    // Priority filter
-    const matchesPriority = filterPriority === "all" || op.priority === filterPriority
-
-    // Incident type filter
-    const matchesIncidentType = filterIncidentType === "all" || op.incidentType === filterIncidentType
-
-    return matchesSearch && matchesVehicle && matchesPriority && matchesIncidentType
-  }), [operations, searchQuery, filterVehicle, filterPriority, filterIncidentType])
+    return operations.filter((op) => {
+      // Search through all relevant fields
+      return (
+        // Location
+        op.location.toLowerCase().includes(query) ||
+        // Incident type
+        op.incidentType.toLowerCase().includes(query) ||
+        getIncidentTypeLabel(op.incidentType).toLowerCase().includes(query) ||
+        // Priority
+        op.priority.toLowerCase().includes(query) ||
+        // Vehicles (legacy field and array)
+        (op.vehicle && op.vehicle.toLowerCase().includes(query)) ||
+        op.vehicles.some(v => v.toLowerCase().includes(query)) ||
+        // Crew members
+        op.crew.some(crew => crew.toLowerCase().includes(query)) ||
+        // Materials
+        op.materials.some(materialId => {
+          const material = materials.find(m => m.id === materialId)
+          return material && material.name.toLowerCase().includes(query)
+        }) ||
+        // Notes
+        op.notes.toLowerCase().includes(query) ||
+        // Contact
+        op.contact.toLowerCase().includes(query) ||
+        // Status
+        op.status.toLowerCase().includes(query)
+      )
+    })
+  }, [operations, searchQuery, materials])
 
   const handlePersonClick = (person: Person) => {
     if (person.status === "assigned") {
@@ -716,92 +725,6 @@ export default function FireStationDashboard() {
                 <Kbd>/</Kbd>
               </div>
             </div>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filter
-                  {(filterVehicle !== "all" || filterPriority !== "all" || filterIncidentType !== "all") && (
-                    <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                      {[filterVehicle !== "all", filterPriority !== "all", filterIncidentType !== "all"].filter(Boolean).length}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold text-sm mb-2">Filter</h4>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Fahrzeug</Label>
-                    <Select value={filterVehicle} onValueChange={setFilterVehicle}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        <SelectItem value="none">Keine</SelectItem>
-                        {vehicleTypes.map((vt) => (
-                          <SelectItem key={vt.name} value={vt.name || ""}>
-                            {vt.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Priorität</Label>
-                    <Select value={filterPriority} onValueChange={setFilterPriority}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        <SelectItem value="high">Hoch</SelectItem>
-                        <SelectItem value="medium">Mittel</SelectItem>
-                        <SelectItem value="low">Niedrig</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Einsatzart</Label>
-                    <Select value={filterIncidentType} onValueChange={setFilterIncidentType}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        {incidentTypeKeys.map((typeKey) => (
-                          <SelectItem key={typeKey} value={typeKey}>
-                            {getIncidentTypeLabel(typeKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {(filterVehicle !== "all" || filterPriority !== "all" || filterIncidentType !== "all") && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        setFilterVehicle("all")
-                        setFilterPriority("all")
-                        setFilterIncidentType("all")
-                      }}
-                    >
-                      Filter zurücksetzen
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
 
             <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
               <Clock className="h-4 w-4 text-muted-foreground" />
