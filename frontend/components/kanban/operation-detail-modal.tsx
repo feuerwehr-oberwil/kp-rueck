@@ -155,7 +155,7 @@ export function OperationDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-3">
             <MapPin className="h-6 w-6 text-primary" />
@@ -166,9 +166,11 @@ export function OperationDetailModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Location - Full Width */}
-          <div className="relative col-span-full">
+        <div className="grid grid-cols-2 gap-6 py-4">
+          {/* Left Column - Entry Fields */}
+          <div className="space-y-6">
+          {/* Location */}
+          <div className="relative">
             <div className="flex items-center justify-between">
               <Label htmlFor="edit-location" className="text-sm font-semibold text-muted-foreground">
                 Einsatzort
@@ -337,7 +339,7 @@ export function OperationDetailModal({
             </div>
           </div>
 
-          {/* Contact - Moved up */}
+          {/* Contact */}
           <div>
             <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">Kontakt / Melder</Label>
             <Input
@@ -348,10 +350,12 @@ export function OperationDetailModal({
               className="mt-2"
             />
           </div>
+          </div>
 
+          {/* Right Column - External Info */}
+          <div className="space-y-6">
           {/* Reko Reports */}
           <div>
-            <Separator className="my-6" />
             <Label className="text-sm font-semibold text-muted-foreground">
               Rekognoszierungs-Meldungen
             </Label>
@@ -471,7 +475,11 @@ export function OperationDetailModal({
               )}
             </div>
           </div>
+          </div>
+        </div>
 
+        {/* Actions - Full Width Below Columns */}
+        <div className="space-y-4">
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t">
             <Button className="gap-2">
