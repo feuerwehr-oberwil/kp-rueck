@@ -811,6 +811,21 @@ class ApiClient {
     return response.blob()
   }
 
+  // Event Export
+  async exportEvent(eventId: string): Promise<Blob> {
+    const url = `${this.baseUrl}/api/exports/events/${eventId}`
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Event export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
   // Training Automation
   async generateTrainingEmergency(
     eventId: string,
