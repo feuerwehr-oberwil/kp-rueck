@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { columns } from "@/lib/kanban-utils"
@@ -27,7 +27,7 @@ interface DroppableColumnProps {
   setOperationRef?: (id: string, element: HTMLDivElement | null) => void
 }
 
-export function DroppableColumn({
+export const DroppableColumn = memo(function DroppableColumn({
   column,
   operations,
   onRemoveCrew,
@@ -98,4 +98,4 @@ export function DroppableColumn({
       </div>
     </div>
   )
-}
+})
