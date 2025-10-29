@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
-import { MapPin, Printer, Send, Trash2, Plus, Truck, X, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -478,32 +478,21 @@ export function OperationDetailModal({
           </div>
         </div>
 
-        {/* Actions - Full Width Below Columns */}
-        <div className="space-y-4">
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
-            <Button className="gap-2">
-              <Printer className="h-4 w-4" />
-              Drucken
+        {/* Actions */}
+        <div className="flex gap-3 pt-4 border-t">
+          {operation.status === "complete" && (
+            <Button
+              variant="destructive"
+              className="gap-2"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Löschen
             </Button>
-            <Button variant="secondary" className="gap-2">
-              <Send className="h-4 w-4" />
-              Senden
-            </Button>
-            {operation.status === "complete" && (
-              <Button
-                variant="destructive"
-                className="gap-2"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Löschen
-              </Button>
-            )}
-            <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
-              Schliessen
-            </Button>
-          </div>
+          )}
+          <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
+            Schliessen
+          </Button>
         </div>
       </DialogContent>
 
