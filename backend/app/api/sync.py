@@ -197,6 +197,7 @@ async def trigger_immediate_sync(
 
 
 @router.get("/logs", response_model=list[SyncLogResponse])
+@router.get("/history", response_model=list[SyncLogResponse])  # Alias for frontend compatibility
 async def get_sync_logs(
     limit: int = 20,
     db: AsyncSession = Depends(get_db)
@@ -229,6 +230,64 @@ async def get_sync_logs(
         )
         for log in logs
     ]
+
+
+@router.get("/config", response_model=dict)
+async def get_sync_config(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get sync configuration.
+
+    Returns:
+        Current sync configuration including interval and auto-sync settings.
+    """
+    from app.services.settings import get_setting_value
+
+    sync_interval_minutes = await get_setting_value(db, "sync_interval_minutes", "2")
+    auto_sync_on_create = await get_setting_value(db, "auto_sync_on_create", "true")
+
+    return {
+        "sync_interval_minutes": int(sync_interval_minutes),
+        "auto_sync_on_create": auto_sync_on_create.lower() == "true"
+    }
+
+
+@router.put("/config", response_model=dict)
+async def update_sync_config(
+    config: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update sync configuration.
+
+    Args:
+        config: New configuration with sync_interval_minutes and auto_sync_on_create.
+
+    Returns:
+        Updated configuration.
+    """
+    from app.services.settings import update_setting
+
+    if "sync_interval_minutes" in config:
+        await update_setting(
+            db,
+            key="sync_interval_minutes",
+            value=str(config["sync_interval_minutes"]),
+            user_id=None  # System update
+        )
+
+    if "auto_sync_on_create" in config:
+        await update_setting(
+            db,
+            key="auto_sync_on_create",
+            value="true" if config["auto_sync_on_create"] else "false",
+            user_id=None  # System update
+        )
+
+    await db.commit()
+
+    return await get_sync_config(db)
 
 
 # Helper endpoints for delta sync (used by sync_service.py)
