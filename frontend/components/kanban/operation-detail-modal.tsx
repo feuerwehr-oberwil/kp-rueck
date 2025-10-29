@@ -155,7 +155,7 @@ export function OperationDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!w-[90vw] !h-[85vh] !max-w-none sm:!max-w-none overflow-y-auto">
+      <DialogContent className="!w-[90vw] !h-[85vh] !max-w-none sm:!max-w-none !pb-4 overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-3">
             <MapPin className="h-6 w-6 text-primary" />
