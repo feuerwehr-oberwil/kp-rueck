@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Kbd } from '@/components/ui/kbd';
 
 interface PageNavigationProps {
-  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training';
+  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training' | 'stats';
   vehicleTypes?: Array<{ key: string; name: string }>;
   onShortcutsOpen?: () => void;
   hasSelectedEvent?: boolean;

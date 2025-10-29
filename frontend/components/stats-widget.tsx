@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { apiClient, type ApiEventStats, type IncidentStatus } from '@/lib/api-client'
+import { apiClient, type ApiEventStats } from '@/lib/api-client'
 import { Activity, Users, Clock, TrendingUp } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
@@ -32,13 +32,18 @@ function StatCard({ label, value, icon }: StatCardProps) {
   )
 }
 
-const STATUS_LABELS: Record<IncidentStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   eingegangen: 'Eingegangen',
   reko: 'Reko',
   disponiert: 'Disponiert',
   einsatz: 'Einsatz',
   einsatz_beendet: 'Einsatz beendet',
   abschluss: 'Abschluss',
+}
+
+// Helper function to get status label with fallback
+function getStatusLabel(status: string): string {
+  return STATUS_LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 export function StatsWidget({ eventId }: { eventId: string }) {
@@ -125,9 +130,9 @@ export function StatsWidget({ eventId }: { eventId: string }) {
         <div>
           <h4 className="text-sm font-medium mb-3">Status-Verteilung</h4>
           <div className="flex flex-wrap gap-2">
-            {(Object.entries(stats.status_counts) as [IncidentStatus, number][]).map(([status, count]) => (
+            {Object.entries(stats.status_counts).map(([status, count]) => (
               <Badge key={status} variant="outline" className="px-3 py-1">
-                {STATUS_LABELS[status]}: {count}
+                {getStatusLabel(status)}: {count}
               </Badge>
             ))}
           </div>

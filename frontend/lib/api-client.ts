@@ -317,7 +317,7 @@ export interface ApiTrainingLocation {
 
 // Event Stats Types
 export interface ApiEventStats {
-  status_counts: Record<IncidentStatus, number>
+  status_counts: Record<string, number> // Keys are incident statuses as strings
   personnel_available: number
   personnel_total: number
   avg_duration_minutes: number
