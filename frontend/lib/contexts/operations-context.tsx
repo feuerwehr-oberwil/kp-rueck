@@ -5,6 +5,7 @@ import { apiClient, type ApiPersonnel, type ApiMaterialResource } from "@/lib/ap
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
+import { toast } from "sonner"
 
 // Types
 export type PersonStatus = "available" | "assigned"
@@ -413,7 +414,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Call unassignment API
     if (isLoaded) {
       apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => console.error("Failed to unassign crew:", err))
+        .catch(err => {
+          console.error("Failed to unassign crew:", err)
+          toast.error("Fehler beim Entfernen", {
+            description: "Die Person konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+          })
+        })
     }
   }
 
@@ -459,7 +465,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Call unassignment API
     if (isLoaded) {
       apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => console.error("Failed to unassign material:", err))
+        .catch(err => {
+          console.error("Failed to unassign material:", err)
+          toast.error("Fehler beim Entfernen", {
+            description: "Das Material konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+          })
+        })
     }
   }
 
@@ -506,7 +517,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (updates.contact !== undefined) apiUpdates.contact = updates.contact
 
         apiClient.updateIncident(operationId, apiUpdates)
-          .catch(err => console.error("Failed to update operation:", err))
+          .catch(err => {
+            console.error("Failed to update operation:", err)
+            toast.error("Fehler beim Aktualisieren", {
+              description: "Der Einsatz konnte nicht aktualisiert werden."
+            })
+          })
       }, 500)
     }
   }
@@ -778,7 +794,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Call unassignment API
     if (isLoaded) {
       apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => console.error("Failed to unassign vehicle:", err))
+        .catch(err => {
+          console.error("Failed to unassign vehicle:", err)
+          toast.error("Fehler beim Entfernen", {
+            description: "Das Fahrzeug konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+          })
+        })
     }
   }
 
