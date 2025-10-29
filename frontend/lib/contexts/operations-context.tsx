@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
-import { apiClient, type ApiPersonnel, type ApiMaterialResource } from "@/lib/api-client"
+import { apiClient, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
@@ -103,7 +103,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
-  const apiPersonToPerson = (apiPerson: any): Person => ({
+  const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
     id: String(apiPerson.id),
     name: apiPerson.name,
     role: apiPerson.role as PersonRole,
@@ -118,7 +118,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   })
 
   // Helper to convert Incident to Operation
-  const apiIncidentToOperation = (incident: any): Operation => {
+  const apiIncidentToOperation = (incident: ApiIncident): Operation => {
     // Map incident status to operation status
     const statusMap: Record<string, OperationStatus> = {
       "eingegangen": "incoming",
@@ -500,21 +500,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           "complete": "abschluss",
         }
 
-        const apiUpdates: any = {}
+        const apiUpdates: Partial<ApiIncidentUpdate> = {}
+        // Only include fields that exist in ApiIncidentUpdate
         if (updates.location !== undefined) apiUpdates.location_address = updates.location
-        if (updates.vehicle !== undefined) apiUpdates.vehicle = updates.vehicle
-        if (updates.incidentType !== undefined) apiUpdates.type = updates.incidentType
-        if (updates.dispatchTime !== undefined) apiUpdates.dispatch_time = updates.dispatchTime.toISOString()
-        if (updates.crew !== undefined) apiUpdates.crew = updates.crew
+        if (updates.incidentType !== undefined) apiUpdates.type = updates.incidentType as ApiIncidentUpdate['type']
         if (updates.priority !== undefined) apiUpdates.priority = updates.priority
-        if (updates.status !== undefined) apiUpdates.status = statusToBackend[updates.status]
+        if (updates.status !== undefined) apiUpdates.status = statusToBackend[updates.status] as ApiIncidentUpdate['status']
         if (updates.coordinates !== undefined) {
           apiUpdates.location_lat = updates.coordinates[0]?.toString()
           apiUpdates.location_lng = updates.coordinates[1]?.toString()
         }
-        if (updates.materials !== undefined) apiUpdates.materials = updates.materials
         if (updates.notes !== undefined) apiUpdates.description = updates.notes
-        if (updates.contact !== undefined) apiUpdates.contact = updates.contact
+        // Note: vehicle, crew, materials, contact, and dispatchTime are not part of the incident update API
+        // These are handled separately through assignment APIs or are legacy fields
 
         apiClient.updateIncident(operationId, apiUpdates)
           .catch(err => {
@@ -991,12 +989,24 @@ export function useIncidents() {
     setTrainingMode: (_trainingMode: boolean) => {}, // No-op for compatibility
     formatLocation: context.formatLocation,
     createIncident: async (data: any) => {
-      const apiIncident = await apiClient.createIncident(data)
+      // Convert frontend IncidentCreate to ApiIncidentCreate (number coords -> string coords)
+      const apiData: ApiIncidentCreate = {
+        ...data,
+        location_lat: data.location_lat != null ? String(data.location_lat) : null,
+        location_lng: data.location_lng != null ? String(data.location_lng) : null,
+      }
+      const apiIncident = await apiClient.createIncident(apiData)
       await context.refreshOperations()
       return apiIncident
     },
     updateIncident: async (id: string, data: any) => {
-      await apiClient.updateIncident(id, data)
+      // Convert frontend IncidentUpdate to ApiIncidentUpdate (number coords -> string coords)
+      const apiData: Partial<ApiIncidentUpdate> = {
+        ...data,
+        location_lat: data.location_lat != null ? String(data.location_lat) : data.location_lat === null ? null : undefined,
+        location_lng: data.location_lng != null ? String(data.location_lng) : data.location_lng === null ? null : undefined,
+      }
+      await apiClient.updateIncident(id, apiData)
       await context.refreshOperations()
     },
     deleteIncident: async (id: string) => {
