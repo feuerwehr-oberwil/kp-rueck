@@ -481,7 +481,6 @@ export function OperationDetailModal({
         {/* Actions */}
         <div className="flex gap-3 pt-4 border-t">
           <Button
-            variant="destructive"
             className="gap-2"
             onClick={() => setShowDeleteConfirm(true)}
           >
