@@ -101,7 +101,7 @@ export function IncidentsKanban() {
             )
 
             return (
-              <div key={column.id} className="flex w-80 flex-shrink-0 flex-col">
+              <div key={column.id} className="flex w-64 flex-shrink-0 flex-col">
                 {/* Column header */}
                 <div
                   className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3 transition-all`}
