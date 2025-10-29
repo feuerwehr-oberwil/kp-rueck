@@ -1,63 +1,112 @@
-"""Export API endpoints."""
+"""Export API endpoints for legal compliance and archival."""
 from datetime import datetime
+from io import BytesIO
+from typing import Annotated
+import uuid
+import zipfile
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor
 from ..database import get_db
-from ..services.audit import log_action
-from ..services.event_export import export_event_to_zip
+from ..models import Event, AuditLog
+from ..services.export_service import (
+    export_event_pdf,
+    export_event_excel,
+    export_event_photos,
+)
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
 
 @router.post("/events/{event_id}")
 async def export_event(
-    event_id: str,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db),
-    request: Request = None,
+    event_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,  # Only editors can export
 ):
     """
-    Export event and all related data to a ZIP archive.
-
-    Includes:
-    - Event metadata (JSON)
-    - All incidents (JSON + Excel)
-    - Status transitions (JSON)
-    - Assignments (JSON)
-    - Reko reports (JSON)
+    Export complete event as PDF + Excel + Photos ZIP.
+    
+    Returns a single ZIP file containing:
+    - bericht.pdf: Complete event report in PDF/A format
+    - daten.xlsx: Event data in Excel format
+    - fotos.zip: All photos from Reko reports (if any exist)
+    
+    Args:
+        event_id: UUID of the event to export
+        
+    Returns:
+        StreamingResponse with ZIP file containing all exports
+        
+    Raises:
+        404: Event not found
+        500: Export generation failed
     """
+    # Verify event exists
+    event_result = await db.execute(
+        select(Event).where(Event.id == event_id)
+    )
+    event = event_result.scalar_one_or_none()
+    
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Event {event_id} not found"
+        )
+    
     try:
-        # Generate export
-        zip_buffer = await export_event_to_zip(db, event_id)
-
-        # Generate filename with timestamp
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        filename = f"event_export_{event_id[:8]}_{timestamp}.zip"
-
-        # Audit log
-        await log_action(
-            db=db,
+        # Generate exports
+        pdf_buffer = await export_event_pdf(db, event_id, current_user)
+        excel_buffer = await export_event_excel(db, event_id)
+        photos_buffer = await export_event_photos(db, event_id)
+        
+        # Combine into single ZIP
+        combined_buffer = BytesIO()
+        with zipfile.ZipFile(combined_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("bericht.pdf", pdf_buffer.getvalue())
+            zf.writestr("daten.xlsx", excel_buffer.getvalue())
+            
+            # Only include photos ZIP if photos exist
+            if photos_buffer:
+                zf.writestr("fotos.zip", photos_buffer.getvalue())
+        
+        combined_buffer.seek(0)
+        
+        # Create audit log entry
+        audit_entry = AuditLog(
+            user_id=current_user.id,
             action_type="export",
             resource_type="event",
             resource_id=event_id,
-            user=current_user,
-            changes={"filename": filename, "format": "zip"},
-            request=request
+            changes_json={"exported_at": datetime.utcnow().isoformat()},
+            timestamp=datetime.utcnow(),
         )
+        db.add(audit_entry)
         await db.commit()
-
-        # Return as streaming response
-        return StreamingResponse(
-            zip_buffer,
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        
+        # Generate filename
+        event_name_safe = "".join(
+            c if c.isalnum() or c in (' ', '-', '_') else '_' 
+            for c in event.name
         )
-
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        filename = f"export_{event_name_safe}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        return StreamingResponse(
+            combined_buffer,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        # Log error
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Export generation failed: {str(e)}"
+        )
