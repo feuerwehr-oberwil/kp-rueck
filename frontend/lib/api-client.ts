@@ -315,6 +315,15 @@ export interface ApiTrainingLocation {
   is_active: boolean
 }
 
+// Event Stats Types
+export interface ApiEventStats {
+  status_counts: Record<IncidentStatus, number>
+  personnel_available: number
+  personnel_total: number
+  avg_duration_minutes: number
+  resource_utilization_percent: number
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -851,6 +860,11 @@ class ApiClient {
     }
 
     return response.blob()
+  }
+
+  // Event Stats
+  async getEventStats(eventId: string): Promise<ApiEventStats> {
+    return this.request<ApiEventStats>(`/api/events/${eventId}/stats`)
   }
 
   // Training Automation
