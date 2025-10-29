@@ -804,3 +804,18 @@ class GenerateEmergencyRequest(BaseModel):
 
     category: Optional[str] = None  # 'normal', 'critical', or None for random
     count: int = 1  # For burst generation (1-10)
+
+
+# ============================================
+# Stats Schemas
+# ============================================
+
+
+class EventStats(BaseModel):
+    """Real-time statistics for an event."""
+
+    status_counts: dict[str, int]  # Count of incidents by status
+    personnel_available: int  # Number of available personnel
+    personnel_total: int  # Total number of personnel
+    avg_duration_minutes: int  # Average incident duration in minutes
+    resource_utilization_percent: float  # Percentage of personnel assigned
