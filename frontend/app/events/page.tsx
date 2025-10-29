@@ -17,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCircle2, Trash2, GraduationCap } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { EventExportButton } from '@/components/event-export-button'
@@ -260,10 +260,12 @@ export default function EventsPage() {
                           }`}
                         >
                           <CardHeader>
-                            <CardTitle className="text-lg">{event.name}</CardTitle>
-                            {event.training_flag && (
-                              <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
-                            )}
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              {event.name}
+                              {event.training_flag && (
+                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-2 text-sm text-muted-foreground">
@@ -311,10 +313,12 @@ export default function EventsPage() {
                           className="opacity-50 border-dashed"
                         >
                           <CardHeader>
-                            <CardTitle className="text-lg text-muted-foreground">{event.name}</CardTitle>
-                            {event.training_flag && (
-                              <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
-                            )}
+                            <CardTitle className="text-lg text-muted-foreground flex items-center gap-2">
+                              {event.name}
+                              {event.training_flag && (
+                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-2 text-sm text-muted-foreground">
