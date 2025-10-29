@@ -480,16 +480,14 @@ export function OperationDetailModal({
 
         {/* Actions */}
         <div className="flex gap-3 pt-4 border-t">
-          {operation.status === "complete" && (
-            <Button
-              variant="destructive"
-              className="gap-2"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="h-4 w-4" />
-              Löschen
-            </Button>
-          )}
+          <Button
+            variant="destructive"
+            className="gap-2"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            Löschen
+          </Button>
           <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
             Schliessen
           </Button>
