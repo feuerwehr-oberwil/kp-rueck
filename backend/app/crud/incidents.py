@@ -48,23 +48,71 @@ async def get_incidents(
     result = await db.execute(query)
     incidents = list(result.scalars().all())
 
+    if not incidents:
+        return incidents
+
+    # Batch load status transitions for all incidents in one query
+    incident_ids = [incident.id for incident in incidents]
+
+    # Subquery to get latest status transition timestamp for each incident
+    from sqlalchemy import desc
+    from sqlalchemy.sql import text
+
+    latest_transitions_query = (
+        select(
+            StatusTransition.incident_id,
+            func.max(StatusTransition.timestamp).label('latest_timestamp')
+        )
+        .where(StatusTransition.incident_id.in_(incident_ids))
+        .group_by(StatusTransition.incident_id)
+    )
+
+    transitions_result = await db.execute(latest_transitions_query)
+    transitions_map = {row.incident_id: row.latest_timestamp for row in transitions_result}
+
+    # Batch load all assignments and vehicles in one query
+    assignments_query = (
+        select(IncidentAssignment, Vehicle)
+        .outerjoin(Vehicle, and_(
+            Vehicle.id == IncidentAssignment.resource_id,
+            IncidentAssignment.resource_type == "vehicle"
+        ))
+        .where(
+            and_(
+                IncidentAssignment.incident_id.in_(incident_ids),
+                IncidentAssignment.resource_type == "vehicle",
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+        .order_by(IncidentAssignment.assigned_at.asc())
+    )
+
+    assignments_result = await db.execute(assignments_query)
+
+    # Group assignments by incident_id
+    vehicles_by_incident = {}
+    for assignment, vehicle in assignments_result.all():
+        if assignment.incident_id not in vehicles_by_incident:
+            vehicles_by_incident[assignment.incident_id] = []
+
+        if vehicle:  # Vehicle might be None if not found
+            vehicles_by_incident[assignment.incident_id].append(
+                schemas.AssignedVehicle(
+                    assignment_id=assignment.id,
+                    vehicle_id=vehicle.id,
+                    name=vehicle.name,
+                    type=vehicle.type,
+                    assigned_at=assignment.assigned_at,
+                )
+            )
+
     # Populate status_changed_at and assigned_vehicles for each incident
     for incident in incidents:
-        # Query the most recent status transition for this incident
-        latest_transition_query = (
-            select(StatusTransition.timestamp)
-            .where(StatusTransition.incident_id == incident.id)
-            .order_by(StatusTransition.timestamp.desc())
-            .limit(1)
-        )
-        transition_result = await db.execute(latest_transition_query)
-        latest_timestamp = transition_result.scalar_one_or_none()
+        # Set status_changed_at from batch-loaded map
+        incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
 
-        # Set status_changed_at to latest transition timestamp, or created_at if no transitions exist
-        incident.status_changed_at = latest_timestamp if latest_timestamp else incident.created_at
-
-        # Load assigned vehicles
-        incident.assigned_vehicles = await _get_assigned_vehicles(db, incident.id)
+        # Set assigned vehicles from batch-loaded map
+        incident.assigned_vehicles = vehicles_by_incident.get(incident.id, [])
 
     return incidents
 
@@ -75,7 +123,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
     incident = result.scalar_one_or_none()
 
     if incident:
-        # Get latest status transition timestamp
+        # Get latest status transition timestamp (single query)
         latest_transition_query = (
             select(StatusTransition.timestamp)
             .where(StatusTransition.incident_id == incident.id)
@@ -88,7 +136,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         # Set status_changed_at to latest transition timestamp, or created_at if no transitions exist
         incident.status_changed_at = latest_timestamp if latest_timestamp else incident.created_at
 
-        # Load assigned vehicles
+        # Load assigned vehicles (reuse helper function - acceptable for single incident)
         incident.assigned_vehicles = await _get_assigned_vehicles(db, incident.id)
 
     return incident

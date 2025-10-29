@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import routes
 from .api.admin import router as admin_router
-from .api.assignments import router as assignments_router
+from .api.assignments import router as assignments_router, bulk_router as assignments_bulk_router
 from .api.auth import router as auth_router
 from .api.audit import router as audit_router
 from .api.events import router as events_router
@@ -109,6 +109,7 @@ app.include_router(events_router, prefix=settings.api_v1_prefix)
 app.include_router(exports_router, prefix=settings.api_v1_prefix)
 app.include_router(incidents_router, prefix=settings.api_v1_prefix)
 app.include_router(assignments_router, prefix=settings.api_v1_prefix)
+app.include_router(assignments_bulk_router, prefix=settings.api_v1_prefix)  # Bulk assignments endpoint
 app.include_router(personnel_router, prefix=settings.api_v1_prefix)
 app.include_router(personnel_checkin_router, prefix=settings.api_v1_prefix)
 app.include_router(vehicles_router, prefix=settings.api_v1_prefix)
