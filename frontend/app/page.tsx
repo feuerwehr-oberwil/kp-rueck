@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
@@ -545,7 +545,8 @@ export default function FireStationDashboard() {
     {} as Record<string, Material[]>,
   )
 
-  const filteredOperations = operations.filter((op) => {
+  // Memoize filtered operations to avoid unnecessary recalculations on every render
+  const filteredOperations = useMemo(() => operations.filter((op) => {
     // Text search filter
     const matchesSearch =
       op.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -565,7 +566,7 @@ export default function FireStationDashboard() {
     const matchesIncidentType = filterIncidentType === "all" || op.incidentType === filterIncidentType
 
     return matchesSearch && matchesVehicle && matchesPriority && matchesIncidentType
-  })
+  }), [operations, searchQuery, filterVehicle, filterPriority, filterIncidentType])
 
   const handlePersonClick = (person: Person) => {
     if (person.status === "assigned") {

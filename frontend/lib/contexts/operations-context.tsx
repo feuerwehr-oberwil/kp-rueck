@@ -177,35 +177,36 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Fetch vehicles for vehicle assignment lookups
       const vehiclesList = await apiClient.getVehicles()
 
-      // Fetch assignments for each incident and populate crew/materials/vehicles
-      await Promise.all(
-        operations.map(async (operation) => {
-          try {
-            const assignments = await apiClient.getIncidentAssignments(operation.id)
+      // Fetch ALL assignments for this event in a single bulk request (optimized - replaces N+1 query pattern)
+      try {
+        const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
 
-            for (const assignment of assignments) {
-              if (assignment.resource_type === "personnel") {
-                const person = personnelList.find(p => p.id === assignment.resource_id)
-                if (person) {
-                  operation.crew.push(person.name)
-                  operation.crewAssignments.set(person.name, assignment.id)
-                }
-              } else if (assignment.resource_type === "material") {
-                operation.materials.push(assignment.resource_id)
-                operation.materialAssignments.set(assignment.resource_id, assignment.id)
-              } else if (assignment.resource_type === "vehicle") {
-                const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
-                if (vehicle) {
-                  operation.vehicles.push(vehicle.name)
-                  operation.vehicleAssignments.set(vehicle.name, assignment.id)
-                }
+        // Populate crew/materials/vehicles for each operation from bulk data
+        operations.forEach((operation) => {
+          const assignments = assignmentsByIncident[operation.id] || []
+
+          for (const assignment of assignments) {
+            if (assignment.resource_type === "personnel") {
+              const person = personnelList.find(p => p.id === assignment.resource_id)
+              if (person) {
+                operation.crew.push(person.name)
+                operation.crewAssignments.set(person.name, assignment.id)
+              }
+            } else if (assignment.resource_type === "material") {
+              operation.materials.push(assignment.resource_id)
+              operation.materialAssignments.set(assignment.resource_id, assignment.id)
+            } else if (assignment.resource_type === "vehicle") {
+              const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+              if (vehicle) {
+                operation.vehicles.push(vehicle.name)
+                operation.vehicleAssignments.set(vehicle.name, assignment.id)
               }
             }
-          } catch (error) {
-            console.error(`Failed to load assignments for incident ${operation.id}:`, error)
           }
         })
-      )
+      } catch (error) {
+        console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+      }
 
       // Calculate event-scoped availability
       const assignedPersonIds = new Set<string>()
@@ -280,38 +281,39 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // Fetch vehicles for vehicle assignment lookups
         const vehiclesList = await apiClient.getVehicles()
 
-        // Fetch assignments for each incident and populate crew/materials/vehicles
-        await Promise.all(
-          operations.map(async (operation) => {
-            try {
-              const assignments = await apiClient.getIncidentAssignments(operation.id)
+        // Fetch ALL assignments for this event in a single bulk request (optimized - replaces N+1 query pattern)
+        try {
+          const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
 
-              for (const assignment of assignments) {
-                if (assignment.resource_type === "personnel") {
-                  // Find person by ID to get their name
-                  const person = personnelList.find(p => p.id === assignment.resource_id)
-                  if (person) {
-                    operation.crew.push(person.name)
-                    operation.crewAssignments.set(person.name, assignment.id)
-                  }
-                } else if (assignment.resource_type === "material") {
-                  // Add material ID to materials array
-                  operation.materials.push(assignment.resource_id)
-                  operation.materialAssignments.set(assignment.resource_id, assignment.id)
-                } else if (assignment.resource_type === "vehicle") {
-                  // Find vehicle by ID to get its name
-                  const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
-                  if (vehicle) {
-                    operation.vehicles.push(vehicle.name)
-                    operation.vehicleAssignments.set(vehicle.name, assignment.id)
-                  }
+          // Populate crew/materials/vehicles for each operation from bulk data
+          operations.forEach((operation) => {
+            const assignments = assignmentsByIncident[operation.id] || []
+
+            for (const assignment of assignments) {
+              if (assignment.resource_type === "personnel") {
+                // Find person by ID to get their name
+                const person = personnelList.find(p => p.id === assignment.resource_id)
+                if (person) {
+                  operation.crew.push(person.name)
+                  operation.crewAssignments.set(person.name, assignment.id)
+                }
+              } else if (assignment.resource_type === "material") {
+                // Add material ID to materials array
+                operation.materials.push(assignment.resource_id)
+                operation.materialAssignments.set(assignment.resource_id, assignment.id)
+              } else if (assignment.resource_type === "vehicle") {
+                // Find vehicle by ID to get its name
+                const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+                if (vehicle) {
+                  operation.vehicles.push(vehicle.name)
+                  operation.vehicleAssignments.set(vehicle.name, assignment.id)
                 }
               }
-            } catch (error) {
-              console.error(`Failed to load assignments for incident ${operation.id}:`, error)
             }
           })
-        )
+        } catch (error) {
+          console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+        }
 
         // Calculate event-scoped availability:
         // A person/material is "assigned" only if assigned to an incident in THIS event
@@ -358,13 +360,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     loadData()
 
-    // Poll for updates every 3 seconds (increased frequency for faster reko updates)
+    // Poll for updates every 5 seconds (optimized for performance while maintaining reasonable responsiveness)
     const pollInterval = setInterval(() => {
       // Only poll if not currently loading
       if (!isLoading) {
         loadData()
       }
-    }, 3000)
+    }, 5000)
 
     return () => clearInterval(pollInterval)
   }, [authLoading, isAuthenticated, selectedEvent])
