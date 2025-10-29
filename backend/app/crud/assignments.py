@@ -42,9 +42,17 @@ async def assign_resource(
             )
         )
     )
-    existing_assignment = existing.scalar_one_or_none()
+    existing_assignments = existing.scalars().all()
 
-    if existing_assignment and existing_assignment.incident_id != incident_id:
+    # Check if already assigned to THIS incident
+    already_assigned_to_this = any(
+        assignment.incident_id == incident_id for assignment in existing_assignments
+    )
+    if already_assigned_to_this:
+        raise ValueError(f"Resource already assigned to this incident")
+
+    # Check if assigned to OTHER incidents (conflict)
+    if existing_assignments:
         # Resource conflict - but we allow override with warning
         # (UI should show warning to user before calling this)
         pass

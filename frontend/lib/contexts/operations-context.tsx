@@ -721,6 +721,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // Validate vehicleId before proceeding
+    if (!vehicleId || vehicleId.trim() === '') {
+      console.error('[ERROR] Invalid vehicleId:', { vehicleId, vehicleName, operationId })
+      toast.error("Fehler", {
+        description: `Fahrzeug "${vehicleName}" hat keine gültige ID. Bitte laden Sie die Seite neu.`
+      })
+      return
+    }
+
     // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
@@ -729,6 +738,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Persist to database via assignment API
     if (isLoaded) {
       try {
+        console.log('[DEBUG] Assigning vehicle:', {
+          vehicleId,
+          vehicleName,
+          operationId,
+          isVehicleIdValid: !!vehicleId,
+          vehicleIdType: typeof vehicleId,
+        })
         const assignment = await apiClient.assignResource(operationId, {
           resource_type: "vehicle",
           resource_id: vehicleId,
