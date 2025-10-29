@@ -168,6 +168,68 @@ async def get_incident_assignments(
     return list(result.scalars().all())
 
 
+async def get_assignments_by_event(
+    db: AsyncSession, event_id: uuid.UUID
+) -> dict[uuid.UUID, list[schemas.AssignmentResponse]]:
+    """
+    Get all active assignments for all incidents in an event.
+
+    Optimizes the frontend by fetching all assignments in one query
+    instead of N separate queries (one per incident).
+
+    Returns:
+        Dictionary mapping incident_id to list of assignments
+    """
+    from ..models import Incident
+
+    # Get all incidents for this event
+    incidents_query = select(Incident.id).where(
+        and_(
+            Incident.event_id == event_id,
+            Incident.deleted_at.is_(None),
+        )
+    )
+    incidents_result = await db.execute(incidents_query)
+    incident_ids = [row[0] for row in incidents_result.all()]
+
+    if not incident_ids:
+        return {}
+
+    # Fetch all assignments for these incidents in one query
+    assignments_query = (
+        select(IncidentAssignment)
+        .where(
+            and_(
+                IncidentAssignment.incident_id.in_(incident_ids),
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+        .order_by(IncidentAssignment.assigned_at.asc())
+    )
+
+    result = await db.execute(assignments_query)
+    assignments = result.scalars().all()
+
+    # Group by incident_id
+    assignments_by_incident = {}
+    for assignment in assignments:
+        if assignment.incident_id not in assignments_by_incident:
+            assignments_by_incident[assignment.incident_id] = []
+
+        assignments_by_incident[assignment.incident_id].append(
+            schemas.AssignmentResponse(
+                id=assignment.id,
+                incident_id=assignment.incident_id,
+                resource_type=assignment.resource_type,
+                resource_id=assignment.resource_id,
+                assigned_at=assignment.assigned_at,
+                assigned_by=assignment.assigned_by,
+            )
+        )
+
+    return assignments_by_incident
+
+
 async def check_resource_conflicts(
     db: AsyncSession, resource_type: str, resource_id: uuid.UUID
 ) -> list[uuid.UUID]:
