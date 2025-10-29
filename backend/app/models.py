@@ -427,6 +427,36 @@ class AuditLog(Base):
 
 
 # ============================================
+# SYNC LOGGING
+# ============================================
+
+
+class SyncLog(Base):
+    """Sync operation tracking for Railway ↔ Local bidirectional sync."""
+
+    __tablename__ = "sync_log"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    sync_direction: Mapped[str] = mapped_column(String(20), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    records_synced: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    errors: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "sync_direction IN ('from_railway', 'to_railway')", name="valid_sync_direction"
+        ),
+        CheckConstraint(
+            "status IN ('success', 'failed', 'partial', 'in_progress')", name="valid_sync_status"
+        ),
+        Index("idx_sync_log_started_at", "started_at"),
+        Index("idx_sync_log_status", "status"),
+    )
+
+
+# ============================================
 # SETTINGS & CONFIGURATION
 # ============================================
 

@@ -819,3 +819,71 @@ class EventStats(BaseModel):
     personnel_total: int  # Total number of personnel
     avg_duration_minutes: int  # Average incident duration in minutes
     resource_utilization_percent: float  # Percentage of personnel assigned
+
+
+# ============================================
+# Sync Schemas
+# ============================================
+
+
+class SyncDirection(str, Enum):
+    """Sync direction enumeration."""
+
+    FROM_RAILWAY = "from_railway"
+    TO_RAILWAY = "to_railway"
+
+
+class SyncStatus(str, Enum):
+    """Sync status enumeration."""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    PARTIAL = "partial"
+    IN_PROGRESS = "in_progress"
+
+
+class SyncResult(BaseModel):
+    """Result of a sync operation."""
+
+    success: bool
+    direction: SyncDirection
+    records_synced: dict[str, int]  # e.g., {"incidents": 5, "personnel": 2}
+    errors: Optional[list[str]] = None
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class Delta(BaseModel):
+    """Delta of changes between Railway and Local."""
+
+    incidents: list[dict] = []
+    personnel: list[dict] = []
+    vehicles: list[dict] = []
+    materials: list[dict] = []
+    settings: list[dict] = []
+    total_records: int = 0
+
+
+class SyncStatusResponse(BaseModel):
+    """Current sync status response."""
+
+    last_sync: Optional[datetime] = None
+    direction: Optional[SyncDirection] = None
+    railway_healthy: bool
+    is_syncing: bool
+    records_pending: int = 0
+    last_error: Optional[str] = None
+
+
+class SyncLogResponse(BaseModel):
+    """Sync log entry response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    sync_direction: SyncDirection
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    status: SyncStatus
+    records_synced: Optional[dict] = None
+    errors: Optional[dict] = None
