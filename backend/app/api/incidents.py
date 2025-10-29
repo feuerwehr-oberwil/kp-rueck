@@ -1,9 +1,10 @@
 """Incident API endpoints."""
+import asyncio
 from datetime import datetime
 from typing import Annotated, Optional
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -13,6 +14,35 @@ from ..crud import events as events_crud
 from ..database import get_db
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
+
+
+async def trigger_sync_background():
+    """Trigger immediate sync in background (event-based sync)."""
+    try:
+        from ..config import settings
+        from ..services.sync_service import create_sync_service
+
+        # Skip if no Railway URL configured
+        if not settings.railway_url:
+            return
+
+        # Get a new database session for background task
+        async for db in get_db():
+            try:
+                sync_service = await create_sync_service(db)
+
+                # Check Railway health
+                railway_healthy = await sync_service.check_railway_health()
+                if not railway_healthy:
+                    return
+
+                # Trigger sync
+                await sync_service.sync_from_railway()
+            finally:
+                break
+    except Exception as e:
+        # Log error but don't fail the incident creation
+        print(f"Background sync failed: {e}")
 
 
 @router.get("/", response_model=list[schemas.IncidentResponse])
@@ -62,6 +92,7 @@ async def get_incident(
 async def create_incident(
     incident: schemas.IncidentCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ):
@@ -69,6 +100,7 @@ async def create_incident(
     Create new incident (editor only).
 
     Verifies that the event exists before creating the incident.
+    Triggers immediate sync (event-based) after creation.
     """
     # Verify event exists
     event = await events_crud.get_event_by_id(db, incident.event_id)
@@ -78,12 +110,18 @@ async def create_incident(
             detail="Event not found"
         )
 
-    return await crud.create_incident(
+    # Create incident
+    new_incident = await crud.create_incident(
         db=db,
         incident=incident,
         current_user=current_user,
         request=request,
     )
+
+    # Trigger immediate sync in background (event-based sync)
+    background_tasks.add_task(trigger_sync_background)
+
+    return new_incident
 
 
 @router.patch("/{incident_id}", response_model=schemas.IncidentResponse)
