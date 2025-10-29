@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from './env'
+import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
 const API_URL = getApiUrl()
 
@@ -885,6 +886,45 @@ class ApiClient {
 
   async getTrainingLocations(): Promise<ApiTrainingLocation[]> {
     return this.request<ApiTrainingLocation[]>('/api/training/locations/')
+  }
+
+  // Sync endpoints
+  async getSyncStatus(): Promise<SyncStatusResponse> {
+    return this.request<SyncStatusResponse>('/api/sync/status')
+  }
+
+  async getSyncHistory(limit?: number): Promise<SyncHistoryEntry[]> {
+    const params = limit ? `?limit=${limit}` : ''
+    return this.request<SyncHistoryEntry[]>(`/api/sync/history${params}`)
+  }
+
+  async getSyncConfig(): Promise<SyncConfig> {
+    return this.request<SyncConfig>('/api/sync/config')
+  }
+
+  async updateSyncConfig(config: SyncConfig): Promise<SyncConfig> {
+    return this.request<SyncConfig>('/api/sync/config', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    })
+  }
+
+  async triggerSyncFromRailway(): Promise<SyncResult> {
+    return this.request<SyncResult>('/api/sync/from-railway', {
+      method: 'POST',
+    })
+  }
+
+  async triggerSyncToRailway(): Promise<SyncResult> {
+    return this.request<SyncResult>('/api/sync/to-railway', {
+      method: 'POST',
+    })
+  }
+
+  async triggerImmediateSync(): Promise<SyncResult> {
+    return this.request<SyncResult>('/api/sync/trigger-immediate', {
+      method: 'POST',
+    })
   }
 }
 
