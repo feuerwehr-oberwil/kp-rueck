@@ -338,8 +338,24 @@ class ApiClient {
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
+        let errorText = ''
+        try {
+          errorText = await response.text()
+        } catch (e) {
+          errorText = 'Keine Fehlerdetails verfügbar'
+        }
         console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+
+        // Try to parse as JSON for better error messages
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.detail) {
+            throw new Error(`API-Fehler: ${errorJson.detail}`)
+          }
+        } catch (e) {
+          // Not JSON, use text error
+        }
+
         throw new Error(`API-Fehler: ${response.status} ${response.statusText} - ${errorText}`)
       }
 

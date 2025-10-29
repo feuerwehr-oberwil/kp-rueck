@@ -136,6 +136,7 @@ export default function FireStationDashboard() {
           name: vehicle.name,
           id: vehicle.id
         }))
+        console.log('[DEBUG] Loaded vehicles for shortcuts:', typesWithKeys)
         setVehicleTypes(typesWithKeys)
       } catch (error) {
         console.error('Failed to load vehicles:', error)
