@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/switch'
 import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
+import { EventExportButton } from '@/components/event-export-button'
 
 export default function EventsPage() {
   const router = useRouter()
@@ -271,23 +272,26 @@ export default function EventsPage() {
                               <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
                             </div>
 
-                            <div className="flex gap-2 mt-4">
-                              <Button
-                                className="flex-1"
-                                onClick={() => handleSelectEvent(event)}
-                              >
-                                Auswählen
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  setTargetEvent(event)
-                                  setShowArchiveDialog(true)
-                                }}
-                              >
-                                <Archive className="h-4 w-4" />
-                              </Button>
+                            <div className="mt-4">
+                              <div className="flex gap-2">
+                                <Button
+                                  className="flex-1"
+                                  onClick={() => handleSelectEvent(event)}
+                                >
+                                  Auswählen
+                                </Button>
+                                <EventExportButton eventId={event.id} eventName={event.name} />
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    setTargetEvent(event)
+                                    setShowArchiveDialog(true)
+                                  }}
+                                >
+                                  <Archive className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -319,25 +323,28 @@ export default function EventsPage() {
                               <div>Archiviert: {new Date(event.archived_at!).toLocaleDateString('de-CH')}</div>
                             </div>
 
-                            <div className="flex gap-2 mt-4">
-                              <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => handleUnarchive(event)}
-                              >
-                                <ArchiveRestore className="mr-2 h-4 w-4" />
-                                Wiederherstellen
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                onClick={() => {
-                                  setTargetEvent(event)
-                                  setShowDeleteDialog(true)
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <div className="mt-4">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => handleUnarchive(event)}
+                                >
+                                  <ArchiveRestore className="mr-2 h-4 w-4" />
+                                  Wiederherstellen
+                                </Button>
+                                <EventExportButton eventId={event.id} eventName={event.name} />
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  onClick={() => {
+                                    setTargetEvent(event)
+                                    setShowDeleteDialog(true)
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
