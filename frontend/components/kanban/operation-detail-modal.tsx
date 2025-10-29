@@ -349,6 +349,17 @@ export function OperationDetailModal({
             />
           </div>
 
+          {/* Reko Reports */}
+          <div>
+            <Separator className="my-6" />
+            <Label className="text-sm font-semibold text-muted-foreground">
+              Rekognoszierungs-Meldungen
+            </Label>
+            <div className="mt-3">
+              <RekoReportSection incidentId={operation.id} />
+            </div>
+          </div>
+
           {/* Assigned Vehicles */}
           <div>
             <Label className="text-sm font-semibold text-muted-foreground">Zugewiesene Fahrzeuge ({operation.vehicles.length})</Label>
@@ -458,17 +469,6 @@ export function OperationDetailModal({
               ) : (
                 <p className="text-sm text-muted-foreground">Kein Material zugewiesen</p>
               )}
-            </div>
-          </div>
-
-          {/* Reko Reports */}
-          <div>
-            <Separator className="my-6" />
-            <Label className="text-sm font-semibold text-muted-foreground">
-              Rekognoszierungs-Meldungen
-            </Label>
-            <div className="mt-3">
-              <RekoReportSection incidentId={operation.id} />
             </div>
           </div>
 
