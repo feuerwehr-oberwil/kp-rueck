@@ -307,6 +307,29 @@ class AssignedVehicle(BaseModel):
     assigned_at: datetime
 
 
+class AssignedPersonnel(BaseModel):
+    """Personnel with assignment information."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    assignment_id: UUID  # ID of the assignment record
+    personnel_id: UUID
+    name: str
+    role: Optional[str] = None
+    assigned_at: datetime
+
+
+class AssignedMaterial(BaseModel):
+    """Material with assignment information."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    assignment_id: UUID  # ID of the assignment record
+    material_id: UUID
+    name: str
+    assigned_at: datetime
+
+
 class IncidentResponse(IncidentBase):
     """Full incident schema with database fields."""
 
@@ -320,6 +343,8 @@ class IncidentResponse(IncidentBase):
     completed_at: Optional[datetime] = None
     status_changed_at: Optional[datetime] = None  # Timestamp of last status transition
     assigned_vehicles: list[AssignedVehicle] = []  # List of assigned vehicles with details
+    assigned_personnel: list[AssignedPersonnel] = []  # List of assigned personnel with details
+    assigned_materials: list[AssignedMaterial] = []  # List of assigned materials with details
 
     @field_serializer('location_lat', 'location_lng')
     def serialize_decimal(self, value):
@@ -412,6 +437,105 @@ class User(UserBase):
 
 # Alias for API responses (matches task specification)
 UserResponse = User
+
+
+class PasswordChangeRequest(BaseModel):
+    """Schema for changing user password."""
+
+    current_password: str
+    new_password: str
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """
+        Validate password strength in production.
+        Development allows simple passwords for convenience.
+        """
+        import os
+
+        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+
+        if is_production:
+            # Production: enforce strong passwords
+            if len(v) < 8:
+                raise ValueError("Password must be at least 8 characters long")
+
+            # Check for complexity
+            has_upper = any(c.isupper() for c in v)
+            has_lower = any(c.islower() for c in v)
+            has_digit = any(c.isdigit() for c in v)
+
+            if not (has_upper and has_lower and has_digit):
+                raise ValueError(
+                    "Password must contain at least one uppercase letter, "
+                    "one lowercase letter, and one digit"
+                )
+        else:
+            # Development: allow simple passwords but warn
+            if len(v) < 3:
+                raise ValueError("Password must be at least 3 characters long")
+
+        return v
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating user (editors only)."""
+
+    username: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None  # Optional password reset by editor
+
+    @field_validator('password')
+    @classmethod
+    def validate_password_strength(cls, v: str | None) -> str | None:
+        """
+        Validate password strength in production.
+        Development allows simple passwords for convenience.
+        """
+        if v is None:
+            return v
+
+        import os
+
+        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+
+        if is_production:
+            # Production: enforce strong passwords
+            if len(v) < 8:
+                raise ValueError("Password must be at least 8 characters long")
+
+            # Check for complexity
+            has_upper = any(c.isupper() for c in v)
+            has_lower = any(c.islower() for c in v)
+            has_digit = any(c.isdigit() for c in v)
+
+            if not (has_upper and has_lower and has_digit):
+                raise ValueError(
+                    "Password must contain at least one uppercase letter, "
+                    "one lowercase letter, and one digit"
+                )
+        else:
+            # Development: allow simple passwords but warn
+            if len(v) < 3:
+                raise ValueError("Password must be at least 3 characters long")
+
+        return v
+
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v: str | None) -> str | None:
+        """Validate role is either 'editor' or 'viewer'."""
+        if v is not None and v not in ('editor', 'viewer'):
+            raise ValueError("Role must be either 'editor' or 'viewer'")
+        return v
+
+
+class UserListResponse(BaseModel):
+    """Schema for user list response."""
+
+    users: list[UserResponse]
+    total: int
 
 
 # ============================================

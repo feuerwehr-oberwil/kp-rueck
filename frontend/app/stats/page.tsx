@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge'
 
 export default function StatsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const { selectedEvent, isEventLoaded } = useEvent()
+  const { selectedEvent } = useEvent()
   const router = useRouter()
 
   useEffect(() => {
@@ -29,14 +29,14 @@ export default function StatsPage() {
     }
   }, [authLoading, isAuthenticated, router])
 
-  // Redirect to events page if no event is selected (after loading)
+  // Redirect to events page if no event is selected
   useEffect(() => {
-    if (!authLoading && isEventLoaded && !selectedEvent) {
+    if (!authLoading && !selectedEvent) {
       router.push('/events')
     }
-  }, [authLoading, isEventLoaded, selectedEvent, router])
+  }, [authLoading, selectedEvent, router])
 
-  if (authLoading || !isEventLoaded) {
+  if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background text-foreground">
         <div className="text-muted-foreground">Laden...</div>
@@ -82,7 +82,7 @@ export default function StatsPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <PageNavigation currentPage="stats" />
+            <PageNavigation currentPage="settings" />
           </div>
         </header>
 

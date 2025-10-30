@@ -7,16 +7,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import routes
+from .api.admin import router as admin_router
 from .api.assignments import router as assignments_router
 from .api.auth import router as auth_router
 from .api.audit import router as audit_router
 from .api.events import router as events_router
+from .api.exports import router as exports_router
+from .api.help import router as help_router
 from .api.incidents import router as incidents_router
 from .api.materials import router as materials_router
+from .api.notifications import router as notifications_router
 from .api.personnel import router as personnel_router
 from .api.personnel_checkin import router as personnel_checkin_router
 from .api.reko import router as reko_router, photos_router
 from .api.settings import router as settings_router
+from .api.stats import router as stats_router
+from .api.sync import router as sync_router
+from .api.training import router as training_router
+from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .config import settings
 from .database import Base, engine, get_db
@@ -116,6 +124,8 @@ app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
+app.include_router(exports_router, prefix=settings.api_v1_prefix)
+app.include_router(help_router, prefix=settings.api_v1_prefix)
 app.include_router(incidents_router, prefix=settings.api_v1_prefix)
 app.include_router(assignments_router, prefix=settings.api_v1_prefix)
 app.include_router(personnel_router, prefix=settings.api_v1_prefix)
@@ -129,6 +139,7 @@ app.include_router(stats_router, prefix=settings.api_v1_prefix)
 app.include_router(sync_router, prefix=settings.api_v1_prefix)
 app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(training_router, prefix=settings.api_v1_prefix)
+app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
 
@@ -142,3 +153,23 @@ async def root() -> dict[str, str]:
 async def health() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+@app.get("/env")
+async def environment_info() -> dict[str, bool]:
+    """
+    Environment information endpoint.
+
+    Returns whether the app is running in development or production mode.
+    This is used by the frontend to determine whether to show dev credentials.
+
+    Returns:
+        - is_production: True if RAILWAY_ENVIRONMENT is set, False otherwise
+        - is_development: True if running locally, False otherwise
+    """
+    is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+
+    return {
+        "is_production": is_production,
+        "is_development": not is_production,
+    }

@@ -396,17 +396,9 @@ export default function CombinedKanbanBoard({
                 onCardClick={onCardClick}
                 onCardHover={onCardHover}
                 highlightedOperationId={highlightedOperationId || highlightedOperationIdLocal}
-                hoveredOperationId={null}
                 isDraggingRef={isDraggingRef}
                 materials={materials}
                 formatLocation={formatLocation}
-                setOperationRef={(id, el) => {
-                  if (el) {
-                    operationRefs.current.set(id, el)
-                  } else {
-                    operationRefs.current.delete(id)
-                  }
-                }}
               />
             )
           })}

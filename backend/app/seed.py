@@ -29,8 +29,43 @@ async def seed_database() -> None:
             # 1. SEED DEFAULT ADMIN USER
             # ============================================
             print("Creating default admin user...")
+
+            import os
+
+            # Detect environment
+            is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+
+            if is_production:
+                # Production: Require ADMIN_PASSWORD env variable
+                password = os.getenv("ADMIN_PASSWORD")
+                if not password:
+                    raise ValueError(
+                        "ADMIN_PASSWORD environment variable must be set in production. "
+                        "Set a strong password with: ADMIN_PASSWORD='your-strong-password'"
+                    )
+
+                # Validate password strength
+                if len(password) < 8:
+                    raise ValueError("ADMIN_PASSWORD must be at least 8 characters long")
+
+                has_upper = any(c.isupper() for c in password)
+                has_lower = any(c.islower() for c in password)
+                has_digit = any(c.isdigit() for c in password)
+
+                if not (has_upper and has_lower and has_digit):
+                    raise ValueError(
+                        "ADMIN_PASSWORD must contain at least one uppercase letter, "
+                        "one lowercase letter, and one digit"
+                    )
+
+                print("  ℹ️  Using ADMIN_PASSWORD from environment (production mode)")
+            else:
+                # Development: Use simple password for convenience
+                password = "admin"
+                print("  ⚠️  DEV MODE: Using simple password 'admin' for admin user")
+                print("  ⚠️  This is insecure and only acceptable in development!")
+
             # Hash password using bcrypt
-            password = "changeme123"  # CHANGE IN PRODUCTION
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
             admin_user = models.User(
@@ -436,7 +471,13 @@ async def seed_database() -> None:
             # ============================================
             await db.commit()
             print("\n✅ Database seeded successfully!")
-            print(f"  - Created admin user: admin / changeme123 (CHANGE IN PRODUCTION)")
+
+            # Show credentials (dev only)
+            if is_production:
+                print(f"  - Created admin user: admin / [password from ADMIN_PASSWORD env]")
+            else:
+                print(f"  - Created admin user: admin / admin (DEV MODE ONLY)")
+
             print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")
