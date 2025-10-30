@@ -53,6 +53,13 @@ class SyncService:
             return None
 
         if self._railway_engine is None:
+            # Ensure the URL uses asyncpg driver for async operations
+            if railway_url.startswith('postgresql://'):
+                railway_url = railway_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
+            elif not railway_url.startswith('postgresql+asyncpg://'):
+                # If it's already postgresql+something, we should still ensure it's asyncpg
+                railway_url = railway_url.replace('postgresql+', 'postgresql+asyncpg+', 1)
+
             self._railway_engine = create_async_engine(railway_url, echo=False)
         return self._railway_engine
 
