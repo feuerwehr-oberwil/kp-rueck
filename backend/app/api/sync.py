@@ -262,8 +262,9 @@ async def get_sync_config(
     Requires authentication.
 
     Returns:
-        Current sync configuration including interval, auto-sync settings, and connection details.
+        Current sync configuration including interval, auto-sync settings, connection details, and production flag.
     """
+    from app.config import settings
     from app.services.settings import get_setting_value
 
     sync_interval_minutes = await get_setting_value(db, "sync_interval_minutes", "2")
@@ -275,7 +276,8 @@ async def get_sync_config(
         "sync_interval_minutes": int(sync_interval_minutes),
         "auto_sync_on_create": auto_sync_on_create.lower() == "true",
         "railway_database_url": railway_database_url,
-        "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds)
+        "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds),
+        "is_production": settings.is_production  # True if running on Railway
     }
 
 

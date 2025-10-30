@@ -35,6 +35,7 @@ export interface SyncConfig {
   auto_sync_on_create: boolean;
   railway_database_url: string;
   sync_conflict_buffer_seconds?: number;
+  is_production?: boolean;  // True if running on Railway (production)
 }
 
 export interface SyncResult {
