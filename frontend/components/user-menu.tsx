@@ -169,16 +169,18 @@ export function UserMenu() {
             </div>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Sync</span>
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
-              {getSyncDirectionIcon()}
-              <span className="text-xs">{getSyncStatusText()}</span>
+        <DropdownMenuItem asChild>
+          <Link href="/settings?tab=sync" className="cursor-pointer">
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs text-muted-foreground">Sync</span>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
+                {getSyncDirectionIcon()}
+                <span className="text-xs">{getSyncStatusText()}</span>
+              </div>
             </div>
-          </div>
-        </DropdownMenuLabel>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/settings" className="cursor-pointer">
