@@ -347,9 +347,10 @@ def upgrade():
 
 ## Important Files & Documentation
 
-- `DESIGN_DOC.md` - Complete system requirements and architecture specification
+- `ARCHITECTURE.md` - System architecture and technical design
 - `README.md` - Setup instructions and feature overview
 - `RAILWAY.md` - Railway deployment guide
+- `CONFIGURATION_SETTINGS.md` - System configuration and settings management
 - `Makefile` - Quick reference for common commands
 - `backend/README.md` - Backend-specific setup and API docs
 - `frontend/package.json` - Frontend scripts and dependencies
