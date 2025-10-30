@@ -7,16 +7,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import routes
+from .api.admin import router as admin_router
 from .api.assignments import router as assignments_router
 from .api.auth import router as auth_router
 from .api.audit import router as audit_router
 from .api.events import router as events_router
 from .api.incidents import router as incidents_router
 from .api.materials import router as materials_router
+from .api.notifications import router as notifications_router
 from .api.personnel import router as personnel_router
 from .api.personnel_checkin import router as personnel_checkin_router
 from .api.reko import router as reko_router, photos_router
 from .api.settings import router as settings_router
+from .api.stats import router as stats_router
+from .api.sync import router as sync_router
+from .api.training import router as training_router
 from .api.vehicles import router as vehicles_router
 from .config import settings
 from .database import Base, engine, get_db
@@ -58,6 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start background sync scheduler
     print("Starting background sync scheduler...")
     try:
+        from .background.sync_scheduler import start_sync_scheduler, stop_sync_scheduler
         start_sync_scheduler()
     except Exception as e:
         print(f"Warning: Sync scheduler failed to start: {e}")
@@ -68,6 +74,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown: Stop sync scheduler
     print("Stopping sync scheduler...")
     try:
+        from .background.sync_scheduler import stop_sync_scheduler
         stop_sync_scheduler()
     except Exception as e:
         print(f"Warning: Sync scheduler shutdown failed: {e}")
