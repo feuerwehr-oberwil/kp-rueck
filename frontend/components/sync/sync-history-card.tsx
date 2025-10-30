@@ -105,6 +105,8 @@ export function SyncHistoryCard() {
   }
 
   const formatRecordsSynced = (records: SyncHistoryEntry['records_synced']) => {
+    if (!records) return 'Keine'
+
     const entries = Object.entries(records).filter(([_, count]) => count && count > 0)
     if (entries.length === 0) return 'Keine'
 
