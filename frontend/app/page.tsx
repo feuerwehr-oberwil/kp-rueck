@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -76,14 +76,9 @@ export default function FireStationDashboard() {
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
-  const [gPrefixActive, setGPrefixActive] = useState(false)
-  const [filterVehicle, setFilterVehicle] = useState<string>("all")
-  const [filterPriority, setFilterPriority] = useState<string>("all")
-  const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
-  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -829,6 +824,7 @@ export default function FireStationDashboard() {
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
+                    hoveredOperationId={hoveredOperationId}
                     isDraggingRef={isDraggingOperationRef}
                     materials={materials}
                     formatLocation={formatLocation}

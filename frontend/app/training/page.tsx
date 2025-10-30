@@ -10,15 +10,15 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
 export default function TrainingPage() {
-  const { selectedEvent } = useEvent()
+  const { selectedEvent, isEventLoaded } = useEvent()
   const router = useRouter()
 
   // Redirect if no event selected or not a training event
   useEffect(() => {
-    if (!selectedEvent) {
+    if (isEventLoaded && !selectedEvent) {
       router.push('/events')
     }
-  }, [selectedEvent, router])
+  }, [isEventLoaded, selectedEvent, router])
 
   if (!selectedEvent) {
     return (
@@ -35,7 +35,8 @@ export default function TrainingPage() {
           <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
             <h1 className="text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
             <PageNavigation
-              currentPage="settings"
+              currentPage="training"
+              hasSelectedEvent={!!selectedEvent}
             />
           </header>
 
@@ -59,7 +60,8 @@ export default function TrainingPage() {
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sm:px-6 py-4">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
           <PageNavigation
-            currentPage="settings"
+            currentPage="training"
+            hasSelectedEvent={!!selectedEvent}
           />
         </header>
 
