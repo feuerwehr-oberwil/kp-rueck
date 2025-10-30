@@ -28,6 +28,32 @@ class SyncService:
     def __init__(self, db: AsyncSession):
         """Initialize sync service with database session."""
         self.db = db
+        self._railway_url: Optional[str] = None
+        self._sync_timeout: Optional[int] = None
+        self._conflict_buffer: Optional[int] = None
+
+    async def get_railway_url(self) -> str:
+        """Get Railway URL from database settings."""
+        if self._railway_url is None:
+            from app.services.settings import get_setting_value
+            self._railway_url = await get_setting_value(self.db, "railway_url", "")
+        return self._railway_url
+
+    async def get_sync_timeout(self) -> int:
+        """Get sync timeout from database settings."""
+        if self._sync_timeout is None:
+            from app.services.settings import get_setting_value
+            timeout_str = await get_setting_value(self.db, "sync_timeout_seconds", "30")
+            self._sync_timeout = int(timeout_str)
+        return self._sync_timeout
+
+    async def get_conflict_buffer(self) -> int:
+        """Get conflict buffer from database settings."""
+        if self._conflict_buffer is None:
+            from app.services.settings import get_setting_value
+            buffer_str = await get_setting_value(self.db, "sync_conflict_buffer_seconds", "5")
+            self._conflict_buffer = int(buffer_str)
+        return self._conflict_buffer
 
     async def check_railway_health(self) -> bool:
         """
@@ -36,13 +62,14 @@ class SyncService:
         Returns:
             bool: True if Railway is healthy, False otherwise.
         """
-        if not settings.railway_url:
+        railway_url = await self.get_railway_url()
+        if not railway_url:
             return False
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(
-                    f"{settings.railway_url}/api/health",
+                    f"{railway_url}/api/health",
                     timeout=5.0
                 )
                 return response.status_code == 200
@@ -87,8 +114,9 @@ class SyncService:
             Delta object containing changed records.
         """
         delta = Delta()
+        sync_timeout = await self.get_sync_timeout()
 
-        async with httpx.AsyncClient(timeout=settings.sync_timeout_seconds) as client:
+        async with httpx.AsyncClient(timeout=sync_timeout) as client:
             for table_name in self.SYNCABLE_MODELS.keys():
                 try:
                     params = {}
@@ -161,9 +189,10 @@ class SyncService:
                         )
                         local_updated_at = existing.updated_at
 
-                        # Add buffer: if timestamps within 5 seconds, Local wins
+                        # Add buffer: if timestamps within configured seconds, Local wins
+                        conflict_buffer = await self.get_conflict_buffer()
                         time_diff = abs((incoming_updated_at - local_updated_at).total_seconds())
-                        if time_diff <= settings.sync_conflict_buffer_seconds:
+                        if time_diff <= conflict_buffer:
                             # Local wins, skip update
                             continue
 
@@ -228,7 +257,8 @@ class SyncService:
             last_sync = await self.get_last_sync_time(SyncDirection.FROM_RAILWAY)
 
             # Get delta from Railway
-            delta = await self.get_sync_delta(settings.railway_url, last_sync)
+            railway_url = await self.get_railway_url()
+            delta = await self.get_sync_delta(railway_url, last_sync)
 
             # Apply delta to local database
             applied_counts = await self.apply_delta(delta)
@@ -327,8 +357,10 @@ class SyncService:
                 delta.total_records += len(records_data)
 
             # Push delta to Railway
+            railway_url = await self.get_railway_url()
+            sync_timeout = await self.get_sync_timeout()
             pushed_counts = {}
-            async with httpx.AsyncClient(timeout=settings.sync_timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=sync_timeout) as client:
                 for table_name in self.SYNCABLE_MODELS.keys():
                     records = getattr(delta, table_name)
                     if not records:
@@ -337,7 +369,7 @@ class SyncService:
 
                     try:
                         response = await client.post(
-                            f"{settings.railway_url}/api/sync/apply/{table_name}",
+                            f"{railway_url}/api/sync/apply/{table_name}",
                             json=records
                         )
                         response.raise_for_status()
