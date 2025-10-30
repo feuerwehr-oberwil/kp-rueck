@@ -829,7 +829,6 @@ export default function FireStationDashboard() {
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
-                    hoveredOperationId={hoveredOperationId}
                     isDraggingRef={isDraggingOperationRef}
                     materials={materials}
                     formatLocation={formatLocation}
