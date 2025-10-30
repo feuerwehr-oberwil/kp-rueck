@@ -36,6 +36,14 @@ export interface ApiEventListResponse {
   total: number
 }
 
+export interface ApiEventStats {
+  status_counts: Record<string, number>
+  personnel_available: number
+  personnel_total: number
+  avg_duration_minutes: number
+  resource_utilization_percent: number
+}
+
 // Resource Management Types
 export interface ApiPersonnel {
   id: string // UUID
@@ -172,6 +180,21 @@ export interface ApiAssignedVehicle {
   assigned_at: string
 }
 
+export interface ApiAssignedPersonnel {
+  assignment_id: string // UUID
+  personnel_id: string
+  name: string
+  role: string | null
+  assigned_at: string
+}
+
+export interface ApiAssignedMaterial {
+  assignment_id: string // UUID
+  material_id: string
+  name: string
+  assigned_at: string
+}
+
 export interface ApiIncident {
   id: string // UUID
   event_id: string // UUID - reference to parent event
@@ -189,6 +212,8 @@ export interface ApiIncident {
   completed_at: string | null
   status_changed_at: string | null // Timestamp of last status transition
   assigned_vehicles: ApiAssignedVehicle[]
+  assigned_personnel: ApiAssignedPersonnel[]
+  assigned_materials: ApiAssignedMaterial[]
 }
 
 export interface ApiIncidentCreate {
@@ -367,6 +392,39 @@ class ApiClient {
     })
   }
 
+  // Sync Management (placeholder - backend not yet implemented)
+  async getSyncConfig(): Promise<SyncConfig> {
+    throw new Error('Sync feature not yet implemented on backend')
+  }
+
+  async updateSyncConfig(_config: SyncConfig): Promise<void> {
+    throw new Error('Sync feature not yet implemented on backend')
+  }
+
+  async getSyncStatus(): Promise<SyncStatusResponse> {
+    throw new Error('Sync feature not yet implemented on backend')
+  }
+
+  async getSyncHistory(_limit?: number): Promise<SyncHistoryEntry[]> {
+    throw new Error('Sync feature not yet implemented on backend')
+  }
+
+  async triggerSync(): Promise<SyncResult> {
+    throw new Error('Sync feature not yet implemented on backend')
+  }
+
+  async triggerSyncFromRailway(): Promise<void> {
+    throw new Error('Sync from Railway feature not yet implemented on backend')
+  }
+
+  async triggerSyncToRailway(): Promise<void> {
+    throw new Error('Sync to Railway feature not yet implemented on backend')
+  }
+
+  async triggerImmediateSync(): Promise<void> {
+    throw new Error('Immediate sync feature not yet implemented on backend')
+  }
+
   // Event endpoints
   async getEvents(includeArchived: boolean = false): Promise<ApiEventListResponse> {
     const params = new URLSearchParams()
@@ -411,6 +469,14 @@ class ApiClient {
     return this.request<void>(`/api/events/${eventId}/`, {
       method: 'DELETE',
     })
+  }
+
+  async getEventStats(eventId: string): Promise<ApiEventStats> {
+    throw new Error('Event stats feature not yet implemented on backend')
+  }
+
+  async generateTrainingEmergency(_eventId: string, _options: { category: string | null; count: number }): Promise<ApiIncident[]> {
+    throw new Error('Training emergency generation not yet implemented on backend')
   }
 
   // Incidents (now event-scoped)
@@ -700,6 +766,60 @@ class ApiClient {
 
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
     return this.request<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
+  }
+
+  // Excel Import/Export (placeholder methods - backend endpoints not yet implemented)
+  async previewExcelImport(_file: File): Promise<ApiExcelImportPreview> {
+    throw new Error('Excel import feature not yet implemented on backend')
+  }
+
+  async executeExcelImport(_file: File, _mode: 'replace' | 'append'): Promise<ApiExcelImportResult> {
+    throw new Error('Excel import feature not yet implemented on backend')
+  }
+
+  async downloadImportTemplate(): Promise<Blob> {
+    throw new Error('Excel template download not yet implemented on backend')
+  }
+
+  async exportAllData(): Promise<Blob> {
+    throw new Error('Excel export feature not yet implemented on backend')
+  }
+
+  async exportEvent(_eventId: string): Promise<Blob> {
+    throw new Error('Event export feature not yet implemented on backend')
+  }
+}
+
+// Excel Import/Export Types
+export interface ApiExcelImportPreview {
+  personnel_total: number
+  personnel_preview: Array<{
+    name: string
+    role: string | null
+    availability: string
+  }>
+  vehicles_total: number
+  vehicles_preview: Array<{
+    name: string
+    type: string
+    display_order: number
+    status: string
+    radio_call_sign: string
+  }>
+  materials_total: number
+  materials_preview: Array<{
+    name: string
+    type: string
+    location: string
+    description: string | null
+  }>
+}
+
+export interface ApiExcelImportResult {
+  counts: {
+    personnel: number
+    vehicles: number
+    materials: number
   }
 }
 

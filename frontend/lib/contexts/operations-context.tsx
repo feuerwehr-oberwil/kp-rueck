@@ -128,26 +128,56 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       "abschluss": "complete",
     }
 
+    // Build crew assignments map from embedded assigned_personnel
+    const crewAssignments = new Map<string, string>()
+    const crew: string[] = []
+    if (incident.assigned_personnel) {
+      for (const person of incident.assigned_personnel) {
+        crew.push(person.name)
+        crewAssignments.set(person.name, person.assignment_id)
+      }
+    }
+
+    // Build material assignments map from embedded assigned_materials
+    const materialAssignments = new Map<string, string>()
+    const materials: string[] = []
+    if (incident.assigned_materials) {
+      for (const material of incident.assigned_materials) {
+        materials.push(material.material_id)
+        materialAssignments.set(material.material_id, material.assignment_id)
+      }
+    }
+
+    // Build vehicle assignments map from embedded assigned_vehicles
+    const vehicleAssignments = new Map<string, string>()
+    const vehicles: string[] = []
+    if (incident.assigned_vehicles) {
+      for (const vehicle of incident.assigned_vehicles) {
+        vehicles.push(vehicle.name)
+        vehicleAssignments.set(vehicle.name, vehicle.assignment_id)
+      }
+    }
+
     return {
       id: incident.id,
       location: incident.location_address || incident.title,
       vehicle: null, // Legacy field - kept for backward compatibility
-      vehicles: [], // Will be populated from assignments
+      vehicles,
       incidentType: incident.type || "Technische Hilfe",
       dispatchTime: new Date(incident.created_at),
-      crew: [], // Will be populated from assignments
+      crew,
       priority: incident.priority as "high" | "medium" | "low",
       status: statusMap[incident.status] || "incoming",
       coordinates: incident.location_lat && incident.location_lng
         ? [parseFloat(incident.location_lat), parseFloat(incident.location_lng)]
         : [47.51637699933488, 7.561800450458299],
-      materials: [], // Will be populated from assignments
+      materials,
       notes: incident.description || "",
       contact: "", // Not in incident schema
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
-      crewAssignments: new Map(),
-      materialAssignments: new Map(),
-      vehicleAssignments: new Map(),
+      crewAssignments,
+      materialAssignments,
+      vehicleAssignments,
     }
   }
 
@@ -172,40 +202,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Convert to frontend types
       const personnelList = apiPersonnel.map(apiPersonToPerson)
       const materialsList = apiMats.map(apiMaterialToMaterial)
+      // Assignments are now embedded in the incident response via eager loading
       const operations = apiIncidents.map(apiIncidentToOperation)
-
-      // Fetch vehicles for vehicle assignment lookups
-      const vehiclesList = await apiClient.getVehicles()
-
-      // Fetch assignments for each incident and populate crew/materials/vehicles
-      await Promise.all(
-        operations.map(async (operation) => {
-          try {
-            const assignments = await apiClient.getIncidentAssignments(operation.id)
-
-            for (const assignment of assignments) {
-              if (assignment.resource_type === "personnel") {
-                const person = personnelList.find(p => p.id === assignment.resource_id)
-                if (person) {
-                  operation.crew.push(person.name)
-                  operation.crewAssignments.set(person.name, assignment.id)
-                }
-              } else if (assignment.resource_type === "material") {
-                operation.materials.push(assignment.resource_id)
-                operation.materialAssignments.set(assignment.resource_id, assignment.id)
-              } else if (assignment.resource_type === "vehicle") {
-                const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
-                if (vehicle) {
-                  operation.vehicles.push(vehicle.name)
-                  operation.vehicleAssignments.set(vehicle.name, assignment.id)
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`Failed to load assignments for incident ${operation.id}:`, error)
-          }
-        })
-      )
 
       // Calculate event-scoped availability
       const assignedPersonIds = new Set<string>()
@@ -275,43 +273,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // Convert to frontend types
         const personnelList = apiPersonnel.map(apiPersonToPerson)
         const materialsList = apiMats.map(apiMaterialToMaterial)
+        // Assignments are now embedded in the incident response via eager loading
         const operations = apiIncidents.map(apiIncidentToOperation)
-
-        // Fetch vehicles for vehicle assignment lookups
-        const vehiclesList = await apiClient.getVehicles()
-
-        // Fetch assignments for each incident and populate crew/materials/vehicles
-        await Promise.all(
-          operations.map(async (operation) => {
-            try {
-              const assignments = await apiClient.getIncidentAssignments(operation.id)
-
-              for (const assignment of assignments) {
-                if (assignment.resource_type === "personnel") {
-                  // Find person by ID to get their name
-                  const person = personnelList.find(p => p.id === assignment.resource_id)
-                  if (person) {
-                    operation.crew.push(person.name)
-                    operation.crewAssignments.set(person.name, assignment.id)
-                  }
-                } else if (assignment.resource_type === "material") {
-                  // Add material ID to materials array
-                  operation.materials.push(assignment.resource_id)
-                  operation.materialAssignments.set(assignment.resource_id, assignment.id)
-                } else if (assignment.resource_type === "vehicle") {
-                  // Find vehicle by ID to get its name
-                  const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
-                  if (vehicle) {
-                    operation.vehicles.push(vehicle.name)
-                    operation.vehicleAssignments.set(vehicle.name, assignment.id)
-                  }
-                }
-              }
-            } catch (error) {
-              console.error(`Failed to load assignments for incident ${operation.id}:`, error)
-            }
-          })
-        )
 
         // Calculate event-scoped availability:
         // A person/material is "assigned" only if assigned to an incident in THIS event
@@ -358,13 +321,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     loadData()
 
-    // Poll for updates every 3 seconds (increased frequency for faster reko updates)
+    // Poll for updates every 5 seconds (optimized for performance)
     const pollInterval = setInterval(() => {
       // Only poll if not currently loading
       if (!isLoading) {
         loadData()
       }
-    }, 3000)
+    }, 5000)
 
     return () => clearInterval(pollInterval)
   }, [authLoading, isAuthenticated, selectedEvent])

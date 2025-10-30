@@ -47,7 +47,7 @@ export default function CombinedViewPage() {
     assignVehicleToOperation,
     deleteOperation
   } = useOperations()
-  const { selectedEvent, isEventLoaded } = useEvent()
+  const { selectedEvent } = useEvent()
   const router = useRouter()
 
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
@@ -63,12 +63,12 @@ export default function CombinedViewPage() {
     setIsMounted(true)
   }, [])
 
-  // Redirect to events page if no event is selected (only after event is loaded from localStorage)
+  // Redirect to events page if no event is selected
   useEffect(() => {
-    if (isMounted && isEventLoaded && !selectedEvent) {
+    if (isMounted && !selectedEvent) {
       router.push('/events')
     }
-  }, [isMounted, isEventLoaded, selectedEvent, router])
+  }, [isMounted, selectedEvent, router])
 
   // Load vehicles from API
   useEffect(() => {
@@ -174,7 +174,7 @@ export default function CombinedViewPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <PageNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
+            <PageNavigation currentPage="kanban" />
           </div>
         </header>
 

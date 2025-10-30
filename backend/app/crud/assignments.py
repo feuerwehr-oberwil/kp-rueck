@@ -199,8 +199,29 @@ async def auto_release_incident_resources(
     Automatically release all resources when incident completed.
 
     Called when incident status moves to 'abschluss'.
+    Batches all releases in a single transaction for atomicity and performance.
     """
     assignments = await get_incident_assignments(db, incident_id)
 
+    # Batch all operations in a single transaction
     for assignment in assignments:
-        await unassign_resource(db, assignment.id, current_user, request)
+        # Mark unassigned
+        assignment.unassigned_at = datetime.utcnow()
+
+        # Update resource status back to 'available'
+        await update_resource_status(
+            db, assignment.resource_type, assignment.resource_id, "available"
+        )
+
+        # Log unassignment
+        await log_action(
+            db=db,
+            action_type="unassign",
+            resource_type=f"{assignment.resource_type}_assignment",
+            resource_id=assignment.id,
+            user=current_user,
+            request=request,
+        )
+
+    # Single commit at the end ensures atomicity
+    await db.commit()
