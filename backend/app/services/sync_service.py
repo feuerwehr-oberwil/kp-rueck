@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from app.config import settings
-from app.models import Incident, Material, Personnel, Setting, SyncLog, Vehicle
+from app.models import Event, Incident, Material, Personnel, Setting, SyncLog, Vehicle
 from app.schemas import Delta, SyncDirection, SyncResult, SyncStatus
 
 
@@ -17,6 +17,7 @@ class SyncService:
 
     # Syncable tables and their models
     SYNCABLE_MODELS = {
+        "events": Event,
         "incidents": Incident,
         "personnel": Personnel,
         "vehicles": Vehicle,
@@ -184,6 +185,7 @@ class SyncService:
         applied_counts = {}
 
         for table_name, records in [
+            ("events", delta.events),
             ("incidents", delta.incidents),
             ("personnel", delta.personnel),
             ("vehicles", delta.vehicles),
@@ -427,6 +429,7 @@ class SyncService:
             async with AsyncSession(engine) as railway_session:
                 # Apply delta to Railway database using the apply_delta logic
                 for table_name, records in [
+                    ("events", delta.events),
                     ("incidents", delta.incidents),
                     ("personnel", delta.personnel),
                     ("vehicles", delta.vehicles),
