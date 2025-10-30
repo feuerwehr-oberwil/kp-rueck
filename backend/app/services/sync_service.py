@@ -201,6 +201,18 @@ class SyncService:
                     if not record_id:
                         continue
 
+                    # Convert ISO format strings back to datetime objects
+                    processed_data = {}
+                    for key, value in record_data.items():
+                        if isinstance(value, str):
+                            # Try to parse as datetime
+                            try:
+                                processed_data[key] = datetime.fromisoformat(value)
+                            except (ValueError, AttributeError):
+                                processed_data[key] = value
+                        else:
+                            processed_data[key] = value
+
                     # Check if record exists locally
                     result = await self.db.execute(
                         select(model_class).where(model_class.id == UUID(record_id))
@@ -209,9 +221,9 @@ class SyncService:
 
                     if existing:
                         # Conflict resolution: last-write-wins with 5s buffer for Local
-                        incoming_updated_at = datetime.fromisoformat(
-                            record_data.get("updated_at")
-                        )
+                        incoming_updated_at = processed_data.get("updated_at")
+                        if isinstance(incoming_updated_at, str):
+                            incoming_updated_at = datetime.fromisoformat(incoming_updated_at)
                         local_updated_at = existing.updated_at
 
                         # Add buffer: if timestamps within configured seconds, Local wins
@@ -223,13 +235,13 @@ class SyncService:
 
                         # Update if incoming is newer
                         if incoming_updated_at > local_updated_at:
-                            for key, value in record_data.items():
+                            for key, value in processed_data.items():
                                 if hasattr(existing, key):
                                     setattr(existing, key, value)
                             count += 1
                     else:
                         # Insert new record
-                        new_record = model_class(**record_data)
+                        new_record = model_class(**processed_data)
                         self.db.add(new_record)
                         count += 1
 
