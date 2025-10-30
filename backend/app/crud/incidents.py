@@ -164,7 +164,7 @@ async def create_incident(
         resource_type="incident",
         resource_id=db_incident.id,
         user=current_user,
-        changes={"created": incident.model_dump()},
+        changes={"created": incident.model_dump(mode='json')},
         request=request,
     )
 

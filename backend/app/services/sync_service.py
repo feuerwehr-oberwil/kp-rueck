@@ -16,6 +16,8 @@ class SyncService:
     """Service for bidirectional synchronization between Railway and Local."""
 
     # Syncable tables and their models
+    # NOTE: Users are NOT synced - they are authentication records managed per environment
+    # Incidents reference users via created_by, so users must exist on both systems independently
     SYNCABLE_MODELS = {
         "events": Event,
         "incidents": Incident,
@@ -512,6 +514,29 @@ class SyncService:
                 started_at=started_at,
                 completed_at=datetime.now(timezone.utc)
             )
+
+
+    async def sync_bidirectional(self) -> dict[str, SyncResult]:
+        """
+        Perform bidirectional sync: Railway ↔ Local.
+
+        First pulls changes from Railway to Local, then pushes Local changes to Railway.
+        This ensures both databases stay in sync.
+
+        Returns:
+            Dictionary with results for both directions:
+            - "from_railway": Result of Railway → Local sync
+            - "to_railway": Result of Local → Railway sync
+        """
+        results = {}
+
+        # First, pull changes from Railway to Local
+        results["from_railway"] = await self.sync_from_railway()
+
+        # Then, push Local changes to Railway
+        results["to_railway"] = await self.sync_to_railway()
+
+        return results
 
 
 async def create_sync_service(db: AsyncSession) -> SyncService:
