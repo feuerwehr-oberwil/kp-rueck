@@ -10,8 +10,10 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3 } from 'lucide-react';
+import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3, ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
+import { useSyncStatus } from '@/lib/hooks/use-sync-status';
+import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +28,10 @@ export function UserMenu() {
   const router = useRouter();
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
+
+  // Sync status
+  const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
+  useRailwayRecovery(syncStatus);
 
   const checkConnection = async () => {
     try {
@@ -77,6 +83,66 @@ export function UserMenu() {
     }
   };
 
+  const getSyncStatusColor = () => {
+    if (syncLoading) {
+      return "bg-gray-400";
+    }
+
+    if (syncError || !syncStatus) {
+      return "bg-red-500";
+    }
+
+    if (syncStatus.is_syncing) {
+      return "bg-yellow-500";
+    }
+
+    if (!syncStatus.railway_healthy) {
+      return "bg-red-500";
+    }
+
+    if (isStale) {
+      return "bg-orange-500";
+    }
+
+    return "bg-green-500";
+  };
+
+  const getSyncStatusText = () => {
+    if (syncLoading) return "Prüfen...";
+    if (syncError) return "Fehler";
+    if (!syncStatus) return "Unbekannt";
+
+    if (!syncStatus.railway_healthy) {
+      return "Offline";
+    }
+
+    if (syncStatus.is_syncing) {
+      return "Synchronisiert...";
+    }
+
+    if (isStale) {
+      return "Veraltet";
+    }
+
+    return "Synchronisiert";
+  };
+
+  const getSyncDirectionIcon = () => {
+    if (!syncStatus) return null;
+
+    if (syncStatus.is_syncing) {
+      return <Loader2 className="h-3 w-3 animate-spin" />;
+    }
+
+    if (syncStatus.direction === 'from_railway') {
+      return <ArrowDown className="h-3 w-3" />;
+    } else if (syncStatus.direction === 'to_railway') {
+      return <ArrowUp className="h-3 w-3" />;
+    }
+
+    return null;
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -100,6 +166,16 @@ export function UserMenu() {
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
               <span className="text-xs">{getStatusText()}</span>
+            </div>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Sync</span>
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
+              {getSyncDirectionIcon()}
+              <span className="text-xs">{getSyncStatusText()}</span>
             </div>
           </div>
         </DropdownMenuLabel>
