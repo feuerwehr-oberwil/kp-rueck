@@ -17,8 +17,7 @@ DEFAULT_SETTINGS = {
     'training_autogen_max_emergencies': '50',
     'sync_interval_minutes': '2',
     'auto_sync_on_create': 'true',
-    'railway_url': '',  # Railway production URL (empty = local mode, no sync)
-    'sync_timeout_seconds': '30',  # HTTP timeout for sync requests
+    'railway_database_url': '',  # Railway PostgreSQL connection string (empty = local mode, no sync)
     'sync_conflict_buffer_seconds': '5',  # Timestamp buffer for conflict resolution (Local wins if within buffer)
 }
 

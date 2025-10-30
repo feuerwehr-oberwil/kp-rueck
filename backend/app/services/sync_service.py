@@ -4,9 +4,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-import httpx
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from app.config import settings
 from app.models import Incident, Material, Personnel, Setting, SyncLog, Vehicle
@@ -28,24 +27,16 @@ class SyncService:
     def __init__(self, db: AsyncSession):
         """Initialize sync service with database session."""
         self.db = db
-        self._railway_url: Optional[str] = None
-        self._sync_timeout: Optional[int] = None
+        self._railway_database_url: Optional[str] = None
+        self._railway_engine: Optional[AsyncEngine] = None
         self._conflict_buffer: Optional[int] = None
 
-    async def get_railway_url(self) -> str:
-        """Get Railway URL from database settings."""
-        if self._railway_url is None:
+    async def get_railway_database_url(self) -> str:
+        """Get Railway database URL from settings."""
+        if self._railway_database_url is None:
             from app.services.settings import get_setting_value
-            self._railway_url = await get_setting_value(self.db, "railway_url", "")
-        return self._railway_url
-
-    async def get_sync_timeout(self) -> int:
-        """Get sync timeout from database settings."""
-        if self._sync_timeout is None:
-            from app.services.settings import get_setting_value
-            timeout_str = await get_setting_value(self.db, "sync_timeout_seconds", "30")
-            self._sync_timeout = int(timeout_str)
-        return self._sync_timeout
+            self._railway_database_url = await get_setting_value(self.db, "railway_database_url", "")
+        return self._railway_database_url
 
     async def get_conflict_buffer(self) -> int:
         """Get conflict buffer from database settings."""
@@ -55,25 +46,40 @@ class SyncService:
             self._conflict_buffer = int(buffer_str)
         return self._conflict_buffer
 
+    async def get_railway_engine(self) -> Optional[AsyncEngine]:
+        """Get or create Railway database engine."""
+        railway_url = await self.get_railway_database_url()
+        if not railway_url:
+            return None
+
+        if self._railway_engine is None:
+            self._railway_engine = create_async_engine(railway_url, echo=False)
+        return self._railway_engine
+
+    async def close_railway_connection(self):
+        """Close Railway database connection."""
+        if self._railway_engine:
+            await self._railway_engine.dispose()
+            self._railway_engine = None
+
     async def check_railway_health(self) -> bool:
         """
-        Check if Railway is reachable and healthy.
+        Check if Railway database is reachable and healthy.
 
         Returns:
-            bool: True if Railway is healthy, False otherwise.
+            bool: True if Railway database is accessible, False otherwise.
         """
-        railway_url = await self.get_railway_url()
-        if not railway_url:
+        engine = await self.get_railway_engine()
+        if not engine:
             return False
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(
-                    f"{railway_url}/api/health",
-                    timeout=5.0
-                )
-                return response.status_code == 200
-        except (httpx.RequestError, httpx.TimeoutException):
+            # Try to connect and execute a simple query
+            async with engine.connect() as conn:
+                await conn.execute(select(1))
+            return True
+        except Exception as e:
+            print(f"Railway health check failed: {e}")
             return False
 
     async def get_last_sync_time(self, direction: SyncDirection) -> Optional[datetime]:
@@ -98,43 +104,55 @@ class SyncService:
         last_sync = result.scalar_one_or_none()
         return last_sync.completed_at if last_sync else None
 
-    async def get_sync_delta(
+    async def get_sync_delta_from_railway(
         self,
-        source_url: str,
         last_sync_time: Optional[datetime] = None
     ) -> Delta:
         """
-        Get records changed since last sync from source.
+        Get records changed since last sync from Railway database.
 
         Args:
-            source_url: Base URL of the source (Railway or Local).
             last_sync_time: Timestamp of last sync (None = get all records).
 
         Returns:
             Delta object containing changed records.
         """
         delta = Delta()
-        sync_timeout = await self.get_sync_timeout()
+        engine = await self.get_railway_engine()
+        if not engine:
+            return delta
 
-        async with httpx.AsyncClient(timeout=sync_timeout) as client:
-            for table_name in self.SYNCABLE_MODELS.keys():
+        async with AsyncSession(engine) as railway_session:
+            for table_name, model_class in self.SYNCABLE_MODELS.items():
                 try:
-                    params = {}
+                    # Build query
+                    query = select(model_class)
                     if last_sync_time:
-                        params["updated_since"] = last_sync_time.isoformat()
+                        query = query.where(model_class.updated_at > last_sync_time)
 
-                    response = await client.get(
-                        f"{source_url}/api/sync/delta/{table_name}",
-                        params=params
-                    )
-                    response.raise_for_status()
+                    # Execute query on Railway database
+                    result = await railway_session.execute(query)
+                    records = result.scalars().all()
 
-                    records = response.json()
-                    setattr(delta, table_name, records)
-                    delta.total_records += len(records)
+                    # Convert to dict
+                    records_data = [
+                        {
+                            column.name: (
+                                getattr(record, column.name).isoformat()
+                                if isinstance(getattr(record, column.name), datetime)
+                                else str(getattr(record, column.name))
+                                if isinstance(getattr(record, column.name), UUID)
+                                else getattr(record, column.name)
+                            )
+                            for column in model_class.__table__.columns
+                        }
+                        for record in records
+                    ]
 
-                except (httpx.RequestError, httpx.HTTPStatusError) as e:
-                    # Log error but continue with other tables
+                    setattr(delta, table_name, records_data)
+                    delta.total_records += len(records_data)
+
+                except Exception as e:
                     print(f"Error fetching delta for {table_name}: {e}")
 
         return delta
@@ -256,9 +274,8 @@ class SyncService:
             # Get last sync time
             last_sync = await self.get_last_sync_time(SyncDirection.FROM_RAILWAY)
 
-            # Get delta from Railway
-            railway_url = await self.get_railway_url()
-            delta = await self.get_sync_delta(railway_url, last_sync)
+            # Get delta from Railway database
+            delta = await self.get_sync_delta_from_railway(last_sync)
 
             # Apply delta to local database
             applied_counts = await self.apply_delta(delta)
@@ -356,28 +373,75 @@ class SyncService:
                 setattr(delta, table_name, records_data)
                 delta.total_records += len(records_data)
 
-            # Push delta to Railway
-            railway_url = await self.get_railway_url()
-            sync_timeout = await self.get_sync_timeout()
+            # Push delta to Railway database
+            engine = await self.get_railway_engine()
+            if not engine:
+                errors.append("Railway database engine not available")
+                sync_log.status = SyncStatus.FAILED.value
+                sync_log.errors = {"errors": errors}
+                sync_log.completed_at = datetime.now(timezone.utc)
+                await self.db.commit()
+
+                return SyncResult(
+                    success=False,
+                    direction=SyncDirection.TO_RAILWAY,
+                    records_synced={},
+                    errors=errors,
+                    started_at=started_at,
+                    completed_at=datetime.now(timezone.utc)
+                )
+
             pushed_counts = {}
-            async with httpx.AsyncClient(timeout=sync_timeout) as client:
-                for table_name in self.SYNCABLE_MODELS.keys():
-                    records = getattr(delta, table_name)
+            async with AsyncSession(engine) as railway_session:
+                # Apply delta to Railway database using the apply_delta logic
+                for table_name, records in [
+                    ("incidents", delta.incidents),
+                    ("personnel", delta.personnel),
+                    ("vehicles", delta.vehicles),
+                    ("materials", delta.materials),
+                    ("settings", delta.settings),
+                ]:
                     if not records:
                         pushed_counts[table_name] = 0
                         continue
 
-                    try:
-                        response = await client.post(
-                            f"{railway_url}/api/sync/apply/{table_name}",
-                            json=records
-                        )
-                        response.raise_for_status()
-                        result = response.json()
-                        pushed_counts[table_name] = result.get("count", 0)
-                    except (httpx.RequestError, httpx.HTTPStatusError) as e:
-                        errors.append(f"Error pushing {table_name}: {str(e)}")
-                        pushed_counts[table_name] = 0
+                    model_class = self.SYNCABLE_MODELS[table_name]
+                    count = 0
+
+                    for record_data in records:
+                        try:
+                            record_id = record_data.get("id")
+                            if not record_id:
+                                continue
+
+                            # Check if record exists on Railway
+                            result = await railway_session.execute(
+                                select(model_class).where(model_class.id == UUID(str(record_id)))
+                            )
+                            existing = result.scalar_one_or_none()
+
+                            if existing:
+                                # Update existing record
+                                for key, value in record_data.items():
+                                    if hasattr(existing, key):
+                                        setattr(existing, key, value)
+                                count += 1
+                            else:
+                                # Insert new record
+                                new_record = model_class(**record_data)
+                                railway_session.add(new_record)
+                                count += 1
+
+                        except Exception as e:
+                            errors.append(f"Error pushing record {record_id} to {table_name}: {str(e)}")
+
+                    pushed_counts[table_name] = count
+
+                # Commit all changes to Railway database
+                try:
+                    await railway_session.commit()
+                except Exception as e:
+                    errors.append(f"Error committing to Railway database: {str(e)}")
 
             # Update sync log
             completed_at = datetime.now(timezone.utc)

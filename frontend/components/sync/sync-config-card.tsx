@@ -17,8 +17,7 @@ export function SyncConfigCard() {
   const [isSaving, setIsSaving] = useState(false)
   const [intervalMinutes, setIntervalMinutes] = useState<number>(2)
   const [autoSyncOnCreate, setAutoSyncOnCreate] = useState<boolean>(true)
-  const [railwayUrl, setRailwayUrl] = useState<string>('')
-  const [syncTimeout, setSyncTimeout] = useState<number>(30)
+  const [railwayDatabaseUrl, setRailwayDatabaseUrl] = useState<string>('')
   const [conflictBuffer, setConflictBuffer] = useState<number>(5)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -34,8 +33,7 @@ export function SyncConfigCard() {
       setConfig(data)
       setIntervalMinutes(data.sync_interval_minutes)
       setAutoSyncOnCreate(data.auto_sync_on_create)
-      setRailwayUrl(data.railway_url)
-      setSyncTimeout(data.sync_timeout_seconds || 30)
+      setRailwayDatabaseUrl(data.railway_database_url)
       setConflictBuffer(data.sync_conflict_buffer_seconds || 5)
     } catch (error) {
       toast.error('Fehler beim Laden der Synchronisations-Konfiguration')
@@ -51,8 +49,7 @@ export function SyncConfigCard() {
       const newConfig: SyncConfig = {
         sync_interval_minutes: intervalMinutes,
         auto_sync_on_create: autoSyncOnCreate,
-        railway_url: railwayUrl,
-        sync_timeout_seconds: syncTimeout,
+        railway_database_url: railwayDatabaseUrl,
         sync_conflict_buffer_seconds: conflictBuffer,
       }
       await apiClient.updateSyncConfig(newConfig)
@@ -70,8 +67,7 @@ export function SyncConfigCard() {
     config &&
     (config.sync_interval_minutes !== intervalMinutes ||
       config.auto_sync_on_create !== autoSyncOnCreate ||
-      config.railway_url !== railwayUrl ||
-      (config.sync_timeout_seconds || 30) !== syncTimeout ||
+      config.railway_database_url !== railwayDatabaseUrl ||
       (config.sync_conflict_buffer_seconds || 5) !== conflictBuffer)
 
   return (
@@ -89,20 +85,20 @@ export function SyncConfigCard() {
           </div>
         ) : (
           <>
-            {/* Railway URL */}
+            {/* Railway Database URL */}
             <div className="space-y-2">
-              <Label htmlFor="railway-url">Railway Produktions-URL</Label>
+              <Label htmlFor="railway-database-url">Railway PostgreSQL Verbindung</Label>
               <Input
-                id="railway-url"
-                type="url"
-                placeholder="https://your-app.up.railway.app"
-                value={railwayUrl}
-                onChange={(e) => setRailwayUrl(e.target.value)}
+                id="railway-database-url"
+                type="password"
+                placeholder="postgresql://user:pass@host:port/database"
+                value={railwayDatabaseUrl}
+                onChange={(e) => setRailwayDatabaseUrl(e.target.value)}
               />
               <p className="text-sm text-muted-foreground">
-                {railwayUrl
-                  ? 'URL der Railway Produktionsumgebung (leer lassen für lokalen Modus)'
-                  : '⚠️ Keine URL konfiguriert - Synchronisation deaktiviert'}
+                {railwayDatabaseUrl
+                  ? 'PostgreSQL Connection String der Railway Datenbank (leer lassen für lokalen Modus)'
+                  : '⚠️ Keine Verbindung konfiguriert - Synchronisation deaktiviert'}
               </p>
             </div>
 
@@ -151,23 +147,6 @@ export function SyncConfigCard() {
 
               {showAdvanced && (
                 <div className="space-y-4 pl-6">
-                  {/* Sync Timeout */}
-                  <div className="space-y-2">
-                    <Label htmlFor="sync-timeout">Synchronisations-Timeout (Sekunden)</Label>
-                    <Input
-                      id="sync-timeout"
-                      type="number"
-                      min={5}
-                      max={120}
-                      value={syncTimeout}
-                      onChange={(e) => setSyncTimeout(parseInt(e.target.value) || 30)}
-                      className="max-w-xs"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      HTTP-Timeout für Synchronisationsanfragen
-                    </p>
-                  </div>
-
                   {/* Conflict Buffer */}
                   <div className="space-y-2">
                     <Label htmlFor="conflict-buffer">Konflikt-Puffer (Sekunden)</Label>
