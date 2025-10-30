@@ -146,6 +146,42 @@ export interface ApiAuditLog {
   user_agent: string | null
 }
 
+// User Management Types
+export interface ApiUser {
+  id: string // UUID
+  username: string
+  role: 'editor' | 'viewer'
+  created_at: string
+  last_login: string | null
+}
+
+export interface ApiUserCreate {
+  username: string
+  password: string
+  role: 'editor' | 'viewer'
+}
+
+export interface ApiUserUpdate {
+  username?: string
+  password?: string  // Optional password reset
+  role?: 'editor' | 'viewer'
+}
+
+export interface ApiUserListResponse {
+  users: ApiUser[]
+  total: number
+}
+
+export interface ApiPasswordChangeRequest {
+  current_password: string
+  new_password: string
+}
+
+export interface ApiEnvironmentInfo {
+  is_production: boolean
+  is_development: boolean
+}
+
 // Incident Types (new schema)
 export type IncidentType =
   | "brandbekaempfung"
@@ -374,6 +410,47 @@ class ApiClient {
 
   async getResourceHistory(resourceType: string, resourceId: string): Promise<ApiAuditLog[]> {
     return this.request<ApiAuditLog[]>(`/api/audit/resource/${resourceType}/${resourceId}`)
+  }
+
+  // Environment Info
+  async getEnvironmentInfo(): Promise<ApiEnvironmentInfo> {
+    return this.request<ApiEnvironmentInfo>('/env')
+  }
+
+  // User Management
+  async getUsers(): Promise<ApiUserListResponse> {
+    return this.request<ApiUserListResponse>('/api/users/')
+  }
+
+  async getUser(userId: string): Promise<ApiUser> {
+    return this.request<ApiUser>(`/api/users/${userId}`)
+  }
+
+  async createUser(data: ApiUserCreate): Promise<ApiUser> {
+    return this.request<ApiUser>('/api/users/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateUser(userId: string, data: ApiUserUpdate): Promise<ApiUser> {
+    return this.request<ApiUser>(`/api/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteUser(userId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/users/${userId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async changePassword(data: ApiPasswordChangeRequest): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   }
 
   // Settings
