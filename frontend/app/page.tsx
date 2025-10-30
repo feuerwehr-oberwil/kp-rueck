@@ -53,6 +53,7 @@ export default function FireStationDashboard() {
 
   const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const highlightParam = searchParams.get("highlight")
 
   // Enable reko notifications for all incidents
@@ -69,9 +70,6 @@ export default function FireStationDashboard() {
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
-  const [filterVehicle, setFilterVehicle] = useState<string>("all")
-  const [filterPriority, setFilterPriority] = useState<string>("all")
-  const [filterIncidentType, setFilterIncidentType] = useState<string>("all")
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
@@ -149,8 +147,16 @@ export default function FireStationDashboard() {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Esc to blur search input
+      // Esc to blur search input or cancel g-prefix mode
       if (e.key === 'Escape') {
+        if (gPrefixActive) {
+          setGPrefixActive(false)
+          if (gPrefixTimeoutRef.current) {
+            clearTimeout(gPrefixTimeoutRef.current)
+            gPrefixTimeoutRef.current = null
+          }
+          return
+        }
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
           (e.target as HTMLElement).blur()
           return
@@ -159,6 +165,90 @@ export default function FireStationDashboard() {
 
       // Ignore other shortcuts if typing in input/textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Handle g-prefix navigation
+      if (gPrefixActive) {
+        e.preventDefault()
+        setGPrefixActive(false)
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+          gPrefixTimeoutRef.current = null
+        }
+
+        if (e.key === 'k' || e.key === 'K') {
+          // Already on Kanban, do nothing (or could show a toast)
+          return
+        } else if (e.key === 'm' || e.key === 'M') {
+          router.push('/map')
+          return
+        } else if (e.key === 'e' || e.key === 'E') {
+          router.push('/events')
+          return
+        }
+        return
+      }
+
+      // Activate g-prefix mode
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setGPrefixActive(true)
+        // Reset g-prefix mode after 1.5 seconds
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+        }
+        gPrefixTimeoutRef.current = setTimeout(() => {
+          setGPrefixActive(false)
+          gPrefixTimeoutRef.current = null
+        }, 1500)
+        return
+      }
+
+      // Arrow key navigation between operations
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const allOps = operations
+        if (allOps.length === 0) return
+
+        if (!hoveredOperationId) {
+          // No operation selected, select first
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
+        if (currentIndex === -1) {
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        if (e.key === 'ArrowUp') {
+          // Move to previous operation
+          const newIndex = currentIndex > 0 ? currentIndex - 1 : allOps.length - 1
+          setHoveredOperationId(allOps[newIndex].id)
+        } else {
+          // Move to next operation
+          const newIndex = currentIndex < allOps.length - 1 ? currentIndex + 1 : 0
+          setHoveredOperationId(allOps[newIndex].id)
+        }
+        return
+      }
+
+      // Tab navigation - cycle through all operations
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        const allOps = operations
+        if (allOps.length === 0) return
+
+        if (!hoveredOperationId) {
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
+        const newIndex = (currentIndex + 1) % allOps.length
+        setHoveredOperationId(allOps[newIndex].id)
         return
       }
 
@@ -221,7 +311,8 @@ export default function FireStationDashboard() {
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsModalOpen(true)
-      } else if (e.key === 'n' || e.key === 'N') {
+      } else if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+n/ctrl+n for new window)
         e.preventDefault()
         setNewEmergencyModalOpen(true)
       } else if (e.key === '[') {
@@ -399,27 +490,43 @@ export default function FireStationDashboard() {
     {} as Record<string, Material[]>,
   )
 
-  const filteredOperations = operations.filter((op) => {
-    // Text search filter
-    const matchesSearch =
-      op.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      op.incidentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (op.vehicle && op.vehicle.toLowerCase().includes(searchQuery.toLowerCase()))
+  // Memoize filtered operations to avoid unnecessary recalculations on every render
+  const filteredOperations = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return operations
+    }
 
-    // Vehicle filter
-    const matchesVehicle =
-      filterVehicle === "all" ||
-      (filterVehicle === "none" && !op.vehicle) ||
-      op.vehicle === filterVehicle
+    const query = searchQuery.toLowerCase()
 
-    // Priority filter
-    const matchesPriority = filterPriority === "all" || op.priority === filterPriority
-
-    // Incident type filter
-    const matchesIncidentType = filterIncidentType === "all" || op.incidentType === filterIncidentType
-
-    return matchesSearch && matchesVehicle && matchesPriority && matchesIncidentType
-  })
+    return operations.filter((op) => {
+      // Search through all relevant fields
+      return (
+        // Location
+        op.location.toLowerCase().includes(query) ||
+        // Incident type
+        op.incidentType.toLowerCase().includes(query) ||
+        getIncidentTypeLabel(op.incidentType).toLowerCase().includes(query) ||
+        // Priority
+        op.priority.toLowerCase().includes(query) ||
+        // Vehicles (legacy field and array)
+        (op.vehicle && op.vehicle.toLowerCase().includes(query)) ||
+        op.vehicles.some(v => v.toLowerCase().includes(query)) ||
+        // Crew members
+        op.crew.some(crew => crew.toLowerCase().includes(query)) ||
+        // Materials
+        op.materials.some(materialId => {
+          const material = materials.find(m => m.id === materialId)
+          return material && material.name.toLowerCase().includes(query)
+        }) ||
+        // Notes
+        op.notes.toLowerCase().includes(query) ||
+        // Contact
+        op.contact.toLowerCase().includes(query) ||
+        // Status
+        op.status.toLowerCase().includes(query)
+      )
+    })
+  }, [operations, searchQuery, materials])
 
   const handlePersonClick = (person: Person) => {
     if (person.status === "assigned") {
@@ -717,6 +824,7 @@ export default function FireStationDashboard() {
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
+                    hoveredOperationId={hoveredOperationId}
                     isDraggingRef={isDraggingOperationRef}
                     materials={materials}
                     formatLocation={formatLocation}

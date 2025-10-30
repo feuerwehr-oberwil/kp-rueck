@@ -55,8 +55,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             print(f"Warning: Database seeding failed: {e}")
 
+    # Start background sync scheduler
+    print("Starting background sync scheduler...")
+    try:
+        start_sync_scheduler()
+    except Exception as e:
+        print(f"Warning: Sync scheduler failed to start: {e}")
+
     print("Application startup complete.")
     yield
+
+    # Shutdown: Stop sync scheduler
+    print("Stopping sync scheduler...")
+    try:
+        stop_sync_scheduler()
+    except Exception as e:
+        print(f"Warning: Sync scheduler shutdown failed: {e}")
 
     # Shutdown: Dispose engine
     print("Shutting down...")
@@ -98,6 +112,7 @@ app.add_middleware(
 app.add_middleware(AuditMiddleware)
 
 # Include routers
+app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
@@ -110,6 +125,10 @@ app.include_router(materials_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_router, prefix=settings.api_v1_prefix)
 app.include_router(photos_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
+app.include_router(stats_router, prefix=settings.api_v1_prefix)
+app.include_router(sync_router, prefix=settings.api_v1_prefix)
+app.include_router(notifications_router, prefix=settings.api_v1_prefix)
+app.include_router(training_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
 

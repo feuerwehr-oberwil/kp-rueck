@@ -14,6 +14,11 @@ DEFAULT_SETTINGS = {
     'auto_archive_timeout_hours': '24',
     'notification_enabled': 'false',
     'alarm_webhook_secret': 'CHANGE_ME_IN_PRODUCTION',
+    'training_autogen_max_emergencies': '50',
+    'sync_interval_minutes': '2',
+    'auto_sync_on_create': 'true',
+    'railway_database_url': '',  # Railway PostgreSQL connection string (empty = local mode, no sync)
+    'sync_conflict_buffer_seconds': '5',  # Timestamp buffer for conflict resolution (Local wins if within buffer)
 }
 
 
@@ -22,6 +27,14 @@ async def get_setting(db: AsyncSession, key: str) -> str | None:
     result = await db.execute(select(Setting).where(Setting.key == key))
     setting = result.scalar_one_or_none()
     return setting.value if setting else None
+
+
+async def get_setting_value(db: AsyncSession, key: str, default: str = None) -> str:
+    """Get setting value with fallback to default."""
+    value = await get_setting(db, key)
+    if value is None:
+        return default if default is not None else DEFAULT_SETTINGS.get(key, '')
+    return value
 
 
 async def get_all_settings(db: AsyncSession) -> dict[str, str]:
