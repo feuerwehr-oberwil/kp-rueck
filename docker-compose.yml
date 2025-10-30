@@ -51,9 +51,30 @@ services:
     networks:
       - kprueck-network
 
+  tileserver:
+    image: maptiler/tileserver-gl:v4.10.0
+    container_name: kprueck-tileserver
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - tileserver-data:/data
+      - ./tileserver-config.json:/config.json:ro
+    environment:
+      - TILESERVER_PORT=8080
+    networks:
+      - kprueck-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 networks:
   kprueck-network:
     driver: bridge
 
 volumes:
   postgres_data:
+  tileserver-data:
