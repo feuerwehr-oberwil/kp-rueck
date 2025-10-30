@@ -854,7 +854,11 @@ class SyncResult(BaseModel):
 
 
 class Delta(BaseModel):
-    """Delta of changes between Railway and Local."""
+    """Delta of changes between Railway and Local.
+
+    NOTE: Users are NOT synced - they are authentication records managed per environment.
+    Incidents reference users via created_by, so users must exist on both systems independently.
+    """
 
     events: list[dict] = []
     incidents: list[dict] = []

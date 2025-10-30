@@ -18,26 +18,26 @@ last_interval_minutes: int | None = None
 
 async def scheduled_sync():
     """
-    Run periodic sync from Railway to Local.
+    Run periodic bidirectional sync: Railway ↔ Local.
 
     This function:
-    1. Checks if Railway URL is configured
+    1. Checks if Railway URL is configured in database
     2. Checks Railway health
-    3. Syncs from Railway if healthy
-    4. Checks if sync interval has changed and reschedules if needed
+    3. Pulls changes from Railway to Local
+    4. Pushes local changes to Railway
+    5. Checks if sync interval has changed and reschedules if needed
     """
     global scheduler, last_interval_minutes
-
-    # Skip if no Railway URL configured (local-only mode)
-    if not settings.railway_url:
-        print("Sync skipped: No Railway URL configured (local-only mode)")
-        return
-
-    print(f"[{datetime.now()}] Running scheduled sync from Railway...")
 
     # Get database session
     async for db in get_db():
         try:
+            # Check Railway URL from database settings
+            railway_url = await get_setting_value(db, "railway_database_url", "")
+            if not railway_url:
+                print("Sync skipped: No Railway database URL configured in settings")
+                return
+
             # Check if sync interval has changed
             interval_str = await get_setting_value(db, "sync_interval_minutes", "2")
             current_interval = int(interval_str)
@@ -54,6 +54,7 @@ async def scheduled_sync():
                     )
                     print(f"[{datetime.now()}] Rescheduled sync job with {current_interval} minute interval")
 
+            print(f"[{datetime.now()}] Running scheduled bidirectional sync...")
             sync_service = await create_sync_service(db)
 
             # Check Railway health first
@@ -62,17 +63,28 @@ async def scheduled_sync():
                 print(f"[{datetime.now()}] Sync skipped: Railway is unreachable")
                 return
 
-            # Perform sync
-            result = await sync_service.sync_from_railway()
+            # Perform bidirectional sync
+            results = await sync_service.sync_bidirectional()
 
-            if result.success:
-                total_synced = sum(result.records_synced.values())
+            # Report results
+            from_railway = results["from_railway"]
+            to_railway = results["to_railway"]
+
+            from_count = sum(from_railway.records_synced.values()) if from_railway.success else 0
+            to_count = sum(to_railway.records_synced.values()) if to_railway.success else 0
+
+            if from_railway.success and to_railway.success:
                 print(
-                    f"[{datetime.now()}] Sync completed successfully: "
-                    f"{total_synced} records synced"
+                    f"[{datetime.now()}] Bidirectional sync completed: "
+                    f"{from_count} from Railway, {to_count} to Railway"
                 )
             else:
-                print(f"[{datetime.now()}] Sync failed: {result.errors}")
+                errors = []
+                if not from_railway.success:
+                    errors.append(f"FROM Railway: {from_railway.errors}")
+                if not to_railway.success:
+                    errors.append(f"TO Railway: {to_railway.errors}")
+                print(f"[{datetime.now()}] Sync had errors: {'; '.join(errors)}")
 
         except Exception as e:
             print(f"[{datetime.now()}] Sync error: {e}")
@@ -85,15 +97,12 @@ def start_sync_scheduler():
     Start the background sync scheduler.
 
     Called during FastAPI lifespan startup.
+    Railway URL is checked from database settings on each sync run.
     Uses config default interval on startup, then dynamically adjusts based on database settings.
     """
     global scheduler, last_interval_minutes
 
-    # Skip if no Railway URL configured
-    if not settings.railway_url:
-        print("Sync scheduler: Disabled (no Railway URL configured)")
-        return
-
+    # Always start scheduler - Railway URL will be checked from database at runtime
     # Initialize with config default (will be updated on first sync if database setting differs)
     last_interval_minutes = settings.sync_interval_minutes
     print(f"Starting sync scheduler (initial interval: {settings.sync_interval_minutes} minutes)...")
@@ -105,7 +114,7 @@ def start_sync_scheduler():
         scheduled_sync,
         trigger=IntervalTrigger(minutes=settings.sync_interval_minutes),
         id='railway_sync',
-        name='Railway → Local periodic sync',
+        name='Railway ↔ Local bidirectional sync',
         replace_existing=True
     )
 

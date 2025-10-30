@@ -17,27 +17,37 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 
 async def trigger_sync_background():
-    """Trigger immediate sync in background (event-based sync)."""
-    try:
-        from ..config import settings
-        from ..services.sync_service import create_sync_service
+    """Trigger immediate sync in background (event-based sync).
 
-        # Skip if no Railway URL configured
-        if not settings.railway_url:
-            return
+    When an incident is created/updated locally, we push changes TO Railway.
+    """
+    try:
+        from ..services.sync_service import create_sync_service
+        from ..services.settings import get_setting_value
 
         # Get a new database session for background task
         async for db in get_db():
             try:
+                # Check Railway URL from database settings
+                railway_url = await get_setting_value(db, "railway_database_url", "")
+                if not railway_url:
+                    print("Background sync skipped: No Railway database URL configured")
+                    return
+
                 sync_service = await create_sync_service(db)
 
                 # Check Railway health
                 railway_healthy = await sync_service.check_railway_health()
                 if not railway_healthy:
+                    print("Background sync skipped: Railway unreachable")
                     return
 
-                # Trigger sync
-                await sync_service.sync_from_railway()
+                # Push local changes to Railway (event-based)
+                result = await sync_service.sync_to_railway()
+                if result.success:
+                    print(f"Event-based sync to Railway successful: {sum(result.records_synced.values())} records")
+                else:
+                    print(f"Event-based sync to Railway failed: {result.errors}")
             finally:
                 break
     except Exception as e:

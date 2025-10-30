@@ -155,10 +155,11 @@ async def trigger_immediate_sync(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Trigger immediate sync (event-based).
+    Trigger immediate bidirectional sync.
 
     Called automatically when incidents or events are created,
     even if the time interval hasn't been reached.
+    Pulls from Railway and pushes local changes to Railway.
     Requires authentication.
 
     Returns:
@@ -178,7 +179,7 @@ async def trigger_immediate_sync(
     try:
         sync_service = await create_sync_service(db)
 
-        # Only sync from Railway in normal mode (not to Railway)
+        # Check Railway health
         railway_healthy = await sync_service.check_railway_health()
         if not railway_healthy:
             return {
@@ -187,14 +188,24 @@ async def trigger_immediate_sync(
                 "railway_healthy": False
             }
 
-        result = await sync_service.sync_from_railway()
+        # Perform bidirectional sync
+        results = await sync_service.sync_bidirectional()
+        from_railway = results["from_railway"]
+        to_railway = results["to_railway"]
 
         _last_sync_result = {
-            "success": result.success,
-            "direction": result.direction.value,
-            "records_synced": result.records_synced,
-            "errors": result.errors,
-            "completed_at": result.completed_at.isoformat() if result.completed_at else None
+            "success": from_railway.success and to_railway.success,
+            "from_railway": {
+                "success": from_railway.success,
+                "records_synced": from_railway.records_synced,
+                "errors": from_railway.errors,
+            },
+            "to_railway": {
+                "success": to_railway.success,
+                "records_synced": to_railway.records_synced,
+                "errors": to_railway.errors,
+            },
+            "completed_at": to_railway.completed_at.isoformat() if to_railway.completed_at else None
         }
 
         return _last_sync_result
@@ -266,6 +277,67 @@ async def get_sync_config(
         "railway_database_url": railway_database_url,
         "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds)
     }
+
+
+@router.post("/bidirectional", response_model=dict)
+async def sync_bidirectional_endpoint(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Trigger manual bidirectional sync: Railway ↔ Local.
+
+    This pulls changes from Railway to Local, then pushes Local changes to Railway.
+    Ensures both databases are fully synchronized.
+
+    Returns:
+        Sync results for both directions with record counts and any errors.
+    """
+    global _is_syncing, _last_sync_result
+
+    if _is_syncing:
+        raise HTTPException(
+            status_code=409,
+            detail="Sync operation already in progress"
+        )
+
+    _is_syncing = True
+    try:
+        sync_service = await create_sync_service(db)
+
+        # Check Railway health
+        if not await sync_service.check_railway_health():
+            raise HTTPException(
+                status_code=503,
+                detail="Railway database is unreachable"
+            )
+
+        # Perform bidirectional sync
+        results = await sync_service.sync_bidirectional()
+        from_railway = results["from_railway"]
+        to_railway = results["to_railway"]
+
+        response = {
+            "success": from_railway.success and to_railway.success,
+            "from_railway": {
+                "success": from_railway.success,
+                "records_synced": from_railway.records_synced,
+                "errors": from_railway.errors,
+                "completed_at": from_railway.completed_at.isoformat() if from_railway.completed_at else None
+            },
+            "to_railway": {
+                "success": to_railway.success,
+                "records_synced": to_railway.records_synced,
+                "errors": to_railway.errors,
+                "completed_at": to_railway.completed_at.isoformat() if to_railway.completed_at else None
+            }
+        }
+
+        _last_sync_result = response
+        return response
+
+    finally:
+        _is_syncing = False
 
 
 @router.put("/config", response_model=dict)
