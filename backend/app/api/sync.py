@@ -251,16 +251,22 @@ async def get_sync_config(
     Requires authentication.
 
     Returns:
-        Current sync configuration including interval and auto-sync settings.
+        Current sync configuration including interval, auto-sync settings, and connection details.
     """
     from app.services.settings import get_setting_value
 
     sync_interval_minutes = await get_setting_value(db, "sync_interval_minutes", "2")
     auto_sync_on_create = await get_setting_value(db, "auto_sync_on_create", "true")
+    railway_url = await get_setting_value(db, "railway_url", "")
+    sync_timeout_seconds = await get_setting_value(db, "sync_timeout_seconds", "30")
+    sync_conflict_buffer_seconds = await get_setting_value(db, "sync_conflict_buffer_seconds", "5")
 
     return {
         "sync_interval_minutes": int(sync_interval_minutes),
-        "auto_sync_on_create": auto_sync_on_create.lower() == "true"
+        "auto_sync_on_create": auto_sync_on_create.lower() == "true",
+        "railway_url": railway_url,
+        "sync_timeout_seconds": int(sync_timeout_seconds),
+        "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds)
     }
 
 
@@ -274,7 +280,7 @@ async def update_sync_config(
     Update sync configuration.
 
     Args:
-        config: New configuration with sync_interval_minutes and auto_sync_on_create.
+        config: New configuration with sync settings (interval, auto-sync, Railway URL, timeouts).
 
     Returns:
         Updated configuration.
@@ -286,7 +292,7 @@ async def update_sync_config(
             db,
             key="sync_interval_minutes",
             value=str(config["sync_interval_minutes"]),
-            user_id=None  # System update
+            user_id=current_user.id
         )
 
     if "auto_sync_on_create" in config:
@@ -294,12 +300,36 @@ async def update_sync_config(
             db,
             key="auto_sync_on_create",
             value="true" if config["auto_sync_on_create"] else "false",
-            user_id=None  # System update
+            user_id=current_user.id
+        )
+
+    if "railway_url" in config:
+        await update_setting(
+            db,
+            key="railway_url",
+            value=config["railway_url"],
+            user_id=current_user.id
+        )
+
+    if "sync_timeout_seconds" in config:
+        await update_setting(
+            db,
+            key="sync_timeout_seconds",
+            value=str(config["sync_timeout_seconds"]),
+            user_id=current_user.id
+        )
+
+    if "sync_conflict_buffer_seconds" in config:
+        await update_setting(
+            db,
+            key="sync_conflict_buffer_seconds",
+            value=str(config["sync_conflict_buffer_seconds"]),
+            user_id=current_user.id
         )
 
     await db.commit()
 
-    return await get_sync_config(db)
+    return await get_sync_config(current_user, db)
 
 
 # Helper endpoints for delta sync (used by sync_service.py)

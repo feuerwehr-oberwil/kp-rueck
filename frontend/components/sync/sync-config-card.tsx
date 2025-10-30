@@ -17,6 +17,10 @@ export function SyncConfigCard() {
   const [isSaving, setIsSaving] = useState(false)
   const [intervalMinutes, setIntervalMinutes] = useState<number>(2)
   const [autoSyncOnCreate, setAutoSyncOnCreate] = useState<boolean>(true)
+  const [railwayUrl, setRailwayUrl] = useState<string>('')
+  const [syncTimeout, setSyncTimeout] = useState<number>(30)
+  const [conflictBuffer, setConflictBuffer] = useState<number>(5)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   // Load config on mount
   useEffect(() => {
@@ -30,6 +34,9 @@ export function SyncConfigCard() {
       setConfig(data)
       setIntervalMinutes(data.sync_interval_minutes)
       setAutoSyncOnCreate(data.auto_sync_on_create)
+      setRailwayUrl(data.railway_url)
+      setSyncTimeout(data.sync_timeout_seconds || 30)
+      setConflictBuffer(data.sync_conflict_buffer_seconds || 5)
     } catch (error) {
       toast.error('Fehler beim Laden der Synchronisations-Konfiguration')
       console.error(error)
@@ -44,6 +51,9 @@ export function SyncConfigCard() {
       const newConfig: SyncConfig = {
         sync_interval_minutes: intervalMinutes,
         auto_sync_on_create: autoSyncOnCreate,
+        railway_url: railwayUrl,
+        sync_timeout_seconds: syncTimeout,
+        sync_conflict_buffer_seconds: conflictBuffer,
       }
       await apiClient.updateSyncConfig(newConfig)
       setConfig(newConfig)
@@ -59,7 +69,10 @@ export function SyncConfigCard() {
   const hasChanges =
     config &&
     (config.sync_interval_minutes !== intervalMinutes ||
-      config.auto_sync_on_create !== autoSyncOnCreate)
+      config.auto_sync_on_create !== autoSyncOnCreate ||
+      config.railway_url !== railwayUrl ||
+      (config.sync_timeout_seconds || 30) !== syncTimeout ||
+      (config.sync_conflict_buffer_seconds || 5) !== conflictBuffer)
 
   return (
     <Card>
@@ -76,6 +89,23 @@ export function SyncConfigCard() {
           </div>
         ) : (
           <>
+            {/* Railway URL */}
+            <div className="space-y-2">
+              <Label htmlFor="railway-url">Railway Produktions-URL</Label>
+              <Input
+                id="railway-url"
+                type="url"
+                placeholder="https://your-app.up.railway.app"
+                value={railwayUrl}
+                onChange={(e) => setRailwayUrl(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">
+                {railwayUrl
+                  ? 'URL der Railway Produktionsumgebung (leer lassen für lokalen Modus)'
+                  : '⚠️ Keine URL konfiguriert - Synchronisation deaktiviert'}
+              </p>
+            </div>
+
             {/* Sync Interval */}
             <div className="space-y-2">
               <Label htmlFor="sync-interval">Synchronisations-Intervall (Minuten)</Label>
@@ -106,6 +136,56 @@ export function SyncConfigCard() {
                 checked={autoSyncOnCreate}
                 onCheckedChange={setAutoSyncOnCreate}
               />
+            </div>
+
+            {/* Advanced Settings */}
+            <div className="space-y-4 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-2 text-sm font-medium"
+              >
+                <span>{showAdvanced ? '▼' : '▶'}</span>
+                Erweiterte Einstellungen
+              </button>
+
+              {showAdvanced && (
+                <div className="space-y-4 pl-6">
+                  {/* Sync Timeout */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sync-timeout">Synchronisations-Timeout (Sekunden)</Label>
+                    <Input
+                      id="sync-timeout"
+                      type="number"
+                      min={5}
+                      max={120}
+                      value={syncTimeout}
+                      onChange={(e) => setSyncTimeout(parseInt(e.target.value) || 30)}
+                      className="max-w-xs"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      HTTP-Timeout für Synchronisationsanfragen
+                    </p>
+                  </div>
+
+                  {/* Conflict Buffer */}
+                  <div className="space-y-2">
+                    <Label htmlFor="conflict-buffer">Konflikt-Puffer (Sekunden)</Label>
+                    <Input
+                      id="conflict-buffer"
+                      type="number"
+                      min={0}
+                      max={30}
+                      value={conflictBuffer}
+                      onChange={(e) => setConflictBuffer(parseInt(e.target.value) || 5)}
+                      className="max-w-xs"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Zeitpuffer für Konfliktauflösung (lokale Änderungen gewinnen bei gleichen Zeitstempeln)
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Sync Scope - Read-only info */}
