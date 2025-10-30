@@ -307,6 +307,29 @@ class AssignedVehicle(BaseModel):
     assigned_at: datetime
 
 
+class AssignedPersonnel(BaseModel):
+    """Personnel with assignment information."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    assignment_id: UUID  # ID of the assignment record
+    personnel_id: UUID
+    name: str
+    role: Optional[str] = None
+    assigned_at: datetime
+
+
+class AssignedMaterial(BaseModel):
+    """Material with assignment information."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    assignment_id: UUID  # ID of the assignment record
+    material_id: UUID
+    name: str
+    assigned_at: datetime
+
+
 class IncidentResponse(IncidentBase):
     """Full incident schema with database fields."""
 
@@ -320,6 +343,8 @@ class IncidentResponse(IncidentBase):
     completed_at: Optional[datetime] = None
     status_changed_at: Optional[datetime] = None  # Timestamp of last status transition
     assigned_vehicles: list[AssignedVehicle] = []  # List of assigned vehicles with details
+    assigned_personnel: list[AssignedPersonnel] = []  # List of assigned personnel with details
+    assigned_materials: list[AssignedMaterial] = []  # List of assigned materials with details
 
     @field_serializer('location_lat', 'location_lng')
     def serialize_decimal(self, value):
@@ -412,6 +437,13 @@ class User(UserBase):
 
 # Alias for API responses (matches task specification)
 UserResponse = User
+
+
+class PasswordChangeRequest(BaseModel):
+    """Schema for changing password."""
+
+    current_password: str
+    new_password: str
 
 
 # ============================================
