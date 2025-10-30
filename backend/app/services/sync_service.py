@@ -179,6 +179,8 @@ class SyncService:
         Returns:
             Dictionary of record counts applied per table.
         """
+        from sqlalchemy.exc import IntegrityError
+
         applied_counts = {}
 
         for table_name, records in [
@@ -196,60 +198,71 @@ class SyncService:
             count = 0
 
             for record_data in records:
-                try:
-                    record_id = record_data.get("id")
-                    if not record_id:
-                        continue
-
-                    # Convert ISO format strings back to datetime objects
-                    processed_data = {}
-                    for key, value in record_data.items():
-                        if isinstance(value, str):
-                            # Try to parse as datetime
-                            try:
-                                processed_data[key] = datetime.fromisoformat(value)
-                            except (ValueError, AttributeError):
-                                processed_data[key] = value
-                        else:
-                            processed_data[key] = value
-
-                    # Check if record exists locally
-                    result = await self.db.execute(
-                        select(model_class).where(model_class.id == UUID(record_id))
-                    )
-                    existing = result.scalar_one_or_none()
-
-                    if existing:
-                        # Conflict resolution: last-write-wins with 5s buffer for Local
-                        incoming_updated_at = processed_data.get("updated_at")
-                        if isinstance(incoming_updated_at, str):
-                            incoming_updated_at = datetime.fromisoformat(incoming_updated_at)
-                        local_updated_at = existing.updated_at
-
-                        # Add buffer: if timestamps within configured seconds, Local wins
-                        conflict_buffer = await self.get_conflict_buffer()
-                        time_diff = abs((incoming_updated_at - local_updated_at).total_seconds())
-                        if time_diff <= conflict_buffer:
-                            # Local wins, skip update
+                # Use nested transaction (savepoint) for each record
+                async with self.db.begin_nested():
+                    try:
+                        record_id = record_data.get("id")
+                        if not record_id:
                             continue
 
-                        # Update if incoming is newer
-                        if incoming_updated_at > local_updated_at:
-                            for key, value in processed_data.items():
-                                if hasattr(existing, key):
-                                    setattr(existing, key, value)
-                            count += 1
-                    else:
-                        # Insert new record
-                        new_record = model_class(**processed_data)
-                        self.db.add(new_record)
-                        count += 1
+                        # Convert ISO format strings back to datetime objects
+                        processed_data = {}
+                        for key, value in record_data.items():
+                            if isinstance(value, str):
+                                # Try to parse as datetime
+                                try:
+                                    processed_data[key] = datetime.fromisoformat(value)
+                                except (ValueError, AttributeError):
+                                    processed_data[key] = value
+                            else:
+                                processed_data[key] = value
 
-                except Exception as e:
-                    print(f"Error applying record {record_id} to {table_name}: {e}")
+                        # Check if record exists locally
+                        result = await self.db.execute(
+                            select(model_class).where(model_class.id == UUID(record_id))
+                        )
+                        existing = result.scalar_one_or_none()
+
+                        if existing:
+                            # Conflict resolution: last-write-wins with buffer for Local
+                            incoming_updated_at = processed_data.get("updated_at")
+                            if isinstance(incoming_updated_at, str):
+                                incoming_updated_at = datetime.fromisoformat(incoming_updated_at)
+                            local_updated_at = existing.updated_at
+
+                            # Add buffer: if timestamps within configured seconds, Local wins
+                            conflict_buffer = await self.get_conflict_buffer()
+                            time_diff = abs((incoming_updated_at - local_updated_at).total_seconds())
+                            if time_diff <= conflict_buffer:
+                                # Local wins, skip update
+                                continue
+
+                            # Update if incoming is newer
+                            if incoming_updated_at > local_updated_at:
+                                for key, value in processed_data.items():
+                                    if hasattr(existing, key):
+                                        setattr(existing, key, value)
+                                count += 1
+                        else:
+                            # Insert new record
+                            new_record = model_class(**processed_data)
+                            self.db.add(new_record)
+                            count += 1
+
+                        # Flush to detect integrity errors within this savepoint
+                        await self.db.flush()
+
+                    except IntegrityError as ie:
+                        # Savepoint automatically rolls back, other records unaffected
+                        print(f"Skipping record {record_id} in {table_name} due to integrity constraint: {str(ie)[:200]}")
+                        continue
+                    except Exception as e:
+                        print(f"Error applying record {record_id} to {table_name}: {e}")
+                        continue
 
             applied_counts[table_name] = count
 
+        # Final commit for all successfully applied records
         await self.db.commit()
         return applied_counts
 
