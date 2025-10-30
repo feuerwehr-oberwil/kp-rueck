@@ -1,16 +1,18 @@
-"""Reko form API endpoints (no authentication required)."""
+"""Reko form API endpoints (no authentication required for forms, authentication required for photos)."""
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
+from ..auth.dependencies import CurrentUser
 from ..crud import reko as crud
 from ..database import get_db
 from ..models import RekoReport, Incident
+from ..services.audit import log_action
 from ..services.tokens import generate_form_token, validate_form_token
 from ..services.photo_storage import photo_storage
 
@@ -308,29 +310,61 @@ photos_router = BaseAPIRouter(prefix="/photos", tags=["photos"])
 async def serve_photo(
     incident_id: uuid.UUID,
     filename: str,
+    request: Request,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Serve photo file.
+    Serve photo file with authentication and authorization.
 
-    No authentication required - photos are public once uploaded.
-    Returns image with cache headers for performance.
+    SECURITY: Requires authentication to prevent unauthorized access to photos
+    that may contain sensitive operational information.
 
     Args:
         incident_id: Incident UUID
         filename: Photo filename
+        current_user: Authenticated user
+        db: Database session
 
     Returns:
         Image file with cache headers
-    """
-    file_path = photo_storage.get_photo_path(incident_id, filename)
 
+    Raises:
+        HTTPException 401: If not authenticated
+        HTTPException 403: If user doesn't have access to incident
+        HTTPException 404: If photo not found
+    """
+    # Verify incident exists
+    incident_result = await db.execute(
+        select(Incident).where(Incident.id == incident_id)
+    )
+    incident = incident_result.scalar_one_or_none()
+
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    # Get photo path and verify it exists
+    file_path = photo_storage.get_photo_path(incident_id, filename)
     if not file_path:
         raise HTTPException(status_code=404, detail="Photo not found")
 
+    # Log photo access for audit trail
+    await log_action(
+        db=db,
+        action_type="view_photo",
+        resource_type="reko_photo",
+        resource_id=incident_id,
+        user=current_user,
+        changes={"filename": filename},
+        request=request,
+    )
+    await db.commit()
+
+    # Return file with shorter cache (1 hour) for authenticated resources
     return FileResponse(
         file_path,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "public, max-age=31536000, immutable",  # Cache for 1 year
+            "Cache-Control": "private, max-age=3600",  # 1 hour cache for authenticated users
         }
     )
