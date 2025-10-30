@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Kbd } from '@/components/ui/kbd';
 
 interface PageNavigationProps {
-  currentPage: 'kanban' | 'map' | 'settings';
+  currentPage: 'kanban' | 'map' | 'settings' | 'combined' | 'training' | 'stats' | 'events';
   vehicleTypes?: Array<{ key: string; name: string }>;
   onShortcutsOpen?: () => void;
 }
