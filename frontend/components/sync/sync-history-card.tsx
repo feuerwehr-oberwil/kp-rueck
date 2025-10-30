@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -155,8 +155,8 @@ export function SyncHistoryCard() {
                 {history.map((entry) => {
                   const isExpanded = expandedRows.has(entry.id)
                   return (
-                    <>
-                      <TableRow key={entry.id} className="cursor-pointer" onClick={() => toggleRow(entry.id)}>
+                    <Fragment key={entry.id}>
+                      <TableRow className="cursor-pointer" onClick={() => toggleRow(entry.id)}>
                         <TableCell>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                             {isExpanded ? (
@@ -234,7 +234,7 @@ export function SyncHistoryCard() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   )
                 })}
               </TableBody>
