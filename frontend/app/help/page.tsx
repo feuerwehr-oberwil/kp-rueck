@@ -252,7 +252,6 @@ export default function HelpPage() {
           {isAuthenticated ? (
             <PageNavigation
               currentPage="events"
-              hasSelectedEvent={!!selectedEvent}
             />
           ) : (
             <Link href="/login">
