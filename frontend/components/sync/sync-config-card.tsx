@@ -191,6 +191,10 @@ export function SyncConfigCard() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span>Ereignisse</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <span>Einsätze</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">

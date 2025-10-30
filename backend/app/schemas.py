@@ -856,6 +856,7 @@ class SyncResult(BaseModel):
 class Delta(BaseModel):
     """Delta of changes between Railway and Local."""
 
+    events: list[dict] = []
     incidents: list[dict] = []
     personnel: list[dict] = []
     vehicles: list[dict] = []
