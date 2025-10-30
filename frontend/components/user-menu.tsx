@@ -38,6 +38,8 @@ export function UserMenu() {
 
   // Load config to check if we're on Railway
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const loadConfig = async () => {
       try {
         const data = await apiClient.getSyncConfig();
@@ -47,7 +49,7 @@ export function UserMenu() {
       }
     };
     loadConfig();
-  }, []);
+  }, [isAuthenticated]);
 
   const checkConnection = async () => {
     try {
