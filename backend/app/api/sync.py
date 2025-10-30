@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import CurrentUser
 from app.database import get_db
 from app.models import SyncLog
 from app.schemas import SyncDirection, SyncLogResponse, SyncStatus, SyncStatusResponse
@@ -22,6 +23,7 @@ _last_sync_result: Optional[dict] = None
 
 @router.get("/status", response_model=SyncStatusResponse)
 async def get_sync_status(
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -67,6 +69,7 @@ async def get_sync_status(
 
 @router.post("/from-railway", response_model=dict)
 async def sync_from_railway_endpoint(
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -106,6 +109,7 @@ async def sync_from_railway_endpoint(
 
 @router.post("/to-railway", response_model=dict)
 async def sync_to_railway_endpoint(
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -113,6 +117,7 @@ async def sync_to_railway_endpoint(
 
     This pushes local changes to Railway after a Railway outage.
     User must confirm this action in the UI.
+    Requires authentication.
 
     Returns:
         Sync result with record counts and any errors.
@@ -146,6 +151,7 @@ async def sync_to_railway_endpoint(
 
 @router.post("/trigger-immediate", response_model=dict)
 async def trigger_immediate_sync(
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -153,6 +159,7 @@ async def trigger_immediate_sync(
 
     Called automatically when incidents or events are created,
     even if the time interval hasn't been reached.
+    Requires authentication.
 
     Returns:
         Sync result with record counts and any errors.
@@ -199,11 +206,13 @@ async def trigger_immediate_sync(
 @router.get("/logs", response_model=list[SyncLogResponse])
 @router.get("/history", response_model=list[SyncLogResponse])  # Alias for frontend compatibility
 async def get_sync_logs(
+    current_user: CurrentUser,
     limit: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get recent sync operation logs.
+    Requires authentication.
 
     Args:
         limit: Maximum number of logs to return (default 20).
@@ -234,10 +243,12 @@ async def get_sync_logs(
 
 @router.get("/config", response_model=dict)
 async def get_sync_config(
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get sync configuration.
+    Requires authentication.
 
     Returns:
         Current sync configuration including interval and auto-sync settings.
@@ -256,6 +267,7 @@ async def get_sync_config(
 @router.put("/config", response_model=dict)
 async def update_sync_config(
     config: dict,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -294,6 +306,7 @@ async def update_sync_config(
 @router.get("/delta/{table_name}")
 async def get_delta_for_table(
     table_name: str,
+    current_user: CurrentUser,
     updated_since: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
@@ -349,6 +362,7 @@ async def get_delta_for_table(
 async def apply_delta_for_table(
     table_name: str,
     records: list[dict],
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db)
 ):
     """
