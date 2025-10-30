@@ -8,7 +8,6 @@
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationSidebar } from '@/components/notifications/notification-sidebar';
-import { NavbarSyncIndicator } from '@/components/sync/navbar-sync-indicator';
 import { Map as MapIcon, List, HelpCircle, Calendar, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -98,9 +97,6 @@ export function PageNavigation({ currentPage, vehicleTypes = [], onShortcutsOpen
         >
           <HelpCircle className="h-5 w-5" />
         </Button>
-
-        {/* Sync Status Indicator */}
-        <NavbarSyncIndicator />
 
         {/* Notification Sidebar */}
         <NotificationSidebar />

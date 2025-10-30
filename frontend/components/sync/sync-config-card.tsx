@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { CheckCircle2, X, Loader2 } from 'lucide-react'
+import { CheckCircle2, X, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import type { SyncConfig } from '@/types/sync'
@@ -20,6 +20,7 @@ export function SyncConfigCard() {
   const [railwayDatabaseUrl, setRailwayDatabaseUrl] = useState<string>('')
   const [conflictBuffer, setConflictBuffer] = useState<number>(5)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   // Load config on mount
   useEffect(() => {
@@ -88,13 +89,30 @@ export function SyncConfigCard() {
             {/* Railway Database URL */}
             <div className="space-y-2">
               <Label htmlFor="railway-database-url">Railway PostgreSQL Verbindung</Label>
-              <Input
-                id="railway-database-url"
-                type="password"
-                placeholder="postgresql://user:pass@host:port/database"
-                value={railwayDatabaseUrl}
-                onChange={(e) => setRailwayDatabaseUrl(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="railway-database-url"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="postgresql://user:pass@host:port/database"
+                  value={railwayDatabaseUrl}
+                  onChange={(e) => setRailwayDatabaseUrl(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
               <p className="text-sm text-muted-foreground">
                 {railwayDatabaseUrl
                   ? 'PostgreSQL Connection String der Railway Datenbank (leer lassen für lokalen Modus)'
