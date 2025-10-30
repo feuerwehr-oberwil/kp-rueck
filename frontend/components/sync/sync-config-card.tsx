@@ -84,23 +84,21 @@ export function SyncConfigCard() {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
+        ) : config?.is_production ? (
+          /* Production - Only show info message */
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
+            <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Synchronisationsfunktion nur lokal verfügbar</p>
+              <p className="text-sm text-muted-foreground">
+                Die Synchronisationsfunktion ist nur für lokale Instanzen verfügbar.
+                Auf Railway (Produktion) ist die Synchronisation deaktiviert, da Railway
+                als zentrale Datenquelle dient.
+              </p>
+            </div>
+          </div>
         ) : (
           <>
-            {/* Production Warning */}
-            {config?.is_production && (
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
-                <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Synchronisationsfunktion nur lokal verfügbar</p>
-                  <p className="text-sm text-muted-foreground">
-                    Die Synchronisationsfunktion ist nur für lokale Instanzen verfügbar.
-                    Auf Railway (Produktion) ist die Synchronisation deaktiviert, da Railway
-                    als zentrale Datenquelle dient.
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* Railway Database URL */}
             <div className="space-y-2">
               <Label htmlFor="railway-database-url">Railway PostgreSQL Verbindung</Label>
