@@ -30,7 +30,7 @@ interface SettingConfig {
   key: string;
   label: string;
   description: string;
-  type: 'number' | 'boolean' | 'text';
+  type: 'number' | 'boolean' | 'text' | 'select';
   unit?: string;
   options?: { value: string; label: string }[];
 }
@@ -74,6 +74,17 @@ const SETTING_CONFIGS: SettingConfig[] = [
     options: [
       { value: 'false', label: 'Deaktiviert' },
       { value: 'true', label: 'Aktiviert' },
+    ],
+  },
+  {
+    key: 'map_mode',
+    label: 'Karten-Modus',
+    description: 'Kartenquelle: Auto (Online → Offline-Fallback), Online (nur OSM), Offline (nur lokale Tiles)',
+    type: 'select',
+    options: [
+      { value: 'auto', label: 'Auto (empfohlen)' },
+      { value: 'online', label: 'Nur Online' },
+      { value: 'offline', label: 'Nur Offline' },
     ],
   },
 ];
@@ -131,7 +142,7 @@ export default function SettingsPage() {
     const value = settings[config.key] || '';
     const isCurrentlySaving = saving === config.key;
 
-    if (config.type === 'boolean' && config.options) {
+    if ((config.type === 'boolean' || config.type === 'select') && config.options) {
       return (
         <Select
           value={value}
