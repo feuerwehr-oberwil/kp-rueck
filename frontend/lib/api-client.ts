@@ -354,7 +354,17 @@ class ApiClient {
         } catch (e) {
           errorText = 'Keine Fehlerdetails verfügbar'
         }
-        console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+
+        // Don't log 401 errors for sync config - expected when not authenticated
+        const shouldLog = !(response.status === 401 && endpoint === '/api/sync/config')
+        if (shouldLog) {
+          console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+        }
+
+        // Don't throw error for 401 on sync config - it's handled gracefully by the component
+        if (response.status === 401 && endpoint === '/api/sync/config') {
+          throw new Error('Unauthorized') // Silent error that will be caught
+        }
 
         // Try to parse as JSON for better error messages
         try {
