@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
-import type { SyncStatusResponse } from '@/types/sync'
+import type { SyncStatusResponse, SyncConfig } from '@/types/sync'
 
 interface SyncStatusCardProps {
   status: SyncStatusResponse | null
@@ -21,6 +21,20 @@ interface SyncStatusCardProps {
 
 export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComplete }: SyncStatusCardProps) {
   const [isSyncing, setIsSyncing] = useState(false)
+  const [config, setConfig] = useState<SyncConfig | null>(null)
+
+  // Load config to check if we're on Railway
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const data = await apiClient.getSyncConfig()
+        setConfig(data)
+      } catch (err) {
+        // Ignore errors - config is optional for status display
+      }
+    }
+    loadConfig()
+  }, [])
 
   const handleSyncFromRailway = async () => {
     try {
@@ -199,8 +213,8 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
           <Button
             variant="outline"
             onClick={handleSyncFromRailway}
-            disabled={isSyncing || !status?.railway_healthy || isLoading}
-            className="flex items-center gap-2"
+            disabled={isSyncing || !status?.railway_healthy || isLoading || config?.is_production}
+            className="flex items-center gap-2 disabled:opacity-50"
           >
             {isSyncing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -214,8 +228,8 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             <Button
               variant="default"
               onClick={handleSyncToRailway}
-              disabled={isSyncing || isLoading}
-              className="flex items-center gap-2"
+              disabled={isSyncing || isLoading || config?.is_production}
+              className="flex items-center gap-2 disabled:opacity-50"
             >
               {isSyncing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

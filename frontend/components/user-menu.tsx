@@ -14,6 +14,8 @@ import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3, Ar
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
+import { apiClient } from '@/lib/api-client';
+import type { SyncConfig } from '@/types/sync';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,10 +30,24 @@ export function UserMenu() {
   const router = useRouter();
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
+  const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
 
   // Sync status
   const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
   useRailwayRecovery(syncStatus);
+
+  // Load config to check if we're on Railway
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const data = await apiClient.getSyncConfig();
+        setSyncConfig(data);
+      } catch (err) {
+        // Ignore errors - config is optional
+      }
+    };
+    loadConfig();
+  }, []);
 
   const checkConnection = async () => {
     try {
@@ -170,13 +186,13 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuItem asChild>
-          <Link href="/settings?tab=sync" className="cursor-pointer">
+          <Link href="/settings?tab=sync" className={syncConfig?.is_production ? "cursor-pointer opacity-50" : "cursor-pointer"}>
             <div className="flex items-center justify-between w-full">
               <span className="text-xs text-muted-foreground">Sync</span>
               <div className="flex items-center gap-2">
                 <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
                 {getSyncDirectionIcon()}
-                <span className="text-xs">{getSyncStatusText()}</span>
+                <span className="text-xs">{syncConfig?.is_production ? "Deaktiviert" : getSyncStatusText()}</span>
               </div>
             </div>
           </Link>

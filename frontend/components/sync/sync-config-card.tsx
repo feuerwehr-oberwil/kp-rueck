@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { CheckCircle2, X, Loader2, Eye, EyeOff } from 'lucide-react'
+import { CheckCircle2, X, Loader2, Eye, EyeOff, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import type { SyncConfig } from '@/types/sync'
@@ -86,6 +86,21 @@ export function SyncConfigCard() {
           </div>
         ) : (
           <>
+            {/* Production Warning */}
+            {config?.is_production && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
+                <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Synchronisationsfunktion nur lokal verfügbar</p>
+                  <p className="text-sm text-muted-foreground">
+                    Die Synchronisationsfunktion ist nur für lokale Instanzen verfügbar.
+                    Auf Railway (Produktion) ist die Synchronisation deaktiviert, da Railway
+                    als zentrale Datenquelle dient.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Railway Database URL */}
             <div className="space-y-2">
               <Label htmlFor="railway-database-url">Railway PostgreSQL Verbindung</Label>
