@@ -19,14 +19,18 @@ import { apiClient } from '@/lib/api-client'
 import type { SyncHistoryEntry } from '@/types/sync'
 import { Button } from '@/components/ui/button'
 
-export function SyncHistoryCard() {
+interface SyncHistoryCardProps {
+  refreshTrigger?: number
+}
+
+export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
   const [history, setHistory] = useState<SyncHistoryEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadHistory()
-  }, [])
+  }, [refreshTrigger])
 
   const loadHistory = async () => {
     try {

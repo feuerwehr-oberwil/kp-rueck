@@ -83,6 +83,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
 
   // Get tab from URL parameter, default to 'general'
   const defaultTab = searchParams.get('tab') || 'general';
@@ -90,6 +91,11 @@ export default function SettingsPage() {
   // Sync status and hooks
   const { status: syncStatus, isLoading: isSyncLoading, error: syncError, isStale } = useSyncStatus();
   useRailwayRecovery(syncStatus);
+
+  // Callback to refresh sync history after manual sync
+  const handleSyncComplete = () => {
+    setHistoryRefreshTrigger((prev) => prev + 1);
+  };
 
   // Fetch all settings on mount
   const fetchSettings = async () => {
@@ -330,9 +336,10 @@ export default function SettingsPage() {
                     isLoading={isSyncLoading}
                     error={syncError}
                     isStale={isStale}
+                    onSyncComplete={handleSyncComplete}
                   />
                   <SyncConfigCard />
-                  <SyncHistoryCard />
+                  <SyncHistoryCard refreshTrigger={historyRefreshTrigger} />
                 </div>
               </TabsContent>
             </Tabs>
