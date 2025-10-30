@@ -66,36 +66,74 @@ def validate_checkin_token(token: str) -> Optional[UUID]:
 # ============================================
 
 
-def generate_form_token(incident_id: str, form_type: str = "reko") -> str:
+def generate_form_token(incident_id: str, form_type: str = "reko", expires_hours: int = 24) -> str:
     """
-    Generate a reusable token for a form type.
+    Generate a secure JWT token for Reko form access.
 
-    Tokens are deterministic for same incident+type (allows sharing).
+    SECURITY: Uses JWT with expiration instead of deterministic hash.
+    Tokens expire after 24 hours by default to limit exposure.
 
     Args:
         incident_id: Incident UUID
         form_type: Type of form (e.g., 'reko')
+        expires_hours: Token expiration time in hours (default: 24)
 
     Returns:
-        URL-safe token string
+        JWT token string with expiration
     """
-    # Deterministic token based on incident + form type + secret_key
-    data = f"{incident_id}:{form_type}:{settings.secret_key}"
-    hash_obj = hashlib.sha256(data.encode())
-    return hash_obj.hexdigest()[:32]
+    import uuid
+
+    # Token expires in 24 hours (or specified duration)
+    expiration = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
+
+    payload = {
+        "incident_id": incident_id,
+        "form_type": form_type,
+        "exp": expiration,
+        "iat": datetime.now(timezone.utc),  # Issued at
+        "jti": str(uuid.uuid4()),  # Unique JWT ID for token tracking
+        "type": "reko_form",
+    }
+
+    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+    return token
 
 
 def validate_form_token(token: str, incident_id: str, form_type: str = "reko") -> bool:
     """
-    Verify token matches incident and form type.
+    Verify JWT token is valid and matches incident and form type.
+
+    SECURITY: Checks token signature, expiration, and incident_id match.
 
     Args:
-        token: Token to validate
-        incident_id: Incident UUID
-        form_type: Type of form (e.g., 'reko')
+        token: JWT token to validate
+        incident_id: Expected incident UUID
+        form_type: Expected form type (e.g., 'reko')
 
     Returns:
-        True if token is valid, False otherwise
+        True if token is valid and matches, False otherwise
     """
-    expected = generate_form_token(incident_id, form_type)
-    return secrets.compare_digest(token, expected)
+    try:
+        # Decode and verify token (automatically checks expiration)
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+
+        # Verify token type
+        if payload.get("type") != "reko_form":
+            return False
+
+        # Verify incident_id matches
+        if payload.get("incident_id") != incident_id:
+            return False
+
+        # Verify form_type matches
+        if payload.get("form_type") != form_type:
+            return False
+
+        return True
+
+    except jwt.ExpiredSignatureError:
+        # Token has expired
+        return False
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        # Invalid token format or missing fields
+        return False

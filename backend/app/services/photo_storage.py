@@ -143,7 +143,9 @@ class PhotoStorageService:
 
     def get_photo_path(self, incident_id: uuid.UUID, filename: str) -> Optional[Path]:
         """
-        Get full path to photo file.
+        Get full path to photo file with path traversal protection.
+
+        SECURITY: Validates filename to prevent directory traversal attacks.
 
         Args:
             incident_id: Incident UUID
@@ -151,8 +153,42 @@ class PhotoStorageService:
 
         Returns:
             Path object if file exists, None otherwise
+
+        Raises:
+            HTTPException: If filename contains path traversal sequences
         """
+        import re
+
+        # Validate filename doesn't contain path traversal sequences
+        if "/" in filename or "\\" in filename or ".." in filename:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid filename: path traversal sequences not allowed"
+            )
+
+        # Ensure filename matches expected pattern (UUID.jpg)
+        if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$', filename):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid filename format: must be UUID.jpg"
+            )
+
         file_path = self.photos_dir / str(incident_id) / filename
+
+        # Ensure resolved path is within photos_dir (prevents traversal)
+        try:
+            if not file_path.resolve().is_relative_to(self.photos_dir.resolve()):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Path traversal detected"
+                )
+        except ValueError:
+            # is_relative_to() raises ValueError if paths are on different drives
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid path"
+            )
+
         return file_path if file_path.exists() else None
 
     def delete_photo(self, incident_id: uuid.UUID, filename: str) -> bool:

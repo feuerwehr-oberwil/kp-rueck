@@ -82,7 +82,7 @@ async def login(
         key="access_token",
         value=access_token,
         httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.COOKIE_SECURE,
+        secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
         samesite=auth_settings.COOKIE_SAMESITE,
         max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -91,7 +91,7 @@ async def login(
         key="refresh_token",
         value=refresh_token,
         httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.COOKIE_SECURE,
+        secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
         samesite=auth_settings.COOKIE_SAMESITE,
         max_age=auth_settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
@@ -168,7 +168,7 @@ async def refresh_token(
         key="access_token",
         value=access_token,
         httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.COOKIE_SECURE,
+        secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
         samesite=auth_settings.COOKIE_SAMESITE,
         max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
