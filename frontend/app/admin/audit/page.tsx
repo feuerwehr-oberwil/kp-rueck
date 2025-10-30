@@ -9,8 +9,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useEvent } from '@/lib/contexts/event-context';
 import { apiClient, type ApiAuditLog } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
+import { PageNavigation } from '@/components/page-navigation';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -54,6 +56,7 @@ const RESOURCE_TYPES = [
 
 export default function AuditLogPage() {
   const { isEditor } = useAuth();
+  const { selectedEvent } = useEvent();
   const router = useRouter();
   const [entries, setEntries] = useState<ApiAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,6 +178,8 @@ export default function AuditLogPage() {
               </div>
             </div>
           </div>
+
+          <PageNavigation currentPage="settings" hasSelectedEvent={!!selectedEvent} />
         </header>
 
         {/* Filters */}

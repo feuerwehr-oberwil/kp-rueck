@@ -70,7 +70,9 @@ class Vehicle(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    radio_call_sign: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -423,6 +425,36 @@ class AuditLog(Base):
 
 
 # ============================================
+# SYNC LOGGING
+# ============================================
+
+
+class SyncLog(Base):
+    """Sync operation tracking for Railway ↔ Local bidirectional sync."""
+
+    __tablename__ = "sync_log"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    sync_direction: Mapped[str] = mapped_column(String(20), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    records_synced: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    errors: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "sync_direction IN ('from_railway', 'to_railway')", name="valid_sync_direction"
+        ),
+        CheckConstraint(
+            "status IN ('success', 'failed', 'partial', 'in_progress')", name="valid_sync_status"
+        ),
+        Index("idx_sync_log_started_at", "started_at"),
+        Index("idx_sync_log_status", "status"),
+    )
+
+
+# ============================================
 # SETTINGS & CONFIGURATION
 # ============================================
 
@@ -443,3 +475,126 @@ class Setting(Base):
 
     # Relationships
     updater: Mapped[Optional["User"]] = relationship("User", back_populates="setting_updates")
+
+
+# ============================================
+# NOTIFICATIONS
+# ============================================
+
+
+class Notification(Base):
+    """Notification for time delays, resource constraints, and data quality issues."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Optional associations
+    incident_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    event_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    dismissed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    dismissed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    dismissed_by: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "severity IN ('critical', 'warning', 'info')", name="valid_notification_severity"
+        ),
+        CheckConstraint(
+            "type IN ("
+            "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
+            "'missing_location', 'missing_personnel', 'missing_vehicle', 'event_size_limit'"
+            ")",
+            name="valid_notification_type"
+        ),
+        Index('idx_notifications_event', 'event_id'),
+        Index('idx_notifications_incident', 'incident_id'),
+        Index('idx_notifications_dismissed', 'dismissed'),
+        Index('idx_notifications_created_at', 'created_at'),
+    )
+
+
+# ============================================
+# TRAINING AUTOMATION
+# ============================================
+
+
+class EmergencyTemplate(Base):
+    """Pre-defined emergency scenarios for training exercises."""
+
+    __tablename__ = "emergency_templates"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Template metadata
+    title_pattern: Mapped[str] = mapped_column(String(255), nullable=False)
+    incident_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    category: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    # Scenario content
+    message_pattern: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Metadata
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('normal', 'critical')", name="valid_emergency_category"
+        ),
+        Index('ix_emergency_templates_category', 'category'),
+        Index('ix_emergency_templates_is_active', 'is_active'),
+    )
+
+    def __repr__(self):
+        return f"<EmergencyTemplate {self.title_pattern} ({self.category})>"
+
+
+class TrainingLocation(Base):
+    """Pool of realistic addresses for training scenarios."""
+
+    __tablename__ = "training_locations"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Address components
+    street: Mapped[str] = mapped_column(String(255), nullable=False)
+    house_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    postal_code: Mapped[str] = mapped_column(String(10), nullable=False, default="4104")
+    city: Mapped[str] = mapped_column(String(100), nullable=False, default="Oberwil")
+
+    # Building type (optional, for realism)
+    building_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Geocoding
+    latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
+
+    # Metadata
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        Index('ix_training_locations_is_active', 'is_active'),
+    )
+
+    def get_full_address(self) -> str:
+        return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
+
+    def __repr__(self):
+        return f"<TrainingLocation {self.get_full_address()}>"

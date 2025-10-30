@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -55,6 +55,7 @@ export default function MapPage() {
     deleteOperation
   } = useOperations()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const highlightParam = searchParams.get("highlight")
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam

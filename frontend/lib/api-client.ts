@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from './env'
+import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
 const API_URL = getApiUrl()
 
