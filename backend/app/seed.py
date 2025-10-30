@@ -29,43 +29,8 @@ async def seed_database() -> None:
             # 1. SEED DEFAULT ADMIN USER
             # ============================================
             print("Creating default admin user...")
-
-            import os
-
-            # Detect environment
-            is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
-
-            if is_production:
-                # Production: Require ADMIN_PASSWORD env variable
-                password = os.getenv("ADMIN_PASSWORD")
-                if not password:
-                    raise ValueError(
-                        "ADMIN_PASSWORD environment variable must be set in production. "
-                        "Set a strong password with: ADMIN_PASSWORD='your-strong-password'"
-                    )
-
-                # Validate password strength
-                if len(password) < 8:
-                    raise ValueError("ADMIN_PASSWORD must be at least 8 characters long")
-
-                has_upper = any(c.isupper() for c in password)
-                has_lower = any(c.islower() for c in password)
-                has_digit = any(c.isdigit() for c in password)
-
-                if not (has_upper and has_lower and has_digit):
-                    raise ValueError(
-                        "ADMIN_PASSWORD must contain at least one uppercase letter, "
-                        "one lowercase letter, and one digit"
-                    )
-
-                print("  ℹ️  Using ADMIN_PASSWORD from environment (production mode)")
-            else:
-                # Development: Use simple password for convenience
-                password = "admin"
-                print("  ⚠️  DEV MODE: Using simple password 'admin' for admin user")
-                print("  ⚠️  This is insecure and only acceptable in development!")
-
             # Hash password using bcrypt
+            password = "changeme123"  # CHANGE IN PRODUCTION
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
             admin_user = models.User(
@@ -187,74 +152,74 @@ async def seed_database() -> None:
             print("Creating materials...")
             materials_data = [
                 {
-                    "name": "Wasserpumpe TP 15/8",
-                    "type": "Pumpen",
+                    "name": "Wasserpumpe TP 15/8 from TLF 1",
                     "status": "assigned",
                     "location": "TLF 1",
                     "description": "Tragkraftspritze TP 15/8",
+                    "status": "assigned",
                 },
                 {
                     "name": "Schlauchpaket B",
-                    "type": "Schläuche",
                     "status": "available",
                     "location": "Lager Raum 3",
                     "description": "B-Schläuche 20m",
+                    "status": "available",
                 },
                 {
                     "name": "Schlauchpaket C",
-                    "type": "Schläuche",
                     "status": "available",
                     "location": "Lager Raum 3",
                     "description": "C-Schläuche 15m",
+                    "status": "available",
                 },
                 {
-                    "name": "Atemschutzgerät",
-                    "type": "Atemschutz",
+                    "name": "Atemschutzgerät from TLF 1",
                     "status": "assigned",
                     "location": "TLF 1",
                     "description": "Dräger PSS 7000",
+                    "status": "assigned",
                 },
                 {
                     "name": "Wärmebildkamera",
-                    "type": "Technik",
                     "status": "available",
                     "location": "MTW 1",
                     "description": "MSA Evolution 6000",
+                    "status": "available",
                 },
                 {
-                    "name": "Hydraulisches Rettungsgerät",
-                    "type": "Rettungsgerät",
+                    "name": "Hydraulisches Rettungsgerät from Pio",
                     "status": "assigned",
                     "location": "Pio",
                     "description": "Weber Rescue E2 Satz",
+                    "status": "assigned",
                 },
                 {
                     "name": "Schaummittel 200L",
-                    "type": "Löschmittel",
                     "status": "available",
                     "location": "Lager Raum 1",
                     "description": "Schaummittel AFFF 3%",
+                    "status": "available",
                 },
                 {
                     "name": "Stromerzeuger 5kW",
-                    "type": "Technik",
                     "status": "available",
                     "location": "DLK",
                     "description": "Honda EU50i",
+                    "status": "available",
                 },
                 {
-                    "name": "Funkgerät HRT 1",
-                    "type": "Kommunikation",
+                    "name": "Funkgerät HRT 1 from KdoW",
                     "status": "assigned",
                     "location": "KdoW",
                     "description": "Motorola DP4800",
+                    "status": "assigned",
                 },
                 {
                     "name": "Erste-Hilfe-Koffer",
-                    "type": "Sanitätsmaterial",
                     "status": "available",
                     "location": "Lager Raum 2",
                     "description": "Söhngen Notfallkoffer DIN 13157",
+                    "status": "available",
                 },
             ]
 
@@ -471,13 +436,7 @@ async def seed_database() -> None:
             # ============================================
             await db.commit()
             print("\n✅ Database seeded successfully!")
-
-            # Show credentials (dev only)
-            if is_production:
-                print(f"  - Created admin user: admin / [password from ADMIN_PASSWORD env]")
-            else:
-                print(f"  - Created admin user: admin / admin (DEV MODE ONLY)")
-
+            print(f"  - Created admin user: admin / changeme123 (CHANGE IN PRODUCTION)")
             print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")

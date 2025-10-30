@@ -251,7 +251,8 @@ export default function HelpPage() {
         <div className="flex items-center gap-4">
           {isAuthenticated ? (
             <PageNavigation
-              currentPage="settings"
+              currentPage="events"
+              hasSelectedEvent={!!selectedEvent}
             />
           ) : (
             <Link href="/login">

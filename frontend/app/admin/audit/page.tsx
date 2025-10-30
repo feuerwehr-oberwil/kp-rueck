@@ -179,7 +179,7 @@ export default function AuditLogPage() {
             </div>
           </div>
 
-          <PageNavigation currentPage="settings" />
+          <PageNavigation currentPage="settings" hasSelectedEvent={!!selectedEvent} />
         </header>
 
         {/* Filters */}
