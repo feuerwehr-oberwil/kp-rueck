@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import crud, schemas
-from ..auth.dependencies import CurrentUser, require_editor
+from ..auth.dependencies import CurrentEditor
 from ..database import get_db
 from ..services.audit import log_action
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/", response_model=schemas.UserListResponse)
 async def list_users(
-    current_user: CurrentUser = Depends(require_editor),
+    current_user: CurrentEditor,
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
@@ -32,7 +32,7 @@ async def list_users(
 async def create_user(
     request: Request,
     user: schemas.UserCreate,
-    current_user: CurrentUser = Depends(require_editor),
+    current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -80,7 +80,7 @@ async def create_user(
 @router.get("/{user_id}", response_model=schemas.UserResponse)
 async def get_user(
     user_id: UUID,
-    current_user: CurrentUser = Depends(require_editor),
+    current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -103,7 +103,7 @@ async def update_user(
     request: Request,
     user_id: UUID,
     user_update: schemas.UserUpdate,
-    current_user: CurrentUser = Depends(require_editor),
+    current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -166,7 +166,7 @@ async def update_user(
 async def delete_user(
     request: Request,
     user_id: UUID,
-    current_user: CurrentUser = Depends(require_editor),
+    current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db)
 ):
     """
