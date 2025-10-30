@@ -14,6 +14,7 @@ export function useSyncStatus(options: UseSyncStatusOptions = {}) {
   const [status, setStatus] = useState<SyncStatusResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0)
 
   // Track previous railway health state for detecting recovery
   const [previousRailwayHealthy, setPreviousRailwayHealthy] = useState<boolean | null>(null)
@@ -31,6 +32,7 @@ export function useSyncStatus(options: UseSyncStatusOptions = {}) {
         if (isMounted) {
           setStatus(data)
           setError(null)
+          setConsecutiveErrors(0) // Reset error counter on success
           setIsLoading(false)
 
           // Detect Railway recovery (unhealthy → healthy transition)
@@ -41,7 +43,16 @@ export function useSyncStatus(options: UseSyncStatusOptions = {}) {
         }
       } catch (err) {
         if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch sync status')
+          // Only show error after 3 consecutive failures to avoid false alarms from transient network issues
+          const newErrorCount = consecutiveErrors + 1
+          setConsecutiveErrors(newErrorCount)
+
+          if (newErrorCount >= 3) {
+            setError(err instanceof Error ? err.message : 'Failed to fetch sync status')
+          } else {
+            // Log but don't display for first 2 failures
+            console.warn(`Sync status fetch failed (${newErrorCount}/3):`, err)
+          }
           setIsLoading(false)
         }
       } finally {
@@ -59,7 +70,7 @@ export function useSyncStatus(options: UseSyncStatusOptions = {}) {
       isMounted = false
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [enabled, pollInterval, previousRailwayHealthy])
+  }, [enabled, pollInterval, previousRailwayHealthy, consecutiveErrors])
 
   return {
     status,
