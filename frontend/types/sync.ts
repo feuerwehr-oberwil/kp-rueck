@@ -33,8 +33,7 @@ export interface SyncHistoryEntry {
 export interface SyncConfig {
   sync_interval_minutes: number;
   auto_sync_on_create: boolean;
-  railway_url: string;
-  sync_timeout_seconds?: number;
+  railway_database_url: string;
   sync_conflict_buffer_seconds?: number;
 }
 

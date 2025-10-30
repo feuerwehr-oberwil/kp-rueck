@@ -257,15 +257,13 @@ async def get_sync_config(
 
     sync_interval_minutes = await get_setting_value(db, "sync_interval_minutes", "2")
     auto_sync_on_create = await get_setting_value(db, "auto_sync_on_create", "true")
-    railway_url = await get_setting_value(db, "railway_url", "")
-    sync_timeout_seconds = await get_setting_value(db, "sync_timeout_seconds", "30")
+    railway_database_url = await get_setting_value(db, "railway_database_url", "")
     sync_conflict_buffer_seconds = await get_setting_value(db, "sync_conflict_buffer_seconds", "5")
 
     return {
         "sync_interval_minutes": int(sync_interval_minutes),
         "auto_sync_on_create": auto_sync_on_create.lower() == "true",
-        "railway_url": railway_url,
-        "sync_timeout_seconds": int(sync_timeout_seconds),
+        "railway_database_url": railway_database_url,
         "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds)
     }
 
@@ -303,19 +301,11 @@ async def update_sync_config(
             user_id=current_user.id
         )
 
-    if "railway_url" in config:
+    if "railway_database_url" in config:
         await update_setting(
             db,
-            key="railway_url",
-            value=config["railway_url"],
-            user_id=current_user.id
-        )
-
-    if "sync_timeout_seconds" in config:
-        await update_setting(
-            db,
-            key="sync_timeout_seconds",
-            value=str(config["sync_timeout_seconds"]),
+            key="railway_database_url",
+            value=config["railway_database_url"],
             user_id=current_user.id
         )
 
