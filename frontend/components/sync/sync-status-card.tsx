@@ -25,8 +25,9 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
   const handleSyncFromRailway = async () => {
     try {
       setIsSyncing(true)
-      toast.loading('Synchronisiere von Railway...')
+      const toastId = toast.loading('Synchronisiere von Railway...')
       await apiClient.triggerSyncFromRailway()
+      toast.dismiss(toastId)
       toast.success('Erfolgreich von Railway synchronisiert')
       onSyncComplete?.()
     } catch (err) {
@@ -39,8 +40,9 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
   const handleSyncToRailway = async () => {
     try {
       setIsSyncing(true)
-      toast.loading('Synchronisiere zu Railway...')
+      const toastId = toast.loading('Synchronisiere zu Railway...')
       await apiClient.triggerSyncToRailway()
+      toast.dismiss(toastId)
       toast.success('Erfolgreich zu Railway synchronisiert')
       onSyncComplete?.()
     } catch (err) {
@@ -162,16 +164,6 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             <p className="font-medium mt-1">{getLastSyncText()}</p>
           </div>
         </div>
-
-        {/* Warning for stale data */}
-        {isStale && (
-          <div className="flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-md">
-            <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5" />
-            <p className="text-sm text-orange-800 dark:text-orange-200">
-              Die Daten wurden seit mehr als 5 Minuten nicht synchronisiert.
-            </p>
-          </div>
-        )}
 
         {/* Error display */}
         {error && (
