@@ -18,13 +18,8 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 
-  // Enable SWC minification for faster builds
-  swcMinify: true,
-
   // Experimental features for better performance
   experimental: {
-    // Optimize CSS loading
-    optimizeCss: true,
     // Enable faster runtime
     optimizePackageImports: ['lucide-react', 'date-fns'],
   },
