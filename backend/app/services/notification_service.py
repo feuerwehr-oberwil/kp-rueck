@@ -267,7 +267,9 @@ async def _check_resource_alerts(
             ))
 
     # Check material depletion
-    for material_type, threshold in settings.material_depletion_threshold.items():
+    # Use tighter thresholds: CRITICAL when 0, WARNING when <= 2
+    # (ignore configured thresholds which are too loose)
+    for material_type, _ in settings.material_depletion_threshold.items():
         result = await db.execute(
             select(func.count(Material.id))
             .where(Material.type == material_type)
@@ -275,11 +277,18 @@ async def _check_resource_alerts(
         )
         available_count = result.scalar_one()
 
-        if available_count <= threshold:
+        if available_count == 0:
             notifications.append(Notification(
                 type="no_materials",
-                severity="critical" if available_count == 0 else "warning",
-                message=f"Nur noch {available_count} Einheiten von '{material_type}' verfügbar (Schwellenwert: {threshold})",
+                severity="critical",
+                message=f"Keine Einheiten von '{material_type}' mehr verfügbar",
+                event_id=event_id,
+            ))
+        elif available_count <= 2:
+            notifications.append(Notification(
+                type="no_materials",
+                severity="warning",
+                message=f"Nur noch {available_count} Einheiten von '{material_type}' verfügbar",
                 event_id=event_id,
             ))
 
@@ -293,12 +302,14 @@ async def _check_data_quality_alerts(
     """Check for data quality issues."""
     notifications = []
 
-    # Missing geocoded location
+    # Missing geocoded location - only check for incidents in disponiert or later status
+    # (location not needed for eingegangen or reko)
     result = await db.execute(
         select(Incident)
         .where(Incident.event_id == event_id)
         .where(Incident.deleted_at.is_(None))
         .where(Incident.location_lat.is_(None))
+        .where(Incident.status.in_(["disponiert", "einsatz", "einsatz_beendet"]))
     )
     incidents_no_location = result.scalars().all()
 
@@ -310,62 +321,6 @@ async def _check_data_quality_alerts(
             incident_id=incident.id,
             event_id=event_id,
         ))
-
-    # Missing personnel in "einsatz" status
-    result = await db.execute(
-        select(Incident)
-        .where(Incident.event_id == event_id)
-        .where(Incident.status == "einsatz")
-        .where(Incident.deleted_at.is_(None))
-    )
-    incidents_in_einsatz = result.scalars().all()
-
-    for incident in incidents_in_einsatz:
-        # Check if has assigned personnel
-        assignment_result = await db.execute(
-            select(func.count(IncidentAssignment.id))
-            .where(IncidentAssignment.incident_id == incident.id)
-            .where(IncidentAssignment.resource_type == "personnel")
-            .where(IncidentAssignment.unassigned_at.is_(None))
-        )
-        personnel_count = assignment_result.scalar_one()
-
-        if personnel_count == 0:
-            notifications.append(Notification(
-                type="missing_personnel",
-                severity="warning",
-                message=f"Einsatz '{incident.title}' ist im Status 'Einsatz' aber hat kein zugewiesenes Personal",
-                incident_id=incident.id,
-                event_id=event_id,
-            ))
-
-    # Missing vehicle in "disponiert" status
-    result = await db.execute(
-        select(Incident)
-        .where(Incident.event_id == event_id)
-        .where(Incident.status == "disponiert")
-        .where(Incident.deleted_at.is_(None))
-    )
-    incidents_disponiert = result.scalars().all()
-
-    for incident in incidents_disponiert:
-        # Check if has assigned vehicle
-        assignment_result = await db.execute(
-            select(func.count(IncidentAssignment.id))
-            .where(IncidentAssignment.incident_id == incident.id)
-            .where(IncidentAssignment.resource_type == "vehicle")
-            .where(IncidentAssignment.unassigned_at.is_(None))
-        )
-        vehicle_count = assignment_result.scalar_one()
-
-        if vehicle_count == 0:
-            notifications.append(Notification(
-                type="missing_vehicle",
-                severity="warning",
-                message=f"Einsatz '{incident.title}' ist disponiert aber hat kein zugewiesenes Fahrzeug",
-                incident_id=incident.id,
-                event_id=event_id,
-            ))
 
     return notifications
 
@@ -437,9 +392,13 @@ async def _deduplicate_and_save(
         # Build suppression logic based on re-alarm settings
         now = datetime.now(timezone.utc)
 
+        # Use longer suppression interval for fatigue warnings (2 hours instead of 30 minutes)
+        # to avoid repeated alerts for the same person
+        suppression_minutes = 120 if notification.type == "personnel_fatigue" else 30
+
         if re_alarm_enabled:
             # Re-alarming enabled: suppress both active and dismissed notifications within intervals
-            active_suppression = now - timedelta(minutes=30)
+            active_suppression = now - timedelta(minutes=suppression_minutes)
             dismissed_suppression = now - timedelta(minutes=settings.re_alarm_interval_min)
 
             suppression_conditions = or_(
@@ -457,7 +416,7 @@ async def _deduplicate_and_save(
             )
         else:
             # Re-alarming disabled (default): suppress active notifications AND any dismissed notification
-            active_suppression = now - timedelta(minutes=30)
+            active_suppression = now - timedelta(minutes=suppression_minutes)
 
             suppression_conditions = or_(
                 # Active notifications created recently
