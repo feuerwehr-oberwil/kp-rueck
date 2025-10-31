@@ -269,9 +269,9 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
               which includes address search, map picker, and coordinate input.
               Any changes to location input behavior should be made in that component. */}
           <LocationInput
-            address={formData.location_address}
-            latitude={formData.location_lat}
-            longitude={formData.location_lng}
+            address={formData.location_address ?? null}
+            latitude={formData.location_lat ?? null}
+            longitude={formData.location_lng ?? null}
             onAddressChange={(address) => setFormData({ ...formData, location_address: address })}
             onCoordinatesChange={(lat, lon) => setFormData({ ...formData, location_lat: lat, location_lng: lon })}
             disabled={isSubmitting}

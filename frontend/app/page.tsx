@@ -28,6 +28,7 @@ import { OperationDetailModal } from "@/components/kanban/operation-detail-modal
 import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { CommandPalette } from "@/components/ui/command-palette"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 export default function FireStationDashboard() {
   const {
@@ -53,6 +54,7 @@ export default function FireStationDashboard() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
+  const isMobile = useIsMobile()
 
   // Enable reko notifications for all incidents
   useRekoNotifications(operations)
@@ -70,8 +72,8 @@ export default function FireStationDashboard() {
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true)
-  const [showRightSidebar, setShowRightSidebar] = useState(true)
+  const [showLeftSidebar, setShowLeftSidebar] = useState(!isMobile)
+  const [showRightSidebar, setShowRightSidebar] = useState(!isMobile)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -719,11 +721,13 @@ export default function FireStationDashboard() {
                 placeholder="Suchen..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-72 pl-9"
+                className={isMobile ? "w-full pl-9" : "w-72 pl-9"}
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <Kbd>/</Kbd>
-              </div>
+              {!isMobile && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <Kbd>/</Kbd>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
@@ -761,9 +765,11 @@ export default function FireStationDashboard() {
                   onChange={(e) => setPersonnelSearchQuery(e.target.value)}
                   className="h-8 pl-7 pr-8 text-xs"
                 />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Kbd className="h-4 text-[10px]">P</Kbd>
-                </div>
+                {!isMobile && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Kbd className="h-4 text-[10px]">P</Kbd>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -830,9 +836,11 @@ export default function FireStationDashboard() {
                   onChange={(e) => setMaterialSearchQuery(e.target.value)}
                   className="h-8 pl-7 pr-8 text-xs"
                 />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Kbd className="h-4 text-[10px]">M</Kbd>
-                </div>
+                {!isMobile && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Kbd className="h-4 text-[10px]">M</Kbd>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -876,28 +884,30 @@ export default function FireStationDashboard() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">E</Kbd>
-                <span>Bearbeiten</span>
+            {!isMobile && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Kbd className="h-4 text-[10px]">E</Kbd>
+                  <span>Bearbeiten</span>
+                </div>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <Kbd className="h-4 text-[10px]">↑</Kbd>
+                  <Kbd className="h-4 text-[10px]">↓</Kbd>
+                  <span>Navigation</span>
+                </div>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <Kbd className="h-4 text-[10px]">⌘K</Kbd>
+                  <span>Befehle</span>
+                </div>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <Kbd className="h-4 text-[10px]">?</Kbd>
+                  <span>Hilfe</span>
+                </div>
               </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">↑</Kbd>
-                <Kbd className="h-4 text-[10px]">↓</Kbd>
-                <span>Navigation</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">⌘K</Kbd>
-                <span>Befehle</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">?</Kbd>
-                <span>Hilfe</span>
-              </div>
-            </div>
+            )}
           </div>
         </footer>
       </div>
