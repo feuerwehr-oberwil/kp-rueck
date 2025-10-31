@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search, Siren, Menu as MenuIcon } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Menu as MenuIcon } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { ProtectedRoute } from "@/components/protected-route"
@@ -285,11 +285,6 @@ export default function MapPage() {
       <div className="flex h-screen flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
           <div className="flex items-center gap-3">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="rounded-lg">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
             {isMobile && (
               <Button
                 variant="ghost"

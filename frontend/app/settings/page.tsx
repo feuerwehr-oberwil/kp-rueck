@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Settings2, Save, AlertCircle, Bell, RefreshCw } from 'lucide-react';
+import { Settings2, Save, AlertCircle, Bell, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
@@ -227,11 +227,6 @@ export default function SettingsPage() {
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
           <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-2xl shadow-lg">
                 <Settings2 className="h-6 w-6 text-white" />

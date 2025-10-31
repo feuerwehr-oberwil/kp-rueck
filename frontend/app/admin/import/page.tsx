@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ImportExportPage() {
@@ -180,11 +180,6 @@ export default function ImportExportPage() {
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
           <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-2xl shadow-lg">
                 <FileSpreadsheet className="h-6 w-6 text-white" />
