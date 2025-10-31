@@ -1,47 +1,35 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
-import { Save, Bell } from 'lucide-react'
+import { Bell, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import type { NotificationSettings } from '@/lib/types/notification'
 
 export function NotificationSettingsCard() {
   const { settings, updateSettings } = useNotifications()
-  const [localSettings, setLocalSettings] = useState<NotificationSettings>(settings)
-  const [saving, setSaving] = useState(false)
+  const [savingKey, setSavingKey] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'live' | 'training'>('live')
 
-  useEffect(() => {
-    setLocalSettings(settings)
-  }, [settings])
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await updateSettings(localSettings)
-      toast.success('Benachrichtigungseinstellungen gespeichert')
-    } catch (error) {
-      toast.error('Fehler beim Speichern der Einstellungen')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const updateLocalSetting = <K extends keyof NotificationSettings>(
+  const updateSetting = async <K extends keyof NotificationSettings>(
     key: K,
     value: NotificationSettings[K]
   ) => {
-    setLocalSettings((prev) => ({ ...prev, [key]: value }))
+    setSavingKey(key as string)
+    try {
+      await updateSettings({ ...settings, [key]: value })
+      // Success toast is optional - removed to reduce noise
+    } catch (error) {
+      toast.error('Fehler beim Speichern der Einstellung')
+    } finally {
+      setSavingKey(null)
+    }
   }
-
-  const hasChanges = JSON.stringify(localSettings) !== JSON.stringify(settings)
 
   return (
     <Card className="p-6">
@@ -66,11 +54,15 @@ export function NotificationSettingsCard() {
               Warnung bei Überschreitung von Status-Zeitlimits
             </p>
           </div>
-          <Switch
-            id="time-alerts"
-            checked={localSettings.enabled_time_alerts}
-            onCheckedChange={(checked) => updateLocalSetting('enabled_time_alerts', checked)}
-          />
+          <div className="flex items-center gap-2">
+            <Switch
+              id="time-alerts"
+              checked={settings.enabled_time_alerts}
+              onCheckedChange={(checked) => updateSetting('enabled_time_alerts', checked)}
+              disabled={savingKey === 'enabled_time_alerts'}
+            />
+            {savingKey === 'enabled_time_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -80,11 +72,15 @@ export function NotificationSettingsCard() {
               Warnung bei knappen Ressourcen oder Personalermüdung
             </p>
           </div>
-          <Switch
-            id="resource-alerts"
-            checked={localSettings.enabled_resource_alerts}
-            onCheckedChange={(checked) => updateLocalSetting('enabled_resource_alerts', checked)}
-          />
+          <div className="flex items-center gap-2">
+            <Switch
+              id="resource-alerts"
+              checked={settings.enabled_resource_alerts}
+              onCheckedChange={(checked) => updateSetting('enabled_resource_alerts', checked)}
+              disabled={savingKey === 'enabled_resource_alerts'}
+            />
+            {savingKey === 'enabled_resource_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -94,13 +90,15 @@ export function NotificationSettingsCard() {
               Warnung bei fehlenden Pflichtdaten
             </p>
           </div>
-          <Switch
-            id="data-quality-alerts"
-            checked={localSettings.enabled_data_quality_alerts}
-            onCheckedChange={(checked) =>
-              updateLocalSetting('enabled_data_quality_alerts', checked)
-            }
-          />
+          <div className="flex items-center gap-2">
+            <Switch
+              id="data-quality-alerts"
+              checked={settings.enabled_data_quality_alerts}
+              onCheckedChange={(checked) => updateSetting('enabled_data_quality_alerts', checked)}
+              disabled={savingKey === 'enabled_data_quality_alerts'}
+            />
+            {savingKey === 'enabled_data_quality_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -110,11 +108,15 @@ export function NotificationSettingsCard() {
               Warnung bei Annäherung an Datenbankgrenzen
             </p>
           </div>
-          <Switch
-            id="event-alerts"
-            checked={localSettings.enabled_event_alerts}
-            onCheckedChange={(checked) => updateLocalSetting('enabled_event_alerts', checked)}
-          />
+          <div className="flex items-center gap-2">
+            <Switch
+              id="event-alerts"
+              checked={settings.enabled_event_alerts}
+              onCheckedChange={(checked) => updateSetting('enabled_event_alerts', checked)}
+              disabled={savingKey === 'enabled_event_alerts'}
+            />
+            {savingKey === 'enabled_event_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+          </div>
         </div>
       </div>
 
@@ -129,72 +131,116 @@ export function NotificationSettingsCard() {
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="live-eingegangen">Eingegangen (Minuten)</Label>
-              <Input
-                id="live-eingegangen"
-                type="number"
-                value={localSettings.live_eingegangen_min}
-                onChange={(e) =>
-                  updateLocalSetting('live_eingegangen_min', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="live-eingegangen"
+                  type="number"
+                  defaultValue={settings.live_eingegangen_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.live_eingegangen_min) {
+                      updateSetting('live_eingegangen_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'live_eingegangen_min'}
+                />
+                {savingKey === 'live_eingegangen_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="live-reko">Reko (Minuten)</Label>
-              <Input
-                id="live-reko"
-                type="number"
-                value={localSettings.live_reko_min}
-                onChange={(e) => updateLocalSetting('live_reko_min', parseInt(e.target.value))}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="live-reko"
+                  type="number"
+                  defaultValue={settings.live_reko_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.live_reko_min) {
+                      updateSetting('live_reko_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'live_reko_min'}
+                />
+                {savingKey === 'live_reko_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="live-disponiert">Disponiert/Unterwegs (Minuten)</Label>
-              <Input
-                id="live-disponiert"
-                type="number"
-                value={localSettings.live_disponiert_min}
-                onChange={(e) =>
-                  updateLocalSetting('live_disponiert_min', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="live-disponiert"
+                  type="number"
+                  defaultValue={settings.live_disponiert_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.live_disponiert_min) {
+                      updateSetting('live_disponiert_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'live_disponiert_min'}
+                />
+                {savingKey === 'live_disponiert_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="live-einsatz">Einsatz (Stunden)</Label>
-              <Input
-                id="live-einsatz"
-                type="number"
-                value={localSettings.live_einsatz_hours}
-                onChange={(e) =>
-                  updateLocalSetting('live_einsatz_hours', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="live-einsatz"
+                  type="number"
+                  defaultValue={settings.live_einsatz_hours}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.live_einsatz_hours) {
+                      updateSetting('live_einsatz_hours', val)
+                    }
+                  }}
+                  disabled={savingKey === 'live_einsatz_hours'}
+                />
+                {savingKey === 'live_einsatz_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="live-rueckfahrt">Einsatz beendet/Rückfahrt (Minuten)</Label>
-              <Input
-                id="live-rueckfahrt"
-                type="number"
-                value={localSettings.live_rueckfahrt_min}
-                onChange={(e) =>
-                  updateLocalSetting('live_rueckfahrt_min', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="live-rueckfahrt"
+                  type="number"
+                  defaultValue={settings.live_rueckfahrt_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.live_rueckfahrt_min) {
+                      updateSetting('live_rueckfahrt_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'live_rueckfahrt_min'}
+                />
+                {savingKey === 'live_rueckfahrt_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="live-archive">Nicht archiviert nach Abschluss (Stunden)</Label>
-              <Input
-                id="live-archive"
-                type="number"
-                value={localSettings.live_archive_hours}
-                onChange={(e) =>
-                  updateLocalSetting('live_archive_hours', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="live-archive"
+                  type="number"
+                  defaultValue={settings.live_archive_hours}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.live_archive_hours) {
+                      updateSetting('live_archive_hours', val)
+                    }
+                  }}
+                  disabled={savingKey === 'live_archive_hours'}
+                />
+                {savingKey === 'live_archive_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -203,74 +249,116 @@ export function NotificationSettingsCard() {
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="training-eingegangen">Eingegangen (Minuten)</Label>
-              <Input
-                id="training-eingegangen"
-                type="number"
-                value={localSettings.training_eingegangen_min}
-                onChange={(e) =>
-                  updateLocalSetting('training_eingegangen_min', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="training-eingegangen"
+                  type="number"
+                  defaultValue={settings.training_eingegangen_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.training_eingegangen_min) {
+                      updateSetting('training_eingegangen_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'training_eingegangen_min'}
+                />
+                {savingKey === 'training_eingegangen_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="training-reko">Reko (Minuten)</Label>
-              <Input
-                id="training-reko"
-                type="number"
-                value={localSettings.training_reko_min}
-                onChange={(e) =>
-                  updateLocalSetting('training_reko_min', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="training-reko"
+                  type="number"
+                  defaultValue={settings.training_reko_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.training_reko_min) {
+                      updateSetting('training_reko_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'training_reko_min'}
+                />
+                {savingKey === 'training_reko_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="training-disponiert">Disponiert/Unterwegs (Minuten)</Label>
-              <Input
-                id="training-disponiert"
-                type="number"
-                value={localSettings.training_disponiert_min}
-                onChange={(e) =>
-                  updateLocalSetting('training_disponiert_min', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="training-disponiert"
+                  type="number"
+                  defaultValue={settings.training_disponiert_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.training_disponiert_min) {
+                      updateSetting('training_disponiert_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'training_disponiert_min'}
+                />
+                {savingKey === 'training_disponiert_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="training-einsatz">Einsatz (Stunden)</Label>
-              <Input
-                id="training-einsatz"
-                type="number"
-                value={localSettings.training_einsatz_hours}
-                onChange={(e) =>
-                  updateLocalSetting('training_einsatz_hours', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="training-einsatz"
+                  type="number"
+                  defaultValue={settings.training_einsatz_hours}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.training_einsatz_hours) {
+                      updateSetting('training_einsatz_hours', val)
+                    }
+                  }}
+                  disabled={savingKey === 'training_einsatz_hours'}
+                />
+                {savingKey === 'training_einsatz_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="training-rueckfahrt">Einsatz beendet/Rückfahrt (Minuten)</Label>
-              <Input
-                id="training-rueckfahrt"
-                type="number"
-                value={localSettings.training_rueckfahrt_min}
-                onChange={(e) =>
-                  updateLocalSetting('training_rueckfahrt_min', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="training-rueckfahrt"
+                  type="number"
+                  defaultValue={settings.training_rueckfahrt_min}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.training_rueckfahrt_min) {
+                      updateSetting('training_rueckfahrt_min', val)
+                    }
+                  }}
+                  disabled={savingKey === 'training_rueckfahrt_min'}
+                />
+                {savingKey === 'training_rueckfahrt_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="training-archive">Nicht archiviert nach Abschluss (Stunden)</Label>
-              <Input
-                id="training-archive"
-                type="number"
-                value={localSettings.training_archive_hours}
-                onChange={(e) =>
-                  updateLocalSetting('training_archive_hours', parseInt(e.target.value))
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="training-archive"
+                  type="number"
+                  defaultValue={settings.training_archive_hours}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== settings.training_archive_hours) {
+                      updateSetting('training_archive_hours', val)
+                    }
+                  }}
+                  disabled={savingKey === 'training_archive_hours'}
+                />
+                {savingKey === 'training_archive_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -282,12 +370,21 @@ export function NotificationSettingsCard() {
 
         <div className="grid gap-2">
           <Label htmlFor="fatigue-hours">Personalermüdung (Stunden)</Label>
-          <Input
-            id="fatigue-hours"
-            type="number"
-            value={localSettings.fatigue_hours}
-            onChange={(e) => updateLocalSetting('fatigue_hours', parseInt(e.target.value))}
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              id="fatigue-hours"
+              type="number"
+              defaultValue={settings.fatigue_hours}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value)
+                if (!isNaN(val) && val !== settings.fatigue_hours) {
+                  updateSetting('fatigue_hours', val)
+                }
+              }}
+              disabled={savingKey === 'fatigue_hours'}
+            />
+            {savingKey === 'fatigue_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+          </div>
           <p className="text-xs text-muted-foreground">
             Warnung, wenn Personal länger als diese Anzahl Stunden eingesetzt ist
           </p>
@@ -295,33 +392,41 @@ export function NotificationSettingsCard() {
 
         <div className="grid gap-2">
           <Label htmlFor="database-limit">Datenbank-Limit (GB)</Label>
-          <Input
-            id="database-limit"
-            type="number"
-            value={localSettings.database_size_limit_gb}
-            onChange={(e) =>
-              updateLocalSetting('database_size_limit_gb', parseInt(e.target.value))
-            }
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              id="database-limit"
+              type="number"
+              defaultValue={settings.database_size_limit_gb}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value)
+                if (!isNaN(val) && val !== settings.database_size_limit_gb) {
+                  updateSetting('database_size_limit_gb', val)
+                }
+              }}
+              disabled={savingKey === 'database_size_limit_gb'}
+            />
+            {savingKey === 'database_size_limit_gb' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+          </div>
         </div>
 
         <div className="grid gap-2">
           <Label htmlFor="photo-limit">Foto-Limit (GB)</Label>
-          <Input
-            id="photo-limit"
-            type="number"
-            value={localSettings.photo_size_limit_gb}
-            onChange={(e) => updateLocalSetting('photo_size_limit_gb', parseInt(e.target.value))}
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              id="photo-limit"
+              type="number"
+              defaultValue={settings.photo_size_limit_gb}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value)
+                if (!isNaN(val) && val !== settings.photo_size_limit_gb) {
+                  updateSetting('photo_size_limit_gb', val)
+                }
+              }}
+              disabled={savingKey === 'photo_size_limit_gb'}
+            />
+            {savingKey === 'photo_size_limit_gb' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+          </div>
         </div>
-      </div>
-
-      {/* Save button */}
-      <div className="mt-6 flex justify-end">
-        <Button onClick={handleSave} disabled={!hasChanges || saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? 'Speichern...' : 'Änderungen speichern'}
-        </Button>
       </div>
     </Card>
   )

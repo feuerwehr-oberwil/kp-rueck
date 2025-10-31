@@ -109,8 +109,11 @@ export default function AuditLogPage() {
     }
   }, [isEditor, resourceTypeFilter, actionTypeFilter, limit]);
 
-  // Filter entries by search query (client-side)
+  // Filter entries by search query (client-side) and exclude get_request
   const filteredEntries = entries.filter((entry) => {
+    // Exclude get_request entries
+    if (entry.action_type === 'get_request') return false;
+
     if (!searchQuery) return true;
 
     const query = searchQuery.toLowerCase();
