@@ -17,6 +17,7 @@ import { useIncidents } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { cn } from "@/lib/utils"
 import RekoReportSection from "@/components/reko/reko-report-section"
+import { LocationInput } from "@/components/location/location-input"
 
 interface IncidentFormProps {
   open: boolean
@@ -74,17 +75,6 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open])
-
-  // Check if coordinates are valid
-  const hasValidCoordinates =
-    typeof formData.location_lat === 'number' &&
-    typeof formData.location_lng === 'number' &&
-    !isNaN(formData.location_lat) &&
-    !isNaN(formData.location_lng) &&
-    formData.location_lat >= -90 &&
-    formData.location_lat <= 90 &&
-    formData.location_lng >= -180 &&
-    formData.location_lng <= 180
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -261,79 +251,15 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             </div>
           </div>
 
-          {/* Location - Full Width */}
-          <div className="col-span-full">
-            <Label htmlFor="location_address" className="text-sm font-semibold text-muted-foreground">
-              Einsatzort
-            </Label>
-            <Input
-              id="location_address"
-              value={formData.location_address || ''}
-              onChange={(e) => setFormData({ ...formData, location_address: e.target.value || null })}
-              placeholder="Strasse, Hausnummer, PLZ, Ort"
-              className="mt-2"
-            />
-          </div>
-
-          {/* Coordinates */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-muted-foreground">
-                Koordinaten
-              </Label>
-              {hasValidCoordinates && (
-                <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
-                  <MapPin className="h-3.5 w-3.5" />
-                  <Check className="h-3.5 w-3.5" />
-                  <span className="font-medium">Gültige Koordinaten</span>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Latitude */}
-              <div>
-                <Label htmlFor="location_lat" className="text-xs text-muted-foreground">
-                  Breitengrad (Lat)
-                </Label>
-                <Input
-                  id="location_lat"
-                  type="number"
-                  step="any"
-                  value={formData.location_lat ?? ''}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      location_lat: e.target.value ? parseFloat(e.target.value) : null,
-                    })
-                  }
-                  placeholder="47.51637699"
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Longitude */}
-              <div>
-                <Label htmlFor="location_lng" className="text-xs text-muted-foreground">
-                  Längengrad (Lng)
-                </Label>
-                <Input
-                  id="location_lng"
-                  type="number"
-                  step="any"
-                  value={formData.location_lng ?? ''}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      location_lng: e.target.value ? parseFloat(e.target.value) : null,
-                    })
-                  }
-                  placeholder="7.56180045"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          </div>
+          {/* Location - Smart Input with Geocoding */}
+          <LocationInput
+            address={formData.location_address}
+            latitude={formData.location_lat}
+            longitude={formData.location_lng}
+            onAddressChange={(address) => setFormData({ ...formData, location_address: address })}
+            onCoordinatesChange={(lat, lon) => setFormData({ ...formData, location_lat: lat, location_lng: lon })}
+            disabled={isSubmitting}
+          />
 
           {/* Description */}
           <div>
