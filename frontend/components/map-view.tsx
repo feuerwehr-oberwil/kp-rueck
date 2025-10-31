@@ -8,6 +8,8 @@ import { useIncidents } from "@/lib/contexts/operations-context"
 import type { Incident } from "@/lib/types/incidents"
 import { apiClient } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
+import { useMapMode } from "@/lib/hooks/use-map-mode"
+import { Wifi, WifiOff, RefreshCw } from "lucide-react"
 
 // Fix Leaflet default icon issue with Next.js
 import icon from "leaflet/dist/images/marker-icon.png"
@@ -29,37 +31,27 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "#22c55e", // green-500
 }
 
-// Create simple priority-based marker icon with optional highlighting
-function createIncidentIcon(incident: Incident, isHighlighted: boolean = false): L.DivIcon {
+// Create simple priority-based marker icon
+function createIncidentIcon(incident: Incident): L.DivIcon {
   const priorityColor = PRIORITY_COLORS[incident.priority] || "#6b7280"
-  const size = isHighlighted ? 32 : 24
-  const pulse = isHighlighted ? 'animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
 
   const html = `
-    <style>
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-    </style>
     <div style="
-      width: ${size}px;
-      height: ${size}px;
+      width: 24px;
+      height: 24px;
       background-color: ${priorityColor};
-      border: 3px solid ${isHighlighted ? '#3b82f6' : 'white'};
+      border: 2px solid white;
       border-radius: 50%;
-      box-shadow: 0 ${isHighlighted ? 4 : 2}px ${isHighlighted ? 8 : 4}px rgba(0, 0, 0, ${isHighlighted ? 0.5 : 0.3});
-      ${pulse}
-      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     "></div>
   `
 
   return L.divIcon({
     html,
     className: "custom-marker",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
   })
 }
 
@@ -105,17 +97,12 @@ function PanToSelected({ selectedIncidentId, incidents }: { selectedIncidentId: 
   return null
 }
 
-// Component to reset zoom to show all incidents and handle map resize
+// Component to reset zoom to show all incidents
 function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Incident[] }) {
   const map = useMap()
 
   useEffect(() => {
     if (trigger === 0) return
-
-    // Always invalidate size when trigger changes (handles panel resize)
-    setTimeout(() => {
-      map.invalidateSize()
-    }, 100)
 
     if (incidents.length === 0) return
 
@@ -129,10 +116,7 @@ function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Inciden
       validIncidents.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number])
     )
 
-    // Delay to ensure size is invalidated first
-    setTimeout(() => {
-      map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 })
-    }, 200)
+    map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 })
   }, [trigger, incidents, map])
 
   return null
@@ -145,6 +129,53 @@ function MissingLocationsWarning({ count }: { count: number }) {
   return (
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded shadow-lg z-[1000]">
       ⚠️ {count} Einsatz{count !== 1 ? "e" : ""} ohne gültige Koordinaten
+    </div>
+  )
+}
+
+// Map mode indicator showing online/offline status
+function MapModeIndicator({
+  preferredMode,
+  effectiveMode,
+  isAuto,
+  onReset,
+}: {
+  preferredMode: string
+  effectiveMode: string
+  isAuto: boolean
+  onReset: () => void
+}) {
+  const isOnline = effectiveMode === 'online'
+  const showFallbackIndicator = isAuto && !isOnline
+
+  return (
+    <div className="absolute top-4 right-4 z-[1000] flex gap-2">
+      {/* Mode indicator */}
+      <div
+        className={`
+          flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-sm font-medium
+          ${isOnline
+            ? 'bg-green-100 border border-green-400 text-green-800 dark:bg-green-950 dark:border-green-700 dark:text-green-300'
+            : 'bg-orange-100 border border-orange-400 text-orange-800 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300'
+          }
+        `}
+        title={`Karten-Modus: ${preferredMode} (${isOnline ? 'Online' : 'Offline'})`}
+      >
+        {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+        <span>{isOnline ? 'Online' : 'Offline'}</span>
+      </div>
+
+      {/* Retry button (shown when in auto mode and fell back to offline) */}
+      {showFallbackIndicator && (
+        <button
+          onClick={onReset}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-sm font-medium bg-blue-100 border border-blue-400 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors"
+          title="Online-Modus erneut versuchen"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Neu versuchen</span>
+        </button>
+      )}
     </div>
   )
 }
@@ -168,6 +199,17 @@ export default function MapView({
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
     47.51637699933488, 7.561800450458299,
   ])
+
+  // Map mode management
+  const {
+    preferredMode,
+    effectiveMode,
+    isAuto,
+    handleTileError,
+    resetEffectiveMode,
+    getTileUrl,
+    getAttribution,
+  } = useMapMode()
 
   // Load firestation settings from backend
   useEffect(() => {
@@ -234,24 +276,24 @@ export default function MapView({
         zoomControl={true}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={getAttribution()}
+          url={getTileUrl()}
+          eventHandlers={{
+            tileerror: handleTileError,
+          }}
         />
 
         {/* Incident Markers */}
-        {mappableIncidents.map((incident) => {
-          const isHighlighted = selectedIncidentId === incident.id
-          return (
-            <Marker
-              key={incident.id}
-              position={[incident.location_lat!, incident.location_lng!]}
-              icon={createIncidentIcon(incident, isHighlighted)}
-              eventHandlers={{
-                click: () => onMarkerClick?.(incident.id),
-              }}
-            />
-          )
-        })}
+        {mappableIncidents.map((incident) => (
+          <Marker
+            key={incident.id}
+            position={[incident.location_lat!, incident.location_lng!]}
+            icon={createIncidentIcon(incident)}
+            eventHandlers={{
+              click: () => onMarkerClick?.(incident.id),
+            }}
+          />
+        ))}
 
         {/* Auto-fit bounds to show all incidents */}
         <FitBounds incidents={mappableIncidents} />
@@ -266,6 +308,14 @@ export default function MapView({
       {/* Warning for incidents without location */}
       <MissingLocationsWarning
         count={incidents.length - mappableIncidents.length}
+      />
+
+      {/* Map mode indicator */}
+      <MapModeIndicator
+        preferredMode={preferredMode}
+        effectiveMode={effectiveMode}
+        isAuto={isAuto}
+        onReset={resetEffectiveMode}
       />
 
       {/* Map Legend */}

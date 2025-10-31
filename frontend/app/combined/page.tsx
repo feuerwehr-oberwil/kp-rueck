@@ -174,7 +174,7 @@ export default function CombinedViewPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <PageNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
+            <PageNavigation currentPage="combined" />
           </div>
         </header>
 

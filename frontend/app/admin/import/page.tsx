@@ -198,7 +198,7 @@ export default function ImportExportPage() {
             </div>
           </div>
 
-          <PageNavigation currentPage="settings" hasSelectedEvent={!!selectedEvent} />
+          <PageNavigation currentPage="settings" />
         </header>
 
         {/* Content */}

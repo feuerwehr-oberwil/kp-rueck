@@ -7,7 +7,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { apiClient } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -15,7 +14,6 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -23,22 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Settings2, Save, AlertCircle, Bell, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Settings2, Save, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
-import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
-import { SyncStatusCard } from '@/components/sync/sync-status-card';
-import { SyncConfigCard } from '@/components/sync/sync-config-card';
-import { SyncHistoryCard } from '@/components/sync/sync-history-card';
-import { useSyncStatus } from '@/lib/hooks/use-sync-status';
-import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 
 interface SettingConfig {
   key: string;
   label: string;
   description: string;
-  type: 'number' | 'boolean' | 'text';
+  type: 'number' | 'boolean' | 'text' | 'select';
   unit?: string;
   options?: { value: string; label: string }[];
 }
@@ -58,6 +50,16 @@ const SETTING_CONFIGS: SettingConfig[] = [
     unit: 'ms',
   },
   {
+    key: 'training_mode',
+    label: 'Modus',
+    description: 'Trainingsmodus vs. Live-Einsätze',
+    type: 'boolean',
+    options: [
+      { value: 'false', label: 'Live-Modus' },
+      { value: 'true', label: 'Trainingsmodus' },
+    ],
+  },
+  {
     key: 'auto_archive_timeout_hours',
     label: 'Auto-Archivierung',
     description: 'Zeit bis zur automatischen Archivierung abgeschlossener Einsätze',
@@ -74,28 +76,25 @@ const SETTING_CONFIGS: SettingConfig[] = [
       { value: 'true', label: 'Aktiviert' },
     ],
   },
+  {
+    key: 'map_mode',
+    label: 'Karten-Modus',
+    description: 'Kartenquelle: Auto (Online → Offline-Fallback), Online (nur OSM), Offline (nur lokale Tiles)',
+    type: 'select',
+    options: [
+      { value: 'auto', label: 'Auto (empfohlen)' },
+      { value: 'online', label: 'Nur Online' },
+      { value: 'offline', label: 'Nur Offline' },
+    ],
+  },
 ];
 
 export default function SettingsPage() {
-  const searchParams = useSearchParams();
   const { isEditor } = useAuth();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
-  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
-
-  // Get tab from URL parameter, default to 'general'
-  const defaultTab = searchParams.get('tab') || 'general';
-
-  // Sync status and hooks
-  const { status: syncStatus, isLoading: isSyncLoading, error: syncError, isStale } = useSyncStatus();
-  useRailwayRecovery(syncStatus);
-
-  // Callback to refresh sync history after manual sync
-  const handleSyncComplete = () => {
-    setHistoryRefreshTrigger((prev) => prev + 1);
-  };
 
   // Fetch all settings on mount
   const fetchSettings = async () => {
@@ -143,7 +142,7 @@ export default function SettingsPage() {
     const value = settings[config.key] || '';
     const isCurrentlySaving = saving === config.key;
 
-    if (config.type === 'boolean' && config.options) {
+    if ((config.type === 'boolean' || config.type === 'select') && config.options) {
       return (
         <Select
           value={value}
@@ -255,95 +254,53 @@ export default function SettingsPage() {
 
         {/* Content */}
         <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-5xl mx-auto">
-            <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="general" className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
-                  Allgemein
-                </TabsTrigger>
-                <TabsTrigger value="notifications" className="flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Benachrichtigungen
-                </TabsTrigger>
-                <TabsTrigger value="sync" className="flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Synchronisation
-                </TabsTrigger>
-              </TabsList>
-
-              {/* General Settings Tab */}
-              <TabsContent value="general">
-                {loading ? (
-                  <div className="flex h-full items-center justify-center py-12">
-                    <div className="text-muted-foreground">Lade Einstellungen...</div>
-                  </div>
-                ) : error ? (
-                  <Card className="p-8">
-                    <div className="text-center">
-                      <p className="text-destructive font-medium">{error}</p>
-                      <Button onClick={fetchSettings} className="mt-4">
-                        Erneut versuchen
-                      </Button>
-                    </div>
-                  </Card>
-                ) : (
-                  <>
-                    <Card className="p-6">
-                      <div className="space-y-6">
-                        {SETTING_CONFIGS.map((config) => (
-                          <div key={config.key} className="space-y-2">
-                            <div>
-                              <Label htmlFor={config.key} className="text-base font-semibold">
-                                {config.label}
-                              </Label>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {config.description}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {renderSettingInput(config)}
-                              {saving === config.key && (
-                                <Save className="h-4 w-4 text-blue-600 animate-pulse" />
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-
-                    {/* Help Text */}
-                    <div className="mt-6 text-sm text-muted-foreground">
-                      <p>
-                        <strong>Hinweis:</strong> Änderungen werden automatisch gespeichert.
-                        Einige Einstellungen werden erst nach dem nächsten Polling-Intervall wirksam.
-                      </p>
-                    </div>
-                  </>
-                )}
-              </TabsContent>
-
-              {/* Notifications Tab */}
-              <TabsContent value="notifications">
-                <NotificationSettingsCard />
-              </TabsContent>
-
-              {/* Sync Tab */}
-              <TabsContent value="sync">
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-muted-foreground">Lade Einstellungen...</div>
+            </div>
+          ) : error ? (
+            <Card className="p-8">
+              <div className="text-center">
+                <p className="text-destructive font-medium">{error}</p>
+                <Button onClick={fetchSettings} className="mt-4">
+                  Erneut versuchen
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="max-w-3xl mx-auto">
+              <Card className="p-6">
                 <div className="space-y-6">
-                  <SyncStatusCard
-                    status={syncStatus}
-                    isLoading={isSyncLoading}
-                    error={syncError}
-                    isStale={isStale}
-                    onSyncComplete={handleSyncComplete}
-                  />
-                  <SyncConfigCard />
-                  <SyncHistoryCard refreshTrigger={historyRefreshTrigger} />
+                  {SETTING_CONFIGS.map((config) => (
+                    <div key={config.key} className="space-y-2">
+                      <div>
+                        <Label htmlFor={config.key} className="text-base font-semibold">
+                          {config.label}
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {config.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {renderSettingInput(config)}
+                        {saving === config.key && (
+                          <Save className="h-4 w-4 text-blue-600 animate-pulse" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </TabsContent>
-            </Tabs>
-          </div>
+              </Card>
+
+              {/* Help Text */}
+              <div className="mt-6 text-sm text-muted-foreground">
+                <p>
+                  <strong>Hinweis:</strong> Änderungen werden automatisch gespeichert.
+                  Einige Einstellungen werden erst nach dem nächsten Polling-Intervall wirksam.
+                </p>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </ProtectedRoute>

@@ -184,30 +184,4 @@
     background: oklch(0.4 0 0);
     background-clip: padding-box;
   }
-
-  /* Mobile-first responsive utilities */
-  @media (max-width: 768px) {
-    /* Prevent iOS zoom on input focus by ensuring minimum 16px font size */
-    input,
-    textarea,
-    select {
-      font-size: max(16px, 1rem);
-    }
-
-    /* Ensure minimum touch target sizes (44x44px for iOS guidelines) */
-    button,
-    a,
-    [role="button"],
-    .interactive-element {
-      min-height: 44px;
-      min-width: 44px;
-    }
-
-    /* Improve tap targets for small UI elements */
-    .btn-sm {
-      min-height: 40px;
-      min-width: 40px;
-      padding: 0.5rem;
-    }
-  }
 }

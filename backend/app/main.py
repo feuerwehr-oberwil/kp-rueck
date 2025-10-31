@@ -9,12 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import routes
 from .api.admin import router as admin_router
-from .api.assignments import router as assignments_router, bulk_router as assignments_bulk_router
+from .api.assignments import router as assignments_router
 from .api.auth import router as auth_router
 from .api.audit import router as audit_router
 from .api.events import router as events_router
-from .api.exports import router as exports_router
-from .api.help import router as help_router
 from .api.incidents import router as incidents_router
 from .api.materials import router as materials_router
 from .api.notifications import router as notifications_router
@@ -26,7 +24,6 @@ from .api.stats import router as stats_router
 from .api.sync import router as sync_router
 from .api.training import router as training_router
 from .api.vehicles import router as vehicles_router
-from .background import start_sync_scheduler, stop_sync_scheduler
 from .config import settings
 from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
@@ -67,6 +64,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start background sync scheduler
     print("Starting background sync scheduler...")
     try:
+        from .background.sync_scheduler import start_sync_scheduler, stop_sync_scheduler
         start_sync_scheduler()
     except Exception as e:
         print(f"Warning: Sync scheduler failed to start: {e}")
@@ -77,6 +75,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown: Stop sync scheduler
     print("Stopping sync scheduler...")
     try:
+        from .background.sync_scheduler import stop_sync_scheduler
         stop_sync_scheduler()
     except Exception as e:
         print(f"Warning: Sync scheduler shutdown failed: {e}")
@@ -125,11 +124,8 @@ app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
-app.include_router(exports_router, prefix=settings.api_v1_prefix)
-app.include_router(help_router, prefix=settings.api_v1_prefix)
 app.include_router(incidents_router, prefix=settings.api_v1_prefix)
 app.include_router(assignments_router, prefix=settings.api_v1_prefix)
-app.include_router(assignments_bulk_router, prefix=settings.api_v1_prefix)  # Bulk assignments endpoint
 app.include_router(personnel_router, prefix=settings.api_v1_prefix)
 app.include_router(personnel_checkin_router, prefix=settings.api_v1_prefix)
 app.include_router(vehicles_router, prefix=settings.api_v1_prefix)

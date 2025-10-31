@@ -4,8 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
-import { NotificationProvider } from '@/lib/contexts/notification-context'
-import { NotificationToasts } from '@/components/notifications/notification-toasts'
+import { Toaster } from '@/components/ui/sonner'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -35,14 +34,13 @@ export default function RootLayout({
         <AuthProvider>
           <EventProvider>
             <OperationsProvider>
-              <NotificationProvider>
-                {children}
-                <NotificationToasts />
-              </NotificationProvider>
+              {children}
             </OperationsProvider>
           </EventProvider>
         </AuthProvider>
+        <Toaster />
       </body>
     </html>
   )
 }
+

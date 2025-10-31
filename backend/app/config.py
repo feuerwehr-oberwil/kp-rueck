@@ -99,12 +99,6 @@ class Settings(BaseSettings):
     max_photos_per_report: int = 20  # Maximum photos per Reko report
     allowed_photo_extensions: list[str] = [".jpg", ".jpeg", ".png", ".webp"]
 
-    # Sync Configuration
-    railway_url: str = ""  # Railway production URL (empty = local mode, no sync)
-    sync_interval_minutes: int = 2  # Periodic sync interval
-    sync_conflict_buffer_seconds: int = 5  # Timestamp buffer for conflict resolution (Local wins if within buffer)
-    sync_timeout_seconds: int = 30  # HTTP timeout for sync requests
-
     @property
     def is_production(self) -> bool:
         """Check if we're in production mode (Railway)."""

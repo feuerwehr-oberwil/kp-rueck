@@ -15,24 +15,8 @@ export const incidentTypeLabels: Record<string, string> = {
   gerettete_tiere: 'Gerettete Tiere',
 }
 
-// Get all incident type keys for dropdowns, sorted alphabetically with Elementarereignis first
-export const incidentTypeKeys = (() => {
-  const keys = Object.keys(incidentTypeLabels)
-
-  // Sort alphabetically by German label
-  const sorted = keys.sort((a, b) =>
-    incidentTypeLabels[a].localeCompare(incidentTypeLabels[b], 'de')
-  )
-
-  // Move Elementarereignis to the front
-  const elementarIndex = sorted.indexOf('elementarereignis')
-  if (elementarIndex > -1) {
-    sorted.splice(elementarIndex, 1)
-    sorted.unshift('elementarereignis')
-  }
-
-  return sorted
-})()
+// Get all incident type keys for dropdowns
+export const incidentTypeKeys = Object.keys(incidentTypeLabels)
 
 // Helper function to format incident types to German labels
 export function getIncidentTypeLabel(type: string): string {

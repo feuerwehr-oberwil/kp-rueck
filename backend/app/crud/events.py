@@ -187,37 +187,6 @@ async def get_event_incident_count(db: AsyncSession, event_id: uuid.UUID) -> int
     return result.scalar() or 0
 
 
-async def get_event_incident_counts_batch(
-    db: AsyncSession, event_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, int]:
-    """
-    Get incident counts for multiple events in a single query.
-
-    Args:
-        db: Database session
-        event_ids: List of event IDs
-
-    Returns:
-        Dictionary mapping event_id to incident count
-    """
-    if not event_ids:
-        return {}
-
-    query = (
-        select(Incident.event_id, func.count(Incident.id).label('count'))
-        .where(Incident.event_id.in_(event_ids))
-        .group_by(Incident.event_id)
-    )
-    result = await db.execute(query)
-
-    # Create map with default count of 0 for events with no incidents
-    counts_map = {event_id: 0 for event_id in event_ids}
-    for row in result:
-        counts_map[row.event_id] = row.count
-
-    return counts_map
-
-
 async def update_event_activity(db: AsyncSession, event_id: uuid.UUID) -> None:
     """
     Update last_activity_at timestamp for an event.

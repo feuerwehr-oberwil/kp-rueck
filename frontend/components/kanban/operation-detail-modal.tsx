@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
-import { MapPin, Trash2, Plus, Truck, X, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, Printer, Send, Trash2, Plus, Truck, X, Check } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -54,7 +54,6 @@ export function OperationDetailModal({
   const [editingLocation, setEditingLocation] = useState("")
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
-  const [showCoordinates, setShowCoordinates] = useState(false)
 
   // Load vehicles when modal opens
   useEffect(() => {
@@ -133,7 +132,7 @@ export function OperationDetailModal({
 
     const timer = setTimeout(() => {
       searchLocation(editingLocation)
-    }, 300)
+    }, 500)
 
     return () => clearTimeout(timer)
   }, [editingLocation])
@@ -155,7 +154,7 @@ export function OperationDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!w-[90vw] !h-[85vh] !max-w-none sm:!max-w-none !pb-2 overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-3">
             <MapPin className="h-6 w-6 text-primary" />
@@ -166,28 +165,12 @@ export function OperationDetailModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-6 py-4">
-          {/* Left Column - Entry Fields */}
-          <div className="space-y-6">
-          {/* Location */}
-          <div className="relative">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="edit-location" className="text-sm font-semibold text-muted-foreground">
-                Einsatzort
-              </Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCoordinates(!showCoordinates)}
-                className="h-7 px-2 gap-1 text-xs"
-              >
-                <MapPin className="h-3 w-3" />
-                Koordinaten
-                {hasValidCoordinates && <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />}
-                {showCoordinates ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </Button>
-            </div>
+        <div className="space-y-6 py-4">
+          {/* Location - Full Width */}
+          <div className="relative col-span-full">
+            <Label htmlFor="edit-location" className="text-sm font-semibold text-muted-foreground">
+              Einsatzort
+            </Label>
             <div className="relative">
               <Input
                 id="edit-location"
@@ -234,66 +217,70 @@ export function OperationDetailModal({
                 ))}
               </div>
             )}
-
-            {/* Optional Coordinates */}
-            {showCoordinates && (
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                <div>
-                  <Label htmlFor="edit-location-lat" className="text-xs text-muted-foreground">
-                    Breitengrad (Lat)
-                  </Label>
-                  <Input
-                    id="edit-location-lat"
-                    type="number"
-                    step="any"
-                    value={operation.coordinates?.[0] ?? ''}
-                    onChange={(e) =>
-                      onUpdate({
-                        coordinates: [
-                          e.target.value ? parseFloat(e.target.value) : 0,
-                          operation.coordinates?.[1] ?? 0
-                        ]
-                      })
-                    }
-                    placeholder="47.51637699"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-location-lng" className="text-xs text-muted-foreground">
-                    Längengrad (Lng)
-                  </Label>
-                  <Input
-                    id="edit-location-lng"
-                    type="number"
-                    step="any"
-                    value={operation.coordinates?.[1] ?? ''}
-                    onChange={(e) =>
-                      onUpdate({
-                        coordinates: [
-                          operation.coordinates?.[0] ?? 0,
-                          e.target.value ? parseFloat(e.target.value) : 0
-                        ]
-                      })
-                    }
-                    placeholder="7.56180045"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Meldung - Moved up from bottom */}
-          <div>
-            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">Meldung</Label>
-            <Textarea
-              id="notes"
-              placeholder="Notizen, Besonderheiten, Gefahren..."
-              value={operation.notes}
-              onChange={(e) => onUpdate({ notes: e.target.value })}
-              className="mt-2 min-h-[100px]"
-            />
+          {/* Coordinates */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-muted-foreground">
+                Koordinaten
+              </Label>
+              {hasValidCoordinates && (
+                <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <Check className="h-3.5 w-3.5" />
+                  <span className="font-medium">Gültige Koordinaten</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Latitude */}
+              <div>
+                <Label htmlFor="edit-location-lat" className="text-xs text-muted-foreground">
+                  Breitengrad (Lat)
+                </Label>
+                <Input
+                  id="edit-location-lat"
+                  type="number"
+                  step="any"
+                  value={operation.coordinates?.[0] ?? ''}
+                  onChange={(e) =>
+                    onUpdate({
+                      coordinates: [
+                        e.target.value ? parseFloat(e.target.value) : 0,
+                        operation.coordinates?.[1] ?? 0
+                      ]
+                    })
+                  }
+                  placeholder="47.51637699"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Longitude */}
+              <div>
+                <Label htmlFor="edit-location-lng" className="text-xs text-muted-foreground">
+                  Längengrad (Lng)
+                </Label>
+                <Input
+                  id="edit-location-lng"
+                  type="number"
+                  step="any"
+                  value={operation.coordinates?.[1] ?? ''}
+                  onChange={(e) =>
+                    onUpdate({
+                      coordinates: [
+                        operation.coordinates?.[0] ?? 0,
+                        e.target.value ? parseFloat(e.target.value) : 0
+                      ]
+                    })
+                  }
+                  placeholder="7.56180045"
+                  className="mt-1"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Other fields - Grid */}
@@ -336,31 +323,6 @@ export function OperationDetailModal({
                   <SelectItem value="high">Hoch</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">Kontakt / Melder</Label>
-            <Input
-              id="contact"
-              placeholder="Name, Telefonnummer..."
-              value={operation.contact}
-              onChange={(e) => onUpdate({ contact: e.target.value })}
-              className="mt-2"
-            />
-          </div>
-          </div>
-
-          {/* Right Column - External Info */}
-          <div className="space-y-6">
-          {/* Reko Reports */}
-          <div>
-            <Label className="text-sm font-semibold text-muted-foreground">
-              Rekognoszierungs-Meldungen
-            </Label>
-            <div className="mt-3">
-              <RekoReportSection incidentId={operation.id} />
             </div>
           </div>
 
@@ -475,21 +437,66 @@ export function OperationDetailModal({
               )}
             </div>
           </div>
-          </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-4 border-t">
-          <Button
-            className="gap-2"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            Löschen
-          </Button>
-          <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
-            Schliessen
-          </Button>
+          {/* Notes */}
+          <div>
+            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">Zusätzliche Informationen</Label>
+            <Textarea
+              id="notes"
+              placeholder="Notizen, Besonderheiten, Gefahren..."
+              value={operation.notes}
+              onChange={(e) => onUpdate({ notes: e.target.value })}
+              className="mt-2 min-h-[100px]"
+            />
+          </div>
+
+          {/* Contact */}
+          <div>
+            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">Kontakt / Melder</Label>
+            <Input
+              id="contact"
+              placeholder="Name, Telefonnummer..."
+              value={operation.contact}
+              onChange={(e) => onUpdate({ contact: e.target.value })}
+              className="mt-2"
+            />
+          </div>
+
+          {/* Reko Reports */}
+          <div>
+            <Separator className="my-6" />
+            <Label className="text-sm font-semibold text-muted-foreground">
+              Rekognoszierungs-Meldungen
+            </Label>
+            <div className="mt-3">
+              <RekoReportSection incidentId={operation.id} />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t">
+            <Button className="gap-2">
+              <Printer className="h-4 w-4" />
+              Drucken
+            </Button>
+            <Button variant="secondary" className="gap-2">
+              <Send className="h-4 w-4" />
+              Senden
+            </Button>
+            {operation.status === "complete" && (
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Löschen
+              </Button>
+            )}
+            <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
+              Schliessen
+            </Button>
+          </div>
         </div>
       </DialogContent>
 
