@@ -8,6 +8,8 @@ import { useIncidents } from "@/lib/contexts/operations-context"
 import type { Incident } from "@/lib/types/incidents"
 import { apiClient } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
+import { useMapMode } from "@/lib/hooks/use-map-mode"
+import { Wifi, WifiOff, RefreshCw } from "lucide-react"
 
 // Fix Leaflet default icon issue with Next.js
 import icon from "leaflet/dist/images/marker-icon.png"
@@ -139,12 +141,59 @@ function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Inciden
 }
 
 // Warning banner for incidents without valid coordinates
-function MissingLocationsWarning({ count }: { count: number }) {
+function MissingLocationsWarning({ count }: { count: number}) {
   if (count === 0) return null
 
   return (
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded shadow-lg z-[1000]">
       ⚠️ {count} Einsatz{count !== 1 ? "e" : ""} ohne gültige Koordinaten
+    </div>
+  )
+}
+
+// Map mode indicator showing online/offline status
+function MapModeIndicator({
+  preferredMode,
+  effectiveMode,
+  isAuto,
+  onReset,
+}: {
+  preferredMode: string
+  effectiveMode: string
+  isAuto: boolean
+  onReset: () => void
+}) {
+  const isOnline = effectiveMode === 'online'
+  const showFallbackIndicator = isAuto && !isOnline
+
+  return (
+    <div className="absolute top-4 right-4 z-[1000] flex gap-2">
+      {/* Mode indicator */}
+      <div
+        className={`
+          flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-sm font-medium
+          ${isOnline
+            ? 'bg-green-100 border border-green-400 text-green-800 dark:bg-green-950 dark:border-green-700 dark:text-green-300'
+            : 'bg-orange-100 border border-orange-400 text-orange-800 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300'
+          }
+        `}
+        title={`Karten-Modus: ${preferredMode} (${isOnline ? 'Online' : 'Offline'})`}
+      >
+        {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+        <span>{isOnline ? 'Online' : 'Offline'}</span>
+      </div>
+
+      {/* Retry button (shown when in auto mode and fell back to offline) */}
+      {showFallbackIndicator && (
+        <button
+          onClick={onReset}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-sm font-medium bg-blue-100 border border-blue-400 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors"
+          title="Online-Modus erneut versuchen"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Neu versuchen</span>
+        </button>
+      )}
     </div>
   )
 }
@@ -168,6 +217,17 @@ export default function MapView({
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
     47.51637699933488, 7.561800450458299,
   ])
+
+  // Map mode management
+  const {
+    preferredMode,
+    effectiveMode,
+    isAuto,
+    handleTileError,
+    resetEffectiveMode,
+    getTileUrl,
+    getAttribution,
+  } = useMapMode()
 
   // Load firestation settings from backend
   useEffect(() => {
@@ -234,8 +294,11 @@ export default function MapView({
         zoomControl={true}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={getAttribution()}
+          url={getTileUrl()}
+          eventHandlers={{
+            tileerror: handleTileError,
+          }}
         />
 
         {/* Incident Markers */}
@@ -266,6 +329,14 @@ export default function MapView({
       {/* Warning for incidents without location */}
       <MissingLocationsWarning
         count={incidents.length - mappableIncidents.length}
+      />
+
+      {/* Map mode indicator */}
+      <MapModeIndicator
+        preferredMode={preferredMode}
+        effectiveMode={effectiveMode}
+        isAuto={isAuto}
+        onReset={resetEffectiveMode}
       />
 
       {/* Map Legend */}
