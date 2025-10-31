@@ -8,10 +8,13 @@ from pydantic_settings import BaseSettings
 class AuthSettings(BaseSettings):
     """JWT and authentication settings."""
 
+    # Development Mode
+    BYPASS_AUTH_DEV: bool = False  # Set to True to disable authentication in development
+
     # JWT Configuration
     SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_USE_OPENSSL_RAND"  # openssl rand -hex 32
     ALGORITHM: str = "HS256"  # Use RS256 for distributed systems
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours for firefighting operations
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # 15 minutes for security (was 120)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Longer-lived refresh token
 
     # Password Policy
@@ -77,6 +80,22 @@ class AuthSettings(BaseSettings):
         if is_production:
             return True  # Force HTTPS in production
         return self.COOKIE_SECURE  # Use configured value in development
+
+    @property
+    def is_auth_bypassed(self) -> bool:
+        """
+        Check if authentication is bypassed for development.
+
+        Returns True only if BYPASS_AUTH_DEV is enabled AND we're NOT in production.
+        Prevents accidentally disabling auth in production.
+        """
+        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+        if is_production and self.BYPASS_AUTH_DEV:
+            print("⚠️  WARNING: BYPASS_AUTH_DEV is enabled but ignored in production!")
+            return False
+        if self.BYPASS_AUTH_DEV:
+            print("🔓 AUTH BYPASS ENABLED - Authentication is disabled for development!")
+        return self.BYPASS_AUTH_DEV
 
     class Config:
         env_prefix = "AUTH_"
