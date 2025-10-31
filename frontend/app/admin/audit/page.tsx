@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Filter, X, FileText, User, Calendar } from 'lucide-react';
+import { Filter, X, FileText, User, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 const ACTION_TYPES = [
@@ -164,11 +164,6 @@ export default function AuditLogPage() {
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
           <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 text-2xl shadow-lg">
                 📋
