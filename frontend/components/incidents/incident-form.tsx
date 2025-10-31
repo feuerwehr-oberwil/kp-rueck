@@ -282,7 +282,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
                 Koordinaten
               </Label>
               {hasValidCoordinates && (
-                <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
                   <MapPin className="h-3.5 w-3.5" />
                   <Check className="h-3.5 w-3.5" />
                   <span className="font-medium">Gültige Koordinaten</span>

@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
-import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
+import { Plus, MapPin } from 'lucide-react'
+import { type Operation, type OperationStatus, type VehicleType } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 
@@ -27,9 +27,9 @@ export function NewEmergencyModal({
 }: NewEmergencyModalProps) {
   const [formData, setFormData] = useState({
     location: "",
-    incidentType: "elementarereignis",
+    incidentType: "",
     priority: "low" as "high" | "medium" | "low",
-    vehicle: null as string | null,
+    vehicle: null as VehicleType,
     coordinates: [47.51637699933488, 7.561800450458299] as [number, number],
     status: "incoming" as OperationStatus,
     crew: [] as string[],
@@ -43,6 +43,7 @@ export function NewEmergencyModal({
     vehicleAssignments: new Map(),
   })
 
+  const [availableVehicles, setAvailableVehicles] = useState<Array<{ name: string; type: string }>>([])
   const [homeCity, setHomeCity] = useState<string>("")
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
 
@@ -53,16 +54,21 @@ export function NewEmergencyModal({
   }>>([])
   const [showLocationResults, setShowLocationResults] = useState(false)
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
-  const [showCoordinates, setShowCoordinates] = useState(false)
 
-  // Load settings when modal opens
+  // Load vehicles and settings when modal opens
   useEffect(() => {
     const loadModalData = async () => {
       if (!open) return
 
       setIsLoadingSettings(true)
       try {
-        const settings = await apiClient.getAllSettings()
+        // Fetch vehicles and settings in parallel
+        const [vehicles, settings] = await Promise.all([
+          apiClient.getVehicles(),
+          apiClient.getAllSettings()
+        ])
+
+        setAvailableVehicles(vehicles.map((v) => ({ name: v.name, type: v.type })))
 
         if (settings.home_city) {
           setHomeCity(settings.home_city)
@@ -152,13 +158,13 @@ export function NewEmergencyModal({
       if (formData.location) {
         searchLocation(formData.location)
       }
-    }, 300)
+    }, 500)
 
     return () => clearTimeout(timer)
   }, [formData.location])
 
   const handleSubmit = () => {
-    if (!formData.location) {
+    if (!formData.location || !formData.incidentType) {
       return
     }
 
@@ -167,7 +173,7 @@ export function NewEmergencyModal({
     // Reset form
     setFormData({
       location: "",
-      incidentType: "elementarereignis",
+      incidentType: "",
       priority: "low",
       vehicle: null,
       coordinates: [47.51637699933488, 7.561800450458299],
@@ -202,22 +208,9 @@ export function NewEmergencyModal({
         <div className="space-y-6 py-4">
           {/* Location - Full Width */}
           <div className="relative">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="location" className="text-sm font-semibold text-muted-foreground">
-                Einsatzort *
-              </Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCoordinates(!showCoordinates)}
-                className="h-7 px-2 gap-1 text-xs"
-              >
-                <MapPin className="h-3 w-3" />
-                Koordinaten
-                {showCoordinates ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </Button>
-            </div>
+            <Label htmlFor="location" className="text-sm font-semibold text-muted-foreground">
+              Einsatzort *
+            </Label>
             <div className="relative">
               <Input
                 id="location"
@@ -266,77 +259,13 @@ export function NewEmergencyModal({
                 ))}
               </div>
             )}
-
-            {/* Optional Coordinates */}
-            {showCoordinates && (
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                <div>
-                  <Label htmlFor="location-lat" className="text-xs text-muted-foreground">
-                    Breitengrad (Lat)
-                  </Label>
-                  <Input
-                    id="location-lat"
-                    type="number"
-                    step="any"
-                    value={formData.coordinates[0]}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        coordinates: [
-                          e.target.value ? parseFloat(e.target.value) : 0,
-                          formData.coordinates[1]
-                        ]
-                      })
-                    }
-                    placeholder="47.51637699"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="location-lng" className="text-xs text-muted-foreground">
-                    Längengrad (Lng)
-                  </Label>
-                  <Input
-                    id="location-lng"
-                    type="number"
-                    step="any"
-                    value={formData.coordinates[1]}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        coordinates: [
-                          formData.coordinates[0],
-                          e.target.value ? parseFloat(e.target.value) : 0
-                        ]
-                      })
-                    }
-                    placeholder="7.56180045"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Meldung - Moved up from bottom */}
-          <div>
-            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">
-              Meldung
-            </Label>
-            <Textarea
-              id="notes"
-              placeholder="Notizen, Besonderheiten, Gefahren..."
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="mt-2 min-h-[100px]"
-            />
-          </div>
-
-          {/* Grid - 2 columns */}
+          {/* Other fields - Grid */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
-                Einsatzart
+                Einsatzart *
               </Label>
               <Select
                 value={formData.incidentType}
@@ -373,9 +302,34 @@ export function NewEmergencyModal({
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Label htmlFor="vehicle" className="text-sm font-semibold text-muted-foreground">
+                Fahrzeug
+              </Label>
+              <Select
+                value={formData.vehicle || "none"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, vehicle: (value === "none" ? null : value) as VehicleType })
+                }
+                disabled={isLoadingSettings}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder={isLoadingSettings ? "Laden..." : "Nicht zugewiesen"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                  {availableVehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.name} value={vehicle.name}>
+                      {vehicle.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Contact - Moved up */}
+          {/* Contact */}
           <div>
             <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">
               Kontakt / Melder
@@ -389,16 +343,30 @@ export function NewEmergencyModal({
             />
           </div>
 
+          {/* Notes */}
+          <div>
+            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">
+              Zusätzliche Informationen
+            </Label>
+            <Textarea
+              id="notes"
+              placeholder="Notizen, Besonderheiten, Gefahren..."
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="mt-2 min-h-[100px]"
+            />
+          </div>
+
           {/* Info */}
           <div className="bg-secondary/30 p-3 rounded-lg">
             <p className="text-sm text-muted-foreground">
-              Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.
+              Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.
             </p>
           </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t">
-            <Button onClick={handleSubmit} disabled={!formData.location} className="gap-2">
+            <Button onClick={handleSubmit} disabled={!formData.location || !formData.incidentType} className="gap-2">
               <Plus className="h-4 w-4" />
               Einsatz erstellen
             </Button>

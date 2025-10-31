@@ -10,7 +10,7 @@ interface EventContextType {
   setSelectedEvent: (event: Event | null) => void
   events: Event[]
   isLoading: boolean
-  isEventLoaded: boolean // Track if localStorage event has been loaded
+  isEventLoaded: boolean
   error: string | null
   refreshEvents: () => Promise<void>
   createEvent: (name: string, trainingFlag: boolean) => Promise<Event>
@@ -48,6 +48,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
   // Load selected event from localStorage on mount (only when authenticated)
   useEffect(() => {
     if (authLoading || !isAuthenticated) {
+      setIsEventLoaded(true) // Mark as loaded when not authenticated
       return
     }
 
@@ -61,7 +62,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
         })
         .finally(() => setIsEventLoaded(true))
     } else {
-      setIsEventLoaded(true)
+      setIsEventLoaded(true) // No saved event, mark as loaded
     }
   }, [authLoading, isAuthenticated])
 

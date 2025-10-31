@@ -12,49 +12,83 @@ interface ShortcutsModalProps {
 export function ShortcutsModal({ open, onOpenChange, vehicleTypes }: ShortcutsModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Schnellreferenz</DialogTitle>
-          <DialogDescription>
-            Die wichtigsten Tastaturkürzel
-          </DialogDescription>
+          <DialogTitle className="text-2xl">Tastaturkürzel</DialogTitle>
+          <DialogDescription>Schnelle Navigation und Fahrzeugzuweisung</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Pointer to Cmd+K */}
-          <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Kbd className="bg-blue-500/20">⌘K</Kbd>
-              <span className="text-sm font-semibold">Alle Befehle & Tastaturkürzel</span>
+        <div className="space-y-6 py-4">
+          <div>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Fahrzeugzuweisung</h3>
+            <div className="space-y-2">
+              {vehicleTypes.map((vt) => (
+                <div key={vt.key} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                  <span className="text-sm font-medium">{vt.name}</span>
+                  <Kbd>{vt.key}</Kbd>
+                </div>
+              ))}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Drücke Cmd+K (Mac) oder Ctrl+K (Windows) für die vollständige Liste
-            </p>
           </div>
 
-          {/* Essential shortcuts */}
           <div>
-            <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wide mb-2">Häufig verwendet</h3>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between p-2 rounded-md bg-secondary/30">
-                <span className="text-sm">Suchen</span>
-                <Kbd className="h-5 text-xs">/</Kbd>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Prioritäts-Zuweisung (im Einsatzformular)</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Niedrig</span>
+                <Kbd>Shift+1</Kbd>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-md bg-secondary/30">
-                <span className="text-sm">Neuer Einsatz</span>
-                <Kbd className="h-5 text-xs">N</Kbd>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Mittel</span>
+                <Kbd>Shift+2</Kbd>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-md bg-secondary/30">
-                <span className="text-sm">Bearbeiten</span>
-                <Kbd className="h-5 text-xs">E</Kbd>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Hoch</span>
+                <Kbd>Shift+3</Kbd>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-md bg-secondary/30">
-                <span className="text-sm">Navigation (Kanban → Map → Events)</span>
-                <Kbd className="h-5 text-xs">G dann K/M/E</Kbd>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Navigation</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Karte nach rechts bewegen</span>
+                <Kbd>&gt;</Kbd>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-md bg-secondary/30">
-                <span className="text-sm">Aktualisieren</span>
-                <Kbd className="h-5 text-xs">R</Kbd>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Karte nach links bewegen</span>
+                <Kbd>&lt;</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Suche fokussieren</span>
+                <Kbd>/</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Suche verlassen</span>
+                <Kbd>Esc</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Neuer Einsatz</span>
+                <Kbd>N</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Diese Hilfe anzeigen</span>
+                <Kbd>?</Kbd>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Seitenleisten</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Personen-Seitenleiste ein/ausblenden</span>
+                <Kbd>[</Kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <span className="text-sm font-medium">Material-Seitenleiste ein/ausblenden</span>
+                <Kbd>]</Kbd>
               </div>
             </div>
           </div>

@@ -11,15 +11,11 @@ import { PersonnelSettings } from '@/components/settings/personnel-settings';
 import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { ProtectedRoute } from '@/components/protected-route';
-import { PageNavigation } from '@/components/page-navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useEvent } from '@/lib/contexts/event-context';
 
 export default function ResourcesPage() {
-  const { selectedEvent } = useEvent();
-
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
@@ -43,8 +39,6 @@ export default function ResourcesPage() {
               </div>
             </div>
           </div>
-
-          <PageNavigation currentPage="settings" hasSelectedEvent={!!selectedEvent} />
         </header>
 
         {/* Content */}

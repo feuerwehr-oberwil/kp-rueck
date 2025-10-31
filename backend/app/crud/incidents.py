@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, IncidentAssignment, StatusTransition, User, Vehicle
+from ..models import Incident, IncidentAssignment, Material, Personnel, StatusTransition, User, Vehicle
 from ..services.audit import calculate_changes, log_action
 from . import events as events_crud
 
@@ -34,7 +34,16 @@ async def get_incidents(
     Returns:
         List of incidents with status_changed_at and assigned_vehicles populated (excludes soft-deleted incidents)
     """
-    query = select(Incident).where(Incident.deleted_at.is_(None)).order_by(Incident.created_at.desc())
+    # Eager load relationships to prevent N+1 queries
+    query = (
+        select(Incident)
+        .options(
+            selectinload(Incident.status_transitions),
+            selectinload(Incident.assignments)
+        )
+        .where(Incident.deleted_at.is_(None))
+        .order_by(Incident.created_at.desc())
+    )
 
     # Filter by event if provided
     if event_id is not None:
@@ -48,96 +57,65 @@ async def get_incidents(
     result = await db.execute(query)
     incidents = list(result.scalars().all())
 
-    if not incidents:
-        return incidents
-
-    # Batch load status transitions for all incidents in one query
-    incident_ids = [incident.id for incident in incidents]
-
-    # Subquery to get latest status transition timestamp for each incident
-    from sqlalchemy import desc
-    from sqlalchemy.sql import text
-
-    latest_transitions_query = (
-        select(
-            StatusTransition.incident_id,
-            func.max(StatusTransition.timestamp).label('latest_timestamp')
-        )
-        .where(StatusTransition.incident_id.in_(incident_ids))
-        .group_by(StatusTransition.incident_id)
-    )
-
-    transitions_result = await db.execute(latest_transitions_query)
-    transitions_map = {row.incident_id: row.latest_timestamp for row in transitions_result}
-
-    # Batch load all assignments and vehicles in one query
-    assignments_query = (
-        select(IncidentAssignment, Vehicle)
-        .outerjoin(Vehicle, and_(
-            Vehicle.id == IncidentAssignment.resource_id,
-            IncidentAssignment.resource_type == "vehicle"
-        ))
-        .where(
-            and_(
-                IncidentAssignment.incident_id.in_(incident_ids),
-                IncidentAssignment.resource_type == "vehicle",
-                IncidentAssignment.unassigned_at.is_(None),
-            )
-        )
-        .order_by(IncidentAssignment.assigned_at.asc())
-    )
-
-    assignments_result = await db.execute(assignments_query)
-
-    # Group assignments by incident_id
-    vehicles_by_incident = {}
-    for assignment, vehicle in assignments_result.all():
-        if assignment.incident_id not in vehicles_by_incident:
-            vehicles_by_incident[assignment.incident_id] = []
-
-        if vehicle:  # Vehicle might be None if not found
-            vehicles_by_incident[assignment.incident_id].append(
-                schemas.AssignedVehicle(
-                    assignment_id=assignment.id,
-                    vehicle_id=vehicle.id,
-                    name=vehicle.name,
-                    type=vehicle.type,
-                    assigned_at=assignment.assigned_at,
-                )
-            )
-
     # Populate status_changed_at and assigned_vehicles for each incident
+    # Data is already loaded via eager loading, so no additional queries
     for incident in incidents:
-        # Set status_changed_at from batch-loaded map
-        incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
+        # Get most recent status transition from already-loaded data
+        if incident.status_transitions:
+            latest_timestamp = max(
+                transition.timestamp for transition in incident.status_transitions
+            )
+            incident.status_changed_at = latest_timestamp
+        else:
+            incident.status_changed_at = incident.created_at
 
-        # Set assigned vehicles from batch-loaded map
-        incident.assigned_vehicles = vehicles_by_incident.get(incident.id, [])
+        # Load all assigned resources from already-loaded assignments
+        incident.assigned_vehicles = await _get_assigned_vehicles_from_loaded_assignments(
+            db, incident
+        )
+        incident.assigned_personnel = await _get_assigned_personnel_from_loaded_assignments(
+            db, incident
+        )
+        incident.assigned_materials = await _get_assigned_materials_from_loaded_assignments(
+            db, incident
+        )
 
     return incidents
 
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
     """Get incident by ID with status_changed_at and assigned_vehicles populated."""
-    result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    # Eager load relationships to prevent N+1 queries
+    result = await db.execute(
+        select(Incident)
+        .options(
+            selectinload(Incident.status_transitions),
+            selectinload(Incident.assignments)
+        )
+        .where(Incident.id == incident_id)
+    )
     incident = result.scalar_one_or_none()
 
     if incident:
-        # Get latest status transition timestamp (single query)
-        latest_transition_query = (
-            select(StatusTransition.timestamp)
-            .where(StatusTransition.incident_id == incident.id)
-            .order_by(StatusTransition.timestamp.desc())
-            .limit(1)
+        # Get most recent status transition from already-loaded data
+        if incident.status_transitions:
+            latest_timestamp = max(
+                transition.timestamp for transition in incident.status_transitions
+            )
+            incident.status_changed_at = latest_timestamp
+        else:
+            incident.status_changed_at = incident.created_at
+
+        # Load all assigned resources from already-loaded assignments
+        incident.assigned_vehicles = await _get_assigned_vehicles_from_loaded_assignments(
+            db, incident
         )
-        transition_result = await db.execute(latest_transition_query)
-        latest_timestamp = transition_result.scalar_one_or_none()
-
-        # Set status_changed_at to latest transition timestamp, or created_at if no transitions exist
-        incident.status_changed_at = latest_timestamp if latest_timestamp else incident.created_at
-
-        # Load assigned vehicles (reuse helper function - acceptable for single incident)
-        incident.assigned_vehicles = await _get_assigned_vehicles(db, incident.id)
+        incident.assigned_personnel = await _get_assigned_personnel_from_loaded_assignments(
+            db, incident
+        )
+        incident.assigned_materials = await _get_assigned_materials_from_loaded_assignments(
+            db, incident
+        )
 
     return incident
 
@@ -164,7 +142,7 @@ async def create_incident(
         resource_type="incident",
         resource_id=db_incident.id,
         user=current_user,
-        changes={"created": incident.model_dump(mode='json')},
+        changes={"created": incident.model_dump()},
         request=request,
     )
 
@@ -387,6 +365,7 @@ async def _get_assigned_vehicles(
     Get all assigned vehicles for an incident with vehicle details.
 
     Internal helper function to populate assigned_vehicles in incident responses.
+    Used when assignments are not already loaded (e.g., get_incident single query).
     """
     # Query active vehicle assignments with vehicle details
     result = await db.execute(
@@ -415,3 +394,134 @@ async def _get_assigned_vehicles(
         )
 
     return assigned_vehicles
+
+
+async def _get_assigned_vehicles_from_loaded_assignments(
+    db: AsyncSession, incident: Incident
+) -> list[schemas.AssignedVehicle]:
+    """
+    Get assigned vehicles from already-loaded incident.assignments relationship.
+
+    This avoids N+1 queries when assignments are eagerly loaded.
+    Fetches vehicle details in a single batch query for all vehicle assignments.
+    """
+    # Filter for active vehicle assignments from already-loaded data
+    vehicle_assignments = [
+        assignment
+        for assignment in incident.assignments
+        if assignment.resource_type == "vehicle" and assignment.unassigned_at is None
+    ]
+
+    if not vehicle_assignments:
+        return []
+
+    # Fetch all vehicles in a single query
+    vehicle_ids = [assignment.resource_id for assignment in vehicle_assignments]
+    result = await db.execute(
+        select(Vehicle).where(Vehicle.id.in_(vehicle_ids))
+    )
+    vehicles = {vehicle.id: vehicle for vehicle in result.scalars().all()}
+
+    # Build response using loaded data
+    assigned_vehicles = []
+    for assignment in sorted(vehicle_assignments, key=lambda a: a.assigned_at):
+        vehicle = vehicles.get(assignment.resource_id)
+        if vehicle:
+            assigned_vehicles.append(
+                schemas.AssignedVehicle(
+                    assignment_id=assignment.id,
+                    vehicle_id=vehicle.id,
+                    name=vehicle.name,
+                    type=vehicle.type,
+                    assigned_at=assignment.assigned_at,
+                )
+            )
+
+    return assigned_vehicles
+
+
+async def _get_assigned_personnel_from_loaded_assignments(
+    db: AsyncSession, incident: Incident
+) -> list[schemas.AssignedPersonnel]:
+    """
+    Get assigned personnel from already-loaded incident.assignments relationship.
+
+    This avoids N+1 queries when assignments are eagerly loaded.
+    Fetches personnel details in a single batch query for all personnel assignments.
+    """
+    # Filter for active personnel assignments from already-loaded data
+    personnel_assignments = [
+        assignment
+        for assignment in incident.assignments
+        if assignment.resource_type == "personnel" and assignment.unassigned_at is None
+    ]
+
+    if not personnel_assignments:
+        return []
+
+    # Fetch all personnel in a single query
+    personnel_ids = [assignment.resource_id for assignment in personnel_assignments]
+    result = await db.execute(
+        select(Personnel).where(Personnel.id.in_(personnel_ids))
+    )
+    personnel_map = {person.id: person for person in result.scalars().all()}
+
+    # Build response using loaded data
+    assigned_personnel = []
+    for assignment in sorted(personnel_assignments, key=lambda a: a.assigned_at):
+        person = personnel_map.get(assignment.resource_id)
+        if person:
+            assigned_personnel.append(
+                schemas.AssignedPersonnel(
+                    assignment_id=assignment.id,
+                    personnel_id=person.id,
+                    name=person.name,
+                    role=person.role,
+                    assigned_at=assignment.assigned_at,
+                )
+            )
+
+    return assigned_personnel
+
+
+async def _get_assigned_materials_from_loaded_assignments(
+    db: AsyncSession, incident: Incident
+) -> list[schemas.AssignedMaterial]:
+    """
+    Get assigned materials from already-loaded incident.assignments relationship.
+
+    This avoids N+1 queries when assignments are eagerly loaded.
+    Fetches material details in a single batch query for all material assignments.
+    """
+    # Filter for active material assignments from already-loaded data
+    material_assignments = [
+        assignment
+        for assignment in incident.assignments
+        if assignment.resource_type == "material" and assignment.unassigned_at is None
+    ]
+
+    if not material_assignments:
+        return []
+
+    # Fetch all materials in a single query
+    material_ids = [assignment.resource_id for assignment in material_assignments]
+    result = await db.execute(
+        select(Material).where(Material.id.in_(material_ids))
+    )
+    materials_map = {material.id: material for material in result.scalars().all()}
+
+    # Build response using loaded data
+    assigned_materials = []
+    for assignment in sorted(material_assignments, key=lambda a: a.assigned_at):
+        material = materials_map.get(assignment.resource_id)
+        if material:
+            assigned_materials.append(
+                schemas.AssignedMaterial(
+                    assignment_id=assignment.id,
+                    material_id=material.id,
+                    name=material.name,
+                    assigned_at=assignment.assigned_at,
+                )
+            )
+
+    return assigned_materials

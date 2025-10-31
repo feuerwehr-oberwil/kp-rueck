@@ -36,13 +36,10 @@ async def list_events(
         limit=limit
     )
 
-    # Batch load incident counts for all events in one query
-    event_ids = [event.id for event in events]
-    incident_counts = await crud.get_event_incident_counts_batch(db, event_ids)
-
-    # Build event responses with incident counts
+    # Add incident counts
     event_responses = []
     for event in events:
+        incident_count = await crud.get_event_incident_count(db, event.id)
         event_dict = {
             "id": event.id,
             "name": event.name,
@@ -51,7 +48,7 @@ async def list_events(
             "updated_at": event.updated_at,
             "archived_at": event.archived_at,
             "last_activity_at": event.last_activity_at,
-            "incident_count": incident_counts.get(event.id, 0),
+            "incident_count": incident_count,
         }
         event_responses.append(schemas.EventResponse.model_validate(event_dict))
 

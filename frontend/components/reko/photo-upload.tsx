@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Camera, Upload, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import Image from 'next/image'
 import { getApiUrl } from '@/lib/env'
 
 interface PhotoUploadProps {
@@ -130,10 +131,11 @@ export default function PhotoUpload({
         <div className="grid grid-cols-2 gap-3">
           {photos.map((filename, index) => (
             <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-              <img
+              <Image
                 src={getPhotoUrl(filename)}
                 alt={`Photo ${index + 1}`}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
               />
               <button
                 type="button"

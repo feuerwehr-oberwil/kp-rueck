@@ -81,7 +81,7 @@ class PhotoStorageService:
         self,
         incident_id: uuid.UUID,
         file: UploadFile,
-        current_photos: Optional[list[str]],
+        current_photos: list[str],
     ) -> str:
         """
         Save and compress photo for Reko report.
@@ -89,7 +89,7 @@ class PhotoStorageService:
         Args:
             incident_id: Incident UUID
             file: Uploaded file
-            current_photos: List of existing photo filenames (or None if empty)
+            current_photos: List of existing photo filenames
 
         Returns:
             Filename of saved photo (UUID.jpg)
@@ -98,8 +98,7 @@ class PhotoStorageService:
             HTTPException: If validation fails or processing errors
         """
         # Validate photo count
-        photo_count = len(current_photos) if current_photos else 0
-        if photo_count >= self.max_photos:
+        if len(current_photos) >= self.max_photos:
             raise HTTPException(
                 status_code=400,
                 detail=f"Maximum {self.max_photos} photos per report"
