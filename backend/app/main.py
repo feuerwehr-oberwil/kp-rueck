@@ -154,3 +154,4 @@ async def root() -> dict[str, str]:
 async def health() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}
+
