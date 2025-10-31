@@ -1,95 +1,88 @@
 # Offline Map Tiles Setup Guide
 
-This guide explains how to set up offline map tiles for the KP Rück system to enable map functionality when internet connectivity is unavailable.
+This guide explains the offline map tiles functionality in the KP Rück system. The system provides **automatic offline map capability** for emergency operations when internet connectivity is unavailable.
 
 ## Overview
 
-The system uses a self-hosted TileServer GL instance to serve OpenStreetMap tiles for the Basel-Landschaft region. The map automatically falls back to these offline tiles when online OpenStreetMap servers are unavailable.
+The system uses a self-hosted TileServer GL instance that provides map tiles for the Basel-Landschaft region. The map **automatically works with minimal setup** and falls back to offline tiles when online connectivity fails.
 
 **Coverage**: Basel-Landschaft region (Switzerland)
 **Zoom Levels**: 0-17 (building-level detail)
 **Tile Format**: MBTiles (single-file SQLite database)
-**Expected Size**: ~1-2 GB
+**Full Offline Size**: ~1-2 GB (optional download)
 
 ## Quick Start
 
-1. Download Basel-Landschaft MBTiles file (see options below)
-2. Place file in Docker volume
-3. Restart tile server
-4. Verify tiles are working
+### Automatic Setup (Default)
 
-## Option 1: Download Pre-Generated Tiles (Recommended)
+The tile server starts automatically with minimal bootstrap tiles:
 
-### From OpenMapTiles
-
-**Step 1**: Visit [OpenMapTiles](https://openmaptiles.com/)
-- Create a free account
-- Go to "Downloads" section
-- Select "Switzerland" region
-- Choose zoom levels: 0-17
-- Select "OpenStreetMap" style
-- Download the `.mbtiles` file
-
-**Step 2**: Rename and place the file
 ```bash
-# Rename the downloaded file
-mv switzerland.mbtiles basel-landschaft.mbtiles
-
-# Copy to Docker volume
-docker cp basel-landschaft.mbtiles kprueck-tileserver-dev:/data/basel-landschaft.mbtiles
+make dev
 ```
 
-**Step 3**: Restart the tile server
+That's it! The system will:
+1. ✅ Auto-create minimal valid MBTiles on first startup
+2. ✅ Start TileServer GL on port 8080
+3. ✅ Use online OpenStreetMap tiles by default
+4. ✅ Automatically fall back to offline if online tiles fail
+
+**No pre-setup required** - the tile server is ready out-of-the-box.
+
+### Full Offline Capability (Optional)
+
+For complete offline operation with full-resolution tiles (~1-2 GB):
+
 ```bash
+# Download full offline tiles
+make tiles-download
+
+# Restart tile server to load new tiles
 make restart-tileserver
+
+# Set map mode to 'Offline' in Settings
 ```
 
-### From Geofabrik (Alternative)
+This provides full offline map capability without any online dependency.
 
-**Step 1**: Download Basel-Stadt extract
-```bash
-# Download the extract
-wget https://download.geofabrik.de/europe/switzerland/basel-stadt-latest.osm.pbf
-```
+## Map Modes
 
-**Step 2**: Convert to MBTiles using tilemaker
-```bash
-# Install tilemaker (macOS)
-brew install tilemaker
+The application provides three map modes (configurable in Settings):
 
-# Convert to MBTiles
-tilemaker --input basel-stadt-latest.osm.pbf \
-          --output basel-landschaft.mbtiles \
-          --process resources/process-openmaptiles.lua \
-          --config resources/config-openmaptiles.json \
-          --bbox 7.4,47.4,7.9,47.7
-```
+### Auto Mode (Recommended)
+- Uses online OpenStreetMap tiles by default
+- **Automatically falls back** to offline tiles if online fails
+- Best for normal operations with internet connectivity
+- Seamlessly handles connectivity issues
 
-**Step 3**: Copy to Docker volume
-```bash
-docker cp basel-landschaft.mbtiles kprueck-tileserver-dev:/data/basel-landschaft.mbtiles
-```
+### Online Mode
+- Always uses OpenStreetMap tiles
+- Requires internet connectivity
+- No fallback to offline tiles
 
-**Step 4**: Restart the tile server
-```bash
-make restart-tileserver
-```
+### Offline Mode
+- Always uses local tile server
+- Works completely offline
+- Requires full offline tiles (via `make tiles-download`)
 
-## Option 2: Use Tile Download Script
+## How It Works
 
-We provide a helper script that automates the download and setup process.
+### Bootstrap Tiles (Automatic)
 
-```bash
-# Run the tile download script
-./scripts/download-tiles.sh basel-landschaft
-```
+On first startup, the system creates a minimal but valid MBTiles file:
+- **Size**: ~100 KB (nearly empty)
+- **Purpose**: Satisfies TileServer GL requirements
+- **Behavior**: Map uses online OSM tiles, tile server ready for upgrades
+- **Created by**: `scripts/init-tileserver.sh` automatically
 
-This script will:
-1. Check prerequisites (Docker)
-2. Download tile data from a public source
-3. Place tiles in the correct Docker volume
-4. Restart the tile server
-5. Verify tiles are accessible
+### Full Offline Tiles (Optional)
+
+The `make tiles-download` command downloads complete tiles:
+- **Source**: Geofabrik OSM extracts (100% free, legal)
+- **Coverage**: Basel-Landschaft region, zoom 0-17
+- **Size**: ~1-2 GB
+- **Data**: Complete street-level detail for offline use
+- **Update frequency**: Every 3-6 months recommended
 
 ## Verifying Tiles Are Working
 
@@ -188,9 +181,11 @@ docker logs kprueck-tileserver-dev
 ```
 
 **Common issues**:
-- MBTiles file missing: Ensure `basel-landschaft.mbtiles` exists in `/data` volume
-- Config file error: Verify `tileserver-config.json` is valid JSON
-- Port conflict: Ensure port 8080 is not in use
+- Port conflict: Ensure port 8080 is not in use by another service
+- Docker volume permission issues: Try `make clean && make dev`
+- Init script error: Check logs for sqlite3 or file system errors
+
+**Note**: MBTiles and config are auto-created on startup, so missing files are not an issue.
 
 ### Tiles Not Loading in Application
 
@@ -236,9 +231,20 @@ Expected bounds (Basel-Landschaft):
 
 ## Advanced Configuration
 
+### Custom Config
+
+The tile server config is auto-generated by `scripts/init-tileserver.sh`. To customize:
+
+1. Let the init script create the base config on first run
+2. Modify `/data/config.json` inside the container:
+   ```bash
+   docker exec -it kprueck-tileserver-dev vi /data/config.json
+   ```
+3. Restart: `make restart-tileserver`
+
 ### Custom Styles
 
-Edit `tileserver-config.json` to add custom map styles:
+Add custom map styles to the config:
 
 ```json
 {
@@ -254,20 +260,28 @@ Edit `tileserver-config.json` to add custom map styles:
 
 Add additional MBTiles files for other regions:
 
-```json
-{
-  "data": {
-    "basel-landschaft": {
-      "mbtiles": "basel-landschaft.mbtiles"
-    },
-    "switzerland": {
-      "mbtiles": "switzerland.mbtiles"
-    }
-  }
-}
-```
+1. Copy MBTiles into container:
+   ```bash
+   docker cp switzerland.mbtiles kprueck-tileserver-dev:/data/switzerland.mbtiles
+   ```
 
-Update frontend to switch between regions as needed.
+2. Update config to include new data source:
+   ```json
+   {
+     "data": {
+       "basel-landschaft": {
+         "mbtiles": "basel-landschaft.mbtiles"
+       },
+       "switzerland": {
+         "mbtiles": "switzerland.mbtiles"
+       }
+     }
+   }
+   ```
+
+3. Restart tile server: `make restart-tileserver`
+
+**Note**: Frontend currently only uses `basel-landschaft` data source.
 
 ### Performance Tuning
 
@@ -325,13 +339,41 @@ Add to `scripts/backup.sh`:
 docker cp kprueck-tileserver:/data/basel-landschaft.mbtiles "$BACKUP_DIR/tiles.mbtiles"
 ```
 
+## Technical Details
+
+### Bootstrap Process
+
+The `scripts/init-tileserver.sh` script runs on container startup and:
+
+1. **Checks for existing tiles**: If `basel-landschaft.mbtiles` exists, skips creation
+2. **Creates minimal MBTiles**: Uses sqlite3 to create valid MBTiles schema:
+   - `metadata` table with required fields (name, type, version, format, bounds, etc.)
+   - `tiles` table with proper schema (zoom_level, tile_column, tile_row, tile_data)
+   - Unique index on tile coordinates
+3. **Generates config**: Creates `/data/config.json` with TileServer GL settings
+4. **Starts TileServer GL**: Launches server on port 8080
+
+**Why minimal tiles?**
+- TileServer GL requires valid MBTiles with metadata to start
+- Empty database satisfies server requirements (~100 KB)
+- Allows map to use online tiles while server is ready for upgrades
+- No multi-gigabyte download required for basic functionality
+
+### Upgrade to Full Offline
+
+When you run `make tiles-download`:
+1. `scripts/download-tiles.sh` downloads full OSM extract from Geofabrik
+2. Converts to MBTiles with proper zoom levels and bounding box
+3. Replaces minimal bootstrap tiles with full dataset
+4. Restarts tile server to load new tiles
+5. Map can now work fully offline
+
 ## Resources
 
 - [TileServer GL Documentation](https://tileserver.readthedocs.io/)
-- [OpenMapTiles](https://openmaptiles.com/)
-- [Geofabrik Downloads](https://download.geofabrik.de/)
+- [Geofabrik OSM Downloads](https://download.geofabrik.de/) (free OSM data source)
 - [MBTiles Specification](https://github.com/mapbox/mbtiles-spec)
-- [Tilemaker](https://github.com/systemed/tilemaker)
+- [OpenStreetMap](https://www.openstreetmap.org/)
 
 ## Support
 

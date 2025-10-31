@@ -1,6 +1,6 @@
 # KP Rück Dashboard - Makefile
 
-.PHONY: help dev stop clean init-db seed-db logs db-only backend frontend backend frontend logs-backend logs-frontend shell-db tiles-setup tiles-status tiles-help restart-tileserver
+.PHONY: help dev stop clean init-db seed-db logs db-only backend frontend backend frontend logs-backend logs-frontend shell-db tiles-download tiles-status tiles-help restart-tileserver
 
 help: ## Show this help message
 	@echo "KP Rück Dashboard - Available Commands:"
@@ -15,7 +15,7 @@ help: ## Show this help message
 	@grep -E '^(init-db|seed-db|shell-db):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mOffline Maps:\033[0m"
-	@grep -E '^(tiles-setup|tiles-status|tiles-help|restart-tileserver):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(tiles-download|tiles-status|tiles-help|restart-tileserver):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mCleanup:\033[0m"
 	@grep -E '^(stop|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -55,9 +55,11 @@ seed-db: ## Seed database with initial data
 shell-db: ## Access PostgreSQL shell
 	docker-compose -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
 
-tiles-setup: ## Download and install offline map tiles for Basel-Landschaft
-	@echo "\033[1;34m→ Starting offline map tiles setup...\033[0m"
+tiles-download: ## Download full-resolution offline tiles (optional - auto-created on startup)
+	@echo "\033[1;34m→ Downloading full offline map tiles...\033[0m"
 	@echo "\033[1;34m→ This will download ~1-2 GB of data\033[0m"
+	@echo "\033[1;34m→ Note: Minimal tiles auto-created on 'make dev'\033[0m"
+	@echo ""
 	./scripts/download-tiles.sh
 
 tiles-status: ## Check tile server status and verify tiles are loaded
@@ -73,8 +75,8 @@ tiles-status: ## Check tile server status and verify tiles are loaded
 				echo "  - UI: http://localhost:8080"; \
 				echo "  - Tiles: http://localhost:8080/styles/basic/{z}/{x}/{y}.png"; \
 			else \
-				echo "\033[1;33m⚠️  Basel-Landschaft tiles not found\033[0m"; \
-				echo "Run 'make tiles-setup' to download and install tiles"; \
+				echo "\033[1;33m⚠️  Only minimal bootstrap tiles (no offline data)\033[0m"; \
+				echo "Run 'make tiles-download' for full offline capability"; \
 			fi; \
 		else \
 			echo "\033[1;31m✗ Tile server is not responding\033[0m"; \
@@ -88,15 +90,21 @@ tiles-status: ## Check tile server status and verify tiles are loaded
 tiles-help: ## Show offline maps documentation
 	@echo "\033[1mOffline Maps Setup Guide\033[0m"
 	@echo ""
-	@echo "Quick start:"
-	@echo "  1. Run: make tiles-setup"
+	@echo "\033[1;32m✓ Automatic Setup:\033[0m"
+	@echo "  - Minimal tiles auto-created on 'make dev'"
+	@echo "  - TileServer GL starts automatically"
+	@echo "  - Map uses online OSM by default"
+	@echo ""
+	@echo "\033[1;33m⚡ Optional Full Offline:\033[0m"
+	@echo "  1. Run: make tiles-download"
 	@echo "  2. Wait for download (~1-2 GB)"
-	@echo "  3. Open http://localhost:8080 to verify"
+	@echo "  3. Restart: make restart-tileserver"
+	@echo "  4. Set map mode to 'Offline' in settings"
 	@echo ""
 	@echo "Commands:"
-	@echo "  make tiles-setup   - Download and install tiles"
-	@echo "  make tiles-status  - Check if tiles are loaded"
-	@echo "  make tiles-help    - Show this help"
+	@echo "  make tiles-download  - Download full offline tiles (optional)"
+	@echo "  make tiles-status    - Check tile server status"
+	@echo "  make tiles-help      - Show this help"
 	@echo ""
 	@echo "For detailed instructions, see: OFFLINE_MAPS.md"
 
