@@ -101,8 +101,8 @@ export function useMapMode() {
    */
   const getTileUrl = useCallback((): string => {
     if (state.effectiveMode === 'offline') {
-      // Use local tile server
-      return 'http://localhost:8080/styles/basic/{z}/{x}/{y}.png';
+      // Use local tile server (basic-preview style with 512px tiles)
+      return 'http://localhost:8080/styles/basic-preview/512/{z}/{x}/{y}.png';
     } else {
       // Use online OpenStreetMap
       return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
