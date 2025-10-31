@@ -117,7 +117,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
   }
 
   // Reset form when incident changes or modal opens
-  useState(() => {
+  useEffect(() => {
     if (open && incident && mode === 'edit') {
       setFormData({
         event_id: incident.event_id,
@@ -130,8 +130,21 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         description: incident.description,
         status: incident.status,
       })
+    } else if (open && mode === 'create') {
+      // Reset to defaults for create mode
+      setFormData({
+        event_id: selectedEvent?.id || '',
+        title: '',
+        type: 'technische_hilfeleistung',
+        priority: 'medium',
+        location_address: null,
+        location_lat: null,
+        location_lng: null,
+        description: null,
+        status: 'eingegangen',
+      })
     }
-  })
+  }, [open, incident, mode, selectedEvent?.id])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -251,7 +264,10 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             </div>
           </div>
 
-          {/* Location - Smart Input with Geocoding */}
+          {/* Location - Smart Input with Geocoding
+              SYNC NOTE: This uses the shared LocationInput component (components/location/location-input.tsx)
+              which includes address search, map picker, and coordinate input.
+              Any changes to location input behavior should be made in that component. */}
           <LocationInput
             address={formData.location_address}
             latitude={formData.location_lat}
