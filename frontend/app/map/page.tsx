@@ -21,7 +21,6 @@ import { Kbd } from "@/components/ui/kbd"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { Menu } from "lucide-react"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -317,7 +316,7 @@ export default function MapPage() {
                 onClick={() => setShowSidebar(!showSidebar)}
                 title="Einsatzliste anzeigen"
               >
-                <Menu className="h-5 w-5" />
+                <MenuIcon className="h-5 w-5" />
               </Button>
             )}
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-2xl shadow-lg">
