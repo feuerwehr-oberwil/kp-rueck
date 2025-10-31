@@ -56,6 +56,7 @@ async def seed_database() -> None:
                 ("firestation_latitude", "47.51637699933488"),
                 ("firestation_longitude", "7.561800450458299"),
                 ("home_city", "Oberwil, 4104, Switzerland"),
+                ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
             ]
 
             settings_created = 0

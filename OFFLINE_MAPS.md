@@ -49,21 +49,24 @@ This provides full offline map capability without any online dependency.
 
 The application provides three map modes (configurable in Settings):
 
-### Auto Mode (Recommended)
+### Auto Mode (Recommended for Local Development)
 - Uses online OpenStreetMap tiles by default
 - **Automatically falls back** to offline tiles if online fails
 - Best for normal operations with internet connectivity
 - Seamlessly handles connectivity issues
+- **Note**: Only works when tile server is running (local Docker setup)
 
-### Online Mode
+### Online Mode (Default for Production/Railway)
 - Always uses OpenStreetMap tiles
 - Requires internet connectivity
 - No fallback to offline tiles
+- **Recommended for Railway deployments** (no tile server available)
 
-### Offline Mode
+### Offline Mode (Local Development Only)
 - Always uses local tile server
 - Works completely offline
 - Requires full offline tiles (via `make tiles-download`)
+- **Only available in local Docker setup** (not on Railway)
 
 ## How It Works
 
@@ -77,12 +80,14 @@ On first startup, the system creates a minimal but valid MBTiles file:
 
 ### Full Offline Tiles (Optional)
 
-The `make tiles-download` command downloads complete tiles:
+The `make tiles-download` command downloads and generates complete tiles:
 - **Source**: Geofabrik OSM extracts (100% free, legal)
+- **Tool**: Planetiler (runs in Docker, no local installation needed)
 - **Coverage**: Basel-Landschaft region, zoom 0-17
-- **Size**: ~1-2 GB
+- **Size**: ~12 MB MBTiles (vector tiles, very efficient!)
 - **Data**: Complete street-level detail for offline use
 - **Update frequency**: Every 3-6 months recommended
+- **Process**: Downloads ~500 MB OSM data, converts to MBTiles, installs automatically
 
 ## Verifying Tiles Are Working
 
@@ -362,11 +367,45 @@ The `scripts/init-tileserver.sh` script runs on container startup and:
 ### Upgrade to Full Offline
 
 When you run `make tiles-download`:
-1. `scripts/download-tiles.sh` downloads full OSM extract from Geofabrik
-2. Converts to MBTiles with proper zoom levels and bounding box
-3. Replaces minimal bootstrap tiles with full dataset
-4. Restarts tile server to load new tiles
-5. Map can now work fully offline
+1. Downloads Switzerland OSM extract from Geofabrik (~500 MB)
+2. Runs Planetiler in Docker to convert OSM → MBTiles
+3. Generates vector tiles for Basel-Landschaft region (zoom 0-17)
+4. Copies MBTiles to tile server container (~12 MB final size)
+5. Restarts tile server, which auto-creates `basic-preview` style
+6. TileServer GL renders vector tiles as raster PNGs on-the-fly
+7. Map can now work fully offline with complete street detail
+
+**Note**: Vector tiles + server-side rendering = smaller storage, better quality!
+
+## Production Deployment (Railway)
+
+**Important**: The offline tile server is **only available in local Docker development**.
+
+### Railway Configuration
+
+Railway deployments **do not include** the tile server container because:
+- Tile server requires persistent storage (~12 MB+ per region)
+- Adds deployment complexity and cost
+- Online OpenStreetMap tiles are reliable and free
+- Most production use cases have internet connectivity
+
+### Settings for Railway
+
+The application automatically uses **"online" mode** on Railway by default:
+- No tile server connection attempted
+- All maps use OpenStreetMap tiles
+- No offline fallback (not needed in production)
+- Clean, simple deployment
+
+### If You Need Offline Maps in Production
+
+If your production deployment requires offline maps:
+1. Use a managed tile hosting service (e.g., Maptiler, Mapbox)
+2. Deploy TileServer GL separately with persistent volume
+3. Update frontend `NEXT_PUBLIC_TILE_SERVER_URL` environment variable
+4. Consider costs: hosting + storage + bandwidth
+
+For most use cases, online OpenStreetMap tiles are sufficient.
 
 ## Resources
 
@@ -374,10 +413,12 @@ When you run `make tiles-download`:
 - [Geofabrik OSM Downloads](https://download.geofabrik.de/) (free OSM data source)
 - [MBTiles Specification](https://github.com/mapbox/mbtiles-spec)
 - [OpenStreetMap](https://www.openstreetmap.org/)
+- [Planetiler](https://github.com/onthegomap/planetiler) (OSM to MBTiles converter)
 
 ## Support
 
 For issues or questions:
 1. Check troubleshooting section above
 2. Review tile server logs: `docker logs kprueck-tileserver-dev`
-3. Open an issue on GitHub with logs and error messages
+3. Verify tile server status: `make tiles-status`
+4. Open an issue on GitHub with logs and error messages
