@@ -29,6 +29,11 @@ make dev
 make init-db
 make seed-db
 
+# Offline map tiles (optional)
+make tiles-setup    # Download and install tiles (~1-2 GB)
+make tiles-status   # Check tile server status
+make tiles-help     # Show offline maps help
+
 # View logs
 make logs
 make logs-backend  # Backend only
@@ -87,6 +92,7 @@ cd frontend && pnpm test
 - **Frontend**: Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS 4
 - **Backend**: FastAPI (async Python) + SQLAlchemy 2.0 (async ORM)
 - **Database**: PostgreSQL 16
+- **Map Tiles**: TileServer GL (self-hosted offline tiles for Basel-Landschaft)
 - **Package Managers**: pnpm (frontend), uv (backend)
 - **Deployment**: Docker containers via Railway
 - **Local Development**: Docker Compose with hot reload
@@ -204,6 +210,49 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 **Docker Compose (Local):**
 - `docker-compose.yml`: Production mode
 - `docker-compose.dev.yml`: Development with hot reload and volume mounts
+
+## Offline Map Tiles
+
+The system includes optional offline map tile support for Basel-Landschaft region to enable map functionality when internet connectivity is unavailable.
+
+**Architecture:**
+- **Tile Server**: TileServer GL running on port 8080
+- **Coverage**: Basel-Landschaft region, zoom levels 0-17
+- **Storage**: MBTiles format (~1-2 GB), stored in Docker volume
+- **Behavior**:
+  - **Auto mode** (default): Try online OSM tiles first, fall back to offline on failure
+  - **Online mode**: Always use online OSM tiles
+  - **Offline mode**: Always use local tiles
+
+**Setup:**
+```bash
+# Download and install tiles (~1-2 GB, takes 5-15 minutes)
+make tiles-setup
+
+# Check status
+make tiles-status
+
+# View tile server UI
+open http://localhost:8080
+```
+
+**Frontend Integration:**
+- Map mode setting in Settings page (`auto` | `online` | `offline`)
+- Automatic fallback from online to offline tiles on network error
+- User preference stored in database settings
+- Status indicator shows current mode in map view
+
+**Tile Server Endpoints:**
+- Health: `http://localhost:8080/health`
+- Tiles: `http://localhost:8080/styles/basic/{z}/{x}/{y}.png`
+- UI: `http://localhost:8080`
+
+**Documentation:**
+- Setup guide: `OFFLINE_MAPS.md`
+- Configuration: `tileserver-config.json`
+- Download script: `scripts/download-tiles.sh`
+
+**Note:** Offline tiles are optional. If not installed, map will work in online-only mode using OpenStreetMap tiles.
 
 ## Development Best Practices
 
@@ -347,9 +396,11 @@ def upgrade():
 
 ## Important Files & Documentation
 
-- `DESIGN_DOC.md` - Complete system requirements and architecture specification
+- `ARCHITECTURE.md` - System architecture and technical design
 - `README.md` - Setup instructions and feature overview
 - `RAILWAY.md` - Railway deployment guide
+- `CONFIGURATION_SETTINGS.md` - System configuration and settings management
+- `OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
 - `Makefile` - Quick reference for common commands
 - `backend/README.md` - Backend-specific setup and API docs
 - `frontend/package.json` - Frontend scripts and dependencies

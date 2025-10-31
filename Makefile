@@ -1,6 +1,6 @@
 # KP Rück Dashboard - Makefile
 
-.PHONY: help dev stop clean init-db seed-db logs db-only backend frontend backend frontend logs-backend logs-frontend shell-db
+.PHONY: help dev stop clean init-db seed-db logs db-only backend frontend backend frontend logs-backend logs-frontend shell-db tiles-setup tiles-status tiles-help restart-tileserver
 
 help: ## Show this help message
 	@echo "KP Rück Dashboard - Available Commands:"
@@ -13,6 +13,9 @@ help: ## Show this help message
 	@echo ""
 	@echo "\033[1mDatabase Management:\033[0m"
 	@grep -E '^(init-db|seed-db|shell-db):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "\033[1mOffline Maps:\033[0m"
+	@grep -E '^(tiles-setup|tiles-status|tiles-help|restart-tileserver):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mCleanup:\033[0m"
 	@grep -E '^(stop|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -51,4 +54,58 @@ seed-db: ## Seed database with initial data
 
 shell-db: ## Access PostgreSQL shell
 	docker-compose -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
+
+tiles-setup: ## Download and install offline map tiles for Basel-Landschaft
+	@echo "\033[1;34m→ Starting offline map tiles setup...\033[0m"
+	@echo "\033[1;34m→ This will download ~1-2 GB of data\033[0m"
+	./scripts/download-tiles.sh
+
+tiles-status: ## Check tile server status and verify tiles are loaded
+	@echo "\033[1;34m→ Checking tile server status...\033[0m"
+	@if docker ps --format '{{.Names}}' | grep -q "kprueck-tileserver"; then \
+		echo "\033[1;32m✓ Tile server container is running\033[0m"; \
+		if curl -s http://localhost:8080/health > /dev/null 2>&1; then \
+			echo "\033[1;32m✓ Tile server is responding (http://localhost:8080)\033[0m"; \
+			if curl -s http://localhost:8080/data/basel-landschaft.json > /dev/null 2>&1; then \
+				echo "\033[1;32m✓ Basel-Landschaft tiles are loaded\033[0m"; \
+				echo ""; \
+				echo "Tile endpoints:"; \
+				echo "  - UI: http://localhost:8080"; \
+				echo "  - Tiles: http://localhost:8080/styles/basic/{z}/{x}/{y}.png"; \
+			else \
+				echo "\033[1;33m⚠️  Basel-Landschaft tiles not found\033[0m"; \
+				echo "Run 'make tiles-setup' to download and install tiles"; \
+			fi; \
+		else \
+			echo "\033[1;31m✗ Tile server is not responding\033[0m"; \
+			echo "Try: make restart-tileserver"; \
+		fi; \
+	else \
+		echo "\033[1;31m✗ Tile server container is not running\033[0m"; \
+		echo "Run 'make dev' to start all services"; \
+	fi
+
+tiles-help: ## Show offline maps documentation
+	@echo "\033[1mOffline Maps Setup Guide\033[0m"
+	@echo ""
+	@echo "Quick start:"
+	@echo "  1. Run: make tiles-setup"
+	@echo "  2. Wait for download (~1-2 GB)"
+	@echo "  3. Open http://localhost:8080 to verify"
+	@echo ""
+	@echo "Commands:"
+	@echo "  make tiles-setup   - Download and install tiles"
+	@echo "  make tiles-status  - Check if tiles are loaded"
+	@echo "  make tiles-help    - Show this help"
+	@echo ""
+	@echo "For detailed instructions, see: OFFLINE_MAPS.md"
+
+restart-tileserver: ## Restart tile server container
+	@echo "\033[1;34m→ Restarting tile server...\033[0m"
+	@if docker ps -a --format '{{.Names}}' | grep -q "kprueck-tileserver"; then \
+		docker restart $$(docker ps -a --format '{{.Names}}' | grep kprueck-tileserver) > /dev/null; \
+		echo "\033[1;32m✓ Tile server restarted\033[0m"; \
+	else \
+		echo "\033[1;31m✗ Tile server container not found. Run 'make dev' first.\033[0m"; \
+	fi
 
