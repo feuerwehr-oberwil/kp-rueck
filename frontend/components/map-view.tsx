@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet"
 import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -65,12 +65,14 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
   })
 }
 
-// Component to auto-fit map bounds to show all incidents
+// Component to auto-fit map bounds to show all incidents (only on initial mount)
 function FitBounds({ incidents }: { incidents: Incident[] }) {
   const map = useMap()
+  const hasInitializedRef = useRef(false)
 
   useEffect(() => {
-    if (incidents.length === 0) return
+    // Only run once on initial mount when we have incidents
+    if (hasInitializedRef.current || incidents.length === 0) return
 
     const validIncidents = incidents.filter(
       (inc) => inc.location_lat !== null && inc.location_lng !== null
@@ -83,26 +85,34 @@ function FitBounds({ incidents }: { incidents: Incident[] }) {
     )
 
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
-  }, [incidents, map])
+    hasInitializedRef.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]) // Only depend on map, not incidents (run once when map mounts)
 
   return null
 }
 
 // Component to pan/zoom to selected incident
-function PanToSelected({ selectedIncidentId, incidents }: { selectedIncidentId: string | null; incidents: Incident[] }) {
+function PanToSelected({ selectedIncidentId, incidents, trigger }: { selectedIncidentId: string | null; incidents: Incident[]; trigger?: number }) {
   const map = useMap()
+  const incidentsRef = useRef(incidents)
+
+  // Update ref when incidents change, but don't trigger effect
+  useEffect(() => {
+    incidentsRef.current = incidents
+  }, [incidents])
 
   useEffect(() => {
     if (!selectedIncidentId) return
 
-    const incident = incidents.find((inc) => inc.id === selectedIncidentId)
+    const incident = incidentsRef.current.find((inc) => inc.id === selectedIncidentId)
     if (!incident || !incident.location_lat || !incident.location_lng) return
 
-    // Pan and zoom to the selected marker
+    // Pan and zoom to the selected marker (always, even if same ID due to trigger)
     map.flyTo([incident.location_lat, incident.location_lng], 16, {
       duration: 0.8,
     })
-  }, [selectedIncidentId, incidents, map])
+  }, [selectedIncidentId, map, trigger]) // Only trigger on selection or trigger change, not incidents
 
   return null
 }
@@ -110,6 +120,12 @@ function PanToSelected({ selectedIncidentId, incidents }: { selectedIncidentId: 
 // Component to reset zoom to show all incidents and handle map resize
 function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Incident[] }) {
   const map = useMap()
+  const incidentsRef = useRef(incidents)
+
+  // Update ref when incidents change, but don't trigger effect
+  useEffect(() => {
+    incidentsRef.current = incidents
+  }, [incidents])
 
   useEffect(() => {
     if (trigger === 0) return
@@ -119,9 +135,10 @@ function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Inciden
       map.invalidateSize()
     }, 100)
 
-    if (incidents.length === 0) return
+    const currentIncidents = incidentsRef.current
+    if (currentIncidents.length === 0) return
 
-    const validIncidents = incidents.filter(
+    const validIncidents = currentIncidents.filter(
       (inc) => inc.location_lat !== null && inc.location_lng !== null
     )
 
@@ -135,18 +152,49 @@ function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Inciden
     setTimeout(() => {
       map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 })
     }, 200)
-  }, [trigger, incidents, map])
+  }, [trigger, map]) // Only trigger on explicit trigger change, not incidents
 
   return null
 }
 
 // Warning banner for incidents without valid coordinates
-function MissingLocationsWarning({ count }: { count: number}) {
-  if (count === 0) return null
+function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: Incident[]; onIncidentClick?: (incidentId: string) => void }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (incidents.length === 0) return null
 
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded shadow-lg z-[1000]">
-      ⚠️ {count} Einsatz{count !== 1 ? "e" : ""} ohne gültige Koordinaten
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 dark:bg-yellow-900/90 border-2 border-yellow-400 dark:border-yellow-600 text-yellow-800 dark:text-yellow-100 px-4 py-2 rounded-lg shadow-xl z-[1000] max-w-md backdrop-blur-sm">
+      <div
+        className="flex items-center gap-2 cursor-pointer select-none"
+        onClick={() => setIsExpanded(!isExpanded)}
+        title="Klicken zum Erweitern"
+      >
+        <span className="font-semibold">
+          ⚠️ {incidents.length} Einsatz{incidents.length !== 1 ? "e" : ""} ohne gültige Koordinaten
+        </span>
+        <span className="text-sm ml-auto">
+          {isExpanded ? "▼" : "▶"}
+        </span>
+      </div>
+
+      {isExpanded && (
+        <ul className="mt-3 space-y-1 text-sm border-t border-yellow-400 dark:border-yellow-600 pt-2 max-h-60 overflow-y-auto">
+          {incidents.map((incident) => (
+            <li
+              key={incident.id}
+              className="hover:bg-yellow-200 dark:hover:bg-yellow-800 px-2 py-1.5 rounded cursor-pointer transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                onIncidentClick?.(incident.id)
+              }}
+              title="Klicken um zu Einsatz zu navigieren"
+            >
+              <span className="font-medium">• {incident.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -204,6 +252,7 @@ interface MapViewProps {
   onMarkerClick?: (incidentId: string) => void
   onDetailsClick?: (incident: Incident) => void
   resetZoomTrigger?: number // Counter to trigger zoom reset
+  panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
 }
 
 export default function MapView({
@@ -211,6 +260,7 @@ export default function MapView({
   onMarkerClick,
   onDetailsClick,
   resetZoomTrigger = 0,
+  panTrigger = 0,
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -256,6 +306,15 @@ export default function MapView({
     () =>
       incidents.filter(
         (inc) => inc.location_lat !== null && inc.location_lng !== null && inc.status !== "abschluss"
+      ),
+    [incidents]
+  )
+
+  // Find incidents without valid coordinates (excluding completed)
+  const incidentsWithoutLocation = useMemo(
+    () =>
+      incidents.filter(
+        (inc) => (inc.location_lat === null || inc.location_lng === null) && inc.status !== "abschluss"
       ),
     [incidents]
   )
@@ -320,7 +379,7 @@ export default function MapView({
         <FitBounds incidents={mappableIncidents} />
 
         {/* Pan to selected incident */}
-        <PanToSelected selectedIncidentId={selectedIncidentId ?? null} incidents={mappableIncidents} />
+        <PanToSelected selectedIncidentId={selectedIncidentId ?? null} incidents={mappableIncidents} trigger={panTrigger} />
 
         {/* Reset zoom on trigger */}
         <ResetZoom trigger={resetZoomTrigger} incidents={mappableIncidents} />
@@ -328,7 +387,8 @@ export default function MapView({
 
       {/* Warning for incidents without location */}
       <MissingLocationsWarning
-        count={incidents.length - mappableIncidents.length}
+        incidents={incidentsWithoutLocation}
+        onIncidentClick={onMarkerClick}
       />
 
       {/* Map mode indicator */}
