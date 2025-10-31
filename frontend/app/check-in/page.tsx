@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { apiClient, type ApiPersonnelListItem, type ApiPersonnelCreate } from '@/lib/api-client'
+import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { CheckCircle, Circle, Search, UserPlus } from 'lucide-react'
+import { CheckCircle, Circle, Search } from 'lucide-react'
+import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 
 export default function CheckInPage() {
   const searchParams = useSearchParams()
@@ -16,9 +16,6 @@ export default function CheckInPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newPersonName, setNewPersonName] = useState('')
-  const [addingPerson, setAddingPerson] = useState(false)
 
   useEffect(() => {
     if (!token) {
@@ -75,28 +72,6 @@ export default function CheckInPage() {
     }
   }
 
-  const addNewPerson = async () => {
-    if (!newPersonName.trim()) return
-
-    setAddingPerson(true)
-    try {
-      const newPerson: ApiPersonnelCreate = {
-        name: newPersonName.trim(),
-        availability: 'available',
-      }
-      await apiClient.createPersonnel(newPerson)
-      setNewPersonName('')
-      setShowAddForm(false)
-      // Reload personnel list to include the new person
-      await loadPersonnel()
-    } catch (error) {
-      console.error('Failed to add person:', error)
-      alert('Fehler beim Hinzufügen der Person.')
-    } finally {
-      setAddingPerson(false)
-    }
-  }
-
   const filteredPersonnel = personnel
     .filter(p =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -145,7 +120,7 @@ export default function CheckInPage() {
         )}
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span>Gesamt: {stats.total}</span>
-          <span className="text-green-500 font-semibold">
+          <span className="text-blue-500 font-semibold">
             Anwesend: {stats.checkedIn}
           </span>
           <span>Nicht anwesend: {stats.total - stats.checkedIn}</span>
@@ -165,52 +140,8 @@ export default function CheckInPage() {
           />
         </div>
 
-        {/* Add New Person Button */}
-        {!showAddForm ? (
-          <Button
-            onClick={() => setShowAddForm(true)}
-            variant="outline"
-            className="w-full h-12"
-          >
-            <UserPlus className="h-5 w-5 mr-2" />
-            Neue Person hinzufügen
-          </Button>
-        ) : (
-          <div className="bg-card border-2 border-border rounded-lg p-4 space-y-3">
-            <Input
-              type="text"
-              placeholder="Name eingeben..."
-              value={newPersonName}
-              onChange={(e) => setNewPersonName(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  addNewPerson()
-                }
-              }}
-              className="h-12 text-lg"
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <Button
-                onClick={addNewPerson}
-                disabled={!newPersonName.trim() || addingPerson}
-                className="flex-1 h-11"
-              >
-                {addingPerson ? 'Wird hinzugefügt...' : 'Hinzufügen'}
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowAddForm(false)
-                  setNewPersonName('')
-                }}
-                variant="outline"
-                className="flex-1 h-11"
-              >
-                Abbrechen
-              </Button>
-            </div>
-          </div>
-        )}
+        {/* Quick Add Personnel Component */}
+        <QuickAddPersonnel onPersonAdded={loadPersonnel} />
       </div>
 
       {/* Personnel List */}
@@ -235,7 +166,7 @@ export default function CheckInPage() {
                   isDisabled
                     ? 'border-orange-500 bg-orange-500/10 cursor-not-allowed opacity-75'
                     : person.checked_in
-                    ? 'border-green-500 bg-green-500/10'
+                    ? 'border-blue-500 bg-blue-500/10'
                     : 'border-border bg-card hover:border-muted-foreground'
                 }
               `}
@@ -243,7 +174,7 @@ export default function CheckInPage() {
               {/* Check Icon */}
               <div className="flex-shrink-0">
                 {person.checked_in ? (
-                  <CheckCircle className="h-8 w-8 text-green-500" />
+                  <CheckCircle className="h-8 w-8 text-blue-500" />
                 ) : (
                   <Circle className="h-8 w-8 text-muted-foreground" />
                 )}
@@ -261,7 +192,7 @@ export default function CheckInPage() {
                     Im Einsatz
                   </span>
                 ) : person.checked_in ? (
-                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
                     Anwesend
                   </span>
                 ) : (

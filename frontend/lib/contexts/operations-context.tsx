@@ -1,10 +1,11 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
-import { apiClient, type ApiPersonnel, type ApiMaterialResource } from "@/lib/api-client"
+import { apiClient, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
+import { toast } from "sonner"
 
 // Types
 export type PersonStatus = "available" | "assigned"
@@ -102,7 +103,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
-  const apiPersonToPerson = (apiPerson: any): Person => ({
+  const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
     id: String(apiPerson.id),
     name: apiPerson.name,
     role: apiPerson.role as PersonRole,
@@ -117,7 +118,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   })
 
   // Helper to convert Incident to Operation
-  const apiIncidentToOperation = (incident: any): Operation => {
+  const apiIncidentToOperation = (incident: ApiIncident): Operation => {
     // Map incident status to operation status
     const statusMap: Record<string, OperationStatus> = {
       "eingegangen": "incoming",
@@ -128,56 +129,26 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       "abschluss": "complete",
     }
 
-    // Build crew assignments map from embedded assigned_personnel
-    const crewAssignments = new Map<string, string>()
-    const crew: string[] = []
-    if (incident.assigned_personnel) {
-      for (const person of incident.assigned_personnel) {
-        crew.push(person.name)
-        crewAssignments.set(person.name, person.assignment_id)
-      }
-    }
-
-    // Build material assignments map from embedded assigned_materials
-    const materialAssignments = new Map<string, string>()
-    const materials: string[] = []
-    if (incident.assigned_materials) {
-      for (const material of incident.assigned_materials) {
-        materials.push(material.material_id)
-        materialAssignments.set(material.material_id, material.assignment_id)
-      }
-    }
-
-    // Build vehicle assignments map from embedded assigned_vehicles
-    const vehicleAssignments = new Map<string, string>()
-    const vehicles: string[] = []
-    if (incident.assigned_vehicles) {
-      for (const vehicle of incident.assigned_vehicles) {
-        vehicles.push(vehicle.name)
-        vehicleAssignments.set(vehicle.name, vehicle.assignment_id)
-      }
-    }
-
     return {
       id: incident.id,
       location: incident.location_address || incident.title,
       vehicle: null, // Legacy field - kept for backward compatibility
-      vehicles,
+      vehicles: [], // Will be populated from assignments
       incidentType: incident.type || "Technische Hilfe",
       dispatchTime: new Date(incident.created_at),
-      crew,
+      crew: [], // Will be populated from assignments
       priority: incident.priority as "high" | "medium" | "low",
       status: statusMap[incident.status] || "incoming",
       coordinates: incident.location_lat && incident.location_lng
         ? [parseFloat(incident.location_lat), parseFloat(incident.location_lng)]
         : [47.51637699933488, 7.561800450458299],
-      materials,
+      materials: [], // Will be populated from assignments
       notes: incident.description || "",
       contact: "", // Not in incident schema
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
-      crewAssignments,
-      materialAssignments,
-      vehicleAssignments,
+      crewAssignments: new Map(),
+      materialAssignments: new Map(),
+      vehicleAssignments: new Map(),
     }
   }
 
@@ -202,8 +173,41 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Convert to frontend types
       const personnelList = apiPersonnel.map(apiPersonToPerson)
       const materialsList = apiMats.map(apiMaterialToMaterial)
-      // Assignments are now embedded in the incident response via eager loading
       const operations = apiIncidents.map(apiIncidentToOperation)
+
+      // Fetch vehicles for vehicle assignment lookups
+      const vehiclesList = await apiClient.getVehicles()
+
+      // Fetch ALL assignments for this event in a single bulk request (optimized - replaces N+1 query pattern)
+      try {
+        const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
+
+        // Populate crew/materials/vehicles for each operation from bulk data
+        operations.forEach((operation) => {
+          const assignments = assignmentsByIncident[operation.id] || []
+
+          for (const assignment of assignments) {
+            if (assignment.resource_type === "personnel") {
+              const person = personnelList.find(p => p.id === assignment.resource_id)
+              if (person) {
+                operation.crew.push(person.name)
+                operation.crewAssignments.set(person.name, assignment.id)
+              }
+            } else if (assignment.resource_type === "material") {
+              operation.materials.push(assignment.resource_id)
+              operation.materialAssignments.set(assignment.resource_id, assignment.id)
+            } else if (assignment.resource_type === "vehicle") {
+              const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+              if (vehicle) {
+                operation.vehicles.push(vehicle.name)
+                operation.vehicleAssignments.set(vehicle.name, assignment.id)
+              }
+            }
+          }
+        })
+      } catch (error) {
+        console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+      }
 
       // Calculate event-scoped availability
       const assignedPersonIds = new Set<string>()
@@ -273,8 +277,44 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // Convert to frontend types
         const personnelList = apiPersonnel.map(apiPersonToPerson)
         const materialsList = apiMats.map(apiMaterialToMaterial)
-        // Assignments are now embedded in the incident response via eager loading
         const operations = apiIncidents.map(apiIncidentToOperation)
+
+        // Fetch vehicles for vehicle assignment lookups
+        const vehiclesList = await apiClient.getVehicles()
+
+        // Fetch ALL assignments for this event in a single bulk request (optimized - replaces N+1 query pattern)
+        try {
+          const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
+
+          // Populate crew/materials/vehicles for each operation from bulk data
+          operations.forEach((operation) => {
+            const assignments = assignmentsByIncident[operation.id] || []
+
+            for (const assignment of assignments) {
+              if (assignment.resource_type === "personnel") {
+                // Find person by ID to get their name
+                const person = personnelList.find(p => p.id === assignment.resource_id)
+                if (person) {
+                  operation.crew.push(person.name)
+                  operation.crewAssignments.set(person.name, assignment.id)
+                }
+              } else if (assignment.resource_type === "material") {
+                // Add material ID to materials array
+                operation.materials.push(assignment.resource_id)
+                operation.materialAssignments.set(assignment.resource_id, assignment.id)
+              } else if (assignment.resource_type === "vehicle") {
+                // Find vehicle by ID to get its name
+                const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+                if (vehicle) {
+                  operation.vehicles.push(vehicle.name)
+                  operation.vehicleAssignments.set(vehicle.name, assignment.id)
+                }
+              }
+            }
+          })
+        } catch (error) {
+          console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+        }
 
         // Calculate event-scoped availability:
         // A person/material is "assigned" only if assigned to an incident in THIS event
@@ -321,7 +361,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     loadData()
 
-    // Poll for updates every 5 seconds (optimized for performance)
+    // Poll for updates every 5 seconds (optimized for performance while maintaining reasonable responsiveness)
     const pollInterval = setInterval(() => {
       // Only poll if not currently loading
       if (!isLoading) {
@@ -374,7 +414,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Call unassignment API
     if (isLoaded) {
       apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => console.error("Failed to unassign crew:", err))
+        .catch(err => {
+          console.error("Failed to unassign crew:", err)
+          toast.error("Fehler beim Entfernen", {
+            description: "Die Person konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+          })
+        })
     }
   }
 
@@ -420,7 +465,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Call unassignment API
     if (isLoaded) {
       apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => console.error("Failed to unassign material:", err))
+        .catch(err => {
+          console.error("Failed to unassign material:", err)
+          toast.error("Fehler beim Entfernen", {
+            description: "Das Material konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+          })
+        })
     }
   }
 
@@ -450,24 +500,27 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           "complete": "abschluss",
         }
 
-        const apiUpdates: any = {}
+        const apiUpdates: Partial<ApiIncidentUpdate> = {}
+        // Only include fields that exist in ApiIncidentUpdate
         if (updates.location !== undefined) apiUpdates.location_address = updates.location
-        if (updates.vehicle !== undefined) apiUpdates.vehicle = updates.vehicle
-        if (updates.incidentType !== undefined) apiUpdates.type = updates.incidentType
-        if (updates.dispatchTime !== undefined) apiUpdates.dispatch_time = updates.dispatchTime.toISOString()
-        if (updates.crew !== undefined) apiUpdates.crew = updates.crew
+        if (updates.incidentType !== undefined) apiUpdates.type = updates.incidentType as ApiIncidentUpdate['type']
         if (updates.priority !== undefined) apiUpdates.priority = updates.priority
-        if (updates.status !== undefined) apiUpdates.status = statusToBackend[updates.status]
+        if (updates.status !== undefined) apiUpdates.status = statusToBackend[updates.status] as ApiIncidentUpdate['status']
         if (updates.coordinates !== undefined) {
           apiUpdates.location_lat = updates.coordinates[0]?.toString()
           apiUpdates.location_lng = updates.coordinates[1]?.toString()
         }
-        if (updates.materials !== undefined) apiUpdates.materials = updates.materials
         if (updates.notes !== undefined) apiUpdates.description = updates.notes
-        if (updates.contact !== undefined) apiUpdates.contact = updates.contact
+        // Note: vehicle, crew, materials, contact, and dispatchTime are not part of the incident update API
+        // These are handled separately through assignment APIs or are legacy fields
 
         apiClient.updateIncident(operationId, apiUpdates)
-          .catch(err => console.error("Failed to update operation:", err))
+          .catch(err => {
+            console.error("Failed to update operation:", err)
+            toast.error("Fehler beim Aktualisieren", {
+              description: "Der Einsatz konnte nicht aktualisiert werden."
+            })
+          })
       }, 500)
     }
   }
@@ -668,6 +721,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // Validate vehicleId before proceeding
+    if (!vehicleId || vehicleId.trim() === '') {
+      console.error('[ERROR] Invalid vehicleId:', { vehicleId, vehicleName, operationId })
+      toast.error("Fehler", {
+        description: `Fahrzeug "${vehicleName}" hat keine gültige ID. Bitte laden Sie die Seite neu.`
+      })
+      return
+    }
+
     // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
@@ -676,6 +738,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Persist to database via assignment API
     if (isLoaded) {
       try {
+        console.log('[DEBUG] Assigning vehicle:', {
+          vehicleId,
+          vehicleName,
+          operationId,
+          isVehicleIdValid: !!vehicleId,
+          vehicleIdType: typeof vehicleId,
+        })
         const assignment = await apiClient.assignResource(operationId, {
           resource_type: "vehicle",
           resource_id: vehicleId,
@@ -739,7 +808,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Call unassignment API
     if (isLoaded) {
       apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => console.error("Failed to unassign vehicle:", err))
+        .catch(err => {
+          console.error("Failed to unassign vehicle:", err)
+          toast.error("Fehler beim Entfernen", {
+            description: "Das Fahrzeug konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+          })
+        })
     }
   }
 
@@ -931,12 +1005,24 @@ export function useIncidents() {
     setTrainingMode: (_trainingMode: boolean) => {}, // No-op for compatibility
     formatLocation: context.formatLocation,
     createIncident: async (data: any) => {
-      const apiIncident = await apiClient.createIncident(data)
+      // Convert frontend IncidentCreate to ApiIncidentCreate (number coords -> string coords)
+      const apiData: ApiIncidentCreate = {
+        ...data,
+        location_lat: data.location_lat != null ? String(data.location_lat) : null,
+        location_lng: data.location_lng != null ? String(data.location_lng) : null,
+      }
+      const apiIncident = await apiClient.createIncident(apiData)
       await context.refreshOperations()
       return apiIncident
     },
     updateIncident: async (id: string, data: any) => {
-      await apiClient.updateIncident(id, data)
+      // Convert frontend IncidentUpdate to ApiIncidentUpdate (number coords -> string coords)
+      const apiData: Partial<ApiIncidentUpdate> = {
+        ...data,
+        location_lat: data.location_lat != null ? String(data.location_lat) : data.location_lat === null ? null : undefined,
+        location_lng: data.location_lng != null ? String(data.location_lng) : data.location_lng === null ? null : undefined,
+      }
+      await apiClient.updateIncident(id, apiData)
       await context.refreshOperations()
     },
     deleteIncident: async (id: string) => {

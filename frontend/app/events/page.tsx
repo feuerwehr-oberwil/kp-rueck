@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEvent } from '@/lib/contexts/event-context'
 import type { Event } from '@/lib/types/incidents'
@@ -17,9 +17,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCircle2, Trash2, GraduationCap } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
+import { EventExportButton } from '@/components/event-export-button'
 
 export default function EventsPage() {
   const router = useRouter()
@@ -34,6 +35,8 @@ export default function EventsPage() {
   const [newEventTraining, setNewEventTraining] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [gPrefixActive, setGPrefixActive] = useState(false)
+  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Separate active and archived events
   const { activeEvents, archivedEvents } = useMemo(() => {
@@ -114,6 +117,78 @@ export default function EventsPage() {
     }
   }
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Esc to blur input or cancel g-prefix mode
+      if (e.key === 'Escape') {
+        if (gPrefixActive) {
+          setGPrefixActive(false)
+          if (gPrefixTimeoutRef.current) {
+            clearTimeout(gPrefixTimeoutRef.current)
+            gPrefixTimeoutRef.current = null
+          }
+          return
+        }
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+          (e.target as HTMLElement).blur()
+          return
+        }
+      }
+
+      // Ignore if typing in input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Handle g-prefix navigation
+      if (gPrefixActive) {
+        e.preventDefault()
+        setGPrefixActive(false)
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+          gPrefixTimeoutRef.current = null
+        }
+
+        if (e.key === 'k' || e.key === 'K') {
+          router.push('/')
+          return
+        } else if (e.key === 'm' || e.key === 'M') {
+          router.push('/map')
+          return
+        } else if (e.key === 'e' || e.key === 'E') {
+          // Already on Events, do nothing
+          return
+        }
+        return
+      }
+
+      // Activate g-prefix mode
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setGPrefixActive(true)
+        // Reset g-prefix mode after 1.5 seconds
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+        }
+        gPrefixTimeoutRef.current = setTimeout(() => {
+          setGPrefixActive(false)
+          gPrefixTimeoutRef.current = null
+        }, 1500)
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      // Clean up timeout on unmount
+      if (gPrefixTimeoutRef.current) {
+        clearTimeout(gPrefixTimeoutRef.current)
+      }
+    }
+  }, [gPrefixActive, router])
+
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
@@ -140,7 +215,7 @@ export default function EventsPage() {
               <Plus className="mr-2 h-4 w-4" />
               Neues Ereignis
             </Button>
-            <PageNavigation currentPage="settings" />
+            <PageNavigation currentPage="events" hasSelectedEvent={!!selectedEvent} />
           </div>
         </header>
 
@@ -185,10 +260,12 @@ export default function EventsPage() {
                           }`}
                         >
                           <CardHeader>
-                            <CardTitle className="text-lg">{event.name}</CardTitle>
-                            {event.training_flag && (
-                              <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
-                            )}
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              {event.name}
+                              {event.training_flag && (
+                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-2 text-sm text-muted-foreground">
@@ -197,23 +274,26 @@ export default function EventsPage() {
                               <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
                             </div>
 
-                            <div className="flex gap-2 mt-4">
-                              <Button
-                                className="flex-1"
-                                onClick={() => handleSelectEvent(event)}
-                              >
-                                Auswählen
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  setTargetEvent(event)
-                                  setShowArchiveDialog(true)
-                                }}
-                              >
-                                <Archive className="h-4 w-4" />
-                              </Button>
+                            <div className="mt-4">
+                              <div className="flex gap-2">
+                                <Button
+                                  className="flex-1"
+                                  onClick={() => handleSelectEvent(event)}
+                                >
+                                  Auswählen
+                                </Button>
+                                <EventExportButton eventId={event.id} eventName={event.name} />
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    setTargetEvent(event)
+                                    setShowArchiveDialog(true)
+                                  }}
+                                >
+                                  <Archive className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -233,10 +313,12 @@ export default function EventsPage() {
                           className="opacity-50 border-dashed"
                         >
                           <CardHeader>
-                            <CardTitle className="text-lg text-muted-foreground">{event.name}</CardTitle>
-                            {event.training_flag && (
-                              <p className="text-xs text-muted-foreground mt-1">Übungsmodus</p>
-                            )}
+                            <CardTitle className="text-lg text-muted-foreground flex items-center gap-2">
+                              {event.name}
+                              {event.training_flag && (
+                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </CardTitle>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-2 text-sm text-muted-foreground">
@@ -245,25 +327,28 @@ export default function EventsPage() {
                               <div>Archiviert: {new Date(event.archived_at!).toLocaleDateString('de-CH')}</div>
                             </div>
 
-                            <div className="flex gap-2 mt-4">
-                              <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => handleUnarchive(event)}
-                              >
-                                <ArchiveRestore className="mr-2 h-4 w-4" />
-                                Wiederherstellen
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                onClick={() => {
-                                  setTargetEvent(event)
-                                  setShowDeleteDialog(true)
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <div className="mt-4">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => handleUnarchive(event)}
+                                >
+                                  <ArchiveRestore className="mr-2 h-4 w-4" />
+                                  Wiederherstellen
+                                </Button>
+                                <EventExportButton eventId={event.id} eventName={event.name} />
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  onClick={() => {
+                                    setTargetEvent(event)
+                                    setShowDeleteDialog(true)
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>

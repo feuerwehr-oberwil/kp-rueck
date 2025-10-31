@@ -106,7 +106,9 @@ class VehicleBase(BaseModel):
 
     name: str
     type: str  # Configurable vehicle types (e.g., 'TLF', 'DLK', 'MTW')
+    display_order: int
     status: str  # 'available', 'assigned', 'planned', 'maintenance'
+    radio_call_sign: str
 
 
 class VehicleCreate(VehicleBase):
@@ -143,9 +145,11 @@ class Vehicle(VehicleBase):
 class MaterialBase(BaseModel):
     """Base material schema."""
 
-    name: str  # Descriptive name including type/location (e.g., 'pump small from car 1')
-    status: str  # 'available', 'assigned', 'planned', 'maintenance'
-    location: Optional[str] = None  # Storage location (e.g., 'TLF 1', 'Lager Raum 3')
+    name: str
+    type: str  # Material type (e.g., 'Atemschutz', 'Schläuche', 'Werkzeug')
+    location: str  # Storage location (e.g., 'TLF 1', 'Lager Raum 3')
+    description: Optional[str] = None
+    status: str = "available"  # 'available', 'assigned', 'planned', 'maintenance'
 
 
 class MaterialCreate(MaterialBase):
@@ -158,7 +162,7 @@ class MaterialUpdate(BaseModel):
     """Schema for updating material."""
 
     name: Optional[str] = None
-    status: Optional[str] = None
+    type: Optional[str] = None
     location: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
@@ -307,29 +311,6 @@ class AssignedVehicle(BaseModel):
     assigned_at: datetime
 
 
-class AssignedPersonnel(BaseModel):
-    """Personnel with assignment information."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    assignment_id: UUID  # ID of the assignment record
-    personnel_id: UUID
-    name: str
-    role: Optional[str] = None
-    assigned_at: datetime
-
-
-class AssignedMaterial(BaseModel):
-    """Material with assignment information."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    assignment_id: UUID  # ID of the assignment record
-    material_id: UUID
-    name: str
-    assigned_at: datetime
-
-
 class IncidentResponse(IncidentBase):
     """Full incident schema with database fields."""
 
@@ -343,8 +324,6 @@ class IncidentResponse(IncidentBase):
     completed_at: Optional[datetime] = None
     status_changed_at: Optional[datetime] = None  # Timestamp of last status transition
     assigned_vehicles: list[AssignedVehicle] = []  # List of assigned vehicles with details
-    assigned_personnel: list[AssignedPersonnel] = []  # List of assigned personnel with details
-    assigned_materials: list[AssignedMaterial] = []  # List of assigned materials with details
 
     @field_serializer('location_lat', 'location_lng')
     def serialize_decimal(self, value):
@@ -437,13 +416,6 @@ class User(UserBase):
 
 # Alias for API responses (matches task specification)
 UserResponse = User
-
-
-class PasswordChangeRequest(BaseModel):
-    """Schema for changing password."""
-
-    current_password: str
-    new_password: str
 
 
 # ============================================

@@ -36,14 +36,6 @@ export interface ApiEventListResponse {
   total: number
 }
 
-export interface ApiEventStats {
-  status_counts: Record<string, number>
-  personnel_available: number
-  personnel_total: number
-  avg_duration_minutes: number
-  resource_utilization_percent: number
-}
-
 // Resource Management Types
 export interface ApiPersonnel {
   id: string // UUID
@@ -146,42 +138,6 @@ export interface ApiAuditLog {
   user_agent: string | null
 }
 
-// User Management Types
-export interface ApiUser {
-  id: string // UUID
-  username: string
-  role: 'editor' | 'viewer'
-  created_at: string
-  last_login: string | null
-}
-
-export interface ApiUserCreate {
-  username: string
-  password: string
-  role: 'editor' | 'viewer'
-}
-
-export interface ApiUserUpdate {
-  username?: string
-  password?: string  // Optional password reset
-  role?: 'editor' | 'viewer'
-}
-
-export interface ApiUserListResponse {
-  users: ApiUser[]
-  total: number
-}
-
-export interface ApiPasswordChangeRequest {
-  current_password: string
-  new_password: string
-}
-
-export interface ApiEnvironmentInfo {
-  is_production: boolean
-  is_development: boolean
-}
-
 // Incident Types (new schema)
 export type IncidentType =
   | "brandbekaempfung"
@@ -216,21 +172,6 @@ export interface ApiAssignedVehicle {
   assigned_at: string
 }
 
-export interface ApiAssignedPersonnel {
-  assignment_id: string // UUID
-  personnel_id: string
-  name: string
-  role: string | null
-  assigned_at: string
-}
-
-export interface ApiAssignedMaterial {
-  assignment_id: string // UUID
-  material_id: string
-  name: string
-  assigned_at: string
-}
-
 export interface ApiIncident {
   id: string // UUID
   event_id: string // UUID - reference to parent event
@@ -248,8 +189,6 @@ export interface ApiIncident {
   completed_at: string | null
   status_changed_at: string | null // Timestamp of last status transition
   assigned_vehicles: ApiAssignedVehicle[]
-  assigned_personnel: ApiAssignedPersonnel[]
-  assigned_materials: ApiAssignedMaterial[]
 }
 
 export interface ApiIncidentCreate {
@@ -333,6 +272,59 @@ export interface ApiRekoFormResponse extends ApiRekoReportResponse {
   // Same as ApiRekoReportResponse, backend returns this on GET /form
 }
 
+// Excel Import/Export Types
+export interface ApiExcelImportPreview {
+  personnel_preview: Array<Record<string, any>>
+  personnel_total: number
+  vehicles_preview: Array<Record<string, any>>
+  vehicles_total: number
+  materials_preview: Array<Record<string, any>>
+  materials_total: number
+}
+
+export interface ApiExcelImportResult {
+  success: boolean
+  mode: string
+  counts: {
+    personnel: number
+    vehicles: number
+    materials: number
+  }
+  timestamp: string
+}
+
+// Training Automation Types
+export interface ApiEmergencyTemplate {
+  id: string // UUID
+  title_pattern: string
+  incident_type: string
+  category: 'normal' | 'critical'
+  message_pattern: string
+  created_at: string
+  is_active: boolean
+}
+
+export interface ApiTrainingLocation {
+  id: string // UUID
+  street: string
+  house_number: string
+  postal_code: string
+  city: string
+  building_type: string | null
+  latitude: number | null
+  longitude: number | null
+  is_active: boolean
+}
+
+// Event Stats Types
+export interface ApiEventStats {
+  status_counts: Record<string, number> // Keys are incident statuses as strings
+  personnel_available: number
+  personnel_total: number
+  avg_duration_minutes: number
+  resource_utilization_percent: number
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -356,8 +348,34 @@ class ApiClient {
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+        let errorText = ''
+        try {
+          errorText = await response.text()
+        } catch (e) {
+          errorText = 'Keine Fehlerdetails verfügbar'
+        }
+
+        // Don't log 401 errors for sync config - expected when not authenticated
+        const shouldLog = !(response.status === 401 && endpoint === '/api/sync/config')
+        if (shouldLog) {
+          console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+        }
+
+        // Don't throw error for 401 on sync config - it's handled gracefully by the component
+        if (response.status === 401 && endpoint === '/api/sync/config') {
+          throw new Error('Unauthorized') // Silent error that will be caught
+        }
+
+        // Try to parse as JSON for better error messages
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.detail) {
+            throw new Error(`API-Fehler: ${errorJson.detail}`)
+          }
+        } catch (e) {
+          // Not JSON, use text error
+        }
+
         throw new Error(`API-Fehler: ${response.status} ${response.statusText} - ${errorText}`)
       }
 
@@ -412,47 +430,6 @@ class ApiClient {
     return this.request<ApiAuditLog[]>(`/api/audit/resource/${resourceType}/${resourceId}`)
   }
 
-  // Environment Info
-  async getEnvironmentInfo(): Promise<ApiEnvironmentInfo> {
-    return this.request<ApiEnvironmentInfo>('/env')
-  }
-
-  // User Management
-  async getUsers(): Promise<ApiUserListResponse> {
-    return this.request<ApiUserListResponse>('/api/users/')
-  }
-
-  async getUser(userId: string): Promise<ApiUser> {
-    return this.request<ApiUser>(`/api/users/${userId}`)
-  }
-
-  async createUser(data: ApiUserCreate): Promise<ApiUser> {
-    return this.request<ApiUser>('/api/users/', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async updateUser(userId: string, data: ApiUserUpdate): Promise<ApiUser> {
-    return this.request<ApiUser>(`/api/users/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async deleteUser(userId: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/api/users/${userId}`, {
-      method: 'DELETE',
-    })
-  }
-
-  async changePassword(data: ApiPasswordChangeRequest): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/api/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
   // Settings
   async getAllSettings(): Promise<Record<string, string>> {
     return this.request<Record<string, string>>('/api/settings/')
@@ -467,39 +444,6 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ value }),
     })
-  }
-
-  // Sync Management (placeholder - backend not yet implemented)
-  async getSyncConfig(): Promise<SyncConfig> {
-    throw new Error('Sync feature not yet implemented on backend')
-  }
-
-  async updateSyncConfig(_config: SyncConfig): Promise<void> {
-    throw new Error('Sync feature not yet implemented on backend')
-  }
-
-  async getSyncStatus(): Promise<SyncStatusResponse> {
-    throw new Error('Sync feature not yet implemented on backend')
-  }
-
-  async getSyncHistory(_limit?: number): Promise<SyncHistoryEntry[]> {
-    throw new Error('Sync feature not yet implemented on backend')
-  }
-
-  async triggerSync(): Promise<SyncResult> {
-    throw new Error('Sync feature not yet implemented on backend')
-  }
-
-  async triggerSyncFromRailway(): Promise<void> {
-    throw new Error('Sync from Railway feature not yet implemented on backend')
-  }
-
-  async triggerSyncToRailway(): Promise<void> {
-    throw new Error('Sync to Railway feature not yet implemented on backend')
-  }
-
-  async triggerImmediateSync(): Promise<void> {
-    throw new Error('Immediate sync feature not yet implemented on backend')
   }
 
   // Event endpoints
@@ -546,14 +490,6 @@ class ApiClient {
     return this.request<void>(`/api/events/${eventId}/`, {
       method: 'DELETE',
     })
-  }
-
-  async getEventStats(eventId: string): Promise<ApiEventStats> {
-    throw new Error('Event stats feature not yet implemented on backend')
-  }
-
-  async generateTrainingEmergency(_eventId: string, _options: { category: string | null; count: number }): Promise<ApiIncident[]> {
-    throw new Error('Training emergency generation not yet implemented on backend')
   }
 
   // Incidents (now event-scoped)
@@ -746,6 +682,17 @@ class ApiClient {
     return this.request<ApiAssignment[]>(`/api/incidents/${incidentId}/assignments`)
   }
 
+  /**
+   * Get all assignments for all incidents in an event (bulk endpoint).
+   * Optimizes performance by fetching all assignments in one request instead of N requests.
+   *
+   * @param eventId - Event ID
+   * @returns Dictionary mapping incident_id to array of assignments
+   */
+  async getAssignmentsByEvent(eventId: string): Promise<Record<string, ApiAssignment[]>> {
+    return this.request<Record<string, ApiAssignment[]>>(`/api/assignments/by-event/${eventId}`)
+  }
+
   async releaseAllResources(incidentId: string): Promise<void> {
     return this.request<void>(`/api/incidents/${incidentId}/release-all`, {
       method: 'POST',
@@ -845,58 +792,149 @@ class ApiClient {
     return this.request<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
   }
 
-  // Excel Import/Export (placeholder methods - backend endpoints not yet implemented)
-  async previewExcelImport(_file: File): Promise<ApiExcelImportPreview> {
-    throw new Error('Excel import feature not yet implemented on backend')
-  }
-
-  async executeExcelImport(_file: File, _mode: 'replace' | 'append'): Promise<ApiExcelImportResult> {
-    throw new Error('Excel import feature not yet implemented on backend')
-  }
-
+  // Excel Import/Export
   async downloadImportTemplate(): Promise<Blob> {
-    throw new Error('Excel template download not yet implemented on backend')
+    const url = `${this.baseUrl}/api/admin/import/template`
+    const response = await fetch(url, {
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to download template: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
+  async previewExcelImport(file: File): Promise<ApiExcelImportPreview> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const url = `${this.baseUrl}/api/admin/import/preview`
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Preview failed: ${errorText}`)
+    }
+
+    return response.json()
+  }
+
+  async executeExcelImport(file: File, mode: 'replace' | 'append' = 'replace'): Promise<ApiExcelImportResult> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('mode', mode)
+
+    const url = `${this.baseUrl}/api/admin/import/execute`
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Import failed: ${errorText}`)
+    }
+
+    return response.json()
   }
 
   async exportAllData(): Promise<Blob> {
-    throw new Error('Excel export feature not yet implemented on backend')
+    const url = `${this.baseUrl}/api/admin/export/data`
+    const response = await fetch(url, {
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
   }
 
-  async exportEvent(_eventId: string): Promise<Blob> {
-    throw new Error('Event export feature not yet implemented on backend')
+  // Event Export
+  async exportEvent(eventId: string): Promise<Blob> {
+    const url = `${this.baseUrl}/api/exports/events/${eventId}`
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Event export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
   }
-}
 
-// Excel Import/Export Types
-export interface ApiExcelImportPreview {
-  personnel_total: number
-  personnel_preview: Array<{
-    name: string
-    role: string | null
-    availability: string
-  }>
-  vehicles_total: number
-  vehicles_preview: Array<{
-    name: string
-    type: string
-    display_order: number
-    status: string
-    radio_call_sign: string
-  }>
-  materials_total: number
-  materials_preview: Array<{
-    name: string
-    type: string
-    location: string
-    description: string | null
-  }>
-}
+  // Event Stats
+  async getEventStats(eventId: string): Promise<ApiEventStats> {
+    return this.request<ApiEventStats>(`/api/events/${eventId}/stats`)
+  }
 
-export interface ApiExcelImportResult {
-  counts: {
-    personnel: number
-    vehicles: number
-    materials: number
+  // Training Automation
+  async generateTrainingEmergency(
+    eventId: string,
+    request: { category?: 'normal' | 'critical' | null; count?: number }
+  ): Promise<ApiIncident[]> {
+    return this.request<ApiIncident[]>(`/api/training/events/${eventId}/generate/`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  async getEmergencyTemplates(category?: string): Promise<ApiEmergencyTemplate[]> {
+    const params = category ? `?category=${encodeURIComponent(category)}` : ''
+    return this.request<ApiEmergencyTemplate[]>(`/api/training/templates/${params}`)
+  }
+
+  async getTrainingLocations(): Promise<ApiTrainingLocation[]> {
+    return this.request<ApiTrainingLocation[]>('/api/training/locations/')
+  }
+
+  // Sync endpoints
+  async getSyncStatus(): Promise<SyncStatusResponse> {
+    return this.request<SyncStatusResponse>('/api/sync/status')
+  }
+
+  async getSyncHistory(limit?: number): Promise<SyncHistoryEntry[]> {
+    const params = limit ? `?limit=${limit}` : ''
+    return this.request<SyncHistoryEntry[]>(`/api/sync/history${params}`)
+  }
+
+  async getSyncConfig(): Promise<SyncConfig> {
+    return this.request<SyncConfig>('/api/sync/config')
+  }
+
+  async updateSyncConfig(config: SyncConfig): Promise<SyncConfig> {
+    return this.request<SyncConfig>('/api/sync/config', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    })
+  }
+
+  async triggerSyncFromRailway(): Promise<SyncResult> {
+    return this.request<SyncResult>('/api/sync/from-railway', {
+      method: 'POST',
+    })
+  }
+
+  async triggerSyncToRailway(): Promise<SyncResult> {
+    return this.request<SyncResult>('/api/sync/to-railway', {
+      method: 'POST',
+    })
+  }
+
+  async triggerImmediateSync(): Promise<SyncResult> {
+    return this.request<SyncResult>('/api/sync/trigger-immediate', {
+      method: 'POST',
+    })
   }
 }
 

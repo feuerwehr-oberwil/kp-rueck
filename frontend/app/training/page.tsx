@@ -36,6 +36,7 @@ export default function TrainingPage() {
             <h1 className="text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
             <PageNavigation
               currentPage="training"
+              hasSelectedEvent={!!selectedEvent}
             />
           </header>
 
@@ -60,6 +61,7 @@ export default function TrainingPage() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
           <PageNavigation
             currentPage="training"
+            hasSelectedEvent={!!selectedEvent}
           />
         </header>
 

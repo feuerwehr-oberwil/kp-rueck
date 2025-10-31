@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search, Siren } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
@@ -54,6 +55,7 @@ export default function MapPage() {
     assignVehicleToOperation,
     deleteOperation
   } = useOperations()
+  const { selectedEvent, isEventLoaded } = useEvent()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -65,6 +67,9 @@ export default function MapPage() {
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
+  const [gPrefixActive, setGPrefixActive] = useState(false)
+  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const mapRef = useRef<any>(null)
 
   const selectedIncident = useMemo(
     () => incidents.find((inc) => inc.id === selectedIncidentId),
@@ -169,15 +174,71 @@ export default function MapPage() {
     }
   }, [highlightParam])
 
+  // Redirect to events page if no event is selected (only after event is loaded from localStorage)
+  useEffect(() => {
+    if (isEventLoaded && !selectedEvent) {
+      router.push('/events')
+    }
+  }, [isEventLoaded, selectedEvent, router])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Esc to blur input or cancel g-prefix mode
+      if (e.key === 'Escape') {
+        if (gPrefixActive) {
+          setGPrefixActive(false)
+          if (gPrefixTimeoutRef.current) {
+            clearTimeout(gPrefixTimeoutRef.current)
+            gPrefixTimeoutRef.current = null
+          }
+          return
+        }
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+          (e.target as HTMLElement).blur()
+          return
+        }
+      }
+
       // Ignore if typing in input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        // Allow Esc to blur from input
-        if (e.key === 'Escape') {
-          (e.target as HTMLElement).blur()
+        return
+      }
+
+      // Handle g-prefix navigation
+      if (gPrefixActive) {
+        e.preventDefault()
+        setGPrefixActive(false)
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+          gPrefixTimeoutRef.current = null
         }
+
+        if (e.key === 'k' || e.key === 'K') {
+          router.push('/')
+          return
+        } else if (e.key === 'm' || e.key === 'M') {
+          // Already on Map, do nothing
+          return
+        } else if (e.key === 'e' || e.key === 'E') {
+          router.push('/events')
+          return
+        }
+        return
+      }
+
+      // Activate g-prefix mode
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setGPrefixActive(true)
+        // Reset g-prefix mode after 1.5 seconds
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+        }
+        gPrefixTimeoutRef.current = setTimeout(() => {
+          setGPrefixActive(false)
+          gPrefixTimeoutRef.current = null
+        }, 1500)
         return
       }
 
@@ -186,17 +247,44 @@ export default function MapPage() {
         e.preventDefault()
         document.getElementById('map-search-input')?.focus()
       }
-      // 'z' key to zoom out
-      else if (e.key === 'z' || e.key === 'Z') {
+      // 'z' key to reset zoom
+      else if ((e.key === 'z' || e.key === 'Z') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+z/ctrl+z for undo)
         e.preventDefault()
         setResetZoomTrigger((prev) => prev + 1)
-        setSelectedIncidentId(null) // Deselect any selected incident
+        setSelectedIncidentId(null)
       }
+      // 'e' or 'Enter' key to open details for selected incident
+      else if ((((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') && selectedIncidentId) {
+        // Only use 'e' if no modifier keys (Enter always works)
+        e.preventDefault()
+        const incident = incidents.find(inc => inc.id === selectedIncidentId)
+        if (incident) {
+          handleDetailsClick(incident)
+        }
+      }
+      // 'r' or 'F5' key to refresh data
+      else if ((e.key === 'r' || e.key === 'R' || e.key === 'F5') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys are pressed
+        // This allows cmd+r / ctrl+r to work normally for browser refresh
+        e.preventDefault()
+        refreshIncidents()
+        toast.success("Daten aktualisiert")
+      }
+      // Arrow keys to pan map (placeholder - would need to integrate with Leaflet map)
+      // Note: Actual map panning would require access to the Leaflet map instance
+      // For now, this is documented but not fully implemented
     }
 
     window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [])
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      // Clean up timeout on unmount
+      if (gPrefixTimeoutRef.current) {
+        clearTimeout(gPrefixTimeoutRef.current)
+      }
+    }
+  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick])
 
   return (
     <ProtectedRoute>
@@ -218,7 +306,7 @@ export default function MapPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <PageNavigation currentPage="map" />
+            <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
           </div>
         </header>
 
