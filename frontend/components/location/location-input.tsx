@@ -61,7 +61,7 @@ export function LocationInput({
   const [coordinateWarning, setCoordinateWarning] = useState<string | null>(null)
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
 
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+  const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Only render map picker on client side
   useEffect(() => {

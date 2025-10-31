@@ -90,10 +90,10 @@ export function MapPickerModal({
   // Memoize center to prevent unnecessary re-renders
   const center: LatLngExpression = useMemo(() => {
     if (selectedLat !== null && selectedLon !== null) {
-      return [selectedLat, selectedLon]
+      return [selectedLat, selectedLon] as LatLngExpression
     }
     if (initialLat !== null && initialLon !== null) {
-      return [initialLat, initialLon]
+      return [initialLat, initialLon] as LatLngExpression
     }
     return defaultCenter
   }, [selectedLat, selectedLon, initialLat, initialLon])

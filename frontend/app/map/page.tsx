@@ -19,6 +19,8 @@ import { STATUS_LABELS, INCIDENT_TYPE_LABELS } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { Menu } from "lucide-react"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -59,9 +61,11 @@ export default function MapPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
+  const isMobile = useIsMobile()
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
   )
+  const [showSidebar, setShowSidebar] = useState(!isMobile)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
@@ -296,6 +300,17 @@ export default function MapPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-lg"
+                onClick={() => setShowSidebar(!showSidebar)}
+                title="Einsatzliste anzeigen"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-2xl shadow-lg">
               🚒
             </div>
@@ -331,7 +346,8 @@ export default function MapPage() {
           </main>
 
           {/* Sidebar */}
-          <aside className="w-96 border-l border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto">
+          {showSidebar && (
+            <aside className={`${isMobile ? 'absolute inset-y-0 right-0 z-50 w-full sm:w-96' : 'w-96'} border-l border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto`}>
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">
                 Aktive Einsätze ({activeIncidents.length})
@@ -348,9 +364,11 @@ export default function MapPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 pr-8"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Kbd className="text-xs">/</Kbd>
-                </div>
+                {!isMobile && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Kbd className="text-xs">/</Kbd>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -496,6 +514,7 @@ export default function MapPage() {
               </div>
             </div>
           </aside>
+          )}
         </div>
 
         {/* Operation Detail Modal */}
