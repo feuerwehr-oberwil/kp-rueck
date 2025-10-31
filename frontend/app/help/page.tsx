@@ -238,7 +238,7 @@ export default function HelpPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+      <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
         <div className="flex items-center gap-3">
           <BookOpen className="w-8 h-8 text-primary" />
           <div>

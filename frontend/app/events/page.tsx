@@ -193,7 +193,7 @@ export default function EventsPage() {
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-orange-600 to-red-600 text-2xl shadow-lg">

@@ -21,7 +21,7 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
   return (
     <div className="flex items-center gap-2">
         {/* Kanban Icon */}
-        <Link href="/" className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+        <Link href="/" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"
@@ -34,7 +34,7 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
         </Link>
 
         {/* Map Icon */}
-        <Link href="/map" className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+        <Link href="/map" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"
@@ -47,7 +47,7 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
         </Link>
 
         {/* Combined View Icon */}
-        <Link href="/combined" className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+        <Link href="/combined" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"
@@ -60,7 +60,7 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
         </Link>
 
         {/* Events Icon */}
-        <Link href="/events">
+        <Link href="/events" prefetch={true}>
           <Button
             variant="ghost"
             size="icon"
@@ -73,7 +73,7 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
         </Link>
 
         {/* Help Button */}
-        <Link href="/help">
+        <Link href="/help" prefetch={true}>
           <Button
             variant="ghost"
             size="icon"

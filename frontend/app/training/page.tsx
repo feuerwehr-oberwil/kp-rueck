@@ -32,7 +32,7 @@ export default function TrainingPage() {
     return (
       <ProtectedRoute>
         <div className="flex h-screen flex-col bg-background text-foreground">
-          <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+          <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
             <h1 className="text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
             <PageNavigation
               currentPage="training"
@@ -57,7 +57,7 @@ export default function TrainingPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sm:px-6 py-4">
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sm:px-6 py-4 min-h-20">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
           <PageNavigation
             currentPage="training"
