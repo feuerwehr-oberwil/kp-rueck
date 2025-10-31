@@ -7,13 +7,14 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, Menu } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
@@ -78,6 +79,7 @@ export default function FireStationDashboard() {
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [gPrefixActive, setGPrefixActive] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use ref to track drag state more reliably
@@ -706,51 +708,111 @@ export default function FireStationDashboard() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4">
           <div className="flex items-center gap-3">
             {selectedEvent ? (
               <>
-                <h1 className="text-2xl font-bold tracking-tight">{selectedEvent.name}</h1>
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight">{selectedEvent.name}</h1>
                 {selectedEvent.training_flag && (
-                  <Badge variant="secondary">Übung</Badge>
+                  <Badge variant="secondary" className="hidden sm:inline-flex">Übung</Badge>
                 )}
               </>
             ) : (
-              <h1 className="text-2xl font-bold tracking-tight text-muted-foreground">Kein Ereignis ausgewählt</h1>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-muted-foreground">Kein Ereignis ausgewählt</h1>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="search-input"
-                type="text"
-                placeholder="Suchen..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={isMobile ? "w-full pl-9" : "w-72 pl-9"}
-              />
-              {!isMobile && (
+          {/* Desktop Navigation */}
+          {!isMobile && (
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="search-input"
+                  type="text"
+                  placeholder="Suchen..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-72 pl-9"
+                />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                   <Kbd>/</Kbd>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-lg font-semibold tabular-nums">
-                {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
-              </span>
-            </div>
+              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono text-lg font-semibold tabular-nums">
+                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+                </span>
+              </div>
 
-            <PageNavigation
-              currentPage="kanban"
-              vehicleTypes={vehicleTypes}
-              hasSelectedEvent={!!selectedEvent}
-            />
-          </div>
+              <PageNavigation
+                currentPage="kanban"
+                vehicleTypes={vehicleTypes}
+                hasSelectedEvent={!!selectedEvent}
+              />
+            </div>
+          )}
+
+          {/* Mobile Burger Menu */}
+          {isMobile && (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-80">
+                <SheetHeader>
+                  <SheetTitle>Menu</SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col gap-6 mt-6">
+                  {/* Search */}
+                  <div>
+                    <label className="text-sm font-semibold text-muted-foreground mb-2 block">
+                      Suchen
+                    </label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="Einsätze suchen..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Time */}
+                  <div>
+                    <label className="text-sm font-semibold text-muted-foreground mb-2 block">
+                      Aktuelle Zeit
+                    </label>
+                    <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-3">
+                      <Clock className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-mono text-xl font-semibold tabular-nums">
+                        {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Navigation */}
+                  <div>
+                    <label className="text-sm font-semibold text-muted-foreground mb-2 block">
+                      Navigation
+                    </label>
+                    <PageNavigation
+                      currentPage="kanban"
+                      vehicleTypes={vehicleTypes}
+                      hasSelectedEvent={!!selectedEvent}
+                    />
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
         </header>
 
         <div className="flex flex-1 overflow-hidden">
