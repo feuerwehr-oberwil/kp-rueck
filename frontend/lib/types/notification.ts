@@ -6,8 +6,6 @@ export type NotificationType =
   | 'no_materials'
   | 'fatigue_warning'
   | 'missing_location'
-  | 'missing_personnel'
-  | 'missing_vehicle'
   | 'event_size_limit'
 
 export interface Notification {
