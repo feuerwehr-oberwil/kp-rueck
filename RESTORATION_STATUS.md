@@ -194,8 +194,51 @@ Before re-integrating next feature, verify:
 3. **Git worktrees require immediate pushing** - Commits must be pushed to main immediately
 4. **Incremental restoration is safer** - Slowly re-add features rather than bulk restoration
 5. **Verify each change individually** - Test each commit before moving to the next
+6. **⚠️ CRITICAL: Beware of contaminated worktrees** (Added 2025-10-31)
+   - **Issue:** Frontend worktree contained old commits (`03fd1ff` through `84f9290`) that should have been removed
+   - **Impact:** When merging from frontend worktree to trigger Railway rebuild, it brought in 29,020 lines of deletions
+   - **Root Cause:** Worktree was not synchronized with main after history rewrite
+   - **Solution:** Always verify worktree state before merging; use `git log` to check for unwanted commits
+   - **Prevention:** Work directly on main branch when possible, or reset worktrees after major repository changes
+
+## Incident Log
+
+### 2025-10-31: Contaminated Frontend Worktree Merge ⚠️
+
+**Incident:**
+While attempting to trigger Railway rebuild with dummy commits, a merge from the frontend worktree accidentally brought in old broken code that should have been removed from repository history.
+
+**Timeline:**
+- `2e26a75` - chore: trigger Railway backend rebuild (successful whitespace change on backend)
+- `74656e6` - chore: trigger Railway frontend rebuild (created in contaminated frontend worktree)
+- `ea60569` - merge: resolve docker-compose conflicts (BAD MERGE - brought in commits `03fd1ff` through `84f9290`)
+- `26c5254` - Revert "merge: resolve docker-compose conflicts" (RECOVERY - reverted bad merge)
+- `8c15cd0` - chore: trigger Railway rebuild after revert (clean rebuild trigger)
+
+**Impact:**
+- Merge deleted 29,020 lines including:
+  - `frontend/lib/hooks/use-map-mode.ts`
+  - `ARCHITECTURE.md`
+  - Sync configuration settings
+  - Task documentation
+- All features were restored by reverting the merge commit
+
+**Root Cause:**
+The frontend worktree at `/Users/beichenberger/Github/kp-rueck-frontend/frontend` was not synchronized with the main branch after the repository restoration. It still contained commits `03fd1ff` through `84f9290` which were marked for removal in this document.
+
+**Resolution:**
+- Successfully reverted merge commit `ea60569` with commit `26c5254`
+- All deleted files were restored
+- Created new rebuild trigger commit `8c15cd0` directly on main branch
+- **Frontend worktree needs cleanup** - should be reset to match clean main branch state
+
+**Action Items:**
+- [ ] Reset frontend worktree to match main branch: `cd /Users/beichenberger/Github/kp-rueck-frontend && git reset --hard origin/main`
+- [ ] Verify worktree state before any future merges
+- [ ] Consider working exclusively on main branch for critical operations
 
 ---
 
-**Status:** ✅ **STABLE + SECURITY + OFFLINE MAPS** - All core features restored, security fixes and offline map tiles re-integrated
-**Next Action:** Monitor Railway deployment, then re-integrate documentation updates
+**Status:** ✅ **STABLE + SECURITY + OFFLINE MAPS** - All core features restored after incident recovery
+**Current Commit:** `8c15cd0` - chore: trigger Railway rebuild after revert
+**Next Action:** Monitor Railway deployment, verify all features work, then re-integrate documentation updates
