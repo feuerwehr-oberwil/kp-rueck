@@ -1,7 +1,7 @@
 # Restoration Status
 
 **Date:** 2025-10-30
-**Current Commit:** `27445b7` - security: re-integrate critical security fixes
+**Current Commit:** `4832f5b` - feat: re-integrate offline map tiles with automatic online/offline fallback
 
 ## Summary
 
@@ -30,11 +30,17 @@ The repository has been successfully reverted to a clean state (based on commit 
   - JWT-based Reko tokens with 24-hour expiration
   - Authenticated photo access with audit logging
   - Path traversal protection
+- ✅ **Offline Map Tiles (re-integrated):**
+  - TileServer GL for Basel-Landschaft region (zoom 0-17)
+  - Automatic online/offline fallback
+  - Free Geofabrik OSM data source
+  - Tile management scripts and tools
 
 **Base Commit:**
 - `b084321` - fix: add missing react-markdown dependencies and fix PageNavigation props
 - `071258b` - chore: trigger Railway rebuild (meaningless whitespace change to trigger deployment)
 - `27445b7` - security: re-integrate critical security fixes ✅
+- `4832f5b` - feat: re-integrate offline map tiles with automatic online/offline fallback ✅
 
 ## Re-integrated Features ✅
 
@@ -71,23 +77,51 @@ The following features have been successfully re-integrated and are now active:
 
 **Status:** ✅ Successfully re-integrated on 2025-10-30
 
+### 2. Offline Map Tiles 🗺️ ✅
+**Original Commits:**
+- `86cfaf8` - feat: implement offline map tiles with automatic online/offline fallback
+- `40eff43` - chore: update tile download script to use free Geofabrik OSM data
+- `b4712db` - feat: add OSM to MBTiles conversion and installation scripts
+**Re-integration Commit:** `4832f5b` - feat: re-integrate offline map tiles with automatic online/offline fallback
+
+**Changes:**
+- TileServer GL service added to docker-compose (port 8080)
+- Coverage: Basel-Landschaft region, zoom levels 0-17
+- Auto mode: Try online OSM first, fall back to offline on failure
+- Online mode: Always use OpenStreetMap tiles
+- Offline mode: Always use local TileServer GL tiles
+- MBTiles support for offline operation
+- Free Geofabrik OSM data source (100% legal, no costs)
+- Tile management scripts:
+  - download-tiles.sh: Automated tile setup
+  - convert-osm-to-tiles.sh: OSM to MBTiles conversion
+  - install-tiles.sh: Install pre-downloaded tiles
+- Makefile commands: tiles-setup, tiles-status, tiles-help, restart-tileserver
+- Comprehensive OFFLINE_MAPS.md documentation
+
+**Files Added:**
+- `OFFLINE_MAPS.md`
+- `tileserver-config.json`
+- `scripts/download-tiles.sh`
+- `scripts/convert-osm-to-tiles.sh`
+- `scripts/install-tiles.sh`
+
+**Files Modified:**
+- `docker-compose.yml`
+- `docker-compose.dev.yml`
+- `CLAUDE.md`
+- `Makefile`
+- Frontend: `lib/hooks/use-map-mode.ts` (already present)
+- Frontend: `components/map-view.tsx` (already present)
+- Frontend: `app/settings/page.tsx` (already present)
+
+**Status:** ✅ Successfully re-integrated on 2025-10-30
+
 ## Pending Features (Not Yet Re-integrated) ⏳
 
 The following features were developed after `b084321` but have **not yet been re-integrated**. They will be slowly added back after verification:
 
-### 1. Offline Map Tiles 🗺️
-**Commits:**
-- `86cfaf8` - feat: implement offline map tiles with automatic online/offline fallback
-- `40eff43` - chore: update tile download script to use free Geofabrik OSM data
-- `b4712db` - feat: add OSM to MBTiles conversion and installation scripts
-
-**Changes:**
-- Automatic online/offline tile fallback
-- MBTiles support for offline operation
-- OSM to MBTiles conversion scripts
-- Geofabrik data source integration
-
-### 3. Documentation Updates 📚
+### 1. Documentation Updates 📚
 **Commits:**
 - `87e159c` - feat: add offline map tiles task documentation (Phase 16)
 - `6c5262b` - docs: comprehensive help system restructure and validation
@@ -121,12 +155,13 @@ The following problematic commits have been **permanently removed** from the rep
    - Tested thoroughly - backend server starts without errors
    - Critical security features now active
 
-3. **Re-integrate Offline Map Tiles** (NEXT)
-   - Apply commits `86cfaf8`, `40eff43`, `b4712db`
-   - Test online/offline fallback
-   - Verify tile serving works correctly
+3. **Re-integrate Offline Map Tiles** ✅ COMPLETED
+   - Applied commits `86cfaf8`, `40eff43`, `b4712db`
+   - Backend server starts without errors
+   - TileServer GL configured and ready
+   - Frontend integration already present
 
-4. **Re-integrate Documentation Updates** (FINAL)
+4. **Re-integrate Documentation Updates** (NEXT)
    - Apply commits `87e159c`, `6c5262b`
    - Verify help system improvements
 
@@ -162,5 +197,5 @@ Before re-integrating next feature, verify:
 
 ---
 
-**Status:** ✅ **STABLE + SECURITY ENHANCED** - All core features restored and security fixes re-integrated
-**Next Action:** Monitor Railway deployment, then re-integrate offline map tiles
+**Status:** ✅ **STABLE + SECURITY + OFFLINE MAPS** - All core features restored, security fixes and offline map tiles re-integrated
+**Next Action:** Monitor Railway deployment, then re-integrate documentation updates
