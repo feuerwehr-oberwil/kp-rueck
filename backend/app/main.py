@@ -14,6 +14,7 @@ from .api.auth import router as auth_router
 from .api.audit import router as audit_router
 from .api.events import router as events_router
 from .api.exports import router as exports_router
+from .api.health import router as health_router
 from .api.help import router as help_router
 from .api.incidents import router as incidents_router
 from .api.materials import router as materials_router
@@ -121,6 +122,7 @@ app.add_middleware(
 app.add_middleware(AuditMiddleware)
 
 # Include routers
+app.include_router(health_router)  # No prefix - available at /health
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
@@ -148,11 +150,5 @@ app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 async def root() -> dict[str, str]:
     """Root endpoint."""
     return {"message": f"{settings.project_name} - FastAPI Backend"}
-
-
-@app.get("/health")
-async def health() -> dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "healthy"}
 
 

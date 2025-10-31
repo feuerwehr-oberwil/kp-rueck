@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..models import User
 from .security import decode_token
+from .config import auth_settings
 
 
 async def get_current_user(
@@ -25,7 +26,22 @@ async def get_current_user(
 
     Raises:
         HTTPException 401: If token missing, invalid, or user not found
+
+    Note: If AUTH_BYPASS_AUTH_DEV is enabled (development only), returns a mock editor user.
     """
+    # Development bypass mode - return mock user
+    if auth_settings.is_auth_bypassed:
+        # Create a mock user for development
+        mock_user = User(
+            id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
+            username="dev-user",
+            password_hash="",  # Not used in bypass mode
+            role="editor",
+        )
+        # Set on request state for logging/audit
+        request.state.user = mock_user
+        return mock_user
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Anmeldedaten konnten nicht validiert werden",
