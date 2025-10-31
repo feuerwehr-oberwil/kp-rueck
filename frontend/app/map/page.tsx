@@ -70,6 +70,7 @@ export default function MapPage() {
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
+  const [panTrigger, setPanTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [gPrefixActive, setGPrefixActive] = useState(false)
@@ -80,6 +81,16 @@ export default function MapPage() {
     () => incidents.find((inc) => inc.id === selectedIncidentId),
     [incidents, selectedIncidentId]
   )
+
+  const handleIncidentClick = (incidentId: string) => {
+    if (incidentId === selectedIncidentId) {
+      // Re-clicking same incident - trigger pan
+      setPanTrigger(prev => prev + 1)
+    } else {
+      // Different incident - update selection
+      setSelectedIncidentId(incidentId)
+    }
+  }
 
   const handleDetailsClick = (incident: Incident) => {
     // Find the corresponding operation
@@ -361,21 +372,13 @@ export default function MapPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Map */}
-          <main
-            className="flex-1 p-4"
-            onClick={(e) => {
-              // Check if click was on the main container (not on a child element)
-              if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('leaflet-container')) {
-                setSelectedIncidentId(null)
-                setResetZoomTrigger((prev) => prev + 1)
-              }
-            }}
-          >
+          <main className="flex-1 p-4">
             <MapView
               selectedIncidentId={selectedIncidentId}
-              onMarkerClick={setSelectedIncidentId}
+              onMarkerClick={handleIncidentClick}
               onDetailsClick={handleDetailsClick}
               resetZoomTrigger={resetZoomTrigger}
+              panTrigger={panTrigger}
             />
           </main>
 
@@ -421,7 +424,7 @@ export default function MapPage() {
                             ? "border-primary ring-2 ring-primary/20 scale-[1.02]"
                             : ""
                         }`}
-                        onClick={() => setSelectedIncidentId(incident.id)}
+                        onClick={() => handleIncidentClick(incident.id)}
                       >
                         <div className="space-y-3">
                           {/* Location and Details button */}
