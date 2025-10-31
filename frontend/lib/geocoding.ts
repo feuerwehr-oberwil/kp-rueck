@@ -33,34 +33,86 @@ const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org'
 const USER_AGENT = 'KP-Rueck/1.0' // Required by Nominatim usage policy
 
 /**
- * Format a Nominatim result into a natural, readable address
+ * Format a Nominatim result into a concise, natural address
+ * Example: "Löchlimattstrasse 1, 4104 Oberwil" (not the full OSM display_name)
+ * ALWAYS returns a short, clean address - never the full display_name
  */
 function formatNaturalAddress(result: GeocodingResult): string {
   const addr = result.address
-  if (!addr) return result.display_name
 
-  const parts: string[] = []
+  // Try to build from structured address data first
+  if (addr) {
+    const parts: string[] = []
 
-  // Street and number
-  if (addr.road) {
-    if (addr.house_number) {
+    // Street and house number
+    if (addr.road && addr.house_number) {
       parts.push(`${addr.road} ${addr.house_number}`)
-    } else {
+    } else if (addr.road) {
       parts.push(addr.road)
     }
-  }
 
-  // City/town
-  const city = addr.city || addr.town || addr.village || addr.municipality
-  if (city) {
-    if (addr.postcode) {
+    // City with postcode
+    const city = addr.city || addr.town || addr.village || addr.municipality
+    if (city && addr.postcode) {
       parts.push(`${addr.postcode} ${city}`)
-    } else {
+    } else if (city) {
       parts.push(city)
+    }
+
+    // If we got meaningful parts, return them (max 2 parts)
+    if (parts.length > 0) {
+      return parts.slice(0, 2).join(', ')
     }
   }
 
-  return parts.length > 0 ? parts.join(', ') : result.display_name
+  // Fallback: aggressively truncate display_name
+  return truncateDisplayName(result.display_name)
+}
+
+/**
+ * Aggressively truncate OSM display_name to ONLY street + city
+ * Example: "1, Löchlimattstrasse, Im Goldbrunnen, Oberwil, Bezirk Arlesheim, Basel-Landschaft, 4104, Switzerland"
+ * Becomes: "Löchlimattstrasse, Oberwil"
+ */
+function truncateDisplayName(displayName: string): string {
+  const parts = displayName.split(',').map(p => p.trim())
+
+  // If already short, return as-is
+  if (parts.length <= 2) {
+    return displayName
+  }
+
+  // Extract meaningful parts:
+  // Usually OSM format: [house_number, street, district/area, city, region, postcode, country]
+  // We want: street + city only
+
+  let streetPart = parts[0]
+  let cityPart = parts[parts.length - 3] || parts[parts.length - 2]
+
+  // Skip house number if it's the first part (just digits)
+  if (streetPart.match(/^\d+$/)) {
+    streetPart = parts[1] || streetPart
+  }
+
+  // Find the actual city (avoid "Bezirk X" or regions)
+  for (let i = parts.length - 4; i >= 2 && i < parts.length - 1; i++) {
+    const part = parts[i]
+    // Skip if it looks like a region/district (contains "Bezirk" or is too long)
+    if (!part.includes('Bezirk') && !part.includes('Landschaft') && part.length < 30) {
+      cityPart = part
+      break
+    }
+  }
+
+  // Clean result
+  const result = `${streetPart}, ${cityPart}`
+
+  // Final safety: if still too long (>60 chars), truncate hard
+  if (result.length > 60) {
+    return result.substring(0, 57) + '...'
+  }
+
+  return result
 }
 
 /**
