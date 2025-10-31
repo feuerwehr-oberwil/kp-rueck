@@ -162,7 +162,7 @@ export default function AuditLogPage() {
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button variant="ghost" size="icon">
