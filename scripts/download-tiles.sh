@@ -19,32 +19,17 @@ echo "and generate offline map tiles for the Basel-Landschaft region."
 echo ""
 echo "Source: Geofabrik (https://geofabrik.de) - 100% Free & Legal"
 echo "Expected download size: ~500 MB OSM data"
-echo "This may take 5-15 minutes depending on your connection."
+echo "Conversion uses Docker (planetiler) - no local tools needed"
+echo "This may take 5-15 minutes depending on your connection and system."
 echo ""
 
 # Check prerequisites
-echo "[1/6] Checking prerequisites..."
+echo "[1/7] Checking prerequisites..."
 if ! command -v docker &> /dev/null; then
     echo "❌ Error: Docker not found. Please install Docker first."
     exit 1
 fi
 echo "✓ Docker found"
-
-# Check for tilemaker
-if ! command -v tilemaker &> /dev/null; then
-    echo "⚠️  Warning: tilemaker not found."
-    echo ""
-    echo "Tilemaker is needed to convert OSM data to MBTiles."
-    echo "Install it with:"
-    echo "  macOS:  brew install tilemaker"
-    echo "  Linux:  sudo apt-get install tilemaker"
-    echo ""
-    echo "Alternatively, you can manually download pre-generated MBTiles from:"
-    echo "  https://download.geofabrik.de/europe/switzerland.html"
-    echo ""
-    exit 1
-fi
-echo "✓ tilemaker found"
 
 # Check if tile server container exists
 if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -55,19 +40,22 @@ fi
 echo "✓ Tile server container found"
 echo ""
 
-# Download OSM data
-echo "[2/6] Downloading OSM data from Geofabrik..."
-echo "Source: $DOWNLOAD_URL"
-echo ""
-
 # Create temp directory
+echo "[2/7] Setting up temporary workspace..."
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
+echo "✓ Workspace created: $TEMP_DIR"
+echo ""
+
+# Download OSM data
+echo "[3/7] Downloading OSM data from Geofabrik..."
+echo "Source: $DOWNLOAD_URL"
+echo ""
 
 # Check if we should use wget or curl
 if command -v wget &> /dev/null; then
     echo "Downloading with wget..."
-    wget -O "$OSM_FILE" "$DOWNLOAD_URL" || {
+    wget --progress=bar:force -O "$OSM_FILE" "$DOWNLOAD_URL" || {
         echo ""
         echo "❌ Download failed!"
         echo ""
@@ -79,7 +67,7 @@ if command -v wget &> /dev/null; then
     }
 elif command -v curl &> /dev/null; then
     echo "Downloading with curl..."
-    curl -L -o "$OSM_FILE" "$DOWNLOAD_URL" || {
+    curl -L --progress-bar -o "$OSM_FILE" "$DOWNLOAD_URL" || {
         echo ""
         echo "❌ Download failed!"
         echo ""
@@ -98,26 +86,33 @@ fi
 echo "✓ OSM data downloaded successfully"
 echo ""
 
-# Generate MBTiles from OSM data
-echo "[3/6] Generating MBTiles for Basel-Landschaft region..."
-echo "This may take 5-10 minutes depending on your system..."
+# Generate MBTiles from OSM data using planetiler in Docker
+echo "[4/7] Generating MBTiles for Basel-Landschaft region..."
+echo "Using planetiler (Docker-based, no local installation needed)"
+echo "This may take 5-15 minutes depending on your system..."
 echo ""
 
-tilemaker --input "$OSM_FILE" \
-          --output "$TILES_FILE" \
-          --bbox 7.4,47.4,7.9,47.7 \
-          --process /usr/local/share/tilemaker/resources/process-openmaptiles.lua \
-          --config /usr/local/share/tilemaker/resources/config-openmaptiles.json || {
+# Run planetiler in Docker to convert OSM to MBTiles
+docker run --rm \
+  -v "$TEMP_DIR:/data" \
+  ghcr.io/onthegomap/planetiler:latest \
+  --download \
+  --area=switzerland \
+  --bounds=7.4,47.4,7.9,47.7 \
+  --output=/data/"$TILES_FILE" \
+  --osm-path=/data/"$OSM_FILE" \
+  --nodemap-type=array \
+  --storage=mmap || {
     echo ""
     echo "❌ Error: MBTiles generation failed!"
     echo ""
     echo "This could be due to:"
-    echo "1. Insufficient disk space"
-    echo "2. Corrupted download"
-    echo "3. Missing tilemaker resources"
+    echo "1. Insufficient disk space (~2 GB needed temporarily)"
+    echo "2. Insufficient RAM (4 GB recommended)"
+    echo "3. Corrupted download"
     echo ""
-    echo "Try downloading pre-generated MBTiles manually:"
-    echo "See OFFLINE_MAPS.md for alternative methods"
+    echo "You can try downloading pre-generated tiles manually."
+    echo "See OFFLINE_MAPS.md for alternative methods."
     echo ""
     rm -rf "$TEMP_DIR"
     exit 1
@@ -127,20 +122,29 @@ echo "✓ MBTiles generated successfully"
 echo ""
 
 # Verify file exists and has reasonable size
-FILE_SIZE=$(stat -f%z "$TILES_FILE" 2>/dev/null || stat -c%s "$TILES_FILE" 2>/dev/null)
+echo "[5/7] Verifying generated tiles..."
+FILE_SIZE=$(stat -f%z "$TILES_FILE" 2>/dev/null || stat -c%s "$TILES_FILE" 2>/dev/null || echo "0")
 if [ "$FILE_SIZE" -lt 1000000 ]; then
     echo "❌ Error: Generated file seems too small (${FILE_SIZE} bytes)"
     echo "   Expected at least 1 MB. The generation may have failed."
     rm -rf "$TEMP_DIR"
     exit 1
 fi
-echo "✓ File size verified: $(numfmt --to=iec-i --suffix=B $FILE_SIZE 2>/dev/null || echo "${FILE_SIZE} bytes")"
+
+# Format file size for display
+if command -v numfmt &> /dev/null; then
+    SIZE_DISPLAY=$(numfmt --to=iec-i --suffix=B $FILE_SIZE)
+else
+    SIZE_DISPLAY="${FILE_SIZE} bytes"
+fi
+echo "✓ File size verified: $SIZE_DISPLAY"
 echo ""
 
 # Copy to Docker volume
-echo "[4/6] Installing tiles to Docker volume..."
+echo "[6/7] Installing tiles to Docker volume..."
 docker cp "$TILES_FILE" "${CONTAINER_NAME}:/data/${TILES_FILE}" || {
     echo "❌ Error: Failed to copy tiles to Docker container"
+    echo "   Make sure the tile server container is running: docker ps"
     rm -rf "$TEMP_DIR"
     exit 1
 }
@@ -148,18 +152,19 @@ echo "✓ Tiles installed successfully"
 echo ""
 
 # Clean up temp directory
+echo "Cleaning up temporary files..."
 rm -rf "$TEMP_DIR"
 echo "✓ Temporary files cleaned up"
 echo ""
 
 # Restart tile server
-echo "[5/6] Restarting tile server..."
+echo "[7/7] Restarting tile server..."
 docker restart "$CONTAINER_NAME" > /dev/null
 echo "✓ Tile server restarted"
 echo ""
 
 # Wait for tile server to be ready
-echo "[6/6] Waiting for tile server to be ready..."
+echo "Waiting for tile server to be ready..."
 MAX_ATTEMPTS=30
 ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
@@ -174,6 +179,7 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
         break
     fi
     sleep 1
+    echo -n "."
 done
 echo ""
 
@@ -181,6 +187,9 @@ echo ""
 echo "═══════════════════════════════════════════════"
 echo "✅ Offline map tiles installed successfully!"
 echo "═══════════════════════════════════════════════"
+echo ""
+echo "Tile size: $SIZE_DISPLAY"
+echo "Coverage: Basel-Landschaft region (zoom 0-17)"
 echo ""
 echo "Next steps:"
 echo "1. Open http://localhost:8080 to view tile server"
@@ -190,5 +199,6 @@ echo ""
 echo "Data source: OpenStreetMap via Geofabrik (100% free)"
 echo "Update frequency: Daily updates available from Geofabrik"
 echo ""
-echo "For troubleshooting, see OFFLINE_MAPS.md"
+echo "For troubleshooting, run: make tiles-status"
+echo "For documentation, see: OFFLINE_MAPS.md"
 echo ""
