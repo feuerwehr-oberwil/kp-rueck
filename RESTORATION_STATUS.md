@@ -111,11 +111,18 @@ The following features have been successfully re-integrated and are now active:
 - `docker-compose.dev.yml`
 - `CLAUDE.md`
 - `Makefile`
-- Frontend: `lib/hooks/use-map-mode.ts` (already present)
-- Frontend: `components/map-view.tsx` (already present)
-- Frontend: `app/settings/page.tsx` (already present)
 
-**Status:** ✅ Successfully re-integrated on 2025-10-30
+**Frontend Integration (INCOMPLETE in 4832f5b - Fixed in 3eb177c):**
+- ❌ `lib/hooks/use-map-mode.ts` - **NOT present** (incorrectly marked as present)
+- ❌ `components/map-view.tsx` - **NOT using offline maps** (hardcoded to OpenStreetMap)
+- ❌ `app/settings/page.tsx` - **Missing map_mode setting**
+
+**Frontend Fix Commit:** `3eb177c` - feat: add missing offline map tiles frontend integration (2025-10-31)
+- ✅ Created `frontend/lib/hooks/use-map-mode.ts` hook
+- ✅ Updated `frontend/components/map-view.tsx` to use offline map mode with MapModeIndicator
+- ✅ Updated `frontend/app/settings/page.tsx` to add map_mode setting (auto/online/offline)
+
+**Status:** ✅ Successfully re-integrated backend (2025-10-30), frontend fixed (2025-10-31)
 
 ## Pending Features (Not Yet Re-integrated) ⏳
 
@@ -237,8 +244,30 @@ The frontend worktree at `/Users/beichenberger/Github/kp-rueck-frontend/frontend
 - [ ] Verify worktree state before any future merges
 - [ ] Consider working exclusively on main branch for critical operations
 
+### 2025-10-31: Offline Maps Frontend Integration Missing ⚠️
+
+**Discovery:**
+While investigating user report of non-working offline maps, discovered that frontend integration was incomplete. The files marked as "already present" in commit `4832f5b` were actually **not present or not functional**.
+
+**Missing Components:**
+- `frontend/lib/hooks/use-map-mode.ts` - completely missing
+- `frontend/components/map-view.tsx` - existed but hardcoded to use online OpenStreetMap tiles only
+- `frontend/app/settings/page.tsx` - existed but missing map_mode setting
+
+**Impact:**
+- Users could not switch to offline maps
+- No auto-fallback when online tiles failed
+- Settings page had no map mode control
+- Offline map tiles worked (TileServer GL running) but frontend couldn't use them
+
+**Resolution:**
+- Created missing `use-map-mode.ts` hook with auto/online/offline mode management
+- Updated `map-view.tsx` to use dynamic tile URLs and added MapModeIndicator
+- Updated `settings/page.tsx` to include map_mode setting
+- Commit: `3eb177c` - feat: add missing offline map tiles frontend integration
+
 ---
 
-**Status:** ✅ **STABLE + SECURITY + OFFLINE MAPS** - All core features restored after incident recovery
-**Current Commit:** `8c15cd0` - chore: trigger Railway rebuild after revert
-**Next Action:** Monitor Railway deployment, verify all features work, then re-integrate documentation updates
+**Status:** ✅ **STABLE + SECURITY + OFFLINE MAPS (FULLY FUNCTIONAL)** - All core features restored, offline maps now working end-to-end
+**Current Commit:** `3eb177c` - feat: add missing offline map tiles frontend integration
+**Next Action:** Monitor Railway deployment to verify offline map functionality, then re-integrate documentation updates
