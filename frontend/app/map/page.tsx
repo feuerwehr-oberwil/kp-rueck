@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search, Siren } from "lucide-react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { ArrowLeft, FileText, Clock, Users, Package, Truck, Search, Siren, Menu as MenuIcon } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { ProtectedRoute } from "@/components/protected-route"
@@ -66,6 +67,7 @@ export default function MapPage() {
     highlightParam
   )
   const [showSidebar, setShowSidebar] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
@@ -300,7 +302,7 @@ export default function MapPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4">
           <div className="flex items-center gap-3">
             <Link href="/">
               <Button variant="ghost" size="icon" className="rounded-lg">
@@ -321,15 +323,41 @@ export default function MapPage() {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-2xl shadow-lg">
               🚒
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Lagekarte</h1>
-            <Badge variant="secondary" className="ml-2">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Lagekarte</h1>
+            <Badge variant="secondary" className="ml-2 hidden sm:inline-flex">
               {activeIncidents.length} Aktiv
             </Badge>
           </div>
 
-          <div className="flex items-center gap-4">
-            <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
-          </div>
+          {/* Desktop Navigation */}
+          {!isMobile && (
+            <div className="flex items-center gap-4">
+              <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
+            </div>
+          )}
+
+          {/* Mobile Burger Menu */}
+          {isMobile && (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MenuIcon className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-80">
+                <SheetHeader>
+                  <SheetTitle>Menu</SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col gap-6 mt-6">
+                  {/* Navigation Section */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground">Navigation</h3>
+                    <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
         </header>
 
         <div className="flex flex-1 overflow-hidden">
