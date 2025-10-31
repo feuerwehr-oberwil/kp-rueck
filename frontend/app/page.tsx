@@ -72,8 +72,8 @@ export default function FireStationDashboard() {
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
-  const [showLeftSidebar, setShowLeftSidebar] = useState(!isMobile)
-  const [showRightSidebar, setShowRightSidebar] = useState(!isMobile)
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true)
+  const [showRightSidebar, setShowRightSidebar] = useState(true)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -113,6 +113,14 @@ export default function FireStationDashboard() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  // Hide sidebars on mobile by default
+  useEffect(() => {
+    if (isMobile) {
+      setShowLeftSidebar(false)
+      setShowRightSidebar(false)
+    }
+  }, [isMobile])
 
   // Redirect to events page if no event is selected (only after event is loaded from localStorage)
   useEffect(() => {
