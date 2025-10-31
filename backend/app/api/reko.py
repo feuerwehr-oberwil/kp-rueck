@@ -253,7 +253,8 @@ async def upload_photo(
     )
 
     # Update report with new photo
-    report.photos_json = report.photos_json + [filename]
+    current_photos = report.photos_json if report.photos_json else []
+    report.photos_json = current_photos + [filename]
     await db.commit()
 
     return {"filename": filename}
@@ -288,14 +289,15 @@ async def delete_photo(
     report = await crud.get_or_create_reko_report(db, incident_id, x_reko_token)
 
     # Check if photo exists in report
-    if filename not in report.photos_json:
+    current_photos = report.photos_json if report.photos_json else []
+    if filename not in current_photos:
         raise HTTPException(status_code=404, detail="Photo not found in report")
 
     # Delete from disk
     deleted = photo_storage.delete_photo(incident_id, filename)
 
     # Remove from report (even if file was already deleted from disk)
-    report.photos_json = [p for p in report.photos_json if p != filename]
+    report.photos_json = [p for p in current_photos if p != filename]
     await db.commit()
 
     return {"success": True}

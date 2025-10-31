@@ -10,8 +10,12 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut, Users, Calendar } from 'lucide-react';
+import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3, ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
+import { useSyncStatus } from '@/lib/hooks/use-sync-status';
+import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
+import { apiClient } from '@/lib/api-client';
+import type { SyncConfig } from '@/types/sync';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +30,26 @@ export function UserMenu() {
   const router = useRouter();
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
+  const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
+
+  // Sync status
+  const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
+  useRailwayRecovery(syncStatus);
+
+  // Load config to check if we're on Railway
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const loadConfig = async () => {
+      try {
+        const data = await apiClient.getSyncConfig();
+        setSyncConfig(data);
+      } catch (err) {
+        // Ignore errors - config is optional
+      }
+    };
+    loadConfig();
+  }, [isAuthenticated]);
 
   const checkConnection = async () => {
     try {
@@ -77,6 +101,66 @@ export function UserMenu() {
     }
   };
 
+  const getSyncStatusColor = () => {
+    if (syncLoading) {
+      return "bg-gray-400";
+    }
+
+    if (syncError || !syncStatus) {
+      return "bg-red-500";
+    }
+
+    if (syncStatus.is_syncing) {
+      return "bg-yellow-500";
+    }
+
+    if (!syncStatus.railway_healthy) {
+      return "bg-red-500";
+    }
+
+    if (isStale) {
+      return "bg-orange-500";
+    }
+
+    return "bg-green-500";
+  };
+
+  const getSyncStatusText = () => {
+    if (syncLoading) return "Prüfen...";
+    if (syncError) return "Fehler";
+    if (!syncStatus) return "Unbekannt";
+
+    if (!syncStatus.railway_healthy) {
+      return "Offline";
+    }
+
+    if (syncStatus.is_syncing) {
+      return "Synchronisiert...";
+    }
+
+    if (isStale) {
+      return "Veraltet";
+    }
+
+    return "Synchronisiert";
+  };
+
+  const getSyncDirectionIcon = () => {
+    if (!syncStatus) return null;
+
+    if (syncStatus.is_syncing) {
+      return <Loader2 className="h-3 w-3 animate-spin" />;
+    }
+
+    if (syncStatus.direction === 'from_railway') {
+      return <ArrowDown className="h-3 w-3" />;
+    } else if (syncStatus.direction === 'to_railway') {
+      return <ArrowUp className="h-3 w-3" />;
+    }
+
+    return null;
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -103,17 +187,29 @@ export function UserMenu() {
             </div>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/events" className="cursor-pointer">
-            <Calendar className="mr-2 h-4 w-4" />
-            <span>Ereignisse</span>
+          <Link href="/settings?tab=sync" className={syncConfig?.is_production ? "cursor-pointer opacity-50" : "cursor-pointer"}>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs text-muted-foreground">Sync</span>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
+                {getSyncDirectionIcon()}
+                <span className="text-xs">{syncConfig?.is_production ? "Deaktiviert" : getSyncStatusText()}</span>
+              </div>
+            </div>
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/settings" className="cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />
             <span>Einstellungen</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/stats" className="cursor-pointer">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            <span>Statistiken</span>
           </Link>
         </DropdownMenuItem>
         {isEditor && (
@@ -122,6 +218,12 @@ export function UserMenu() {
               <Link href="/resources" className="cursor-pointer">
                 <Users className="mr-2 h-4 w-4" />
                 <span>Ressourcen</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/import" className="cursor-pointer">
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                <span>Daten Import/Export</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

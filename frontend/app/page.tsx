@@ -2,21 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CopyButton } from "@/components/ui/copy-button"
-import { Search, Plus, Clock, Package, QrCode, Filter } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
@@ -30,6 +27,7 @@ import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
+import { CommandPalette } from "@/components/ui/command-palette"
 
 export default function FireStationDashboard() {
   const {
@@ -51,7 +49,7 @@ export default function FireStationDashboard() {
     deleteOperation
   } = useOperations()
 
-  const { selectedEvent } = useEvent()
+  const { selectedEvent, isEventLoaded } = useEvent()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -76,14 +74,12 @@ export default function FireStationDashboard() {
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [gPrefixActive, setGPrefixActive] = useState(false)
-  const [filterVehicle, setFilterVehicle] = useState("all")
-  const [filterPriority, setFilterPriority] = useState("all")
-  const [filterIncidentType, setFilterIncidentType] = useState("all")
+  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
-  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -116,6 +112,13 @@ export default function FireStationDashboard() {
     return () => clearInterval(timer)
   }, [])
 
+  // Redirect to events page if no event is selected (only after event is loaded from localStorage)
+  useEffect(() => {
+    if (isMounted && isEventLoaded && !selectedEvent) {
+      router.push('/events')
+    }
+  }, [isMounted, isEventLoaded, selectedEvent, router])
+
   // Load vehicles from API to populate vehicle types for shortcuts
   useEffect(() => {
     const loadVehicles = async () => {
@@ -127,6 +130,7 @@ export default function FireStationDashboard() {
           name: vehicle.name,
           id: vehicle.id
         }))
+        console.log('[DEBUG] Loaded vehicles for shortcuts:', typesWithKeys)
         setVehicleTypes(typesWithKeys)
       } catch (error) {
         console.error('Failed to load vehicles:', error)
@@ -307,10 +311,12 @@ export default function FireStationDashboard() {
       } else if (e.key === '/') {
         e.preventDefault()
         document.getElementById('search-input')?.focus()
-      } else if (e.key === 'p' || e.key === 'P') {
+      } else if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+p/ctrl+p for print)
         e.preventDefault()
         document.getElementById('personnel-search-input')?.focus()
-      } else if (e.key === 'm' || e.key === 'M') {
+      } else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys (allows cmd+m for minimize on Mac)
         e.preventDefault()
         document.getElementById('material-search-input')?.focus()
       } else if (e.key === '?') {
@@ -326,12 +332,51 @@ export default function FireStationDashboard() {
       } else if (e.key === ']') {
         e.preventDefault()
         setShowRightSidebar(prev => !prev)
+      } else if (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') {
+        // Open detail modal for hovered operation
+        // Only use 'e' if no modifier keys (Enter always works)
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            e.preventDefault()
+            setSelectedOperation(operation)
+            setDetailModalOpen(true)
+          }
+        }
+      } else if ((e.key === 'r' || e.key === 'R' || e.key === 'F5') && !e.metaKey && !e.ctrlKey) {
+        // Only prevent default if no modifier keys are pressed
+        // This allows cmd+r / ctrl+r to work normally for browser refresh
+        e.preventDefault()
+        refreshOperations()
+        toast.success("Daten aktualisiert")
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Delete hovered operation with confirmation
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            e.preventDefault()
+            if (confirm(`Einsatz "${operation.location}" wirklich löschen?`)) {
+              deleteOperation(hoveredOperationId).then(() => {
+                toast.success("Einsatz gelöscht")
+              }).catch((error) => {
+                console.error('Failed to delete operation:', error)
+                toast.error("Fehler beim Löschen")
+              })
+            }
+          }
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation])
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      // Clean up timeout on unmount
+      if (gPrefixTimeoutRef.current) {
+        clearTimeout(gPrefixTimeoutRef.current)
+      }
+    }
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation])
 
   // Monitor drag events globally
   useEffect(() => {
@@ -626,6 +671,19 @@ export default function FireStationDashboard() {
     }
   }
 
+  const copyCheckInUrlToClipboard = async () => {
+    if (!checkInUrl) return
+
+    try {
+      await navigator.clipboard.writeText(checkInUrl)
+      setCopied(true)
+      toast.success('Link kopiert')
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      toast.error('Fehler beim Kopieren')
+    }
+  }
+
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
     return (
@@ -668,92 +726,6 @@ export default function FireStationDashboard() {
               </div>
             </div>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filter
-                  {(filterVehicle !== "all" || filterPriority !== "all" || filterIncidentType !== "all") && (
-                    <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                      {[filterVehicle !== "all", filterPriority !== "all", filterIncidentType !== "all"].filter(Boolean).length}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold text-sm mb-2">Filter</h4>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Fahrzeug</Label>
-                    <Select value={filterVehicle} onValueChange={setFilterVehicle}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        <SelectItem value="none">Keine</SelectItem>
-                        {vehicleTypes.map((vt) => (
-                          <SelectItem key={vt.name} value={vt.name || ""}>
-                            {vt.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Priorität</Label>
-                    <Select value={filterPriority} onValueChange={setFilterPriority}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        <SelectItem value="high">Hoch</SelectItem>
-                        <SelectItem value="medium">Mittel</SelectItem>
-                        <SelectItem value="low">Niedrig</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Einsatzart</Label>
-                    <Select value={filterIncidentType} onValueChange={setFilterIncidentType}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        {incidentTypeKeys.map((typeKey) => (
-                          <SelectItem key={typeKey} value={typeKey}>
-                            {getIncidentTypeLabel(typeKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {(filterVehicle !== "all" || filterPriority !== "all" || filterIncidentType !== "all") && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        setFilterVehicle("all")
-                        setFilterPriority("all")
-                        setFilterIncidentType("all")
-                      }}
-                    >
-                      Filter zurücksetzen
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-
             <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="font-mono text-lg font-semibold tabular-nums">
@@ -764,7 +736,7 @@ export default function FireStationDashboard() {
             <PageNavigation
               currentPage="kanban"
               vehicleTypes={vehicleTypes}
-              onShortcutsOpen={() => setShortcutsModalOpen(true)}
+              hasSelectedEvent={!!selectedEvent}
             />
           </div>
         </header>
@@ -829,6 +801,7 @@ export default function FireStationDashboard() {
                     onCardClick={handleCardClick}
                     onCardHover={setHoveredOperationId}
                     highlightedOperationId={highlightedOperationId}
+                    hoveredOperationId={hoveredOperationId}
                     isDraggingRef={isDraggingOperationRef}
                     materials={materials}
                     formatLocation={formatLocation}
@@ -893,44 +866,31 @@ export default function FireStationDashboard() {
                 <QrCode className="h-4 w-4" />
                 Check-In QR
               </Button>
+              {selectedEvent?.training_flag && (
+                <Link href="/training">
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <Sparkles className="h-4 w-4 text-orange-500" />
+                    Übungs-Steuerung
+                  </Button>
+                </Link>
+              )}
             </div>
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Tastaturkürzel:</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">1-5</Kbd>
-                <span>Fahrzeuge</span>
+                <Kbd className="h-4 text-[10px]">E</Kbd>
+                <span>Bearbeiten</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">&lt;</Kbd>
-                <Kbd className="h-4 text-[10px]">&gt;</Kbd>
+                <Kbd className="h-4 text-[10px]">↑</Kbd>
+                <Kbd className="h-4 text-[10px]">↓</Kbd>
                 <span>Navigation</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">N</Kbd>
-                <span>Neuer Einsatz</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">/</Kbd>
-                <span>Suche</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">Esc</Kbd>
-                <span>Verlassen</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">[</Kbd>
-                <span>Personen</span>
-              </div>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <Kbd className="h-4 text-[10px]">]</Kbd>
-                <span>Material</span>
+                <Kbd className="h-4 text-[10px]">⌘K</Kbd>
+                <span>Befehle</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
@@ -1006,34 +966,60 @@ export default function FireStationDashboard() {
       <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Personal Check-In QR-Code</DialogTitle>
+            <DialogTitle>Personal Check-In</DialogTitle>
+            <DialogDescription>
+              QR-Code scannen oder Link teilen für mobilen Zugriff
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-4">
-            {checkInUrl && (
-              <>
+          {checkInUrl && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="rounded-lg border p-4 bg-white">
                 <QRCodeSVG
                   value={checkInUrl}
-                  size={300}
-                  level="H"
+                  size={200}
+                  level="M"
                   includeMargin
                 />
-                <p className="text-sm text-muted-foreground text-center">
-                  Scannen Sie diesen QR-Code, um auf die Personal Check-In Seite zuzugreifen.
-                </p>
-                <div className="w-full flex items-center gap-2">
-                  <div className="flex-1 p-2 bg-secondary rounded text-xs font-mono break-all">
-                    {checkInUrl}
-                  </div>
-                  <CopyButton
-                    text={checkInUrl}
-                    className="flex-shrink-0"
+              </div>
+
+              <div className="w-full">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={checkInUrl}
+                    readOnly
+                    className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
                   />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyCheckInUrlToClipboard}
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Dieser Link ermöglicht den Zugriff auf das Check-In ohne Anmeldung
+              </p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+
+      {/* Command Palette */}
+      <CommandPalette
+        onNewOperation={() => setNewEmergencyModalOpen(true)}
+        onShowHelp={() => setShortcutsModalOpen(true)}
+        onRefresh={refreshOperations}
+        onToggleLeftSidebar={() => setShowLeftSidebar(prev => !prev)}
+        onToggleRightSidebar={() => setShowRightSidebar(prev => !prev)}
+      />
     </ProtectedRoute>
   )
 }

@@ -201,7 +201,7 @@ export function VehicleSettings() {
                 <span
                   className={`px-2 py-1 rounded text-xs ${
                     vehicle.status === 'available'
-                      ? 'bg-green-100 text-green-800'
+                      ? 'bg-zinc-100 text-zinc-800'
                       : vehicle.status === 'assigned'
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'

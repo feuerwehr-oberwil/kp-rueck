@@ -7,15 +7,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle2, AlertCircle, Save, Send, Loader2, MapPin, Info } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Send, Loader2, MapPin, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
+import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
 
 interface RekoFormData {
   is_relevant: boolean | null
@@ -68,6 +67,81 @@ export default function RekoForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [isTraining, setIsTraining] = useState(false)
+
+  // Dummy data generation functions for training mode
+  const generateRandomDangers = (): Partial<ApiDangersAssessment> => {
+    const allDangers: Array<keyof ApiDangersAssessment> = ['fire', 'explosion', 'collapse', 'chemical', 'electrical'];
+    const selectedCount = Math.floor(Math.random() * 3) + 1; // 1-3 dangers
+    const selected: Partial<ApiDangersAssessment> = {};
+
+    // Randomly select dangers
+    const shuffled = [...allDangers].sort(() => Math.random() - 0.5);
+    shuffled.slice(0, selectedCount).forEach(danger => {
+      if (danger !== 'other_notes') {
+        (selected as any)[danger] = true;
+      }
+    });
+
+    return selected;
+  };
+
+  const generateRandomEffort = (): Partial<ApiEffortEstimation> => {
+    return {
+      personnel_count: Math.floor(Math.random() * 20) + 5, // 5-25 people
+      estimated_duration_hours: (Math.random() * 4) + 0.5, // 0.5-4.5 hours
+      vehicles_needed: [],
+      equipment_needed: []
+    };
+  };
+
+  const generateRandomPowerSupply = (): string => {
+    const options = ['available', 'unavailable', 'emergency_needed', 'unknown'];
+    return options[Math.floor(Math.random() * options.length)];
+  };
+
+  const generateRandomSummary = (): string => {
+    const summaries = [
+      'Situation unter Kontrolle. Einsatz kann wie geplant durchgeführt werden.',
+      'Zugang erschwert. Zusätzliches Material benötigt.',
+      'Lage stabil. Keine besonderen Vorkommnisse.',
+      'Mehrere Gebäudeteile betroffen. Einsatz wird länger dauern.',
+      'Bewohner kooperativ. Gute Zusammenarbeit vor Ort.',
+      'Zufahrt blockiert. Alternative Route notwendig.',
+      'Stromversorgung ausgefallen. Notstrom erforderlich.',
+      'Einsatzstelle gut zugänglich. Optimale Arbeitsbedingungen.'
+    ];
+    return summaries[Math.floor(Math.random() * summaries.length)];
+  };
+
+  const handleGenerateDummyData = () => {
+    const dummyData: RekoFormData = {
+      is_relevant: Math.random() > 0.2, // 80% relevant
+      dangers_json: {
+        fire: false,
+        explosion: false,
+        collapse: false,
+        chemical: false,
+        electrical: false,
+        other_notes: '',
+        ...generateRandomDangers()
+      },
+      effort_json: {
+        personnel_count: null,
+        vehicles_needed: [],
+        equipment_needed: [],
+        estimated_duration_hours: null,
+        ...generateRandomEffort()
+      },
+      power_supply: generateRandomPowerSupply(),
+      photos_json: formData.photos_json, // Keep existing photos
+      summary_text: generateRandomSummary(),
+      additional_notes: Math.random() > 0.5 ? 'Automatisch generierte Übungsdaten' : ''
+    };
+
+    setFormData(dummyData);
+    toast.success('Dummy-Daten generiert');
+  };
 
   // Validate access and load existing data
   useEffect(() => {
@@ -88,6 +162,12 @@ export default function RekoForm() {
           type: data.incident_type || undefined,
           description: data.incident_description || undefined
         })
+
+        // NOTE: When backend is implemented, the getRekoForm response should include
+        // the event's training_flag so we can enable training features
+        // For now, this will be false (production mode)
+        // Backend should add: event_training_flag: boolean to ApiRekoFormResponse
+        // setIsTraining(data.event_training_flag || false)
 
         // Load existing report/draft
         setFormData({
@@ -140,11 +220,6 @@ export default function RekoForm() {
       setIsSaving(false)
     }
   }, [formData, incidentId, token, isSaving, isSubmitting])
-
-  async function handleManualSave() {
-    await saveDraft()
-    toast.success('Entwurf gespeichert')
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -206,6 +281,12 @@ export default function RekoForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Training Mode Dummy Data Generator */}
+      <RekoDummyGenerator
+        isTraining={isTraining}
+        onGenerate={handleGenerateDummyData}
+      />
+
       {/* Incident Info Card */}
       <Card>
         <CardHeader>
@@ -240,24 +321,24 @@ export default function RekoForm() {
 
         <div className="space-y-2">
           <Label className="text-base">Ist der Einsatz relevant? *</Label>
-          <RadioGroup
-            value={formData.is_relevant === null ? '' : formData.is_relevant.toString()}
-            onValueChange={(value) => updateFormData('is_relevant', value === 'true')}
-            className="flex gap-4"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="true" id="relevant-yes" />
-              <Label htmlFor="relevant-yes" className="font-normal cursor-pointer">
-                Ja
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="false" id="relevant-no" />
-              <Label htmlFor="relevant-no" className="font-normal cursor-pointer">
-                Nein
-              </Label>
-            </div>
-          </RadioGroup>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant={formData.is_relevant === true ? 'default' : 'outline'}
+              onClick={() => updateFormData('is_relevant', true)}
+              className="h-14 text-lg font-medium"
+            >
+              Ja
+            </Button>
+            <Button
+              type="button"
+              variant={formData.is_relevant === false ? 'default' : 'outline'}
+              onClick={() => updateFormData('is_relevant', false)}
+              className="h-14 text-lg font-medium"
+            >
+              Nein
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -272,8 +353,8 @@ export default function RekoForm() {
           Gefahren
         </h3>
 
-        <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground">
+        <div className="space-y-3">
+          <Label className="text-base">
             Welche Gefahren bestehen? (Mehrfachauswahl)
           </Label>
 
@@ -284,7 +365,7 @@ export default function RekoForm() {
             { key: 'chemical', label: 'Gefahrstoffe (chemisch)' },
             { key: 'electrical', label: 'Elektrische Gefahr' }
           ].map(({ key, label }) => (
-            <div key={key} className="flex items-center space-x-2">
+            <div key={key} className="flex items-center space-x-3 py-1">
               <Checkbox
                 id={`danger-${key}`}
                 checked={formData.dangers_json[key as keyof ApiDangersAssessment] as boolean}
@@ -292,15 +373,16 @@ export default function RekoForm() {
                   ...formData.dangers_json,
                   [key]: checked === true
                 })}
+                className="h-6 w-6"
               />
-              <Label htmlFor={`danger-${key}`} className="font-normal cursor-pointer">
+              <Label htmlFor={`danger-${key}`} className="font-normal cursor-pointer text-base">
                 {label}
               </Label>
             </div>
           ))}
 
-          <div className="mt-2">
-            <Label htmlFor="danger-other">Weitere Gefahren</Label>
+          <div className="mt-3">
+            <Label htmlFor="danger-other" className="text-base">Weitere Gefahren</Label>
             <Textarea
               id="danger-other"
               value={formData.dangers_json.other_notes || ''}
@@ -309,7 +391,8 @@ export default function RekoForm() {
                 other_notes: e.target.value
               })}
               placeholder="Weitere Gefahren beschreiben..."
-              rows={2}
+              rows={3}
+              className="text-base"
             />
           </div>
         </div>
@@ -328,10 +411,11 @@ export default function RekoForm() {
 
         <div className="space-y-3">
           <div>
-            <Label htmlFor="personnel-count">Geschätzter Personalaufwand (Anzahl Personen)</Label>
+            <Label htmlFor="personnel-count" className="text-base">Geschätzter Personalaufwand (Anzahl Personen)</Label>
             <Input
               id="personnel-count"
               type="number"
+              inputMode="numeric"
               min="0"
               value={formData.effort_json.personnel_count || ''}
               onChange={(e) => updateFormData('effort_json', {
@@ -339,14 +423,16 @@ export default function RekoForm() {
                 personnel_count: e.target.value ? parseInt(e.target.value) : null
               })}
               placeholder="z.B. 10"
+              className="h-12 text-lg"
             />
           </div>
 
           <div>
-            <Label htmlFor="duration">Geschätzte Dauer (Stunden)</Label>
+            <Label htmlFor="duration" className="text-base">Geschätzte Dauer (Stunden)</Label>
             <Input
               id="duration"
               type="number"
+              inputMode="decimal"
               min="0"
               step="0.5"
               value={formData.effort_json.estimated_duration_hours || ''}
@@ -355,6 +441,7 @@ export default function RekoForm() {
                 estimated_duration_hours: e.target.value ? parseFloat(e.target.value) : null
               })}
               placeholder="z.B. 2.5"
+              className="h-12 text-lg"
             />
           </div>
         </div>
@@ -371,22 +458,42 @@ export default function RekoForm() {
           Stromversorgung
         </h3>
 
-        <div>
-          <Label htmlFor="power-supply">Stromversorgung vor Ort</Label>
-          <Select
-            value={formData.power_supply}
-            onValueChange={(value) => updateFormData('power_supply', value)}
-          >
-            <SelectTrigger id="power-supply">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="unknown">Unbekannt</SelectItem>
-              <SelectItem value="available">Vorhanden</SelectItem>
-              <SelectItem value="unavailable">Nicht vorhanden</SelectItem>
-              <SelectItem value="emergency_needed">Notstrom benötigt</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="space-y-2">
+          <Label className="text-base">Stromversorgung vor Ort</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant={formData.power_supply === 'unknown' ? 'default' : 'outline'}
+              onClick={() => updateFormData('power_supply', 'unknown')}
+              className="h-14 text-base font-medium"
+            >
+              Unbekannt
+            </Button>
+            <Button
+              type="button"
+              variant={formData.power_supply === 'available' ? 'default' : 'outline'}
+              onClick={() => updateFormData('power_supply', 'available')}
+              className="h-14 text-base font-medium"
+            >
+              Vorhanden
+            </Button>
+            <Button
+              type="button"
+              variant={formData.power_supply === 'unavailable' ? 'default' : 'outline'}
+              onClick={() => updateFormData('power_supply', 'unavailable')}
+              className="h-14 text-base font-medium"
+            >
+              Nicht vorhanden
+            </Button>
+            <Button
+              type="button"
+              variant={formData.power_supply === 'emergency_needed' ? 'default' : 'outline'}
+              onClick={() => updateFormData('power_supply', 'emergency_needed')}
+              className="h-14 text-base font-medium"
+            >
+              Notstrom benötigt
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -410,24 +517,26 @@ export default function RekoForm() {
         <h3 className="text-lg font-semibold">Zusammenfassung</h3>
 
         <div>
-          <Label htmlFor="summary">Kurzzusammenfassung</Label>
+          <Label htmlFor="summary" className="text-base">Kurzzusammenfassung</Label>
           <Textarea
             id="summary"
             value={formData.summary_text}
             onChange={(e) => updateFormData('summary_text', e.target.value)}
             placeholder="Wichtigste Erkenntnisse zusammenfassen..."
-            rows={3}
+            rows={4}
+            className="text-base"
           />
         </div>
 
         <div>
-          <Label htmlFor="notes">Zusätzliche Notizen</Label>
+          <Label htmlFor="notes" className="text-base">Zusätzliche Notizen</Label>
           <Textarea
             id="notes"
             value={formData.additional_notes}
             onChange={(e) => updateFormData('additional_notes', e.target.value)}
             placeholder="Weitere Bemerkungen..."
-            rows={2}
+            rows={3}
+            className="text-base"
           />
         </div>
       </div>
@@ -441,40 +550,21 @@ export default function RekoForm() {
       )}
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleManualSave}
-          disabled={isSaving || isSubmitting}
-          className="flex-1"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Wird gespeichert...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Als Entwurf speichern
-            </>
-          )}
-        </Button>
-
+      <div className="pt-4">
         <Button
           type="submit"
           disabled={isSubmitting || isSaving}
-          className="flex-1"
+          className="w-full h-16 text-lg font-semibold"
+          size="lg"
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Wird übermittelt...
             </>
           ) : (
             <>
-              <Send className="mr-2 h-4 w-4" />
+              <Send className="mr-2 h-5 w-5" />
               Meldung übermitteln
             </>
           )}
@@ -485,7 +575,7 @@ export default function RekoForm() {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription className="text-sm">
-          Das Formular wird automatisch alle 30 Sekunden als Entwurf gespeichert.
+          Das Formular wird automatisch alle 30 Sekunden gespeichert.
           Sie können es jederzeit verlassen und später weiterbearbeiten.
         </AlertDescription>
       </Alert>

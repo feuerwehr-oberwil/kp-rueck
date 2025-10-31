@@ -5,43 +5,21 @@
  * Allows users to authenticate with username and password
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { apiClient } from '@/lib/api-client';
-import { Info } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isDevelopment, setIsDevelopment] = useState(false);
-  const [envLoading, setEnvLoading] = useState(true);
   const { login } = useAuth();
   const router = useRouter();
-
-  // Check environment on mount
-  useEffect(() => {
-    const checkEnvironment = async () => {
-      try {
-        const envInfo = await apiClient.getEnvironmentInfo();
-        setIsDevelopment(envInfo.is_development);
-      } catch (err) {
-        console.error('Failed to fetch environment info:', err);
-        // Assume production if fetch fails
-        setIsDevelopment(false);
-      } finally {
-        setEnvLoading(false);
-      }
-    };
-
-    checkEnvironment();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,25 +55,6 @@ export default function LoginPage() {
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
               <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
-
-          {!envLoading && isDevelopment && (
-            <div className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-4">
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 text-sm">
-                  <p className="font-semibold text-blue-600 dark:text-blue-400 mb-1">
-                    Entwicklungsmodus
-                  </p>
-                  <p className="text-blue-700 dark:text-blue-300">
-                    Verwenden Sie <span className="font-mono font-bold">admin</span> / <span className="font-mono font-bold">admin</span> für den Zugriff.
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                    ⚠️ Dies ist nur für lokale Entwicklung gedacht!
-                  </p>
-                </div>
-              </div>
             </div>
           )}
 
