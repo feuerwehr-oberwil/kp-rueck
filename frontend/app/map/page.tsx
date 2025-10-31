@@ -65,7 +65,7 @@ export default function MapPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
   )
-  const [showSidebar, setShowSidebar] = useState(!isMobile)
+  const [showSidebar, setShowSidebar] = useState(true)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
@@ -171,6 +171,13 @@ export default function MapPage() {
   useEffect(() => {
     refreshIncidents()
   }, [])
+
+  // Hide sidebar on mobile by default
+  useEffect(() => {
+    if (isMobile) {
+      setShowSidebar(false)
+    }
+  }, [isMobile])
 
   useEffect(() => {
     if (highlightParam) {
