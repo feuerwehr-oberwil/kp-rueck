@@ -44,7 +44,7 @@ export default function ResourcesPage() {
             </div>
           </div>
 
-          <PageNavigation currentPage="settings" hasSelectedEvent={!!selectedEvent} />
+          <PageNavigation currentPage="resources" hasSelectedEvent={!!selectedEvent} />
         </header>
 
         {/* Content */}

@@ -21,6 +21,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -101,45 +102,15 @@ export default function MapPage() {
     }
   }
 
-  const handleOperationUpdate = (updates: Partial<Operation>) => {
-    if (!selectedOperation) return
-    updateOperation(selectedOperation.id, updates)
-    setSelectedOperation({ ...selectedOperation, ...updates })
-  }
-
-  const handleVehicleRemove = (operationId: string, vehicleName: string) => {
-    if (!selectedOperation) return
-    removeVehicleFromOperation(operationId, vehicleName)
-    // Update selectedOperation to remove the vehicle from the UI immediately
-    setSelectedOperation({
-      ...selectedOperation,
-      vehicles: selectedOperation.vehicles.filter(v => v !== vehicleName)
-    })
-  }
-
-  const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
-    if (!selectedOperation) return
-    assignVehicleToOperation(vehicleId, vehicleName, operationId)
-    // Update selectedOperation to add the vehicle to the UI immediately
-    setSelectedOperation({
-      ...selectedOperation,
-      vehicles: [...selectedOperation.vehicles, vehicleName]
-    })
-  }
-
-  const handleOperationDelete = async (operationId: string) => {
-    try {
-      await deleteOperation(operationId)
-      toast.success("Einsatz gelöscht", {
-        description: "Der Einsatz wurde erfolgreich aus der Datenbank entfernt.",
-      })
-    } catch (error) {
-      console.error('Failed to delete operation:', error)
-      toast.error("Fehler beim Löschen", {
-        description: "Der Einsatz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
-      })
-    }
-  }
+  // Use shared operation handlers hook
+  const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
+    selectedOperation,
+    setSelectedOperation,
+    updateOperation,
+    removeVehicle: removeVehicleFromOperation,
+    assignVehicleToOperation,
+    deleteOperation,
+  })
 
   // Filter out completed incidents for the active list
   const activeIncidents = useMemo(

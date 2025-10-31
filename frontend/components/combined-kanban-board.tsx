@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { Kbd } from "@/components/ui/kbd"
+import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
+import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 
 interface CombinedKanbanBoardProps {
   onCardHover: (operationId: string | null) => void
@@ -64,166 +66,22 @@ export default function CombinedKanbanBoard({
     }
   }, [highlightedOperationId])
 
-  // Monitor drag events globally for drag-and-drop functionality
-  useEffect(() => {
-    if (!isMounted) return
+  // Use shared drag-and-drop hook
+  useKanbanDragDrop({
+    isMounted,
+    operations,
+    setOperations,
+    updateOperation,
+    assignPersonToOperation,
+    assignMaterialToOperation,
+  })
 
-    const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
-    const { extractClosestEdge } = require('@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge')
-
-    return monitorForElements({
-      onDragStart({ source }: any) {
-        const data = source.data
-        if (data.type === "person") {
-          // Handle person dragging if needed
-        } else if (data.type === "material") {
-          // Handle material dragging if needed
-        } else if (data.type === "operation") {
-          // Operation is being dragged
-        }
-      },
-      onDrop({ source, location }: any) {
-        const destination = location.current.dropTargets[0]
-        if (!destination) return
-
-        const sourceData = source.data
-        const destData = destination.data
-
-        // Person dropped on operation
-        if (sourceData.type === "person" && destData.type === "operation-drop") {
-          const person = sourceData.person
-          const operationId = destData.operationId as string
-
-          if (person.status === "available") {
-            assignPersonToOperation(person.id, person.name, operationId)
-          }
-        }
-
-        // Material dropped on operation
-        if (sourceData.type === "material" && destData.type === "operation-drop") {
-          const material = sourceData.material
-          const operationId = destData.operationId as string
-
-          if (material.status === "available") {
-            assignMaterialToOperation(material.id, operationId)
-          }
-        }
-
-        // Operation reordering/moving
-        if (sourceData.type === "operation") {
-          const draggedOp = sourceData.operation as Operation
-          const sourceIndex = sourceData.index as number
-
-          // Dropped on another operation
-          if (destData.type === "operation-drop") {
-            const targetOpId = destData.operationId as string
-            const targetIndex = destData.index as number
-            const edge = extractClosestEdge(destData)
-
-            // Find the target operation to determine its column
-            const targetOp = operations.find(op => op.id === targetOpId)
-            if (!targetOp) return
-
-            // Same column - reorder
-            if (draggedOp.status === targetOp.status) {
-              setOperations((ops) => {
-                const sameColumnOps = ops.filter(op => op.status === draggedOp.status)
-                const otherOps = ops.filter(op => op.status !== draggedOp.status)
-
-                // Remove dragged operation
-                const filtered = sameColumnOps.filter(op => op.id !== draggedOp.id)
-
-                // Calculate new index based on edge
-                let newIndex = targetIndex
-                if (edge === 'bottom') {
-                  newIndex = targetIndex + 1
-                }
-
-                // Adjust index if we're moving down in the same list
-                if (sourceIndex < targetIndex) {
-                  newIndex = newIndex - 1
-                }
-
-                // Insert at new position
-                const reordered = [
-                  ...filtered.slice(0, newIndex),
-                  draggedOp,
-                  ...filtered.slice(newIndex)
-                ]
-
-                return [...otherOps, ...reordered]
-              })
-            } else {
-              // Different column - move to new column with position
-              setOperations((ops) => {
-                // Update status
-                const updatedOp = { ...draggedOp, status: targetOp.status }
-
-                // Remove from old position
-                const withoutDragged = ops.filter(op => op.id !== draggedOp.id)
-
-                // Get operations in target column
-                const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
-                const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
-
-                // Calculate insert index
-                let insertIndex = targetIndex
-                if (edge === 'bottom') {
-                  insertIndex = targetIndex + 1
-                }
-
-                // Insert at position
-                const reordered = [
-                  ...targetColOps.slice(0, insertIndex),
-                  updatedOp,
-                  ...targetColOps.slice(insertIndex)
-                ]
-
-                return [...otherOps, ...reordered]
-              })
-            }
-          }
-          // Dropped on empty column area
-          else if (destData.type === "column") {
-            const targetColumnId = destData.columnId as string
-            const targetColumn = columns.find(col => col.id === targetColumnId)
-
-            if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
-              updateOperation(draggedOp.id, { status: targetColumn.status[0] as any })
-            }
-          }
-        }
-      },
-    })
-  }, [isMounted, operations, assignPersonToOperation, assignMaterialToOperation, setOperations, updateOperation])
-
-  // Filter personnel and materials
-  const filteredPersonnel = personnel.filter((p) =>
-    p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
-    p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
-  )
-
-  const filteredMaterials = materials.filter((m) =>
-    m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
-    m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
-  )
-
-  const groupedPersonnel = filteredPersonnel.reduce(
-    (acc, person) => {
-      if (!acc[person.role]) acc[person.role] = []
-      acc[person.role].push(person)
-      return acc
-    },
-    {} as Record<PersonRole, Person[]>
-  )
-
-  const groupedMaterials = filteredMaterials.reduce(
-    (acc, material) => {
-      if (!acc[material.category]) acc[material.category] = []
-      acc[material.category].push(material)
-      return acc
-    },
-    {} as Record<string, Material[]>
+  // Use shared resource filtering hook
+  const { filteredPersonnel, filteredMaterials, groupedPersonnel, groupedMaterials } = useResourceFiltering(
+    personnel,
+    materials,
+    personnelSearchQuery,
+    materialSearchQuery
   )
 
   const handlePersonClick = (person: Person) => {

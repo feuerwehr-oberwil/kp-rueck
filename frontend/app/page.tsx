@@ -12,7 +12,6 @@ import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
-import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
@@ -20,6 +19,9 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { QRCodeSVG } from 'qrcode.react'
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
+import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
+import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
+import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { columns } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
@@ -390,166 +392,23 @@ export default function FireStationDashboard() {
     }
   }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation])
 
-  // Monitor drag events globally
-  useEffect(() => {
-    if (!isMounted) return
+  // Use shared drag-and-drop hook
+  useKanbanDragDrop({
+    isMounted,
+    operations,
+    setOperations,
+    updateOperation,
+    assignPersonToOperation,
+    assignMaterialToOperation,
+    setDraggingItem,
+  })
 
-    const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
-
-    return monitorForElements({
-      onDragStart({ source }: any) {
-        const data = source.data
-        if (data.type === "person") {
-          setDraggingItem(data.person as Person)
-        } else if (data.type === "material") {
-          setDraggingItem(data.material as Material)
-        } else if (data.type === "operation") {
-          setDraggingItem(data.operation as Operation)
-        }
-      },
-      onDrop({ source, location }: any) {
-        setDraggingItem(null)
-
-        const destination = location.current.dropTargets[0]
-        if (!destination) return
-
-        const sourceData = source.data
-        const destData = destination.data
-
-        // Person dropped on operation
-        if (sourceData.type === "person" && destData.type === "operation-drop") {
-          const person = sourceData.person as Person
-          const operationId = destData.operationId as string
-
-          if (person.status === "available") {
-            assignPersonToOperation(person.id, person.name, operationId)
-          }
-        }
-
-        // Material dropped on operation
-        if (sourceData.type === "material" && destData.type === "operation-drop") {
-          const material = sourceData.material as Material
-          const operationId = destData.operationId as string
-
-          if (material.status === "available") {
-            assignMaterialToOperation(material.id, operationId)
-          }
-        }
-
-        // Operation reordering/moving
-        if (sourceData.type === "operation") {
-          const draggedOp = sourceData.operation as Operation
-          const sourceIndex = sourceData.index as number
-
-          // Dropped on another operation
-          if (destData.type === "operation-drop") {
-            const targetOpId = destData.operationId as string
-            const targetIndex = destData.index as number
-            const edge = extractClosestEdge(destData)
-
-            // Find the target operation to determine its column
-            const targetOp = operations.find(op => op.id === targetOpId)
-            if (!targetOp) return
-
-            // Same column - reorder
-            if (draggedOp.status === targetOp.status) {
-              setOperations((ops) => {
-                const sameColumnOps = ops.filter(op => op.status === draggedOp.status)
-                const otherOps = ops.filter(op => op.status !== draggedOp.status)
-
-                // Remove dragged operation
-                const filtered = sameColumnOps.filter(op => op.id !== draggedOp.id)
-
-                // Calculate new index based on edge
-                let newIndex = targetIndex
-                if (edge === 'bottom') {
-                  newIndex = targetIndex + 1
-                }
-
-                // Adjust index if we're moving down in the same list
-                if (sourceIndex < targetIndex) {
-                  newIndex = newIndex - 1
-                }
-
-                // Insert at new position
-                const reordered = [
-                  ...filtered.slice(0, newIndex),
-                  draggedOp,
-                  ...filtered.slice(newIndex)
-                ]
-
-                return [...otherOps, ...reordered]
-              })
-            } else {
-              // Different column - move to new column with position
-              setOperations((ops) => {
-                // Update status
-                const updatedOp = { ...draggedOp, status: targetOp.status }
-
-                // Remove from old position
-                const withoutDragged = ops.filter(op => op.id !== draggedOp.id)
-
-                // Get operations in target column
-                const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
-                const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
-
-                // Calculate insert index
-                let insertIndex = targetIndex
-                if (edge === 'bottom') {
-                  insertIndex = targetIndex + 1
-                }
-
-                // Insert at position
-                const reordered = [
-                  ...targetColOps.slice(0, insertIndex),
-                  updatedOp,
-                  ...targetColOps.slice(insertIndex)
-                ]
-
-                return [...otherOps, ...reordered]
-              })
-            }
-          }
-          // Dropped on empty column area
-          else if (destData.type === "column") {
-            const targetColumnId = destData.columnId as string
-            const targetColumn = columns.find(col => col.id === targetColumnId)
-
-            if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
-              updateOperation(draggedOp.id, { status: targetColumn.status[0] as OperationStatus })
-            }
-          }
-        }
-      },
-    })
-  }, [isMounted, operations, assignPersonToOperation, assignMaterialToOperation, setOperations, updateOperation])
-
-  const filteredPersonnel = personnel.filter((p) =>
-    p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
-    p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
-  )
-
-  const filteredMaterials = materials.filter((m) =>
-    m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
-    m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
-  )
-
-  const groupedPersonnel = filteredPersonnel.reduce(
-    (acc, person) => {
-      if (!acc[person.role]) acc[person.role] = []
-      acc[person.role].push(person)
-      return acc
-    },
-    {} as Record<PersonRole, Person[]>,
-  )
-
-  const groupedMaterials = filteredMaterials.reduce(
-    (acc, material) => {
-      if (!acc[material.category]) acc[material.category] = []
-      acc[material.category].push(material)
-      return acc
-    },
-    {} as Record<string, Material[]>,
+  // Use shared resource filtering hook
+  const { filteredPersonnel, filteredMaterials, groupedPersonnel, groupedMaterials } = useResourceFiltering(
+    personnel,
+    materials,
+    personnelSearchQuery,
+    materialSearchQuery
   )
 
   // Memoize filtered operations to avoid unnecessary recalculations on every render
@@ -612,6 +471,16 @@ export default function FireStationDashboard() {
     }
   }
 
+  // Use shared operation handlers hook
+  const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
+    selectedOperation,
+    setSelectedOperation,
+    updateOperation,
+    removeVehicle,
+    assignVehicleToOperation,
+    deleteOperation,
+  })
+
   const handleCardClick = (operation: Operation) => {
     // Don't open modal if we just finished dragging
     if (isDraggingOperationRef.current) {
@@ -619,46 +488,6 @@ export default function FireStationDashboard() {
     }
     setSelectedOperation(operation)
     setDetailModalOpen(true)
-  }
-
-  const handleOperationUpdate = (updates: Partial<Operation>) => {
-    if (!selectedOperation) return
-    updateOperation(selectedOperation.id, updates)
-    setSelectedOperation({ ...selectedOperation, ...updates })
-  }
-
-  const handleVehicleRemove = (operationId: string, vehicleName: string) => {
-    if (!selectedOperation) return
-    removeVehicle(operationId, vehicleName)
-    // Update selectedOperation to remove the vehicle from the UI immediately
-    setSelectedOperation({
-      ...selectedOperation,
-      vehicles: selectedOperation.vehicles.filter(v => v !== vehicleName)
-    })
-  }
-
-  const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
-    if (!selectedOperation) return
-    assignVehicleToOperation(vehicleId, vehicleName, operationId)
-    // Update selectedOperation to add the vehicle to the UI immediately
-    setSelectedOperation({
-      ...selectedOperation,
-      vehicles: [...selectedOperation.vehicles, vehicleName]
-    })
-  }
-
-  const handleOperationDelete = async (operationId: string) => {
-    try {
-      await deleteOperation(operationId)
-      toast.success("Einsatz gelöscht", {
-        description: "Der Einsatz wurde erfolgreich aus der Datenbank entfernt.",
-      })
-    } catch (error) {
-      console.error('Failed to delete operation:', error)
-      toast.error("Fehler beim Löschen", {
-        description: "Der Einsatz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
-      })
-    }
   }
 
   const generateCheckInQR = async () => {

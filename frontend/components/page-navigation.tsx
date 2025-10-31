@@ -12,7 +12,7 @@ import { Map as MapIcon, List, HelpCircle, Calendar, LayoutGrid } from 'lucide-r
 import Link from 'next/link';
 
 interface PageNavigationProps {
-  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training' | 'stats';
+  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training' | 'stats' | 'help' | 'resources';
   vehicleTypes?: Array<{ key: string; name: string }>;
   hasSelectedEvent?: boolean;
 }
@@ -77,7 +77,8 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-lg"
+            className={`rounded-lg ${currentPage === 'help' ? 'opacity-40 cursor-default' : ''}`}
+            disabled={currentPage === 'help'}
             title="Hilfe & Dokumentation"
           >
             <HelpCircle className="h-5 w-5" />
