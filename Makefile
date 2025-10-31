@@ -55,10 +55,11 @@ seed-db: ## Seed database with initial data
 shell-db: ## Access PostgreSQL shell
 	docker-compose -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
 
-tiles-download: ## Download full-resolution offline tiles (optional - auto-created on startup)
-	@echo "\033[1;34m→ Downloading full offline map tiles...\033[0m"
-	@echo "\033[1;34m→ This will download ~1-2 GB of data\033[0m"
-	@echo "\033[1;34m→ Note: Minimal tiles auto-created on 'make dev'\033[0m"
+tiles-download: ## Generate full offline tiles (~12 MB, local dev only)
+	@echo "\033[1;34m→ Downloading and generating offline map tiles...\033[0m"
+	@echo "\033[1;34m→ Downloads ~500 MB OSM data, converts to ~12 MB MBTiles\033[0m"
+	@echo "\033[1;34m→ Uses Docker (planetiler) - no local tools needed\033[0m"
+	@echo "\033[1;34m→ Takes 5-15 minutes depending on system\033[0m"
 	@echo ""
 	./scripts/download-tiles.sh
 
@@ -90,19 +91,24 @@ tiles-status: ## Check tile server status and verify tiles are loaded
 tiles-help: ## Show offline maps documentation
 	@echo "\033[1mOffline Maps Setup Guide\033[0m"
 	@echo ""
-	@echo "\033[1;32m✓ Automatic Setup:\033[0m"
+	@echo "\033[1;32m✓ Automatic Setup (Local Dev):\033[0m"
 	@echo "  - Minimal tiles auto-created on 'make dev'"
 	@echo "  - TileServer GL starts automatically"
-	@echo "  - Map uses online OSM by default"
+	@echo "  - Map uses online OSM by default with offline fallback"
 	@echo ""
-	@echo "\033[1;33m⚡ Optional Full Offline:\033[0m"
-	@echo "  1. Run: make tiles-download"
-	@echo "  2. Wait for download (~1-2 GB)"
-	@echo "  3. Restart: make restart-tileserver"
-	@echo "  4. Set map mode to 'Offline' in settings"
+	@echo "\033[1;33m⚡ Optional Full Offline (Local Dev):\033[0m"
+	@echo "  1. Run: make tiles-download (downloads ~500 MB, generates ~12 MB)"
+	@echo "  2. Uses planetiler in Docker (no local tools needed)"
+	@echo "  3. Takes 5-15 minutes to complete"
+	@echo "  4. Tile server auto-restarts with new tiles"
+	@echo "  5. Set map mode to 'Offline' in settings"
+	@echo ""
+	@echo "\033[1;36mℹ Production/Railway:\033[0m"
+	@echo "  - No tile server (uses online OSM only)"
+	@echo "  - Map mode automatically set to 'online'"
 	@echo ""
 	@echo "Commands:"
-	@echo "  make tiles-download  - Download full offline tiles (optional)"
+	@echo "  make tiles-download  - Generate full offline tiles"
 	@echo "  make tiles-status    - Check tile server status"
 	@echo "  make tiles-help      - Show this help"
 	@echo ""
