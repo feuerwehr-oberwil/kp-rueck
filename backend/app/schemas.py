@@ -593,8 +593,6 @@ class NotificationType(str, Enum):
     NO_MATERIALS = "no_materials"
     PERSONNEL_FATIGUE = "personnel_fatigue"
     MISSING_LOCATION = "missing_location"
-    MISSING_PERSONNEL = "missing_personnel"
-    MISSING_VEHICLE = "missing_vehicle"
     EVENT_SIZE_LIMIT = "event_size_limit"
 
 
