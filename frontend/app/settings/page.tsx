@@ -225,15 +225,15 @@ export default function SettingsPage() {
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-2xl shadow-lg">
-                <Settings2 className="h-6 w-6 text-white" />
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
+          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
+              <div className="flex h-9 w-9 md:h-11 md:w-11 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-2xl shadow-lg flex-shrink-0">
+                <Settings2 className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">Systemeinstellungen</h1>
-                <p className="text-sm text-muted-foreground">
+              <div className="min-w-0">
+                <h1 className="text-lg md:text-2xl font-bold tracking-tight truncate">Systemeinstellungen</h1>
+                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                   {isEditor
                     ? 'Systemweite Konfiguration bearbeiten'
                     : 'Systemweite Konfiguration (nur Lesezugriff)'}
@@ -242,7 +242,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <PageNavigation currentPage="settings" />
           </div>
         </header>
@@ -260,21 +260,24 @@ export default function SettingsPage() {
         )}
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6">
           <div className="max-w-5xl mx-auto">
             <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="general" className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
-                  Allgemein
+              <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6">
+                <TabsTrigger value="general" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                  <Settings2 className="h-3 w-3 md:h-4 md:w-4" />
+                  <span className="hidden sm:inline">Allgemein</span>
+                  <span className="sm:hidden">All.</span>
                 </TabsTrigger>
-                <TabsTrigger value="notifications" className="flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Benachrichtigungen
+                <TabsTrigger value="notifications" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                  <Bell className="h-3 w-3 md:h-4 md:w-4" />
+                  <span className="hidden sm:inline">Benachrichtigungen</span>
+                  <span className="sm:hidden">Ben.</span>
                 </TabsTrigger>
-                <TabsTrigger value="sync" className="flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Synchronisation
+                <TabsTrigger value="sync" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                  <RefreshCw className="h-3 w-3 md:h-4 md:w-4" />
+                  <span className="hidden sm:inline">Synchronisation</span>
+                  <span className="sm:hidden">Sync</span>
                 </TabsTrigger>
               </TabsList>
 

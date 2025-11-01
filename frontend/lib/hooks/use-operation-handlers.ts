@@ -1,9 +1,10 @@
 import { toast } from 'sonner'
 import type { Operation } from '@/lib/contexts/operations-context'
+import type { Dispatch, SetStateAction } from 'react'
 
 interface UseOperationHandlersProps {
   selectedOperation: Operation | null
-  setSelectedOperation: (operation: Operation | null) => void
+  setSelectedOperation: Dispatch<SetStateAction<Operation | null>>
   updateOperation: (id: string, updates: Partial<Operation>) => void
   removeVehicle: (operationId: string, vehicleName: string) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void

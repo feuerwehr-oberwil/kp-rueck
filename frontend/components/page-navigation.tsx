@@ -19,17 +19,17 @@ interface PageNavigationProps {
 
 export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEvent = true }: PageNavigationProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 md:gap-2">
         {/* Kanban Icon */}
         <Link href="/" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"
-            className={`rounded-lg ${currentPage === 'kanban' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
+            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'kanban' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
             disabled={currentPage === 'kanban' || !hasSelectedEvent}
             title="Kanban Board"
           >
-            <List className="h-5 w-5" />
+            <List className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </Link>
 
@@ -38,16 +38,16 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
           <Button
             variant="ghost"
             size="icon"
-            className={`rounded-lg ${currentPage === 'map' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
+            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'map' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
             disabled={currentPage === 'map' || !hasSelectedEvent}
             title="Lagekarte"
           >
-            <MapIcon className="h-5 w-5" />
+            <MapIcon className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </Link>
 
-        {/* Combined View Icon */}
-        <Link href="/combined" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+        {/* Combined View Icon - Hidden on mobile to save space */}
+        <Link href="/combined" prefetch={true} className={`hidden sm:block ${!hasSelectedEvent ? 'pointer-events-none' : ''}`}>
           <Button
             variant="ghost"
             size="icon"
@@ -64,16 +64,16 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
           <Button
             variant="ghost"
             size="icon"
-            className={`rounded-lg ${currentPage === 'events' ? 'opacity-40 cursor-default' : ''}`}
+            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'events' ? 'opacity-40 cursor-default' : ''}`}
             disabled={currentPage === 'events'}
             title="Ereignisse"
           >
-            <Calendar className="h-5 w-5" />
+            <Calendar className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </Link>
 
-        {/* Help Button */}
-        <Link href="/help" prefetch={true}>
+        {/* Help Button - Hidden on small mobile, visible on sm+ */}
+        <Link href="/help" prefetch={true} className="hidden sm:block">
           <Button
             variant="ghost"
             size="icon"

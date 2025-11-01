@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronRight, BookOpen, ChevronDown, ArrowRight } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, ChevronDown, ArrowRight, Menu as MenuIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { PageNavigation } from '@/components/page-navigation';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useIsMobile } from '@/components/ui/use-mobile';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Link from 'next/link';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -36,11 +38,13 @@ const HELP_TOPICS: HelpTopic[] = [
 export default function HelpPage() {
   const { selectedEvent } = useEvent();
   const { isAuthenticated } = useAuth();
+  const isMobile = useIsMobile();
   const [selectedTopic, setSelectedTopic] = useState('getting-started');
   const [searchQuery, setSearchQuery] = useState('');
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Get next topic
   const nextTopic = useMemo(() => {
@@ -134,6 +138,64 @@ export default function HelpPage() {
       return acc;
     }, {} as Record<string, HelpTopic[]>);
   }, [filteredTopics]);
+
+  // Helper to handle topic selection (also closes mobile sidebar)
+  const handleTopicSelect = (topicId: string) => {
+    setSelectedTopic(topicId);
+    if (isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  };
+
+  // Sidebar navigation content (shared between mobile and desktop)
+  const SidebarContent = () => (
+    <>
+      {/* Search */}
+      <div className="p-4 border-b bg-background">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Hilfe durchsuchen..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {/* Topics List */}
+      <ScrollArea className="flex-1">
+        <nav className="p-2">
+          {Object.entries(groupedTopics).map(([category, topics]) => (
+            <div key={category} className="mb-6">
+              <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {category}
+              </h3>
+              <div className="space-y-1">
+                {topics.map(topic => (
+                  <button
+                    key={topic.id}
+                    onClick={() => handleTopicSelect(topic.id)}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between transition-colors ${
+                      selectedTopic === topic.id
+                        ? 'bg-primary text-primary-foreground font-medium'
+                        : 'hover:bg-accent hover:text-accent-foreground'
+                    }`}
+                  >
+                    <span>{topic.title}</span>
+                    {selectedTopic === topic.id && (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </ScrollArea>
+    </>
+  );
 
   // Shared ReactMarkdown components configuration
   const markdownComponents = {
@@ -238,17 +300,28 @@ export default function HelpPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
+      <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
         <div className="flex items-center gap-3">
-          <BookOpen className="w-8 h-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Hilfe & Dokumentation</h1>
-            <p className="text-sm text-muted-foreground">
+          {/* Mobile: Menu button to open topics */}
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="flex-shrink-0"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </Button>
+          )}
+          <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-primary flex-shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-2xl font-bold tracking-tight truncate">Hilfe & Dokumentation</h1>
+            <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
               Umfassende Anleitungen für KP Rück
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
           {isAuthenticated ? (
             <PageNavigation
               currentPage="help"
@@ -266,57 +339,30 @@ export default function HelpPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar Navigation */}
-        <div className="w-80 border-r bg-muted/20 flex flex-col">
-          {/* Search */}
-          <div className="p-4 border-b bg-background">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Hilfe durchsuchen..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+        {/* Desktop: Sidebar Navigation */}
+        {!isMobile && (
+          <div className="w-80 border-r bg-muted/20 flex flex-col">
+            <SidebarContent />
           </div>
+        )}
 
-          {/* Topics List */}
-          <ScrollArea className="flex-1">
-            <nav className="p-2">
-              {Object.entries(groupedTopics).map(([category, topics]) => (
-                <div key={category} className="mb-6">
-                  <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {category}
-                  </h3>
-                  <div className="space-y-1">
-                    {topics.map(topic => (
-                      <button
-                        key={topic.id}
-                        onClick={() => setSelectedTopic(topic.id)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between transition-colors ${
-                          selectedTopic === topic.id
-                            ? 'bg-primary text-primary-foreground font-medium'
-                            : 'hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                      >
-                        <span>{topic.title}</span>
-                        {selectedTopic === topic.id && (
-                          <ChevronRight className="w-4 h-4" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </nav>
-          </ScrollArea>
-        </div>
+        {/* Mobile: Sidebar in Sheet */}
+        {isMobile && (
+          <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+            <SheetContent side="left" className="w-80 p-0">
+              <SheetHeader className="p-4 border-b">
+                <SheetTitle>Hilfethemen</SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col h-[calc(100%-5rem)]">
+                <SidebarContent />
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
 
         {/* Content Area */}
         <div className="flex-1 overflow-auto">
-          <div className="max-w-4xl mx-auto p-8">
+          <div className="max-w-4xl mx-auto p-4 md:p-8">
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
