@@ -334,8 +334,13 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
+    const method = options?.method || 'GET'
+    const isGetRequest = method === 'GET'
 
-    console.log(`[API] ${options?.method || 'GET'} ${endpoint}`)
+    // Only log non-GET requests to avoid polling spam
+    if (!isGetRequest) {
+      console.log(`[API] ${method} ${endpoint}`)
+    }
 
     try {
       const response = await fetch(url, {
@@ -358,7 +363,7 @@ class ApiClient {
         // Don't log 401 errors for sync config - expected when not authenticated
         const shouldLog = !(response.status === 401 && endpoint === '/api/sync/config')
         if (shouldLog) {
-          console.error(`[API Error] ${options?.method || 'GET'} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+          console.error(`[API Error] ${method} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
         }
 
         // Don't throw error for 401 on sync config - it's handled gracefully by the component
@@ -382,15 +387,19 @@ class ApiClient {
       // Handle empty responses (e.g., DELETE operations with 204 No Content)
       const contentType = response.headers.get('content-type')
       if (response.status === 204 || !contentType || contentType.indexOf('application/json') === -1) {
-        console.log(`[API Success] ${options?.method || 'GET'} ${endpoint} (no content)`)
+        if (!isGetRequest) {
+          console.log(`[API Success] ${method} ${endpoint} (no content)`)
+        }
         return undefined as T
       }
 
       const data = await response.json()
-      console.log(`[API Success] ${options?.method || 'GET'} ${endpoint}`, data)
+      if (!isGetRequest) {
+        console.log(`[API Success] ${method} ${endpoint}`, data)
+      }
       return data
     } catch (error) {
-      console.error(`[API Exception] ${options?.method || 'GET'} ${endpoint}:`, error)
+      console.error(`[API Exception] ${method} ${endpoint}:`, error)
 
       // Provide better German error messages for common fetch failures
       if (error instanceof TypeError && error.message.includes('fetch')) {

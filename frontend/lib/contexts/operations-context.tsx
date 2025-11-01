@@ -101,6 +101,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [homeCity, setHomeCity] = useState<string>("")
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  const criticalUpdateInProgress = useRef<boolean>(false)
+  const pendingUpdatesRef = useRef<Map<string, Partial<Operation>>>(new Map())
+  const criticalUpdateTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
   const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
@@ -363,8 +366,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // Poll for updates every 5 seconds (optimized for performance while maintaining reasonable responsiveness)
     const pollInterval = setInterval(() => {
-      // Only poll if not currently loading
-      if (!isLoading) {
+      // Only poll if not currently loading AND no critical update in progress
+      if (!isLoading && !criticalUpdateInProgress.current) {
         loadData()
       }
     }, 5000)
@@ -484,12 +487,18 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       ops.map((op) => (op.id === operationId ? { ...op, ...enhancedUpdates } : op)),
     )
 
-    // Debounce API updates to avoid too many requests
+    // For critical fields (location, coordinates), update immediately without debounce
+    const isCriticalUpdate = updates.location !== undefined || updates.coordinates !== undefined
+
+    // Debounce API updates to avoid too many requests (except for critical updates)
     if (isLoaded) {
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current)
       }
-      updateTimeoutRef.current = setTimeout(() => {
+
+      const performUpdate = async (batchedUpdates: Partial<Operation>) => {
+        console.log('[updateOperation] Sending to backend:', { operationId, updates: batchedUpdates })
+
         // Map frontend status to backend status
         const statusToBackend: Record<OperationStatus, string> = {
           "incoming": "eingegangen",
@@ -502,26 +511,64 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         const apiUpdates: Partial<ApiIncidentUpdate> = {}
         // Only include fields that exist in ApiIncidentUpdate
-        if (updates.location !== undefined) apiUpdates.location_address = updates.location
-        if (updates.incidentType !== undefined) apiUpdates.type = updates.incidentType as ApiIncidentUpdate['type']
-        if (updates.priority !== undefined) apiUpdates.priority = updates.priority
-        if (updates.status !== undefined) apiUpdates.status = statusToBackend[updates.status] as ApiIncidentUpdate['status']
-        if (updates.coordinates !== undefined) {
-          apiUpdates.location_lat = updates.coordinates[0]?.toString()
-          apiUpdates.location_lng = updates.coordinates[1]?.toString()
+        if (batchedUpdates.location !== undefined) apiUpdates.location_address = batchedUpdates.location
+        if (batchedUpdates.incidentType !== undefined) apiUpdates.type = batchedUpdates.incidentType as ApiIncidentUpdate['type']
+        if (batchedUpdates.priority !== undefined) apiUpdates.priority = batchedUpdates.priority
+        if (batchedUpdates.status !== undefined) apiUpdates.status = statusToBackend[batchedUpdates.status] as ApiIncidentUpdate['status']
+        if (batchedUpdates.coordinates !== undefined) {
+          apiUpdates.location_lat = batchedUpdates.coordinates[0]?.toString()
+          apiUpdates.location_lng = batchedUpdates.coordinates[1]?.toString()
         }
-        if (updates.notes !== undefined) apiUpdates.description = updates.notes
+        if (batchedUpdates.notes !== undefined) apiUpdates.description = batchedUpdates.notes
         // Note: vehicle, crew, materials, contact, and dispatchTime are not part of the incident update API
         // These are handled separately through assignment APIs or are legacy fields
 
-        apiClient.updateIncident(operationId, apiUpdates)
-          .catch(err => {
-            console.error("Failed to update operation:", err)
-            toast.error("Fehler beim Aktualisieren", {
-              description: "Der Einsatz konnte nicht aktualisiert werden."
-            })
+        console.log('[updateOperation] API payload:', apiUpdates)
+
+        try {
+          await apiClient.updateIncident(operationId, apiUpdates)
+          console.log('[updateOperation] Successfully updated incident in backend')
+        } catch (err) {
+          console.error("Failed to update operation:", err)
+          toast.error("Fehler beim Aktualisieren", {
+            description: "Der Einsatz konnte nicht aktualisiert werden."
           })
-      }, 500)
+        } finally {
+          // Clear pending updates for this operation
+          pendingUpdatesRef.current.delete(operationId)
+
+          // Release the critical update lock
+          if (criticalUpdateInProgress.current) {
+            criticalUpdateInProgress.current = false
+            console.log('[updateOperation] Critical update completed - polling resumed')
+          }
+        }
+      }
+
+      // Execute immediately for critical updates, with batching for rapid successive calls
+      if (isCriticalUpdate) {
+        // Clear any existing critical update timer
+        if (criticalUpdateTimerRef.current) {
+          clearTimeout(criticalUpdateTimerRef.current)
+        }
+
+        // Merge with any pending updates for this operation
+        const existingUpdates = pendingUpdatesRef.current.get(operationId) || {}
+        const mergedUpdates = { ...existingUpdates, ...updates }
+        pendingUpdatesRef.current.set(operationId, mergedUpdates)
+
+        console.log('[updateOperation] Critical update detected - batching updates')
+        criticalUpdateInProgress.current = true
+
+        // Batch rapid updates within 50ms window
+        criticalUpdateTimerRef.current = setTimeout(() => {
+          const finalUpdates = pendingUpdatesRef.current.get(operationId) || updates
+          console.log('[updateOperation] Executing batched critical update:', finalUpdates)
+          performUpdate(finalUpdates)
+        }, 50)
+      } else {
+        updateTimeoutRef.current = setTimeout(() => performUpdate(updates), 500)
+      }
     }
   }
 

@@ -26,27 +26,27 @@ export function useOperationHandlers({
   const handleOperationUpdate = (updates: Partial<Operation>) => {
     if (!selectedOperation) return
     updateOperation(selectedOperation.id, updates)
-    setSelectedOperation({ ...selectedOperation, ...updates })
+    setSelectedOperation(prev => prev ? { ...prev, ...updates } : null)
   }
 
   const handleVehicleRemove = (operationId: string, vehicleName: string) => {
     if (!selectedOperation) return
     removeVehicle(operationId, vehicleName)
     // Update selectedOperation to remove the vehicle from the UI immediately
-    setSelectedOperation({
-      ...selectedOperation,
-      vehicles: selectedOperation.vehicles.filter(v => v !== vehicleName)
-    })
+    setSelectedOperation(prev => prev ? {
+      ...prev,
+      vehicles: prev.vehicles.filter(v => v !== vehicleName)
+    } : null)
   }
 
   const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
     if (!selectedOperation) return
     assignVehicleToOperation(vehicleId, vehicleName, operationId)
     // Update selectedOperation to add the vehicle to the UI immediately
-    setSelectedOperation({
-      ...selectedOperation,
-      vehicles: [...selectedOperation.vehicles, vehicleName]
-    })
+    setSelectedOperation(prev => prev ? {
+      ...prev,
+      vehicles: [...prev.vehicles, vehicleName]
+    } : null)
   }
 
   const handleOperationDelete = async (operationId: string) => {

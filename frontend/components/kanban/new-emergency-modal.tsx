@@ -103,12 +103,12 @@ export function NewEmergencyModal({
             address={formData.location}
             latitude={formData.coordinates[0]}
             longitude={formData.coordinates[1]}
-            onAddressChange={(address) => setFormData({ ...formData, location: address || "" })}
+            onAddressChange={(address) => setFormData(prev => ({ ...prev, location: address || "" }))}
             onCoordinatesChange={(lat, lon) =>
-              setFormData({
-                ...formData,
+              setFormData(prev => ({
+                ...prev,
                 coordinates: [lat ?? 47.51637699933488, lon ?? 7.561800450458299]
-              })
+              }))
             }
           />
 

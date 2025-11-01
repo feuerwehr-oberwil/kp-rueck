@@ -17,7 +17,6 @@ import dynamic from "next/dynamic"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -207,21 +206,26 @@ export function LocationInput({
                 <MapPin className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start">
-              <Command shouldFilter={false}>
-                <CommandInput
-                  placeholder="Adresse suchen..."
-                  value={addressSearchQuery}
-                  onValueChange={setAddressSearchQuery}
-                />
-                <CommandList>
+            <PopoverContent className="w-[500px] p-0" align="start">
+              <div className="flex flex-col max-h-[300px]">
+                <div className="p-2 border-b">
+                  <Input
+                    placeholder="Adresse suchen..."
+                    value={addressSearchQuery}
+                    onChange={(e) => setAddressSearchQuery(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="overflow-y-auto">
                   {isSearching && (
                     <div className="p-4 text-sm text-muted-foreground text-center">
                       Suche läuft...
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length >= 3 && (
-                    <CommandEmpty>Keine Adressen gefunden.</CommandEmpty>
+                    <div className="p-4 text-sm text-muted-foreground text-center">
+                      Keine Adressen gefunden.
+                    </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length < 3 && (
                     <div className="p-4 text-sm text-muted-foreground text-center">
@@ -229,13 +233,13 @@ export function LocationInput({
                     </div>
                   )}
                   {!isSearching && addressResults.length > 0 && (
-                    <CommandGroup>
+                    <div className="py-1">
                       {addressResults.map((result) => (
-                        <CommandItem
+                        <button
                           key={result.id}
-                          value={result.formattedAddress}
-                          onSelect={() => handleAddressSelect(result)}
-                          className="flex items-start gap-2"
+                          type="button"
+                          onClick={() => handleAddressSelect(result)}
+                          className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-accent transition-colors cursor-pointer"
                         >
                           <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                           <div className="flex-1 min-w-0">
@@ -244,12 +248,12 @@ export function LocationInput({
                               {result.lat.toFixed(6)}, {result.lon.toFixed(6)}
                             </div>
                           </div>
-                        </CommandItem>
+                        </button>
                       ))}
-                    </CommandGroup>
+                    </div>
                   )}
-                </CommandList>
-              </Command>
+                </div>
+              </div>
             </PopoverContent>
           </Popover>
 
