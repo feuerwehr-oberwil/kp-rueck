@@ -487,6 +487,7 @@ export default function FireStationDashboard() {
       return
     }
     setSelectedOperation(operation)
+    setHoveredOperationId(operation.id) // Set hovered ID so keyboard shortcuts work on this operation
     setDetailModalOpen(true)
   }
 

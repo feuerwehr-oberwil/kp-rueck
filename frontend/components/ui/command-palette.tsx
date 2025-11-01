@@ -209,11 +209,11 @@ export function CommandPalette({
               <CommandItem disabled>
                 <span className="mr-2 h-4 w-4 flex items-center justify-center font-bold text-xs">1-5</span>
                 <span>Fahrzeug zuweisen/entfernen</span>
-                <span className="ml-auto text-xs text-muted-foreground">1-5 (Kanban)</span>
+                <span className="ml-auto text-xs text-muted-foreground">1-5</span>
               </CommandItem>
               <CommandItem disabled>
                 <span className="mr-2 h-4 w-4 flex items-center justify-center font-bold text-xs">⇧</span>
-                <span>Priorität setzen</span>
+                <span>Priorität setzen (Niedrig/Mittel/Hoch)</span>
                 <span className="ml-auto text-xs text-muted-foreground">Shift+1/2/3</span>
               </CommandItem>
             </CommandGroup>

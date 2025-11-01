@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -18,6 +18,8 @@ import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { LocationInput } from "@/components/location/location-input"
+import { toast } from "sonner"
+import { Kbd } from "@/components/ui/kbd"
 
 interface OperationDetailModalProps {
   operation: Operation | null
@@ -65,6 +67,66 @@ export function OperationDetailModal({
 
     loadVehicles()
   }, [open])
+
+  // Keyboard shortcuts for modal
+  useEffect(() => {
+    if (!open || !operation) return
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Ignore shortcuts if typing in input/textarea/select
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement).getAttribute('role') === 'combobox'
+      ) {
+        return
+      }
+
+      // Priority shortcuts (Shift+1/2/3)
+      if (e.shiftKey) {
+        if (e.key === '1' || e.key === '!') {
+          e.preventDefault()
+          onUpdate({ priority: 'low' })
+          toast.success('Priorität auf Niedrig gesetzt')
+          return
+        } else if (e.key === '2' || e.key === '@') {
+          e.preventDefault()
+          onUpdate({ priority: 'medium' })
+          toast.success('Priorität auf Mittel gesetzt')
+          return
+        } else if (e.key === '3' || e.key === '#') {
+          e.preventDefault()
+          onUpdate({ priority: 'high' })
+          toast.success('Priorität auf Hoch gesetzt')
+          return
+        }
+      }
+
+      // Vehicle assignment shortcuts (1-5)
+      const vehicleIndex = parseInt(e.key) - 1
+      if (!isNaN(vehicleIndex) && vehicleIndex >= 0 && vehicleIndex < 5 && vehicleIndex < availableVehicles.length) {
+        const vehicle = availableVehicles[vehicleIndex]
+        if (vehicle) {
+          e.preventDefault()
+          // Check if vehicle is already assigned
+          const isAssigned = operation.vehicles.includes(vehicle.name)
+          if (isAssigned) {
+            // Unassign the vehicle
+            onRemoveVehicle(operation.id, vehicle.name)
+            toast.success(`${vehicle.name} entfernt`)
+          } else {
+            // Assign the vehicle
+            onAssignVehicle(vehicle.id, vehicle.name, operation.id)
+            toast.success(`${vehicle.name} zugewiesen`)
+          }
+        }
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [open, operation, onUpdate, onAssignVehicle, onRemoveVehicle, availableVehicles])
 
   if (!operation) return null
 
@@ -135,14 +197,21 @@ export function OperationDetailModal({
             </div>
 
             <div>
-              <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
-                Priorität
-              </Label>
+              <div className="flex items-center gap-2 mb-2">
+                <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
+                  Priorität
+                </Label>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Kbd className="h-4 text-[10px]">⇧1</Kbd>
+                  <Kbd className="h-4 text-[10px]">⇧2</Kbd>
+                  <Kbd className="h-4 text-[10px]">⇧3</Kbd>
+                </div>
+              </div>
               <Select
                 value={operation.priority}
                 onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -181,8 +250,13 @@ export function OperationDetailModal({
 
           {/* Assigned Vehicles */}
           <div>
-            <Label className="text-sm font-semibold text-muted-foreground">Zugewiesene Fahrzeuge ({operation.vehicles.length})</Label>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Label className="text-sm font-semibold text-muted-foreground">Zugewiesene Fahrzeuge ({operation.vehicles.length})</Label>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Kbd className="h-4 text-[10px]">1-5</Kbd>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               {operation.vehicles.map((vehicleName, idx) => (
                 <Badge
                   key={idx}
