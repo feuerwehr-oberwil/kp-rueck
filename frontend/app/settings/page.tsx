@@ -274,21 +274,21 @@ export default function SettingsPage() {
         <main className="flex-1 overflow-auto p-4 md:p-6">
           <div className="max-w-5xl mx-auto">
             <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6">
-                <TabsTrigger value="general" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                  <Settings2 className="h-3 w-3 md:h-4 md:w-4" />
+              <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 h-auto">
+                <TabsTrigger value="general" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm px-2 md:px-3">
+                  <Settings2 className="h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Allgemein</span>
-                  <span className="sm:hidden">All.</span>
+                  <span className="sm:hidden truncate">All.</span>
                 </TabsTrigger>
-                <TabsTrigger value="notifications" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                  <Bell className="h-3 w-3 md:h-4 md:w-4" />
+                <TabsTrigger value="notifications" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm px-2 md:px-3">
+                  <Bell className="h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Benachrichtigungen</span>
-                  <span className="sm:hidden">Ben.</span>
+                  <span className="sm:hidden truncate">Ben.</span>
                 </TabsTrigger>
-                <TabsTrigger value="sync" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                  <RefreshCw className="h-3 w-3 md:h-4 md:w-4" />
+                <TabsTrigger value="sync" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm px-2 md:px-3">
+                  <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Synchronisation</span>
-                  <span className="sm:hidden">Sync</span>
+                  <span className="sm:hidden truncate">Sync</span>
                 </TabsTrigger>
               </TabsList>
 

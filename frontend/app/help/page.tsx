@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronRight, BookOpen, ChevronDown, ArrowRight, Menu as MenuIcon } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, ChevronDown, ArrowRight, Library } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -310,7 +310,7 @@ export default function HelpPage() {
               onClick={() => setMobileSidebarOpen(true)}
               className="flex-shrink-0"
             >
-              <MenuIcon className="h-5 w-5" />
+              <Library className="h-5 w-5" />
             </Button>
           )}
           <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-primary flex-shrink-0" />
