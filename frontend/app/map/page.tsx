@@ -348,9 +348,13 @@ export default function MapPage() {
             />
           </main>
 
-          {/* Sidebar */}
+          {/* Sidebar - absolute overlay on mobile, fixed sidebar on desktop */}
           {showSidebar && (
-            <aside className={`${isMobile ? 'absolute inset-y-0 right-0 z-50 w-full sm:w-96' : 'w-96'} border-l border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto`}>
+            <aside className={`border-l border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto ${
+              isMobile
+                ? 'absolute inset-y-0 right-0 z-50 w-full sm:w-96'
+                : 'relative w-96 flex-shrink-0'
+            }`}>
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">
                 Aktive Einsätze ({activeIncidents.length})

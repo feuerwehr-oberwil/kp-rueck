@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronRight, BookOpen, ChevronDown, ArrowRight } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, ChevronDown, ArrowRight, Menu as MenuIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { PageNavigation } from '@/components/page-navigation';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useIsMobile } from '@/components/ui/use-mobile';
 import Link from 'next/link';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -36,11 +38,13 @@ const HELP_TOPICS: HelpTopic[] = [
 export default function HelpPage() {
   const { selectedEvent } = useEvent();
   const { isAuthenticated } = useAuth();
+  const isMobile = useIsMobile();
   const [selectedTopic, setSelectedTopic] = useState('getting-started');
   const [searchQuery, setSearchQuery] = useState('');
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Get next topic
   const nextTopic = useMemo(() => {
@@ -243,25 +247,44 @@ export default function HelpPage() {
           <BookOpen className="w-8 h-8 text-primary" />
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Hilfe & Dokumentation</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground hidden sm:block">
               Umfassende Anleitungen für KP Rück
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          {isAuthenticated ? (
+
+        {/* Desktop Navigation */}
+        {!isMobile && (
+          <div className="flex items-center gap-4">
             <PageNavigation
               currentPage="help"
               hasSelectedEvent={!!selectedEvent}
             />
-          ) : (
-            <Link href="/login">
-              <Button variant="default" size="sm">
-                Anmelden
+          </div>
+        )}
+
+        {/* Mobile Burger Menu */}
+        {isMobile && (
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MenuIcon className="h-6 w-6" />
               </Button>
-            </Link>
-          )}
-        </div>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-80">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-6 mt-6">
+                {/* Navigation Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">Navigation</h3>
+                  <PageNavigation currentPage="help" hasSelectedEvent={!!selectedEvent} />
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
       </header>
 
       {/* Main Content */}
