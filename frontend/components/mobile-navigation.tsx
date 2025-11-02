@@ -46,13 +46,14 @@ const NAV_ITEMS: NavItem[] = [
     description: 'Lagekarte',
     requiresEvent: true,
   },
-  {
-    href: '/combined',
-    icon: LayoutGrid,
-    label: 'Kombiniert',
-    description: 'Kanban & Karte',
-    requiresEvent: true,
-  },
+  // Hidden on mobile - Combined view not optimized for small screens
+  // {
+  //   href: '/combined',
+  //   icon: LayoutGrid,
+  //   label: 'Kombiniert',
+  //   description: 'Kanban & Karte',
+  //   requiresEvent: true,
+  // },
   {
     href: '/events',
     icon: Calendar,

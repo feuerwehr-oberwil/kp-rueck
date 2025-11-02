@@ -99,11 +99,11 @@ export function VehicleSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
         <h2 className="text-2xl font-semibold">Fahrzeugverwaltung</h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditingVehicle(null)}>
+            <Button onClick={() => setEditingVehicle(null)} className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" />
               Fahrzeug hinzufügen
             </Button>

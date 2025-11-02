@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PageNavigation } from '@/components/page-navigation';
+import { MobileNavigation } from '@/components/mobile-navigation';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
@@ -322,18 +322,7 @@ export default function HelpPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-          {isAuthenticated ? (
-            <PageNavigation
-              currentPage="help"
-              hasSelectedEvent={!!selectedEvent}
-            />
-          ) : (
-            <Link href="/login">
-              <Button variant="default" size="sm">
-                Anmelden
-              </Button>
-            </Link>
-          )}
+          {isAuthenticated && <MobileNavigation hasSelectedEvent={!!selectedEvent} />}
         </div>
       </header>
 

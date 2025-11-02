@@ -96,11 +96,11 @@ export function PersonnelSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
         <h2 className="text-2xl font-semibold">Personalverwaltung</h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditingPersonnel(null)}>
+            <Button onClick={() => setEditingPersonnel(null)} className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" />
               Personal hinzufügen
             </Button>
