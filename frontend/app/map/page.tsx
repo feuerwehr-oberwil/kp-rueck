@@ -66,7 +66,6 @@ export default function MapPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
   )
-  const [showSidebar, setShowSidebar] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
@@ -154,13 +153,6 @@ export default function MapPage() {
   useEffect(() => {
     refreshIncidents()
   }, [])
-
-  // Hide sidebar on mobile by default
-  useEffect(() => {
-    if (isMobile) {
-      setShowSidebar(false)
-    }
-  }, [isMobile])
 
   useEffect(() => {
     if (highlightParam) {
@@ -285,17 +277,6 @@ export default function MapPage() {
       <div className="flex h-screen flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
           <div className="flex items-center gap-3">
-            {isMobile && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-lg"
-                onClick={() => setShowSidebar(!showSidebar)}
-                title="Einsatzliste anzeigen"
-              >
-                <MenuIcon className="h-5 w-5" />
-              </Button>
-            )}
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-2xl shadow-lg">
               🚒
             </div>
@@ -336,9 +317,9 @@ export default function MapPage() {
           )}
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
           {/* Map */}
-          <main className="flex-1 p-4">
+          <main className="h-[50vh] md:h-[60vh] p-4">
             <MapView
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
@@ -348,9 +329,8 @@ export default function MapPage() {
             />
           </main>
 
-          {/* Sidebar */}
-          {showSidebar && (
-            <aside className={`${isMobile ? 'absolute inset-y-0 right-0 z-50 w-full sm:w-96' : 'w-96'} border-l border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto`}>
+          {/* Active Emergencies List */}
+          <section className="flex-1 border-t border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto">
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">
                 Aktive Einsätze ({activeIncidents.length})
@@ -516,8 +496,7 @@ export default function MapPage() {
                 )}
               </div>
             </div>
-          </aside>
-          )}
+          </section>
         </div>
 
         {/* Operation Detail Modal */}
