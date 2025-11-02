@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronRight, BookOpen, ChevronDown, ArrowRight, Library } from 'lucide-react';
+import { PageNavigation } from '@/components/page-navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,10 +10,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MobileNavigation } from '@/components/mobile-navigation';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Link from 'next/link';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -322,7 +323,13 @@ export default function HelpPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-          {isAuthenticated && <MobileNavigation hasSelectedEvent={!!selectedEvent} />}
+          {/* Desktop: Full navigation, Mobile: MobileNavigation */}
+          {!isMobile && isAuthenticated && (
+            <PageNavigation currentPage="help" hasSelectedEvent={!!selectedEvent} />
+          )}
+          {isMobile && isAuthenticated && (
+            <MobileNavigation hasSelectedEvent={!!selectedEvent} />
+          )}
         </div>
       </header>
 

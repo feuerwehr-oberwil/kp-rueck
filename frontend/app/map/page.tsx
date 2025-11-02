@@ -298,9 +298,9 @@ export default function MapPage() {
           )}
         </header>
 
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Map */}
-          <main className="h-[50vh] md:h-[60vh] p-4">
+        <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
+          {/* Map - full height on desktop, half height on mobile */}
+          <main className={`p-4 ${isMobile ? 'h-[50vh]' : 'flex-1'}`}>
             <MapView
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
@@ -310,8 +310,12 @@ export default function MapPage() {
             />
           </main>
 
-          {/* Active Emergencies List */}
-          <section className="flex-1 border-t border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto">
+          {/* Active Emergencies - sidebar on desktop, bottom section on mobile */}
+          <aside className={`border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto ${
+            isMobile
+              ? 'flex-1 border-t'
+              : 'w-96 border-l flex-shrink-0'
+          }`}>
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">
                 Aktive Einsätze ({activeIncidents.length})
@@ -477,7 +481,7 @@ export default function MapPage() {
                 )}
               </div>
             </div>
-          </section>
+          </aside>
         </div>
 
         {/* Operation Detail Modal */}
