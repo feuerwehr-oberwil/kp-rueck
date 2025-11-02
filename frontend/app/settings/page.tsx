@@ -27,12 +27,14 @@ import { Settings2, Save, AlertCircle, Bell, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
+import { MobileNavigation } from '@/components/mobile-navigation';
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
 import { SyncStatusCard } from '@/components/sync/sync-status-card';
 import { SyncConfigCard } from '@/components/sync/sync-config-card';
 import { SyncHistoryCard } from '@/components/sync/sync-history-card';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
+import { useIsMobile } from '@/components/ui/use-mobile';
 
 interface SettingConfig {
   key: string;
@@ -90,6 +92,7 @@ const SETTING_CONFIGS: SettingConfig[] = [
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const { isEditor } = useAuth();
+  const isMobile = useIsMobile();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -243,7 +246,15 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-            <PageNavigation currentPage="settings" />
+            {/* Desktop Navigation */}
+            {!isMobile && (
+              <PageNavigation currentPage="settings" />
+            )}
+
+            {/* Mobile Navigation */}
+            {isMobile && (
+              <MobileNavigation />
+            )}
           </div>
         </header>
 

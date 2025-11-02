@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Menu as MenuIcon } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
+import { MobileNavigation } from "@/components/mobile-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import type { Incident } from "@/lib/types/incidents"
 import { STATUS_LABELS, INCIDENT_TYPE_LABELS } from "@/lib/types/incidents"
@@ -66,7 +66,6 @@ export default function MapPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
   )
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
@@ -295,25 +294,7 @@ export default function MapPage() {
 
           {/* Mobile Burger Menu */}
           {isMobile && (
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MenuIcon className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-80">
-                <SheetHeader>
-                  <SheetTitle>Menu</SheetTitle>
-                </SheetHeader>
-                <div className="flex flex-col gap-6 mt-6">
-                  {/* Navigation Section */}
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">Navigation</h3>
-                    <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+            <MobileNavigation hasSelectedEvent={!!selectedEvent} />
           )}
         </header>
 

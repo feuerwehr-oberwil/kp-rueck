@@ -21,10 +21,13 @@ import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCirc
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { EventExportButton } from '@/components/event-export-button'
+import { MobileNavigation } from '@/components/mobile-navigation'
+import { useIsMobile } from '@/components/ui/use-mobile'
 
 export default function EventsPage() {
   const router = useRouter()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
+  const isMobile = useIsMobile()
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
@@ -218,7 +221,16 @@ export default function EventsPage() {
             <Button onClick={() => setShowCreateDialog(true)} size="icon" className="sm:hidden">
               <Plus className="h-5 w-5" />
             </Button>
-            <PageNavigation currentPage="events" hasSelectedEvent={!!selectedEvent} />
+
+            {/* Desktop Navigation */}
+            {!isMobile && (
+              <PageNavigation currentPage="events" hasSelectedEvent={!!selectedEvent} />
+            )}
+
+            {/* Mobile Navigation */}
+            {isMobile && (
+              <MobileNavigation hasSelectedEvent={!!selectedEvent} />
+            )}
           </div>
         </header>
 

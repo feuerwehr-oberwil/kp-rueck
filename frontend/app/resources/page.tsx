@@ -12,13 +12,16 @@ import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { ProtectedRoute } from '@/components/protected-route';
 import { PageNavigation } from '@/components/page-navigation';
+import { MobileNavigation } from '@/components/mobile-navigation';
 import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
 import { useEvent } from '@/lib/contexts/event-context';
+import { useIsMobile } from '@/components/ui/use-mobile';
 
 export default function ResourcesPage() {
   const { selectedEvent } = useEvent();
+  const isMobile = useIsMobile();
 
   return (
     <ProtectedRoute>
@@ -40,7 +43,15 @@ export default function ResourcesPage() {
           </div>
 
           <div className="flex-shrink-0">
-            <PageNavigation currentPage="resources" hasSelectedEvent={!!selectedEvent} />
+            {/* Desktop Navigation */}
+            {!isMobile && (
+              <PageNavigation currentPage="resources" hasSelectedEvent={!!selectedEvent} />
+            )}
+
+            {/* Mobile Navigation */}
+            {isMobile && (
+              <MobileNavigation hasSelectedEvent={!!selectedEvent} />
+            )}
           </div>
         </header>
 

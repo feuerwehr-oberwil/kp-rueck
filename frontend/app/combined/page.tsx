@@ -11,11 +11,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
+import { MobileNavigation } from "@/components/mobile-navigation"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -49,6 +51,7 @@ export default function CombinedViewPage() {
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
   const router = useRouter()
+  const isMobile = useIsMobile()
 
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
@@ -174,7 +177,15 @@ export default function CombinedViewPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <PageNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
+            {/* Desktop Navigation */}
+            {!isMobile && (
+              <PageNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
+            )}
+
+            {/* Mobile Navigation */}
+            {isMobile && (
+              <MobileNavigation hasSelectedEvent={!!selectedEvent} />
+            )}
           </div>
         </header>
 

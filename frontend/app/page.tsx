@@ -11,9 +11,9 @@ import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, Menu } fro
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
+import { MobileNavigation } from "@/components/mobile-navigation"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
@@ -81,7 +81,6 @@ export default function FireStationDashboard() {
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [gPrefixActive, setGPrefixActive] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use ref to track drag state more reliably
@@ -587,61 +586,37 @@ export default function FireStationDashboard() {
 
           {/* Mobile Burger Menu */}
           {isMobile && (
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-80">
-                <SheetHeader>
-                  <SheetTitle>Menu</SheetTitle>
-                </SheetHeader>
-                <div className="flex flex-col gap-6 mt-6">
-                  {/* Search */}
-                  <div>
-                    <label className="text-sm font-semibold text-muted-foreground mb-2 block">
-                      Suchen
-                    </label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="Einsätze suchen..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Time */}
-                  <div>
-                    <label className="text-sm font-semibold text-muted-foreground mb-2 block">
-                      Aktuelle Zeit
-                    </label>
-                    <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-3">
-                      <Clock className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-mono text-xl font-semibold tabular-nums">
-                        {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Navigation */}
-                  <div>
-                    <label className="text-sm font-semibold text-muted-foreground mb-2 block">
-                      Navigation
-                    </label>
-                    <PageNavigation
-                      currentPage="kanban"
-                      vehicleTypes={vehicleTypes}
-                      hasSelectedEvent={!!selectedEvent}
-                    />
-                  </div>
+            <MobileNavigation hasSelectedEvent={!!selectedEvent}>
+              {/* Search */}
+              <div>
+                <label className="text-sm font-semibold text-muted-foreground mb-2 block">
+                  Suchen
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Einsätze suchen..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
                 </div>
-              </SheetContent>
-            </Sheet>
+              </div>
+
+              {/* Time */}
+              <div>
+                <label className="text-sm font-semibold text-muted-foreground mb-2 block">
+                  Aktuelle Zeit
+                </label>
+                <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-3">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-mono text-xl font-semibold tabular-nums">
+                    {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+                  </span>
+                </div>
+              </div>
+            </MobileNavigation>
           )}
         </header>
 
