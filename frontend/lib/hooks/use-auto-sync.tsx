@@ -11,7 +11,6 @@ import { toast } from 'sonner'
 export function useAutoSync() {
   const triggerSync = useCallback(async () => {
     try {
-      console.log('[Auto-Sync] Triggering immediate sync after create operation')
       await apiClient.triggerImmediateSync()
       // Don't show toast for auto-sync - it should be silent
     } catch (error) {

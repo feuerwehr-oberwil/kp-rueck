@@ -497,8 +497,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }
 
       const performUpdate = async (batchedUpdates: Partial<Operation>) => {
-        console.log('[updateOperation] Sending to backend:', { operationId, updates: batchedUpdates })
-
         // Map frontend status to backend status
         const statusToBackend: Record<OperationStatus, string> = {
           "incoming": "eingegangen",
@@ -523,11 +521,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // Note: vehicle, crew, materials, contact, and dispatchTime are not part of the incident update API
         // These are handled separately through assignment APIs or are legacy fields
 
-        console.log('[updateOperation] API payload:', apiUpdates)
-
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
-          console.log('[updateOperation] Successfully updated incident in backend')
         } catch (err) {
           console.error("Failed to update operation:", err)
           toast.error("Fehler beim Aktualisieren", {
@@ -540,7 +535,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           // Release the critical update lock
           if (criticalUpdateInProgress.current) {
             criticalUpdateInProgress.current = false
-            console.log('[updateOperation] Critical update completed - polling resumed')
           }
         }
       }
@@ -557,13 +551,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const mergedUpdates = { ...existingUpdates, ...updates }
         pendingUpdatesRef.current.set(operationId, mergedUpdates)
 
-        console.log('[updateOperation] Critical update detected - batching updates')
         criticalUpdateInProgress.current = true
 
         // Batch rapid updates within 50ms window
         criticalUpdateTimerRef.current = setTimeout(() => {
           const finalUpdates = pendingUpdatesRef.current.get(operationId) || updates
-          console.log('[updateOperation] Executing batched critical update:', finalUpdates)
           performUpdate(finalUpdates)
         }, 50)
       } else {
@@ -785,13 +777,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Persist to database via assignment API
     if (isLoaded) {
       try {
-        console.log('[DEBUG] Assigning vehicle:', {
-          vehicleId,
-          vehicleName,
-          operationId,
-          isVehicleIdValid: !!vehicleId,
-          vehicleIdType: typeof vehicleId,
-        })
         const assignment = await apiClient.assignResource(operationId, {
           resource_type: "vehicle",
           resource_id: vehicleId,
