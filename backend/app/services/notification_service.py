@@ -267,9 +267,12 @@ async def _check_resource_alerts(
             ))
 
     # Check material depletion
-    # Use tighter thresholds: CRITICAL when 0, WARNING when <= 2
-    # (ignore configured thresholds which are too loose)
-    for material_type, _ in settings.material_depletion_threshold.items():
+    # Skip material types with threshold -1 (disabled)
+    for material_type, threshold in settings.material_depletion_threshold.items():
+        # Skip if notifications disabled for this type (threshold = -1)
+        if threshold < 0:
+            continue
+
         result = await db.execute(
             select(func.count(Material.id))
             .where(Material.type == material_type)
@@ -284,7 +287,7 @@ async def _check_resource_alerts(
                 message=f"Keine Einheiten von '{material_type}' mehr verfügbar",
                 event_id=event_id,
             ))
-        elif available_count <= 2:
+        elif available_count <= threshold:
             notifications.append(Notification(
                 type="no_materials",
                 severity="warning",

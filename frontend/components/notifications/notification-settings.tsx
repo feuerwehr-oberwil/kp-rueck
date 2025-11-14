@@ -1,20 +1,53 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Bell, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { apiClient } from '@/lib/api-client'
 import type { NotificationSettings } from '@/lib/types/notification'
 
 export function NotificationSettingsCard() {
   const { settings, updateSettings } = useNotifications()
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'live' | 'training'>('live')
+  const [materialTypes, setMaterialTypes] = useState<string[]>([])
+
+  useEffect(() => {
+    // Fetch unique material types from database
+    const fetchMaterialTypes = async () => {
+      try {
+        const materials = await apiClient.getAllMaterials()
+        const types = Array.from(new Set(materials.map(m => m.type))).sort()
+        setMaterialTypes(types)
+
+        // Ensure all types are in the threshold settings
+        const currentThresholds = { ...settings.material_depletion_threshold }
+        let updated = false
+
+        for (const type of types) {
+          if (!(type in currentThresholds)) {
+            currentThresholds[type] = 2 // Default threshold
+            updated = true
+          }
+        }
+
+        if (updated) {
+          await updateSettings({ ...settings, material_depletion_threshold: currentThresholds })
+        }
+      } catch (error) {
+        console.error('Failed to fetch material types:', error)
+      }
+    }
+
+    fetchMaterialTypes()
+  }, []) // Only run once on mount
 
   const updateSetting = async <K extends keyof NotificationSettings>(
     key: K,
@@ -431,33 +464,57 @@ export function NotificationSettingsCard() {
         <div className="grid gap-2 pt-4 border-t">
           <Label>Materialbestand-Schwellenwerte</Label>
           <p className="text-xs text-muted-foreground mb-2">
-            Warnung wenn verfügbare Einheiten unter den Schwellenwert fallen
+            Warnung wenn verfügbare Einheiten unter den Schwellenwert fallen. Deaktivieren Sie die Checkbox, um Warnungen für einen Typ zu unterdrücken.
           </p>
-          {Object.entries(settings.material_depletion_threshold).map(([materialType, threshold]) => (
-            <div key={materialType} className="grid grid-cols-2 gap-2 items-center">
-              <Label htmlFor={`material-${materialType}`} className="text-sm font-normal">
-                {materialType}
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id={`material-${materialType}`}
-                  type="number"
-                  min="0"
-                  defaultValue={threshold}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== threshold) {
-                      const newThresholds = { ...settings.material_depletion_threshold, [materialType]: val }
+          {materialTypes.map((materialType) => {
+            const threshold = settings.material_depletion_threshold[materialType] ?? 2
+            const isDisabled = threshold === -1
+
+            return (
+              <div key={materialType} className="grid grid-cols-[auto_1fr_auto] gap-3 items-center py-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`enable-${materialType}`}
+                    checked={!isDisabled}
+                    onCheckedChange={(checked) => {
+                      const newThresholds = { ...settings.material_depletion_threshold }
+                      newThresholds[materialType] = checked ? 2 : -1
                       updateSetting('material_depletion_threshold', newThresholds)
-                    }
-                  }}
-                  disabled={savingKey === 'material_depletion_threshold'}
-                  className="h-8"
-                />
-                {savingKey === 'material_depletion_threshold' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+                    }}
+                    disabled={savingKey === 'material_depletion_threshold'}
+                  />
+                  <Label
+                    htmlFor={`enable-${materialType}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {materialType}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id={`material-${materialType}`}
+                    type="number"
+                    min="0"
+                    value={isDisabled ? '' : threshold}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value)
+                      if (!isNaN(val) && val >= 0) {
+                        const newThresholds = { ...settings.material_depletion_threshold }
+                        newThresholds[materialType] = val
+                        updateSetting('material_depletion_threshold', newThresholds)
+                      }
+                    }}
+                    disabled={isDisabled || savingKey === 'material_depletion_threshold'}
+                    placeholder={isDisabled ? 'Deaktiviert' : 'Schwellenwert'}
+                    className="h-8"
+                  />
+                  {savingKey === 'material_depletion_threshold' && (
+                    <Save className="h-4 w-4 text-blue-600 animate-pulse" />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </Card>
