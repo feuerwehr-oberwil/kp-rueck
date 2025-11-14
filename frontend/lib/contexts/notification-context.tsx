@@ -5,6 +5,7 @@ import type { Notification, NotificationSettings } from '@/lib/types/notificatio
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
+import { getApiUrl } from '@/lib/env'
 
 interface NotificationContextValue {
   notifications: Notification[]
@@ -56,7 +57,7 @@ export function NotificationProvider({
     }
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = getApiUrl()
       console.log('[Notifications] Fetching from:', `${apiUrl}/api/notifications/?event_id=${selectedEvent.id}`)
 
       const response = await fetch(`${apiUrl}/api/notifications/?event_id=${selectedEvent.id}`, {
@@ -82,7 +83,7 @@ export function NotificationProvider({
       console.error('[Notifications] Error fetching notifications:', error)
       if (error instanceof TypeError && error.message.includes('fetch')) {
         console.error('[Notifications] This is likely a CORS or network error. Check:')
-        console.error('  1. Backend is running on', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+        console.error('  1. Backend is running on', getApiUrl())
         console.error('  2. CORS allows credentials')
         console.error('  3. Network connection is stable')
       }
@@ -93,7 +94,7 @@ export function NotificationProvider({
   // Fetch notification settings from backend
   const fetchSettings = async (): Promise<NotificationSettings> => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = getApiUrl()
       const response = await fetch(`${apiUrl}/api/notifications/settings/`, {
         credentials: 'include',
       })
@@ -113,7 +114,7 @@ export function NotificationProvider({
   // Dismiss a notification
   const dismissNotification = async (id: string) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = getApiUrl()
       const response = await fetch(`${apiUrl}/api/notifications/${id}/dismiss/`, {
         method: 'POST',
         credentials: 'include',
@@ -142,7 +143,7 @@ export function NotificationProvider({
     }
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = getApiUrl()
 
       // Dismiss all notifications in parallel
       const dismissPromises = activeNotifications.map((notification) =>
@@ -172,7 +173,7 @@ export function NotificationProvider({
   // Update notification settings
   const updateSettings = async (newSettings: Partial<NotificationSettings>) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = getApiUrl()
       const response = await fetch(`${apiUrl}/api/notifications/settings/`, {
         method: 'PATCH',
         headers: {
