@@ -6,8 +6,6 @@
 import { getApiUrl } from './env'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
-const API_URL = getApiUrl()
-
 // Event Management Types
 export interface ApiEvent {
   id: string // UUID
@@ -379,14 +377,15 @@ export interface ApiEventStats {
 }
 
 class ApiClient {
-  private baseUrl: string
+  // No constructor needed - URL is resolved dynamically per request
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl
+  private getBaseUrl(): string {
+    // Always call getApiUrl() dynamically to ensure runtime resolution in browser
+    return getApiUrl()
   }
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`
+    const url = `${this.getBaseUrl()}${endpoint}`
     const method = options?.method || 'GET'
     const isGetRequest = method === 'GET'
 
@@ -878,7 +877,7 @@ class ApiClient {
     const formData = new FormData()
     formData.append('file', file)
 
-    const url = `${this.baseUrl}/api/reko/${incidentId}/photos`
+    const url = `${this.getBaseUrl()}/api/reko/${incidentId}/photos`
 
     const response = await fetch(url, {
       method: 'POST',
@@ -901,7 +900,7 @@ class ApiClient {
 
   // Excel Import/Export
   async downloadImportTemplate(): Promise<Blob> {
-    const url = `${this.baseUrl}/api/admin/import/template`
+    const url = `${this.getBaseUrl()}/api/admin/import/template`
     const response = await fetch(url, {
       credentials: 'include',
     })
@@ -917,7 +916,7 @@ class ApiClient {
     const formData = new FormData()
     formData.append('file', file)
 
-    const url = `${this.baseUrl}/api/admin/import/preview`
+    const url = `${this.getBaseUrl()}/api/admin/import/preview`
     const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
@@ -937,7 +936,7 @@ class ApiClient {
     formData.append('file', file)
     formData.append('mode', mode)
 
-    const url = `${this.baseUrl}/api/admin/import/execute`
+    const url = `${this.getBaseUrl()}/api/admin/import/execute`
     const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
@@ -953,7 +952,7 @@ class ApiClient {
   }
 
   async exportAllData(): Promise<Blob> {
-    const url = `${this.baseUrl}/api/admin/export/data`
+    const url = `${this.getBaseUrl()}/api/admin/export/data`
     const response = await fetch(url, {
       credentials: 'include',
     })
@@ -967,7 +966,7 @@ class ApiClient {
 
   // Event Export
   async exportEvent(eventId: string): Promise<Blob> {
-    const url = `${this.baseUrl}/api/exports/events/${eventId}`
+    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}`
     const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
@@ -1045,4 +1044,6 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(API_URL)
+// Create API client instance
+// URL resolution is now done dynamically per-request via getBaseUrl()
+export const apiClient = new ApiClient()
