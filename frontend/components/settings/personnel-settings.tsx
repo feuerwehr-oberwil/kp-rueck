@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { apiClient, ApiPersonnel } from '@/lib/api-client';
+import { CategorySortOrder } from './category-sort-order';
 
 export function PersonnelSettings() {
   const [personnel, setPersonnel] = useState<ApiPersonnel[]>([]);
@@ -94,10 +96,55 @@ export function PersonnelSettings() {
     setFormData({ name: '', role: '', availability: 'available' });
   };
 
+  // Extract unique roles with their sort orders and counts
+  const roleCategories = useMemo(() => {
+    const roleMap = new Map<string, { sort_order: number; count: number }>();
+
+    personnel.forEach((person) => {
+      const role = person.role || '';
+      if (!roleMap.has(role)) {
+        roleMap.set(role, {
+          sort_order: person.role_sort_order,
+          count: 0,
+        });
+      }
+      const current = roleMap.get(role)!;
+      current.count++;
+    });
+
+    return Array.from(roleMap.entries())
+      .map(([name, data]) => ({
+        name,
+        sort_order: data.sort_order,
+        count: data.count,
+      }))
+      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  }, [personnel]);
+
+  const handleSaveRoleSortOrder = async (categories: Array<{ name: string; sort_order: number }>) => {
+    await apiClient.updatePersonnelCategorySortOrder({
+      categories: categories.map((cat) => ({
+        category: cat.name,
+        sort_order: cat.sort_order,
+      })),
+    });
+    // Reload personnel to reflect new sorting
+    await loadPersonnel();
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-        <h2 className="text-2xl font-semibold">Personalverwaltung</h2>
+      <h2 className="text-2xl font-semibold">Personalverwaltung</h2>
+
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="list">Personalliste</TabsTrigger>
+          <TabsTrigger value="sort">Kategorien sortieren</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+            <div />  {/* Spacer */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditingPersonnel(null)} className="w-full sm:w-auto">
@@ -210,6 +257,17 @@ export function PersonnelSettings() {
           ))}
         </TableBody>
       </Table>
+        </TabsContent>
+
+        <TabsContent value="sort">
+          <CategorySortOrder
+            title="Rollen-Sortierung"
+            description="Ziehen Sie die Rollen, um deren Reihenfolge in der Anzeige zu ändern. Personal wird nach dieser Sortierung gruppiert."
+            categories={roleCategories}
+            onSave={handleSaveRoleSortOrder}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

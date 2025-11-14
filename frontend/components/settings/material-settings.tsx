@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { apiClient, ApiMaterialResource } from '@/lib/api-client';
+import { CategorySortOrder } from './category-sort-order';
 
 export function MaterialSettings() {
   const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
@@ -35,7 +37,6 @@ export function MaterialSettings() {
   const [editingMaterial, setEditingMaterial] = useState<ApiMaterialResource | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    type: '',
     status: 'available',
     location: '',
   });
@@ -72,7 +73,6 @@ export function MaterialSettings() {
     setEditingMaterial(material);
     setFormData({
       name: material.name,
-      type: material.type,
       status: material.status,
       location: material.location || '',
     });
@@ -93,13 +93,58 @@ export function MaterialSettings() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingMaterial(null);
-    setFormData({ name: '', type: '', status: 'available', location: '' });
+    setFormData({ name: '', status: 'available', location: '' });
+  };
+
+  // Extract unique locations with their sort orders and counts
+  const locationCategories = useMemo(() => {
+    const locationMap = new Map<string, { sort_order: number; count: number }>();
+
+    materials.forEach((material) => {
+      const location = material.location || '';
+      if (!locationMap.has(location)) {
+        locationMap.set(location, {
+          sort_order: material.location_sort_order,
+          count: 0,
+        });
+      }
+      const current = locationMap.get(location)!;
+      current.count++;
+    });
+
+    return Array.from(locationMap.entries())
+      .map(([name, data]) => ({
+        name,
+        sort_order: data.sort_order,
+        count: data.count,
+      }))
+      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  }, [materials]);
+
+  const handleSaveLocationSortOrder = async (categories: Array<{ name: string; sort_order: number }>) => {
+    await apiClient.updateMaterialCategorySortOrder({
+      categories: categories.map((cat) => ({
+        category: cat.name,
+        sort_order: cat.sort_order,
+      })),
+    });
+    // Reload materials to reflect new sorting
+    await loadMaterials();
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-        <h2 className="text-2xl font-semibold">Materialverwaltung</h2>
+      <h2 className="text-2xl font-semibold">Materialverwaltung</h2>
+
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="list">Materialliste</TabsTrigger>
+          <TabsTrigger value="sort">Kategorien sortieren</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+            <div />  {/* Spacer */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditingMaterial(null)} className="w-full sm:w-auto">
@@ -125,14 +170,14 @@ export function MaterialSettings() {
                 />
               </div>
               <div>
-                <Label htmlFor="type">Typ</Label>
+                <Label htmlFor="location">Standort/Kategorie</Label>
                 <Select
-                  value={formData.type}
-                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  value={formData.location}
+                  onValueChange={(value) => setFormData({ ...formData, location: value })}
                   required
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Typ auswählen" />
+                    <SelectValue placeholder="Kategorie auswählen" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Tauchpumpen">Tauchpumpen</SelectItem>
@@ -141,6 +186,9 @@ export function MaterialSettings() {
                     <SelectItem value="Generatoren">Generatoren</SelectItem>
                     <SelectItem value="Elektrowerkzeug">Elektrowerkzeug</SelectItem>
                     <SelectItem value="Anhänger">Anhänger</SelectItem>
+                    <SelectItem value="TLF">TLF</SelectItem>
+                    <SelectItem value="Pio">Pio</SelectItem>
+                    <SelectItem value="Depot">Depot</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -161,15 +209,6 @@ export function MaterialSettings() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="location">Standort</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="z.B. TLF, Pio, Depot"
-                />
-              </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>
                   Abbrechen
@@ -187,9 +226,8 @@ export function MaterialSettings() {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Typ</TableHead>
+            <TableHead>Kategorie</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Standort</TableHead>
             <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
@@ -199,7 +237,7 @@ export function MaterialSettings() {
               <TableCell className="font-medium">{material.name}</TableCell>
               <TableCell>
                 <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
-                  {material.type}
+                  {material.location || 'General'}
                 </span>
               </TableCell>
               <TableCell>
@@ -217,7 +255,6 @@ export function MaterialSettings() {
                    material.status === 'planned' ? 'Geplant' : 'Wartung'}
                 </span>
               </TableCell>
-              <TableCell>{material.location || '-'}</TableCell>
               <TableCell className="text-right">
                 <Button
                   variant="ghost"
@@ -238,6 +275,17 @@ export function MaterialSettings() {
           ))}
         </TableBody>
       </Table>
+        </TabsContent>
+
+        <TabsContent value="sort">
+          <CategorySortOrder
+            title="Standort-Sortierung"
+            description="Ziehen Sie die Standorte, um deren Reihenfolge in der Anzeige zu ändern. Material wird nach dieser Sortierung gruppiert."
+            categories={locationCategories}
+            onSave={handleSaveLocationSortOrder}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

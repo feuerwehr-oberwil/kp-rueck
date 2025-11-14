@@ -24,7 +24,8 @@ export function NotificationSettingsCard() {
     const fetchMaterialTypes = async () => {
       try {
         const materials = await apiClient.getAllMaterials()
-        const types = Array.from(new Set(materials.map(m => m.type))).sort()
+        // Materials use 'location' field for categorization (not 'type')
+        const types = Array.from(new Set(materials.map(m => m.location || 'General'))).sort()
         setMaterialTypes(types)
 
         // Ensure all types are in the threshold settings
