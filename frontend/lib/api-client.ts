@@ -390,21 +390,24 @@ class ApiClient {
     const method = options?.method || 'GET'
     const isGetRequest = method === 'GET'
 
-    // CRITICAL: Force error if using HTTP on Railway
-    if (url.startsWith('http://') && url.includes('railway.app')) {
-      const error = `CRITICAL: Attempting HTTP request on Railway! URL: ${url}, Base: ${baseUrl}`
-      console.error(error)
-      alert(error)  // Force visibility
-      throw new Error(error)
+    // CRITICAL: Show alert for ALL Railway requests to debug
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+    if (hostname.includes('railway.app')) {
+      // Force alert on every non-GET request to see what's happening
+      if (!isGetRequest) {
+        const debugInfo = `Railway Request Debug:\nMethod: ${method}\nEndpoint: ${endpoint}\nBase URL: ${baseUrl}\nFull URL: ${url}\nProtocol: ${url.startsWith('https://') ? 'HTTPS ✓' : 'HTTP ✗'}`
+        console.error(debugInfo)
+
+        // Check for HTTP
+        if (url.startsWith('http://')) {
+          alert(`ERROR: HTTP detected!\n\n${debugInfo}`)
+          throw new Error(`HTTP not allowed on Railway: ${url}`)
+        }
+      }
     }
 
     // Log baseUrl for debugging HTTPS issues
     console.log(`[API] Base URL: ${baseUrl}, Full URL: ${url}`)
-
-    // Only log non-GET requests to avoid polling spam
-    if (!isGetRequest) {
-      console.log(`[API] ${method} ${endpoint}`)
-    }
 
     try {
       const response = await fetch(url, {
