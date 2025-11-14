@@ -138,17 +138,17 @@ export default function FireStationDashboard() {
   const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
   const [allChecklistTasksComplete, setAllChecklistTasksComplete] = useState(false)
 
-  // Auto-open checklist for events < 24 hours old (every time, no localStorage)
+  // Auto-open checklist for events < 2 hours old (every time, no localStorage)
   useEffect(() => {
     if (!selectedEvent || !isMounted || allChecklistTasksComplete) return
 
-    // Check if event is less than 24 hours old
+    // Check if event is less than 2 hours old
     const eventCreatedAt = new Date(selectedEvent.created_at)
     const now = new Date()
     const ageInMinutes = (now.getTime() - eventCreatedAt.getTime()) / (1000 * 60)
 
-    if (ageInMinutes < 1440) {
-      // Auto-open checklist for new events
+    if (ageInMinutes < 120) {
+      // Auto-open checklist for new events (< 2 hours)
       setChecklistPopoverOpen(true)
     }
   }, [selectedEvent, isMounted, allChecklistTasksComplete])

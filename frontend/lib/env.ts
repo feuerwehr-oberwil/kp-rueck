@@ -4,27 +4,29 @@
  */
 
 export function getApiUrl(): string {
-  // In production on Railway, use window.location to construct backend URL
+  // Client-side: determine based on current location
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname
 
-    // If we're on the production frontend domain
+    // If we're on the production frontend domain, always use HTTPS for backend
     if (hostname.includes('railway.app') || hostname.includes('up.railway.app')) {
-      // Use the backend URL from environment variable if available
-      // This will be set at build time for Railway
-      if (process.env.NEXT_PUBLIC_API_URL) {
-        return process.env.NEXT_PUBLIC_API_URL
-      }
-
-      // Fallback: construct backend URL from frontend URL
-      // If frontend is at: kp-rueck-frontend-production.up.railway.app
-      // Backend should be at: fwo-kp-api.up.railway.app
+      // Always use HTTPS in production
       return 'https://fwo-kp-api.up.railway.app'
     }
   }
 
-  // Server-side or localhost: use env variable or default to localhost
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  // Server-side: use env variable or default to localhost
+  // For Railway production builds, this should use the HTTPS URL
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    // Ensure HTTPS is used in production even if env var is set to HTTP
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    if (apiUrl.includes('railway.app') && apiUrl.startsWith('http://')) {
+      return apiUrl.replace('http://', 'https://')
+    }
+    return apiUrl
+  }
+
+  return 'http://localhost:8000'
 }
 
 export const API_URL = getApiUrl()
