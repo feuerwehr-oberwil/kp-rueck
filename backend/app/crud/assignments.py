@@ -264,13 +264,26 @@ async def auto_release_incident_resources(
     incident_id: uuid.UUID,
     current_user: User,
     request: Request,
+    exclude_materials: bool = True,
 ):
     """
-    Automatically release all resources when incident completed.
+    Automatically release resources when incident completed.
 
     Called when incident status moves to 'abschluss'.
+
+    Args:
+        db: Database session
+        incident_id: ID of the incident
+        current_user: User performing the action
+        request: HTTP request for audit logging
+        exclude_materials: If True, only release personnel and vehicles (keep materials assigned)
+                          Default: True (materials may be left on site)
     """
     assignments = await get_incident_assignments(db, incident_id)
 
     for assignment in assignments:
+        # Skip materials if exclude_materials is True
+        if exclude_materials and assignment.resource_type == "material":
+            continue
+
         await unassign_resource(db, assignment.id, current_user, request)

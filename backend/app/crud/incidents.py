@@ -268,6 +268,16 @@ async def update_incident(
         if incident.status == "abschluss" and not incident.completed_at:
             incident.completed_at = datetime.utcnow()
 
+            # Automatically release personnel and vehicles (but keep materials)
+            from . import assignments as assignments_crud
+            await assignments_crud.auto_release_incident_resources(
+                db=db,
+                incident_id=incident.id,
+                current_user=current_user,
+                request=request,
+                exclude_materials=True,
+            )
+
     # Capture after state
     after_state = {
         "title": incident.title,
@@ -314,6 +324,9 @@ async def update_incident_status(
     Update incident status and create status transition record.
 
     Used for Kanban drag-and-drop.
+
+    When status is changed to 'abschluss', automatically releases personnel
+    and vehicles (but keeps materials assigned as they may be left on site).
     """
     incident = await get_incident(db, incident_id)
     if not incident:
@@ -328,6 +341,16 @@ async def update_incident_status(
     # Mark completed if moved to abschluss
     if new_status == "abschluss" and not incident.completed_at:
         incident.completed_at = datetime.utcnow()
+
+        # Automatically release personnel and vehicles (but keep materials)
+        from . import assignments as assignments_crud
+        await assignments_crud.auto_release_incident_resources(
+            db=db,
+            incident_id=incident_id,
+            current_user=current_user,
+            request=request,
+            exclude_materials=True,
+        )
 
     # Create status transition record
     transition = StatusTransition(
