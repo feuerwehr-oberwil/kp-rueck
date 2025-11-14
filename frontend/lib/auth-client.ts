@@ -3,7 +3,7 @@
  * Handles login, logout, and user session management
  */
 
-import { API_URL } from './env';
+import { getApiUrl } from './env';
 
 export interface User {
   id: string;
@@ -70,7 +70,7 @@ async function fetchWithTimeout(
  */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetchWithTimeout(`${API_URL}/health`, {}, 5000);
+    const response = await fetchWithTimeout(`${getApiUrl()}/health`, {}, 5000);
     return response.ok;
   } catch (error) {
     console.error('[Auth] Backend health check failed:', error);
@@ -88,7 +88,7 @@ export async function login(username: string, password: string): Promise<User> {
   formData.append('password', password);
 
   try {
-    const response = await fetchWithTimeout(`${API_URL}/api/auth/login`, {
+    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/login`, {
       method: 'POST',
       body: formData,
       credentials: 'include',  // Send/receive cookies
@@ -129,7 +129,7 @@ export async function login(username: string, password: string): Promise<User> {
  */
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const response = await fetchWithTimeout(`${API_URL}/api/auth/me`, {
+    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/me`, {
       credentials: 'include',
     }, 10000);
 
@@ -165,7 +165,7 @@ export async function getCurrentUser(): Promise<User | null> {
  */
 export async function logout(): Promise<void> {
   try {
-    await fetchWithTimeout(`${API_URL}/api/auth/logout`, {
+    await fetchWithTimeout(`${getApiUrl()}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     }, 5000);
@@ -184,7 +184,7 @@ export async function logout(): Promise<void> {
  */
 export async function refreshToken(): Promise<User | null> {
   try {
-    const response = await fetchWithTimeout(`${API_URL}/api/auth/refresh`, {
+    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
     }, 10000);
