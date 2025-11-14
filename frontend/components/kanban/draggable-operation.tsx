@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -250,6 +250,38 @@ export function DraggableOperation({
                     </Badge>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Reko Summary */}
+          {operation.rekoSummary && (
+            <div className="border-t pt-2 mt-2 space-y-1.5">
+              <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <FileCheck className="h-3 w-3" />
+                Reko-Info
+              </div>
+
+              {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
+                <div className="flex items-start gap-1.5">
+                  <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex flex-wrap gap-1">
+                    {operation.rekoSummary.dangerTypes.map((danger, idx) => (
+                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0">
+                        {danger}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground">
+                {operation.rekoSummary.personnelCount && (
+                  <span className="mr-3">👥 {operation.rekoSummary.personnelCount} Pers.</span>
+                )}
+                {operation.rekoSummary.estimatedDuration && (
+                  <span>⏱️ {operation.rekoSummary.estimatedDuration}h</span>
+                )}
               </div>
             </div>
           )}

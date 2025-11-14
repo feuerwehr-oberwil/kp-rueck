@@ -22,6 +22,14 @@ export interface Person {
 export type OperationStatus = "incoming" | "ready" | "enroute" | "active" | "returning" | "complete"
 export type VehicleType = string | null
 
+export interface RekoSummary {
+  isRelevant: boolean
+  hasDangers: boolean
+  dangerTypes: string[] // e.g., ["fire", "explosion"]
+  personnelCount: number | null
+  estimatedDuration: number | null
+}
+
 export interface Operation {
   id: string
   location: string
@@ -38,6 +46,7 @@ export interface Operation {
   contact: string
   statusChangedAt: Date | null // Timestamp when the operation moved to its current status
   hasCompletedReko: boolean // Whether a completed (non-draft) reko report exists
+  rekoSummary: RekoSummary | null // Summary of reko report for card display
   // Track assignment IDs for unassignment
   crewAssignments: Map<string, string> // name -> assignment_id
   materialAssignments: Map<string, string> // material_id -> assignment_id
@@ -153,6 +162,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       contact: "", // Not in incident schema
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
+      rekoSummary: null, // Will be populated from reko reports API
       crewAssignments: new Map(),
       materialAssignments: new Map(),
       vehicleAssignments: new Map(),
@@ -214,6 +224,61 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         })
       } catch (error) {
         console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+      }
+
+      // Fetch reko reports for incidents with completed rekos
+      try {
+        const rekoPromises = operations
+          .filter(op => op.hasCompletedReko)
+          .map(async (op) => {
+            try {
+              const reports = await apiClient.getIncidentRekoReports(op.id)
+              const completedReports = reports.filter(r => !r.is_draft)
+
+              if (completedReports.length > 0) {
+                // Use the most recent report
+                const latestReport = completedReports[completedReports.length - 1]
+
+                // Extract danger types
+                const dangerTypes: string[] = []
+                if (latestReport.dangers_json) {
+                  if (latestReport.dangers_json.fire) dangerTypes.push("Feuer")
+                  if (latestReport.dangers_json.explosion) dangerTypes.push("Explosion")
+                  if (latestReport.dangers_json.collapse) dangerTypes.push("Einsturz")
+                  if (latestReport.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
+                  if (latestReport.dangers_json.electrical) dangerTypes.push("Elektrisch")
+                }
+
+                return {
+                  operationId: op.id,
+                  summary: {
+                    isRelevant: latestReport.is_relevant ?? false,
+                    hasDangers: dangerTypes.length > 0,
+                    dangerTypes,
+                    personnelCount: latestReport.effort_json?.personnel_count ?? null,
+                    estimatedDuration: latestReport.effort_json?.estimated_duration_hours ?? null,
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to load reko for incident ${op.id}:`, error)
+            }
+            return null
+          })
+
+        const rekoResults = await Promise.all(rekoPromises)
+
+        // Populate reko summaries
+        rekoResults.forEach(result => {
+          if (result) {
+            const operation = operations.find(op => op.id === result.operationId)
+            if (operation) {
+              operation.rekoSummary = result.summary
+            }
+          }
+        })
+      } catch (error) {
+        console.error('Failed to load reko reports:', error)
       }
 
       // Calculate event-scoped availability
@@ -321,6 +386,61 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         } catch (error) {
           console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+        }
+
+        // Fetch reko reports for incidents with completed rekos
+        try {
+          const rekoPromises = operations
+            .filter(op => op.hasCompletedReko)
+            .map(async (op) => {
+              try {
+                const reports = await apiClient.getIncidentRekoReports(op.id)
+                const completedReports = reports.filter(r => !r.is_draft)
+
+                if (completedReports.length > 0) {
+                  // Use the most recent report
+                  const latestReport = completedReports[completedReports.length - 1]
+
+                  // Extract danger types
+                  const dangerTypes: string[] = []
+                  if (latestReport.dangers_json) {
+                    if (latestReport.dangers_json.fire) dangerTypes.push("Feuer")
+                    if (latestReport.dangers_json.explosion) dangerTypes.push("Explosion")
+                    if (latestReport.dangers_json.collapse) dangerTypes.push("Einsturz")
+                    if (latestReport.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
+                    if (latestReport.dangers_json.electrical) dangerTypes.push("Elektrisch")
+                  }
+
+                  return {
+                    operationId: op.id,
+                    summary: {
+                      isRelevant: latestReport.is_relevant ?? false,
+                      hasDangers: dangerTypes.length > 0,
+                      dangerTypes,
+                      personnelCount: latestReport.effort_json?.personnel_count ?? null,
+                      estimatedDuration: latestReport.effort_json?.estimated_duration_hours ?? null,
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error(`Failed to load reko for incident ${op.id}:`, error)
+              }
+              return null
+            })
+
+          const rekoResults = await Promise.all(rekoPromises)
+
+          // Populate reko summaries
+          rekoResults.forEach(result => {
+            if (result) {
+              const operation = operations.find(op => op.id === result.operationId)
+              if (operation) {
+                operation.rekoSummary = result.summary
+              }
+            }
+          })
+        } catch (error) {
+          console.error('Failed to load reko reports:', error)
         }
 
         // Calculate event-scoped availability:
@@ -616,6 +736,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           contact: operation.contact,
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false, // New incidents don't have reko reports yet
+          rekoSummary: null, // New incidents don't have reko reports yet
           crewAssignments: new Map(),
           materialAssignments: new Map(),
           vehicleAssignments: new Map(),
@@ -632,6 +753,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         dispatchTime: new Date(),
         statusChangedAt: null,
         hasCompletedReko: false,
+        rekoSummary: null,
         crewAssignments: new Map(),
         materialAssignments: new Map(),
         vehicleAssignments: new Map(),
