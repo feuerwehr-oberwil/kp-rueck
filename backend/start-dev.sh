@@ -17,4 +17,4 @@ uv run python -m app.seed
 
 # Start the application with hot reload
 echo "Starting Uvicorn server with hot reload on 0.0.0.0:8000..."
-exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/*'
