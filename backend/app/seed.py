@@ -221,76 +221,57 @@ async def seed_database() -> None:
             # ============================================
             print("Creating materials...")
             materials_data = [
-                {
-                    "name": "Wasserpumpe TP 15/8",
-                    "type": "Pumpen",
-                    "location": "TLF 1",
-                    "description": "Tragkraftspritze TP 15/8",
-                    "status": "assigned",
-                },
-                {
-                    "name": "Schlauchpaket B",
-                    "type": "Schläuche",
-                    "location": "Lager Raum 3",
-                    "description": "B-Schläuche 20m",
-                    "status": "available",
-                },
-                {
-                    "name": "Schlauchpaket C",
-                    "type": "Schläuche",
-                    "location": "Lager Raum 3",
-                    "description": "C-Schläuche 15m",
-                    "status": "available",
-                },
-                {
-                    "name": "Atemschutzgerät",
-                    "type": "Atemschutz",
-                    "location": "TLF 1",
-                    "description": "Dräger PSS 7000",
-                    "status": "assigned",
-                },
-                {
-                    "name": "Wärmebildkamera",
-                    "type": "Werkzeug",
-                    "location": "MTW 1",
-                    "description": "MSA Evolution 6000",
-                    "status": "available",
-                },
-                {
-                    "name": "Hydraulisches Rettungsgerät",
-                    "type": "Werkzeug",
-                    "location": "Pio",
-                    "description": "Weber Rescue E2 Satz",
-                    "status": "assigned",
-                },
-                {
-                    "name": "Schaummittel 200L",
-                    "type": "Sonstiges",
-                    "location": "Lager Raum 1",
-                    "description": "Schaummittel AFFF 3%",
-                    "status": "available",
-                },
-                {
-                    "name": "Stromerzeuger 5kW",
-                    "type": "Beleuchtung",
-                    "location": "DLK",
-                    "description": "Honda EU50i",
-                    "status": "available",
-                },
-                {
-                    "name": "Funkgerät HRT 1",
-                    "type": "Sonstiges",
-                    "location": "KdoW",
-                    "description": "Motorola DP4800",
-                    "status": "assigned",
-                },
-                {
-                    "name": "Erste-Hilfe-Koffer",
-                    "type": "Sonstiges",
-                    "location": "Lager Raum 2",
-                    "description": "Söhngen Notfallkoffer DIN 13157",
-                    "status": "available",
-                },
+                # Tauchpumpen
+                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
+                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
+                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+                {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+                {"name": "Tauchpumpe S-Kl.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+                {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Container", "status": "available"},
+                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+
+                # Wassersauger
+                {"name": "Wassersauger", "type": "Wassersauger", "location": "Pio", "status": "available"},
+                {"name": "Wassersauger", "type": "Wassersauger", "location": "Modul", "status": "available"},
+                {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
+                {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
+                {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+                {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+                {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+                {"name": "Wassersauger Kl.", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+
+                # Sägen
+                {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Pio", "status": "available"},
+                {"name": "Motorsäge Kl.", "type": "Sägen", "location": "Pio", "status": "available"},
+                {"name": "Rettsäge", "type": "Sägen", "location": "Pio", "status": "available"},
+                {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
+                {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
+                {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
+
+                # Generatoren
+                {"name": "Generator", "type": "Generatoren", "location": "TLF", "status": "available"},
+                {"name": "Generator", "type": "Generatoren", "location": "MoWa", "status": "available"},
+                {"name": "Generator", "type": "Generatoren", "location": "Bühne", "status": "available"},
+
+                # Spannungsprüfer
+                {"name": "Spannungsprüfer", "type": "Elektrowerkzeug", "location": "MoWa", "status": "available"},
+            ]
+
+            # Anhänger (Trailers) - separate category
+            trailers_data = [
+                {"name": "MS-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
+                {"name": "MS-Porsche", "type": "Anhänger", "location": "Depot", "status": "available"},
+                {"name": "Anhänger-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
             ]
 
             materials = []
@@ -298,6 +279,12 @@ async def seed_database() -> None:
                 material = models.Material(id=uuid4(), **material_data)
                 db.add(material)
                 materials.append(material)
+
+            # Add trailers to materials
+            for trailer_data in trailers_data:
+                trailer = models.Material(id=uuid4(), **trailer_data)
+                db.add(trailer)
+                materials.append(trailer)
 
             # ============================================
             # 6. SEED SAMPLE EVENTS
