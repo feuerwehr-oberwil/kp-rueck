@@ -150,6 +150,9 @@ export function useKanbanDragDrop({
 
                 return [...otherOps, ...reordered]
               })
+
+              // Persist status change to backend
+              updateOperation(draggedOp.id, { status: targetOp.status as OperationStatus })
             }
           }
           // Dropped on empty column area
