@@ -269,8 +269,18 @@ async def get_sync_config(
 
     sync_interval_minutes = await get_setting_value(db, "sync_interval_minutes", "2")
     auto_sync_on_create = await get_setting_value(db, "auto_sync_on_create", "true")
-    railway_database_url = await get_setting_value(db, "railway_database_url", "")
     sync_conflict_buffer_seconds = await get_setting_value(db, "sync_conflict_buffer_seconds", "5")
+
+    # When running on Railway (production), show Railway's own database URL
+    # When running locally, show the Railway sync target URL from settings
+    if settings.is_production:
+        # Convert asyncpg driver back to standard postgres:// format for display
+        database_url = settings.database_url
+        if database_url.startswith("postgresql+asyncpg://"):
+            database_url = database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        railway_database_url = database_url
+    else:
+        railway_database_url = await get_setting_value(db, "railway_database_url", "")
 
     return {
         "sync_interval_minutes": int(sync_interval_minutes),
