@@ -26,10 +26,21 @@ async def seed_database() -> None:
             print("Seeding database...")
 
             # ============================================
-            # 1. SEED DEFAULT ADMIN USER
+            # 1. SEED DEFAULT USERS
             # ============================================
-            print("Creating default admin user...")
-            # Hash password using bcrypt
+            print("Creating default users...")
+
+            # Create dev-bypass user (required for auth bypass mode)
+            import uuid
+            dev_user = models.User(
+                id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
+                username="dev-user",
+                password_hash="",  # Not used in bypass mode
+                role="editor",
+            )
+            db.add(dev_user)
+
+            # Create admin user
             password = "changeme123"  # CHANGE IN PRODUCTION
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
@@ -439,7 +450,7 @@ async def seed_database() -> None:
             # ============================================
             await db.commit()
             print("\n✅ Database seeded successfully!")
-            print(f"  - Created admin user: admin / changeme123 (CHANGE IN PRODUCTION)")
+            print(f"  - Created dev-user (for auth bypass) and admin user: admin / changeme123 (CHANGE IN PRODUCTION)")
             print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")
