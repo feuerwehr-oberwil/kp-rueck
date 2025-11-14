@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -22,6 +22,7 @@ interface SyncStatusCardProps {
 export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComplete }: SyncStatusCardProps) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [config, setConfig] = useState<SyncConfig | null>(null)
+  const [copied, setCopied] = useState(false)
 
   // Load config to check if we're on Railway
   useEffect(() => {
@@ -150,6 +151,19 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     }
   }
 
+  const handleCopyConnectionString = async () => {
+    if (!config?.railway_database_url) return
+
+    try {
+      await navigator.clipboard.writeText(config.railway_database_url)
+      setCopied(true)
+      toast.success('Connection String kopiert')
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      toast.error('Kopieren fehlgeschlagen')
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -205,6 +219,30 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             <p className="text-sm text-blue-800 dark:text-blue-200">
               {status.records_pending} Datensätze warten auf Synchronisation
             </p>
+          </div>
+        )}
+
+        {/* Railway Database Connection String */}
+        {config?.railway_database_url && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Railway PostgreSQL Connection String</p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 p-2 bg-muted rounded-md font-mono text-xs overflow-hidden">
+                <code className="block truncate">{config.railway_database_url}</code>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyConnectionString}
+                className="flex-shrink-0"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
         )}
 
