@@ -32,6 +32,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@postgres:5432/kprueck
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      AUTH_BYPASS_AUTH_DEV: "true"
       RELOAD: "true"
     depends_on:
       postgres:

@@ -86,16 +86,17 @@ class AuthSettings(BaseSettings):
         """
         Check if authentication is bypassed for development.
 
-        Returns True only if BYPASS_AUTH_DEV is enabled AND we're NOT in production.
-        Prevents accidentally disabling auth in production.
+        Returns True if BYPASS_AUTH_DEV is enabled.
+        Shows warning if enabled in production environment.
         """
         is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
-        if is_production and self.BYPASS_AUTH_DEV:
-            print("⚠️  WARNING: BYPASS_AUTH_DEV is enabled but ignored in production!")
-            return False
         if self.BYPASS_AUTH_DEV:
-            print("🔓 AUTH BYPASS ENABLED - Authentication is disabled for development!")
-        return self.BYPASS_AUTH_DEV
+            if is_production:
+                print("⚠️  WARNING: AUTH BYPASS ENABLED IN PRODUCTION! This is insecure and should only be temporary!")
+            else:
+                print("🔓 AUTH BYPASS ENABLED - Authentication is disabled for development!")
+            return True
+        return False
 
     class Config:
         env_prefix = "AUTH_"
