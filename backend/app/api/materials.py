@@ -2,12 +2,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import materials as crud
 from ..database import get_db
+from ..models import Material
 
 router = APIRouter(prefix="/materials", tags=["materials"])
 
@@ -71,3 +73,27 @@ async def delete_material(
     success = await crud.delete_material(db, material_id, current_user, request)
     if not success:
         raise HTTPException(status_code=404, detail="Material not found")
+
+
+@router.post("/categories/sort-order", status_code=status.HTTP_200_OK)
+async def update_location_sort_orders(
+    sort_update: schemas.BulkCategorySortOrderUpdate,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update sort orders for material location categories (editor only).
+
+    This endpoint allows reordering how materials are grouped by location.
+    All materials with the same location will get the same sort_order value.
+    """
+    # Update sort order for each location category
+    for category_update in sort_update.categories:
+        await db.execute(
+            update(Material)
+            .where(Material.location == category_update.category)
+            .values(location_sort_order=category_update.sort_order)
+        )
+
+    await db.commit()
+    return {"status": "success", "updated_categories": len(sort_update.categories)}

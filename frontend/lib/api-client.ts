@@ -41,6 +41,7 @@ export interface ApiPersonnel {
   id: string // UUID
   name: string
   role?: string | null // e.g., "Firefighter", "Paramedic", "Driver"
+  role_sort_order: number // Sort order for grouping by role
   availability: string // available, assigned, unavailable
   tags?: string[] | null
   checked_in: boolean
@@ -62,6 +63,7 @@ export interface ApiPersonnelListItem {
 export interface ApiPersonnelCreate {
   name: string
   role?: string | null
+  role_sort_order?: number
   availability: string
   tags?: string[] | null
 }
@@ -69,6 +71,7 @@ export interface ApiPersonnelCreate {
 export interface ApiPersonnelUpdate {
   name?: string
   role?: string | null
+  role_sort_order?: number
   availability?: string
   tags?: string[] | null
 }
@@ -105,6 +108,7 @@ export interface ApiMaterialResource {
   name: string
   status: string // available, assigned, planned, maintenance
   location?: string | null
+  location_sort_order: number // Sort order for grouping by location
   created_at: string
   updated_at: string
 }
@@ -113,12 +117,23 @@ export interface ApiMaterialCreate {
   name: string
   status: string
   location?: string | null
+  location_sort_order?: number
 }
 
 export interface ApiMaterialUpdate {
   name?: string
   status?: string
   location?: string | null
+  location_sort_order?: number
+}
+
+export interface CategorySortOrder {
+  category: string // The category name (role for personnel, location for materials)
+  sort_order: number // The new sort order value
+}
+
+export interface BulkCategorySortOrderUpdate {
+  categories: CategorySortOrder[]
 }
 
 export interface ApiAssignment {
@@ -626,6 +641,13 @@ class ApiClient {
     })
   }
 
+  async updatePersonnelCategorySortOrder(data: BulkCategorySortOrderUpdate): Promise<{ status: string; updated_categories: number }> {
+    return this.request<{ status: string; updated_categories: number }>('/api/personnel/categories/sort-order', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
   // Resource Management - Vehicles
   async getVehicles(): Promise<ApiVehicle[]> {
     return this.request<ApiVehicle[]>('/api/vehicles/')
@@ -681,6 +703,13 @@ class ApiClient {
   async deleteMaterialResource(id: string): Promise<void> {
     return this.request<void>(`/api/materials/${id}`, {
       method: 'DELETE',
+    })
+  }
+
+  async updateMaterialCategorySortOrder(data: BulkCategorySortOrderUpdate): Promise<{ status: string; updated_categories: number }> {
+    return this.request<{ status: string; updated_categories: number }>('/api/materials/categories/sort-order', {
+      method: 'POST',
+      body: JSON.stringify(data),
     })
   }
 

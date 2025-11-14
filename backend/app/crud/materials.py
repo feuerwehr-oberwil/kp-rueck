@@ -13,7 +13,7 @@ from ..services.audit import calculate_changes, log_action
 
 async def get_all_materials(db: AsyncSession) -> list[Material]:
     """Get all materials."""
-    result = await db.execute(select(Material).order_by(Material.name.asc()))
+    result = await db.execute(select(Material).order_by(Material.location_sort_order.asc(), Material.location.asc(), Material.name.asc()))
     return list(result.scalars().all())
 
 
@@ -34,6 +34,7 @@ async def create_material(
         name=material_data.name,
         status=material_data.status or "available",
         location=material_data.location,
+        location_sort_order=material_data.location_sort_order,
     )
     db.add(material)
     await db.flush()

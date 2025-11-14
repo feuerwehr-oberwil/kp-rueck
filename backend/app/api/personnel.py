@@ -2,12 +2,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import personnel as crud
 from ..database import get_db
+from ..models import Personnel
 
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 
@@ -81,3 +83,27 @@ async def delete_personnel(
     success = await crud.delete_personnel(db, personnel_id, current_user, request)
     if not success:
         raise HTTPException(status_code=404, detail="Personnel not found")
+
+
+@router.post("/categories/sort-order", status_code=status.HTTP_200_OK)
+async def update_role_sort_orders(
+    sort_update: schemas.BulkCategorySortOrderUpdate,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update sort orders for personnel role categories (editor only).
+
+    This endpoint allows reordering how personnel are grouped by role.
+    All personnel with the same role will get the same sort_order value.
+    """
+    # Update sort order for each role category
+    for category_update in sort_update.categories:
+        await db.execute(
+            update(Personnel)
+            .where(Personnel.role == category_update.category)
+            .values(role_sort_order=category_update.sort_order)
+        )
+
+    await db.commit()
+    return {"status": "success", "updated_categories": len(sort_update.categories)}

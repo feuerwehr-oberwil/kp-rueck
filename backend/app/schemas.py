@@ -19,6 +19,7 @@ class PersonnelBase(BaseModel):
 
     name: str
     role: Optional[str] = None
+    role_sort_order: int = 0
     availability: str  # 'available', 'assigned', 'unavailable'
     tags: Optional[list[str]] = None
 
@@ -34,6 +35,7 @@ class PersonnelUpdate(BaseModel):
 
     name: Optional[str] = None
     role: Optional[str] = None
+    role_sort_order: Optional[int] = None
     availability: Optional[str] = None
     tags: Optional[list[str]] = None
 
@@ -49,6 +51,19 @@ class Personnel(PersonnelBase):
     checked_out_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+
+class CategorySortOrder(BaseModel):
+    """Schema for updating category sort orders."""
+
+    category: str  # The category name (role for personnel, location for materials)
+    sort_order: int  # The new sort order value
+
+
+class BulkCategorySortOrderUpdate(BaseModel):
+    """Schema for bulk updating category sort orders."""
+
+    categories: list[CategorySortOrder]
 
 
 # ============================================
@@ -152,6 +167,7 @@ class MaterialBase(BaseModel):
     name: str
     type: str  # Material type (e.g., 'Tauchpumpen', 'Wassersauger', 'Sägen', 'Generatoren', 'Anhänger')
     location: str  # Storage location (e.g., 'TLF', 'Pio', 'MoWa', 'Bühne', 'Depot')
+    location_sort_order: int = 0
     description: Optional[str] = None
     status: str = "available"  # 'available', 'assigned', 'planned', 'maintenance'
 
@@ -168,6 +184,7 @@ class MaterialUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     location: Optional[str] = None
+    location_sort_order: Optional[int] = None
     description: Optional[str] = None
     status: Optional[str] = None
 

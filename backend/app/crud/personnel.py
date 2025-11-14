@@ -44,7 +44,7 @@ async def get_all_personnel(
         # Legacy: fallback to global checked_in field if no event_id provided
         query = query.where(Personnel.checked_in == True)
 
-    query = query.order_by(Personnel.name.asc())
+    query = query.order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
 
     result = await db.execute(query)
     return list(result.scalars().all())
@@ -66,6 +66,7 @@ async def create_personnel(
     personnel = Personnel(
         name=personnel_data.name,
         role=personnel_data.role,
+        role_sort_order=personnel_data.role_sort_order,
         availability=personnel_data.availability or "available",
     )
     db.add(personnel)
