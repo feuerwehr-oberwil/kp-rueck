@@ -390,24 +390,10 @@ class ApiClient {
     const method = options?.method || 'GET'
     const isGetRequest = method === 'GET'
 
-    // CRITICAL: Show alert for ALL Railway requests to debug
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
-    if (hostname.includes('railway.app')) {
-      // Force alert on every non-GET request to see what's happening
-      if (!isGetRequest) {
-        const debugInfo = `Railway Request Debug:\nMethod: ${method}\nEndpoint: ${endpoint}\nBase URL: ${baseUrl}\nFull URL: ${url}\nProtocol: ${url.startsWith('https://') ? 'HTTPS ✓' : 'HTTP ✗'}`
-        console.error(debugInfo)
-
-        // Check for HTTP
-        if (url.startsWith('http://')) {
-          alert(`ERROR: HTTP detected!\n\n${debugInfo}`)
-          throw new Error(`HTTP not allowed on Railway: ${url}`)
-        }
-      }
+    // Only log non-GET requests to avoid polling spam
+    if (!isGetRequest) {
+      console.log(`[API] ${method} ${endpoint}`)
     }
-
-    // Log baseUrl for debugging HTTPS issues
-    console.log(`[API] Base URL: ${baseUrl}, Full URL: ${url}`)
 
     try {
       const response = await fetch(url, {
@@ -551,13 +537,13 @@ class ApiClient {
   }
 
   async archiveEvent(eventId: string): Promise<ApiEvent> {
-    return this.request<ApiEvent>(`/api/events/${eventId}/archive/`, {
+    return this.request<ApiEvent>(`/api/events/${eventId}/archive`, {
       method: 'POST',
     })
   }
 
   async unarchiveEvent(eventId: string): Promise<ApiEvent> {
-    return this.request<ApiEvent>(`/api/events/${eventId}/unarchive/`, {
+    return this.request<ApiEvent>(`/api/events/${eventId}/unarchive`, {
       method: 'POST',
     })
   }
