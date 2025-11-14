@@ -42,6 +42,7 @@ export interface ApiPersonnel {
   name: string
   role?: string | null // e.g., "Firefighter", "Paramedic", "Driver"
   availability: string // available, assigned, unavailable
+  tags?: string[] | null
   checked_in: boolean
   checked_in_at: string | null
   checked_out_at: string | null
@@ -53,6 +54,7 @@ export interface ApiPersonnelListItem {
   id: string
   name: string
   role?: string | null
+  tags?: string[] | null
   checked_in: boolean
   is_assigned?: boolean  // Whether assigned to any incident in this event
 }
@@ -61,12 +63,14 @@ export interface ApiPersonnelCreate {
   name: string
   role?: string | null
   availability: string
+  tags?: string[] | null
 }
 
 export interface ApiPersonnelUpdate {
   name?: string
   role?: string | null
   availability?: string
+  tags?: string[] | null
 }
 
 export interface ApiVehicle {

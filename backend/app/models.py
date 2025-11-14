@@ -94,6 +94,7 @@ class Personnel(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
+    tags: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True, default=list)
 
     # Check-in tracking
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)

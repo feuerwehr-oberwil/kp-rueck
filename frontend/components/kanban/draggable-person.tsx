@@ -46,9 +46,15 @@ export function DraggablePerson({ person, onClick, disabled }: DraggablePersonPr
           />
           <span className="font-medium text-sm text-foreground truncate">{person.name}</span>
         </div>
-        <Badge variant="outline" className="text-xs flex-shrink-0 font-normal">
-          {person.role}
-        </Badge>
+        {person.tags && person.tags.length > 0 ? (
+          <div className="flex gap-1 flex-shrink-0">
+            {person.tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="text-xs font-normal px-1.5 py-0">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
       </div>
     </Card>
   )

@@ -16,6 +16,7 @@ export interface Person {
   name: string
   role: PersonRole
   status: PersonStatus
+  tags?: string[]
 }
 
 export type OperationStatus = "incoming" | "ready" | "enroute" | "active" | "returning" | "complete"
@@ -111,6 +112,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     name: apiPerson.name,
     role: apiPerson.role as PersonRole,
     status: apiPerson.availability as PersonStatus, // Backend uses 'availability' field
+    tags: apiPerson.tags || [],
   })
 
   const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({

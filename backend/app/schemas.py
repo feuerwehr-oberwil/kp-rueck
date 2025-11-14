@@ -20,6 +20,7 @@ class PersonnelBase(BaseModel):
     name: str
     role: Optional[str] = None
     availability: str  # 'available', 'assigned', 'unavailable'
+    tags: Optional[list[str]] = None
 
 
 class PersonnelCreate(PersonnelBase):
@@ -34,6 +35,7 @@ class PersonnelUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
     availability: Optional[str] = None
+    tags: Optional[list[str]] = None
 
 
 class Personnel(PersonnelBase):
@@ -70,6 +72,7 @@ class PersonnelCheckInResponse(BaseModel):
     name: str
     role: Optional[str] = None
     availability: str
+    tags: Optional[list[str]] = None
     checked_in: bool
     checked_in_at: Optional[datetime] = None
     checked_out_at: Optional[datetime] = None
@@ -84,6 +87,7 @@ class PersonnelListItem(BaseModel):
     id: UUID
     name: str
     role: Optional[str] = None
+    tags: Optional[list[str]] = None
     checked_in: bool
     is_assigned: bool = False  # Whether assigned to any incident in this event
 
