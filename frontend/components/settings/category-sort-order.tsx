@@ -1,23 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useState, useEffect, useRef } from 'react';
+import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
+import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GripVertical, Save } from 'lucide-react';
@@ -36,31 +22,46 @@ interface CategorySortOrderProps {
   onSave: (categories: Category[]) => Promise<void>;
 }
 
-function SortableItem({ category }: { category: Category }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: category.name });
+function SortableItem({
+  category,
+  index,
+  isDragging
+}: {
+  category: Category;
+  index: number;
+  isDragging: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const dragHandleRef = useRef<HTMLDivElement>(null);
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+  useEffect(() => {
+    const element = ref.current;
+    const dragHandle = dragHandleRef.current;
+    if (!element || !dragHandle) return;
+
+    return combine(
+      draggable({
+        element: dragHandle,
+        getInitialData: () => ({ index, category }),
+        onDragStart: () => element.setAttribute('data-dragging', 'true'),
+        onDrop: () => element.removeAttribute('data-dragging'),
+      }),
+      dropTargetForElements({
+        element,
+        getData: () => ({ index }),
+        canDrop: ({ source }) => source.data.index !== index,
+      })
+    );
+  }, [index, category]);
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
+      ref={ref}
       className="flex items-center gap-3 p-3 bg-card border rounded-lg hover:bg-accent/50 transition-colors"
+      style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <div
-        {...attributes}
-        {...listeners}
+        ref={dragHandleRef}
         className="cursor-grab active:cursor-grabbing touch-none"
       >
         <GripVertical className="h-5 w-5 text-muted-foreground" />
@@ -78,35 +79,50 @@ export function CategorySortOrder({ title, description, categories: initialCateg
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+    return dropTargetForElements({
+      element,
+      onDrop: ({ source, location }) => {
+        const destination = location.current.dropTargets[0];
+        if (!destination) return;
 
-    if (over && active.id !== over.id) {
-      setCategories((items) => {
-        const oldIndex = items.findIndex((item) => item.name === active.id);
-        const newIndex = items.findIndex((item) => item.name === over.id);
+        const sourceIndex = source.data.index as number;
+        const destinationIndex = destination.data.index as number;
 
-        const newItems = arrayMove(items, oldIndex, newIndex);
+        if (sourceIndex === destinationIndex) return;
 
-        // Update sort_order based on new positions
-        const updatedItems = newItems.map((item, index) => ({
-          ...item,
-          sort_order: index + 1,
-        }));
+        setCategories((items) => {
+          const reordered = reorder({
+            list: items,
+            startIndex: sourceIndex,
+            finishIndex: destinationIndex,
+          });
 
-        setHasChanges(true);
-        return updatedItems;
-      });
-    }
-  };
+          // Update sort_order based on new positions
+          const updatedItems = reordered.map((item, index) => ({
+            ...item,
+            sort_order: index + 1,
+          }));
+
+          setHasChanges(true);
+          setDraggingIndex(null);
+          return updatedItems;
+        });
+      },
+      onDragStart: ({ source }) => {
+        setDraggingIndex(source.data.index as number);
+      },
+      onDrag: () => {
+        // Optional: could add visual feedback during drag
+      },
+    });
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -162,22 +178,16 @@ export function CategorySortOrder({ title, description, categories: initialCateg
         </div>
       </CardHeader>
       <CardContent>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={categories.map((c) => c.name)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-2">
-              {categories.map((category) => (
-                <SortableItem key={category.name} category={category} />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <div ref={containerRef} className="space-y-2">
+          {categories.map((category, index) => (
+            <SortableItem
+              key={category.name}
+              category={category}
+              index={index}
+              isDragging={draggingIndex === index}
+            />
+          ))}
+        </div>
 
         {hasChanges && (
           <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
