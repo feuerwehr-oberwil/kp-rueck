@@ -95,39 +95,39 @@ async def seed_database() -> None:
             print("Creating vehicles...")
             vehicles_data = [
                 {
-                    "name": "TLF 1",
+                    "name": "TLF",
                     "type": "TLF",
                     "display_order": 1,
                     "status": "available",
-                    "radio_call_sign": "Florian Oberwil 1",
-                },
-                {
-                    "name": "DLK",
-                    "type": "DLK",
-                    "display_order": 2,
-                    "status": "available",
-                    "radio_call_sign": "Florian Oberwil 2",
-                },
-                {
-                    "name": "MTW 1",
-                    "type": "MTW",
-                    "display_order": 3,
-                    "status": "assigned",
-                    "radio_call_sign": "Florian Oberwil 3",
+                    "radio_call_sign": "Omega 1",
                 },
                 {
                     "name": "Pio",
                     "type": "RW",
-                    "display_order": 4,
-                    "status": "maintenance",
-                    "radio_call_sign": "Florian Oberwil 4",
+                    "display_order": 2,
+                    "status": "available",
+                    "radio_call_sign": "Omega 2",
                 },
                 {
-                    "name": "KdoW",
-                    "type": "KdoW",
+                    "name": "Mowa",
+                    "type": "MTW",
+                    "display_order": 3,
+                    "status": "available",
+                    "radio_call_sign": "Omega 3",
+                },
+                {
+                    "name": "Trawa",
+                    "type": "MTW",
+                    "display_order": 4,
+                    "status": "available",
+                    "radio_call_sign": "Omega 4",
+                },
+                {
+                    "name": "Mawa",
+                    "type": "MTW",
                     "display_order": 5,
                     "status": "available",
-                    "radio_call_sign": "Florian Oberwil 5",
+                    "radio_call_sign": "Omega 5",
                 },
             ]
 

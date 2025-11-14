@@ -77,7 +77,9 @@ export interface ApiVehicle {
   id: string // UUID
   name: string // e.g., "TLF 1", "DLK 2"
   type: string // e.g., "TLF", "DLK", "MTW"
+  display_order: number // Order for keyboard shortcuts and display
   status: string // available, assigned, planned, maintenance
+  radio_call_sign: string // e.g., "Omega 1", "Omega 2"
   created_at: string
   updated_at: string
 }
@@ -85,13 +87,17 @@ export interface ApiVehicle {
 export interface ApiVehicleCreate {
   name: string
   type: string
+  display_order: number
   status: string
+  radio_call_sign: string
 }
 
 export interface ApiVehicleUpdate {
   name?: string
   type?: string
+  display_order?: number
   status?: string
+  radio_call_sign?: string
 }
 
 export interface ApiMaterialResource {

@@ -137,9 +137,10 @@ export default function FireStationDashboard() {
     const loadVehicles = async () => {
       try {
         const vehicles = await apiClient.getVehicles()
-        // Create vehicle types array with keyboard shortcuts (1-5), including IDs
-        const typesWithKeys = vehicles.slice(0, 5).map((vehicle, index) => ({
-          key: String(index + 1),
+        // Sort vehicles by display_order and create vehicle types array with keyboard shortcuts
+        const sortedVehicles = vehicles.sort((a, b) => a.display_order - b.display_order)
+        const typesWithKeys = sortedVehicles.map((vehicle) => ({
+          key: String(vehicle.display_order),
           name: vehicle.name,
           id: vehicle.id
         }))
