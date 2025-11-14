@@ -4,35 +4,37 @@
  */
 
 export function getApiUrl(): string {
+  // ALWAYS force HTTPS for Railway API, regardless of env var
+  // This is a safety check to prevent mixed content errors
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+
+  // If env URL contains railway.app, FORCE it to HTTPS
+  if (envUrl && envUrl.includes('railway.app')) {
+    const httpsUrl = envUrl.replace('http://', 'https://')
+    console.log('[getApiUrl] Railway env detected, forcing HTTPS:', httpsUrl)
+    return httpsUrl
+  }
+
   // Client-side: determine based on current location
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname
-
     console.log('[getApiUrl] Client-side detection - hostname:', hostname)
 
     // If we're on the production frontend domain, always use HTTPS for backend
     if (hostname.includes('railway.app') || hostname.includes('up.railway.app')) {
-      console.log('[getApiUrl] Railway detected, using HTTPS')
-      // Always use HTTPS in production
+      console.log('[getApiUrl] Railway hostname detected, using HTTPS')
       return 'https://fwo-kp-api.up.railway.app'
     }
 
-    console.log('[getApiUrl] Not Railway, falling through to env var or localhost')
+    console.log('[getApiUrl] Not Railway, falling through')
   } else {
-    console.log('[getApiUrl] Server-side (no window), using env var:', process.env.NEXT_PUBLIC_API_URL)
+    console.log('[getApiUrl] Server-side (no window), env:', envUrl)
   }
 
-  // Server-side: use env variable or default to localhost
-  // For Railway production builds, this should use the HTTPS URL
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    // Ensure HTTPS is used in production even if env var is set to HTTP
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL
-    if (apiUrl.includes('railway.app') && apiUrl.startsWith('http://')) {
-      console.log('[getApiUrl] Converting HTTP to HTTPS:', apiUrl)
-      return apiUrl.replace('http://', 'https://')
-    }
-    console.log('[getApiUrl] Using env var as-is:', apiUrl)
-    return apiUrl
+  // Use env variable or default to localhost
+  if (envUrl) {
+    console.log('[getApiUrl] Using env var:', envUrl)
+    return envUrl
   }
 
   console.log('[getApiUrl] Defaulting to localhost')
