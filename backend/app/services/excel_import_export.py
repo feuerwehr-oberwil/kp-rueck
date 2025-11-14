@@ -37,7 +37,7 @@ MATERIAL_COLUMNS = [
 VEHICLE_TYPES = ["TLF", "DLK", "MTW", "KDO", "KdoW", "VRW", "RW", "Anhänger"]
 VEHICLE_STATUSES = ["available", "assigned", "maintenance"]
 PERSONNEL_STATUSES = ["available", "not-available", "assigned"]
-MATERIAL_TYPES = ["Tauchpumpen", "Wassersauger", "Sägen", "Generatoren", "Elektrowerkzeug", "Anhänger"]
+# Material types are no longer hardcoded - validation now accepts any non-empty string
 
 
 class ExcelImportError(Exception):
@@ -204,12 +204,8 @@ def validate_and_parse_excel(
                 if not row_data.get(field):
                     raise ExcelImportError(f"Materials row {row_idx}: '{field}' is required")
 
-            # Validate type enum
-            if row_data["type"] not in MATERIAL_TYPES:
-                raise ExcelImportError(
-                    f"Materials row {row_idx}: Invalid type '{row_data['type']}'. "
-                    f"Must be one of: {MATERIAL_TYPES}"
-                )
+            # No hardcoded validation for material type - accepts any non-empty string
+            # This allows flexibility for different material categories
 
             result["materials"].append(row_data)
 

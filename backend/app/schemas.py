@@ -645,14 +645,7 @@ class NotificationSettings(BaseModel):
 
     # Resource thresholds
     fatigue_hours: int = 4
-    material_depletion_threshold: dict[str, int] = {
-        "Tauchpumpen": -1,
-        "Wassersauger": -1,
-        "Sägen": -1,
-        "Generatoren": -1,
-        "Anhänger": -1,
-        "Elektrowerkzeug": -1,
-    }
+    material_depletion_threshold: dict[str, int] = {}
 
     # Event size limits (in GB)
     database_size_limit_gb: int = 5
