@@ -57,8 +57,15 @@ async def log_action(
         user_agent = request.headers.get("User-Agent")
 
     # Create log entry
+    # Skip user_id if it's the auth bypass mock user (doesn't exist in DB)
+    user_id = None
+    if user:
+        # Check if this is the mock bypass user (00000000-0000-0000-0000-000000000000)
+        if str(user.id) != "00000000-0000-0000-0000-000000000000":
+            user_id = user.id
+
     audit_entry = AuditLog(
-        user_id=user.id if user else None,
+        user_id=user_id,
         action_type=action_type,
         resource_type=resource_type,
         resource_id=resource_id,
