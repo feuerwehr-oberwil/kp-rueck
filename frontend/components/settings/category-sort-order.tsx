@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
+import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
+import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GripVertical, Save } from 'lucide-react';
@@ -33,6 +35,7 @@ function SortableItem({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const dragHandleRef = useRef<HTMLDivElement>(null);
+  const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
 
   useEffect(() => {
     const element = ref.current;
@@ -48,8 +51,24 @@ function SortableItem({
       }),
       dropTargetForElements({
         element,
-        getData: () => ({ index }),
+        getData: ({ input }) => attachClosestEdge({ index }, {
+          element,
+          input,
+          allowedEdges: ['top', 'bottom'],
+        }),
         canDrop: ({ source }) => source.data.index !== index,
+        onDrag: ({ self, source }) => {
+          const isSource = source.element === element;
+          if (isSource) {
+            setClosestEdge(null);
+            return;
+          }
+
+          const edge = extractClosestEdge(self.data);
+          setClosestEdge(edge);
+        },
+        onDragLeave: () => setClosestEdge(null),
+        onDrop: () => setClosestEdge(null),
       })
     );
   }, [index, category]);
@@ -57,7 +76,7 @@ function SortableItem({
   return (
     <div
       ref={ref}
-      className="flex items-center gap-3 p-3 bg-card border rounded-lg hover:bg-accent/50 transition-colors"
+      className="relative flex items-center gap-3 p-3 bg-card border rounded-lg hover:bg-accent/50 transition-colors"
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <div
@@ -71,6 +90,7 @@ function SortableItem({
         <div className="text-sm text-muted-foreground">{category.count} Einträge</div>
       </div>
       <div className="text-sm text-muted-foreground">#{category.sort_order}</div>
+      {closestEdge && <DropIndicator edge={closestEdge} />}
     </div>
   );
 }
@@ -89,15 +109,35 @@ export function CategorySortOrder({ title, description, categories: initialCateg
     return dropTargetForElements({
       element,
       onDrop: ({ source, location }) => {
-        const destination = location.current.dropTargets[0];
-        if (!destination) return;
+        const target = location.current.dropTargets[0];
+        if (!target) return;
 
         const sourceIndex = source.data.index as number;
-        const destinationIndex = destination.data.index as number;
+        const targetIndex = target.data.index as number;
 
-        if (sourceIndex === destinationIndex) return;
+        if (sourceIndex === targetIndex) return;
+
+        const closestEdgeOfTarget = extractClosestEdge(target.data);
 
         setCategories((items) => {
+          // Calculate the destination index based on the edge
+          let destinationIndex = targetIndex;
+
+          // If dropping below an item that's above the source, or dropping above an item that's below the source
+          if (closestEdgeOfTarget === 'bottom') {
+            destinationIndex = targetIndex;
+            // If we're moving from above to below, the destination stays the same
+            if (sourceIndex < targetIndex) {
+              destinationIndex = targetIndex;
+            }
+          } else if (closestEdgeOfTarget === 'top') {
+            destinationIndex = targetIndex;
+            // If we're moving from below to above, we need to adjust
+            if (sourceIndex > targetIndex) {
+              destinationIndex = targetIndex;
+            }
+          }
+
           const reordered = reorder({
             list: items,
             startIndex: sourceIndex,
@@ -117,9 +157,6 @@ export function CategorySortOrder({ title, description, categories: initialCateg
       },
       onDragStart: ({ source }) => {
         setDraggingIndex(source.data.index as number);
-      },
-      onDrag: () => {
-        // Optional: could add visual feedback during drag
       },
     });
   }, []);
