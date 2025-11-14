@@ -835,6 +835,14 @@ class ApiClient {
     )
   }
 
+  /**
+   * Get attendance for an event (all personnel with their check-in status)
+   * This is an alias for getAllPersonnel with event filtering
+   */
+  async getEventAttendance(eventId: string): Promise<ApiPersonnel[]> {
+    return this.getAllPersonnel({ event_id: eventId })
+  }
+
   // Reko Forms
   async generateRekoLink(incidentId: string): Promise<{ incident_id: string; token: string; link: string; qr_code_url: string }> {
     return this.request<{ incident_id: string; token: string; link: string; qr_code_url: string }>(

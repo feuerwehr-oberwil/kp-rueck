@@ -7,13 +7,14 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, Menu } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, Menu, ClipboardCheck } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileNavigation } from "@/components/mobile-navigation"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
@@ -32,6 +33,7 @@ import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { CommandPalette } from "@/components/ui/command-palette"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { EventSetupChecklist } from "@/components/event-setup-checklist"
 
 export default function FireStationDashboard() {
   const {
@@ -131,6 +133,25 @@ export default function FireStationDashboard() {
       router.push('/events')
     }
   }, [isMounted, isEventLoaded, selectedEvent, router])
+
+  // Checklist popover state and completion tracking
+  const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
+  const [allChecklistTasksComplete, setAllChecklistTasksComplete] = useState(false)
+
+  // Auto-open checklist for events < 24 hours old (every time, no localStorage)
+  useEffect(() => {
+    if (!selectedEvent || !isMounted || allChecklistTasksComplete) return
+
+    // Check if event is less than 24 hours old
+    const eventCreatedAt = new Date(selectedEvent.created_at)
+    const now = new Date()
+    const ageInMinutes = (now.getTime() - eventCreatedAt.getTime()) / (1000 * 60)
+
+    if (ageInMinutes < 1440) {
+      // Auto-open checklist for new events
+      setChecklistPopoverOpen(true)
+    }
+  }, [selectedEvent, isMounted, allChecklistTasksComplete])
 
   // Load vehicles from API to populate vehicle types for shortcuts
   useEffect(() => {
@@ -620,6 +641,7 @@ export default function FireStationDashboard() {
           )}
         </header>
 
+
         <div className="flex flex-1 overflow-hidden">
           {showLeftSidebar && (
             <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
@@ -745,6 +767,37 @@ export default function FireStationDashboard() {
                 <Plus className="h-4 w-4" />
                 Neuer Einsatz
               </Button>
+
+              {/* Event Setup Checklist Popover - only show if not all complete */}
+              {!allChecklistTasksComplete && (
+                <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-2" disabled={!selectedEvent}>
+                      <ClipboardCheck className="h-4 w-4" />
+                      Bereitschaft
+                    </Button>
+                  </PopoverTrigger>
+                  {selectedEvent && (
+                    <PopoverContent
+                      className="w-[600px] p-0"
+                      align="start"
+                      side="top"
+                      sideOffset={10}
+                    >
+                      <EventSetupChecklist
+                        eventId={selectedEvent.id}
+                        eventName={selectedEvent.name}
+                        onDismiss={() => setChecklistPopoverOpen(false)}
+                        onAllTasksComplete={() => {
+                          setAllChecklistTasksComplete(true)
+                          setChecklistPopoverOpen(false)
+                        }}
+                      />
+                    </PopoverContent>
+                  )}
+                </Popover>
+              )}
+
               <Button size="sm" variant="outline" className="gap-2" onClick={generateCheckInQR}>
                 <QrCode className="h-4 w-4" />
                 Check-In QR
