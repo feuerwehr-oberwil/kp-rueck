@@ -150,8 +150,8 @@ class MaterialBase(BaseModel):
     """Base material schema."""
 
     name: str
-    type: str  # Material type (e.g., 'Atemschutz', 'Schläuche', 'Werkzeug')
-    location: str  # Storage location (e.g., 'TLF 1', 'Lager Raum 3')
+    type: str  # Material type (e.g., 'Tauchpumpen', 'Wassersauger', 'Sägen', 'Generatoren', 'Anhänger')
+    location: str  # Storage location (e.g., 'TLF', 'Pio', 'MoWa', 'Bühne', 'Depot')
     description: Optional[str] = None
     status: str = "available"  # 'available', 'assigned', 'planned', 'maintenance'
 
@@ -646,10 +646,11 @@ class NotificationSettings(BaseModel):
     # Resource thresholds
     fatigue_hours: int = 4
     material_depletion_threshold: dict[str, int] = {
-        "Atemschutz": 2,
-        "Schläuche": 5,
-        "Werkzeug": 3,
-        "Pumpen": 1,
+        "Tauchpumpen": 3,
+        "Wassersauger": 2,
+        "Sägen": 1,
+        "Generatoren": 1,
+        "Anhänger": 1,
     }
 
     # Event size limits (in GB)
