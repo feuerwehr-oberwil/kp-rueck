@@ -33,7 +33,7 @@ export function NotificationSettingsCard() {
 
         for (const type of types) {
           if (!(type in currentThresholds)) {
-            currentThresholds[type] = 2 // Default threshold
+            currentThresholds[type] = -1 // Default disabled
             updated = true
           }
         }
