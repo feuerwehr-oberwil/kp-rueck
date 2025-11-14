@@ -24,6 +24,21 @@ Ressourcen zuweisen: Person/Fahrzeug/Material auf Einsatzkarte ziehen
 
 Nur verfügbare Ressourcen (🟢 grüner Punkt) können zugewiesen werden.
 
+## Spezialfunktionen (Rechtsklick)
+
+Rechtsklick auf Person in der Seitenleiste öffnet Menü für Spezialfunktionen:
+
+**Fahrzeug-Fahrer:**
+- Fahrzeuge 1-5 als Fahrer zuweisen
+- Aktueller Fahrer wird angezeigt
+- Checkmark (✓) zeigt eigene Zuweisung
+
+**Weitere Funktionen:**
+- **Reko**: Person als Erkundungsteam markieren
+- **Magazin**: Person als Magazin-Verantwortlicher markieren
+
+Erneuter Rechtsklick auf aktive Funktion entfernt die Zuweisung.
+
 ## Tastatur-Navigation
 
 **Einsatz auswählen:**
