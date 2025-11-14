@@ -69,9 +69,11 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   // Resource thresholds
   fatigue_hours: 4,
   material_depletion_threshold: {
-    'Atemschutz': 2,
-    'Schläuche': 5,
-    'Werkzeug': 3,
+    'Tauchpumpen': 3,
+    'Wassersauger': 2,
+    'Sägen': 1,
+    'Generatoren': 1,
+    'Anhänger': 1,
   },
 
   // Event size limits

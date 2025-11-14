@@ -37,7 +37,7 @@ MATERIAL_COLUMNS = [
 VEHICLE_TYPES = ["TLF", "DLK", "MTW", "KDO", "KdoW", "VRW", "RW", "Anhänger"]
 VEHICLE_STATUSES = ["available", "assigned", "maintenance"]
 PERSONNEL_STATUSES = ["available", "not-available", "assigned"]
-MATERIAL_TYPES = ["Atemschutz", "Schläuche", "Werkzeug", "Pumpen", "Beleuchtung", "Sonstiges"]
+MATERIAL_TYPES = ["Tauchpumpen", "Wassersauger", "Sägen", "Generatoren", "Elektrowerkzeug", "Anhänger"]
 
 
 class ExcelImportError(Exception):
@@ -77,9 +77,9 @@ def generate_empty_template() -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example with duplicates showing multiple items
-    ws_materials.append(["Atemschutzgerät", "Atemschutz", "TLF 1", "Dräger PSS 7000"])
-    ws_materials.append(["Atemschutzgerät", "Atemschutz", "TLF 1", "Dräger PSS 7000"])
-    ws_materials.append(["Schlauch C-52", "Schläuche", "TLF 1", "15m"])
+    ws_materials.append(["Tauchpumpe Gr.", "Tauchpumpen", "TLF", ""])
+    ws_materials.append(["Tauchpumpe Kl.", "Tauchpumpen", "TLF", ""])
+    ws_materials.append(["Wassersauger", "Wassersauger", "Pio", ""])
 
     # Save to BytesIO
     output = BytesIO()

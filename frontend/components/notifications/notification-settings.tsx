@@ -427,6 +427,38 @@ export function NotificationSettingsCard() {
             {savingKey === 'photo_size_limit_gb' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
           </div>
         </div>
+
+        <div className="grid gap-2 pt-4 border-t">
+          <Label>Materialbestand-Schwellenwerte</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Warnung wenn verfügbare Einheiten unter den Schwellenwert fallen
+          </p>
+          {Object.entries(settings.material_depletion_threshold).map(([materialType, threshold]) => (
+            <div key={materialType} className="grid grid-cols-2 gap-2 items-center">
+              <Label htmlFor={`material-${materialType}`} className="text-sm font-normal">
+                {materialType}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id={`material-${materialType}`}
+                  type="number"
+                  min="0"
+                  defaultValue={threshold}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val !== threshold) {
+                      const newThresholds = { ...settings.material_depletion_threshold, [materialType]: val }
+                      updateSetting('material_depletion_threshold', newThresholds)
+                    }
+                  }}
+                  disabled={savingKey === 'material_depletion_threshold'}
+                  className="h-8"
+                />
+                {savingKey === 'material_depletion_threshold' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   )
