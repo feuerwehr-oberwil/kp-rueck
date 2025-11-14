@@ -54,6 +54,8 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      # Server-side API URL (for Next.js server)
+      INTERNAL_API_URL: http://backend:8000
     depends_on:
       - backend
     networks:
