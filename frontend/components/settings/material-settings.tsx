@@ -35,6 +35,7 @@ export function MaterialSettings() {
   const [editingMaterial, setEditingMaterial] = useState<ApiMaterialResource | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    type: '',
     status: 'available',
     location: '',
   });
@@ -71,6 +72,7 @@ export function MaterialSettings() {
     setEditingMaterial(material);
     setFormData({
       name: material.name,
+      type: material.type,
       status: material.status,
       location: material.location || '',
     });
@@ -91,7 +93,7 @@ export function MaterialSettings() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingMaterial(null);
-    setFormData({ name: '', status: 'available', location: '' });
+    setFormData({ name: '', type: '', status: 'available', location: '' });
   };
 
   return (
@@ -118,9 +120,29 @@ export function MaterialSettings() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="z.B. Pumpe klein von Auto 1"
+                  placeholder="z.B. Tauchpumpe Gr."
                   required
                 />
+              </div>
+              <div>
+                <Label htmlFor="type">Typ</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Typ auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Tauchpumpen">Tauchpumpen</SelectItem>
+                    <SelectItem value="Wassersauger">Wassersauger</SelectItem>
+                    <SelectItem value="Sägen">Sägen</SelectItem>
+                    <SelectItem value="Generatoren">Generatoren</SelectItem>
+                    <SelectItem value="Elektrowerkzeug">Elektrowerkzeug</SelectItem>
+                    <SelectItem value="Anhänger">Anhänger</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
@@ -145,7 +167,7 @@ export function MaterialSettings() {
                   id="location"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Lagerort"
+                  placeholder="z.B. TLF, Pio, Depot"
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -165,6 +187,7 @@ export function MaterialSettings() {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
+            <TableHead>Typ</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Standort</TableHead>
             <TableHead className="text-right">Aktionen</TableHead>
@@ -174,6 +197,11 @@ export function MaterialSettings() {
           {materials.map((material) => (
             <TableRow key={material.id}>
               <TableCell className="font-medium">{material.name}</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
+                  {material.type}
+                </span>
+              </TableCell>
               <TableCell>
                 <span
                   className={`px-2 py-1 rounded text-xs ${
