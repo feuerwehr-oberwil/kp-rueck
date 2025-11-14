@@ -390,6 +390,14 @@ class ApiClient {
     const method = options?.method || 'GET'
     const isGetRequest = method === 'GET'
 
+    // CRITICAL: Force error if using HTTP on Railway
+    if (url.startsWith('http://') && url.includes('railway.app')) {
+      const error = `CRITICAL: Attempting HTTP request on Railway! URL: ${url}, Base: ${baseUrl}`
+      console.error(error)
+      alert(error)  // Force visibility
+      throw new Error(error)
+    }
+
     // Log baseUrl for debugging HTTPS issues
     console.log(`[API] Base URL: ${baseUrl}, Full URL: ${url}`)
 
