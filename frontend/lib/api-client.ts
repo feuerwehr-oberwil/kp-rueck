@@ -519,7 +519,7 @@ class ApiClient {
   }
 
   async getEvent(eventId: string): Promise<ApiEvent> {
-    return this.request<ApiEvent>(`/api/events/${eventId}/`)
+    return this.request<ApiEvent>(`/api/events/${eventId}`)
   }
 
   async createEvent(data: ApiEventCreate): Promise<ApiEvent> {
@@ -530,7 +530,7 @@ class ApiClient {
   }
 
   async updateEvent(eventId: string, data: ApiEventUpdate): Promise<ApiEvent> {
-    return this.request<ApiEvent>(`/api/events/${eventId}/`, {
+    return this.request<ApiEvent>(`/api/events/${eventId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
@@ -549,7 +549,7 @@ class ApiClient {
   }
 
   async deleteEvent(eventId: string): Promise<void> {
-    return this.request<void>(`/api/events/${eventId}/`, {
+    return this.request<void>(`/api/events/${eventId}`, {
       method: 'DELETE',
     })
   }
