@@ -27,7 +27,9 @@ Rückfahrt zur Basis. Rückfahrtzeit erfassen, Material- und Personal-Check.
 Vollständig abgeschlossen. Dokumentation prüfen.
 
 **Automatische Ressourcen-Freigabe:**
-Sobald ein Einsatz in diese Spalte verschoben wird, werden zugewiesene Personen und Fahrzeuge automatisch freigegeben und stehen wieder für neue Einsätze zur Verfügung. Material bleibt zugewiesen, da es möglicherweise noch vor Ort liegt.
+Sobald ein Einsatz in diese Spalte verschoben wird, werden zugewiesene Personen und Fahrzeuge automatisch freigegeben und stehen wieder für neue Einsätze zur Verfügung.
+
+Material (Pumpen, Sandsäcke, etc.) bleibt zugewiesen, da es oft am Einsatzort liegt und erst später eingesammelt wird.
 
 ## Spalten verschieben
 
