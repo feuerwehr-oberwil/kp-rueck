@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -137,6 +137,14 @@ export function DraggableOperation({
             </div>
             {/* Non-draggable icons area */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {operation.hasCompletedReko && (
+                <div
+                  className="p-1.5 rounded-md bg-green-500/20"
+                  title="Reko-Bericht ausgefüllt"
+                >
+                  <FileCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+              )}
               <Link
                 href={`/map?highlight=${operation.id}`}
                 onClick={(e) => e.stopPropagation()}

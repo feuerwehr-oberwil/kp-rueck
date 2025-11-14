@@ -37,6 +37,7 @@ export interface Operation {
   notes: string
   contact: string
   statusChangedAt: Date | null // Timestamp when the operation moved to its current status
+  hasCompletedReko: boolean // Whether a completed (non-draft) reko report exists
   // Track assignment IDs for unassignment
   crewAssignments: Map<string, string> // name -> assignment_id
   materialAssignments: Map<string, string> // material_id -> assignment_id
@@ -151,6 +152,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       notes: incident.description || "",
       contact: "", // Not in incident schema
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
+      hasCompletedReko: incident.has_completed_reko || false,
       crewAssignments: new Map(),
       materialAssignments: new Map(),
       vehicleAssignments: new Map(),
@@ -613,6 +615,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           notes: apiIncident.description || "",
           contact: operation.contact,
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
+          hasCompletedReko: false, // New incidents don't have reko reports yet
           crewAssignments: new Map(),
           materialAssignments: new Map(),
           vehicleAssignments: new Map(),
@@ -628,6 +631,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         id: getNextOperationId(),
         dispatchTime: new Date(),
         statusChangedAt: null,
+        hasCompletedReko: false,
         crewAssignments: new Map(),
         materialAssignments: new Map(),
         vehicleAssignments: new Map(),

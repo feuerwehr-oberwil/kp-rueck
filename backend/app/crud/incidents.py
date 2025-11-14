@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, IncidentAssignment, StatusTransition, User, Vehicle
+from ..models import Incident, IncidentAssignment, StatusTransition, User, Vehicle, RekoReport
 from ..services.audit import calculate_changes, log_action
 from . import events as events_crud
 
@@ -106,7 +106,21 @@ async def get_incidents(
                 )
             )
 
-    # Populate status_changed_at and assigned_vehicles for each incident
+    # Batch load reko completion status for all incidents
+    reko_query = (
+        select(RekoReport.incident_id)
+        .where(
+            and_(
+                RekoReport.incident_id.in_(incident_ids),
+                RekoReport.is_draft == False
+            )
+        )
+        .distinct()
+    )
+    reko_result = await db.execute(reko_query)
+    incidents_with_completed_reko = {row.incident_id for row in reko_result}
+
+    # Populate status_changed_at, assigned_vehicles, and has_completed_reko for each incident
     for incident in incidents:
         # Set status_changed_at from batch-loaded map
         incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
@@ -114,11 +128,14 @@ async def get_incidents(
         # Set assigned vehicles from batch-loaded map
         incident.assigned_vehicles = vehicles_by_incident.get(incident.id, [])
 
+        # Set has_completed_reko flag
+        incident.has_completed_reko = incident.id in incidents_with_completed_reko
+
     return incidents
 
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
-    """Get incident by ID with status_changed_at and assigned_vehicles populated."""
+    """Get incident by ID with status_changed_at, assigned_vehicles, and has_completed_reko populated."""
     result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = result.scalar_one_or_none()
 
@@ -138,6 +155,19 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 
         # Load assigned vehicles (reuse helper function - acceptable for single incident)
         incident.assigned_vehicles = await _get_assigned_vehicles(db, incident.id)
+
+        # Check for completed reko report
+        reko_check = await db.execute(
+            select(RekoReport.id)
+            .where(
+                and_(
+                    RekoReport.incident_id == incident.id,
+                    RekoReport.is_draft == False
+                )
+            )
+            .limit(1)
+        )
+        incident.has_completed_reko = reko_check.scalar_one_or_none() is not None
 
     return incident
 

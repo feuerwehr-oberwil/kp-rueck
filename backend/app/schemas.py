@@ -328,6 +328,7 @@ class IncidentResponse(IncidentBase):
     completed_at: Optional[datetime] = None
     status_changed_at: Optional[datetime] = None  # Timestamp of last status transition
     assigned_vehicles: list[AssignedVehicle] = []  # List of assigned vehicles with details
+    has_completed_reko: bool = False  # Whether a non-draft reko report has been submitted
 
     @field_serializer('location_lat', 'location_lng')
     def serialize_decimal(self, value):

@@ -193,6 +193,7 @@ export interface ApiIncident {
   completed_at: string | null
   status_changed_at: string | null // Timestamp of last status transition
   assigned_vehicles: ApiAssignedVehicle[]
+  has_completed_reko: boolean // Whether a non-draft reko report exists
 }
 
 export interface ApiIncidentCreate {
