@@ -24,7 +24,10 @@ Zeitwarnung: Gelb > 2 Stunden, Rot > 4 Stunden
 Rückfahrt zur Basis. Rückfahrtzeit erfassen, Material- und Personal-Check.
 
 ### 6. Abschluss / Archiv
-Vollständig abgeschlossen. Dokumentation prüfen, Ressourcen werden automatisch freigegeben.
+Vollständig abgeschlossen. Dokumentation prüfen.
+
+**Automatische Ressourcen-Freigabe:**
+Sobald ein Einsatz in diese Spalte verschoben wird, werden zugewiesene Personen und Fahrzeuge automatisch freigegeben und stehen wieder für neue Einsätze zur Verfügung. Material bleibt zugewiesen, da es möglicherweise noch vor Ort liegt.
 
 ## Spalten verschieben
 
