@@ -32,11 +32,14 @@ async def get_current_user(
     # Development bypass mode - return mock user
     if auth_settings.is_auth_bypassed:
         # Create a mock user for development
+        from datetime import datetime, timezone
         mock_user = User(
             id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
             username="dev-user",
             password_hash="",  # Not used in bypass mode
             role="editor",
+            created_at=datetime.now(timezone.utc),  # Required field
+            last_login=None,
         )
         # Set on request state for logging/audit
         request.state.user = mock_user
