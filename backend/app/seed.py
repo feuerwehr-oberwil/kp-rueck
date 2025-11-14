@@ -453,7 +453,79 @@ async def seed_database() -> None:
                 db.add(assignment)
 
             # ============================================
-            # 9. SEED STATUS TRANSITIONS
+            # 9. SEED EVENT SPECIAL FUNCTIONS
+            # ============================================
+            print("Creating special function assignments...")
+
+            # Assign drivers to vehicles for the operational event
+            special_functions = [
+                # Drivers for operational event
+                models.EventSpecialFunction(
+                    id=uuid4(),
+                    event_id=operational_event.id,
+                    personnel_id=personnel[0].id,  # Imhof Sebastiaan (Offizier with F tag)
+                    function_type="driver",
+                    vehicle_id=vehicles[0].id,  # TLF
+                    assigned_by=admin_user.id,
+                ),
+                models.EventSpecialFunction(
+                    id=uuid4(),
+                    event_id=operational_event.id,
+                    personnel_id=personnel[1].id,  # Weber Martin (Offizier with F tag)
+                    function_type="driver",
+                    vehicle_id=vehicles[1].id,  # Pio
+                    assigned_by=admin_user.id,
+                ),
+                models.EventSpecialFunction(
+                    id=uuid4(),
+                    event_id=operational_event.id,
+                    personnel_id=personnel[7].id,  # Lehmann Bastian (Wachtmeister with F tag)
+                    function_type="driver",
+                    vehicle_id=vehicles[2].id,  # Mowa
+                    assigned_by=admin_user.id,
+                ),
+                # Reko assignment for operational event
+                models.EventSpecialFunction(
+                    id=uuid4(),
+                    event_id=operational_event.id,
+                    personnel_id=personnel[3].id,  # Baumann Michael (Offizier)
+                    function_type="reko",
+                    vehicle_id=None,
+                    assigned_by=admin_user.id,
+                ),
+                # Magazin assignment for operational event
+                models.EventSpecialFunction(
+                    id=uuid4(),
+                    event_id=operational_event.id,
+                    personnel_id=personnel[15].id,  # Arnold Samuel (Wachtmeister)
+                    function_type="magazin",
+                    vehicle_id=None,
+                    assigned_by=admin_user.id,
+                ),
+                # Different assignments for training event
+                models.EventSpecialFunction(
+                    id=uuid4(),
+                    event_id=training_event.id,
+                    personnel_id=personnel[4].id,  # Leuenberger Luca (Offizier with F tag)
+                    function_type="driver",
+                    vehicle_id=vehicles[0].id,  # TLF (different driver than operational)
+                    assigned_by=admin_user.id,
+                ),
+                models.EventSpecialFunction(
+                    id=uuid4(),
+                    event_id=training_event.id,
+                    personnel_id=personnel[5].id,  # Steiner Lukas (Offizier)
+                    function_type="reko",
+                    vehicle_id=None,
+                    assigned_by=admin_user.id,
+                ),
+            ]
+
+            for special_func in special_functions:
+                db.add(special_func)
+
+            # ============================================
+            # 10. SEED STATUS TRANSITIONS
             # ============================================
             print("Creating status transitions...")
 
@@ -501,6 +573,7 @@ async def seed_database() -> None:
             print(f"  - Created 2 events (1 training, 1 operational)")
             print(f"  - Created {len(incidents)} incidents (1 training, 4 operational)")
             print(f"  - Created {len(assignments)} resource assignments")
+            print(f"  - Created {len(special_functions)} special function assignments (drivers, reko, magazin)")
             print(f"  - Created {len(transitions)} status transitions")
 
         except Exception as e:

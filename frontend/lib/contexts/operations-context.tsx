@@ -297,6 +297,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         })
       })
 
+      // Also mark personnel as assigned if they have special functions (drivers, reko, magazin)
+      try {
+        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+        specialFunctions.forEach(func => {
+          assignedPersonIds.add(func.personnel_id)
+        })
+      } catch (error) {
+        console.error('Failed to load special functions for personnel status:', error)
+      }
+
       // Update personnel/material status based on event-scoped assignments
       const eventScopedPersonnel = personnelList.map(person => ({
         ...person,
@@ -459,6 +469,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             assignedMaterialIds.add(materialId)
           })
         })
+
+        // Also mark personnel as assigned if they have special functions (drivers, reko, magazin)
+        try {
+          const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+          specialFunctions.forEach(func => {
+            assignedPersonIds.add(func.personnel_id)
+          })
+        } catch (error) {
+          console.error('Failed to load special functions for personnel status:', error)
+        }
 
         // Update personnel status based on event-scoped assignments
         const eventScopedPersonnel = personnelList.map(person => ({

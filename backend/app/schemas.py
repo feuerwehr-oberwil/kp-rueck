@@ -116,6 +116,51 @@ class CheckInListResponse(BaseModel):
 
 
 # ============================================
+# Special Function Schemas
+# ============================================
+
+
+class FunctionType(str, Enum):
+    """Special function type enumeration."""
+
+    DRIVER = "driver"
+    REKO = "reko"
+    MAGAZIN = "magazin"
+
+
+class EventSpecialFunctionCreate(BaseModel):
+    """Schema for assigning a special function to personnel."""
+
+    personnel_id: UUID
+    function_type: FunctionType
+    vehicle_id: Optional[UUID] = None  # Required for driver assignments
+
+
+class EventSpecialFunctionDelete(BaseModel):
+    """Schema for removing a special function assignment."""
+
+    personnel_id: UUID
+    function_type: FunctionType
+    vehicle_id: Optional[UUID] = None  # Required for driver unassignments
+
+
+class EventSpecialFunctionResponse(BaseModel):
+    """Special function assignment response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    event_id: UUID
+    personnel_id: UUID
+    personnel_name: str  # Computed field
+    function_type: FunctionType
+    vehicle_id: Optional[UUID] = None
+    vehicle_name: Optional[str] = None  # Computed field for drivers
+    assigned_at: datetime
+    assigned_by: Optional[UUID] = None
+
+
+# ============================================
 # Vehicle Schemas
 # ============================================
 

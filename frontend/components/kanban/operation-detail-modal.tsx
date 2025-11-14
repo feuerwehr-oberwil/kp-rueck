@@ -10,16 +10,18 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { Kbd } from "@/components/ui/kbd"
+import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
+import { useEvent } from "@/lib/contexts/event-context"
 
 interface OperationDetailModalProps {
   operation: Operation | null
@@ -45,19 +47,42 @@ export function OperationDetailModal({
   onRemoveVehicle,
 }: OperationDetailModalProps) {
   const { formatLocation } = useOperations()
+  const { selectedEvent } = useEvent()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
+  const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
+  const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
 
-  // Load vehicles when modal opens
+  // Load vehicles and special functions when modal opens
   useEffect(() => {
     const loadVehicles = async () => {
-      if (!open) return
+      if (!open || !selectedEvent) return
 
       setIsLoadingVehicles(true)
       try {
         const vehicles = await apiClient.getVehicles()
         setAvailableVehicles(vehicles.map((v) => ({ id: v.id, name: v.name, type: v.type })))
+
+        // Load special functions to get driver information
+        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+        const driverMap = new Map<string, string>()
+
+        // Build vehicle ID to name mapping
+        const vehicleIdToName = new Map<string, string>()
+        vehicles.forEach(v => vehicleIdToName.set(v.id, v.name))
+
+        // Map vehicle names to driver names
+        specialFunctions
+          .filter(f => f.function_type === 'driver' && f.vehicle_id)
+          .forEach(f => {
+            const vehicleName = vehicleIdToName.get(f.vehicle_id!)
+            if (vehicleName) {
+              driverMap.set(vehicleName, f.personnel_name)
+            }
+          })
+
+        setVehicleDrivers(driverMap)
       } catch (error) {
         console.error('Failed to load vehicles:', error)
       } finally {
@@ -66,7 +91,52 @@ export function OperationDetailModal({
     }
 
     loadVehicles()
-  }, [open])
+  }, [open, selectedEvent])
+
+  // Handler for copying WhatsApp message
+  const handleCopyWhatsApp = async () => {
+    if (!operation) return
+
+    setIsCopyingWhatsApp(true)
+    try {
+      // Fetch the latest Reko report if one exists
+      let rekoReport: ApiRekoReportResponse | null = null
+      if (operation.hasCompletedReko) {
+        try {
+          const reports = await apiClient.getIncidentRekoReports(operation.id)
+          const completedReports = reports.filter(r => !r.is_draft)
+          if (completedReports.length > 0) {
+            // Use the most recent completed report
+            rekoReport = completedReports[completedReports.length - 1]
+          }
+        } catch (error) {
+          console.error('Failed to fetch Reko report:', error)
+          // Continue without Reko data
+        }
+      }
+
+      // Format the message
+      const message = formatWhatsAppMessage({
+        operation,
+        materials,
+        rekoReport,
+        vehicleDrivers,
+      })
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(message)
+      toast.success('In Zwischenablage kopiert', {
+        description: 'Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.',
+      })
+    } catch (error) {
+      console.error('Failed to copy WhatsApp message:', error)
+      toast.error('Fehler beim Kopieren', {
+        description: 'Die Nachricht konnte nicht in die Zwischenablage kopiert werden.',
+      })
+    } finally {
+      setIsCopyingWhatsApp(false)
+    }
+  }
 
   // Keyboard shortcuts for modal
   useEffect(() => {
@@ -257,26 +327,29 @@ export function OperationDetailModal({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {operation.vehicles.map((vehicleName, idx) => (
-                <Badge
-                  key={idx}
-                  variant="default"
-                  className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                >
-                  <Truck className="h-3 w-3" />
-                  {vehicleName}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onRemoveVehicle(operation.id, vehicleName)
-                    }}
-                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Fahrzeug entfernen"
+              {operation.vehicles.map((vehicleName, idx) => {
+                const driverName = vehicleDrivers.get(vehicleName)
+                return (
+                  <Badge
+                    key={idx}
+                    variant="default"
+                    className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
+                    <Truck className="h-3 w-3" />
+                    {vehicleName}{driverName ? ` (${driverName})` : ''}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveVehicle(operation.id, vehicleName)
+                      }}
+                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Fahrzeug entfernen"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )
+              })}
 
               {/* Add Vehicle Button */}
               <Popover>
@@ -370,11 +443,21 @@ export function OperationDetailModal({
         {/* Actions */}
         <div className="flex gap-3 pt-4 border-t">
           <Button
+            variant="destructive"
             className="gap-2"
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4" />
             Löschen
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleCopyWhatsApp}
+            disabled={isCopyingWhatsApp}
+          >
+            <MessageCircle className="h-4 w-4" />
+            {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp kopieren'}
           </Button>
           <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
             Schliessen

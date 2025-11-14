@@ -36,6 +36,33 @@ export interface ApiEventListResponse {
   total: number
 }
 
+// Special Function Types
+export type FunctionType = "driver" | "reko" | "magazin"
+
+export interface ApiEventSpecialFunctionCreate {
+  personnel_id: string // UUID
+  function_type: FunctionType
+  vehicle_id?: string | null // Required for driver assignments
+}
+
+export interface ApiEventSpecialFunctionDelete {
+  personnel_id: string // UUID
+  function_type: FunctionType
+  vehicle_id?: string | null // Required for driver unassignments
+}
+
+export interface ApiEventSpecialFunctionResponse {
+  id: string // UUID
+  event_id: string // UUID
+  personnel_id: string // UUID
+  personnel_name: string // Computed field
+  function_type: FunctionType
+  vehicle_id: string | null // UUID
+  vehicle_name: string | null // Computed field for drivers
+  assigned_at: string
+  assigned_by: string | null // UUID
+}
+
 // Resource Management Types
 export interface ApiPersonnel {
   id: string // UUID
@@ -524,6 +551,29 @@ class ApiClient {
   async deleteEvent(eventId: string): Promise<void> {
     return this.request<void>(`/api/events/${eventId}/`, {
       method: 'DELETE',
+    })
+  }
+
+  // Special Functions (event-scoped)
+  async getEventSpecialFunctions(eventId: string): Promise<ApiEventSpecialFunctionResponse[]> {
+    return this.request<ApiEventSpecialFunctionResponse[]>(`/api/events/${eventId}/special-functions/`)
+  }
+
+  async getPersonnelSpecialFunctions(eventId: string, personnelId: string): Promise<ApiEventSpecialFunctionResponse[]> {
+    return this.request<ApiEventSpecialFunctionResponse[]>(`/api/events/${eventId}/special-functions/personnel/${personnelId}`)
+  }
+
+  async assignSpecialFunction(eventId: string, data: ApiEventSpecialFunctionCreate): Promise<ApiEventSpecialFunctionResponse> {
+    return this.request<ApiEventSpecialFunctionResponse>(`/api/events/${eventId}/special-functions/`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async unassignSpecialFunction(eventId: string, data: ApiEventSpecialFunctionDelete): Promise<void> {
+    return this.request<void>(`/api/events/${eventId}/special-functions/`, {
+      method: 'DELETE',
+      body: JSON.stringify(data),
     })
   }
 

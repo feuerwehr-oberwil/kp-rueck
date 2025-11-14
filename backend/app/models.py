@@ -214,6 +214,57 @@ class EventAttendance(Base):
     )
 
 
+class EventSpecialFunction(Base):
+    """Event-specific special function assignments for personnel (drivers, Reko, Magazin)."""
+
+    __tablename__ = "event_special_functions"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    personnel_id: Mapped[UUID] = mapped_column(
+        ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    function_type: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    # For driver assignments: which vehicle they drive
+    vehicle_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    assigned_by: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "function_type IN ('driver', 'reko', 'magazin')",
+            name="valid_function_type"
+        ),
+        # Driver assignments require a vehicle
+        CheckConstraint(
+            "(function_type != 'driver') OR (function_type = 'driver' AND vehicle_id IS NOT NULL)",
+            name="driver_requires_vehicle"
+        ),
+        # For drivers: one driver per vehicle per event (unique)
+        # For reko/magazin: same person can have the function multiple times if needed (no vehicle_id)
+        UniqueConstraint(
+            "event_id", "vehicle_id",
+            name="unique_event_vehicle_driver"
+        ),
+        # Also ensure one person can only drive one vehicle per event
+        UniqueConstraint(
+            "event_id", "personnel_id", "function_type", "vehicle_id",
+            name="unique_personnel_function_assignment"
+        ),
+        Index("idx_event_special_functions_event", "event_id"),
+        Index("idx_event_special_functions_personnel", "personnel_id"),
+        Index("idx_event_special_functions_function_type", "event_id", "function_type"),
+    )
+
+
 # ============================================
 # INCIDENTS
 # ============================================
