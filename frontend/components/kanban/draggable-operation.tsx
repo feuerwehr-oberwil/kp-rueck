@@ -257,11 +257,6 @@ export function DraggableOperation({
           {/* Reko Summary */}
           {operation.rekoSummary && (
             <div className="border-t pt-2 mt-2 space-y-1.5">
-              <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                <FileCheck className="h-3 w-3" />
-                Reko-Info
-              </div>
-
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
