@@ -385,9 +385,13 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${this.getBaseUrl()}${endpoint}`
+    const baseUrl = this.getBaseUrl()
+    const url = `${baseUrl}${endpoint}`
     const method = options?.method || 'GET'
     const isGetRequest = method === 'GET'
+
+    // Log baseUrl for debugging HTTPS issues
+    console.log(`[API] Base URL: ${baseUrl}, Full URL: ${url}`)
 
     // Only log non-GET requests to avoid polling spam
     if (!isGetRequest) {
