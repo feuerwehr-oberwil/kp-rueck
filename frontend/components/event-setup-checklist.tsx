@@ -19,9 +19,10 @@ interface EventSetupChecklistProps {
   eventName: string
   onDismiss: () => void
   onAllTasksComplete?: () => void
+  onChecklistLoaded?: () => void
 }
 
-export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksComplete }: EventSetupChecklistProps) {
+export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksComplete, onChecklistLoaded }: EventSetupChecklistProps) {
   const [tasks, setTasks] = useState<ChecklistTaskState[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCheckInQR, setShowCheckInQR] = useState(false)
@@ -164,13 +165,16 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
       })
 
       setTasks(updatedTasks)
+
+      // Notify parent that checklist has loaded
+      onChecklistLoaded?.()
     } catch (error) {
       console.error('Failed to load checklist state:', error)
       toast.error('Fehler beim Laden der Checkliste')
     } finally {
       setIsLoading(false)
     }
-  }, [eventId, handleSendWhatsApp])
+  }, [eventId, handleSendWhatsApp, onChecklistLoaded])
 
   useEffect(() => {
     loadChecklistState()

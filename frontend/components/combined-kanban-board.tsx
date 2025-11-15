@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useOperations, type Operation, type Material, type Person, type PersonRole } from "@/lib/contexts/operations-context"
+import { useEvent } from "@/lib/contexts/event-context"
+import { apiClient } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
@@ -37,6 +39,8 @@ export default function CombinedKanbanBoard({
     assignPersonToOperation,
     assignMaterialToOperation,
   } = useOperations()
+
+  const { selectedEvent } = useEvent()
 
   const [isMounted, setIsMounted] = useState(false)
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
@@ -84,10 +88,26 @@ export default function CombinedKanbanBoard({
     materialSearchQuery
   )
 
-  const handlePersonClick = (person: Person) => {
+  const handlePersonClick = async (person: Person) => {
     if (person.status === "assigned") {
-      // Find the operation this person is assigned to
-      const assignedOp = operations.find(op => op.crew.includes(person.name))
+      // First try to find operation where person is directly assigned to crew
+      let assignedOp = operations.find(op => op.crew.includes(person.name))
+
+      // If not found directly assigned, check if they're a driver for a vehicle
+      if (!assignedOp && selectedEvent) {
+        try {
+          const specialFunctions = await apiClient.getPersonnelSpecialFunctions(selectedEvent.id, person.id)
+          const driverFunction = specialFunctions.find(f => f.function_type === 'driver')
+
+          if (driverFunction && driverFunction.vehicle_name) {
+            // Find operation that has this vehicle assigned
+            assignedOp = operations.find(op => op.vehicles.includes(driverFunction.vehicle_name!))
+          }
+        } catch (error) {
+          console.error('Failed to load special functions for personnel:', error)
+        }
+      }
+
       if (assignedOp) {
         setHighlightedOperationIdLocal(assignedOp.id)
         setTimeout(() => setHighlightedOperationIdLocal(null), 3000)

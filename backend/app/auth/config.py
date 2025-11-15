@@ -14,7 +14,7 @@ class AuthSettings(BaseSettings):
     # JWT Configuration
     SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_USE_OPENSSL_RAND"  # openssl rand -hex 32
     ALGORITHM: str = "HS256"  # Use RS256 for distributed systems
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # 15 minutes for security (was 120)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours (1 day) for emergency operations convenience
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Longer-lived refresh token
 
     # Password Policy

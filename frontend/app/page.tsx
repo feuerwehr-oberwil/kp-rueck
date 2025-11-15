@@ -137,6 +137,7 @@ export default function FireStationDashboard() {
   // Checklist popover state and completion tracking
   const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
   const [allChecklistTasksComplete, setAllChecklistTasksComplete] = useState(false)
+  const [checklistLoaded, setChecklistLoaded] = useState(false)
 
   // Auto-open checklist for events < 2 hours old (every time, no localStorage)
   useEffect(() => {
@@ -469,10 +470,26 @@ export default function FireStationDashboard() {
     })
   }, [operations, searchQuery, materials])
 
-  const handlePersonClick = (person: Person) => {
+  const handlePersonClick = async (person: Person) => {
     if (person.status === "assigned") {
-      // Find the operation this person is assigned to
-      const assignedOp = operations.find(op => op.crew.includes(person.name))
+      // First try to find operation where person is directly assigned to crew
+      let assignedOp = operations.find(op => op.crew.includes(person.name))
+
+      // If not found directly assigned, check if they're a driver for a vehicle
+      if (!assignedOp && selectedEvent) {
+        try {
+          const specialFunctions = await apiClient.getPersonnelSpecialFunctions(selectedEvent.id, person.id)
+          const driverFunction = specialFunctions.find(f => f.function_type === 'driver')
+
+          if (driverFunction && driverFunction.vehicle_name) {
+            // Find operation that has this vehicle assigned
+            assignedOp = operations.find(op => op.vehicles.includes(driverFunction.vehicle_name!))
+          }
+        } catch (error) {
+          console.error('Failed to load special functions for personnel:', error)
+        }
+      }
+
       if (assignedOp) {
         setHighlightedOperationId(assignedOp.id)
         setTimeout(() => setHighlightedOperationId(null), 3000)
@@ -768,8 +785,8 @@ export default function FireStationDashboard() {
                 Neuer Einsatz
               </Button>
 
-              {/* Event Setup Checklist Popover - only show if not all complete */}
-              {!allChecklistTasksComplete && (
+              {/* Event Setup Checklist Popover - only show if loaded and not all complete */}
+              {checklistLoaded && !allChecklistTasksComplete && (
                 <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline" className="gap-2" disabled={!selectedEvent}>
@@ -792,6 +809,7 @@ export default function FireStationDashboard() {
                           setAllChecklistTasksComplete(true)
                           setChecklistPopoverOpen(false)
                         }}
+                        onChecklistLoaded={() => setChecklistLoaded(true)}
                       />
                     </PopoverContent>
                   )}

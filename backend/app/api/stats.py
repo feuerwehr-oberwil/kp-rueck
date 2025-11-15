@@ -58,9 +58,28 @@ async def get_event_stats(
         count = sum(1 for i in incidents if i.status == status_value)
         status_counts[status_value] = count
 
-    # Get personnel availability (all personnel, not just for this event)
-    personnel_result = await db.execute(select(models.Personnel))
-    personnel = personnel_result.scalars().all()
+    # Get personnel availability (only checked-in personnel for this event)
+    # Find all personnel who are checked in for this event
+    from ..models import PersonnelCheckIn
+    checked_in_result = await db.execute(
+        select(PersonnelCheckIn.personnel_id).where(
+            PersonnelCheckIn.event_id == event_id,
+            PersonnelCheckIn.checked_in == True,
+            PersonnelCheckIn.checked_out_at.is_(None),
+        )
+    )
+    checked_in_personnel_ids = [row[0] for row in checked_in_result.all()]
+
+    # Get those personnel records
+    if checked_in_personnel_ids:
+        personnel_result = await db.execute(
+            select(models.Personnel).where(
+                models.Personnel.id.in_(checked_in_personnel_ids)
+            )
+        )
+        personnel = personnel_result.scalars().all()
+    else:
+        personnel = []
 
     available = sum(1 for p in personnel if p.availability == "available")
     total_personnel = len(personnel)

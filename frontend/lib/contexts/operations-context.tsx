@@ -115,6 +115,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const criticalUpdateInProgress = useRef<boolean>(false)
   const pendingUpdatesRef = useRef<Map<string, Partial<Operation>>>(new Map())
   const criticalUpdateTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  const recentAssignmentRef = useRef<boolean>(false)
+  const assignmentCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
   const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
@@ -510,8 +512,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // Poll for updates every 5 seconds (optimized for performance while maintaining reasonable responsiveness)
     const pollInterval = setInterval(() => {
-      // Only poll if not currently loading AND no critical update in progress
-      if (!isLoading && !criticalUpdateInProgress.current) {
+      // Only poll if not currently loading AND no critical update in progress AND no recent assignment
+      if (!isLoading && !criticalUpdateInProgress.current && !recentAssignmentRef.current) {
         loadData()
       }
     }, 5000)
@@ -798,6 +800,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // Set assignment cooldown to prevent polling from overriding optimistic update
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) {
+      clearTimeout(assignmentCooldownTimerRef.current)
+    }
+    assignmentCooldownTimerRef.current = setTimeout(() => {
+      recentAssignmentRef.current = false
+    }, 3000) // Wait 3 seconds before allowing polling again
+
     // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, crew: [...op.crew, personName] } : op))
@@ -852,6 +863,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     if (!operation || !material || material.status === "assigned" || operation.materials.includes(materialId)) {
       return
     }
+
+    // Set assignment cooldown to prevent polling from overriding optimistic update
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) {
+      clearTimeout(assignmentCooldownTimerRef.current)
+    }
+    assignmentCooldownTimerRef.current = setTimeout(() => {
+      recentAssignmentRef.current = false
+    }, 3000) // Wait 3 seconds before allowing polling again
 
     // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
