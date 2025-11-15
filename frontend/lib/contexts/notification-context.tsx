@@ -115,7 +115,7 @@ export function NotificationProvider({
   const dismissNotification = async (id: string) => {
     try {
       const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/api/notifications/${id}/dismiss/`, {
+      const response = await fetch(`${apiUrl}/api/notifications/${id}/dismiss`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -147,7 +147,7 @@ export function NotificationProvider({
 
       // Dismiss all notifications in parallel
       const dismissPromises = activeNotifications.map((notification) =>
-        fetch(`${apiUrl}/api/notifications/${notification.id}/dismiss/`, {
+        fetch(`${apiUrl}/api/notifications/${notification.id}/dismiss`, {
           method: 'POST',
           credentials: 'include',
         })
