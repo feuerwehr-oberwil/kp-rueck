@@ -24,6 +24,8 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loadingVehicleId, setLoadingVehicleId] = useState<string | null>(null)
+  // Track vehicles that are being assigned/unassigned to prevent duplicate operations
+  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set())
 
   // Load all vehicles when popover opens
   useEffect(() => {
@@ -44,7 +46,18 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
   const handleAssignVehicle = async (vehicleId: string) => {
     if (readOnly) return
 
+    // Check if already assigned or operation in progress
+    const isAlreadyAssigned = assignedVehicles.some(av => av.vehicle_id === vehicleId)
+    const isOperationPending = pendingOperations.has(vehicleId)
+
+    if (isAlreadyAssigned || isOperationPending) {
+      console.log(`Vehicle ${vehicleId} is already assigned or operation pending`)
+      return
+    }
+
     setLoadingVehicleId(vehicleId)
+    setPendingOperations(prev => new Set(prev).add(vehicleId))
+
     try {
       await apiClient.assignResource(incidentId, {
         resource_type: "vehicle",
@@ -52,9 +65,17 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
       })
       onUpdate?.()
     } catch (error) {
-      console.error("Failed to assign vehicle:", error)
+      // Only log non-409 errors (409 means already assigned, which is expected in race conditions)
+      if (error instanceof Error && !error.message.includes('409') && !error.message.includes('already assigned')) {
+        console.error("Failed to assign vehicle:", error)
+      }
     } finally {
       setLoadingVehicleId(null)
+      setPendingOperations(prev => {
+        const next = new Set(prev)
+        next.delete(vehicleId)
+        return next
+      })
     }
   }
 
@@ -76,8 +97,10 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
   // Get assigned vehicle IDs for quick lookup
   const assignedVehicleIds = new Set(assignedVehicles.map(av => av.vehicle_id))
 
-  // Get available vehicles (not assigned to this incident)
-  const availableVehicles = allVehicles.filter(v => !assignedVehicleIds.has(v.id))
+  // Get available vehicles (not assigned to this incident and not pending)
+  const availableVehicles = allVehicles.filter(v =>
+    !assignedVehicleIds.has(v.id) && !pendingOperations.has(v.id)
+  )
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
@@ -138,7 +161,7 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
                       handleAssignVehicle(vehicle.id)
                       setIsPopoverOpen(false)
                     }}
-                    disabled={loadingVehicleId === vehicle.id}
+                    disabled={loadingVehicleId === vehicle.id || pendingOperations.has(vehicle.id)}
                     className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors disabled:opacity-50"
                   >
                     <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { apiClient, ApiPersonnel, ApiVehicle, ApiMaterialResource } from '@/lib/api-client';
@@ -24,6 +24,8 @@ export function AssignmentSelector({ incidentId, onAssignmentComplete }: Assignm
   const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
+  // Track pending operations to prevent duplicate assignments
+  const pendingOperationsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     loadResources();
@@ -50,7 +52,18 @@ export function AssignmentSelector({ incidentId, onAssignmentComplete }: Assignm
   const assign = async () => {
     if (!resourceId) return;
 
+    // Create unique key for this resource
+    const operationKey = `${resourceType}-${resourceId}`;
+
+    // Check if operation is already pending
+    if (pendingOperationsRef.current.has(operationKey)) {
+      console.log(`Assignment for ${operationKey} is already pending`);
+      return;
+    }
+
     setAssigning(true);
+    pendingOperationsRef.current.add(operationKey);
+
     try {
       const response = await apiClient.assignResource(incidentId, {
         resource_type: resourceType,
@@ -66,28 +79,13 @@ export function AssignmentSelector({ incidentId, onAssignmentComplete }: Assignm
       // Notify parent component
       onAssignmentComplete?.();
     } catch (error: any) {
-      console.error('Failed to assign resource:', error);
-
-      // Check for conflict (409)
-      if (error.message.includes('409')) {
-        const confirm = window.confirm('Resource already assigned. Override?');
-        if (confirm) {
-          // Retry assignment (backend should handle override)
-          try {
-            await apiClient.assignResource(incidentId, {
-              resource_type: resourceType,
-              resource_id: resourceId,
-            });
-            await loadResources();
-            setResourceId('');
-            onAssignmentComplete?.();
-          } catch (retryError) {
-            console.error('Failed to override assignment:', retryError);
-          }
-        }
+      // Only log non-409 errors (409 means already assigned, which is expected in race conditions)
+      if (!error.message.includes('409') && !error.message.includes('already assigned')) {
+        console.error('Failed to assign resource:', error);
       }
     } finally {
       setAssigning(false);
+      pendingOperationsRef.current.delete(operationKey);
     }
   };
 
