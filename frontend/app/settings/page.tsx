@@ -53,30 +53,6 @@ const SETTING_CONFIGS: SettingConfig[] = [
     type: 'text',
   },
   {
-    key: 'polling_interval_ms',
-    label: 'Polling-Intervall',
-    description: 'Zeitintervall für automatische Datenaktualisierung',
-    type: 'number',
-    unit: 'ms',
-  },
-  {
-    key: 'auto_archive_timeout_hours',
-    label: 'Auto-Archivierung',
-    description: 'Zeit bis zur automatischen Archivierung abgeschlossener Einsätze',
-    type: 'number',
-    unit: 'Stunden',
-  },
-  {
-    key: 'notification_enabled',
-    label: 'Benachrichtigungen',
-    description: 'System-Benachrichtigungen aktivieren',
-    type: 'boolean',
-    options: [
-      { value: 'false', label: 'Deaktiviert' },
-      { value: 'true', label: 'Aktiviert' },
-    ],
-  },
-  {
     key: 'map_mode',
     label: 'Karten-Modus',
     description: 'Kartenquelle: Auto (Online → Offline-Fallback), Online (nur OSM), Offline (nur lokale Tiles)',
