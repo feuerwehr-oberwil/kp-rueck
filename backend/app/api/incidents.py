@@ -12,6 +12,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import incidents as crud
 from ..crud import events as events_crud
 from ..database import get_db
+from ..websocket_manager import broadcast_incident_update
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -131,7 +132,17 @@ async def create_incident(
     # Trigger immediate sync in background (event-based sync)
     background_tasks.add_task(trigger_sync_background)
 
-    return new_incident
+    # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
+    incident_response = schemas.IncidentResponse.model_validate(new_incident)
+
+    # Broadcast WebSocket update
+    background_tasks.add_task(
+        broadcast_incident_update,
+        incident_response.model_dump(mode='json'),
+        "create"
+    )
+
+    return incident_response
 
 
 @router.patch("/{incident_id}", response_model=schemas.IncidentResponse)
@@ -139,6 +150,7 @@ async def update_incident(
     incident_id: uuid.UUID,
     incident_update: schemas.IncidentUpdate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
     expected_updated_at: Optional[datetime] = None,
@@ -163,7 +175,17 @@ async def update_incident(
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    return incident
+    # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
+    incident_response = schemas.IncidentResponse.model_validate(incident)
+
+    # Broadcast WebSocket update
+    background_tasks.add_task(
+        broadcast_incident_update,
+        incident_response.model_dump(mode='json'),
+        "update"
+    )
+
+    return incident_response
 
 
 @router.post("/{incident_id}/status", response_model=schemas.IncidentResponse)
@@ -171,6 +193,7 @@ async def update_status(
     incident_id: uuid.UUID,
     status_update: schemas.StatusTransitionCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ):
@@ -191,7 +214,17 @@ async def update_status(
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    return incident
+    # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
+    incident_response = schemas.IncidentResponse.model_validate(incident)
+
+    # Broadcast WebSocket update for status change
+    background_tasks.add_task(
+        broadcast_incident_update,
+        incident_response.model_dump(mode='json'),
+        "update"
+    )
+
+    return incident_response
 
 
 @router.get(
@@ -210,6 +243,7 @@ async def get_status_history(
 async def delete_incident(
     incident_id: uuid.UUID,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ):
@@ -223,3 +257,10 @@ async def delete_incident(
 
     if not success:
         raise HTTPException(status_code=404, detail="Incident not found")
+
+    # Broadcast WebSocket update for deletion
+    background_tasks.add_task(
+        broadcast_incident_update,
+        {'id': str(incident_id)},
+        "delete"
+    )

@@ -21,6 +21,8 @@ dependencies = [
     "reportlab>=4.4.4",
     "apscheduler>=3.10.4",
     "markdown>=3.9",
+    "python-socketio>=5.14.3",
+    "fastapi-socketio>=0.0.10",
 ]
 
 [project.optional-dependencies]

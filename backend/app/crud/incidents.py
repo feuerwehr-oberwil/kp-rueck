@@ -34,7 +34,17 @@ async def get_incidents(
     Returns:
         List of incidents with status_changed_at and assigned_vehicles populated (excludes soft-deleted incidents)
     """
-    query = select(Incident).where(Incident.deleted_at.is_(None)).order_by(Incident.created_at.desc())
+    # Use eager loading for relationships to avoid N+1 queries
+    query = (
+        select(Incident)
+        .options(
+            selectinload(Incident.status_transitions),
+            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
+            selectinload(Incident.reko_reports)
+        )
+        .where(Incident.deleted_at.is_(None))
+        .order_by(Incident.created_at.desc())
+    )
 
     # Filter by event if provided
     if event_id is not None:
@@ -136,7 +146,16 @@ async def get_incidents(
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
     """Get incident by ID with status_changed_at, assigned_vehicles, and has_completed_reko populated."""
-    result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    # Use eager loading for relationships to avoid N+1 queries
+    result = await db.execute(
+        select(Incident)
+        .options(
+            selectinload(Incident.status_transitions),
+            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
+            selectinload(Incident.reko_reports)
+        )
+        .where(Incident.id == incident_id)
+    )
     incident = result.scalar_one_or_none()
 
     if incident:

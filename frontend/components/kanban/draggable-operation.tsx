@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, memo, useCallback } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -30,7 +30,7 @@ interface DraggableOperationProps {
   formatLocation: (address: string) => string
 }
 
-export function DraggableOperation({
+function DraggableOperationBase({
   operation,
   columnColor,
   onRemoveCrew,
@@ -125,12 +125,22 @@ export function DraggableOperation({
           <div className="flex items-start justify-between gap-2">
             {/* Draggable area */}
             <div className="flex items-start gap-2 min-w-0 flex-1">
-              <div
-                className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
-                  operation.priority === "high" ? "bg-red-500" : operation.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
-                }`}
-                title={operation.priority === "high" ? "Hohe Priorität" : operation.priority === "medium" ? "Mittlere Priorität" : "Niedrige Priorität"}
-              />
+              <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                {/* Priority indicator with both color and icon */}
+                <div
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    operation.priority === "high" ? "bg-red-500" : operation.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
+                  }`}
+                  aria-hidden="true"
+                />
+                {operation.priority === "high" ? (
+                  <ChevronUp className="h-4 w-4 text-red-600 dark:text-red-400" aria-label="Hohe Priorität" />
+                ) : operation.priority === "medium" ? (
+                  <Minus className="h-4 w-4 text-yellow-600 dark:text-yellow-400" aria-label="Mittlere Priorität" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-green-600 dark:text-green-400" aria-label="Niedrige Priorität" />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-bold text-base text-foreground leading-tight break-words">{formatLocation(operation.location)}</h3>
               </div>
@@ -286,3 +296,21 @@ export function DraggableOperation({
     </div>
   )
 }
+
+// Memoize the component to prevent unnecessary re-renders
+// Only re-render if props actually change (deep comparison)
+export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextProps) => {
+  return (
+    prevProps.operation.id === nextProps.operation.id &&
+    prevProps.operation.status === nextProps.operation.status &&
+    prevProps.operation.priority === nextProps.operation.priority &&
+    prevProps.operation.location === nextProps.operation.location &&
+    prevProps.operation.crew.length === nextProps.operation.crew.length &&
+    prevProps.operation.materials.length === nextProps.operation.materials.length &&
+    prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
+    prevProps.columnColor === nextProps.columnColor &&
+    prevProps.isHighlighted === nextProps.isHighlighted &&
+    prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
+    prevProps.index === nextProps.index
+  )
+})

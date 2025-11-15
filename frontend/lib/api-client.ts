@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from './env'
+import { toast } from '@/hooks/use-toast'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
 // Event Management Types
@@ -384,83 +385,158 @@ class ApiClient {
     return getApiUrl()
   }
 
-  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  /**
+   * Sleep function for retry delays
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  /**
+   * Calculate exponential backoff delay
+   */
+  private getBackoffDelay(retryCount: number): number {
+    // Exponential backoff: 1s, 2s, 4s, 8s, max 16s
+    const baseDelay = 1000
+    const maxDelay = 16000
+    const delay = Math.min(baseDelay * Math.pow(2, retryCount), maxDelay)
+    // Add jitter (±20%) to prevent thundering herd
+    const jitter = delay * 0.2 * (Math.random() - 0.5)
+    return Math.round(delay + jitter)
+  }
+
+  /**
+   * Main request method with retry logic and error notifications
+   */
+  private async request<T>(endpoint: string, options?: RequestInit & { skipToast?: boolean; maxRetries?: number }): Promise<T> {
     const baseUrl = this.getBaseUrl()
     const url = `${baseUrl}${endpoint}`
     const method = options?.method || 'GET'
     const isGetRequest = method === 'GET'
+    const skipToast = options?.skipToast || false
+    const maxRetries = options?.maxRetries ?? (isGetRequest ? 3 : 1) // Retry GET requests by default, not mutations
 
     // Only log non-GET requests to avoid polling spam
     if (!isGetRequest) {
       console.log(`[API] ${method} ${endpoint}`)
     }
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        credentials: 'include', // Send cookies for authentication
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
-      })
+    let lastError: Error | null = null
 
-      if (!response.ok) {
-        let errorText = ''
-        try {
-          errorText = await response.text()
-        } catch (e) {
-          errorText = 'Keine Fehlerdetails verfügbar'
-        }
+    for (let retryCount = 0; retryCount <= maxRetries; retryCount++) {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          credentials: 'include', // Send cookies for authentication
+          headers: {
+            'Content-Type': 'application/json',
+            ...options?.headers,
+          },
+        })
 
-        // Don't log 401 errors for sync config - expected when not authenticated
-        const shouldLog = !(response.status === 401 && endpoint === '/api/sync/config')
-        if (shouldLog) {
-          console.error(`[API Error] ${method} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
-        }
-
-        // Don't throw error for 401 on sync config - it's handled gracefully by the component
-        if (response.status === 401 && endpoint === '/api/sync/config') {
-          throw new Error('Unauthorized') // Silent error that will be caught
-        }
-
-        // Try to parse as JSON for better error messages
-        try {
-          const errorJson = JSON.parse(errorText)
-          if (errorJson.detail) {
-            throw new Error(`API-Fehler: ${errorJson.detail}`)
+        if (!response.ok) {
+          let errorText = ''
+          try {
+            errorText = await response.text()
+          } catch (e) {
+            errorText = 'Keine Fehlerdetails verfügbar'
           }
-        } catch (e) {
-          // Not JSON, use text error
+
+          // Don't log 401 errors for sync config - expected when not authenticated
+          const shouldLog = !(response.status === 401 && endpoint === '/api/sync/config')
+          if (shouldLog) {
+            console.error(`[API Error] ${method} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+          }
+
+          // Don't throw error for 401 on sync config - it's handled gracefully by the component
+          if (response.status === 401 && endpoint === '/api/sync/config') {
+            throw new Error('Unauthorized') // Silent error that will be caught
+          }
+
+          // Try to parse as JSON for better error messages
+          let errorMessage = `${response.status} ${response.statusText}`
+          try {
+            const errorJson = JSON.parse(errorText)
+            if (errorJson.detail) {
+              errorMessage = errorJson.detail
+            }
+          } catch (e) {
+            // Not JSON, use text error if available
+            if (errorText && errorText.length < 200) {
+              errorMessage = errorText
+            }
+          }
+
+          // Determine if we should retry based on status code
+          const isRetryable = response.status >= 500 || response.status === 429 || response.status === 408
+
+          if (isRetryable && retryCount < maxRetries) {
+            const delay = this.getBackoffDelay(retryCount)
+            console.log(`[API Retry] Attempt ${retryCount + 1}/${maxRetries} after ${delay}ms for ${method} ${endpoint}`)
+            await this.sleep(delay)
+            continue // Retry
+          }
+
+          // Final error - show toast if not skipped
+          const error = new Error(errorMessage)
+          if (!skipToast) {
+            toast({
+              variant: "destructive",
+              title: "API Fehler",
+              description: errorMessage,
+            })
+          }
+          throw error
         }
 
-        throw new Error(`API-Fehler: ${response.status} ${response.statusText} - ${errorText}`)
-      }
+        // Handle empty responses (e.g., DELETE operations with 204 No Content)
+        const contentType = response.headers.get('content-type')
+        if (response.status === 204 || !contentType || contentType.indexOf('application/json') === -1) {
+          if (!isGetRequest) {
+            console.log(`[API Success] ${method} ${endpoint} (no content)`)
+          }
+          return undefined as T
+        }
 
-      // Handle empty responses (e.g., DELETE operations with 204 No Content)
-      const contentType = response.headers.get('content-type')
-      if (response.status === 204 || !contentType || contentType.indexOf('application/json') === -1) {
+        const data = await response.json()
         if (!isGetRequest) {
-          console.log(`[API Success] ${method} ${endpoint} (no content)`)
+          console.log(`[API Success] ${method} ${endpoint}`, data)
         }
-        return undefined as T
-      }
+        return data
 
-      const data = await response.json()
-      if (!isGetRequest) {
-        console.log(`[API Success] ${method} ${endpoint}`, data)
-      }
-      return data
-    } catch (error) {
-      console.error(`[API Exception] ${method} ${endpoint}:`, error)
+      } catch (error) {
+        lastError = error as Error
 
-      // Provide better German error messages for common fetch failures
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie, ob der Server läuft.')
-      }
+        // Network errors are always retryable
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          if (retryCount < maxRetries) {
+            const delay = this.getBackoffDelay(retryCount)
+            console.log(`[API Retry] Network error, attempt ${retryCount + 1}/${maxRetries} after ${delay}ms`)
+            await this.sleep(delay)
+            continue // Retry
+          }
 
-      throw error
+          // Final network error - show toast
+          if (!skipToast) {
+            toast({
+              variant: "destructive",
+              title: "Verbindungsfehler",
+              description: "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
+            })
+          }
+          throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie, ob der Server läuft.')
+        }
+
+        // Re-throw other errors (like our API errors)
+        throw error
+      }
     }
+
+    // Should not reach here, but just in case
+    if (lastError) {
+      throw lastError
+    }
+    throw new Error('Unbekannter Fehler')
   }
 
   // Audit Logs

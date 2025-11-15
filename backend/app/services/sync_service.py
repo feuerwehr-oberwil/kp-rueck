@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from app.config import settings
@@ -119,7 +119,7 @@ class SyncService:
         last_sync_time: Optional[datetime] = None
     ) -> Delta:
         """
-        Get records changed since last sync from Railway database.
+        Get records changed since last sync from Railway database using batched loading.
 
         Args:
             last_sync_time: Timestamp of last sync (None = get all records).
@@ -132,6 +132,8 @@ class SyncService:
         if not engine:
             return delta
 
+        BATCH_SIZE = 100  # Process records in batches to avoid memory issues
+
         async with AsyncSession(engine) as railway_session:
             for table_name, model_class in self.SYNCABLE_MODELS.items():
                 try:
@@ -140,24 +142,35 @@ class SyncService:
                     if last_sync_time:
                         query = query.where(model_class.updated_at > last_sync_time)
 
-                    # Execute query on Railway database
-                    result = await railway_session.execute(query)
-                    records = result.scalars().all()
+                    # Count total records first
+                    count_query = select(func.count()).select_from(model_class)
+                    if last_sync_time:
+                        count_query = count_query.where(model_class.updated_at > last_sync_time)
+                    count_result = await railway_session.execute(count_query)
+                    total_count = count_result.scalar() or 0
 
-                    # Convert to dict
-                    records_data = [
-                        {
-                            column.name: (
-                                getattr(record, column.name).isoformat()
-                                if isinstance(getattr(record, column.name), datetime)
-                                else str(getattr(record, column.name))
-                                if isinstance(getattr(record, column.name), UUID)
-                                else getattr(record, column.name)
-                            )
-                            for column in model_class.__table__.columns
-                        }
-                        for record in records
-                    ]
+                    records_data = []
+                    # Process in batches
+                    for offset in range(0, total_count, BATCH_SIZE):
+                        batch_query = query.offset(offset).limit(BATCH_SIZE)
+                        result = await railway_session.execute(batch_query)
+                        batch_records = result.scalars().all()
+
+                        # Convert batch to dict
+                        batch_data = [
+                            {
+                                column.name: (
+                                    getattr(record, column.name).isoformat()
+                                    if isinstance(getattr(record, column.name), datetime)
+                                    else str(getattr(record, column.name))
+                                    if isinstance(getattr(record, column.name), UUID)
+                                    else getattr(record, column.name)
+                                )
+                                for column in model_class.__table__.columns
+                            }
+                            for record in batch_records
+                        ]
+                        records_data.extend(batch_data)
 
                     setattr(delta, table_name, records_data)
                     delta.total_records += len(records_data)
@@ -388,24 +401,39 @@ class SyncService:
             # Get last sync time
             last_sync = await self.get_last_sync_time(SyncDirection.TO_RAILWAY)
 
-            # Collect local changes since last sync
+            # Collect local changes since last sync using batched loading
             delta = Delta()
+            BATCH_SIZE = 100  # Process records in batches to avoid memory issues
+
             for table_name, model_class in self.SYNCABLE_MODELS.items():
                 query = select(model_class)
                 if last_sync:
                     query = query.where(model_class.updated_at > last_sync)
 
-                result = await self.db.execute(query)
-                records = result.scalars().all()
+                # Count total records first
+                count_query = select(func.count()).select_from(model_class)
+                if last_sync:
+                    count_query = count_query.where(model_class.updated_at > last_sync)
+                count_result = await self.db.execute(count_query)
+                total_count = count_result.scalar() or 0
 
-                # Convert to dict
-                records_data = [
-                    {
-                        column.name: getattr(record, column.name)
-                        for column in model_class.__table__.columns
-                    }
-                    for record in records
-                ]
+                records_data = []
+                # Process in batches
+                for offset in range(0, total_count, BATCH_SIZE):
+                    batch_query = query.offset(offset).limit(BATCH_SIZE)
+                    result = await self.db.execute(batch_query)
+                    batch_records = result.scalars().all()
+
+                    # Convert batch to dict
+                    batch_data = [
+                        {
+                            column.name: getattr(record, column.name)
+                            for column in model_class.__table__.columns
+                        }
+                        for record in batch_records
+                    ]
+                    records_data.extend(batch_data)
+
                 setattr(delta, table_name, records_data)
                 delta.total_records += len(records_data)
 

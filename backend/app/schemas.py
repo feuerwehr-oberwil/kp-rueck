@@ -5,8 +5,9 @@ from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
 from typing import Optional, Union
 from uuid import UUID
+import re
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, validator, EmailStr, HttpUrl
 
 
 # ============================================
@@ -22,6 +23,34 @@ class PersonnelBase(BaseModel):
     role_sort_order: int = 0
     availability: str  # 'available', 'assigned', 'unavailable'
     tags: Optional[list[str]] = None
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate personnel name."""
+        if not v or not v.strip():
+            raise ValueError("Name cannot be empty")
+        if len(v) > 100:
+            raise ValueError("Name must be 100 characters or less")
+        # Remove any excessive whitespace
+        return ' '.join(v.split())
+
+    @field_validator('availability')
+    @classmethod
+    def validate_availability(cls, v: str) -> str:
+        """Validate availability status."""
+        valid_statuses = {'available', 'assigned', 'unavailable'}
+        if v not in valid_statuses:
+            raise ValueError(f"Availability must be one of: {', '.join(valid_statuses)}")
+        return v
+
+    @field_validator('role_sort_order')
+    @classmethod
+    def validate_sort_order(cls, v: int) -> int:
+        """Validate sort order is non-negative."""
+        if v < 0:
+            raise ValueError("Sort order must be non-negative")
+        return v
 
 
 class PersonnelCreate(PersonnelBase):
@@ -174,6 +203,33 @@ class VehicleBase(BaseModel):
     status: str  # 'available', 'assigned', 'planned', 'maintenance'
     radio_call_sign: str
 
+    @field_validator('name', 'radio_call_sign')
+    @classmethod
+    def validate_string_fields(cls, v: str) -> str:
+        """Validate string fields are not empty."""
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty")
+        if len(v) > 100:
+            raise ValueError("Field must be 100 characters or less")
+        return v.strip()
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        """Validate vehicle status."""
+        valid_statuses = {'available', 'assigned', 'planned', 'maintenance'}
+        if v not in valid_statuses:
+            raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
+        return v
+
+    @field_validator('display_order')
+    @classmethod
+    def validate_display_order(cls, v: int) -> int:
+        """Validate display order is non-negative."""
+        if v < 0:
+            raise ValueError("Display order must be non-negative")
+        return v
+
 
 class VehicleCreate(VehicleBase):
     """Schema for creating vehicle."""
@@ -215,6 +271,41 @@ class MaterialBase(BaseModel):
     location_sort_order: int = 0
     description: Optional[str] = None
     status: str = "available"  # 'available', 'assigned', 'planned', 'maintenance'
+
+    @field_validator('name', 'type', 'location')
+    @classmethod
+    def validate_required_strings(cls, v: str) -> str:
+        """Validate required string fields."""
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty")
+        if len(v) > 100:
+            raise ValueError("Field must be 100 characters or less")
+        return v.strip()
+
+    @field_validator('description')
+    @classmethod
+    def validate_description(cls, v: Optional[str]) -> Optional[str]:
+        """Validate description length if provided."""
+        if v and len(v) > 500:
+            raise ValueError("Description must be 500 characters or less")
+        return v.strip() if v else v
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        """Validate material status."""
+        valid_statuses = {'available', 'assigned', 'planned', 'maintenance'}
+        if v not in valid_statuses:
+            raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
+        return v
+
+    @field_validator('location_sort_order')
+    @classmethod
+    def validate_sort_order(cls, v: int) -> int:
+        """Validate sort order is non-negative."""
+        if v < 0:
+            raise ValueError("Sort order must be non-negative")
+        return v
 
 
 class MaterialCreate(MaterialBase):
@@ -343,6 +434,54 @@ class IncidentBase(BaseModel):
     location_lng: Optional[Union[str, Decimal]] = None
     status: IncidentStatus = IncidentStatus.EINGEGANGEN
     description: Optional[str] = None
+
+    @field_validator('title')
+    @classmethod
+    def validate_title(cls, v: str) -> str:
+        """Validate incident title."""
+        if not v or not v.strip():
+            raise ValueError("Title cannot be empty")
+        if len(v) > 200:
+            raise ValueError("Title must be 200 characters or less")
+        return v.strip()
+
+    @field_validator('location_lat')
+    @classmethod
+    def validate_latitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+        """Validate latitude is within valid range."""
+        if v is not None:
+            try:
+                lat_val = float(str(v))
+                if not -90 <= lat_val <= 90:
+                    raise ValueError("Latitude must be between -90 and 90 degrees")
+            except (ValueError, TypeError) as e:
+                if "Latitude must be between" not in str(e):
+                    raise ValueError("Invalid latitude value")
+                raise
+        return v
+
+    @field_validator('location_lng')
+    @classmethod
+    def validate_longitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+        """Validate longitude is within valid range."""
+        if v is not None:
+            try:
+                lng_val = float(str(v))
+                if not -180 <= lng_val <= 180:
+                    raise ValueError("Longitude must be between -180 and 180 degrees")
+            except (ValueError, TypeError) as e:
+                if "Longitude must be between" not in str(e):
+                    raise ValueError("Invalid longitude value")
+                raise
+        return v
+
+    @field_validator('description')
+    @classmethod
+    def validate_description(cls, v: Optional[str]) -> Optional[str]:
+        """Validate description length if provided."""
+        if v and len(v) > 2000:
+            raise ValueError("Description must be 2000 characters or less")
+        return v.strip() if v else v
 
 
 class IncidentCreate(IncidentBase):
@@ -781,6 +920,42 @@ class NotificationSettingsUpdate(BaseModel):
     enabled_data_quality_alerts: Optional[bool] = None
     enabled_event_alerts: Optional[bool] = None
 
+    @field_validator('live_eingegangen_min', 'live_reko_min', 'live_disponiert_min',
+                    'live_rueckfahrt_min', 'training_eingegangen_min', 'training_reko_min',
+                    'training_disponiert_min', 'training_rueckfahrt_min', 're_alarm_interval_min')
+    @classmethod
+    def validate_minute_fields(cls, v: Optional[int]) -> Optional[int]:
+        """Validate minute fields are positive or zero."""
+        if v is not None:
+            if v < 0:
+                raise ValueError("Time in minutes must be non-negative")
+            if v > 1440:  # 24 hours
+                raise ValueError("Time in minutes should not exceed 24 hours (1440 minutes)")
+        return v
+
+    @field_validator('live_einsatz_hours', 'live_archive_hours',
+                    'training_einsatz_hours', 'training_archive_hours', 'fatigue_hours')
+    @classmethod
+    def validate_hour_fields(cls, v: Optional[int]) -> Optional[int]:
+        """Validate hour fields are positive."""
+        if v is not None:
+            if v < 0:
+                raise ValueError("Time in hours must be non-negative")
+            if v > 168:  # 1 week
+                raise ValueError("Time in hours should not exceed 1 week (168 hours)")
+        return v
+
+    @field_validator('database_size_limit_gb', 'photo_size_limit_gb')
+    @classmethod
+    def validate_size_limits(cls, v: Optional[int]) -> Optional[int]:
+        """Validate size limits are reasonable."""
+        if v is not None:
+            if v < 1:
+                raise ValueError("Size limit must be at least 1 GB")
+            if v > 100:
+                raise ValueError("Size limit should not exceed 100 GB")
+        return v
+
 
 # ============================================
 # Training Automation Schemas
@@ -822,6 +997,71 @@ class TrainingLocationBase(BaseModel):
     building_type: Optional[str] = None
     latitude: Optional[Union[str, Decimal]] = None
     longitude: Optional[Union[str, Decimal]] = None
+
+    @field_validator('street')
+    @classmethod
+    def validate_street(cls, v: str) -> str:
+        """Validate street name."""
+        if not v or not v.strip():
+            raise ValueError("Street cannot be empty")
+        if len(v) > 100:
+            raise ValueError("Street must be 100 characters or less")
+        return v.strip()
+
+    @field_validator('house_number')
+    @classmethod
+    def validate_house_number(cls, v: str) -> str:
+        """Validate house number format."""
+        if not v or not v.strip():
+            raise ValueError("House number cannot be empty")
+        # Allow formats like "12", "12a", "12-14", etc.
+        if not re.match(r'^[\d]+[a-zA-Z\-\/]*$', v.strip()):
+            raise ValueError("Invalid house number format")
+        return v.strip()
+
+    @field_validator('postal_code')
+    @classmethod
+    def validate_postal_code(cls, v: str) -> str:
+        """Validate Swiss postal code."""
+        if not re.match(r'^\d{4}$', v):
+            raise ValueError("Postal code must be 4 digits")
+        # Basel-Landschaft postal codes typically range from 4000-4499
+        code = int(v)
+        if not (4000 <= code <= 4499):
+            raise ValueError("Postal code should be in Basel-Landschaft range (4000-4499)")
+        return v
+
+    @field_validator('latitude')
+    @classmethod
+    def validate_latitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+        """Validate latitude is within Basel-Landschaft area."""
+        if v is not None:
+            try:
+                lat_val = float(str(v))
+                # Basel-Landschaft approximate latitude range
+                if not (47.3 <= lat_val <= 47.6):
+                    raise ValueError("Latitude should be within Basel-Landschaft area (47.3 to 47.6)")
+            except (ValueError, TypeError) as e:
+                if "Latitude should be" not in str(e):
+                    raise ValueError("Invalid latitude value")
+                raise
+        return v
+
+    @field_validator('longitude')
+    @classmethod
+    def validate_longitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+        """Validate longitude is within Basel-Landschaft area."""
+        if v is not None:
+            try:
+                lng_val = float(str(v))
+                # Basel-Landschaft approximate longitude range
+                if not (7.3 <= lng_val <= 7.9):
+                    raise ValueError("Longitude should be within Basel-Landschaft area (7.3 to 7.9)")
+            except (ValueError, TypeError) as e:
+                if "Longitude should be" not in str(e):
+                    raise ValueError("Invalid longitude value")
+                raise
+        return v
 
     @field_serializer('latitude', 'longitude')
     def serialize_decimal(self, value):

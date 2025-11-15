@@ -34,6 +34,8 @@ import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { CommandPalette } from "@/components/ui/command-palette"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
+import { KanbanLoading } from "@/components/kanban/kanban-loading"
+import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/kanban/sidebar-loading"
 
 export default function FireStationDashboard() {
   const {
@@ -52,7 +54,8 @@ export default function FireStationDashboard() {
     assignPersonToOperation,
     assignMaterialToOperation,
     assignVehicleToOperation,
-    deleteOperation
+    deleteOperation,
+    isLoading
   } = useOperations()
 
   const { selectedEvent, isEventLoaded } = useEvent()
@@ -686,49 +689,57 @@ export default function FireStationDashboard() {
                 )}
               </div>
 
-              <div className="space-y-4">
-                {Object.keys(groupedPersonnel).map((role) => (
-                  <div key={role}>
-                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
-                    <div className="space-y-2">
-                      {groupedPersonnel[role as PersonRole]?.map((person) => (
-                        <DraggablePerson
-                          key={person.id}
-                          person={person}
-                          onClick={() => handlePersonClick(person)}
-                        />
-                      ))}
+              {isLoading ? (
+                <PersonnelSidebarLoading />
+              ) : (
+                <div className="space-y-4">
+                  {Object.keys(groupedPersonnel).map((role) => (
+                    <div key={role}>
+                      <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
+                      <div className="space-y-2">
+                        {groupedPersonnel[role as PersonRole]?.map((person) => (
+                          <DraggablePerson
+                            key={person.id}
+                            person={person}
+                            onClick={() => handlePersonClick(person)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </aside>
           )}
 
           {/* Main Kanban Board */}
           <main className="flex-1 overflow-x-auto p-4 bg-zinc-950/20">
-            <div className="flex h-full gap-4">
-              {columns.map((column) => {
-                const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
-                return (
-                  <DroppableColumn
-                    key={column.id}
-                    column={column}
-                    operations={columnOps}
-                    onRemoveCrew={removeCrew}
-                    onRemoveMaterial={removeMaterial}
-                    onRemoveVehicle={removeVehicle}
-                    onCardClick={handleCardClick}
-                    onCardHover={setHoveredOperationId}
-                    highlightedOperationId={highlightedOperationId}
-                    hoveredOperationId={hoveredOperationId}
-                    isDraggingRef={isDraggingOperationRef}
-                    materials={materials}
-                    formatLocation={formatLocation}
-                  />
-                )
-              })}
-            </div>
+            {isLoading ? (
+              <KanbanLoading />
+            ) : (
+              <div className="flex h-full gap-4">
+                {columns.map((column) => {
+                  const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
+                  return (
+                    <DroppableColumn
+                      key={column.id}
+                      column={column}
+                      operations={columnOps}
+                      onRemoveCrew={removeCrew}
+                      onRemoveMaterial={removeMaterial}
+                      onRemoveVehicle={removeVehicle}
+                      onCardClick={handleCardClick}
+                      onCardHover={setHoveredOperationId}
+                      highlightedOperationId={highlightedOperationId}
+                      hoveredOperationId={hoveredOperationId}
+                      isDraggingRef={isDraggingOperationRef}
+                      materials={materials}
+                      formatLocation={formatLocation}
+                    />
+                  )
+                })}
+              </div>
+            )}
           </main>
 
           {showRightSidebar && (
@@ -757,22 +768,26 @@ export default function FireStationDashboard() {
                 )}
               </div>
 
-              <div className="space-y-4">
-                {Object.entries(groupedMaterials).map(([category, items]) => (
-                  <div key={category}>
-                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
-                    <div className="space-y-2">
-                      {items.map((material) => (
-                        <DraggableMaterial
-                          key={material.id}
-                          material={material}
-                          onClick={() => handleMaterialClick(material)}
-                        />
-                      ))}
+              {isLoading ? (
+                <MaterialSidebarLoading />
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(groupedMaterials).map(([category, items]) => (
+                    <div key={category}>
+                      <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
+                      <div className="space-y-2">
+                        {items.map((material) => (
+                          <DraggableMaterial
+                            key={material.id}
+                            material={material}
+                            onClick={() => handleMaterialClick(material)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </aside>
           )}
         </div>

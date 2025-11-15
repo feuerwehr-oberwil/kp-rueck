@@ -6,8 +6,10 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import socketio
 
 from .api import routes
+from .websocket_manager import sio as socket_server
 from .api.admin import router as admin_router
 from .api.assignments import router as assignments_router, bulk_router as assignments_bulk_router
 from .api.auth import router as auth_router
@@ -110,6 +112,8 @@ def get_cors_origins() -> list[str]:
 
     return origins
 
+# NOTE: CORS middleware must be added BEFORE wrapping with Socket.IO
+# This ensures it applies to both WebSocket and regular HTTP requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
@@ -152,5 +156,9 @@ app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 async def root() -> dict[str, str]:
     """Root endpoint."""
     return {"message": f"{settings.project_name} - FastAPI Backend"}
+
+# Mount Socket.IO at /socket.io/ path
+# This preserves the FastAPI app and its middleware for regular HTTP requests
+app.mount("/socket.io", socketio.ASGIApp(socket_server, other_asgi_app=None))
 
 

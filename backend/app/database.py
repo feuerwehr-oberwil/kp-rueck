@@ -6,11 +6,16 @@ from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
 
-# Create async engine
+# Create async engine with optimized connection pool settings
 engine = create_async_engine(
     settings.database_url,
     echo=False,
     future=True,
+    pool_size=20,           # Number of persistent connections
+    max_overflow=10,        # Extra connections when pool is full
+    pool_timeout=30,        # Seconds to wait before timeout
+    pool_recycle=1800,      # Recycle connections after 30 minutes
+    pool_pre_ping=True,     # Verify connections before using
 )
 
 # Create async session factory
@@ -28,8 +33,11 @@ audit_engine = create_async_engine(
     settings.database_url,
     echo=False,
     future=True,
-    pool_size=5,
-    max_overflow=10,
+    pool_size=5,            # Smaller pool for audit operations
+    max_overflow=10,        # Allow overflow for bursts
+    pool_timeout=30,        # Same timeout settings
+    pool_recycle=1800,      # Recycle connections after 30 minutes
+    pool_pre_ping=True,     # Verify connections before using
 )
 
 audit_session_maker = async_sessionmaker(

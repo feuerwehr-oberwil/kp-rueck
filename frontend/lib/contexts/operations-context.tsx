@@ -6,6 +6,7 @@ import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { toast } from "sonner"
+import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
 
 // Types
 export type PersonStatus = "available" | "assigned"
@@ -74,6 +75,8 @@ interface OperationsContextType {
   operations: Operation[]
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   homeCity: string
+  /** Loading state for data fetching */
+  isLoading: boolean
   /** Format a location address for display based on home city */
   formatLocation: (fullAddress: string) => string
   /** Refresh operations from the server */
@@ -110,6 +113,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [operations, setOperations] = useState<Operation[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [homeCity, setHomeCity] = useState<string>("")
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const criticalUpdateInProgress = useRef<boolean>(false)
@@ -348,9 +352,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const loadData = async () => {
+    const loadData = async (showLoading = true) => {
       try {
-        setIsLoading(true)
+        // Only show loading skeleton on initial load, not on polling updates
+        if (showLoading && isInitialLoad) {
+          setIsLoading(true)
+        }
         const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
           apiClient.getIncidents(selectedEvent.id),
           apiClient.getAllPersonnel({ checked_in_only: true, event_id: selectedEvent.id }), // Only show checked-in personnel for this event
@@ -499,10 +506,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials(eventScopedMaterials)
         setHomeCity(settings.home_city || "")
         setIsLoaded(true)
+        // Mark initial load as complete
+        if (isInitialLoad) {
+          setIsInitialLoad(false)
+        }
       } catch (error) {
         console.error("Failed to load data from API:", error)
         // Leave arrays empty if API fails - no fallback data
         setIsLoaded(true)
+        if (isInitialLoad) {
+          setIsInitialLoad(false)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -510,15 +524,83 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     loadData()
 
-    // Poll for updates every 5 seconds (optimized for performance while maintaining reasonable responsiveness)
-    const pollInterval = setInterval(() => {
-      // Only poll if not currently loading AND no critical update in progress AND no recent assignment
-      if (!isLoading && !criticalUpdateInProgress.current && !recentAssignmentRef.current) {
-        loadData()
-      }
-    }, 5000)
+    // Connect to WebSocket and set up real-time updates
+    wsClient.connect()
 
-    return () => clearInterval(pollInterval)
+    // Listen for WebSocket updates
+    const unsubscribeIncidentUpdate = wsClient.on('incident_update', (update: WebSocketUpdate<ApiIncident>) => {
+      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+        // Refresh data when incident is updated via WebSocket
+        loadData(false) // Don't show loading skeleton for real-time updates
+      }
+    })
+
+    const unsubscribePersonnelUpdate = wsClient.on('personnel_update', (update: WebSocketUpdate<ApiPersonnel>) => {
+      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+        // Refresh data when personnel is updated via WebSocket
+        loadData(false)
+      }
+    })
+
+    const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', (update: WebSocketUpdate) => {
+      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+        // Refresh data when vehicle is updated via WebSocket
+        loadData(false)
+      }
+    })
+
+    const unsubscribeMaterialUpdate = wsClient.on('material_update', (update: WebSocketUpdate) => {
+      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+        // Refresh data when material is updated via WebSocket
+        loadData(false)
+      }
+    })
+
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate) => {
+      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+        // Refresh data when assignment is updated via WebSocket
+        loadData(false)
+      }
+    })
+
+    // Fallback polling - only if WebSocket disconnects
+    let pollInterval: NodeJS.Timeout | undefined
+    const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
+      if (status === 'disconnected' || status === 'error') {
+        // Start fallback polling if WebSocket is not connected
+        if (!pollInterval) {
+          pollInterval = setInterval(() => {
+            if (!isLoading && !criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+              loadData(false)
+            }
+          }, 5000)
+        }
+      } else if (status === 'connected') {
+        // Stop polling when WebSocket reconnects
+        if (pollInterval) {
+          clearInterval(pollInterval)
+          pollInterval = undefined
+        }
+      }
+    })
+
+    return () => {
+      // Cleanup WebSocket listeners
+      unsubscribeIncidentUpdate()
+      unsubscribePersonnelUpdate()
+      unsubscribeVehicleUpdate()
+      unsubscribeMaterialUpdate()
+      unsubscribeAssignmentUpdate()
+      statusUnsubscribe()
+
+      // Cleanup polling if active
+      if (pollInterval) {
+        clearInterval(pollInterval)
+      }
+
+      // Disconnect WebSocket
+      wsClient.disconnect()
+    }
   }, [authLoading, isAuthenticated, selectedEvent])
 
   const removeCrew = (operationId: string, crewName: string) => {
@@ -1109,6 +1191,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         operations,
         setOperations,
         homeCity,
+        isLoading,
         formatLocation,
         refreshOperations,
         removeCrew,
@@ -1204,7 +1287,7 @@ export function useIncidents() {
     incidents,
     personnel: context.personnel,
     materials: context.materials,
-    isLoading: false,
+    isLoading: context.isLoading,
     error: null,
     trainingMode: false,
     homeCity: context.homeCity,

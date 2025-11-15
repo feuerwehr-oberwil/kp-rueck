@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
@@ -16,7 +16,7 @@ interface DraggablePersonProps {
   disabled?: boolean
 }
 
-export function DraggablePerson({ person, onClick, disabled }: DraggablePersonProps) {
+function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
@@ -151,3 +151,15 @@ export function DraggablePerson({ person, onClick, disabled }: DraggablePersonPr
     </PersonContextMenu>
   )
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) => {
+  return (
+    prevProps.person.id === nextProps.person.id &&
+    prevProps.person.status === nextProps.person.status &&
+    prevProps.person.name === nextProps.person.name &&
+    prevProps.person.role === nextProps.person.role &&
+    JSON.stringify(prevProps.person.tags) === JSON.stringify(nextProps.person.tags) &&
+    prevProps.disabled === nextProps.disabled
+  )
+})

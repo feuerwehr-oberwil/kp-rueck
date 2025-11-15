@@ -10,11 +10,12 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3, ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
+import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { apiClient } from '@/lib/api-client';
+import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
 import type { SyncConfig } from '@/types/sync';
 import {
   DropdownMenu,
@@ -31,6 +32,7 @@ export function UserMenu() {
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
+  const [wsStatus, setWsStatus] = useState<WebSocketStatus>('disconnected');
 
   // Sync status
   const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
@@ -50,6 +52,12 @@ export function UserMenu() {
     };
     loadConfig();
   }, [isAuthenticated]);
+
+  // Subscribe to WebSocket status changes
+  useEffect(() => {
+    const unsubscribe = wsClient.onStatusChange(setWsStatus);
+    return unsubscribe;
+  }, []);
 
   const checkConnection = async () => {
     try {
@@ -161,6 +169,44 @@ export function UserMenu() {
     return null;
   };
 
+  const getWsStatusColor = () => {
+    switch (wsStatus) {
+      case 'connecting':
+        return 'bg-yellow-500';
+      case 'connected':
+        return 'bg-green-500';
+      case 'disconnected':
+        return 'bg-gray-500';
+      case 'error':
+        return 'bg-red-500';
+    }
+  };
+
+  const getWsStatusText = () => {
+    switch (wsStatus) {
+      case 'connecting':
+        return 'Verbindet';
+      case 'connected':
+        return 'Echtzeit';
+      case 'disconnected':
+        return 'Offline';
+      case 'error':
+        return 'Fehlgeschlagen';
+    }
+  };
+
+  const getWsStatusIcon = () => {
+    switch (wsStatus) {
+      case 'connecting':
+        return <Loader2 className="h-3 w-3 animate-spin" />;
+      case 'connected':
+        return <Wifi className="h-3 w-3" />;
+      case 'disconnected':
+      case 'error':
+        return <WifiOff className="h-3 w-3" />;
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -184,6 +230,15 @@ export function UserMenu() {
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
               <span className="text-xs">{getStatusText()}</span>
+            </div>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">WebSocket</span>
+            <div className="flex items-center gap-2">
+              {getWsStatusIcon()}
+              <span className="text-xs">{getWsStatusText()}</span>
             </div>
           </div>
         </DropdownMenuLabel>

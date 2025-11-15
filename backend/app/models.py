@@ -338,6 +338,10 @@ class Incident(Base):
             name="valid_location",
         ),
         Index('idx_incidents_status', 'status'),
+        # Composite index for common query pattern (event_id, status, deleted_at)
+        Index('idx_incidents_event_status_deleted', 'event_id', 'status', 'deleted_at'),
+        Index('idx_incidents_priority', 'priority'),
+        Index('idx_incidents_created_at', 'created_at'),
     )
 
 
@@ -367,6 +371,14 @@ class IncidentAssignment(Base):
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
     assigner: Mapped[Optional["User"]] = relationship("User", back_populates="assignments")
 
+    # Add relationship to vehicle for eager loading
+    vehicle: Mapped[Optional["Vehicle"]] = relationship(
+        "Vehicle",
+        primaryjoin="and_(IncidentAssignment.resource_id == Vehicle.id, IncidentAssignment.resource_type == 'vehicle')",
+        foreign_keys=[resource_id],
+        viewonly=True
+    )
+
     __table_args__ = (
         CheckConstraint(
             "resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"
@@ -376,6 +388,8 @@ class IncidentAssignment(Base):
         ),
         Index("idx_assignments_incident", "incident_id"),
         Index("idx_assignments_resource", "resource_type", "resource_id"),
+        Index("idx_assignments_resource_id", "resource_id"),
+        Index("idx_assignments_unassigned", "unassigned_at"),
     )
 
 

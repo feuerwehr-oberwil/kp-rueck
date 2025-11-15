@@ -46,19 +46,37 @@ class Settings(BaseSettings):
     port: int = 8000
     reload: bool = False  # Set to False in production
 
-    # Security
-    secret_key: str = "dev-secret-key-change-in-production"  # Override via SECRET_KEY env var
+    # Security - MUST be set via environment variable
+    secret_key: str  # No default - requires SECRET_KEY env var
 
-    @field_validator("secret_key", mode="after")
+    @field_validator("secret_key", mode="before")
     @classmethod
-    def validate_secret_key(cls, v: str) -> str:
+    def generate_or_validate_secret_key(cls, v: str | None) -> str:
         """
-        Validate secret key is strong enough for production use.
+        Generate secure key for development or validate production key.
 
-        Rejects weak default values and ensures minimum length.
+        In development: Auto-generates secure random key if not set.
+        In production: Requires explicit strong key via env var.
         """
         import os
+        import secrets
 
+        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+
+        # If no key provided
+        if not v:
+            if is_production:
+                raise ValueError(
+                    "SECRET_KEY environment variable is required in production. "
+                    "Generate a strong key with: openssl rand -hex 32"
+                )
+            else:
+                # Auto-generate secure key for local development
+                generated_key = secrets.token_hex(32)  # 256-bit key
+                print(f"🔑 Generated development SECRET_KEY: {generated_key[:8]}...")
+                return generated_key
+
+        # Validate provided key
         # List of weak default patterns that must be rejected
         weak_defaults = [
             "dev-secret-key",
@@ -75,7 +93,7 @@ class Settings(BaseSettings):
         for weak_pattern in weak_defaults:
             if weak_pattern in v_lower:
                 # In production, reject weak keys entirely
-                if os.getenv("RAILWAY_ENVIRONMENT") is not None:
+                if is_production:
                     raise ValueError(
                         f"SECRET_KEY contains weak pattern '{weak_pattern}'. "
                         "You MUST set a strong SECRET_KEY environment variable in production. "
