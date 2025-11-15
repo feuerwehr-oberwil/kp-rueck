@@ -937,6 +937,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // Set assignment cooldown to prevent polling from overriding optimistic update
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) {
+      clearTimeout(assignmentCooldownTimerRef.current)
+    }
+    assignmentCooldownTimerRef.current = setTimeout(() => {
+      recentAssignmentRef.current = false
+    }, 3000) // Wait 3 seconds before allowing polling again
+
     // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
