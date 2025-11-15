@@ -927,6 +927,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setPersonnel((people) =>
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
+
+        // Clear assignment cooldown on error so WebSocket updates can refresh immediately
+        recentAssignmentRef.current = false
+        if (assignmentCooldownTimerRef.current) {
+          clearTimeout(assignmentCooldownTimerRef.current)
+          assignmentCooldownTimerRef.current = undefined
+        }
+
+        // Immediately refresh data to get correct state
+        await refreshOperations()
       }
     }
   }
@@ -991,6 +1001,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials((mats) =>
           mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
         )
+
+        // Clear assignment cooldown on error so WebSocket updates can refresh immediately
+        recentAssignmentRef.current = false
+        if (assignmentCooldownTimerRef.current) {
+          clearTimeout(assignmentCooldownTimerRef.current)
+          assignmentCooldownTimerRef.current = undefined
+        }
+
+        // Immediately refresh data to get correct state
+        await refreshOperations()
       }
     }
   }
@@ -1058,6 +1078,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
         )
+
+        // Clear assignment cooldown on error so WebSocket updates can refresh immediately
+        recentAssignmentRef.current = false
+        if (assignmentCooldownTimerRef.current) {
+          clearTimeout(assignmentCooldownTimerRef.current)
+          assignmentCooldownTimerRef.current = undefined
+        }
+
+        // Immediately refresh data to get correct state
+        await refreshOperations()
       }
     }
   }
