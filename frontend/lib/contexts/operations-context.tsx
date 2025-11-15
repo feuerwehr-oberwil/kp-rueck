@@ -928,15 +928,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
 
-        // Clear assignment cooldown on error so WebSocket updates can refresh immediately
+        // Clear assignment cooldown on error so WebSocket updates can refresh if needed
         recentAssignmentRef.current = false
         if (assignmentCooldownTimerRef.current) {
           clearTimeout(assignmentCooldownTimerRef.current)
           assignmentCooldownTimerRef.current = undefined
         }
-
-        // Immediately refresh data to get correct state
-        await refreshOperations()
       }
     }
   }
@@ -1002,15 +999,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
         )
 
-        // Clear assignment cooldown on error so WebSocket updates can refresh immediately
+        // Clear assignment cooldown on error so WebSocket updates can refresh if needed
         recentAssignmentRef.current = false
         if (assignmentCooldownTimerRef.current) {
           clearTimeout(assignmentCooldownTimerRef.current)
           assignmentCooldownTimerRef.current = undefined
         }
-
-        // Immediately refresh data to get correct state
-        await refreshOperations()
       }
     }
   }
@@ -1079,15 +1073,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
         )
 
-        // Clear assignment cooldown on error so WebSocket updates can refresh immediately
+        // Clear assignment cooldown on error so WebSocket updates can refresh if needed
         recentAssignmentRef.current = false
         if (assignmentCooldownTimerRef.current) {
           clearTimeout(assignmentCooldownTimerRef.current)
           assignmentCooldownTimerRef.current = undefined
         }
-
-        // Immediately refresh data to get correct state
-        await refreshOperations()
       }
     }
   }
