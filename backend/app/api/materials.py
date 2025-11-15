@@ -1,7 +1,7 @@
 """Material management API endpoints."""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import materials as crud
 from ..database import get_db
 from ..models import Material
+from ..websocket_manager import broadcast_material_update
 
 router = APIRouter(prefix="/materials", tags=["materials"])
 
@@ -40,11 +41,22 @@ async def get_material(
 async def create_material(
     material: schemas.MaterialCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
     """Create new material (editor only)."""
-    return await crud.create_material(db, material, current_user, request)
+    new_material = await crud.create_material(db, material, current_user, request)
+
+    # Convert to Pydantic and broadcast WebSocket update
+    material_response = schemas.Material.model_validate(new_material)
+    background_tasks.add_task(
+        broadcast_material_update,
+        material_response.model_dump(mode='json'),
+        "create"
+    )
+
+    return material_response
 
 
 @router.put("/{material_id}", response_model=schemas.Material)
@@ -52,6 +64,7 @@ async def update_material(
     material_id: uuid.UUID,
     material: schemas.MaterialUpdate,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
@@ -59,13 +72,23 @@ async def update_material(
     updated = await crud.update_material(db, material_id, material, current_user, request)
     if not updated:
         raise HTTPException(status_code=404, detail="Material not found")
-    return updated
+
+    # Convert to Pydantic and broadcast WebSocket update
+    material_response = schemas.Material.model_validate(updated)
+    background_tasks.add_task(
+        broadcast_material_update,
+        material_response.model_dump(mode='json'),
+        "update"
+    )
+
+    return material_response
 
 
 @router.delete("/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_material(
     material_id: uuid.UUID,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
@@ -73,6 +96,13 @@ async def delete_material(
     success = await crud.delete_material(db, material_id, current_user, request)
     if not success:
         raise HTTPException(status_code=404, detail="Material not found")
+
+    # Broadcast WebSocket update for deletion
+    background_tasks.add_task(
+        broadcast_material_update,
+        {'id': str(material_id)},
+        "delete"
+    )
 
 
 @router.post("/categories/sort-order", status_code=status.HTTP_200_OK)

@@ -1,13 +1,14 @@
 """Assignment API endpoints."""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import assignments as crud
 from ..database import get_db
+from ..websocket_manager import broadcast_assignment_update
 
 router = APIRouter(prefix="/incidents", tags=["assignments"])
 
@@ -17,6 +18,7 @@ async def assign_resource(
     incident_id: uuid.UUID,
     assignment: schemas.AssignmentCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
@@ -47,6 +49,13 @@ async def assign_resource(
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
+    # Broadcast WebSocket update
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        result.model_dump(mode='json'),
+        "create"
+    )
+
     return result
 
 
@@ -57,6 +66,7 @@ async def unassign_resource(
     incident_id: uuid.UUID,
     assignment_id: uuid.UUID,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
@@ -70,6 +80,13 @@ async def unassign_resource(
 
     if not success:
         raise HTTPException(status_code=404, detail="Assignment not found")
+
+    # Broadcast WebSocket update for deletion
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {'id': str(assignment_id), 'incident_id': str(incident_id)},
+        "delete"
+    )
 
 
 @router.get(
@@ -90,6 +107,7 @@ async def get_assignments(
 async def release_all_resources(
     incident_id: uuid.UUID,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
@@ -103,6 +121,13 @@ async def release_all_resources(
         incident_id=incident_id,
         current_user=current_user,
         request=request,
+    )
+
+    # Broadcast WebSocket update for bulk release
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {'incident_id': str(incident_id), 'action': 'release_all'},
+        "bulk_delete"
     )
 
 

@@ -1,7 +1,7 @@
 """Personnel management API endpoints."""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import personnel as crud
 from ..database import get_db
 from ..models import Personnel
+from ..websocket_manager import broadcast_personnel_update
 
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 
@@ -50,11 +51,22 @@ async def get_personnel(
 async def create_personnel(
     personnel: schemas.PersonnelCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
     """Create new personnel (editor only)."""
-    return await crud.create_personnel(db, personnel, current_user, request)
+    new_personnel = await crud.create_personnel(db, personnel, current_user, request)
+
+    # Convert to Pydantic and broadcast WebSocket update
+    personnel_response = schemas.Personnel.model_validate(new_personnel)
+    background_tasks.add_task(
+        broadcast_personnel_update,
+        personnel_response.model_dump(mode='json'),
+        "create"
+    )
+
+    return personnel_response
 
 
 @router.put("/{personnel_id}", response_model=schemas.Personnel)
@@ -62,6 +74,7 @@ async def update_personnel(
     personnel_id: uuid.UUID,
     personnel: schemas.PersonnelUpdate,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
@@ -69,13 +82,23 @@ async def update_personnel(
     updated = await crud.update_personnel(db, personnel_id, personnel, current_user, request)
     if not updated:
         raise HTTPException(status_code=404, detail="Personnel not found")
-    return updated
+
+    # Convert to Pydantic and broadcast WebSocket update
+    personnel_response = schemas.Personnel.model_validate(updated)
+    background_tasks.add_task(
+        broadcast_personnel_update,
+        personnel_response.model_dump(mode='json'),
+        "update"
+    )
+
+    return personnel_response
 
 
 @router.delete("/{personnel_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_personnel(
     personnel_id: uuid.UUID,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ):
@@ -83,6 +106,13 @@ async def delete_personnel(
     success = await crud.delete_personnel(db, personnel_id, current_user, request)
     if not success:
         raise HTTPException(status_code=404, detail="Personnel not found")
+
+    # Broadcast WebSocket update for deletion
+    background_tasks.add_task(
+        broadcast_personnel_update,
+        {'id': str(personnel_id)},
+        "delete"
+    )
 
 
 @router.post("/categories/sort-order", status_code=status.HTTP_200_OK)
