@@ -26,6 +26,8 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
   const [loadingVehicleId, setLoadingVehicleId] = useState<string | null>(null)
   // Track vehicles that are being assigned/unassigned to prevent duplicate operations
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set())
+  // Track recently unassigned vehicles to prevent immediate re-assignment
+  const [recentlyUnassigned, setRecentlyUnassigned] = useState<Set<string>>(new Set())
 
   // Load all vehicles when popover opens
   useEffect(() => {
@@ -79,16 +81,35 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
     }
   }
 
-  const handleUnassignVehicle = async (assignmentId: string, e?: React.MouseEvent) => {
+  const handleUnassignVehicle = async (assignmentId: string, vehicleId: string, e?: React.MouseEvent) => {
     if (readOnly) return
 
     e?.stopPropagation()
     setLoadingVehicleId(assignmentId)
+
+    // Add to recently unassigned to prevent immediate re-assignment
+    setRecentlyUnassigned(prev => new Set(prev).add(vehicleId))
+
     try {
       await apiClient.unassignResource(incidentId, assignmentId)
       onUpdate?.()
+
+      // Keep vehicle in recently unassigned for 2 seconds
+      setTimeout(() => {
+        setRecentlyUnassigned(prev => {
+          const next = new Set(prev)
+          next.delete(vehicleId)
+          return next
+        })
+      }, 2000)
     } catch (error) {
       console.error("Failed to unassign vehicle:", error)
+      // Remove from recently unassigned if error
+      setRecentlyUnassigned(prev => {
+        const next = new Set(prev)
+        next.delete(vehicleId)
+        return next
+      })
     } finally {
       setLoadingVehicleId(null)
     }
@@ -97,9 +118,11 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
   // Get assigned vehicle IDs for quick lookup
   const assignedVehicleIds = new Set(assignedVehicles.map(av => av.vehicle_id))
 
-  // Get available vehicles (not assigned to this incident and not pending)
+  // Get available vehicles (not assigned, not pending, and not recently unassigned)
   const availableVehicles = allVehicles.filter(v =>
-    !assignedVehicleIds.has(v.id) && !pendingOperations.has(v.id)
+    !assignedVehicleIds.has(v.id) &&
+    !pendingOperations.has(v.id) &&
+    !recentlyUnassigned.has(v.id)
   )
 
   return (
@@ -115,7 +138,7 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
           <span>{vehicle.name}</span>
           {!readOnly && (
             <button
-              onClick={(e) => handleUnassignVehicle(vehicle.assignment_id, e)}
+              onClick={(e) => handleUnassignVehicle(vehicle.assignment_id, vehicle.vehicle_id, e)}
               disabled={loadingVehicleId === vehicle.assignment_id}
               className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
               title="Fahrzeug entfernen"

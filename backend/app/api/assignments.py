@@ -49,14 +49,17 @@ async def assign_resource(
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
+    # Convert SQLAlchemy model to Pydantic for response
+    assignment_response = schemas.AssignmentResponse.model_validate(result)
+
     # Broadcast WebSocket update
     background_tasks.add_task(
         broadcast_assignment_update,
-        result.model_dump(mode='json'),
+        assignment_response.model_dump(mode='json'),
         "create"
     )
 
-    return result
+    return assignment_response
 
 
 @router.post(
