@@ -1,7 +1,7 @@
 """Personnel check-in API endpoints."""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -9,6 +9,7 @@ from ..auth.dependencies import CurrentEditor
 from ..crud import personnel_checkin as crud
 from ..database import get_db
 from ..services.tokens import generate_checkin_token, validate_checkin_token
+from ..websocket_manager import broadcast_personnel_update
 
 router = APIRouter(prefix="/personnel/check-in", tags=["personnel-checkin"])
 
@@ -78,6 +79,7 @@ async def list_personnel_for_checkin(
 async def check_in(
     personnel_id: uuid.UUID,
     token: str = Query(..., description="Access token"),
+    background_tasks: BackgroundTasks = None,
     request: Request = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -85,6 +87,7 @@ async def check_in(
     Check in a person (mark as present for the event).
 
     Requires valid token (no user authentication).
+    Broadcasts real-time update via WebSocket.
     """
     event_id = validate_checkin_token(token)
     if not event_id:
@@ -104,6 +107,21 @@ async def check_in(
     if not person:
         raise HTTPException(status_code=404, detail="Personnel not found")
 
+    # Broadcast WebSocket update for check-in
+    if background_tasks:
+        background_tasks.add_task(
+            broadcast_personnel_update,
+            {
+                'id': str(person.id),
+                'name': person.name,
+                'role': person.role,
+                'availability': person.availability,
+                'checked_in': person.checked_in,
+                'event_id': str(event_id),
+            },
+            "update"
+        )
+
     return person
 
 
@@ -111,6 +129,7 @@ async def check_in(
 async def check_out(
     personnel_id: uuid.UUID,
     token: str = Query(..., description="Access token"),
+    background_tasks: BackgroundTasks = None,
     request: Request = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -118,6 +137,7 @@ async def check_out(
     Check out a person from the event (mark as left).
 
     Requires valid token (no user authentication).
+    Broadcasts real-time update via WebSocket.
     """
     event_id = validate_checkin_token(token)
     if not event_id:
@@ -133,6 +153,21 @@ async def check_out(
 
     if not person:
         raise HTTPException(status_code=404, detail="Personnel not found")
+
+    # Broadcast WebSocket update for check-out
+    if background_tasks:
+        background_tasks.add_task(
+            broadcast_personnel_update,
+            {
+                'id': str(person.id),
+                'name': person.name,
+                'role': person.role,
+                'availability': person.availability,
+                'checked_in': person.checked_in,
+                'event_id': str(event_id),
+            },
+            "update"
+        )
 
     return person
 

@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { CheckCircle, Circle, Search } from 'lucide-react'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
+import { wsClient, type WebSocketUpdate } from '@/lib/websocket-client'
 
 export default function CheckInPage() {
   const searchParams = useSearchParams()
@@ -23,10 +24,27 @@ export default function CheckInPage() {
       setLoading(false)
       return
     }
-    loadPersonnel()
-  }, [token])
 
-  const loadPersonnel = async () => {
+    // Load initial data
+    loadPersonnel()
+
+    // Connect to WebSocket for real-time updates
+    wsClient.connect()
+
+    // Listen for personnel updates
+    const unsubscribePersonnel = wsClient.on('personnel_update', (update: WebSocketUpdate) => {
+      // Refresh the personnel list when someone is added, checked in, or checked out
+      loadPersonnel()
+    })
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribePersonnel()
+      wsClient.disconnect()
+    }
+  }, [token, loadPersonnel])
+
+  const loadPersonnel = useCallback(async () => {
     if (!token) return
 
     setLoading(true)
@@ -41,7 +59,7 @@ export default function CheckInPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token])
 
   const toggleCheckIn = async (person: ApiPersonnelListItem) => {
     if (!token) return
