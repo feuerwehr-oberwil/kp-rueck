@@ -5,11 +5,22 @@ import { toast } from 'sonner'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { useEvent } from '@/lib/contexts/event-context'
+import type { Operation } from '@/lib/contexts/operations-context'
 
 /**
  * Hook to track and notify users of new Reko reports across all incidents
  */
-export function useRekoNotifications(incidents: Array<{ id: string }>) {
+export function useRekoNotifications(
+  incidents: Array<{ id: string }>,
+  onOpenIncidentModal?: (incidentId: string) => void,
+  onUpdateOperationReko?: (incidentId: string, rekoSummary: {
+    isRelevant: boolean
+    hasDangers: boolean
+    dangerTypes: string[]
+    personnelCount: number | null
+    estimatedDuration: number | null
+  }) => void
+) {
   const { selectedEvent } = useEvent()
   const [seenRekoIds, setSeenRekoIds] = useState<Set<string>>(new Set())
   const isInitialLoad = useRef(true)
@@ -54,8 +65,34 @@ export function useRekoNotifications(incidents: Array<{ id: string }>) {
             const incidentTitle = report.incident_title || 'Unbekannter Einsatz'
             const isRelevant = report.is_relevant
 
+            // Extract danger types
+            const dangerTypes: string[] = []
+            if (report.dangers_json) {
+              if (report.dangers_json.fire) dangerTypes.push("Feuer")
+              if (report.dangers_json.explosion) dangerTypes.push("Explosion")
+              if (report.dangers_json.collapse) dangerTypes.push("Einsturz")
+              if (report.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
+              if (report.dangers_json.electrical) dangerTypes.push("Elektrisch")
+            }
+
+            // Update operation with REKO summary immediately
+            if (onUpdateOperationReko && report.incident_id) {
+              onUpdateOperationReko(report.incident_id, {
+                isRelevant: report.is_relevant ?? false,
+                hasDangers: dangerTypes.length > 0,
+                dangerTypes,
+                personnelCount: report.effort_json?.personnel_count ?? null,
+                estimatedDuration: report.effort_json?.estimated_duration_hours ?? null,
+              })
+            }
+
             toast(
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 cursor-pointer" onClick={() => {
+                if (onOpenIncidentModal && report.incident_id) {
+                  onOpenIncidentModal(report.incident_id)
+                  toast.dismiss()
+                }
+              }}>
                 {isRelevant ? (
                   <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 ) : (
@@ -74,10 +111,14 @@ export function useRekoNotifications(incidents: Array<{ id: string }>) {
                 action: {
                   label: 'Ansehen',
                   onClick: () => {
-                    // Scroll to the incident card (if visible)
-                    const element = document.querySelector(`[data-incident-id="${report.incident_id}"]`)
-                    if (element) {
-                      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    if (onOpenIncidentModal && report.incident_id) {
+                      onOpenIncidentModal(report.incident_id)
+                    } else {
+                      // Fallback to scroll if modal callback not provided
+                      const element = document.querySelector(`[data-incident-id="${report.incident_id}"]`)
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      }
                     }
                   },
                 },

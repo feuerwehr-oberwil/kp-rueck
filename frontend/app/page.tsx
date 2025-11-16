@@ -64,8 +64,31 @@ export default function FireStationDashboard() {
   const highlightParam = searchParams.get("highlight")
   const isMobile = useIsMobile()
 
-  // Enable reko notifications for all incidents
-  useRekoNotifications(operations)
+  // Enable reko notifications for all incidents with modal opening support
+  const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
+    const operation = operations.find(op => op.id === incidentId)
+    if (operation) {
+      setSelectedOperation(operation)
+      setDetailModalOpen(true)
+    }
+  }, [operations])
+
+  // Update operation REKO summary when new report arrives
+  const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: {
+    isRelevant: boolean
+    hasDangers: boolean
+    dangerTypes: string[]
+    personnelCount: number | null
+    estimatedDuration: number | null
+  }) => {
+    setOperations(prev => prev.map(op =>
+      op.id === incidentId
+        ? { ...op, hasCompletedReko: true, rekoSummary }
+        : op
+    ))
+  }, [setOperations])
+
+  useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [isMounted, setIsMounted] = useState(false)

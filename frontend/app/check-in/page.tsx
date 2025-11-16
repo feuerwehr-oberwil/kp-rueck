@@ -18,6 +18,23 @@ export default function CheckInPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const loadPersonnel = useCallback(async () => {
+    if (!token) return
+
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await apiClient.getCheckInList(token)
+      setPersonnel(data.personnel)
+      setEventName(data.event_name)
+    } catch (error) {
+      console.error('Failed to load personnel:', error)
+      setError('Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.')
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
   useEffect(() => {
     if (!token) {
       setError('Zugriffscode fehlt. Bitte QR-Code scannen.')
@@ -43,23 +60,6 @@ export default function CheckInPage() {
       wsClient.disconnect()
     }
   }, [token, loadPersonnel])
-
-  const loadPersonnel = useCallback(async () => {
-    if (!token) return
-
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await apiClient.getCheckInList(token)
-      setPersonnel(data.personnel)
-      setEventName(data.event_name)
-    } catch (error) {
-      console.error('Failed to load personnel:', error)
-      setError('Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.')
-    } finally {
-      setLoading(false)
-    }
-  }, [token])
 
   const toggleCheckIn = async (person: ApiPersonnelListItem) => {
     if (!token) return

@@ -300,6 +300,14 @@ function DraggableOperationBase({
 // Memoize the component to prevent unnecessary re-renders
 // Only re-render if props actually change (deep comparison)
 export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextProps) => {
+  // Check if REKO summary has changed
+  const rekoSummaryChanged =
+    prevProps.operation.hasCompletedReko !== nextProps.operation.hasCompletedReko ||
+    (prevProps.operation.rekoSummary?.hasDangers !== nextProps.operation.rekoSummary?.hasDangers) ||
+    (prevProps.operation.rekoSummary?.dangerTypes.length !== nextProps.operation.rekoSummary?.dangerTypes.length) ||
+    (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
+    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
+
   return (
     prevProps.operation.id === nextProps.operation.id &&
     prevProps.operation.status === nextProps.operation.status &&
@@ -311,6 +319,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.columnColor === nextProps.columnColor &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
-    prevProps.index === nextProps.index
+    prevProps.index === nextProps.index &&
+    !rekoSummaryChanged
   )
 })
