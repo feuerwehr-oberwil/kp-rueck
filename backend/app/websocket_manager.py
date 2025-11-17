@@ -203,3 +203,18 @@ async def broadcast_system_message(message: str, level: str = "info"):
             'timestamp': asyncio.get_event_loop().time()
         }
     )
+
+async def broadcast_message(data: dict, room: str = 'operations'):
+    """
+    Generic broadcast function for custom messages.
+
+    Args:
+        data: Dictionary containing message type and payload
+        room: Target room (default: 'operations')
+    """
+    message_type = data.get('type', 'update')
+    await ws_manager.broadcast_update(
+        message_type,
+        data,
+        room=room
+    )
