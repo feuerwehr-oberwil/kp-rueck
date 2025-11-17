@@ -35,7 +35,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
   const [formData, setFormData] = useState<IncidentCreate>({
     event_id: incident?.event_id || selectedEvent?.id || '',
     title: incident?.title || '',
-    type: incident?.type || 'technische_hilfeleistung',
+    type: incident?.type || 'elementarereignis',
     priority: incident?.priority || 'medium',
     location_address: incident?.location_address || null,
     location_lat: incident?.location_lat || null,
@@ -100,7 +100,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
       setFormData({
         event_id: selectedEvent?.id || '',
         title: '',
-        type: 'technische_hilfeleistung',
+        type: 'elementarereignis',
         priority: 'medium',
         location_address: null,
         location_lat: null,
@@ -116,9 +116,12 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
     }
   }
 
-  // Reset form when incident changes or modal opens
+  // Reset form when modal opens (not on every re-render)
   useEffect(() => {
-    if (open && incident && mode === 'edit') {
+    // Only reset when dialog transitions from closed to open
+    if (!open) return
+
+    if (incident && mode === 'edit') {
       setFormData({
         event_id: incident.event_id,
         title: incident.title,
@@ -130,12 +133,12 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         description: incident.description,
         status: incident.status,
       })
-    } else if (open && mode === 'create') {
+    } else if (mode === 'create') {
       // Reset to defaults for create mode
       setFormData({
         event_id: selectedEvent?.id || '',
         title: '',
-        type: 'technische_hilfeleistung',
+        type: 'elementarereignis',
         priority: 'medium',
         location_address: null,
         location_lat: null,
@@ -144,7 +147,9 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         status: 'eingegangen',
       })
     }
-  }, [open, incident, mode, selectedEvent?.id])
+    // Only run when dialog opens or incident/mode changes, NOT when selectedEvent updates
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, incident?.id, mode])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
