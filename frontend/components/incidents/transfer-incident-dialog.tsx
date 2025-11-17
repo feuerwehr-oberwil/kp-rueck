@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, AlertCircle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { MapPin, AlertCircle, Search } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS } from "@/lib/types/incidents"
 
@@ -33,6 +34,7 @@ export function TransferIncidentDialog({
   isTransferring = false,
 }: TransferIncidentDialogProps) {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
 
   const handleTransfer = () => {
     if (selectedIncidentId) {
@@ -42,11 +44,23 @@ export function TransferIncidentDialog({
 
   const handleClose = () => {
     setSelectedIncidentId(null)
+    setSearchTerm("")
     onOpenChange(false)
   }
 
-  // Filter out the source incident from available incidents
-  const targetIncidents = availableIncidents.filter(inc => inc.id !== sourceIncident.id)
+  // Filter out the source incident and apply search filter
+  const targetIncidents = availableIncidents
+    .filter(inc => inc.id !== sourceIncident.id)
+    .filter(inc => {
+      if (!searchTerm.trim()) return true
+      const search = searchTerm.toLowerCase()
+      return (
+        inc.title.toLowerCase().includes(search) ||
+        inc.location_address?.toLowerCase().includes(search) ||
+        INCIDENT_TYPE_LABELS[inc.type].toLowerCase().includes(search) ||
+        inc.description?.toLowerCase().includes(search)
+      )
+    })
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -58,12 +72,33 @@ export function TransferIncidentDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Einsatz suchen (Titel, Adresse, Art)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
         <div className="flex-1 overflow-y-auto space-y-3 py-4">
           {targetIncidents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
               <AlertCircle className="h-12 w-12 mb-3" />
-              <p>Keine anderen Einsätze verfügbar</p>
-              <p className="text-sm">Es müssen mindestens zwei Einsätze vorhanden sein</p>
+              {searchTerm.trim() ? (
+                <>
+                  <p>Keine Einsätze gefunden</p>
+                  <p className="text-sm">Versuchen Sie einen anderen Suchbegriff</p>
+                </>
+              ) : (
+                <>
+                  <p>Keine anderen Einsätze verfügbar</p>
+                  <p className="text-sm">Es müssen mindestens zwei Einsätze vorhanden sein</p>
+                </>
+              )}
             </div>
           ) : (
             targetIncidents.map((incident) => (
