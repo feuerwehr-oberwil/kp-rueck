@@ -1138,6 +1138,19 @@ class GenerateEmergencyRequest(BaseModel):
 # ============================================
 
 
+class PersonnelActivity(BaseModel):
+    """Personnel activity tracking for fatigue monitoring."""
+
+    personnel_id: UUID
+    name: str
+    role: Optional[str] = None
+    availability: str
+    active_duration_minutes: int  # Time since checked in (for assigned personnel)
+    assignment_count: int  # Number of incidents assigned to
+    current_incident_title: Optional[str] = None  # Current incident title if assigned
+    checked_in_at: Optional[datetime] = None
+
+
 class EventStats(BaseModel):
     """Real-time statistics for an event."""
 
@@ -1146,6 +1159,7 @@ class EventStats(BaseModel):
     personnel_total: int  # Total number of personnel
     avg_duration_minutes: int  # Average incident duration in minutes
     resource_utilization_percent: float  # Percentage of personnel assigned
+    personnel_activity: list[PersonnelActivity] = []  # Personnel activity tracking
 
 
 # ============================================
@@ -1219,3 +1233,92 @@ class SyncLogResponse(BaseModel):
     status: SyncStatus
     records_synced: Optional[dict] = None
     errors: Optional[dict] = None
+
+
+# ============================================
+# Divera Integration Schemas
+# ============================================
+
+
+class DiveraWebhookPayload(BaseModel):
+    """Divera 24/7 webhook payload structure (actual format from Divera PRO)."""
+
+    id: int
+    number: Optional[str] = None  # Incident number like "E-123"
+    title: str
+    text: Optional[str] = None
+    address: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    priority: int = 0  # 0 = low, 1 = medium, 2 = high (assumed)
+    cluster: Optional[list[str]] = None  # e.g., ["Untereinheit 1"]
+    group: Optional[list[str]] = None  # e.g., ["Gruppe 1", "Gruppe 2"]
+    vehicle: Optional[list[str]] = None  # e.g., ["HLF-1", "LF-10"]
+    ts_create: Optional[int] = None  # Unix timestamp
+    ts_update: Optional[int] = None  # Unix timestamp
+
+
+class DiveraEmergencyResponse(BaseModel):
+    """Divera emergency response schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    divera_id: int
+    divera_number: Optional[str] = None
+    title: str
+    text: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[Union[str, Decimal]] = None
+    longitude: Optional[Union[str, Decimal]] = None
+    priority: int  # 0=low, 1=medium, 2=high
+    received_at: datetime
+    attached_to_event_id: Optional[UUID] = None
+    attached_at: Optional[datetime] = None
+    created_incident_id: Optional[UUID] = None
+    is_archived: bool
+
+    @field_serializer('latitude', 'longitude')
+    def serialize_decimal(self, value):
+        """Convert Decimal to string for JSON serialization."""
+        if value is None:
+            return None
+        return str(value)
+
+
+class DiveraEmergencyListResponse(BaseModel):
+    """Response for Divera emergency list."""
+
+    emergencies: list[DiveraEmergencyResponse]
+    total: int
+    unattached_count: int
+
+
+class AttachEmergencyRequest(BaseModel):
+    """Request to attach a Divera emergency to an Event."""
+
+    event_id: UUID
+
+
+class BulkAttachEmergenciesRequest(BaseModel):
+    """Request to attach multiple Divera emergencies to an Event."""
+
+    event_id: UUID
+    emergency_ids: list[UUID]
+
+    @field_validator('emergency_ids')
+    @classmethod
+    def validate_emergency_ids(cls, v: list[UUID]) -> list[UUID]:
+        """Validate emergency IDs list."""
+        if not v or len(v) == 0:
+            raise ValueError("Must provide at least one emergency ID")
+        if len(v) > 100:
+            raise ValueError("Cannot attach more than 100 emergencies at once")
+        return v
+
+
+class AutoAttachSettingRequest(BaseModel):
+    """Request to enable/disable auto-attach for an Event."""
+
+    event_id: UUID
+    enabled: bool

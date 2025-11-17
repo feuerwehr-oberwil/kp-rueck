@@ -668,3 +668,60 @@ class TrainingLocation(Base):
 
     def __repr__(self):
         return f"<TrainingLocation {self.get_full_address()}>"
+
+
+# ============================================
+# DIVERA INTEGRATION
+# ============================================
+
+
+class DiveraEmergency(Base):
+    """Divera 24/7 emergency received via webhook - stored for selective attachment to Events."""
+
+    __tablename__ = "divera_emergencies"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Divera identifiers for deduplication
+    divera_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True, index=True)
+    divera_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # e.g., "E-123"
+
+    # Emergency details from Divera
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0=low, 1=medium, 2=high
+
+    # Store raw Divera payload for reference
+    raw_payload_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+
+    # Timestamps
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+    # Attachment tracking
+    attached_to_event_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    attached_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_incident_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Archival
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index('idx_divera_emergencies_divera_id', 'divera_id'),
+        Index('idx_divera_emergencies_received_at', 'received_at'),
+        Index('idx_divera_emergencies_attached', 'attached_to_event_id'),
+        Index('idx_divera_emergencies_archived', 'is_archived'),
+    )
+
+    def __repr__(self):
+        status = "attached" if self.attached_to_event_id else "unattached"
+        return f"<DiveraEmergency {self.divera_id} ({status})>"
