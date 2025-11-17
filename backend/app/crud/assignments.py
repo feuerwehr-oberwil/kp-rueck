@@ -287,3 +287,117 @@ async def auto_release_incident_resources(
             continue
 
         await unassign_resource(db, assignment.id, current_user, request)
+
+
+async def transfer_assignments(
+    db: AsyncSession,
+    source_incident_id: uuid.UUID,
+    target_incident_id: uuid.UUID,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """
+    Transfer all active assignments from source incident to target incident.
+
+    This function:
+    1. Gets all active assignments from source incident
+    2. Checks for conflicts (resources already assigned to target)
+    3. Creates new assignments for target incident
+    4. Marks source assignments as unassigned
+    5. Logs the transfer action
+
+    Args:
+        db: Database session
+        source_incident_id: ID of source incident
+        target_incident_id: ID of target incident
+        current_user: User performing the transfer
+        request: HTTP request for audit logging
+
+    Returns:
+        Dictionary with:
+        - transferred_count: Number of assignments transferred
+        - assignment_ids: List of new assignment IDs
+
+    Raises:
+        ValueError: If source has no assignments or if conflicts exist
+    """
+    from ..models import Incident
+
+    # Verify both incidents exist
+    source_result = await db.execute(
+        select(Incident).where(Incident.id == source_incident_id)
+    )
+    source_incident = source_result.scalar_one_or_none()
+    if not source_incident:
+        raise ValueError("Source incident not found")
+
+    target_result = await db.execute(
+        select(Incident).where(Incident.id == target_incident_id)
+    )
+    target_incident = target_result.scalar_one_or_none()
+    if not target_incident:
+        raise ValueError("Target incident not found")
+
+    # Get all active assignments from source
+    source_assignments = await get_incident_assignments(db, source_incident_id)
+
+    if not source_assignments:
+        raise ValueError("Source incident has no active assignments to transfer")
+
+    # Check for conflicts - resources already assigned to target
+    target_assignments = await get_incident_assignments(db, target_incident_id)
+    target_resources = {
+        (a.resource_type, a.resource_id) for a in target_assignments
+    }
+
+    conflicts = []
+    for assignment in source_assignments:
+        resource_key = (assignment.resource_type, assignment.resource_id)
+        if resource_key in target_resources:
+            conflicts.append(f"{assignment.resource_type} {assignment.resource_id}")
+
+    if conflicts:
+        raise ValueError(
+            f"Cannot transfer: Resources already assigned to target incident: {', '.join(conflicts)}"
+        )
+
+    # Transfer assignments
+    new_assignment_ids = []
+
+    for assignment in source_assignments:
+        # Create new assignment for target
+        new_assignment = IncidentAssignment(
+            incident_id=target_incident_id,
+            resource_type=assignment.resource_type,
+            resource_id=assignment.resource_id,
+            assigned_by=current_user.id,
+        )
+        db.add(new_assignment)
+        await db.flush()
+        new_assignment_ids.append(new_assignment.id)
+
+        # Mark old assignment as unassigned
+        assignment.unassigned_at = datetime.utcnow()
+
+    # Log transfer action
+    await log_action(
+        db=db,
+        action_type="assignments_transferred",
+        resource_type="incident",
+        resource_id=source_incident_id,
+        user=current_user,
+        changes={
+            "source_incident_id": str(source_incident_id),
+            "target_incident_id": str(target_incident_id),
+            "count": len(new_assignment_ids),
+            "assignment_ids": [str(aid) for aid in new_assignment_ids],
+        },
+        request=request,
+    )
+
+    await db.commit()
+
+    return {
+        "transferred_count": len(new_assignment_ids),
+        "assignment_ids": new_assignment_ids,
+    }

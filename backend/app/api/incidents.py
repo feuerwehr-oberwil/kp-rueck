@@ -5,6 +5,7 @@ from typing import Annotated, Optional
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -263,4 +264,70 @@ async def delete_incident(
         broadcast_incident_update,
         {'id': str(incident_id)},
         "delete"
+    )
+
+
+@router.post("/{incident_id}/transfer", response_model=schemas.TransferAssignmentsResponse)
+async def transfer_assignments(
+    incident_id: uuid.UUID,
+    transfer_request: schemas.TransferAssignmentsRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """
+    Transfer all active assignments from this incident to another incident (editor only).
+
+    This will:
+    1. Move all personnel, vehicle, and material assignments
+    2. Block if any resource is already assigned to target
+    3. Log the transfer action
+    4. Broadcast WebSocket updates
+    """
+    from ..crud import assignments as assignment_crud
+
+    try:
+        result = await assignment_crud.transfer_assignments(
+            db=db,
+            source_incident_id=incident_id,
+            target_incident_id=transfer_request.target_incident_id,
+            current_user=current_user,
+            request=request,
+        )
+    except ValueError as e:
+        # Handle validation errors (no assignments, conflicts, etc.)
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        elif "already assigned" in str(e).lower() or "conflict" in str(e).lower():
+            raise HTTPException(status_code=409, detail=str(e))
+        else:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    # Get event_id for WebSocket broadcast
+    incident_result = await db.execute(
+        select(crud.Incident).where(crud.Incident.id == incident_id)
+    )
+    incident = incident_result.scalar_one()
+    event_id = incident.event_id
+
+    # Broadcast WebSocket update
+    from ..websocket_manager import broadcast_message
+    background_tasks.add_task(
+        broadcast_message,
+        data={
+            "type": "assignments_transferred",
+            "source_incident_id": str(incident_id),
+            "target_incident_id": str(transfer_request.target_incident_id),
+            "assignment_ids": [str(aid) for aid in result["assignment_ids"]],
+            "count": result["transferred_count"],
+            "event_id": str(event_id),
+        },
+        room="operations"
+    )
+
+    return schemas.TransferAssignmentsResponse(
+        transferred_count=result["transferred_count"],
+        assignment_ids=result["assignment_ids"],
+        message=f"{result['transferred_count']} Ressourcen übertragen"
     )

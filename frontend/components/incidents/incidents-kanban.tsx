@@ -3,12 +3,15 @@
 import { useState, useEffect } from "react"
 import { IncidentCard } from "./incident-card"
 import { IncidentForm } from "./incident-form"
+import { TransferIncidentDialog } from "./transfer-incident-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, RefreshCw } from 'lucide-react'
 import { useIncidents } from "@/lib/contexts/operations-context"
 import type { Incident } from "@/lib/types/incidents"
 import { KANBAN_COLUMNS } from "@/lib/types/incidents"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 export function IncidentsKanban() {
   const { incidents, isLoading, error, refreshIncidents, trainingMode, setTrainingMode } = useIncidents()
@@ -16,6 +19,9 @@ export function IncidentsKanban() {
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
   const [isMounted, setIsMounted] = useState(false)
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  const [transferSourceIncident, setTransferSourceIncident] = useState<Incident | null>(null)
+  const [isTransferring, setIsTransferring] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -31,6 +37,31 @@ export function IncidentsKanban() {
     setSelectedIncident(incident)
     setFormMode('edit')
     setFormOpen(true)
+  }
+
+  const handleTransferClick = (incident: Incident) => {
+    setTransferSourceIncident(incident)
+    setTransferDialogOpen(true)
+  }
+
+  const handleTransfer = async (targetIncidentId: string) => {
+    if (!transferSourceIncident) return
+
+    try {
+      setIsTransferring(true)
+      await apiClient.transferAssignments(transferSourceIncident.id, targetIncidentId)
+      toast.success("Ressourcen übertragen", {
+        description: `Alle Ressourcen wurden erfolgreich übertragen.`
+      })
+      setTransferDialogOpen(false)
+      refreshIncidents()
+    } catch (error: any) {
+      toast.error("Fehler beim Übertragen", {
+        description: error?.message || "Die Ressourcen konnten nicht übertragen werden."
+      })
+    } finally {
+      setIsTransferring(false)
+    }
   }
 
   if (!isMounted) {
@@ -128,6 +159,7 @@ export function IncidentsKanban() {
                         columnColor={column.color}
                         onEdit={() => handleEditClick(incident)}
                         onUpdate={refreshIncidents}
+                        onTransfer={() => handleTransferClick(incident)}
                         isDraggable={false} // Disable dragging for now (can be enabled with drag-and-drop implementation)
                       />
                     ))
@@ -164,6 +196,18 @@ export function IncidentsKanban() {
         incident={selectedIncident}
         mode={formMode}
       />
+
+      {/* Transfer Incident Dialog */}
+      {transferSourceIncident && (
+        <TransferIncidentDialog
+          open={transferDialogOpen}
+          onOpenChange={setTransferDialogOpen}
+          sourceIncident={transferSourceIncident}
+          availableIncidents={incidents}
+          onTransfer={handleTransfer}
+          isTransferring={isTransferring}
+        />
+      )}
     </div>
   )
 }

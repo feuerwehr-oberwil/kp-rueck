@@ -404,6 +404,13 @@ export interface ApiDiveraEmergencyListResponse {
   unattached_count: number // Count of unattached, non-archived emergencies
 }
 
+// Transfer Assignments Types
+export interface ApiTransferAssignmentsResponse {
+  transferred_count: number
+  assignment_ids: string[]
+  message: string
+}
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -755,6 +762,19 @@ class ApiClient {
     return this.request<void>(`/api/incidents/${id}`, {
       method: 'DELETE',
     })
+  }
+
+  async transferAssignments(
+    sourceIncidentId: string,
+    targetIncidentId: string
+  ): Promise<ApiTransferAssignmentsResponse> {
+    return this.request<ApiTransferAssignmentsResponse>(
+      `/api/incidents/${sourceIncidentId}/transfer`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ target_incident_id: targetIncidentId }),
+      }
+    )
   }
 
   // Resource Management - Personnel

@@ -1325,3 +1325,22 @@ class AutoAttachSettingRequest(BaseModel):
 
     event_id: UUID
     enabled: bool
+
+
+# ============================================
+# Transfer Assignments Schemas
+# ============================================
+
+
+class TransferAssignmentsRequest(BaseModel):
+    """Request to transfer all assignments from one incident to another."""
+
+    target_incident_id: UUID
+
+
+class TransferAssignmentsResponse(BaseModel):
+    """Response from assignment transfer operation."""
+
+    transferred_count: int
+    assignment_ids: list[UUID]
+    message: str

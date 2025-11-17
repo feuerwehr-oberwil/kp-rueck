@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -22,6 +22,8 @@ import { toast } from "sonner"
 import { Kbd } from "@/components/ui/kbd"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { useEvent } from "@/lib/contexts/event-context"
+import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
+import type { Incident } from "@/lib/types/incidents"
 
 interface OperationDetailModalProps {
   operation: Operation | null
@@ -53,6 +55,9 @@ export function OperationDetailModal({
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
+  const [isTransferring, setIsTransferring] = useState(false)
 
   // Load vehicles and special functions when modal opens
   useEffect(() => {
@@ -135,6 +140,53 @@ export function OperationDetailModal({
       })
     } finally {
       setIsCopyingWhatsApp(false)
+    }
+  }
+
+  // Handler for opening transfer dialog
+  const handleOpenTransfer = async () => {
+    if (!operation || !selectedEvent) {
+      toast.error('Fehler', {
+        description: 'Kein Event ausgewählt. Bitte wählen Sie ein Event aus.',
+      })
+      return
+    }
+
+    try {
+      // Fetch all incidents for the current event
+      const incidents = await apiClient.getIncidents(selectedEvent.id)
+      setAvailableIncidents(incidents)
+      setTransferDialogOpen(true)
+    } catch (error) {
+      console.error('Failed to load incidents:', error)
+      toast.error('Fehler beim Laden', {
+        description: 'Die Einsätze konnten nicht geladen werden.',
+      })
+    }
+  }
+
+  // Handler for transferring assignments
+  const handleTransfer = async (targetIncidentId: string) => {
+    if (!operation) return
+
+    try {
+      setIsTransferring(true)
+      await apiClient.transferAssignments(operation.id, targetIncidentId)
+
+      // Close dialogs immediately for better UX
+      setTransferDialogOpen(false)
+      onOpenChange(false)
+
+      // Success toast after dialogs close
+      toast.success("Ressourcen übertragen", {
+        description: `Alle Ressourcen wurden erfolgreich übertragen.`
+      })
+    } catch (error: any) {
+      toast.error("Fehler beim Übertragen", {
+        description: error?.message || "Die Ressourcen konnten nicht übertragen werden."
+      })
+    } finally {
+      setIsTransferring(false)
     }
   }
 
@@ -457,6 +509,13 @@ export function OperationDetailModal({
             <MessageCircle className="h-4 w-4" />
             {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp kopieren'}
           </Button>
+          <Button
+            variant="outline"
+            onClick={handleOpenTransfer}
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            Ressourcen übertragen
+          </Button>
           <Button variant="outline" className="ml-auto" onClick={() => onOpenChange(false)}>
             Schliessen
           </Button>
@@ -486,6 +545,16 @@ export function OperationDetailModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer Incident Dialog */}
+      <TransferIncidentDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        sourceIncident={operation as unknown as Incident}
+        availableIncidents={availableIncidents}
+        onTransfer={handleTransfer}
+        isTransferring={isTransferring}
+      />
     </Dialog>
   )
 }

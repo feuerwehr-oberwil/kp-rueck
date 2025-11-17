@@ -563,6 +563,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }
     })
 
+    const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (update: WebSocketUpdate) => {
+      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+        // Refresh data when assignments are transferred via WebSocket
+        loadData(false)
+
+        // Show success toast
+        if (update.data && typeof update.data === 'object' && 'count' in update.data) {
+          toast.success("Ressourcen übertragen", {
+            description: `${update.data.count} Ressourcen wurden erfolgreich übertragen.`
+          })
+        }
+      }
+    })
+
     // Fallback polling - only if WebSocket disconnects
     let pollInterval: NodeJS.Timeout | undefined
     const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
@@ -591,6 +605,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       unsubscribeVehicleUpdate()
       unsubscribeMaterialUpdate()
       unsubscribeAssignmentUpdate()
+      unsubscribeAssignmentsTransferred()
       statusUnsubscribe()
 
       // Cleanup polling if active

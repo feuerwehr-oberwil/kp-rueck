@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Map, Truck, Siren } from 'lucide-react'
+import { MapPin, Clock, Map, Truck, Siren, ArrowRightLeft } from 'lucide-react'
+import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
@@ -17,6 +18,7 @@ interface IncidentCardProps {
   isHighlighted?: boolean
   isDraggable?: boolean
   onUpdate?: () => void
+  onTransfer?: () => void
 }
 
 function getTimeSince(date: Date): string {
@@ -41,6 +43,7 @@ export function IncidentCard({
   isHighlighted,
   isDraggable = true,
   onUpdate,
+  onTransfer,
 }: IncidentCardProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -143,6 +146,22 @@ export function IncidentCard({
               readOnly={!onEdit}
             />
           </div>
+        )}
+
+        {/* Transfer button */}
+        {onTransfer && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              onTransfer()
+            }}
+            className="w-full gap-2 mt-2"
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            Ressourcen übertragen
+          </Button>
         )}
       </div>
     </Card>
