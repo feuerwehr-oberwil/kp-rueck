@@ -803,6 +803,25 @@ class ApiClient {
     })
   }
 
+  async getVehicleStatus(vehicleId: string, eventId: string): Promise<{
+    id: string
+    name: string
+    type: string
+    status: string
+    radio_call_sign: string
+    driver_id: string | null
+    driver_name: string | null
+    driver_assigned_at: string | null
+    incident_id: string | null
+    incident_title: string | null
+    incident_location_address: string | null
+    incident_status: string | null
+    incident_assigned_at: string | null
+    assignment_duration_minutes: number | null
+  }> {
+    return this.request(`/api/vehicles/${vehicleId}/status?event_id=${encodeURIComponent(eventId)}`)
+  }
+
   // Resource Management - Materials
   async getAllMaterials(): Promise<ApiMaterialResource[]> {
     return this.request<ApiMaterialResource[]>('/api/materials/')

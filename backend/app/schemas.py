@@ -257,6 +257,32 @@ class Vehicle(VehicleBase):
     updated_at: datetime
 
 
+class VehicleStatusResponse(BaseModel):
+    """Vehicle status with driver and incident information."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    # Vehicle details
+    id: UUID
+    name: str
+    type: str
+    status: str
+    radio_call_sign: str
+
+    # Driver information (if assigned for the event)
+    driver_id: Optional[UUID] = None
+    driver_name: Optional[str] = None
+    driver_assigned_at: Optional[datetime] = None
+
+    # Current incident assignment (if any)
+    incident_id: Optional[UUID] = None
+    incident_title: Optional[str] = None
+    incident_location_address: Optional[str] = None
+    incident_status: Optional[str] = None  # The column it's in
+    incident_assigned_at: Optional[datetime] = None  # When vehicle was assigned to incident
+    assignment_duration_minutes: Optional[int] = None  # Auto-calculated field
+
+
 # ============================================
 # Material Schemas
 # ============================================

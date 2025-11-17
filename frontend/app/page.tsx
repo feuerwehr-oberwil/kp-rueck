@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, Menu, ClipboardCheck } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, Menu, ClipboardCheck, Truck } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -36,6 +36,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
 import { KanbanLoading } from "@/components/kanban/kanban-loading"
 import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/kanban/sidebar-loading"
+import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 
 export default function FireStationDashboard() {
   const {
@@ -110,6 +111,7 @@ export default function FireStationDashboard() {
   const [copied, setCopied] = useState(false)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [vehicleStatusSheetOpen, setVehicleStatusSheetOpen] = useState(false)
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -858,6 +860,10 @@ export default function FireStationDashboard() {
                 <QrCode className="h-4 w-4" />
                 Check-In QR
               </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setVehicleStatusSheetOpen(true)} disabled={!selectedEvent}>
+                <Truck className="h-4 w-4" />
+                Fahrzeugstatus
+              </Button>
               {selectedEvent?.training_flag && (
                 <Link href="/training">
                   <Button size="sm" variant="outline" className="gap-2">
@@ -1013,6 +1019,13 @@ export default function FireStationDashboard() {
         onRefresh={refreshOperations}
         onToggleLeftSidebar={() => setShowLeftSidebar(prev => !prev)}
         onToggleRightSidebar={() => setShowRightSidebar(prev => !prev)}
+      />
+
+      {/* Vehicle Status Sheet */}
+      <VehicleStatusSheet
+        open={vehicleStatusSheetOpen}
+        onOpenChange={setVehicleStatusSheetOpen}
+        eventId={selectedEvent?.id || null}
       />
     </ProtectedRoute>
   )
