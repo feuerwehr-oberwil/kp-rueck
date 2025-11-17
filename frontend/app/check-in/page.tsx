@@ -100,9 +100,9 @@ export default function CheckInPage() {
       if (a.checked_in !== b.checked_in) {
         return a.checked_in ? 1 : -1
       }
-      // Then sort by last name (last word in the name)
-      const lastNameA = a.name.split(' ').slice(-1)[0].toLowerCase()
-      const lastNameB = b.name.split(' ').slice(-1)[0].toLowerCase()
+      // Then sort by last name (first word in the name, format is "LAST FIRST")
+      const lastNameA = a.name.split(' ')[0].toLowerCase()
+      const lastNameB = b.name.split(' ')[0].toLowerCase()
       return lastNameA.localeCompare(lastNameB)
     })
 
