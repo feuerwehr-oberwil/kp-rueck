@@ -149,6 +149,8 @@ async def attach_emergency_to_event(
     """
     Attach a Divera emergency to an Event (and optionally link created Incident).
 
+    Allows re-attachment to different events - each attachment creates a new incident.
+
     Args:
         db: Database session
         emergency_id: Divera emergency UUID
@@ -159,15 +161,13 @@ async def attach_emergency_to_event(
         Updated DiveraEmergency instance
 
     Raises:
-        ValueError: If emergency not found or already attached
+        ValueError: If emergency not found
     """
     emergency = await get_divera_emergency_by_id(db, emergency_id)
     if not emergency:
         raise ValueError(f"Divera emergency {emergency_id} not found")
 
-    if emergency.attached_to_event_id is not None:
-        raise ValueError(f"Emergency already attached to event {emergency.attached_to_event_id}")
-
+    # Allow re-attachment - update to new event and incident
     await db.execute(
         update(models.DiveraEmergency)
         .where(models.DiveraEmergency.id == emergency_id)

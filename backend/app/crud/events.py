@@ -63,6 +63,7 @@ async def create_event(
     event = Event(
         name=event_data.name,
         training_flag=event_data.training_flag,
+        auto_attach_divera=event_data.auto_attach_divera if event_data.auto_attach_divera is not None else False,
         last_activity_at=datetime.utcnow(),
     )
     db.add(event)

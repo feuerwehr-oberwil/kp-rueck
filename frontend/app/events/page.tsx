@@ -36,6 +36,7 @@ export default function EventsPage() {
 
   const [newEventName, setNewEventName] = useState('')
   const [newEventTraining, setNewEventTraining] = useState(false)
+  const [newEventAutoAttachDivera, setNewEventAutoAttachDivera] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [gPrefixActive, setGPrefixActive] = useState(false)
@@ -70,10 +71,11 @@ export default function EventsPage() {
 
     setIsCreating(true)
     try {
-      const event = await createEvent(newEventName, newEventTraining)
+      const event = await createEvent(newEventName, newEventTraining, newEventAutoAttachDivera)
       setShowCreateDialog(false)
       setNewEventName('')
       setNewEventTraining(false)
+      setNewEventAutoAttachDivera(false)
 
       // Automatically select and navigate to new event
       setSelectedEvent(event)
@@ -396,9 +398,23 @@ export default function EventsPage() {
               <Switch
                 id="training-mode"
                 checked={newEventTraining}
-                onCheckedChange={setNewEventTraining}
+                onCheckedChange={(checked) => {
+                  setNewEventTraining(checked)
+                  if (checked) setNewEventAutoAttachDivera(false)
+                }}
               />
               <Label htmlFor="training-mode">Übungsmodus</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="auto-attach-divera"
+                checked={newEventAutoAttachDivera}
+                onCheckedChange={(checked) => {
+                  setNewEventAutoAttachDivera(checked)
+                  if (checked) setNewEventTraining(false)
+                }}
+              />
+              <Label htmlFor="auto-attach-divera">Divera-Notfälle automatisch anhängen</Label>
             </div>
           </div>
           <DialogFooter>

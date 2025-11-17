@@ -12,6 +12,7 @@ export interface ApiEvent {
   id: string // UUID
   name: string
   training_flag: boolean
+  auto_attach_divera: boolean
   created_at: string
   updated_at: string
   archived_at: string | null
@@ -22,11 +23,13 @@ export interface ApiEvent {
 export interface ApiEventCreate {
   name: string
   training_flag: boolean
+  auto_attach_divera?: boolean
 }
 
 export interface ApiEventUpdate {
   name?: string
   training_flag?: boolean
+  auto_attach_divera?: boolean
   archived_at?: string | null
 }
 
@@ -375,6 +378,30 @@ export interface ApiEventStats {
   personnel_total: number
   avg_duration_minutes: number
   resource_utilization_percent: number
+}
+
+// Divera 24/7 Integration Types
+export interface ApiDiveraEmergency {
+  id: string // UUID
+  divera_id: number
+  divera_number: string | null // e.g., "E-123"
+  title: string
+  text: string | null
+  address: string | null
+  latitude: string | null // Decimal as string
+  longitude: string | null // Decimal as string
+  priority: number // 0=low, 1=medium, 2=high
+  received_at: string
+  attached_to_event_id: string | null // UUID
+  attached_at: string | null
+  created_incident_id: string | null // UUID
+  is_archived: boolean
+}
+
+export interface ApiDiveraEmergencyListResponse {
+  emergencies: ApiDiveraEmergency[]
+  total: number
+  unattached_count: number // Count of unattached, non-archived emergencies
 }
 
 class ApiClient {
@@ -1098,6 +1125,65 @@ class ApiClient {
 
   async getTrainingLocations(): Promise<ApiTrainingLocation[]> {
     return this.request<ApiTrainingLocation[]>('/api/training/locations/')
+  }
+
+  // Divera 24/7 Integration
+  async getDiveraEmergencies(params?: {
+    attached?: boolean
+    event_id?: string
+    include_archived?: boolean
+    skip?: number
+    limit?: number
+  }): Promise<ApiDiveraEmergencyListResponse> {
+    const queryParams = new URLSearchParams()
+
+    if (params) {
+      if (params.attached !== undefined) {
+        queryParams.append('attached', String(params.attached))
+      }
+      if (params.event_id) {
+        queryParams.append('event_id', params.event_id)
+      }
+      if (params.include_archived !== undefined) {
+        queryParams.append('include_archived', String(params.include_archived))
+      }
+      if (params.skip !== undefined) {
+        queryParams.append('skip', String(params.skip))
+      }
+      if (params.limit !== undefined) {
+        queryParams.append('limit', String(params.limit))
+      }
+    }
+
+    const endpoint = `/api/divera/emergencies${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return this.request<ApiDiveraEmergencyListResponse>(endpoint)
+  }
+
+  async getDiveraEmergency(emergencyId: string): Promise<ApiDiveraEmergency> {
+    return this.request<ApiDiveraEmergency>(`/api/divera/emergencies/${emergencyId}`)
+  }
+
+  async attachEmergencyToEvent(emergencyId: string, eventId: string): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/divera/emergencies/${emergencyId}/attach`, {
+      method: 'POST',
+      body: JSON.stringify({ event_id: eventId }),
+    })
+  }
+
+  async bulkAttachEmergencies(emergencyIds: string[], eventId: string): Promise<ApiIncident[]> {
+    return this.request<ApiIncident[]>('/api/divera/emergencies/bulk-attach', {
+      method: 'POST',
+      body: JSON.stringify({
+        emergency_ids: emergencyIds,
+        event_id: eventId,
+      }),
+    })
+  }
+
+  async archiveDiveraEmergency(emergencyId: string): Promise<void> {
+    return this.request<void>(`/api/divera/emergencies/${emergencyId}`, {
+      method: 'DELETE',
+    })
   }
 
   // Sync endpoints

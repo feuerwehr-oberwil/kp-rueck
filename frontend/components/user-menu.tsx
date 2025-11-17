@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, BarChart3, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -265,6 +265,12 @@ export function UserMenu() {
           <Link href="/stats" className="cursor-pointer">
             <BarChart3 className="mr-2 h-4 w-4" />
             <span>Statistiken</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/divera-pool" className="cursor-pointer">
+            <Radio className="mr-2 h-4 w-4" />
+            <span>Divera Notfälle</span>
           </Link>
         </DropdownMenuItem>
         {isEditor && (

@@ -13,7 +13,7 @@ interface EventContextType {
   isEventLoaded: boolean // Track if localStorage event has been loaded
   error: string | null
   refreshEvents: () => Promise<void>
-  createEvent: (name: string, trainingFlag: boolean) => Promise<Event>
+  createEvent: (name: string, trainingFlag: boolean, autoAttachDivera?: boolean) => Promise<Event>
   archiveEvent: (eventId: string) => Promise<void>
   unarchiveEvent: (eventId: string) => Promise<void>
   deleteEvent: (eventId: string) => Promise<void>
@@ -88,8 +88,8 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const createEvent = useCallback(async (name: string, trainingFlag: boolean): Promise<Event> => {
-    const apiEvent = await apiClient.createEvent({ name, training_flag: trainingFlag })
+  const createEvent = useCallback(async (name: string, trainingFlag: boolean, autoAttachDivera: boolean = false): Promise<Event> => {
+    const apiEvent = await apiClient.createEvent({ name, training_flag: trainingFlag, auto_attach_divera: autoAttachDivera })
     const event = apiEventToEvent(apiEvent)
     await refreshEvents()
     return event

@@ -12,7 +12,7 @@ import { Map as MapIcon, List, HelpCircle, Calendar, LayoutGrid } from 'lucide-r
 import Link from 'next/link';
 
 interface PageNavigationProps {
-  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training' | 'stats' | 'help' | 'resources';
+  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training' | 'stats' | 'help' | 'resources' | 'divera';
   vehicleTypes?: Array<{ key: string; name: string }>;
   hasSelectedEvent?: boolean;
 }

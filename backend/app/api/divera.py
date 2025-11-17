@@ -237,12 +237,14 @@ async def attach_emergency_to_event(
             detail="Divera emergency not found"
         )
 
-    # Check if already attached
-    if emergency.attached_to_event_id:
+    # Prevent re-attachment to the same event
+    if emergency.attached_to_event_id == request_data.event_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Emergency already attached to event {emergency.attached_to_event_id}"
+            detail=f"Emergency already attached to this event"
         )
+
+    # Allow re-attachment to different events
 
     # Verify event exists
     event = await events_crud.get_event_by_id(db, request_data.event_id)
@@ -349,9 +351,12 @@ async def bulk_attach_emergencies(
                 errors.append(f"Emergency {emergency_id} not found")
                 continue
 
-            if emergency.attached_to_event_id:
-                errors.append(f"Emergency {emergency_id} already attached")
+            # Skip if already attached to this event
+            if emergency.attached_to_event_id == request_data.event_id:
+                errors.append(f"Emergency {emergency_id} already attached to this event")
                 continue
+
+            # Allow re-attachment to different events
 
             # Detect type and priority
             incident_type = detect_incident_type(emergency.title)

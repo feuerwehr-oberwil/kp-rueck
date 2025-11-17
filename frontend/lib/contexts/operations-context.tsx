@@ -810,7 +810,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const incidentData = {
           event_id: selectedEvent.id, // Use selected event's ID
           title: operation.location,
-          type: "technische_hilfeleistung" as const, // Default type
+          type: (operation.incidentType || "elementarereignis") as any,
           priority: operation.priority as "low" | "medium" | "high",
           location_address: operation.location,
           location_lat: operation.coordinates[0]?.toString(),

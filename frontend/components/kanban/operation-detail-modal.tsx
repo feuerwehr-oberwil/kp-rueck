@@ -441,10 +441,9 @@ export function OperationDetailModal({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-4 border-t">
+        <div className="flex items-center gap-3 pt-6 mt-6 border-t">
           <Button
             variant="destructive"
-            className="gap-2"
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4" />
@@ -452,14 +451,13 @@ export function OperationDetailModal({
           </Button>
           <Button
             variant="outline"
-            className="gap-2"
             onClick={handleCopyWhatsApp}
             disabled={isCopyingWhatsApp}
           >
             <MessageCircle className="h-4 w-4" />
             {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp kopieren'}
           </Button>
-          <Button variant="outline" className="ml-auto bg-transparent" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" className="ml-auto" onClick={() => onOpenChange(false)}>
             Schliessen
           </Button>
         </div>

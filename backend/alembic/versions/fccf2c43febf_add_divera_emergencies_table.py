@@ -20,6 +20,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    # Check if table already exists (may have been created manually)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'divera_emergencies' in inspector.get_table_names():
+        print("Table 'divera_emergencies' already exists, skipping creation")
+        return
+
     op.create_table(
         'divera_emergencies',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),

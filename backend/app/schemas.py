@@ -371,6 +371,7 @@ class EventBase(BaseModel):
 
     name: str
     training_flag: bool = False
+    auto_attach_divera: bool = False
 
 
 class EventCreate(EventBase):
@@ -384,6 +385,7 @@ class EventUpdate(BaseModel):
 
     name: Optional[str] = None
     training_flag: Optional[bool] = None
+    auto_attach_divera: Optional[bool] = None
     archived_at: Optional[datetime] = None  # For archiving
 
 
@@ -397,6 +399,7 @@ class EventResponse(EventBase):
     updated_at: datetime
     archived_at: Optional[datetime] = None
     last_activity_at: datetime
+    auto_attach_divera: bool
     incident_count: int = 0  # Computed field
 
 
