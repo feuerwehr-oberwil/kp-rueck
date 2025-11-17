@@ -858,7 +858,7 @@ export default function FireStationDashboard() {
 
               <Button size="sm" variant="outline" className="gap-2" onClick={generateCheckInQR}>
                 <QrCode className="h-4 w-4" />
-                Check-In QR
+                Check-In
               </Button>
               <Button size="sm" variant="outline" className="gap-2" onClick={() => setVehicleStatusSheetOpen(true)} disabled={!selectedEvent}>
                 <Truck className="h-4 w-4" />
