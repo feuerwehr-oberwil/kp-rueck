@@ -155,7 +155,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       location: incident.location_address || incident.title,
       vehicle: null, // Legacy field - kept for backward compatibility
       vehicles: [], // Will be populated from assignments
-      incidentType: incident.type || "Technische Hilfe",
+      incidentType: incident.type || "elementarereignis",
       dispatchTime: new Date(incident.created_at),
       crew: [], // Will be populated from assignments
       priority: incident.priority as "high" | "medium" | "low",
