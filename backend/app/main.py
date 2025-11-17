@@ -14,6 +14,7 @@ from .api.admin import router as admin_router
 from .api.assignments import router as assignments_router, bulk_router as assignments_bulk_router
 from .api.auth import router as auth_router
 from .api.audit import router as audit_router
+from .api.divera import router as divera_router
 from .api.events import router as events_router
 from .api.exports import router as exports_router
 from .api.health import router as health_router
@@ -131,6 +132,7 @@ app.include_router(health_router)  # No prefix - available at /health
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
+app.include_router(divera_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
 app.include_router(exports_router, prefix=settings.api_v1_prefix)
 app.include_router(help_router, prefix=settings.api_v1_prefix)
