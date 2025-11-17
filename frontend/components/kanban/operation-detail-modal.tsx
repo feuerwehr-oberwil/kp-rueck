@@ -154,7 +154,21 @@ export function OperationDetailModal({
 
     try {
       // Fetch all incidents for the current event
-      const incidents = await apiClient.getIncidents(selectedEvent.id)
+      const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
+      // Convert ApiIncident to Incident type (string coords/dates -> number/Date)
+      const incidents: Incident[] = apiIncidents.map(inc => ({
+        ...inc,
+        location_lat: inc.location_lat !== null ? parseFloat(inc.location_lat) : null,
+        location_lng: inc.location_lng !== null ? parseFloat(inc.location_lng) : null,
+        created_at: new Date(inc.created_at),
+        updated_at: new Date(inc.updated_at),
+        status_changed_at: inc.status_changed_at ? new Date(inc.status_changed_at) : null,
+        completed_at: inc.completed_at ? new Date(inc.completed_at) : null,
+        assigned_vehicles: inc.assigned_vehicles.map(v => ({
+          ...v,
+          assigned_at: new Date(v.assigned_at),
+        })),
+      }))
       setAvailableIncidents(incidents)
       setTransferDialogOpen(true)
     } catch (error) {
