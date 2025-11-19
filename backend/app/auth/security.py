@@ -62,7 +62,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
     Args:
         data: Payload to encode (must include 'sub' claim for user ID)
-        expires_delta: Custom expiration time (defaults to 15 minutes)
+        expires_delta: Custom expiration time (defaults to 8 hours)
 
     Returns:
         Encoded JWT string

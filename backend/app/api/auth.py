@@ -116,7 +116,7 @@ async def refresh_token(
     """
     Refresh access token using refresh token.
 
-    Frontend calls this when access token expires (15 min).
+    Frontend calls this when access token is about to expire (8 hours).
     """
     if not refresh_token:
         raise HTTPException(
@@ -187,7 +187,7 @@ async def logout(
     Logout by clearing cookies.
 
     Note: JWT tokens are stateless, so we can't "revoke" them.
-    We rely on short expiration times (15 min).
+    We rely on reasonable expiration times (8 hours).
     Works whether authenticated or not - just clears cookies.
     """
     # Try to get current user for logging purposes (but don't require it)

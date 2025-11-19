@@ -34,14 +34,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Set up token refresh interval when user is logged in
     if (user) {
-      console.log('[Auth] Setting up auto-refresh (13 minutes interval)');
+      console.log('[Auth] Setting up auto-refresh (7.5 hours interval)');
 
       // Clear any existing interval
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
       }
 
-      // Set up token refresh interval (13 minutes - before 15 min expiration)
+      // Set up token refresh interval (7.5 hours - 30 min before 8 hour expiration)
       refreshIntervalRef.current = setInterval(async () => {
         console.log('[Auth] Auto-refreshing token...');
         try {
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('[Auth] Token refresh error:', error);
           setUser(null);
         }
-      }, 13 * 60 * 1000); // 13 minutes (2 min before 15 min expiration)
+      }, 450 * 60 * 1000); // 7.5 hours (450 minutes - 30 min before 8 hour expiration)
     } else {
       // User logged out - clear refresh interval
       if (refreshIntervalRef.current) {
