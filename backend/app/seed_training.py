@@ -272,14 +272,54 @@ EMERGENCY_TEMPLATES = [
 print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 
+async def verify_address_exists(street: str, housenumber: str, client: httpx.AsyncClient) -> dict | None:
+    """
+    Verify an address exists using Nominatim geocoding.
+
+    Returns:
+        Dict with lat/lng if address exists, None otherwise
+    """
+    full_address = f"{street} {housenumber}, 4104 Oberwil, Switzerland"
+
+    try:
+        response = await client.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={
+                "q": full_address,
+                "format": "json",
+                "limit": 1,
+                "countrycodes": "ch",
+            },
+            headers={"User-Agent": "KP-Rueck-Training-System/1.0"},
+            timeout=5.0
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                result = data[0]
+                # Verify the result is actually in Oberwil
+                display_name = result.get("display_name", "").lower()
+                if "oberwil" in display_name and "4104" in display_name:
+                    return {
+                        "latitude": float(result["lat"]),
+                        "longitude": float(result["lon"])
+                    }
+    except Exception:
+        pass
+
+    return None
+
+
 async def fetch_real_addresses_from_osm(target_count: int = 50) -> list[tuple[str, str, str, float, float]]:
     """
-    Fetch real addresses from OpenStreetMap for Oberwil BL.
+    Fetch and verify real addresses from OpenStreetMap for Oberwil BL.
+    Uses Nominatim to verify each address actually exists.
 
     Returns:
         List of tuples: (street_name, house_number, building_type, latitude, longitude)
     """
-    print(f"\n🗺️  Fetching real addresses from OpenStreetMap for Oberwil...")
+    print(f"\n🗺️  Fetching and verifying real addresses from OpenStreetMap for Oberwil...")
 
     addresses = []
 
@@ -311,56 +351,68 @@ async def fetch_real_addresses_from_osm(target_count: int = 50) -> list[tuple[st
                 data = response.json()
                 elements = data.get("elements", [])
 
-                print(f"   Found {len(elements)} addresses in OpenStreetMap")
+                print(f"   Found {len(elements)} potential addresses in OSM")
+                print(f"   Verifying addresses with Nominatim (may take a minute)...")
 
-                # Process and deduplicate addresses
+                # Process and verify addresses
                 seen = set()
+                verified_count = 0
                 for element in elements:
+                    if len(addresses) >= target_count:
+                        break
+
                     tags = element.get("tags", {})
                     street = tags.get("addr:street")
                     housenumber = tags.get("addr:housenumber")
 
-                    # Get coordinates (for nodes, direct lat/lon; for ways, use center)
-                    lat = element.get("lat")
-                    lon = element.get("lon")
+                    if not street or not housenumber:
+                        continue
 
-                    # If it's a way (building), use center coordinates
-                    if not lat or not lon:
-                        center = element.get("center", {})
-                        lat = center.get("lat")
-                        lon = center.get("lon")
+                    # Create unique key
+                    key = f"{street}_{housenumber}"
+                    if key in seen:
+                        continue
 
-                    if street and housenumber and lat and lon:
-                        # Create unique key
-                        key = f"{street}_{housenumber}"
-                        if key not in seen:
-                            seen.add(key)
+                    seen.add(key)
 
-                            # Determine building type
-                            building_type = "residential"
-                            building_tag = tags.get("building", "")
+                    # Verify address with Nominatim
+                    verified = await verify_address_exists(street, housenumber, client)
 
-                            # Use building tag if available
-                            if building_tag in ["commercial", "retail", "office", "industrial"]:
-                                building_type = "commercial"
-                            elif building_tag in ["public", "school", "hospital"]:
-                                building_type = "commercial"
-                            # Otherwise use street name
-                            elif any(word in street.lower() for word in ["schul", "industrie", "gewerbe"]):
-                                building_type = "commercial"
-                            elif any(word in street.lower() for word in ["haupt", "bahn"]):
-                                building_type = "mixed"
+                    if verified:
+                        verified_count += 1
 
-                            addresses.append((street, housenumber, building_type, float(lat), float(lon)))
+                        # Determine building type
+                        building_type = "residential"
+                        building_tag = tags.get("building", "")
 
-                            if len(addresses) >= target_count:
-                                break
+                        # Use building tag if available
+                        if building_tag in ["commercial", "retail", "office", "industrial"]:
+                            building_type = "commercial"
+                        elif building_tag in ["public", "school", "hospital"]:
+                            building_type = "commercial"
+                        # Otherwise use street name
+                        elif any(word in street.lower() for word in ["schul", "industrie", "gewerbe"]):
+                            building_type = "commercial"
+                        elif any(word in street.lower() for word in ["haupt", "bahn"]):
+                            building_type = "mixed"
+
+                        addresses.append((
+                            street,
+                            housenumber,
+                            building_type,
+                            verified["latitude"],
+                            verified["longitude"]
+                        ))
+
+                        print(f"      ✓ {street} {housenumber} ({verified_count}/{target_count})")
+
+                        # Rate limit: 1 request per second for Nominatim
+                        await asyncio.sleep(1.1)
 
                 # Shuffle for variety
                 random.shuffle(addresses)
-                addresses = addresses[:target_count]
 
-                print(f"   ✅ Selected {len(addresses)} diverse addresses")
+                print(f"   ✅ Verified {len(addresses)} real addresses")
                 return addresses
 
             else:
