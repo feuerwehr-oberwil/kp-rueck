@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileNavigation } from '@/components/mobile-navigation';
+import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
 import { SyncStatusCard } from '@/components/sync/sync-status-card';
 import { SyncConfigCard } from '@/components/sync/sync-config-card';
@@ -342,6 +343,11 @@ export default function SettingsPage() {
           </div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+
+      <MobileBottomNavigation currentPage="settings" />
+
     </ProtectedRoute>
   );
 }

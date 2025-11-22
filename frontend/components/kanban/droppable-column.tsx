@@ -5,6 +5,7 @@ import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { columns } from "@/lib/kanban-utils"
 import { DraggableOperation } from "./draggable-operation"
+import { cn } from "@/lib/utils"
 
 interface DroppableColumnProps {
   column: {
@@ -25,6 +26,7 @@ interface DroppableColumnProps {
   materials: Material[]
   formatLocation: (address: string) => string
   setOperationRef?: (id: string, element: HTMLDivElement | null) => void
+  onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
 }
 
 export const DroppableColumn = memo(function DroppableColumn({
@@ -41,6 +43,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   materials,
   formatLocation,
   setOperationRef,
+  onAssignResource,
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -64,12 +67,30 @@ export const DroppableColumn = memo(function DroppableColumn({
 
   return (
     <div className="flex min-w-[320px] w-[320px] flex-shrink-0 flex-col transition-all">
-      <div className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3 transition-all`}>
+      <div className={cn(
+        "mb-3 rounded-lg border border-border/50 px-4 py-3 transition-all",
+        column.color
+      )}>
         <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">{column.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
       </div>
 
-      <div ref={ref} className={`flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative ${isOver && operations.length === 0 ? "border-2 border-dashed border-primary" : ""}`}>
+      <div
+        ref={ref}
+        className={cn(
+          "flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative",
+          isOver && operations.length === 0 && "drop-zone-active"
+        )}
+        role="region"
+        aria-label={`${column.title} column`}
+      >
+        {/* Empty state hint when dragging over */}
+        {isOver && operations.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <p className="text-sm text-muted-foreground font-medium">Drop here to move incident</p>
+          </div>
+        )}
+
         <div className="space-y-3">
           {operations.map((operation, index) => (
             <div
@@ -91,6 +112,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 index={index}
                 columnOperations={operations}
                 formatLocation={formatLocation}
+                onAssignResource={onAssignResource}
               />
             </div>
           ))}

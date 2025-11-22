@@ -3,6 +3,7 @@
 /**
  * User menu component
  * Displays current user info and logout button in a settings dropdown
+ * Enhanced with visual grouping for better navigation organization
  */
 
 import { useEffect, useState } from 'react';
@@ -17,6 +18,7 @@ import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { apiClient } from '@/lib/api-client';
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
 import type { SyncConfig } from '@/types/sync';
+import { RoleBadge } from '@/components/auth/role-badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -214,16 +216,21 @@ export function UserMenu() {
           <User className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-64">
+        {/* User Info with Role Badge */}
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
+          <div className="flex flex-col space-y-2">
             <p className="text-sm font-medium leading-none">{user.username}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {isEditor ? 'Editor' : 'Betrachter'}
-            </p>
+            <RoleBadge />
           </div>
         </DropdownMenuLabel>
+
         <DropdownMenuSeparator />
+
+        {/* CONNECTION STATUS GROUP */}
+        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+          Verbindung
+        </DropdownMenuLabel>
         <DropdownMenuLabel className="font-normal">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Backend</span>
@@ -254,7 +261,13 @@ export function UserMenu() {
             </div>
           </Link>
         </DropdownMenuItem>
+
         <DropdownMenuSeparator />
+
+        {/* MANAGEMENT GROUP */}
+        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+          Verwaltung
+        </DropdownMenuLabel>
         <DropdownMenuItem asChild>
           <Link href="/settings" className="cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />
@@ -273,8 +286,14 @@ export function UserMenu() {
             <span>Divera Notfälle</span>
           </Link>
         </DropdownMenuItem>
+
+        {/* ADMIN GROUP (editors only) */}
         {isEditor && (
           <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+              Administration
+            </DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link href="/resources" className="cursor-pointer">
                 <Users className="mr-2 h-4 w-4" />
@@ -284,7 +303,7 @@ export function UserMenu() {
             <DropdownMenuItem asChild>
               <Link href="/admin/import" className="cursor-pointer">
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                <span>Daten Import/Export</span>
+                <span>Import/Export</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
@@ -295,8 +314,10 @@ export function UserMenu() {
             </DropdownMenuItem>
           </>
         )}
+
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} variant="destructive">
+
+        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Abmelden</span>
         </DropdownMenuItem>

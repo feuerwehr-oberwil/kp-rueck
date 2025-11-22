@@ -78,13 +78,42 @@ make shell-db
 
 ### Testing
 
+**Quick Start (Makefile):**
+```bash
+# Run all E2E tests (ensure services are running first)
+make test
+
+# Run authentication tests only (7 tests)
+make test-auth
+
+# Run tests in interactive UI mode
+make test-ui
+
+# Run tests in headed mode (visible browser)
+make test-headed
+
+# Show last test report
+make test-report
+```
+
+**Direct Commands:**
 ```bash
 # Backend (when implemented)
 cd backend && uv run pytest
 
-# Frontend
-cd frontend && pnpm test
+# Frontend E2E tests
+cd frontend && pnpm test                    # Run all tests
+cd frontend && pnpm test:ui                 # Interactive UI mode
+cd frontend && pnpm test tests/e2e/01-auth/ # Run specific test suite
+cd frontend && pnpm exec playwright test --headed  # Visible browser
 ```
+
+**Test Infrastructure:**
+- Framework: Playwright with TypeScript
+- Architecture: Page Object Model + Custom Fixtures
+- Test Data: Factory pattern + API helpers
+- Location: `frontend/tests/`
+- See: `E2E_TESTING_PLAN.md` for comprehensive test strategy
 
 ## Architecture Overview
 

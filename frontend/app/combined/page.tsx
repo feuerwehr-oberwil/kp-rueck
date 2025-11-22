@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileNavigation } from "@/components/mobile-navigation"
+import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
@@ -252,6 +253,11 @@ export default function CombinedViewPage() {
           onRemoveVehicle={handleVehicleRemove}
         />
       </div>
+
+      {/* Mobile Bottom Navigation */}
+
+      <MobileBottomNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
+
     </ProtectedRoute>
   )
 }

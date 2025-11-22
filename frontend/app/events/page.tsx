@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEvent } from '@/lib/contexts/event-context'
 import type { Event } from '@/lib/types/incidents'
 import { Button } from '@/components/ui/button'
@@ -22,10 +22,12 @@ import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { EventExportButton } from '@/components/event-export-button'
 import { MobileNavigation } from '@/components/mobile-navigation'
+import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
 
 export default function EventsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
   const isMobile = useIsMobile()
 
@@ -36,7 +38,7 @@ export default function EventsPage() {
 
   const [newEventName, setNewEventName] = useState('')
   const [newEventTraining, setNewEventTraining] = useState(false)
-  const [newEventAutoAttachDivera, setNewEventAutoAttachDivera] = useState(false)
+  const [newEventAutoAttachDivera, setNewEventAutoAttachDivera] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [gPrefixActive, setGPrefixActive] = useState(false)
@@ -75,7 +77,7 @@ export default function EventsPage() {
       setShowCreateDialog(false)
       setNewEventName('')
       setNewEventTraining(false)
-      setNewEventAutoAttachDivera(false)
+      setNewEventAutoAttachDivera(true)
 
       // Automatically select and navigate to new event
       setSelectedEvent(event)
@@ -119,6 +121,16 @@ export default function EventsPage() {
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to delete event:', error)
+    }
+  }
+
+  const handleCreateDialogChange = (open: boolean) => {
+    setShowCreateDialog(open)
+    // Reset form state when dialog is closed
+    if (!open) {
+      setNewEventName('')
+      setNewEventTraining(false)
+      setNewEventAutoAttachDivera(true)
     }
   }
 
@@ -193,6 +205,16 @@ export default function EventsPage() {
       }
     }
   }, [gPrefixActive, router])
+
+  // Auto-open create dialog when action=create query param is present
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'create') {
+      setShowCreateDialog(true)
+      // Remove the query param after opening the dialog to prevent reopening on refresh
+      router.replace('/events', { scroll: false })
+    }
+  }, [searchParams, router])
 
   return (
     <ProtectedRoute>
@@ -379,7 +401,7 @@ export default function EventsPage() {
         </main>
 
         {/* Create Event Dialog */}
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Neues Ereignis erstellen</DialogTitle>
@@ -418,7 +440,7 @@ export default function EventsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
               Abbrechen
             </Button>
             <Button onClick={handleCreateEvent} disabled={isCreating || !newEventName.trim()}>
@@ -478,6 +500,11 @@ export default function EventsPage() {
         </DialogContent>
       </Dialog>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+
+      <MobileBottomNavigation currentPage="events" hasSelectedEvent={!!selectedEvent} />
+
     </ProtectedRoute>
   )
 }

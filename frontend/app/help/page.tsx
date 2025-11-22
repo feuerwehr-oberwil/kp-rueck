@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MobileNavigation } from '@/components/mobile-navigation';
+import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -27,6 +28,7 @@ interface HelpTopic {
 const HELP_TOPICS: HelpTopic[] = [
   { id: 'getting-started', title: 'Erste Schritte', category: 'Einführung', file: 'getting-started.md' },
   { id: 'online-offline-modes', title: 'Online & Offline Modi', category: 'Einführung', file: 'online-offline-modes.md' },
+  { id: 'visual-feedback', title: 'Visuelle Hinweise & Bedienung', category: 'Einführung', file: 'visual-feedback.md' },
   { id: 'workflow', title: 'Einsatz-Workflow', category: 'Workflow', file: 'workflow.md' },
   { id: 'kanban', title: 'Kanban-Board', category: 'Features', file: 'kanban.md' },
   { id: 'map-combined', title: 'Karten & Combined View', category: 'Features', file: 'map-combined.md' },

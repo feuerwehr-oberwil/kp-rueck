@@ -513,7 +513,8 @@ class ApiClient {
 
           // Final error - show toast if not skipped
           const error = new Error(errorMessage)
-          if (!skipToast) {
+          // Don't show toast for 401 Unauthorized - user will be redirected to login
+          if (!skipToast && response.status !== 401) {
             toast({
               variant: "destructive",
               title: "API Fehler",

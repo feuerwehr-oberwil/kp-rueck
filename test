@@ -1,0 +1,163 @@
+# ---------- Toolset schema (per toolset) ----------
+
+
+def init_toolset_db(dsn: str, schema_name: str):
+    """
+    Create (or ensure) the per-toolset schema and all partitioned tables/indexes.
+
+    - schema: <schema_name>
+    - functions: normalize_contig(text) RETURNS text
+    - tables:
+        <schema>.Meta
+        <schema>.variant (PARTITIONED BY LIST (contig_norm))
+        <schema>.variant_chr1..chr22, _chrx, _chry, _chrmt, and _other (DEFAULT)
+    """
+    primary_contigs = [str(i) for i in range(1, 23)] + ["X", "Y", "MT"]
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        with conn.cursor() as cur:
+            # Create schema
+            cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}";')
+
+            # Meta table
+            cur.execute(
+                f"""
+            CREATE TABLE IF NOT EXISTS "{schema_name}"."Meta" (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO "{schema_name}"."Meta"(key, value)
+            VALUES ('schema_version', '2.0-toolset')
+            ON CONFLICT (key) DO NOTHING;
+            """
+            )
+
+            # Helper: normalize_contig()
+            cur.execute(
+                f"""
+            CREATE OR REPLACE FUNCTION "{schema_name}".normalize_contig(c text)
+            RETURNS text
+            LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+              SELECT CASE
+                WHEN c IS NULL THEN NULL
+                WHEN upper(c) LIKE 'CHR%%' THEN "{schema_name}".normalize_contig(substr(c, 4))
+                WHEN upper(c) IN ('M','MT') THEN 'MT'
+                WHEN c ~ '^[0-9]+$' THEN c
+                WHEN upper(c) IN ('X','Y') THEN upper(c)
+                ELSE upper(c)
+              END
+            $$;
+            """
+            )
+
+            # Parent partitioned table (LIST on contig_norm)
+            # FIXED: Make contig_norm a regular column, not generated
+            cur.execute(
+                f"""
+            CREATE TABLE IF NOT EXISTS "{schema_name}".variant (
+                variant_id     BIGSERIAL PRIMARY KEY,
+                contig         TEXT NOT NULL,  -- raw input (e.g., 'chr1', '1', 'GL000220.1')
+                contig_norm    TEXT NOT NULL,  -- normalized contig (populated by trigger or application)
+                position       INTEGER NOT NULL,
+                ref_allele     TEXT NOT NULL,
+                alt_allele     TEXT NOT NULL,
+                raw_annotation JSONB NOT NULL,
+                annotation_hash CHAR(64) NOT NULL,
+                gene_symbol    TEXT,
+                cancervar      TEXT,
+                intervar       TEXT,
+                clinvar        TEXT,
+                cosmic         TEXT,
+                UNIQUE (contig_norm, position, ref_allele, alt_allele)
+            ) PARTITION BY LIST (contig_norm);
+            """
+            )
+
+            # Create trigger function to auto-populate contig_norm
+            cur.execute(
+                f"""
+            CREATE OR REPLACE FUNCTION "{schema_name}".set_contig_norm()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.contig_norm := "{schema_name}".normalize_contig(NEW.contig);
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            """
+            )
+
+            # Create trigger to auto-populate contig_norm on INSERT/UPDATE
+            cur.execute(
+                f"""
+            DROP TRIGGER IF EXISTS trigger_set_contig_norm ON "{schema_name}".variant;
+            CREATE TRIGGER trigger_set_contig_norm
+                BEFORE INSERT OR UPDATE ON "{schema_name}".variant
+                FOR EACH ROW
+                EXECUTE FUNCTION "{schema_name}".set_contig_norm();
+            """
+            )
+
+            # Child partitions for primary contigs
+            for contig in primary_contigs:
+                safe = (
+                    contig.lower()
+                    if contig not in ("X", "Y", "MT")
+                    else f"{contig.lower()}"
+                )
+                part_name = f"variant_chr{safe}"
+                cur.execute(
+                    f"""
+                CREATE TABLE IF NOT EXISTS "{schema_name}"."{part_name}"
+                PARTITION OF "{schema_name}".variant
+                FOR VALUES IN ('{contig}');
+                """
+                )
+
+            # DEFAULT partition for all other contigs
+            cur.execute(
+                f"""
+            CREATE TABLE IF NOT EXISTS "{schema_name}".variant_other
+            PARTITION OF "{schema_name}".variant
+            DEFAULT;
+            """
+            )
+
+            # Indexes:
+            #   - On each primary chromosome partition: btree(position) + brin(position)
+            #   - On default partition: (contig_norm, position)
+            for contig in primary_contigs:
+                safe = (
+                    contig.lower()
+                    if contig not in ("X", "Y", "MT")
+                    else f"{contig.lower()}"
+                )
+                part = f'"{schema_name}"."variant_chr{safe}"'
+                cur.execute(
+                    f"CREATE INDEX IF NOT EXISTS idx_{safe}_pos_btree ON {part} (position);"
+                )
+                cur.execute(
+                    f"CREATE INDEX IF NOT EXISTS idx_{safe}_pos_brin  ON {part} USING brin (position);"
+                )
+
+            cur.execute(
+                f"""
+            CREATE INDEX IF NOT EXISTS idx_variant_other_contig_pos
+            ON "{schema_name}".variant_other (contig_norm, position);
+            """
+            )
+
+            # Optional: common filter index on gene
+            cur.execute(
+                f'CREATE INDEX IF NOT EXISTS idx_variant_gene ON "{schema_name}".variant (gene_symbol);'
+            )
+
+        # Report schema version
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f'SELECT value FROM "{schema_name}"."Meta" WHERE key = %s',
+                ("schema_version",),
+            )
+            version = cur.fetchone()["value"]
+            print(
+                f'✅ Toolset schema "{schema_name}" initialized (schema_version={version})'
+            )

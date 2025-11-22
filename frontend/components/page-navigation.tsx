@@ -3,6 +3,7 @@
 /**
  * Page Navigation Component
  * Consistent navigation across all pages with map/list icons, help button, and UserMenu
+ * Desktop-focused - core views only, secondary items moved to UserMenu
  */
 
 import { Button } from '@/components/ui/button';
@@ -46,16 +47,16 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
           </Button>
         </Link>
 
-        {/* Combined View Icon - Hidden on mobile to save space */}
-        <Link href="/combined" prefetch={true} className={`hidden sm:block ${!hasSelectedEvent ? 'pointer-events-none' : ''}`}>
+        {/* Combined View Icon */}
+        <Link href="/combined" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"
-            className={`rounded-lg ${currentPage === 'combined' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
+            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'combined' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
             disabled={currentPage === 'combined' || !hasSelectedEvent}
             title="Kombinierte Ansicht"
           >
-            <LayoutGrid className="h-5 w-5" />
+            <LayoutGrid className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </Link>
 
@@ -72,23 +73,23 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
           </Button>
         </Link>
 
-        {/* Help Button - Hidden on small mobile, visible on sm+ */}
-        <Link href="/help" prefetch={true} className="hidden sm:block">
+        {/* Help Button */}
+        <Link href="/help" prefetch={true}>
           <Button
             variant="ghost"
             size="icon"
-            className={`rounded-lg ${currentPage === 'help' ? 'opacity-40 cursor-default' : ''}`}
+            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'help' ? 'opacity-40 cursor-default' : ''}`}
             disabled={currentPage === 'help'}
             title="Hilfe & Dokumentation"
           >
-            <HelpCircle className="h-5 w-5" />
+            <HelpCircle className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </Link>
 
         {/* Notification Sidebar */}
         <NotificationSidebar />
 
-        {/* User Menu (Cog Dropdown) */}
+        {/* User Menu (Cog Dropdown) - now contains all secondary navigation */}
         <UserMenu />
     </div>
   );

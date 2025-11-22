@@ -1,0 +1,92 @@
+"use client"
+
+import { Calendar, ChevronRight, Sparkles } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { useRouter } from 'next/navigation'
+
+export function EventSelectionEmptyState() {
+  const router = useRouter()
+
+  const quickStartSteps = [
+    'Ereignis erstellen für heutigen Einsatztag',
+    'Personal über Check-In QR-Code einchecken',
+    'Fahrzeuge als einsatzbereit markieren',
+    'Ersten Einsatz anlegen und Ressourcen zuweisen',
+  ]
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-background p-4">
+      <Card className="max-w-2xl w-full animate-fade-in-up">
+        <CardContent className="p-8 md:p-12 text-center space-y-6">
+          {/* Icon with gentle pulse */}
+          <div className="flex justify-center">
+            <div className="rounded-full bg-primary/10 p-6 animate-gentle-pulse">
+              <Calendar className="h-16 w-16 text-primary" />
+            </div>
+          </div>
+
+          {/* Heading with friendlier copy */}
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Noch kein Ereignis ausgewählt?
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-md mx-auto">
+              Kein Problem! Erstellen Sie ein neues Ereignis oder wählen Sie ein
+              bestehendes aus, um loszulegen.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-primary/80 pt-2">
+              <Sparkles className="h-4 w-4" />
+              <span>Bereit für Ihren ersten Einsatz</span>
+            </div>
+          </div>
+
+          {/* Primary Actions with hover delight */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+            <Button
+              size="lg"
+              className="gap-2 min-h-[52px] hover-delight"
+              onClick={() => router.push('/events?action=create')}
+            >
+              <Calendar className="h-5 w-5" />
+              Neues Ereignis erstellen
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="gap-2 min-h-[52px] hover-delight"
+              onClick={() => router.push('/events')}
+            >
+              Ereignisse anzeigen
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+
+          {/* Quick Start Guide with animated numbers */}
+          <div className="pt-8 border-t">
+            <div className="text-left max-w-md mx-auto">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Erste Schritte
+              </h3>
+              <ul className="space-y-2">
+                {quickStartSteps.map((step, idx) => (
+                  <li
+                    key={idx}
+                    className="flex items-start gap-2 text-sm text-muted-foreground group hover:text-foreground transition-colors"
+                    style={{ animationDelay: `${idx * 100}ms` }}
+                  >
+                    <span className="text-primary font-semibold mt-0.5 min-w-[20px] animate-number-entry">
+                      {idx + 1}.
+                    </span>
+                    <span className="group-hover:translate-x-1 transition-transform">{step}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

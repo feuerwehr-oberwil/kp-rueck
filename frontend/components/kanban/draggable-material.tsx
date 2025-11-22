@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Material } from "@/lib/contexts/operations-context"
+import { cn } from "@/lib/utils"
 
 interface DraggableMaterialProps {
   material: Material
@@ -33,16 +34,28 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
     <Card
       ref={ref}
       onClick={onClick}
-      style={{ opacity: isDragging ? 0.5 : 1 }}
-      className={`border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:border-primary/50 hover:shadow-md hover:bg-card ${canDrag ? "cursor-move" : "cursor-pointer"} ${material.status === "assigned" ? "opacity-60" : ""}`}
+      role={canDrag ? "button" : undefined}
+      aria-grabbed={isDragging}
+      aria-label={canDrag ? `Drag ${material.name} to assign to incident` : undefined}
+      className={cn(
+        "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:shadow-md hover:bg-card",
+        canDrag && "draggable",
+        isDragging && "dragging",
+        !canDrag && material.status === "assigned" && "cursor-not-allowed opacity-60",
+        !canDrag && material.status !== "assigned" && "cursor-pointer"
+      )}
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* Status indicator */}
           <div
-            className={`h-2 w-2 rounded-full flex-shrink-0 ${
+            className={cn(
+              "h-2 w-2 rounded-full flex-shrink-0",
               material.status === "available" ? "bg-emerald-500" : "bg-zinc-500"
-            }`}
+            )}
+            aria-label={material.status === "available" ? "Available" : "Assigned"}
           />
+
           <span className="font-medium text-sm text-foreground truncate">{material.name}</span>
         </div>
       </div>

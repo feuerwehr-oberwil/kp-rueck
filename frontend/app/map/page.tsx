@@ -14,6 +14,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileNavigation } from "@/components/mobile-navigation"
+import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import type { Incident } from "@/lib/types/incidents"
 import { STATUS_LABELS, INCIDENT_TYPE_LABELS } from "@/lib/types/incidents"
@@ -497,6 +498,11 @@ export default function MapPage() {
           onRemoveVehicle={handleVehicleRemove}
         />
       </div>
+
+      {/* Mobile Bottom Navigation */}
+
+      <MobileBottomNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
+
     </ProtectedRoute>
   )
 }

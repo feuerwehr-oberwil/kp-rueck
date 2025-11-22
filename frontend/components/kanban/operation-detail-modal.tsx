@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -35,6 +35,9 @@ interface OperationDetailModalProps {
   vehicleTypes: Array<{ key: string; name: string; id: string }>
   onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
+  onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
+  onRemoveCrew?: (operationId: string, crewName: string) => void
+  onRemoveMaterial?: (operationId: string, materialId: string) => void
 }
 
 export function OperationDetailModal({
@@ -47,6 +50,9 @@ export function OperationDetailModal({
   vehicleTypes,
   onAssignVehicle,
   onRemoveVehicle,
+  onAssignResource,
+  onRemoveCrew,
+  onRemoveMaterial,
 }: OperationDetailModalProps) {
   const { formatLocation } = useOperations()
   const { selectedEvent } = useEvent()
@@ -384,123 +390,198 @@ export function OperationDetailModal({
             </div>
           </div>
 
-          {/* Assigned Vehicles */}
+          {/* Resource Assignment Section */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Label className="text-sm font-semibold text-muted-foreground">Zugewiesene Fahrzeuge ({operation.vehicles.length})</Label>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Kbd className="h-4 text-[10px]">1-5</Kbd>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {operation.vehicles.map((vehicleName, idx) => {
-                const driverName = vehicleDrivers.get(vehicleName)
-                return (
-                  <Badge
-                    key={idx}
-                    variant="default"
-                    className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                  >
-                    <Truck className="h-3 w-3" />
-                    {vehicleName}{driverName ? ` (${driverName})` : ''}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRemoveVehicle(operation.id, vehicleName)
-                      }}
-                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Fahrzeug entfernen"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )
-              })}
+            <Label className="text-sm font-semibold text-muted-foreground mb-3 block">
+              Zugewiesene Ressourcen
+            </Label>
 
-              {/* Add Vehicle Button */}
-              <Popover>
-                <PopoverTrigger asChild>
+            {/* Mannschaft (Crew) */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Mannschaft ({operation.crew.length})</span>
+                </div>
+                {onAssignResource && (
                   <Button
-                    variant="ghost"
                     size="sm"
-                    className="h-7 px-2 gap-1 text-xs"
-                    title="Fahrzeug zuweisen"
+                    variant="ghost"
+                    onClick={() => onAssignResource('crew', operation.id)}
+                    className="h-7 px-2 gap-1"
+                    title="Mannschaft zuweisen"
                   >
                     <Plus className="h-3 w-3" />
-                    <Truck className="h-3 w-3" />
+                    Hinzufügen
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-2" align="start">
-                  <div className="space-y-1">
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                      Fahrzeug zuweisen
-                    </div>
-                    {isLoadingVehicles ? (
-                      <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                        Lade Fahrzeuge...
-                      </div>
-                    ) : availableVehicles.filter(v => !operation.vehicles.includes(v.name)).length === 0 ? (
-                      <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                        Alle Fahrzeuge zugewiesen
-                      </div>
-                    ) : (
-                      availableVehicles
-                        .filter(v => !operation.vehicles.includes(v.name))
-                        .map((vehicle) => (
-                          <button
-                            key={vehicle.id}
-                            onClick={() => {
-                              onAssignVehicle(vehicle.id, vehicle.name, operation.id)
-                            }}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors"
-                          >
-                            <Truck className="h-4 w-4 text-muted-foreground" />
-                            <div className="text-left">
-                              <div className="font-medium">{vehicle.name}</div>
-                              <div className="text-xs text-muted-foreground">{vehicle.type}</div>
-                            </div>
-                          </button>
-                        ))
-                    )}
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {operation.crew.length > 0 ? (
+                  operation.crew.map((member, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="secondary"
+                      className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                    >
+                      {member}
+                      {onRemoveCrew && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRemoveCrew(operation.id, member)
+                          }}
+                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Person entfernen"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Keine Mannschaft zugewiesen</p>
+                )}
+              </div>
+            </div>
+
+            {/* Fahrzeuge (Vehicles) */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Fahrzeuge ({operation.vehicles.length})</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
+                    <Kbd className="h-4 text-[10px]">1-5</Kbd>
                   </div>
-                </PopoverContent>
-              </Popover>
-
-              {operation.vehicles.length === 0 && (
-                <p className="text-sm text-muted-foreground">Keine Fahrzeuge zugewiesen</p>
-              )}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 gap-1"
+                        title="Fahrzeug zuweisen"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Hinzufügen
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-2" align="start">
+                      <div className="space-y-1">
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                          Fahrzeug zuweisen
+                        </div>
+                        {isLoadingVehicles ? (
+                          <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                            Lade Fahrzeuge...
+                          </div>
+                        ) : availableVehicles.filter(v => !operation.vehicles.includes(v.name)).length === 0 ? (
+                          <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                            Alle Fahrzeuge zugewiesen
+                          </div>
+                        ) : (
+                          availableVehicles
+                            .filter(v => !operation.vehicles.includes(v.name))
+                            .map((vehicle) => (
+                              <button
+                                key={vehicle.id}
+                                onClick={() => {
+                                  onAssignVehicle(vehicle.id, vehicle.name, operation.id)
+                                }}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors"
+                              >
+                                <Truck className="h-4 w-4 text-muted-foreground" />
+                                <div className="text-left">
+                                  <div className="font-medium">{vehicle.name}</div>
+                                  <div className="text-xs text-muted-foreground">{vehicle.type}</div>
+                                </div>
+                              </button>
+                            ))
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {operation.vehicles.length > 0 ? (
+                  operation.vehicles.map((vehicleName, idx) => {
+                    const driverName = vehicleDrivers.get(vehicleName)
+                    return (
+                      <Badge
+                        key={idx}
+                        variant="default"
+                        className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                      >
+                        {vehicleName}{driverName ? ` (${driverName})` : ''}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRemoveVehicle(operation.id, vehicleName)
+                          }}
+                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Fahrzeug entfernen"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">Keine Fahrzeuge zugewiesen</p>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Crew */}
-          <div>
-            <Label className="text-sm font-semibold text-muted-foreground">Mannschaft ({operation.crew.length})</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {operation.crew.length > 0 ? (
-                operation.crew.map((member, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-sm px-3 py-1">
-                    {member}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Keine Mannschaft zugewiesen</p>
-              )}
-            </div>
-          </div>
-
-          {/* Materials */}
-          <div>
-            <Label className="text-sm font-semibold text-muted-foreground">Material ({operation.materials.length})</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {operation.materials.length > 0 ? (
-                operation.materials.map((matId, idx) => (
-                  <Badge key={idx} variant="outline" className="text-sm px-3 py-1">
-                    {materials.find(m => m.id === matId)?.name || matId}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Kein Material zugewiesen</p>
-              )}
+            {/* Material */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Material ({operation.materials.length})</span>
+                </div>
+                {onAssignResource && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onAssignResource('materials', operation.id)}
+                    className="h-7 px-2 gap-1"
+                    title="Material zuweisen"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Hinzufügen
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {operation.materials.length > 0 ? (
+                  operation.materials.map((matId, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                    >
+                      {materials.find(m => m.id === matId)?.name || matId}
+                      {onRemoveMaterial && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRemoveMaterial(operation.id, matId)
+                          }}
+                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Material entfernen"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Kein Material zugewiesen</p>
+                )}
+              </div>
             </div>
           </div>
           </div>

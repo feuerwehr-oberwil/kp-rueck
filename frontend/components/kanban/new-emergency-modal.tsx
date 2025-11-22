@@ -8,7 +8,7 @@
  * Any changes to location input behavior should be made in that component.
  */
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,7 @@ import { type Operation, type OperationStatus } from "@/lib/contexts/operations-
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import { LocationInput } from "@/components/location/location-input"
+import { toast } from "sonner"
 
 interface NewEmergencyModalProps {
   open: boolean
@@ -61,6 +62,7 @@ export function NewEmergencyModal({
     }
 
     onCreateOperation(formData)
+    toast.success(`Einsatz erstellt: ${formData.location}`)
 
     // Reset form
     setFormData({
@@ -90,19 +92,17 @@ export function NewEmergencyModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <Plus className="h-6 w-6 text-primary" />
-            Neuer Einsatz
-          </DialogTitle>
+            <DialogTitle className="text-2xl">Neuer Einsatz</DialogTitle>
+          </div>
           <DialogDescription className="text-base">
             Einsatz-ID: {nextOperationId} (wird automatisch vergeben)
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Location - Smart Input with Geocoding
-              SYNC NOTE: This uses the shared LocationInput component
-              which includes address search, map picker, and coordinate input. */}
+          {/* Location - Always shown */}
           <LocationInput
             address={formData.location}
             latitude={formData.coordinates[0]}
@@ -116,76 +116,77 @@ export function NewEmergencyModal({
             }
           />
 
-          {/* Meldung - Moved up from bottom */}
-          <div>
-            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">
-              Meldung
-            </Label>
-            <Textarea
-              id="notes"
-              placeholder="Notizen, Besonderheiten, Gefahren..."
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="mt-2 min-h-[100px]"
-            />
-          </div>
+          {/* All fields */}
+              {/* Meldung */}
+              <div>
+                <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">
+                  Meldung
+                </Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Notizen, Besonderheiten, Gefahren..."
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="mt-2 min-h-[100px]"
+                />
+              </div>
 
-          {/* Grid - 2 columns */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
-                Einsatzart
-              </Label>
-              <Select
-                value={formData.incidentType}
-                onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Einsatzart auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {incidentTypeKeys.map((typeKey) => (
-                    <SelectItem key={typeKey} value={typeKey}>
-                      {getIncidentTypeLabel(typeKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Grid - 2 columns */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
+                    Einsatzart
+                  </Label>
+                  <Select
+                    value={formData.incidentType}
+                    onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Einsatzart auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {incidentTypeKeys.map((typeKey) => (
+                        <SelectItem key={typeKey} value={typeKey}>
+                          {getIncidentTypeLabel(typeKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div>
-              <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
-                Priorität
-              </Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Niedrig</SelectItem>
-                  <SelectItem value="medium">Mittel</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                <div>
+                  <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
+                    Priorität
+                  </Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          {/* Contact - Moved up */}
-          <div>
-            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">
-              Kontakt / Melder
-            </Label>
-            <Input
-              id="contact"
-              placeholder="Name, Telefonnummer..."
-              value={formData.contact}
-              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-              className="mt-2"
-            />
-          </div>
+              {/* Contact */}
+              <div>
+                <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">
+                  Kontakt / Melder
+                </Label>
+                <Input
+                  id="contact"
+                  placeholder="Name, Telefonnummer..."
+                  value={formData.contact}
+                  onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                  className="mt-2"
+                />
+              </div>
 
           {/* Info */}
           <div className="bg-secondary/30 p-3 rounded-lg">
@@ -196,7 +197,11 @@ export function NewEmergencyModal({
 
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t">
-            <Button onClick={handleSubmit} disabled={!formData.location} className="gap-2">
+            <Button
+              onClick={handleSubmit}
+              disabled={!formData.location}
+              className="gap-2 hover-delight"
+            >
               <Plus className="h-4 w-4" />
               Einsatz erstellen
             </Button>

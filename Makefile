@@ -1,6 +1,6 @@
 # KP Rück Dashboard - Makefile
 
-.PHONY: help dev stop clean init-db seed-db logs db-only backend frontend backend frontend logs-backend logs-frontend shell-db tiles-download tiles-status tiles-help restart-tileserver
+.PHONY: help dev stop clean init-db seed-db logs db-only backend frontend backend frontend logs-backend logs-frontend shell-db tiles-download tiles-status tiles-help restart-tileserver test test-ui test-headed test-report test-auth
 
 help: ## Show this help message
 	@echo "KP Rück Dashboard - Available Commands:"
@@ -16,6 +16,9 @@ help: ## Show this help message
 	@echo ""
 	@echo "\033[1mOffline Maps:\033[0m"
 	@grep -E '^(tiles-download|tiles-status|tiles-help|restart-tileserver):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "\033[1mTesting:\033[0m"
+	@grep -E '^(test|test-ui|test-headed|test-report|test-auth):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "\033[1mCleanup:\033[0m"
 	@grep -E '^(stop|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -122,4 +125,25 @@ restart-tileserver: ## Restart tile server container
 	else \
 		echo "\033[1;31m✗ Tile server container not found. Run 'make dev' first.\033[0m"; \
 	fi
+
+test: ## Run all E2E tests (requires frontend and backend running)
+	@echo "\033[1;34m→ Running all E2E tests...\033[0m"
+	@echo "\033[1;34m→ Ensure services are running: make dev\033[0m"
+	cd frontend && pnpm test
+
+test-ui: ## Run tests in interactive UI mode
+	@echo "\033[1;34m→ Starting Playwright UI mode...\033[0m"
+	cd frontend && pnpm test:ui
+
+test-headed: ## Run tests in headed mode (visible browser)
+	@echo "\033[1;34m→ Running tests with visible browser...\033[0m"
+	cd frontend && pnpm exec playwright test --headed
+
+test-report: ## Show last test report
+	@echo "\033[1;34m→ Opening last test report...\033[0m"
+	cd frontend && pnpm exec playwright show-report
+
+test-auth: ## Run authentication tests only
+	@echo "\033[1;34m→ Running authentication tests (7 tests)...\033[0m"
+	cd frontend && pnpm test tests/e2e/01-auth/login.spec.ts
 

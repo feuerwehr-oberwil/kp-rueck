@@ -12,6 +12,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileNavigation } from "@/components/mobile-navigation"
+import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -30,6 +31,7 @@ import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
+import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { CommandPalette } from "@/components/ui/command-palette"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -37,6 +39,7 @@ import { EventSetupChecklist } from "@/components/event-setup-checklist"
 import { KanbanLoading } from "@/components/kanban/kanban-loading"
 import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/kanban/sidebar-loading"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
+import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 
 export default function FireStationDashboard() {
   const {
@@ -103,7 +106,7 @@ export default function FireStationDashboard() {
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
@@ -112,6 +115,12 @@ export default function FireStationDashboard() {
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [vehicleStatusSheetOpen, setVehicleStatusSheetOpen] = useState(false)
+
+  // Resource assignment dialog state
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
+  const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
+  const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
+
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -155,12 +164,12 @@ export default function FireStationDashboard() {
     }
   }, [isMobile])
 
-  // Redirect to events page if no event is selected (only after event is loaded from localStorage)
-  useEffect(() => {
-    if (isMounted && isEventLoaded && !selectedEvent) {
-      router.push('/events')
-    }
-  }, [isMounted, isEventLoaded, selectedEvent, router])
+  // Show empty state if no event is selected (removed automatic redirect)
+  // useEffect(() => {
+  //   if (isMounted && isEventLoaded && !selectedEvent) {
+  //     router.push('/events')
+  //   }
+  // }, [isMounted, isEventLoaded, selectedEvent, router])
 
   // Checklist popover state and completion tracking
   const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
@@ -192,7 +201,8 @@ export default function FireStationDashboard() {
         const typesWithKeys = sortedVehicles.map((vehicle) => ({
           key: String(vehicle.display_order),
           name: vehicle.name,
-          id: vehicle.id
+          id: vehicle.id,
+          type: vehicle.type
         }))
         setVehicleTypes(typesWithKeys)
       } catch (error) {
@@ -206,6 +216,7 @@ export default function FireStationDashboard() {
   useEffect(() => {
     refreshOperations()
   }, [])
+
 
   // Just highlight the operation from the map, don't auto-open modal
   useEffect(() => {
@@ -591,12 +602,50 @@ export default function FireStationDashboard() {
     }
   }
 
+  // Handle resource assignment dialog
+  const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => {
+    setAssignmentResourceType(resourceType)
+    setAssignmentOperationId(operationId)
+    setAssignmentDialogOpen(true)
+  }
+
+  // Get assigned resources for selected operation
+  const getAssignedResourcesForOperation = (operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation) {
+      return {
+        assignedPersonnel: [],
+        assignedVehicles: [],
+        assignedMaterials: []
+      }
+    }
+
+    return {
+      assignedPersonnel: operation.crew,
+      assignedVehicles: operation.vehicles,
+      assignedMaterials: operation.materials
+    }
+  }
+
+  const assignedResources = assignmentOperationId
+    ? getAssignedResourcesForOperation(assignmentOperationId)
+    : { assignedPersonnel: [], assignedVehicles: [], assignedMaterials: [] }
+
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
     return (
       <div className="flex h-screen items-center justify-center bg-background text-foreground">
         <div className="text-muted-foreground">Laden...</div>
       </div>
+    )
+  }
+
+  // Show empty state if no event is selected (after loading)
+  if (isMounted && isEventLoaded && !selectedEvent) {
+    return (
+      <ProtectedRoute>
+        <EventSelectionEmptyState />
+      </ProtectedRoute>
     )
   }
 
@@ -760,6 +809,7 @@ export default function FireStationDashboard() {
                       isDraggingRef={isDraggingOperationRef}
                       materials={materials}
                       formatLocation={formatLocation}
+                      onAssignResource={handleOpenAssignmentDialog}
                     />
                   )
                 })}
@@ -874,6 +924,7 @@ export default function FireStationDashboard() {
               )}
             </div>
 
+
             {!isMobile && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
@@ -947,6 +998,9 @@ export default function FireStationDashboard() {
         vehicleTypes={vehicleTypes}
         onAssignVehicle={handleVehicleAssign}
         onRemoveVehicle={handleVehicleRemove}
+        onAssignResource={handleOpenAssignmentDialog}
+        onRemoveCrew={removeCrew}
+        onRemoveMaterial={removeMaterial}
       />
 
       <ShortcutsModal
@@ -961,6 +1015,27 @@ export default function FireStationDashboard() {
         onCreateOperation={createOperation}
         nextOperationId={getNextOperationId()}
       />
+
+      {/* Resource Assignment Dialog */}
+      <ResourceAssignmentDialog
+        open={assignmentDialogOpen}
+        onOpenChange={setAssignmentDialogOpen}
+        resourceType={assignmentResourceType}
+        operationId={assignmentOperationId}
+        personnel={personnel}
+        vehicles={vehicleTypes}
+        materials={materials}
+        assignedPersonnel={assignedResources.assignedPersonnel}
+        assignedVehicles={assignedResources.assignedVehicles}
+        assignedMaterials={assignedResources.assignedMaterials}
+        onAssignPerson={assignPersonToOperation}
+        onAssignVehicle={assignVehicleToOperation}
+        onAssignMaterial={assignMaterialToOperation}
+        onRemovePerson={removeCrew}
+        onRemoveVehicle={removeVehicle}
+        onRemoveMaterial={removeMaterial}
+      />
+
 
       {/* QR Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
@@ -1027,6 +1102,9 @@ export default function FireStationDashboard() {
         onOpenChange={setVehicleStatusSheetOpen}
         eventId={selectedEvent?.id || null}
       />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNavigation currentPage="kanban" hasSelectedEvent={!!selectedEvent} />
     </ProtectedRoute>
   )
 }

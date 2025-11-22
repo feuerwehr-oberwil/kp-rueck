@@ -33,37 +33,19 @@ interface DraggableOperationProps {
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
 }
 
-// Priority visual configuration
+// Priority visual configuration - dot + chevron for better visibility
 const priorityStyles = {
   high: {
-    border: 'border-l-4 border-red-500',
-    ring: 'ring-2 ring-red-500/50',
-    badge: 'bg-red-500 text-white',
-    badgeIcon: AlertTriangle,
     dot: 'bg-red-500',
     chevron: 'text-red-600 dark:text-red-400',
-    label: 'Hoch',
-    animate: 'animate-priority-pulse',
   },
   medium: {
-    border: 'border-l-4 border-orange-500',
-    ring: 'ring-1 ring-orange-500/30',
-    badge: 'bg-orange-500 text-white',
-    badgeIcon: AlertCircle,
     dot: 'bg-orange-500',
     chevron: 'text-orange-600 dark:text-orange-400',
-    label: 'Mittel',
-    animate: '',
   },
   low: {
-    border: '',
-    ring: '',
-    badge: 'bg-gray-500/50 text-gray-100',
-    badgeIcon: null,
     dot: 'bg-green-500',
     chevron: 'text-green-600 dark:text-green-400',
-    label: 'Niedrig',
-    animate: '',
   },
 } as const
 
@@ -93,7 +75,6 @@ function DraggableOperationBase({
   // Get priority styling configuration
   const priority = operation.priority || 'low'
   const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
-  const BadgeIcon = priorityConfig?.badgeIcon
 
   // Auto-update time every minute to refresh age badges
   useEffect(() => {
@@ -170,9 +151,6 @@ function DraggableOperationBase({
         className={cn(
           'operation-card border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer',
           columnColor,
-          priorityConfig?.border,
-          priorityConfig?.ring,
-          priorityConfig?.animate,
           isOver && 'ring-2 ring-primary',
           isHighlighted && 'ring-4 ring-accent animate-pulse',
           isKeyboardFocused && !isHighlighted && 'ring-2 ring-blue-500/50 shadow-xl'
@@ -191,7 +169,7 @@ function DraggableOperationBase({
             {/* Draggable area */}
             <div className="flex items-start gap-2 min-w-0 flex-1">
               <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
-                {/* Priority indicator with both color and icon */}
+                {/* Priority indicator - dot + chevron for visibility */}
                 <div
                   className={cn('h-2.5 w-2.5 rounded-full', priorityConfig?.dot)}
                   aria-hidden="true"
@@ -210,17 +188,6 @@ function DraggableOperationBase({
             </div>
             {/* Non-draggable icons area */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {/* Priority badge in top-right corner */}
-              <div
-                className={cn(
-                  'px-2 py-1 rounded text-xs font-bold flex items-center gap-1',
-                  priorityConfig?.badge
-                )}
-                title={`Priorität: ${priorityConfig?.label}`}
-              >
-                {BadgeIcon && <BadgeIcon className="h-3 w-3" />}
-                <span className="hidden sm:inline">{priorityConfig?.label}</span>
-              </div>
               {operation.hasCompletedReko && (
                 <div
                   className="p-1.5 rounded-md bg-green-500/20 animate-scale-in"
@@ -252,24 +219,14 @@ function DraggableOperationBase({
                 {operation.dispatchTime.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
-            <span className="font-mono text-xs text-muted-foreground">
-              {getTimeSince(operation.statusChangedAt || operation.dispatchTime)}
-            </span>
-          </div>
-
-          {/* Age indicator badge */}
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             <span
               className={cn(
-                'px-2 py-0.5 rounded text-xs font-medium text-white inline-flex items-center gap-1',
-                ageInfo.color,
-                ageInfo.showWarning && 'animate-age-warning-pulse'
+                "font-mono text-xs",
+                ageInfo.showWarning ? "text-red-600 dark:text-red-400 font-semibold" : "text-muted-foreground"
               )}
-              title={`Einsatz erstellt: ${operation.dispatchTime.toLocaleString("de-DE")}`}
+              title={ageInfo.showWarning ? `Einsatz läuft seit über 2 Stunden (seit ${operation.dispatchTime.toLocaleString("de-DE")})` : undefined}
             >
-              {ageInfo.showWarning && <AlertTriangle className="h-3 w-3" />}
-              {ageInfo.label}
+              {getTimeSince(operation.statusChangedAt || operation.dispatchTime)}
             </span>
           </div>
 

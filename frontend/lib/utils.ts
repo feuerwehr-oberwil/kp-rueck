@@ -97,3 +97,37 @@ export function formatLocationForDisplay(fullAddress: string, homeCity?: string)
     return city ? `${formattedStreet}, ${city}` : formattedStreet
   }
 }
+
+/**
+ * Calculate the age of an incident and return formatted display information
+ * with color coding based on age thresholds.
+ *
+ * @param createdAt - The timestamp when the incident was created
+ * @returns Object containing label, color class, and warning flag
+ *
+ * Age thresholds:
+ * - < 15 minutes: Green "Neu" badge
+ * - 15-60 minutes: Yellow badge showing minutes
+ * - 1-2 hours: Orange badge showing hours (decimal)
+ * - > 2 hours: Red badge showing hours with warning icon
+ */
+export function getIncidentAge(createdAt: Date): {
+  label: string
+  color: string
+  showWarning: boolean
+} {
+  const now = new Date()
+  const ageMinutes = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60))
+
+  if (ageMinutes < 15) {
+    return { label: 'Neu', color: 'bg-emerald-500', showWarning: false }
+  } else if (ageMinutes < 60) {
+    return { label: `${ageMinutes} min`, color: 'bg-yellow-500', showWarning: false }
+  } else if (ageMinutes < 120) {
+    const hours = (ageMinutes / 60).toFixed(1)
+    return { label: `${hours} Std`, color: 'bg-orange-500', showWarning: false }
+  } else {
+    const hours = Math.floor(ageMinutes / 60)
+    return { label: `${hours} Std`, color: 'bg-red-500', showWarning: true }
+  }
+}
