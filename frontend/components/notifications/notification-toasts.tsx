@@ -124,20 +124,20 @@ export function NotificationToasts() {
   return (
     <Toaster
       position="bottom-right"
-      richColors
       closeButton
       expand={false}
       toastOptions={{
         classNames: {
-          toast: 'group border shadow-lg',
+          toast: 'group shadow-lg',
           title: 'font-semibold text-sm',
           description: 'text-sm leading-relaxed',
-          actionButton: 'bg-primary text-primary-foreground hover:bg-primary/90 font-medium',
-          cancelButton: 'bg-muted text-muted-foreground hover:bg-muted/80',
-          closeButton: 'bg-background border border-border hover:bg-muted',
-          error: 'border-destructive/50 bg-destructive/10',
-          warning: 'border-orange-500/50 bg-orange-50 dark:bg-orange-950/10',
-          info: 'border-primary/50 bg-primary/10',
+          actionButton: 'bg-white/20 hover:bg-white/30 font-medium',
+          cancelButton: 'bg-white/10 hover:bg-white/20',
+          closeButton: 'bg-white/10 border-0 hover:bg-white/20',
+          success: '!bg-zinc-900 !text-green-100 !border-green-600/50',
+          error: '!bg-zinc-900 !text-red-100 !border-red-600/50',
+          warning: '!bg-zinc-900 !text-orange-100 !border-orange-600/50',
+          info: '!bg-zinc-900 !text-blue-100 !border-blue-600/50',
         },
       }}
     />
