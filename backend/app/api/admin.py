@@ -15,6 +15,7 @@ from ..services.excel_import_export import (
     ExcelImportError,
 )
 from ..services.audit import log_action
+from ..seed_training import seed_training_data
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -151,3 +152,47 @@ async def export_all_data(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@router.post("/seed-training")
+async def seed_training_templates(
+    current_user: CurrentEditor,
+    skip_geocoding: bool = True,
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,
+):
+    """
+    Manually seed training emergency templates and locations.
+    Use this endpoint if automatic seeding failed during deployment.
+
+    Args:
+        skip_geocoding: Skip geocoding and use Oberwil center coordinates (faster)
+    """
+    try:
+        await seed_training_data(skip_geocoding=skip_geocoding)
+
+        # Audit log
+        await log_action(
+            db=db,
+            action_type="seed",
+            resource_type="training_data",
+            resource_id=None,
+            user=current_user,
+            changes={
+                "skip_geocoding": skip_geocoding,
+                "action": "manual_seed_training_data"
+            },
+            request=request
+        )
+        await db.commit()
+
+        return {
+            "success": True,
+            "message": "Training data seeded successfully",
+            "skip_geocoding": skip_geocoding
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to seed training data: {str(e)}"
+        )
