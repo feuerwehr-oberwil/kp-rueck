@@ -22,8 +22,8 @@ router = APIRouter(prefix="/training", tags=["training"])
 async def generate_emergencies(
     event_id: UUID,
     request: GenerateEmergencyRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: CurrentEditor = None
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Manually generate training emergencies.
@@ -72,9 +72,9 @@ async def generate_emergencies(
 
 @router.get("/templates/", response_model=list[EmergencyTemplateResponse])
 async def list_templates(
+    current_user: CurrentUser,
     category: str | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: CurrentUser = None
+    db: AsyncSession = Depends(get_db)
 ):
     """List all emergency templates, optionally filtered by category."""
     query = select(EmergencyTemplate).where(EmergencyTemplate.is_active == True)
@@ -95,8 +95,8 @@ async def list_templates(
 
 @router.get("/locations/", response_model=list[TrainingLocationResponse])
 async def list_locations(
-    db: AsyncSession = Depends(get_db),
-    current_user: CurrentUser = None
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db)
 ):
     """List all training locations."""
     result = await db.execute(

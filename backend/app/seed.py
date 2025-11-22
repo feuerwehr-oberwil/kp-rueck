@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from . import models
 from .database import async_session_maker
+from .seed_training import seed_training_data
 
 
 async def seed_database() -> None:
@@ -580,6 +581,17 @@ async def seed_database() -> None:
             print(f"❌ Error seeding database: {e}")
             await db.rollback()
             raise
+
+    # Seed training data (emergency templates and locations)
+    print("\n" + "=" * 60)
+    print("SEEDING TRAINING DATA")
+    print("=" * 60)
+    try:
+        await seed_training_data()
+        print("✅ Training data seeded successfully!")
+    except Exception as e:
+        print(f"⚠️  Warning: Training data seeding failed: {e}")
+        print("   Continuing anyway - training mode may not work properly.")
 
 
 if __name__ == "__main__":
