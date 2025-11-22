@@ -7,7 +7,7 @@ import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 import {
   Zap,
@@ -19,7 +19,6 @@ import {
 export function TrainingControls() {
   const { selectedEvent } = useEvent();
   const { refetchNotifications } = useNotifications();
-  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
 
   if (!selectedEvent?.training_flag) {
@@ -37,8 +36,7 @@ export function TrainingControls() {
       // Refetch notifications to show the new alarm
       await refetchNotifications();
 
-      toast({
-        title: '✓ Normal-Einsatz erstellt',
+      toast.success('✓ Normal-Einsatz erstellt', {
         description: (
           <div className="mt-2 space-y-1">
             <div className="font-semibold">{incident.title}</div>
@@ -49,10 +47,8 @@ export function TrainingControls() {
       });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
-      toast({
-        title: 'Fehler',
+      toast.error('Fehler', {
         description: 'Einsatz konnte nicht generiert werden',
-        variant: 'destructive',
       });
     } finally {
       setIsGenerating(false);
@@ -70,8 +66,7 @@ export function TrainingControls() {
       // Refetch notifications to show the new alarm
       await refetchNotifications();
 
-      toast({
-        title: '✓ Kritischer Einsatz erstellt',
+      toast.success('✓ Kritischer Einsatz erstellt', {
         description: (
           <div className="mt-2 space-y-1">
             <div className="font-semibold">{incident.title}</div>
@@ -82,10 +77,8 @@ export function TrainingControls() {
       });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
-      toast({
-        title: 'Fehler',
+      toast.error('Fehler', {
         description: 'Einsatz konnte nicht generiert werden',
-        variant: 'destructive',
       });
     } finally {
       setIsGenerating(false);
@@ -102,8 +95,7 @@ export function TrainingControls() {
       // Refetch notifications to show the new alarms
       await refetchNotifications();
 
-      toast({
-        title: `✓ ${incidents.length} Einsätze erstellt`,
+      toast.success(`✓ ${incidents.length} Einsätze erstellt`, {
         description: (
           <div className="mt-2 space-y-1">
             {incidents.map((inc, idx) => (
@@ -117,10 +109,8 @@ export function TrainingControls() {
       });
     } catch (error) {
       console.error('❌ Failed to generate burst:', error);
-      toast({
-        title: 'Fehler',
+      toast.error('Fehler', {
         description: 'Burst konnte nicht generiert werden',
-        variant: 'destructive',
       });
     } finally {
       setIsGenerating(false);
