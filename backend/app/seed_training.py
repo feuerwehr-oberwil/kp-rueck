@@ -272,98 +272,39 @@ EMERGENCY_TEMPLATES = [
 print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 
-# Curated list of VERIFIED real addresses in Oberwil BL
-# These have been manually verified to exist via Google Maps / OSM
-# Format: (street, housenumber, building_type, approximate_lat, approximate_lng)
-VERIFIED_OBERWIL_ADDRESSES = [
-    # Firestation and key landmarks
-    ("Hauptstrasse", "95", "commercial", 47.5164, 7.5618),  # Demo Fire Department
-
-    # Major streets - using only major even/odd numbers that typically exist
-    ("Hauptstrasse", "1", "commercial", 47.5150, 7.5600),
-    ("Hauptstrasse", "10", "mixed", 47.5155, 7.5605),
-    ("Hauptstrasse", "20", "commercial", 47.5160, 7.5610),
-    ("Hauptstrasse", "30", "commercial", 47.5165, 7.5615),
-    ("Hauptstrasse", "40", "mixed", 47.5170, 7.5620),
-    ("Hauptstrasse", "50", "commercial", 47.5175, 7.5625),
-    ("Hauptstrasse", "60", "mixed", 47.5180, 7.5630),
-
-    # Bottmingerstrasse
-    ("Bottmingerstrasse", "2", "residential", 47.5145, 7.5595),
-    ("Bottmingerstrasse", "10", "residential", 47.5150, 7.5600),
-    ("Bottmingerstrasse", "20", "residential", 47.5155, 7.5605),
-    ("Bottmingerstrasse", "30", "residential", 47.5160, 7.5610),
-    ("Bottmingerstrasse", "40", "residential", 47.5165, 7.5615),
-
-    # Therwilerstrasse
-    ("Therwilerstrasse", "2", "residential", 47.5140, 7.5590),
-    ("Therwilerstrasse", "12", "residential", 47.5145, 7.5595),
-    ("Therwilerstrasse", "22", "residential", 47.5150, 7.5600),
-    ("Therwilerstrasse", "32", "residential", 47.5155, 7.5605),
-
-    # Bielstrasse
-    ("Bielstrasse", "4", "residential", 47.5135, 7.5585),
-    ("Bielstrasse", "14", "residential", 47.5140, 7.5590),
-    ("Bielstrasse", "24", "residential", 47.5145, 7.5595),
-    ("Bielstrasse", "34", "residential", 47.5150, 7.5600),
-
-    # Ruchfeldstrasse
-    ("Ruchfeldstrasse", "6", "residential", 47.5130, 7.5580),
-    ("Ruchfeldstrasse", "16", "residential", 47.5135, 7.5585),
-    ("Ruchfeldstrasse", "26", "residential", 47.5140, 7.5590),
-
-    # Schulstrasse
-    ("Schulstrasse", "2", "commercial", 47.5155, 7.5605),
-    ("Schulstrasse", "4", "commercial", 47.5156, 7.5606),
-
-    # Gempenstrasse
-    ("Gempenstrasse", "8", "residential", 47.5125, 7.5575),
-    ("Gempenstrasse", "18", "residential", 47.5130, 7.5580),
-    ("Gempenstrasse", "28", "residential", 47.5135, 7.5585),
-
-    # Birsfeldstrasse
-    ("Birsfeldstrasse", "6", "residential", 47.5120, 7.5570),
-    ("Birsfeldstrasse", "16", "residential", 47.5125, 7.5575),
-    ("Birsfeldstrasse", "26", "residential", 47.5130, 7.5580),
-
-    # Tennweg
-    ("Tennweg", "3", "residential", 47.5115, 7.5565),
-    ("Tennweg", "7", "residential", 47.5118, 7.5568),
-    ("Tennweg", "11", "residential", 47.5120, 7.5570),
-
-    # Bergstrasse
-    ("Bergstrasse", "5", "residential", 47.5110, 7.5560),
-    ("Bergstrasse", "15", "residential", 47.5115, 7.5565),
-    ("Bergstrasse", "25", "residential", 47.5120, 7.5570),
-
-    # Hardstrasse
-    ("Hardstrasse", "8", "residential", 47.5105, 7.5555),
-    ("Hardstrasse", "18", "residential", 47.5110, 7.5560),
-    ("Hardstrasse", "28", "residential", 47.5115, 7.5565),
-]
+# Oberwil BL bounding box (approximate area)
+# These coordinates define the rectangle that contains Oberwil
+OBERWIL_BOUNDS = {
+    "min_lat": 47.508,   # Southern boundary
+    "max_lat": 47.522,   # Northern boundary
+    "min_lon": 7.552,    # Western boundary
+    "max_lon": 7.568     # Eastern boundary
+}
 
 
-async def verify_address_exists(street: str, housenumber: str, client: httpx.AsyncClient) -> dict | None:
+async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None:
     """
-    Verify an address exists using Nominatim geocoding with STRICT matching.
-    Only returns coordinates if the exact house number is found.
+    Generate a random coordinate within Oberwil and find the real address at that location
+    using Nominatim reverse geocoding.
 
     Returns:
-        Dict with lat/lng if address exists, None otherwise
+        Dict with street, house_number, building_type, latitude, longitude if successful
+        None if no valid address found
     """
-    full_address = f"{street} {housenumber}, 4104 Oberwil, Switzerland"
+    # Generate random coordinate within Oberwil bounds
+    lat = random.uniform(OBERWIL_BOUNDS["min_lat"], OBERWIL_BOUNDS["max_lat"])
+    lon = random.uniform(OBERWIL_BOUNDS["min_lon"], OBERWIL_BOUNDS["max_lon"])
 
     try:
+        # Use Nominatim reverse geocoding to find address at this coordinate
         response = await client.get(
-            "https://nominatim.openstreetmap.org/search",
+            "https://nominatim.openstreetmap.org/reverse",
             params={
-                "street": f"{housenumber} {street}",  # Structured query
-                "city": "Oberwil",
-                "postalcode": "4104",
-                "country": "Switzerland",
+                "lat": lat,
+                "lon": lon,
                 "format": "json",
-                "limit": 5,  # Get top 5 to check for exact match
-                "addressdetails": 1,  # Get detailed address info
+                "addressdetails": 1,
+                "zoom": 18,  # Building level
             },
             headers={"User-Agent": "KP-Rueck-Training-System/1.0"},
             timeout=5.0
@@ -371,183 +312,97 @@ async def verify_address_exists(street: str, housenumber: str, client: httpx.Asy
 
         if response.status_code == 200:
             data = response.json()
-            for result in data:
-                address = result.get("address", {})
+            address = data.get("address", {})
 
-                # STRICT verification: must have exact house number match
-                returned_housenumber = address.get("house_number", "")
-                returned_street = address.get("road", "")
-                returned_postcode = address.get("postcode", "")
-                returned_city = address.get("city", "") or address.get("town", "") or address.get("village", "")
+            # Extract address components
+            street = address.get("road")
+            house_number = address.get("house_number")
+            postcode = address.get("postcode")
+            city = address.get("city") or address.get("town") or address.get("village")
 
-                # Check for EXACT match
-                if (returned_housenumber == housenumber and
-                    returned_street == street and
-                    returned_postcode == "4104" and
-                    returned_city.lower() == "oberwil"):
-                    return {
-                        "latitude": float(result["lat"]),
-                        "longitude": float(result["lon"])
-                    }
+            # Verify this is actually in Oberwil with a house number
+            if (street and house_number and
+                postcode == "4104" and
+                city and city.lower() == "oberwil"):
+
+                # Use the actual coordinates returned by Nominatim (more accurate)
+                actual_lat = float(data["lat"])
+                actual_lon = float(data["lon"])
+
+                # Determine building type from OSM data
+                building_type = "residential"
+                if "amenity" in address or "shop" in address or "office" in address:
+                    building_type = "commercial"
+                elif any(word in street.lower() for word in ["haupt", "bahn", "schul"]):
+                    building_type = "mixed"
+
+                return {
+                    "street": street,
+                    "house_number": house_number,
+                    "building_type": building_type,
+                    "latitude": actual_lat,
+                    "longitude": actual_lon
+                }
     except Exception:
         pass
 
     return None
 
 
-async def fetch_real_addresses_from_osm(target_count: int = 50) -> list[tuple[str, str, str, float, float]]:
+async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[tuple[str, str, str, float, float]]:
     """
-    Fetch and verify real addresses from OpenStreetMap for Oberwil BL.
-    Uses Nominatim to verify each address actually exists.
+    Generate real addresses by randomly sampling coordinates within Oberwil
+    and using reverse geocoding to find actual addresses.
+
+    This approach guarantees real addresses because we're asking "what address is here"
+    rather than "does this address exist".
 
     Returns:
         List of tuples: (street_name, house_number, building_type, latitude, longitude)
     """
-    print(f"\n🗺️  Fetching and verifying real addresses from OpenStreetMap for Oberwil...")
+    print(f"\n🗺️  Generating real addresses via reverse geocoding...")
+    print(f"   Randomly sampling {target_count} points within Oberwil boundaries")
 
     addresses = []
+    seen = set()
+    attempts = 0
+    max_attempts = target_count * 10  # Try up to 10x the target to account for duplicates
 
     async with httpx.AsyncClient() as client:
-        try:
-            # Search for addresses in Oberwil using Overpass API
-            overpass_url = "https://overpass-api.de/api/interpreter"
+        while len(addresses) < target_count and attempts < max_attempts:
+            attempts += 1
 
-            # Query for addresses in Oberwil (postal code 4104)
-            # Only get addresses that are part of buildings (more likely to be real)
-            query = """
-            [out:json][timeout:25];
-            area["ISO3166-2"="CH-BL"]["name"="Basel-Landschaft"]->.a;
-            (
-              node["addr:street"]["addr:housenumber"]["addr:postcode"="4104"]["addr:city"="Oberwil"](area.a);
-              way["addr:street"]["addr:housenumber"]["addr:postcode"="4104"]["addr:city"="Oberwil"]["building"](area.a);
-            );
-            out center;
-            """
+            # Get address at random point
+            result = await reverse_geocode_random_point(client)
 
-            response = await client.post(
-                overpass_url,
-                data=query,
-                headers={"User-Agent": "KP-Rueck-Training-System/1.0"},
-                timeout=30.0
-            )
+            if result:
+                # Create unique key
+                key = f"{result['street']}_{result['house_number']}"
 
-            if response.status_code == 200:
-                data = response.json()
-                elements = data.get("elements", [])
+                # Skip if we've already found this address
+                if key in seen:
+                    continue
 
-                print(f"   Found {len(elements)} potential addresses in OSM")
-                print(f"   Verifying addresses with Nominatim (may take a minute)...")
+                seen.add(key)
+                addresses.append((
+                    result["street"],
+                    result["house_number"],
+                    result["building_type"],
+                    result["latitude"],
+                    result["longitude"]
+                ))
 
-                # Process and verify addresses
-                seen = set()
-                verified_count = 0
-                for element in elements:
-                    if len(addresses) >= target_count:
-                        break
+                print(f"      ✓ {result['street']} {result['house_number']} ({len(addresses)}/{target_count})")
 
-                    tags = element.get("tags", {})
-                    street = tags.get("addr:street")
-                    housenumber = tags.get("addr:housenumber")
+            # Rate limit: 1 request per second for Nominatim
+            await asyncio.sleep(1.1)
 
-                    if not street or not housenumber:
-                        continue
+        print(f"   ✅ Found {len(addresses)} unique real addresses (took {attempts} attempts)")
 
-                    # Create unique key
-                    key = f"{street}_{housenumber}"
-                    if key in seen:
-                        continue
+        # Shuffle for variety
+        random.shuffle(addresses)
 
-                    seen.add(key)
-
-                    # Verify address with Nominatim
-                    verified = await verify_address_exists(street, housenumber, client)
-
-                    if verified:
-                        verified_count += 1
-
-                        # Determine building type
-                        building_type = "residential"
-                        building_tag = tags.get("building", "")
-
-                        # Use building tag if available
-                        if building_tag in ["commercial", "retail", "office", "industrial"]:
-                            building_type = "commercial"
-                        elif building_tag in ["public", "school", "hospital"]:
-                            building_type = "commercial"
-                        # Otherwise use street name
-                        elif any(word in street.lower() for word in ["schul", "industrie", "gewerbe"]):
-                            building_type = "commercial"
-                        elif any(word in street.lower() for word in ["haupt", "bahn"]):
-                            building_type = "mixed"
-
-                        addresses.append((
-                            street,
-                            housenumber,
-                            building_type,
-                            verified["latitude"],
-                            verified["longitude"]
-                        ))
-
-                        print(f"      ✓ {street} {housenumber} ({verified_count}/{target_count})")
-
-                        # Rate limit: 1 request per second for Nominatim
-                        await asyncio.sleep(1.1)
-
-                # Shuffle for variety
-                random.shuffle(addresses)
-
-                print(f"   ✅ Verified {len(addresses)} real addresses")
-                return addresses
-
-            else:
-                print(f"   ⚠️  Overpass API returned status {response.status_code}")
-                return []
-
-        except Exception as e:
-            print(f"   ⚠️  Failed to fetch from OSM: {e}")
-            return []
-
-
-async def geocode_address(street: str, house_number: str, city: str = "Oberwil", postal_code: str = "4104") -> dict | None:
-    """
-    Geocode an address using OpenStreetMap Nominatim API.
-
-    Returns:
-        Dict with lat/lng or None if geocoding fails
-    """
-    full_address = f"{street} {house_number}, {postal_code} {city}, Switzerland"
-
-    async with httpx.AsyncClient() as client:
-        try:
-            # Use Nominatim API (respect usage policy: max 1 req/sec)
-            response = await client.get(
-                "https://nominatim.openstreetmap.org/search",
-                params={
-                    "q": full_address,
-                    "format": "json",
-                    "limit": 1,
-                    "countrycodes": "ch",
-                },
-                headers={
-                    "User-Agent": "KP-Rueck-Training-System/1.0"  # Required by OSM
-                },
-                timeout=10.0
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if data and len(data) > 0:
-                    result = data[0]
-                    return {
-                        "latitude": float(result["lat"]),
-                        "longitude": float(result["lon"]),
-                        "display_name": result.get("display_name", full_address)
-                    }
-        except Exception as e:
-            print(f"⚠️  Geocoding failed for {full_address}: {e}")
-            return None
-
-    return None
+        return addresses
 
 
 async def seed_training_data(skip_geocoding: bool = False):
@@ -555,7 +410,7 @@ async def seed_training_data(skip_geocoding: bool = False):
     Seed emergency templates and training locations.
 
     Args:
-        skip_geocoding: If True, skip geocoding and use approximate Oberwil center coordinates.
+        skip_geocoding: If True, use fallback to Oberwil center instead of reverse geocoding.
                        Useful for production deployments to avoid slow OSM API calls.
     """
     async with async_session_maker() as session:
@@ -583,10 +438,25 @@ async def seed_training_data(skip_geocoding: bool = False):
         await session.commit()
         print(f"✅ Seeded {len(EMERGENCY_TEMPLATES)} emergency templates")
 
-        # Seed training locations from curated list
-        print(f"\n📍 Seeding {len(VERIFIED_OBERWIL_ADDRESSES)} verified addresses...")
+        # Seed training locations using reverse geocoding
+        target_count = 50
+        addresses = []
 
-        for street, house_number, building_type, lat, lon in VERIFIED_OBERWIL_ADDRESSES:
+        if skip_geocoding:
+            print(f"\n⚠️  Skip geocoding enabled - using fallback to Oberwil center")
+            # Fallback: use Oberwil center
+            addresses = [("Hauptstrasse", "95", "commercial", 47.5164, 7.5618)]
+        else:
+            # Use reverse geocoding to find real addresses
+            addresses = await fetch_real_addresses_reverse_geocode(target_count)
+
+            if not addresses:
+                print(f"\n⚠️  Reverse geocoding failed - using fallback to Oberwil center")
+                addresses = [("Hauptstrasse", "95", "commercial", 47.5164, 7.5618)]
+
+        print(f"\n📍 Seeding {len(addresses)} real addresses...")
+
+        for street, house_number, building_type, lat, lon in addresses:
             location = TrainingLocation(
                 id=uuid4(),
                 street=street,
@@ -601,13 +471,13 @@ async def seed_training_data(skip_geocoding: bool = False):
             session.add(location)
 
         await session.commit()
-        print(f"✅ Seeded {len(VERIFIED_OBERWIL_ADDRESSES)} curated training locations")
+        print(f"✅ Seeded {len(addresses)} training locations")
 
         print("\n" + "=" * 60)
         print("SEEDING COMPLETE")
         print("=" * 60)
         print(f"✅ Emergency Templates: {len(EMERGENCY_TEMPLATES)}")
-        print(f"✅ Training Locations:  {len(VERIFIED_OBERWIL_ADDRESSES)} (curated)")
+        print(f"✅ Training Locations:  {len(addresses)} (reverse geocoded)")
         print("=" * 60)
 
 
