@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, memo, useCallback } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus, CheckCircle, XCircle, Plus } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -12,6 +13,7 @@ import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indi
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { cn, getIncidentAge } from "@/lib/utils"
 
 interface DraggableOperationProps {
   operation: Operation
@@ -28,7 +30,42 @@ interface DraggableOperationProps {
   index: number
   columnOperations: Operation[]
   formatLocation: (address: string) => string
+  onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
 }
+
+// Priority visual configuration
+const priorityStyles = {
+  high: {
+    border: 'border-l-4 border-red-500',
+    ring: 'ring-2 ring-red-500/50',
+    badge: 'bg-red-500 text-white',
+    badgeIcon: AlertTriangle,
+    dot: 'bg-red-500',
+    chevron: 'text-red-600 dark:text-red-400',
+    label: 'Hoch',
+    animate: 'animate-priority-pulse',
+  },
+  medium: {
+    border: 'border-l-4 border-orange-500',
+    ring: 'ring-1 ring-orange-500/30',
+    badge: 'bg-orange-500 text-white',
+    badgeIcon: AlertCircle,
+    dot: 'bg-orange-500',
+    chevron: 'text-orange-600 dark:text-orange-400',
+    label: 'Mittel',
+    animate: '',
+  },
+  low: {
+    border: '',
+    ring: '',
+    badge: 'bg-gray-500/50 text-gray-100',
+    badgeIcon: null,
+    dot: 'bg-green-500',
+    chevron: 'text-green-600 dark:text-green-400',
+    label: 'Niedrig',
+    animate: '',
+  },
+} as const
 
 function DraggableOperationBase({
   operation,
@@ -45,11 +82,30 @@ function DraggableOperationBase({
   index,
   columnOperations,
   formatLocation,
+  onAssignResource,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isOver, setIsOver] = useState(false)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Get priority styling configuration
+  const priority = operation.priority || 'low'
+  const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
+  const BadgeIcon = priorityConfig?.badgeIcon
+
+  // Auto-update time every minute to refresh age badges
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 60000) // Update every minute
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Calculate incident age (recalculates when currentTime changes)
+  const ageInfo = getIncidentAge(operation.dispatchTime)
 
   useEffect(() => {
     const element = ref.current
@@ -111,7 +167,16 @@ function DraggableOperationBase({
         ref={ref}
         style={{ opacity: isDragging ? 0.5 : 1 }}
         data-incident-id={operation.id}
-        className={`${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer ${isOver ? "ring-2 ring-primary" : ""} ${isHighlighted ? "ring-4 ring-accent animate-pulse" : ""} ${isKeyboardFocused && !isHighlighted ? "ring-2 ring-blue-500/50 shadow-xl" : ""}`}
+        className={cn(
+          'operation-card border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer',
+          columnColor,
+          priorityConfig?.border,
+          priorityConfig?.ring,
+          priorityConfig?.animate,
+          isOver && 'ring-2 ring-primary',
+          isHighlighted && 'ring-4 ring-accent animate-pulse',
+          isKeyboardFocused && !isHighlighted && 'ring-2 ring-blue-500/50 shadow-xl'
+        )}
         onMouseEnter={() => onHover(operation.id)}
         onMouseLeave={() => onHover(null)}
         onClick={(e) => {
@@ -128,17 +193,15 @@ function DraggableOperationBase({
               <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
                 {/* Priority indicator with both color and icon */}
                 <div
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    operation.priority === "high" ? "bg-red-500" : operation.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
-                  }`}
+                  className={cn('h-2.5 w-2.5 rounded-full', priorityConfig?.dot)}
                   aria-hidden="true"
                 />
-                {operation.priority === "high" ? (
-                  <ChevronUp className="h-4 w-4 text-red-600 dark:text-red-400" aria-label="Hohe Priorität" />
-                ) : operation.priority === "medium" ? (
-                  <Minus className="h-4 w-4 text-yellow-600 dark:text-yellow-400" aria-label="Mittlere Priorität" />
+                {priority === "high" ? (
+                  <ChevronUp className={cn('h-4 w-4', priorityConfig?.chevron)} aria-label="Hohe Priorität" />
+                ) : priority === "medium" ? (
+                  <Minus className={cn('h-4 w-4', priorityConfig?.chevron)} aria-label="Mittlere Priorität" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-green-600 dark:text-green-400" aria-label="Niedrige Priorität" />
+                  <ChevronDown className={cn('h-4 w-4', priorityConfig?.chevron)} aria-label="Niedrige Priorität" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -147,9 +210,20 @@ function DraggableOperationBase({
             </div>
             {/* Non-draggable icons area */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Priority badge in top-right corner */}
+              <div
+                className={cn(
+                  'px-2 py-1 rounded text-xs font-bold flex items-center gap-1',
+                  priorityConfig?.badge
+                )}
+                title={`Priorität: ${priorityConfig?.label}`}
+              >
+                {BadgeIcon && <BadgeIcon className="h-3 w-3" />}
+                <span className="hidden sm:inline">{priorityConfig?.label}</span>
+              </div>
               {operation.hasCompletedReko && (
                 <div
-                  className="p-1.5 rounded-md bg-green-500/20"
+                  className="p-1.5 rounded-md bg-green-500/20 animate-scale-in"
                   title="Reko-Bericht ausgefüllt"
                 >
                   <FileCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -158,7 +232,7 @@ function DraggableOperationBase({
               <Link
                 href={`/map?highlight=${operation.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
+                className="p-1.5 rounded-md hover:bg-primary/20 transition-all hover-delight"
                 title="Auf Karte anzeigen"
               >
                 <MapIcon className="h-4 w-4 text-muted-foreground" />
@@ -183,84 +257,92 @@ function DraggableOperationBase({
             </span>
           </div>
 
-          {operation.vehicles.length > 0 && (
-            <div className="flex items-start gap-2">
-              <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <div className="flex flex-wrap gap-1.5">
-                {operation.vehicles.map((vehicleName, idx) => (
-                  <Badge
-                    key={idx}
-                    variant="secondary"
-                    className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                  >
-                    {vehicleName}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRemoveVehicle(vehicleName)
-                      }}
-                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Age indicator badge */}
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded text-xs font-medium text-white inline-flex items-center gap-1',
+                ageInfo.color,
+                ageInfo.showWarning && 'animate-age-warning-pulse'
+              )}
+              title={`Einsatz erstellt: ${operation.dispatchTime.toLocaleString("de-DE")}`}
+            >
+              {ageInfo.showWarning && <AlertTriangle className="h-3 w-3" />}
+              {ageInfo.label}
+            </span>
+          </div>
 
-          {operation.crew.length > 0 && (
-            <div className="flex items-start gap-2">
-              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <div className="flex flex-wrap gap-1.5">
-                {operation.crew.map((member, idx) => (
-                  <Badge
-                    key={idx}
-                    variant="secondary"
-                    className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                  >
-                    {member.split(" ")[0][0]}.{member.split(" ")[1][0]}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRemoveCrew(member)
-                      }}
-                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {operation.materials.length > 0 && (
-            <div className="flex items-start gap-2">
-              <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <div className="flex flex-wrap gap-1.5">
-                {operation.materials.map((matId, idx) => {
-                  const mat = materials.find(m => m.id === matId)
-                  return (
-                    <Badge
-                      key={idx}
-                      variant="outline"
-                      className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                    >
-                      {mat?.name.substring(0, 15) || matId}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onRemoveMaterial(matId)
-                        }}
-                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          {/* Resource assignments - show names with quick removal */}
+          {(operation.crew.length > 0 || operation.vehicles.length > 0 || operation.materials.length > 0) && (
+            <div className="border-t pt-2 space-y-1.5 text-xs">
+              {operation.crew.length > 0 && (
+                <div className="flex items-start gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="flex flex-wrap gap-1 min-w-0">
+                    {operation.crew.map((crewName, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="secondary"
+                        className="text-[10px] px-1.5 py-0 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  )
-                })}
-              </div>
+                        <span>{crewName}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRemoveCrew(crewName)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                          title={`${crewName} entfernen`}
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {operation.vehicles.length > 0 && (
+                <div className="flex items-start gap-1.5">
+                  <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="flex flex-wrap gap-1 min-w-0">
+                    {operation.vehicles.map((vehicleName, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal cursor-default">
+                        {vehicleName}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {operation.materials.length > 0 && (
+                <div className="flex items-start gap-1.5">
+                  <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="flex flex-wrap gap-1 min-w-0">
+                    {operation.materials.map((materialId, idx) => {
+                      const material = materials.find(m => m.id === materialId)
+                      return (
+                        <Badge
+                          key={idx}
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                        >
+                          <span>{material?.name || materialId}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onRemoveMaterial(materialId)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                            title={`${material?.name || materialId} entfernen`}
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </Badge>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -272,7 +354,7 @@ function DraggableOperationBase({
                   <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1">
                     {operation.rekoSummary.dangerTypes.map((danger, idx) => (
-                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0">
+                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0 animate-scale-in">
                         {danger}
                       </Badge>
                     ))}
