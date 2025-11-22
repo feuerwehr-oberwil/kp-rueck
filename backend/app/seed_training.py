@@ -289,13 +289,15 @@ async def fetch_real_addresses_from_osm(target_count: int = 50) -> list[tuple[st
             overpass_url = "https://overpass-api.de/api/interpreter"
 
             # Query for addresses in Oberwil (postal code 4104)
+            # Only get addresses that are part of buildings (more likely to be real)
             query = """
             [out:json][timeout:25];
             area["ISO3166-2"="CH-BL"]["name"="Basel-Landschaft"]->.a;
             (
-              node["addr:street"]["addr:housenumber"]["addr:postcode"="4104"](area.a);
+              node["addr:street"]["addr:housenumber"]["addr:postcode"="4104"]["addr:city"="Oberwil"](area.a);
+              way["addr:street"]["addr:housenumber"]["addr:postcode"="4104"]["addr:city"="Oberwil"]["building"](area.a);
             );
-            out body;
+            out center;
             """
 
             response = await client.post(
@@ -317,8 +319,16 @@ async def fetch_real_addresses_from_osm(target_count: int = 50) -> list[tuple[st
                     tags = element.get("tags", {})
                     street = tags.get("addr:street")
                     housenumber = tags.get("addr:housenumber")
+
+                    # Get coordinates (for nodes, direct lat/lon; for ways, use center)
                     lat = element.get("lat")
                     lon = element.get("lon")
+
+                    # If it's a way (building), use center coordinates
+                    if not lat or not lon:
+                        center = element.get("center", {})
+                        lat = center.get("lat")
+                        lon = center.get("lon")
 
                     if street and housenumber and lat and lon:
                         # Create unique key
@@ -326,9 +336,17 @@ async def fetch_real_addresses_from_osm(target_count: int = 50) -> list[tuple[st
                         if key not in seen:
                             seen.add(key)
 
-                            # Guess building type based on street name
+                            # Determine building type
                             building_type = "residential"
-                            if any(word in street.lower() for word in ["schul", "industrie", "gewerbe"]):
+                            building_tag = tags.get("building", "")
+
+                            # Use building tag if available
+                            if building_tag in ["commercial", "retail", "office", "industrial"]:
+                                building_type = "commercial"
+                            elif building_tag in ["public", "school", "hospital"]:
+                                building_type = "commercial"
+                            # Otherwise use street name
+                            elif any(word in street.lower() for word in ["schul", "industrie", "gewerbe"]):
                                 building_type = "commercial"
                             elif any(word in street.lower() for word in ["haupt", "bahn"]):
                                 building_type = "mixed"
