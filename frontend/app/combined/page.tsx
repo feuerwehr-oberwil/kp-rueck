@@ -8,6 +8,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -19,6 +20,7 @@ import { OperationDetailModal } from "@/components/kanban/operation-detail-modal
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { LayoutGrid, Map as MapIcon } from "lucide-react"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -61,6 +63,7 @@ export default function CombinedViewPage() {
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [isMounted, setIsMounted] = useState(false)
   const [mapResetTrigger, setMapResetTrigger] = useState(0)
+  const [activeTab, setActiveTab] = useState<string>("kanban")
 
   // Set mounted state
   useEffect(() => {
@@ -107,6 +110,10 @@ export default function CombinedViewPage() {
 
   const handleMapMarkerClick = (operationId: string) => {
     setSelectedOperationId(operationId)
+    // Switch to kanban tab on mobile when marker is clicked
+    if (isMobile) {
+      setActiveTab("kanban")
+    }
     // Trigger pulse animation on kanban card for 3 seconds
     setTimeout(() => setSelectedOperationId(null), 3000)
   }
@@ -190,54 +197,97 @@ export default function CombinedViewPage() {
           </div>
         </header>
 
-        {/* Main Content - Resizable Split View */}
+        {/* Main Content */}
         <main className="flex-1 overflow-hidden p-4">
-          <ResizablePanelGroup
-            direction="horizontal"
-            className="h-full gap-4"
-            onLayout={() => {
-              // Trigger map resize when panel layout changes
-              setMapResetTrigger(prev => prev + 1)
-            }}
-          >
-            {/* Kanban Board Panel - 60% default */}
-            <ResizablePanel defaultSize={60} minSize={30}>
-              <div className="h-full rounded-lg border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
-                <KanbanBoard
-                  onCardHover={handleKanbanCardHover}
-                  onCardClick={handleDetailsClick}
-                  highlightedOperationId={selectedOperationId}
-                />
-              </div>
-            </ResizablePanel>
+          {/* Mobile: Tabs Layout */}
+          {isMobile ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+              <TabsList className="w-full grid grid-cols-2 mb-4">
+                <TabsTrigger value="kanban" className="flex items-center gap-2">
+                  <LayoutGrid className="h-4 w-4" />
+                  <span>Kanban</span>
+                </TabsTrigger>
+                <TabsTrigger value="map" className="flex items-center gap-2">
+                  <MapIcon className="h-4 w-4" />
+                  <span>Karte</span>
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Resize Handle */}
-            <ResizableHandle withHandle />
+              <TabsContent value="kanban" className="flex-1 m-0 overflow-hidden">
+                <div className="h-full rounded-lg border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
+                  <KanbanBoard
+                    onCardHover={handleKanbanCardHover}
+                    onCardClick={handleDetailsClick}
+                    highlightedOperationId={selectedOperationId}
+                  />
+                </div>
+              </TabsContent>
 
-            {/* Map Panel - 40% default */}
-            <ResizablePanel
-              defaultSize={40}
-              minSize={25}
-              onResize={() => {
-                // Trigger map resize when this specific panel is resized
+              <TabsContent value="map" className="flex-1 m-0 overflow-hidden">
+                <div className="h-full rounded-lg border border-border/50 overflow-hidden">
+                  <MapView
+                    selectedIncidentId={hoveredOperationId}
+                    onMarkerClick={handleMapMarkerClick}
+                    onDetailsClick={(incident) => {
+                      const operation = operations.find(op => op.id === incident.id)
+                      if (operation) {
+                        handleDetailsClick(operation)
+                      }
+                    }}
+                    resetZoomTrigger={mapResetTrigger}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            /* Desktop: Resizable Split View */
+            <ResizablePanelGroup
+              direction="horizontal"
+              className="h-full gap-4"
+              onLayout={() => {
+                // Trigger map resize when panel layout changes
                 setMapResetTrigger(prev => prev + 1)
               }}
             >
-              <div className="h-full rounded-lg border border-border/50 overflow-hidden">
-                <MapView
-                  selectedIncidentId={hoveredOperationId}
-                  onMarkerClick={handleMapMarkerClick}
-                  onDetailsClick={(incident) => {
-                    const operation = operations.find(op => op.id === incident.id)
-                    if (operation) {
-                      handleDetailsClick(operation)
-                    }
-                  }}
-                  resetZoomTrigger={mapResetTrigger}
-                />
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+              {/* Kanban Board Panel - 60% default */}
+              <ResizablePanel defaultSize={60} minSize={30}>
+                <div className="h-full rounded-lg border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
+                  <KanbanBoard
+                    onCardHover={handleKanbanCardHover}
+                    onCardClick={handleDetailsClick}
+                    highlightedOperationId={selectedOperationId}
+                  />
+                </div>
+              </ResizablePanel>
+
+              {/* Resize Handle */}
+              <ResizableHandle withHandle />
+
+              {/* Map Panel - 40% default */}
+              <ResizablePanel
+                defaultSize={40}
+                minSize={25}
+                onResize={() => {
+                  // Trigger map resize when this specific panel is resized
+                  setMapResetTrigger(prev => prev + 1)
+                }}
+              >
+                <div className="h-full rounded-lg border border-border/50 overflow-hidden">
+                  <MapView
+                    selectedIncidentId={hoveredOperationId}
+                    onMarkerClick={handleMapMarkerClick}
+                    onDetailsClick={(incident) => {
+                      const operation = operations.find(op => op.id === incident.id)
+                      if (operation) {
+                        handleDetailsClick(operation)
+                      }
+                    }}
+                    resetZoomTrigger={mapResetTrigger}
+                  />
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          )}
         </main>
 
         {/* Operation Detail Modal */}
@@ -255,7 +305,6 @@ export default function CombinedViewPage() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-
       <MobileBottomNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
 
     </ProtectedRoute>
