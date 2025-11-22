@@ -158,6 +158,7 @@ async def export_all_data(
 async def seed_training_templates(
     current_user: CurrentEditor,
     skip_geocoding: bool = True,
+    force_reseed: bool = False,
     db: AsyncSession = Depends(get_db),
     request: Request = None,
 ):
@@ -167,8 +168,18 @@ async def seed_training_templates(
 
     Args:
         skip_geocoding: Skip geocoding and use Oberwil center coordinates (faster)
+        force_reseed: Delete existing data and reseed (useful for updating addresses)
     """
     try:
+        # If force_reseed, delete existing training data first
+        if force_reseed:
+            from sqlalchemy import delete
+            from ..models import TrainingLocation, EmergencyTemplate
+
+            await db.execute(delete(TrainingLocation))
+            await db.execute(delete(EmergencyTemplate))
+            await db.commit()
+
         await seed_training_data(skip_geocoding=skip_geocoding)
 
         # Audit log
@@ -180,6 +191,7 @@ async def seed_training_templates(
             user=current_user,
             changes={
                 "skip_geocoding": skip_geocoding,
+                "force_reseed": force_reseed,
                 "action": "manual_seed_training_data"
             },
             request=request
@@ -189,7 +201,8 @@ async def seed_training_templates(
         return {
             "success": True,
             "message": "Training data seeded successfully",
-            "skip_geocoding": skip_geocoding
+            "skip_geocoding": skip_geocoding,
+            "force_reseed": force_reseed
         }
     except Exception as e:
         raise HTTPException(

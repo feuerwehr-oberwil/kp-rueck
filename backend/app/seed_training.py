@@ -6,6 +6,7 @@ from app.database import async_session_maker
 from app.models import EmergencyTemplate, TrainingLocation
 from uuid import uuid4
 import time
+import random
 
 # Emergency Templates - Storm-focused scenarios
 EMERGENCY_TEMPLATES = [
@@ -270,71 +271,87 @@ EMERGENCY_TEMPLATES = [
 
 print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
-# Training Locations - Streets in Oberwil BL (will be geocoded via OSM)
-# Format: street name, house number, building type
-TRAINING_LOCATION_SEEDS = [
-    # Main streets
-    ("Hauptstrasse", "12", "residential"),
-    ("Hauptstrasse", "45", "commercial"),
-    ("Hauptstrasse", "78", "mixed"),
-    ("Hauptstrasse", "123", "residential"),
-    ("Hauptstrasse", "156", "commercial"),
 
-    # Residential areas
-    ("Bottmingerstrasse", "23", "residential"),
-    ("Bottmingerstrasse", "67", "residential"),
-    ("Bottmingerstrasse", "102", "residential"),
-    ("Therwilerstrasse", "15", "mixed"),
-    ("Therwilerstrasse", "89", "residential"),
-    ("Therwilerstrasse", "134", "residential"),
-    ("Bielstrasse", "34", "residential"),
-    ("Bielstrasse", "56", "residential"),
-    ("Ruchfeldstrasse", "8", "residential"),
-    ("Ruchfeldstrasse", "42", "residential"),
-    ("Ruchfeldstrasse", "71", "residential"),
+async def fetch_real_addresses_from_osm(target_count: int = 50) -> list[tuple[str, str, str, float, float]]:
+    """
+    Fetch real addresses from OpenStreetMap for Oberwil BL.
 
-    # Schools and public buildings
-    ("Schulstrasse", "1", "commercial"),
-    ("Schulstrasse", "5", "commercial"),
-    ("Gempenstrasse", "10", "residential"),
-    ("Gempenstrasse", "28", "mixed"),
-    ("Gempenstrasse", "45", "residential"),
+    Returns:
+        List of tuples: (street_name, house_number, building_type, latitude, longitude)
+    """
+    print(f"\n🗺️  Fetching real addresses from OpenStreetMap for Oberwil...")
 
-    # Additional residential
-    ("Mühlemattweg", "14", "residential"),
-    ("Mühlemattweg", "31", "residential"),
-    ("Birsfeldstrasse", "7", "residential"),
-    ("Birsfeldstrasse", "53", "residential"),
-    ("Birsfeldstrasse", "88", "residential"),
-    ("Tennweg", "9", "residential"),
-    ("Tennweg", "22", "residential"),
-    ("Im Hof", "3", "residential"),
-    ("Im Hof", "16", "residential"),
+    addresses = []
 
-    # Industrial/Commercial area
-    ("Industriestrasse", "4", "commercial"),
-    ("Industriestrasse", "18", "commercial"),
-    ("Gewerbeweg", "2", "commercial"),
-    ("Gewerbeweg", "11", "commercial"),
+    async with httpx.AsyncClient() as client:
+        try:
+            # Search for addresses in Oberwil using Overpass API
+            overpass_url = "https://overpass-api.de/api/interpreter"
 
-    # More residential streets
-    ("Rainweg", "6", "residential"),
-    ("Rainweg", "25", "residential"),
-    ("Bergstrasse", "19", "residential"),
-    ("Bergstrasse", "44", "residential"),
-    ("Bündtenweg", "13", "residential"),
-    ("Bündtenweg", "37", "residential"),
-    ("Hardstrasse", "21", "residential"),
-    ("Hardstrasse", "48", "residential"),
+            # Query for addresses in Oberwil (postal code 4104)
+            query = """
+            [out:json][timeout:25];
+            area["ISO3166-2"="CH-BL"]["name"="Basel-Landschaft"]->.a;
+            (
+              node["addr:street"]["addr:housenumber"]["addr:postcode"="4104"](area.a);
+            );
+            out body;
+            """
 
-    # Additional streets for more variety
-    ("Mühleweg", "5", "residential"),
-    ("Mühleweg", "18", "residential"),
-    ("Kirchgasse", "7", "residential"),
-    ("Kirchgasse", "24", "mixed"),
-    ("Brunnmattweg", "11", "residential"),
-    ("Brunnmattweg", "35", "residential"),
-]
+            response = await client.post(
+                overpass_url,
+                data=query,
+                headers={"User-Agent": "KP-Rueck-Training-System/1.0"},
+                timeout=30.0
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                elements = data.get("elements", [])
+
+                print(f"   Found {len(elements)} addresses in OpenStreetMap")
+
+                # Process and deduplicate addresses
+                seen = set()
+                for element in elements:
+                    tags = element.get("tags", {})
+                    street = tags.get("addr:street")
+                    housenumber = tags.get("addr:housenumber")
+                    lat = element.get("lat")
+                    lon = element.get("lon")
+
+                    if street and housenumber and lat and lon:
+                        # Create unique key
+                        key = f"{street}_{housenumber}"
+                        if key not in seen:
+                            seen.add(key)
+
+                            # Guess building type based on street name
+                            building_type = "residential"
+                            if any(word in street.lower() for word in ["schul", "industrie", "gewerbe"]):
+                                building_type = "commercial"
+                            elif any(word in street.lower() for word in ["haupt", "bahn"]):
+                                building_type = "mixed"
+
+                            addresses.append((street, housenumber, building_type, float(lat), float(lon)))
+
+                            if len(addresses) >= target_count:
+                                break
+
+                # Shuffle for variety
+                random.shuffle(addresses)
+                addresses = addresses[:target_count]
+
+                print(f"   ✅ Selected {len(addresses)} diverse addresses")
+                return addresses
+
+            else:
+                print(f"   ⚠️  Overpass API returned status {response.status_code}")
+                return []
+
+        except Exception as e:
+            print(f"   ⚠️  Failed to fetch from OSM: {e}")
+            return []
 
 
 async def geocode_address(street: str, house_number: str, city: str = "Oberwil", postal_code: str = "4104") -> dict | None:
@@ -412,16 +429,16 @@ async def seed_training_data(skip_geocoding: bool = False):
         await session.commit()
         print(f"✅ Seeded {len(EMERGENCY_TEMPLATES)} emergency templates")
 
-        # Seed training locations
-        if skip_geocoding:
-            print(f"\n📍 Seeding {len(TRAINING_LOCATION_SEEDS)} training locations (without geocoding)...")
-            print("   Using approximate Oberwil center coordinates for all locations.")
+        # Seed training locations from OpenStreetMap
+        print(f"\n📍 Fetching real addresses from OpenStreetMap...")
 
-            # Use Oberwil center coordinates as fallback
-            oberwil_lat = 47.51637699933488
-            oberwil_lng = 7.561800450458299
+        # Fetch real addresses from OSM
+        osm_addresses = await fetch_real_addresses_from_osm(target_count=50)
 
-            for street, house_number, building_type in TRAINING_LOCATION_SEEDS:
+        if osm_addresses and len(osm_addresses) > 0:
+            print(f"   Using {len(osm_addresses)} real addresses from OSM")
+
+            for street, house_number, building_type, lat, lon in osm_addresses:
                 location = TrainingLocation(
                     id=uuid4(),
                     street=street,
@@ -429,71 +446,42 @@ async def seed_training_data(skip_geocoding: bool = False):
                     postal_code="4104",
                     city="Oberwil",
                     building_type=building_type,
-                    latitude=oberwil_lat,
-                    longitude=oberwil_lng,
+                    latitude=lat,
+                    longitude=lon,
                     is_active=True
                 )
                 session.add(location)
 
             await session.commit()
-            print(f"✅ Seeded {len(TRAINING_LOCATION_SEEDS)} training locations with default coordinates")
+            print(f"✅ Seeded {len(osm_addresses)} training locations with real OSM coordinates")
         else:
-            print(f"\n📍 Seeding and geocoding {len(TRAINING_LOCATION_SEEDS)} training locations...")
-            print("   (This may take a while - respecting OSM rate limit of 1 req/sec)")
+            # Fallback: Use Oberwil center if OSM fetch fails
+            print(f"   ⚠️  OSM fetch failed, using fallback location (Oberwil center)")
 
-            successful = 0
-            failed = 0
+            oberwil_lat = 47.51637699933488
+            oberwil_lng = 7.561800450458299
 
-            for i, (street, house_number, building_type) in enumerate(TRAINING_LOCATION_SEEDS, 1):
-                print(f"\n   [{i}/{len(TRAINING_LOCATION_SEEDS)}] Geocoding {street} {house_number}...", end=" ")
-
-                # Geocode via OpenStreetMap
-                geo_result = await geocode_address(street, house_number)
-
-                if geo_result:
-                    location = TrainingLocation(
-                        id=uuid4(),
-                        street=street,
-                        house_number=house_number,
-                        postal_code="4104",
-                        city="Oberwil",
-                        building_type=building_type,
-                        latitude=geo_result["latitude"],
-                        longitude=geo_result["longitude"],
-                        is_active=True
-                    )
-                    session.add(location)
-                    successful += 1
-                    print(f"✅ ({geo_result['latitude']:.6f}, {geo_result['longitude']:.6f})")
-                else:
-                    # Add without coordinates if geocoding fails
-                    location = TrainingLocation(
-                        id=uuid4(),
-                        street=street,
-                        house_number=house_number,
-                        postal_code="4104",
-                        city="Oberwil",
-                        building_type=building_type,
-                        latitude=None,
-                        longitude=None,
-                        is_active=True
-                    )
-                    session.add(location)
-                    failed += 1
-                    print("⚠️  No coordinates (added anyway)")
-
-                # Respect OSM rate limit: 1 request per second
-                if i < len(TRAINING_LOCATION_SEEDS):
-                    await asyncio.sleep(1.1)
-
+            # Create at least one fallback location
+            location = TrainingLocation(
+                id=uuid4(),
+                street="Hauptstrasse",
+                house_number="1",
+                postal_code="4104",
+                city="Oberwil",
+                building_type="mixed",
+                latitude=oberwil_lat,
+                longitude=oberwil_lng,
+                is_active=True
+            )
+            session.add(location)
             await session.commit()
-            print(f"✅ Training Locations:  {successful} geocoded, {failed} without coordinates")
+            print(f"✅ Seeded 1 fallback training location")
 
         print("\n" + "=" * 60)
         print("SEEDING COMPLETE")
         print("=" * 60)
         print(f"✅ Emergency Templates: {len(EMERGENCY_TEMPLATES)}")
-        print(f"✅ Training Locations:  {len(TRAINING_LOCATION_SEEDS)}")
+        print(f"✅ Training Locations:  {len(osm_addresses) if osm_addresses else 1} (from OSM)")
         print("=" * 60)
 
 
