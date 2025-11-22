@@ -274,7 +274,8 @@ print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 async def verify_address_exists(street: str, housenumber: str, client: httpx.AsyncClient) -> dict | None:
     """
-    Verify an address exists using Nominatim geocoding.
+    Verify an address exists using Nominatim geocoding with STRICT matching.
+    Only returns coordinates if the exact house number is found.
 
     Returns:
         Dict with lat/lng if address exists, None otherwise
@@ -285,10 +286,13 @@ async def verify_address_exists(street: str, housenumber: str, client: httpx.Asy
         response = await client.get(
             "https://nominatim.openstreetmap.org/search",
             params={
-                "q": full_address,
+                "street": f"{housenumber} {street}",  # Structured query
+                "city": "Oberwil",
+                "postalcode": "4104",
+                "country": "Switzerland",
                 "format": "json",
-                "limit": 1,
-                "countrycodes": "ch",
+                "limit": 5,  # Get top 5 to check for exact match
+                "addressdetails": 1,  # Get detailed address info
             },
             headers={"User-Agent": "KP-Rueck-Training-System/1.0"},
             timeout=5.0
@@ -296,11 +300,20 @@ async def verify_address_exists(street: str, housenumber: str, client: httpx.Asy
 
         if response.status_code == 200:
             data = response.json()
-            if data and len(data) > 0:
-                result = data[0]
-                # Verify the result is actually in Oberwil
-                display_name = result.get("display_name", "").lower()
-                if "oberwil" in display_name and "4104" in display_name:
+            for result in data:
+                address = result.get("address", {})
+
+                # STRICT verification: must have exact house number match
+                returned_housenumber = address.get("house_number", "")
+                returned_street = address.get("road", "")
+                returned_postcode = address.get("postcode", "")
+                returned_city = address.get("city", "") or address.get("town", "") or address.get("village", "")
+
+                # Check for EXACT match
+                if (returned_housenumber == housenumber and
+                    returned_street == street and
+                    returned_postcode == "4104" and
+                    returned_city.lower() == "oberwil"):
                     return {
                         "latitude": float(result["lat"]),
                         "longitude": float(result["lon"])
