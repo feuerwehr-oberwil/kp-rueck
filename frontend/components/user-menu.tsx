@@ -217,111 +217,111 @@ export function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        {/* User Info with Role Badge */}
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-2">
-            <p className="text-sm font-medium leading-none">{user.username}</p>
-            <RoleBadge />
-          </div>
-        </DropdownMenuLabel>
-
-        <DropdownMenuSeparator />
-
-        {/* CONNECTION STATUS GROUP */}
-        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-          Verbindung
-        </DropdownMenuLabel>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Backend</span>
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
-              <span className="text-xs">{getStatusText()}</span>
+          {/* User Info with Role Badge */}
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-2">
+              <p className="text-sm font-medium leading-none">{user.username}</p>
+              <RoleBadge />
             </div>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">WebSocket</span>
-            <div className="flex items-center gap-2">
-              {getWsStatusIcon()}
-              <span className="text-xs">{getWsStatusText()}</span>
-            </div>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuItem asChild>
-          <Link href="/settings?tab=sync" className={syncConfig?.is_production ? "cursor-pointer opacity-50" : "cursor-pointer"}>
-            <div className="flex items-center justify-between w-full">
-              <span className="text-xs text-muted-foreground">Sync</span>
+          </DropdownMenuLabel>
+
+          <DropdownMenuSeparator />
+
+          {/* CONNECTION STATUS GROUP */}
+          <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+            Verbindung
+          </DropdownMenuLabel>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Backend</span>
               <div className="flex items-center gap-2">
-                <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
-                {getSyncDirectionIcon()}
-                <span className="text-xs">{syncConfig?.is_production ? "Deaktiviert" : getSyncStatusText()}</span>
+                <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
+                <span className="text-xs">{getStatusText()}</span>
               </div>
             </div>
-          </Link>
-        </DropdownMenuItem>
+          </DropdownMenuLabel>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">WebSocket</span>
+              <div className="flex items-center gap-2">
+                {getWsStatusIcon()}
+                <span className="text-xs">{getWsStatusText()}</span>
+              </div>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuItem asChild>
+            <Link href="/settings?tab=sync" className={syncConfig?.is_production ? "cursor-pointer opacity-50" : "cursor-pointer"}>
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs text-muted-foreground">Sync</span>
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
+                  {getSyncDirectionIcon()}
+                  <span className="text-xs">{syncConfig?.is_production ? "Deaktiviert" : getSyncStatusText()}</span>
+                </div>
+              </div>
+            </Link>
+          </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-        {/* MANAGEMENT GROUP */}
-        <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-          Verwaltung
-        </DropdownMenuLabel>
-        <DropdownMenuItem asChild>
-          <Link href="/settings" className="cursor-pointer">
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Einstellungen</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/stats" className="cursor-pointer">
-            <BarChart3 className="mr-2 h-4 w-4" />
-            <span>Statistiken</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/divera-pool" className="cursor-pointer">
-            <Radio className="mr-2 h-4 w-4" />
-            <span>Divera Notfälle</span>
-          </Link>
-        </DropdownMenuItem>
+          {/* MANAGEMENT GROUP */}
+          <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+            Verwaltung
+          </DropdownMenuLabel>
+          <DropdownMenuItem asChild>
+            <Link href="/settings" className="cursor-pointer">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Einstellungen</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/stats" className="cursor-pointer">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              <span>Statistiken</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/divera-pool" className="cursor-pointer">
+              <Radio className="mr-2 h-4 w-4" />
+              <span>Divera Notfälle</span>
+            </Link>
+          </DropdownMenuItem>
 
-        {/* ADMIN GROUP (editors only) */}
-        {isEditor && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-              Administration
-            </DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href="/resources" className="cursor-pointer">
-                <Users className="mr-2 h-4 w-4" />
-                <span>Ressourcen</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/import" className="cursor-pointer">
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                <span>Import/Export</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/audit" className="cursor-pointer">
-                <FileText className="mr-2 h-4 w-4" />
-                <span>Audit-Protokoll</span>
-              </Link>
-            </DropdownMenuItem>
-          </>
-        )}
+          {/* ADMIN GROUP (editors only) */}
+          {isEditor && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+                Administration
+              </DropdownMenuLabel>
+              <DropdownMenuItem asChild>
+                <Link href="/resources" className="cursor-pointer">
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>Ressourcen</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/import" className="cursor-pointer">
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  <span>Import/Export</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/audit" className="cursor-pointer">
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>Audit-Protokoll</span>
+                </Link>
+              </DropdownMenuItem>
+            </>
+          )}
 
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Abmelden</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+          <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Abmelden</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
     </DropdownMenu>
   );
 }

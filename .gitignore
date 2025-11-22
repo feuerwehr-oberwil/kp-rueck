@@ -67,6 +67,7 @@ node_modules/
 *.log
 .local
 Library/
+*.bak
 
 # Backend (Python)
 **/__pycache__/

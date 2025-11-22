@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, LayoutGrid, Calendar, MoreHorizontal, HelpCircle, Settings, BarChart3, Users, Radio, FileSpreadsheet, FileText } from 'lucide-react'
+import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, BarChart3, Users, Radio, FileSpreadsheet, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -43,13 +43,6 @@ export function MobileBottomNavigation({
       label: 'Karte',
       icon: MapIcon,
       href: '/map',
-      disabled: !hasSelectedEvent,
-    },
-    {
-      id: 'combined',
-      label: 'Kombi',
-      icon: LayoutGrid,
-      href: '/combined',
       disabled: !hasSelectedEvent,
     },
     {
@@ -141,19 +134,19 @@ export function MobileBottomNavigation({
           </SheetTrigger>
           <SheetContent
             side="bottom"
-            className="h-[70vh] overflow-y-auto animate-sheet-slide-up"
+            className="h-[70vh] overflow-y-auto animate-sheet-slide-up px-6"
             style={{
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)'
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)'
             }}
           >
-            <SheetHeader className="mb-6">
+            <SheetHeader className="mb-6 -mx-6 px-6 pb-4 border-b">
               <SheetTitle>Weitere Funktionen</SheetTitle>
               <div className="flex items-center gap-2 pt-2">
                 <RoleBadge />
               </div>
             </SheetHeader>
 
-            <div className="space-y-6">
+            <div className="space-y-8 pb-4">
               {/* Verwaltung Section */}
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">

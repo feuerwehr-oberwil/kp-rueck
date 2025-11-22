@@ -7,11 +7,10 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, Menu, ClipboardCheck, Truck } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
-import { MobileNavigation } from "@/components/mobile-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -653,16 +652,16 @@ export default function FireStationDashboard() {
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             {selectedEvent ? (
               <>
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight">{selectedEvent.name}</h1>
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight truncate">{selectedEvent.name}</h1>
                 {selectedEvent.training_flag && (
-                  <Badge variant="secondary" className="hidden sm:inline-flex">Übung</Badge>
+                  <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">Übung</Badge>
                 )}
               </>
             ) : (
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-muted-foreground">Kein Ereignis ausgewählt</h1>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-muted-foreground truncate">Kein Ereignis ausgewählt</h1>
             )}
           </div>
 
@@ -697,41 +696,6 @@ export default function FireStationDashboard() {
                 hasSelectedEvent={!!selectedEvent}
               />
             </div>
-          )}
-
-          {/* Mobile Burger Menu */}
-          {isMobile && (
-            <MobileNavigation hasSelectedEvent={!!selectedEvent}>
-              {/* Search */}
-              <div>
-                <label className="text-sm font-semibold text-muted-foreground mb-2 block">
-                  Suchen
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Einsätze suchen..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              {/* Time */}
-              <div>
-                <label className="text-sm font-semibold text-muted-foreground mb-2 block">
-                  Aktuelle Zeit
-                </label>
-                <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-3">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-mono text-xl font-semibold tabular-nums">
-                    {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
-                  </span>
-                </div>
-              </div>
-            </MobileNavigation>
           )}
         </header>
 
@@ -867,9 +831,9 @@ export default function FireStationDashboard() {
           )}
         </div>
 
-        <footer className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2">
+        <footer className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3 pb-20 md:pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Neuer Einsatz
