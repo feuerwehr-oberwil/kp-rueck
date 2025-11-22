@@ -379,12 +379,26 @@ async def geocode_address(street: str, house_number: str, city: str = "Oberwil",
     return None
 
 
-async def seed_training_data():
-    """Seed emergency templates and training locations with OSM geocoding."""
+async def seed_training_data(skip_geocoding: bool = False):
+    """
+    Seed emergency templates and training locations.
+
+    Args:
+        skip_geocoding: If True, skip geocoding and use approximate Oberwil center coordinates.
+                       Useful for production deployments to avoid slow OSM API calls.
+    """
     async with async_session_maker() as session:
         print("=" * 60)
         print("SEEDING TRAINING DATA")
         print("=" * 60)
+
+        # Check if templates already exist
+        from sqlalchemy import select, func
+        template_count = await session.scalar(select(func.count()).select_from(EmergencyTemplate))
+
+        if template_count > 0:
+            print(f"\n⏭️  Emergency templates already exist ({template_count} found). Skipping seed.")
+            return
 
         # Seed emergency templates
         print(f"\n📝 Seeding {len(EMERGENCY_TEMPLATES)} emergency templates...")
@@ -398,20 +412,16 @@ async def seed_training_data():
         await session.commit()
         print(f"✅ Seeded {len(EMERGENCY_TEMPLATES)} emergency templates")
 
-        # Seed training locations with geocoding
-        print(f"\n📍 Seeding and geocoding {len(TRAINING_LOCATION_SEEDS)} training locations...")
-        print("   (This may take a while - respecting OSM rate limit of 1 req/sec)")
+        # Seed training locations
+        if skip_geocoding:
+            print(f"\n📍 Seeding {len(TRAINING_LOCATION_SEEDS)} training locations (without geocoding)...")
+            print("   Using approximate Oberwil center coordinates for all locations.")
 
-        successful = 0
-        failed = 0
+            # Use Oberwil center coordinates as fallback
+            oberwil_lat = 47.51637699933488
+            oberwil_lng = 7.561800450458299
 
-        for i, (street, house_number, building_type) in enumerate(TRAINING_LOCATION_SEEDS, 1):
-            print(f"\n   [{i}/{len(TRAINING_LOCATION_SEEDS)}] Geocoding {street} {house_number}...", end=" ")
-
-            # Geocode via OpenStreetMap
-            geo_result = await geocode_address(street, house_number)
-
-            if geo_result:
+            for street, house_number, building_type in TRAINING_LOCATION_SEEDS:
                 location = TrainingLocation(
                     id=uuid4(),
                     street=street,
@@ -419,42 +429,71 @@ async def seed_training_data():
                     postal_code="4104",
                     city="Oberwil",
                     building_type=building_type,
-                    latitude=geo_result["latitude"],
-                    longitude=geo_result["longitude"],
+                    latitude=oberwil_lat,
+                    longitude=oberwil_lng,
                     is_active=True
                 )
                 session.add(location)
-                successful += 1
-                print(f"✅ ({geo_result['latitude']:.6f}, {geo_result['longitude']:.6f})")
-            else:
-                # Add without coordinates if geocoding fails
-                location = TrainingLocation(
-                    id=uuid4(),
-                    street=street,
-                    house_number=house_number,
-                    postal_code="4104",
-                    city="Oberwil",
-                    building_type=building_type,
-                    latitude=None,
-                    longitude=None,
-                    is_active=True
-                )
-                session.add(location)
-                failed += 1
-                print("⚠️  No coordinates (added anyway)")
 
-            # Respect OSM rate limit: 1 request per second
-            if i < len(TRAINING_LOCATION_SEEDS):
-                await asyncio.sleep(1.1)
+            await session.commit()
+            print(f"✅ Seeded {len(TRAINING_LOCATION_SEEDS)} training locations with default coordinates")
+        else:
+            print(f"\n📍 Seeding and geocoding {len(TRAINING_LOCATION_SEEDS)} training locations...")
+            print("   (This may take a while - respecting OSM rate limit of 1 req/sec)")
 
-        await session.commit()
+            successful = 0
+            failed = 0
+
+            for i, (street, house_number, building_type) in enumerate(TRAINING_LOCATION_SEEDS, 1):
+                print(f"\n   [{i}/{len(TRAINING_LOCATION_SEEDS)}] Geocoding {street} {house_number}...", end=" ")
+
+                # Geocode via OpenStreetMap
+                geo_result = await geocode_address(street, house_number)
+
+                if geo_result:
+                    location = TrainingLocation(
+                        id=uuid4(),
+                        street=street,
+                        house_number=house_number,
+                        postal_code="4104",
+                        city="Oberwil",
+                        building_type=building_type,
+                        latitude=geo_result["latitude"],
+                        longitude=geo_result["longitude"],
+                        is_active=True
+                    )
+                    session.add(location)
+                    successful += 1
+                    print(f"✅ ({geo_result['latitude']:.6f}, {geo_result['longitude']:.6f})")
+                else:
+                    # Add without coordinates if geocoding fails
+                    location = TrainingLocation(
+                        id=uuid4(),
+                        street=street,
+                        house_number=house_number,
+                        postal_code="4104",
+                        city="Oberwil",
+                        building_type=building_type,
+                        latitude=None,
+                        longitude=None,
+                        is_active=True
+                    )
+                    session.add(location)
+                    failed += 1
+                    print("⚠️  No coordinates (added anyway)")
+
+                # Respect OSM rate limit: 1 request per second
+                if i < len(TRAINING_LOCATION_SEEDS):
+                    await asyncio.sleep(1.1)
+
+            await session.commit()
+            print(f"✅ Training Locations:  {successful} geocoded, {failed} without coordinates")
 
         print("\n" + "=" * 60)
         print("SEEDING COMPLETE")
         print("=" * 60)
         print(f"✅ Emergency Templates: {len(EMERGENCY_TEMPLATES)}")
-        print(f"✅ Training Locations:  {successful} geocoded, {failed} without coordinates")
-        print(f"📊 Total Locations:     {successful + failed}")
+        print(f"✅ Training Locations:  {len(TRAINING_LOCATION_SEEDS)}")
         print("=" * 60)
 
 

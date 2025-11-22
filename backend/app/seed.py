@@ -587,7 +587,11 @@ async def seed_database() -> None:
     print("SEEDING TRAINING DATA")
     print("=" * 60)
     try:
-        await seed_training_data()
+        # Skip geocoding in production (Railway) to avoid slow startup
+        # Use environment-based detection for production
+        import os
+        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+        await seed_training_data(skip_geocoding=is_production)
         print("✅ Training data seeded successfully!")
     except Exception as e:
         print(f"⚠️  Warning: Training data seeding failed: {e}")
