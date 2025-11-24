@@ -13,7 +13,7 @@ import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indi
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { cn, getIncidentAge } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 interface DraggableOperationProps {
   operation: Operation
@@ -85,8 +85,11 @@ function DraggableOperationBase({
     return () => clearInterval(interval)
   }, [])
 
-  // Calculate incident age (recalculates when currentTime changes)
-  const ageInfo = getIncidentAge(operation.dispatchTime)
+  // Calculate time in current status (recalculates when currentTime changes)
+  // Use statusChangedAt if available, otherwise fall back to dispatchTime
+  const timeInStatus = operation.statusChangedAt || operation.dispatchTime
+  const minutesInStatus = Math.floor((currentTime.getTime() - timeInStatus.getTime()) / (1000 * 60))
+  const isOverOneHour = minutesInStatus >= 60
 
   useEffect(() => {
     const element = ref.current
@@ -222,11 +225,11 @@ function DraggableOperationBase({
             <span
               className={cn(
                 "font-mono text-xs",
-                ageInfo.showWarning ? "text-red-600 dark:text-red-400 font-semibold" : "text-muted-foreground"
+                isOverOneHour ? "text-red-600 dark:text-red-400 font-semibold" : "text-muted-foreground"
               )}
-              title={ageInfo.showWarning ? `Einsatz läuft seit über 2 Stunden (seit ${operation.dispatchTime.toLocaleString("de-DE")})` : undefined}
+              title={isOverOneHour ? `In diesem Status seit über 1 Stunde (seit ${timeInStatus.toLocaleString("de-DE")})` : undefined}
             >
-              {getTimeSince(operation.statusChangedAt || operation.dispatchTime)}
+              {getTimeSince(timeInStatus)}
             </span>
           </div>
 

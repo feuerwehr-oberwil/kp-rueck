@@ -21,12 +21,12 @@ interface IncidentCardProps {
   onTransfer?: () => void
 }
 
-function getTimeSince(date: Date): string {
+function getTimeSince(date: Date): { text: string; isOverOneHour: boolean } {
   const minutes = Math.floor((Date.now() - date.getTime()) / 1000 / 60)
-  if (minutes < 60) return `${minutes} Min`
+  if (minutes < 60) return { text: `${minutes} Min`, isOverOneHour: false }
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  return `${hours}h ${mins}m`
+  return { text: `${hours}h ${mins}m`, isOverOneHour: true }
 }
 
 function formatTime(date: Date): string {
@@ -114,12 +114,17 @@ export function IncidentCard({
         </div>
 
         {/* Time information */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="font-mono">
-            {formatTime(incident.created_at)} • {getTimeSince(incident.created_at)}
-          </span>
-        </div>
+        {(() => {
+          const timeSince = getTimeSince(incident.created_at)
+          return (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="font-mono">
+                {formatTime(incident.created_at)} • <span className={timeSince.isOverOneHour ? "text-red-500" : ""}>{timeSince.text}</span>
+              </span>
+            </div>
+          )
+        })()}
 
         {/* Priority badge row */}
         <div className="flex items-center gap-2">
