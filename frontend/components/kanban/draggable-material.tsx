@@ -47,11 +47,13 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          {/* Status indicator */}
+          {/* Status indicator - filled circle for available, empty circle for unavailable */}
           <div
             className={cn(
               "h-2 w-2 rounded-full flex-shrink-0",
-              material.status === "available" ? "bg-emerald-500" : "bg-zinc-500"
+              material.status === "available"
+                ? "bg-emerald-500"
+                : "border border-zinc-500 bg-transparent"
             )}
             aria-label={material.status === "available" ? "Available" : "Assigned"}
           />
