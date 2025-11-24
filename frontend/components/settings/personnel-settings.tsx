@@ -27,9 +27,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
 import { apiClient, ApiPersonnel } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { toast } from 'sonner';
 
 export function PersonnelSettings() {
   const [personnel, setPersonnel] = useState<ApiPersonnel[]>([]);
@@ -40,6 +42,9 @@ export function PersonnelSettings() {
     role: '',
     availability: 'available',
   });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [personnelToDelete, setPersonnelToDelete] = useState<ApiPersonnel | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadPersonnel();
@@ -56,16 +61,22 @@ export function PersonnelSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       if (editingPersonnel) {
         await apiClient.updatePersonnel(editingPersonnel.id, formData);
+        toast.success(`Person "${formData.name}" aktualisiert`);
       } else {
         await apiClient.createPersonnel(formData);
+        toast.success(`Person "${formData.name}" erstellt`);
       }
       await loadPersonnel();
       handleCloseDialog();
     } catch (error) {
       console.error('Failed to save personnel:', error);
+      toast.error('Fehler beim Speichern der Person');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -79,14 +90,22 @@ export function PersonnelSettings() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Sind Sie sicher, dass Sie diese Person löschen möchten?')) {
-      try {
-        await apiClient.deletePersonnel(id);
-        await loadPersonnel();
-      } catch (error) {
-        console.error('Failed to delete personnel:', error);
-      }
+  const handleDeleteClick = (person: ApiPersonnel) => {
+    setPersonnelToDelete(person);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!personnelToDelete) return;
+    try {
+      await apiClient.deletePersonnel(personnelToDelete.id);
+      await loadPersonnel();
+      toast.success(`Person "${personnelToDelete.name}" gelöscht`);
+    } catch (error) {
+      console.error('Failed to delete personnel:', error);
+      toast.error('Fehler beim Löschen der Person');
+    } finally {
+      setPersonnelToDelete(null);
     }
   };
 
@@ -196,10 +215,11 @@ export function PersonnelSettings() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
                   Abbrechen
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingPersonnel ? 'Aktualisieren' : 'Erstellen'}
                 </Button>
               </div>
@@ -248,7 +268,7 @@ export function PersonnelSettings() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(person.id)}
+                  onClick={() => handleDeleteClick(person)}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
@@ -268,6 +288,14 @@ export function PersonnelSettings() {
           />
         </TabsContent>
       </Tabs>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Person löschen"
+        description={`Sind Sie sicher, dass Sie "${personnelToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 }

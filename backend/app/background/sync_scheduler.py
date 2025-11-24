@@ -7,8 +7,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.database import get_db
+from app.logging_config import get_logger
 from app.services.sync_service import create_sync_service
 from app.services.settings import get_setting_value
+
+logger = get_logger(__name__)
 
 
 # Global scheduler instance
@@ -35,7 +38,7 @@ async def scheduled_sync():
             # Check Railway URL from database settings
             railway_url = await get_setting_value(db, "railway_database_url", "")
             if not railway_url:
-                print("Sync skipped: No Railway database URL configured in settings")
+                logger.debug("Sync skipped: No Railway database URL configured in settings")
                 return
 
             # Check if sync interval has changed
@@ -43,7 +46,7 @@ async def scheduled_sync():
             current_interval = int(interval_str)
 
             if last_interval_minutes != current_interval:
-                print(f"[{datetime.now()}] Sync interval changed from {last_interval_minutes} to {current_interval} minutes")
+                logger.info(f"Sync interval changed from {last_interval_minutes} to {current_interval} minutes")
                 last_interval_minutes = current_interval
 
                 # Reschedule the job with new interval
@@ -52,15 +55,15 @@ async def scheduled_sync():
                         'railway_sync',
                         trigger=IntervalTrigger(minutes=current_interval)
                     )
-                    print(f"[{datetime.now()}] Rescheduled sync job with {current_interval} minute interval")
+                    logger.info(f"Rescheduled sync job with {current_interval} minute interval")
 
-            print(f"[{datetime.now()}] Running scheduled bidirectional sync...")
+            logger.debug("Running scheduled bidirectional sync...")
             sync_service = await create_sync_service(db)
 
             # Check Railway health first
             railway_healthy = await sync_service.check_railway_health()
             if not railway_healthy:
-                print(f"[{datetime.now()}] Sync skipped: Railway is unreachable")
+                logger.warning("Sync skipped: Railway is unreachable")
                 return
 
             # Perform bidirectional sync
@@ -74,20 +77,17 @@ async def scheduled_sync():
             to_count = sum(to_railway.records_synced.values()) if to_railway.success else 0
 
             if from_railway.success and to_railway.success:
-                print(
-                    f"[{datetime.now()}] Bidirectional sync completed: "
-                    f"{from_count} from Railway, {to_count} to Railway"
-                )
+                logger.info(f"Bidirectional sync completed: {from_count} from Railway, {to_count} to Railway")
             else:
                 errors = []
                 if not from_railway.success:
                     errors.append(f"FROM Railway: {from_railway.errors}")
                 if not to_railway.success:
                     errors.append(f"TO Railway: {to_railway.errors}")
-                print(f"[{datetime.now()}] Sync had errors: {'; '.join(errors)}")
+                logger.error(f"Sync had errors: {'; '.join(errors)}")
 
         except Exception as e:
-            print(f"[{datetime.now()}] Sync error: {e}")
+            logger.error(f"Sync error: {e}")
         finally:
             break  # Only use one session
 
@@ -105,7 +105,7 @@ def start_sync_scheduler():
     # Always start scheduler - Railway URL will be checked from database at runtime
     # Initialize with config default (will be updated on first sync if database setting differs)
     last_interval_minutes = settings.sync_interval_minutes
-    print(f"Starting sync scheduler (initial interval: {settings.sync_interval_minutes} minutes)...")
+    logger.info(f"Starting sync scheduler (initial interval: {settings.sync_interval_minutes} minutes)")
 
     scheduler = AsyncIOScheduler()
 
@@ -119,7 +119,7 @@ def start_sync_scheduler():
     )
 
     scheduler.start()
-    print(f"Sync scheduler started (syncing every {settings.sync_interval_minutes} minutes)")
+    logger.info(f"Sync scheduler started (syncing every {settings.sync_interval_minutes} minutes)")
 
 
 def stop_sync_scheduler():
@@ -131,6 +131,6 @@ def stop_sync_scheduler():
     global scheduler
 
     if scheduler and scheduler.running:
-        print("Stopping sync scheduler...")
+        logger.info("Stopping sync scheduler...")
         scheduler.shutdown(wait=True)
-        print("Sync scheduler stopped")
+        logger.info("Sync scheduler stopped")

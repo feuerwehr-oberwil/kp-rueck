@@ -27,9 +27,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
 import { apiClient, ApiMaterialResource } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { toast } from 'sonner';
 
 export function MaterialSettings() {
   const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
@@ -40,6 +42,9 @@ export function MaterialSettings() {
     status: 'available',
     location: '',
   });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [materialToDelete, setMaterialToDelete] = useState<ApiMaterialResource | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadMaterials();
@@ -56,16 +61,22 @@ export function MaterialSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       if (editingMaterial) {
         await apiClient.updateMaterialResource(editingMaterial.id, formData);
+        toast.success(`Material "${formData.name}" aktualisiert`);
       } else {
         await apiClient.createMaterialResource(formData);
+        toast.success(`Material "${formData.name}" erstellt`);
       }
       await loadMaterials();
       handleCloseDialog();
     } catch (error) {
       console.error('Failed to save material:', error);
+      toast.error('Fehler beim Speichern des Materials');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -79,14 +90,22 @@ export function MaterialSettings() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Sind Sie sicher, dass Sie dieses Material löschen möchten?')) {
-      try {
-        await apiClient.deleteMaterialResource(id);
-        await loadMaterials();
-      } catch (error) {
-        console.error('Failed to delete material:', error);
-      }
+  const handleDeleteClick = (material: ApiMaterialResource) => {
+    setMaterialToDelete(material);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!materialToDelete) return;
+    try {
+      await apiClient.deleteMaterialResource(materialToDelete.id);
+      await loadMaterials();
+      toast.success(`Material "${materialToDelete.name}" gelöscht`);
+    } catch (error) {
+      console.error('Failed to delete material:', error);
+      toast.error('Fehler beim Löschen des Materials');
+    } finally {
+      setMaterialToDelete(null);
     }
   };
 
@@ -210,10 +229,11 @@ export function MaterialSettings() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
                   Abbrechen
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingMaterial ? 'Aktualisieren' : 'Erstellen'}
                 </Button>
               </div>
@@ -266,7 +286,7 @@ export function MaterialSettings() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(material.id)}
+                  onClick={() => handleDeleteClick(material)}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
@@ -286,6 +306,14 @@ export function MaterialSettings() {
           />
         </TabsContent>
       </Tabs>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Material löschen"
+        description={`Sind Sie sicher, dass Sie das Material "${materialToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 }

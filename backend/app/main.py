@@ -8,6 +8,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
 
+from .logging_config import setup_logging, get_logger
+
+# Setup logging early
+setup_logging(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    json_format=os.getenv("LOG_FORMAT", "").lower() == "json",
+)
+
+logger = get_logger(__name__)
+
 from .api import routes
 from .websocket_manager import sio as socket_server
 from .api.admin import router as admin_router
@@ -42,52 +52,52 @@ from .services.settings import initialize_default_settings
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events."""
-    print("Starting application...")
+    logger.info("Starting application...")
 
     # Startup: Create tables
-    print("Creating database tables...")
+    logger.info("Creating database tables...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("Database tables created.")
+    logger.info("Database tables created")
 
     # Initialize default settings
-    print("Initializing default settings...")
+    logger.info("Initializing default settings...")
     async for db in get_db():
         try:
             await initialize_default_settings(db)
-            print("Default settings initialized.")
+            logger.info("Default settings initialized")
         except Exception as e:
-            print(f"Warning: Default settings initialization failed: {e}")
+            logger.warning(f"Default settings initialization failed: {e}")
         finally:
             break  # Only need one session
 
     # Seed database if requested
     if os.getenv("SEED_DATABASE", "").lower() == "true":
-        print("Seeding database...")
+        logger.info("Seeding database...")
         try:
             await seed_database()
         except Exception as e:
-            print(f"Warning: Database seeding failed: {e}")
+            logger.warning(f"Database seeding failed: {e}")
 
     # Start background sync scheduler
-    print("Starting background sync scheduler...")
+    logger.info("Starting background sync scheduler...")
     try:
         start_sync_scheduler()
     except Exception as e:
-        print(f"Warning: Sync scheduler failed to start: {e}")
+        logger.warning(f"Sync scheduler failed to start: {e}")
 
-    print("Application startup complete.")
+    logger.info("Application startup complete")
     yield
 
     # Shutdown: Stop sync scheduler
-    print("Stopping sync scheduler...")
+    logger.info("Stopping sync scheduler...")
     try:
         stop_sync_scheduler()
     except Exception as e:
-        print(f"Warning: Sync scheduler shutdown failed: {e}")
+        logger.warning(f"Sync scheduler shutdown failed: {e}")
 
     # Shutdown: Dispose engine
-    print("Shutting down...")
+    logger.info("Shutting down...")
     await engine.dispose()
 
 

@@ -26,8 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
 import { apiClient, ApiVehicle } from '@/lib/api-client';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { toast } from 'sonner';
 
 export function VehicleSettings() {
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
@@ -40,6 +42,9 @@ export function VehicleSettings() {
     status: 'available',
     radio_call_sign: '',
   });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [vehicleToDelete, setVehicleToDelete] = useState<ApiVehicle | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadVehicles();
@@ -59,16 +64,22 @@ export function VehicleSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       if (editingVehicle) {
         await apiClient.updateVehicle(editingVehicle.id, formData);
+        toast.success(`Fahrzeug "${formData.name}" aktualisiert`);
       } else {
         await apiClient.createVehicle(formData);
+        toast.success(`Fahrzeug "${formData.name}" erstellt`);
       }
       await loadVehicles();
       handleCloseDialog();
     } catch (error) {
       console.error('Failed to save vehicle:', error);
+      toast.error('Fehler beim Speichern des Fahrzeugs');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -84,14 +95,22 @@ export function VehicleSettings() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Sind Sie sicher, dass Sie dieses Fahrzeug löschen möchten?')) {
-      try {
-        await apiClient.deleteVehicle(id);
-        await loadVehicles();
-      } catch (error) {
-        console.error('Failed to delete vehicle:', error);
-      }
+  const handleDeleteClick = (vehicle: ApiVehicle) => {
+    setVehicleToDelete(vehicle);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!vehicleToDelete) return;
+    try {
+      await apiClient.deleteVehicle(vehicleToDelete.id);
+      await loadVehicles();
+      toast.success(`Fahrzeug "${vehicleToDelete.name}" gelöscht`);
+    } catch (error) {
+      console.error('Failed to delete vehicle:', error);
+      toast.error('Fehler beim Löschen des Fahrzeugs');
+    } finally {
+      setVehicleToDelete(null);
     }
   };
 
@@ -197,10 +216,11 @@ export function VehicleSettings() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
                   Abbrechen
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingVehicle ? 'Aktualisieren' : 'Erstellen'}
                 </Button>
               </div>
@@ -253,7 +273,7 @@ export function VehicleSettings() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDelete(vehicle.id)}
+                    onClick={() => handleDeleteClick(vehicle)}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
@@ -262,6 +282,14 @@ export function VehicleSettings() {
             ))}
         </TableBody>
       </Table>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Fahrzeug löschen"
+        description={`Sind Sie sicher, dass Sie das Fahrzeug "${vehicleToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 }

@@ -33,6 +33,7 @@ import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { CommandPalette } from "@/components/ui/command-palette"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
 import { KanbanLoading } from "@/components/kanban/kanban-loading"
@@ -114,6 +115,8 @@ export default function FireStationDashboard() {
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [vehicleStatusSheetOpen, setVehicleStatusSheetOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -423,19 +426,13 @@ export default function FireStationDashboard() {
         refreshOperations()
         toast.success("Daten aktualisiert")
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Delete hovered operation with confirmation
+        // Delete hovered operation with confirmation dialog
         if (hoveredOperationId) {
           const operation = operations.find(op => op.id === hoveredOperationId)
           if (operation) {
             e.preventDefault()
-            if (confirm(`Einsatz "${operation.location}" wirklich löschen?`)) {
-              deleteOperation(hoveredOperationId).then(() => {
-                toast.success("Einsatz gelöscht")
-              }).catch((error) => {
-                console.error('Failed to delete operation:', error)
-                toast.error("Fehler beim Löschen")
-              })
-            }
+            setOperationToDelete(operation)
+            setDeleteDialogOpen(true)
           }
         }
       }
@@ -629,6 +626,20 @@ export default function FireStationDashboard() {
   const assignedResources = assignmentOperationId
     ? getAssignedResourcesForOperation(assignmentOperationId)
     : { assignedPersonnel: [], assignedVehicles: [], assignedMaterials: [] }
+
+  // Handle operation deletion from keyboard shortcut
+  const handleDeleteOperationConfirm = async () => {
+    if (!operationToDelete) return
+    try {
+      await deleteOperation(operationToDelete.id)
+      toast.success("Einsatz gelöscht")
+    } catch (error) {
+      console.error('Failed to delete operation:', error)
+      toast.error("Fehler beim Löschen")
+    } finally {
+      setOperationToDelete(null)
+    }
+  }
 
   // Don't render drag and drop until client-side to avoid hydration errors
   if (!isMounted) {
@@ -1065,6 +1076,15 @@ export default function FireStationDashboard() {
         open={vehicleStatusSheetOpen}
         onOpenChange={setVehicleStatusSheetOpen}
         eventId={selectedEvent?.id || null}
+      />
+
+      {/* Delete Operation Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Einsatz löschen"
+        description={`Sind Sie sicher, dass Sie den Einsatz "${operationToDelete?.location}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        onConfirm={handleDeleteOperationConfirm}
       />
 
       {/* Mobile Bottom Navigation */}

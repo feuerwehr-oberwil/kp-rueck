@@ -8,8 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from app.config import settings
+from app.logging_config import get_logger
 from app.models import Event, Incident, Material, Personnel, Setting, SyncLog, Vehicle
 from app.schemas import Delta, SyncDirection, SyncResult, SyncStatus
+
+logger = get_logger(__name__)
 
 
 class SyncService:
@@ -89,7 +92,7 @@ class SyncService:
                 await conn.execute(select(1))
             return True
         except Exception as e:
-            print(f"Railway health check failed: {e}")
+            logger.warning(f"Railway health check failed: {e}")
             return False
 
     async def get_last_sync_time(self, direction: SyncDirection) -> Optional[datetime]:
@@ -176,7 +179,7 @@ class SyncService:
                     delta.total_records += len(records_data)
 
                 except Exception as e:
-                    print(f"Error fetching delta for {table_name}: {e}")
+                    logger.error(f"Error fetching delta for {table_name}: {e}")
 
         return delta
 
@@ -271,10 +274,10 @@ class SyncService:
 
                     except IntegrityError as ie:
                         # Savepoint automatically rolls back, other records unaffected
-                        print(f"Skipping record {record_id} in {table_name} due to integrity constraint: {str(ie)[:200]}")
+                        logger.debug(f"Skipping record {record_id} in {table_name} due to integrity constraint: {str(ie)[:200]}")
                         continue
                     except Exception as e:
-                        print(f"Error applying record {record_id} to {table_name}: {e}")
+                        logger.error(f"Error applying record {record_id} to {table_name}: {e}")
                         continue
 
             applied_counts[table_name] = count
@@ -498,6 +501,7 @@ class SyncService:
                                 count += 1
 
                         except Exception as e:
+                            logger.error(f"Error pushing record {record_id} to {table_name}: {e}")
                             errors.append(f"Error pushing record {record_id} to {table_name}: {str(e)}")
 
                     pushed_counts[table_name] = count
