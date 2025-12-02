@@ -60,12 +60,11 @@ async def get_event_stats(
 
     # Get personnel availability (only checked-in personnel for this event)
     # Find all personnel who are checked in for this event
-    from ..models import PersonnelCheckIn
     checked_in_result = await db.execute(
-        select(PersonnelCheckIn.personnel_id).where(
-            PersonnelCheckIn.event_id == event_id,
-            PersonnelCheckIn.checked_in == True,
-            PersonnelCheckIn.checked_out_at.is_(None),
+        select(models.EventAttendance.personnel_id).where(
+            models.EventAttendance.event_id == event_id,
+            models.EventAttendance.checked_in == True,
+            models.EventAttendance.checked_out_at.is_(None),
         )
     )
     checked_in_personnel_ids = [row[0] for row in checked_in_result.all()]
