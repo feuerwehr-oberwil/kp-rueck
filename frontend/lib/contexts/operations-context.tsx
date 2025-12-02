@@ -18,6 +18,7 @@ export interface Person {
   role: PersonRole
   status: PersonStatus
   tags?: string[]
+  isReko?: boolean  // Reko personnel can be assigned to multiple incidents
 }
 
 export type OperationStatus = "incoming" | "ready" | "enroute" | "active" | "returning" | "complete"
@@ -293,6 +294,27 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       const assignedPersonIds = new Set<string>()
       const assignedMaterialIds = new Set<string>()
 
+      // First, identify reko personnel so they can be assigned to multiple incidents
+      let rekoPersonnelIds = new Set<string>()
+      try {
+        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+        // Collect reko personnel IDs - they can be assigned to multiple incidents
+        specialFunctions
+          .filter(func => func.function_type === 'reko')
+          .forEach(func => {
+            rekoPersonnelIds.add(func.personnel_id)
+          })
+        // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
+        specialFunctions
+          .filter(func => func.function_type !== 'reko')
+          .forEach(func => {
+            assignedPersonIds.add(func.personnel_id)
+          })
+      } catch (error) {
+        console.error('Failed to load special functions for personnel status:', error)
+      }
+
+      // Process incident crews - all personnel (including reko) get marked as assigned
       operations.forEach(operation => {
         operation.crew.forEach(crewName => {
           const person = personnelList.find(p => p.name === crewName)
@@ -305,23 +327,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         })
       })
 
-      // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
-      // Reko personnel remain available - they can investigate multiple incidents
-      try {
-        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        specialFunctions
-          .filter(func => func.function_type !== 'reko')
-          .forEach(func => {
-            assignedPersonIds.add(func.personnel_id)
-          })
-      } catch (error) {
-        console.error('Failed to load special functions for personnel status:', error)
-      }
-
       // Update personnel/material status based on event-scoped assignments
+      // Reko personnel are marked with isReko flag so they can still be dragged when assigned
       const eventScopedPersonnel = personnelList.map(person => ({
         ...person,
-        status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus
+        status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
+        isReko: rekoPersonnelIds.has(person.id)
       }))
 
       const eventScopedMaterials = materialsList.map(material => ({
@@ -472,6 +483,27 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const assignedPersonIds = new Set<string>()
         const assignedMaterialIds = new Set<string>()
 
+        // First, identify reko personnel so they can be assigned to multiple incidents
+        let rekoPersonnelIds = new Set<string>()
+        try {
+          const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+          // Collect reko personnel IDs - they can be assigned to multiple incidents
+          specialFunctions
+            .filter(func => func.function_type === 'reko')
+            .forEach(func => {
+              rekoPersonnelIds.add(func.personnel_id)
+            })
+          // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
+          specialFunctions
+            .filter(func => func.function_type !== 'reko')
+            .forEach(func => {
+              assignedPersonIds.add(func.personnel_id)
+            })
+        } catch (error) {
+          console.error('Failed to load special functions for personnel status:', error)
+        }
+
+        // Process incident crews - all personnel (including reko) get marked as assigned
         operations.forEach(operation => {
           operation.crew.forEach(crewName => {
             const person = personnelList.find(p => p.name === crewName)
@@ -484,23 +516,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         })
 
-        // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
-        // Reko personnel remain available - they can investigate multiple incidents
-        try {
-          const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-          specialFunctions
-            .filter(func => func.function_type !== 'reko')
-            .forEach(func => {
-              assignedPersonIds.add(func.personnel_id)
-            })
-        } catch (error) {
-          console.error('Failed to load special functions for personnel status:', error)
-        }
-
         // Update personnel status based on event-scoped assignments
+        // Reko personnel are marked with isReko flag so they can still be dragged when assigned
         const eventScopedPersonnel = personnelList.map(person => ({
           ...person,
-          status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus
+          status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
+          isReko: rekoPersonnelIds.has(person.id)
         }))
 
         // Update material status based on event-scoped assignments
@@ -906,7 +927,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
-    if (!operation || !person || person.status === "assigned" || operation.crew.includes(personName)) {
+    // Block assignment if:
+    // - Operation or person not found
+    // - Person is already assigned AND is not a reko (reko can be on multiple incidents)
+    // - Person is already on this operation's crew
+    if (!operation || !person || (person.status === "assigned" && !person.isReko) || operation.crew.includes(personName)) {
       return
     }
 

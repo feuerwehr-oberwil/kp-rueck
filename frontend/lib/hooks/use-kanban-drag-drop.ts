@@ -63,7 +63,8 @@ export function useKanbanDragDrop({
           const person = sourceData.person as Person
           const operationId = destData.operationId as string
 
-          if (person.status === "available") {
+          // Allow assignment if available OR if reko (reko can be on multiple incidents)
+          if (person.status === "available" || person.isReko) {
             assignPersonToOperation(person.id, person.name, operationId)
           }
         }

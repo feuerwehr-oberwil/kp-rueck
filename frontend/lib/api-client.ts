@@ -1007,10 +1007,13 @@ class ApiClient {
     )
   }
 
-  async getRekoForm(incidentId: string, token: string, reportId?: string | null): Promise<ApiRekoFormResponse> {
+  async getRekoForm(incidentId: string, token: string, personnelId?: string | null): Promise<ApiRekoFormResponse> {
     const params = new URLSearchParams()
     params.append('incident_id', incidentId)
     params.append('token', token)
+    if (personnelId) {
+      params.append('personnel_id', personnelId)
+    }
 
     return this.request<ApiRekoFormResponse>(`/api/reko/form?${params.toString()}`)
   }

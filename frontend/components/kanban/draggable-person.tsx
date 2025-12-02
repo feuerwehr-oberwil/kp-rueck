@@ -23,7 +23,8 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
   const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
   const { selectedEvent } = useEvent()
 
-  const canDrag = !disabled && person.status === "available"
+  // Reko personnel can be dragged even when assigned (they can be on multiple incidents)
+  const canDrag = !disabled && (person.status === "available" || person.isReko)
 
   // Load special functions for this person
   useEffect(() => {
@@ -122,6 +123,9 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
           "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:shadow-md hover:bg-card",
           canDrag && "draggable",
           isDragging && "dragging",
+          // Assigned reko personnel: dimmed but still draggable
+          canDrag && person.isReko && person.status === "assigned" && "opacity-60",
+          // Non-reko assigned personnel: not draggable
           !canDrag && person.status === "assigned" && "cursor-not-allowed opacity-60",
           !canDrag && person.status !== "assigned" && "cursor-pointer"
         )}

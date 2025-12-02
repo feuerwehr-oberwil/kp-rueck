@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle2, AlertCircle, Send, Loader2, MapPin, Info } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Send, Loader2, MapPin, Info, Binoculars } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
@@ -54,6 +54,7 @@ export default function RekoForm() {
 
   const incidentId = searchParams.get('incident_id')
   const token = searchParams.get('token')
+  const personnelId = searchParams.get('personnel_id')
 
   const [formData, setFormData] = useState<RekoFormData>(INITIAL_FORM_DATA)
   const [incidentTitle, setIncidentTitle] = useState<string>('')
@@ -62,6 +63,7 @@ export default function RekoForm() {
     type?: string
     description?: string
   }>({})
+  const [assignedPersonnelName, setAssignedPersonnelName] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -154,7 +156,7 @@ export default function RekoForm() {
 
       try {
         // Load incident details and existing draft/report
-        const data = await apiClient.getRekoForm(incidentId, token)
+        const data = await apiClient.getRekoForm(incidentId, token, personnelId)
 
         setIncidentTitle(data.incident_title || 'Unbekannt')
         setIncidentDetails({
@@ -162,6 +164,9 @@ export default function RekoForm() {
           type: data.incident_type || undefined,
           description: data.incident_description || undefined
         })
+
+        // Set assigned personnel name if available
+        setAssignedPersonnelName(data.submitted_by_personnel_name || null)
 
         // NOTE: When backend is implemented, the getRekoForm response should include
         // the event's training_flag so we can enable training features
@@ -188,7 +193,7 @@ export default function RekoForm() {
     }
 
     init()
-  }, [incidentId, token])
+  }, [incidentId, token, personnelId])
 
   // Auto-save draft every 30 seconds
   useEffect(() => {
@@ -290,10 +295,18 @@ export default function RekoForm() {
       {/* Incident Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-            {incidentDetails.location || incidentTitle}
-          </CardTitle>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              {incidentDetails.location || incidentTitle}
+            </CardTitle>
+            {assignedPersonnelName && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                <Binoculars className="h-4 w-4" />
+                <span>{assignedPersonnelName}</span>
+              </div>
+            )}
+          </div>
           {incidentDetails.type && (
             <CardDescription className="capitalize">
               {incidentDetails.type.replace(/_/g, ' ')}
