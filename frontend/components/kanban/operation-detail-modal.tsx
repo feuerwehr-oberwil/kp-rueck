@@ -377,6 +377,18 @@ export function OperationDetailModal({
               className="mt-2"
             />
           </div>
+
+          {/* Internal Notes */}
+          <div>
+            <Label htmlFor="internalNotes" className="text-sm font-semibold text-muted-foreground">Notizen</Label>
+            <Textarea
+              id="internalNotes"
+              placeholder="Interne Notizen..."
+              value={operation.internalNotes}
+              onChange={(e) => onUpdate({ internalNotes: e.target.value })}
+              className="mt-2 min-h-[80px]"
+            />
+          </div>
           </div>
 
           {/* Right Column - External Info */}

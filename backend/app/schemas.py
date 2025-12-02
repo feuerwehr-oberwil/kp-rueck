@@ -463,6 +463,8 @@ class IncidentBase(BaseModel):
     location_lng: Optional[Union[str, Decimal]] = None
     status: IncidentStatus = IncidentStatus.EINGEGANGEN
     description: Optional[str] = None
+    contact: Optional[str] = None
+    internal_notes: Optional[str] = None
 
     @field_validator('title')
     @classmethod
@@ -530,6 +532,8 @@ class IncidentUpdate(BaseModel):
     location_lng: Optional[Union[str, Decimal]] = None
     status: Optional[IncidentStatus] = None
     description: Optional[str] = None
+    contact: Optional[str] = None
+    internal_notes: Optional[str] = None
     # training_flag intentionally excluded (use separate endpoint)
 
 

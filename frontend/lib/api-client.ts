@@ -237,6 +237,8 @@ export interface ApiIncident {
   location_lng: string | null  // Decimal as string
   status: IncidentStatus
   description: string | null
+  contact: string | null
+  internal_notes: string | null
   created_at: string
   updated_at: string
   created_by: string | null // UUID
@@ -256,6 +258,8 @@ export interface ApiIncidentCreate {
   location_lng?: string | null
   status?: IncidentStatus
   description?: string | null
+  contact?: string | null
+  internal_notes?: string | null
 }
 
 export interface ApiIncidentUpdate {
@@ -267,6 +271,8 @@ export interface ApiIncidentUpdate {
   location_lng?: string | null
   status?: IncidentStatus
   description?: string | null
+  contact?: string | null
+  internal_notes?: string | null
 }
 
 export interface ApiStatusTransition {

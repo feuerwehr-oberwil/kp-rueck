@@ -292,6 +292,8 @@ class Incident(Base):
     location_lng: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="eingegangen")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    contact: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Reporter/contact info
+    internal_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Internal notes
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

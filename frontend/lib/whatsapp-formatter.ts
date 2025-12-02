@@ -38,6 +38,11 @@ export function formatWhatsAppMessage({ operation, materials, rekoReport, vehicl
     lines.push(`☎️ ${operation.contact}`)
   }
 
+  // Internal Notes
+  if (operation.internalNotes && operation.internalNotes.trim()) {
+    lines.push(`📋 ${operation.internalNotes}`)
+  }
+
   lines.push('') // Separator after header
 
   // === ASSIGNMENTS SECTION ===

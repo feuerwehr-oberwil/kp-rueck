@@ -45,6 +45,7 @@ export interface Operation {
   materials: string[]
   notes: string
   contact: string
+  internalNotes: string
   statusChangedAt: Date | null // Timestamp when the operation moved to its current status
   hasCompletedReko: boolean // Whether a completed (non-draft) reko report exists
   rekoSummary: RekoSummary | null // Summary of reko report for card display
@@ -165,7 +166,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         : [47.51637699933488, 7.561800450458299],
       materials: [], // Will be populated from assignments
       notes: incident.description || "",
-      contact: "", // Not in incident schema
+      contact: incident.contact || "",
+      internalNotes: incident.internal_notes || "",
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoSummary: null, // Will be populated from reko reports API
@@ -761,7 +763,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           apiUpdates.location_lng = batchedUpdates.coordinates[1]?.toString()
         }
         if (batchedUpdates.notes !== undefined) apiUpdates.description = batchedUpdates.notes
-        // Note: vehicle, crew, materials, contact, and dispatchTime are not part of the incident update API
+        if (batchedUpdates.contact !== undefined) apiUpdates.contact = batchedUpdates.contact
+        if (batchedUpdates.internalNotes !== undefined) apiUpdates.internal_notes = batchedUpdates.internalNotes
+        // Note: vehicle, crew, materials, and dispatchTime are not part of the incident update API
         // These are handled separately through assignment APIs or are legacy fields
 
         try {
@@ -832,6 +836,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           location_lng: operation.coordinates[1]?.toString(),
           status: "eingegangen" as const, // Always start as eingegangen
           description: operation.notes || null,
+          contact: operation.contact || null,
+          internal_notes: operation.internalNotes || null,
         }
 
         const apiIncident = await apiClient.createIncident(incidentData)
@@ -852,7 +858,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             : operation.coordinates,
           materials: [],
           notes: apiIncident.description || "",
-          contact: operation.contact,
+          contact: apiIncident.contact || "",
+          internalNotes: apiIncident.internal_notes || "",
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false, // New incidents don't have reko reports yet
           rekoSummary: null, // New incidents don't have reko reports yet

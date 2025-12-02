@@ -311,10 +311,10 @@ function DraggableOperationBase({
             <div className="border-t pt-2 mt-2 space-y-1.5">
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
-                  <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1">
                     {operation.rekoSummary.dangerTypes.map((danger, idx) => (
-                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0 animate-scale-in">
+                      <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0">
                         {danger}
                       </Badge>
                     ))}
@@ -324,10 +324,10 @@ function DraggableOperationBase({
 
               <div className="text-xs text-muted-foreground">
                 {operation.rekoSummary.personnelCount && (
-                  <span className="mr-3">👥 {operation.rekoSummary.personnelCount} Pers.</span>
+                  <span className="mr-3">{operation.rekoSummary.personnelCount} Pers.</span>
                 )}
                 {operation.rekoSummary.estimatedDuration && (
-                  <span>⏱️ {operation.rekoSummary.estimatedDuration}h</span>
+                  <span>{operation.rekoSummary.estimatedDuration}h</span>
                 )}
               </div>
             </div>
