@@ -20,6 +20,7 @@ import { Copy, Check, Loader2, Binoculars } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
+import { useEvent } from '@/lib/contexts/event-context'
 
 interface RekoQRCodeProps {
   incidentId: string
@@ -30,12 +31,11 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showPersonnelPicker, setShowPersonnelPicker] = useState(false)
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>('')
+  const [rekoPersonnel, setRekoPersonnel] = useState<Array<{ id: string; name: string; role?: string }>>([])
   const { personnel } = useOperations()
+  const { selectedEvent } = useEvent()
 
-  // Get personnel (the list is already filtered to checked-in personnel for the current event)
-  const availablePersonnel = personnel
-
-  async function copyLinkToClipboard(personnelId?: string) {
+  async function copyLinkToClipboard(personnelId: string) {
     setIsLoading(true)
     try {
       const response = await apiClient.generateRekoLink(incidentId, personnelId)
@@ -44,9 +44,7 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
       await navigator.clipboard.writeText(fullUrl)
       setCopied(true)
 
-      const selectedPerson = personnelId
-        ? personnel.find(p => p.id === personnelId)
-        : null
+      const selectedPerson = personnel.find(p => p.id === personnelId)
 
       toast.success('Reko-Link kopiert', {
         description: selectedPerson
@@ -65,21 +63,63 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     }
   }
 
-  function handleButtonClick() {
-    if (availablePersonnel.length > 0) {
+  async function handleButtonClick() {
+    if (!selectedEvent) {
+      toast.error('Kein Event ausgewählt')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // Fetch special functions to find reko personnel
+      const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+      const rekoFunctions = specialFunctions.filter(f => f.function_type === 'reko')
+
+      if (rekoFunctions.length === 0) {
+        toast.error('Keine Reko-Person zugewiesen', {
+          description: 'Bitte zuerst eine Person als Reko markieren (Rechtsklick auf Person → Reko)'
+        })
+        setIsLoading(false)
+        return
+      }
+
+      // Map to personnel with names
+      const rekoPersonnelList = rekoFunctions
+        .map(f => {
+          const person = personnel.find(p => p.id === f.personnel_id)
+          return person ? { id: person.id, name: person.name, role: person.role } : null
+        })
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+
+      if (rekoPersonnelList.length === 0) {
+        toast.error('Reko-Personen nicht gefunden', {
+          description: 'Die zugewiesenen Reko-Personen sind nicht mehr eingecheckt'
+        })
+        setIsLoading(false)
+        return
+      }
+
+      // If only one reko person, use them directly
+      if (rekoPersonnelList.length === 1) {
+        await copyLinkToClipboard(rekoPersonnelList[0].id)
+        return
+      }
+
+      // Multiple reko personnel - show picker
+      setRekoPersonnel(rekoPersonnelList)
       setShowPersonnelPicker(true)
-    } else {
-      // No personnel available, generate link without personnel
-      copyLinkToClipboard()
+    } catch (error) {
+      console.error('Failed to load reko personnel:', error)
+      toast.error('Fehler beim Laden der Reko-Personen')
+    } finally {
+      setIsLoading(false)
     }
   }
 
   function handleConfirm() {
-    copyLinkToClipboard(selectedPersonnelId || undefined)
-  }
-
-  function handleSkip() {
-    copyLinkToClipboard()
+    if (selectedPersonnelId) {
+      copyLinkToClipboard(selectedPersonnelId)
+    }
   }
 
   return (
@@ -108,17 +148,17 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
               Reko-Person auswählen
             </DialogTitle>
             <DialogDescription>
-              Wer geht auf Reko? Diese Information wird im Reko-Bericht gespeichert.
+              Welche Reko-Person geht zu diesem Einsatz?
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <Select value={selectedPersonnelId} onValueChange={setSelectedPersonnelId}>
               <SelectTrigger>
-                <SelectValue placeholder="Person auswählen..." />
+                <SelectValue placeholder="Reko-Person auswählen..." />
               </SelectTrigger>
               <SelectContent>
-                {availablePersonnel.map((person) => (
+                {rekoPersonnel.map((person) => (
                   <SelectItem key={person.id} value={person.id}>
                     {person.name}
                     {person.role && (
@@ -129,14 +169,7 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
               </SelectContent>
             </Select>
 
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={handleSkip}
-                disabled={isLoading}
-              >
-                Überspringen
-              </Button>
+            <div className="flex justify-end">
               <Button
                 onClick={handleConfirm}
                 disabled={!selectedPersonnelId || isLoading}
