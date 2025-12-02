@@ -274,8 +274,8 @@ export function OperationDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!w-[90vw] !h-[85vh] !max-w-none sm:!max-w-none !pb-2 overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="!w-[90vw] !h-[85vh] !max-w-none sm:!max-w-none !pb-2 flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-2xl flex items-center gap-3">
             <MapPin className="h-6 w-6 text-primary" />
             {operation.location ? formatLocation(operation.location) : "Einsatz-Details"}
@@ -285,6 +285,7 @@ export function OperationDetailModal({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 overflow-y-auto min-h-0">
         <div className="grid grid-cols-2 gap-6 py-4">
           {/* Left Column - Entry Fields */}
           <div className="space-y-6">
@@ -586,9 +587,10 @@ export function OperationDetailModal({
           </div>
           </div>
         </div>
+        </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 pt-6 mt-6 border-t">
+        {/* Actions - Fixed Footer */}
+        <div className="flex-shrink-0 flex items-center gap-3 pt-4 mt-4 border-t">
           <Button
             variant="destructive"
             onClick={() => setShowDeleteConfirm(true)}
