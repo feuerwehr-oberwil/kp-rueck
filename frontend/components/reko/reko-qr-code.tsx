@@ -32,8 +32,12 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   const [showPersonnelPicker, setShowPersonnelPicker] = useState(false)
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>('')
   const [rekoPersonnel, setRekoPersonnel] = useState<Array<{ id: string; name: string; role?: string }>>([])
-  const { personnel } = useOperations()
+  const { personnel, operations } = useOperations()
   const { selectedEvent } = useEvent()
+
+  // Get the current incident's crew
+  const incident = operations.find(op => op.id === incidentId)
+  const incidentCrew = incident?.crew || []
 
   async function copyLinkToClipboard(personnelId: string) {
     setIsLoading(true)
@@ -99,7 +103,26 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
         return
       }
 
-      // If only one reko person, use them directly
+      // Check if any reko person is already assigned to this incident
+      const assignedRekoPersonnel = rekoPersonnelList.filter(rekoPerson =>
+        incidentCrew.includes(rekoPerson.name)
+      )
+
+      // If a reko person is already assigned to the incident, use them directly
+      if (assignedRekoPersonnel.length === 1) {
+        await copyLinkToClipboard(assignedRekoPersonnel[0].id)
+        return
+      }
+
+      // If multiple reko people are assigned to this incident, let user pick from them
+      if (assignedRekoPersonnel.length > 1) {
+        setRekoPersonnel(assignedRekoPersonnel)
+        setShowPersonnelPicker(true)
+        return
+      }
+
+      // No reko person assigned to incident yet - show all reko personnel
+      // If only one reko person total, use them directly
       if (rekoPersonnelList.length === 1) {
         await copyLinkToClipboard(rekoPersonnelList[0].id)
         return
