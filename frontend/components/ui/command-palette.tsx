@@ -33,6 +33,7 @@ import {
   Keyboard,
   Edit,
   Trash2,
+  Truck,
 } from "lucide-react"
 
 interface CommandPaletteProps {
@@ -41,6 +42,7 @@ interface CommandPaletteProps {
   onRefresh?: () => void
   onToggleLeftSidebar?: () => void
   onToggleRightSidebar?: () => void
+  onToggleVehicleStatus?: () => void
 }
 
 export function CommandPalette({
@@ -49,6 +51,7 @@ export function CommandPalette({
   onRefresh,
   onToggleLeftSidebar,
   onToggleRightSidebar,
+  onToggleVehicleStatus,
 }: CommandPaletteProps) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
@@ -111,6 +114,13 @@ export function CommandPalette({
                   <Plus className="mr-2 h-4 w-4" />
                   <span>Neuer Einsatz</span>
                   <span className="ml-auto text-xs text-muted-foreground">N</span>
+                </CommandItem>
+              )}
+              {onToggleVehicleStatus && (
+                <CommandItem onSelect={() => runCommand(onToggleVehicleStatus)}>
+                  <Truck className="mr-2 h-4 w-4" />
+                  <span>Fahrzeugstatus anzeigen</span>
+                  <span className="ml-auto text-xs text-muted-foreground">F</span>
                 </CommandItem>
               )}
               {onRefresh && (

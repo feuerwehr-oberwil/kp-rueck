@@ -13,7 +13,7 @@ from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..database import get_db
-from ..websocket_manager import broadcast_message
+from ..websocket_manager import broadcast_message, broadcast_incident_update
 
 logger = logging.getLogger(__name__)
 
@@ -298,14 +298,11 @@ async def attach_emergency_to_event(
     # Convert to response schema
     incident_response = schemas.IncidentResponse.model_validate(incident)
 
-    # Broadcast WebSocket update
+    # Broadcast WebSocket update for instant board refresh
     background_tasks.add_task(
-        broadcast_message,
-        {
-            "type": "incident_created",
-            "incident": incident_response.model_dump(mode='json'),
-            "source": "divera",
-        }
+        broadcast_incident_update,
+        incident_response.model_dump(mode='json'),
+        "create"
     )
 
     logger.info(
@@ -399,16 +396,13 @@ async def bulk_attach_emergencies(
     if errors:
         logger.warning(f"Bulk attach completed with errors: {errors}")
 
-    # Broadcast all created incidents
+    # Broadcast all created incidents for instant board refresh
     for incident in created_incidents:
         incident_response = schemas.IncidentResponse.model_validate(incident)
         background_tasks.add_task(
-            broadcast_message,
-            {
-                "type": "incident_created",
-                "incident": incident_response.model_dump(mode='json'),
-                "source": "divera",
-            }
+            broadcast_incident_update,
+            incident_response.model_dump(mode='json'),
+            "create"
         )
 
     logger.info(

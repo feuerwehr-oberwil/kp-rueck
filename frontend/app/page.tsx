@@ -398,6 +398,10 @@ export default function FireStationDashboard() {
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsModalOpen(true)
+      } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
+        // Toggle vehicle status sheet
+        e.preventDefault()
+        setVehicleStatusSheetOpen(prev => !prev)
       } else if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
         // Only prevent default if no modifier keys (allows cmd+n/ctrl+n for new window)
         e.preventDefault()
@@ -1069,6 +1073,7 @@ export default function FireStationDashboard() {
         onRefresh={refreshOperations}
         onToggleLeftSidebar={() => setShowLeftSidebar(prev => !prev)}
         onToggleRightSidebar={() => setShowRightSidebar(prev => !prev)}
+        onToggleVehicleStatus={() => setVehicleStatusSheetOpen(prev => !prev)}
       />
 
       {/* Vehicle Status Sheet */}

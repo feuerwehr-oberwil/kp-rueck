@@ -37,6 +37,7 @@ export function ShortcutsModal({ open, onOpenChange, vehicleTypes }: ShortcutsMo
       icon: Zap,
       shortcuts: [
         { keys: ['N'], description: 'Neuer Einsatz' },
+        { keys: ['F'], description: 'Fahrzeugstatus' },
         { keys: ['/'], description: 'Suche fokussieren' },
         { keys: ['⌘', 'K'], description: 'Befehlspalette' },
         { keys: ['R'], description: 'Aktualisieren' },

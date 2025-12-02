@@ -1,5 +1,5 @@
 """Training automation API endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -14,6 +14,7 @@ from ..schemas import (
 from ..services.training import generate_training_emergency
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..models import Event, EmergencyTemplate, TrainingLocation
+from ..websocket_manager import broadcast_incident_update
 
 router = APIRouter(prefix="/training", tags=["training"])
 
@@ -23,6 +24,7 @@ async def generate_emergencies(
     event_id: UUID,
     request: GenerateEmergencyRequest,
     current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -67,7 +69,19 @@ async def generate_emergencies(
         count=request.count
     )
 
-    return [IncidentResponse.model_validate(inc) for inc in incidents]
+    # Convert to response models and broadcast WebSocket updates
+    responses = []
+    for incident in incidents:
+        incident_response = IncidentResponse.model_validate(incident)
+        responses.append(incident_response)
+        # Broadcast WebSocket update for each created incident
+        background_tasks.add_task(
+            broadcast_incident_update,
+            incident_response.model_dump(mode='json'),
+            "create"
+        )
+
+    return responses
 
 
 @router.get("/templates/", response_model=list[EmergencyTemplateResponse])
