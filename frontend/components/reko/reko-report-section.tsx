@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2 } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import RekoQRCode from './reko-qr-code'
@@ -85,8 +85,16 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
           ) : (
             <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
           )}
-          <div>
-            <h4 className="font-semibold">Reko-Meldung</h4>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold">Reko-Meldung</h4>
+              {report.submitted_by_personnel_name && (
+                <Badge variant="secondary" className="gap-1">
+                  <Binoculars className="h-3 w-3" />
+                  {report.submitted_by_personnel_name}
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {report.is_relevant ? 'Einsatz relevant' : 'Kein Einsatz nötig'}
             </p>
@@ -211,6 +219,9 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
 
           {/* Metadata */}
           <div className="text-xs text-muted-foreground border-t pt-2 mt-4">
+            {report.submitted_by_personnel_name && (
+              <p>Reko von: {report.submitted_by_personnel_name}</p>
+            )}
             <p>Übermittelt: {new Date(report.submitted_at).toLocaleString('de-CH')}</p>
             {report.updated_at !== report.submitted_at && (
               <p>Aktualisiert: {new Date(report.updated_at).toLocaleString('de-CH')}</p>

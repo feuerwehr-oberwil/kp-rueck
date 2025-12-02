@@ -23,6 +23,7 @@ router = APIRouter(prefix="/reko", tags=["reko"])
 async def get_reko_form(
     incident_id: uuid.UUID = Query(...),
     token: str = Query(...),
+    personnel_id: uuid.UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -33,11 +34,12 @@ async def get_reko_form(
     Query params:
         incident_id: UUID of incident
         token: Form access token
+        personnel_id: Optional personnel who is doing the reko
 
     Returns existing draft or creates new one.
     """
     try:
-        report = await crud.get_or_create_reko_report(db, incident_id, token)
+        report = await crud.get_or_create_reko_report(db, incident_id, token, personnel_id)
 
         # Fetch incident title
         incident_result = await db.execute(
@@ -52,6 +54,12 @@ async def get_reko_form(
             response_data.incident_location = incident.location_address
             response_data.incident_type = incident.type
             response_data.incident_description = incident.description
+        # Include personnel name if available
+        if report.submitted_by_personnel_id:
+            # Reload with relationship to get name
+            await db.refresh(report, ['submitted_by_personnel'])
+            if report.submitted_by_personnel:
+                response_data.submitted_by_personnel_name = report.submitted_by_personnel.name
 
         return response_data
     except ValueError as e:
@@ -176,7 +184,7 @@ async def get_incident_reports(
     incident = incident_result.scalar_one_or_none()
     incident_title = incident.title if incident else None
 
-    # Convert to response schemas with incident details
+    # Convert to response schemas with incident details and personnel info
     response_list = []
     for report in reports:
         response_data = schemas.RekoReportResponse.model_validate(report)
@@ -185,6 +193,9 @@ async def get_incident_reports(
             response_data.incident_location = incident.location_address
             response_data.incident_type = incident.type
             response_data.incident_description = incident.description
+        # Include personnel name if available
+        if report.submitted_by_personnel:
+            response_data.submitted_by_personnel_name = report.submitted_by_personnel.name
         response_list.append(response_data)
 
     return response_list
@@ -194,19 +205,28 @@ async def get_incident_reports(
 async def generate_reko_link(
     incident_id: uuid.UUID,
     form_type: str = "reko",
+    personnel_id: uuid.UUID | None = None,
 ):
     """
     Generate Reko form link for an incident (editor-only in practice).
+
+    Args:
+        incident_id: The incident this reko is for
+        form_type: Type of form (default: reko)
+        personnel_id: Optional personnel who will do the reko
 
     Returns shareable link with token.
     """
     token = generate_form_token(str(incident_id), form_type)
     link = f"/reko?incident_id={incident_id}&token={token}"
+    if personnel_id:
+        link += f"&personnel_id={personnel_id}"
 
     return {
         "incident_id": incident_id,
         "token": token,
         "link": link,
+        "personnel_id": personnel_id,
         "qr_code_url": f"/api/qr?data={link}",  # Future: QR code generation
     }
 

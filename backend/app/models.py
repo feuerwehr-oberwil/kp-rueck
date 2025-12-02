@@ -427,10 +427,14 @@ class RekoReport(Base):
 
     # Metadata
     submitted_by_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    submitted_by_personnel_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="reko_reports")
+    submitted_by_personnel: Mapped[Optional["Personnel"]] = relationship("Personnel")
 
     __table_args__ = (
         Index("idx_reko_incident", "incident_id"),

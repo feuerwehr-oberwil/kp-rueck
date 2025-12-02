@@ -327,6 +327,8 @@ export interface ApiRekoReportResponse extends ApiRekoReportBase {
   submitted_at: string
   updated_at: string
   photos_json: string[]
+  submitted_by_personnel_id?: string | null
+  submitted_by_personnel_name?: string | null
 }
 
 export interface ApiRekoFormResponse extends ApiRekoReportResponse {
@@ -993,9 +995,13 @@ class ApiClient {
   }
 
   // Reko Forms
-  async generateRekoLink(incidentId: string): Promise<{ incident_id: string; token: string; link: string; qr_code_url: string }> {
-    return this.request<{ incident_id: string; token: string; link: string; qr_code_url: string }>(
-      `/api/reko/generate-link?incident_id=${encodeURIComponent(incidentId)}`, {
+  async generateRekoLink(incidentId: string, personnelId?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
+    let url = `/api/reko/generate-link?incident_id=${encodeURIComponent(incidentId)}`
+    if (personnelId) {
+      url += `&personnel_id=${encodeURIComponent(personnelId)}`
+    }
+    return this.request<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }>(
+      url, {
         method: 'POST',
       }
     )

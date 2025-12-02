@@ -748,6 +748,8 @@ class RekoReportResponse(RekoReportBase):
     submitted_at: datetime
     updated_at: datetime
     photos_json: list[str] = []  # Array of photo filenames
+    submitted_by_personnel_id: Optional[UUID] = None  # Who did the reko
+    submitted_by_personnel_name: Optional[str] = None  # Personnel name for display
 
     @field_validator('photos_json', mode='before')
     @classmethod

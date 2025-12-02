@@ -4,9 +4,10 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import RekoReport, Incident
+from ..models import RekoReport, Incident, Personnel
 from ..services.tokens import validate_form_token
 
 
@@ -14,6 +15,7 @@ async def get_or_create_reko_report(
     db: AsyncSession,
     incident_id: uuid.UUID,
     token: str,
+    personnel_id: uuid.UUID | None = None,
 ) -> RekoReport:
     """
     Get existing Reko report or create draft.
@@ -24,6 +26,7 @@ async def get_or_create_reko_report(
         db: Database session
         incident_id: Incident UUID
         token: Form access token
+        personnel_id: Optional personnel who is doing the reko
 
     Returns:
         RekoReport instance
@@ -52,13 +55,19 @@ async def get_or_create_reko_report(
     report = result.scalar_one_or_none()
 
     if report:
+        # Update personnel_id if provided and not already set
+        if personnel_id and not report.submitted_by_personnel_id:
+            report.submitted_by_personnel_id = personnel_id
+            await db.commit()
+            await db.refresh(report)
         return report
 
-    # Create new draft
+    # Create new draft with personnel_id if provided
     report = RekoReport(
         incident_id=incident_id,
         token=token,
         is_draft=True,
+        submitted_by_personnel_id=personnel_id,
     )
     db.add(report)
     await db.commit()
@@ -128,6 +137,7 @@ async def get_incident_reko_reports(
     """
     result = await db.execute(
         select(RekoReport)
+        .options(selectinload(RekoReport.submitted_by_personnel))
         .where(RekoReport.incident_id == incident_id)
         .order_by(RekoReport.submitted_at.desc())
     )

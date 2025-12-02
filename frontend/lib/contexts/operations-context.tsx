@@ -305,12 +305,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         })
       })
 
-      // Also mark personnel as assigned if they have special functions (drivers, reko, magazin)
+      // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
+      // Reko personnel remain available - they can investigate multiple incidents
       try {
         const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        specialFunctions.forEach(func => {
-          assignedPersonIds.add(func.personnel_id)
-        })
+        specialFunctions
+          .filter(func => func.function_type !== 'reko')
+          .forEach(func => {
+            assignedPersonIds.add(func.personnel_id)
+          })
       } catch (error) {
         console.error('Failed to load special functions for personnel status:', error)
       }
@@ -481,12 +484,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         })
 
-        // Also mark personnel as assigned if they have special functions (drivers, reko, magazin)
+        // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
+        // Reko personnel remain available - they can investigate multiple incidents
         try {
           const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-          specialFunctions.forEach(func => {
-            assignedPersonIds.add(func.personnel_id)
-          })
+          specialFunctions
+            .filter(func => func.function_type !== 'reko')
+            .forEach(func => {
+              assignedPersonIds.add(func.personnel_id)
+            })
         } catch (error) {
           console.error('Failed to load special functions for personnel status:', error)
         }
