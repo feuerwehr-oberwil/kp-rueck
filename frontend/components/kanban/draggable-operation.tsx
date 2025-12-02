@@ -31,6 +31,7 @@ interface DraggableOperationProps {
   columnOperations: Operation[]
   formatLocation: (address: string) => string
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
+  showMeldung?: boolean
 }
 
 // Priority visual configuration - dot + chevron for better visibility
@@ -65,6 +66,7 @@ function DraggableOperationBase({
   columnOperations,
   formatLocation,
   onAssignResource,
+  showMeldung,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -233,6 +235,15 @@ function DraggableOperationBase({
             </span>
           </div>
 
+          {/* Meldung (notes) - shown when toggle is enabled */}
+          {showMeldung && operation.notes && (
+            <div className="border-t pt-2 mt-1">
+              <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+                {operation.notes}
+              </p>
+            </div>
+          )}
+
           {/* Resource assignments - show names with quick removal */}
           {(operation.crew.length > 0 || operation.vehicles.length > 0 || operation.materials.length > 0) && (
             <div className="border-t pt-2 space-y-1.5 text-xs">
@@ -355,6 +366,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.status === nextProps.operation.status &&
     prevProps.operation.priority === nextProps.operation.priority &&
     prevProps.operation.location === nextProps.operation.location &&
+    prevProps.operation.notes === nextProps.operation.notes &&
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
     prevProps.operation.materials.length === nextProps.operation.materials.length &&
     prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
@@ -362,6 +374,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
     prevProps.index === nextProps.index &&
+    prevProps.showMeldung === nextProps.showMeldung &&
     !rekoSummaryChanged
   )
 })

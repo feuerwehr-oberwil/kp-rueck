@@ -40,6 +40,8 @@ import { KanbanLoading } from "@/components/kanban/kanban-loading"
 import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/kanban/sidebar-loading"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 export default function FireStationDashboard() {
   const {
@@ -117,6 +119,7 @@ export default function FireStationDashboard() {
   const [vehicleStatusSheetOpen, setVehicleStatusSheetOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
+  const [showMeldung, setShowMeldung] = useState(false)
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -789,6 +792,7 @@ export default function FireStationDashboard() {
                       materials={materials}
                       formatLocation={formatLocation}
                       onAssignResource={handleOpenAssignmentDialog}
+                      showMeldung={showMeldung}
                     />
                   )
                 })}
@@ -901,6 +905,16 @@ export default function FireStationDashboard() {
                   </Button>
                 </Link>
               )}
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-meldung"
+                  checked={showMeldung}
+                  onCheckedChange={setShowMeldung}
+                />
+                <Label htmlFor="show-meldung" className="text-sm cursor-pointer">
+                  Meldung
+                </Label>
+              </div>
             </div>
 
 
