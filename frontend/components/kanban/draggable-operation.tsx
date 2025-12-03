@@ -154,8 +154,9 @@ function DraggableOperationBase({
         style={{ opacity: isDragging ? 0.5 : 1 }}
         data-incident-id={operation.id}
         className={cn(
-          'operation-card border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer',
+          'operation-card border backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer',
           columnColor,
+          priority === 'high' ? 'border-red-500/40 border-2' : 'border-border/50',
           isOver && 'ring-2 ring-primary',
           isHighlighted && 'ring-4 ring-accent animate-pulse',
           isKeyboardFocused && !isHighlighted && 'ring-2 ring-blue-500/50 shadow-xl'
