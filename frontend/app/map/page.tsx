@@ -351,7 +351,7 @@ export default function MapPage() {
                     return (
                       <Card
                         key={incident.id}
-                        className={`p-4 cursor-pointer transition-all hover:border-primary/50 ${
+                        className={`p-4 cursor-pointer transition-all hover:border-border ${
                           isExpanded
                             ? "border-primary ring-2 ring-primary/20 scale-[1.02]"
                             : ""
@@ -384,7 +384,7 @@ export default function MapPage() {
                                 e.stopPropagation()
                                 handleDetailsClick(incident)
                               }}
-                              className="p-1.5 rounded-md hover:bg-primary/20 transition-colors flex-shrink-0"
+                              className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
                               title="Details anzeigen"
                             >
                               <FileText className="h-4 w-4 text-muted-foreground" />

@@ -239,7 +239,7 @@ export function LocationInput({
                           key={result.id}
                           type="button"
                           onClick={() => handleAddressSelect(result)}
-                          className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-accent transition-colors cursor-pointer"
+                          className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-muted transition-colors cursor-pointer"
                         >
                           <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                           <div className="flex-1 min-w-0">

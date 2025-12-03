@@ -38,7 +38,7 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
       aria-grabbed={isDragging}
       aria-label={canDrag ? `Drag ${material.name} to assign to incident` : undefined}
       className={cn(
-        "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:shadow-md hover:bg-card",
+        "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:bg-muted/50 hover:border-border",
         canDrag && "draggable",
         isDragging && "dragging",
         !canDrag && material.status === "assigned" && "cursor-not-allowed opacity-60",

@@ -76,7 +76,7 @@ function SortableItem({
   return (
     <div
       ref={ref}
-      className="relative flex items-center gap-3 p-3 bg-card border rounded-lg hover:bg-accent/50 transition-colors"
+      className="relative flex items-center gap-3 p-3 bg-card border rounded-lg hover:bg-muted/50 transition-colors"
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <div

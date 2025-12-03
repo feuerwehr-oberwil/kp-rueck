@@ -268,7 +268,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                     onClick={() => isClickable && handleVehicleClick(vehicle)}
                     className={cn(
                       "border rounded-lg px-3 py-2.5 bg-card transition-all",
-                      isClickable && "cursor-pointer hover:bg-accent/10 hover:border-primary/50",
+                      isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
                       isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                       !isClickable && "opacity-75"
                     )}

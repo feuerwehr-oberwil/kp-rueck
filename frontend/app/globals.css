@@ -16,7 +16,7 @@
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.2 0 0);
   --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.2 0 0);
+  --muted: oklch(0.32 0 0);
   --muted-foreground: oklch(0.72 0 0); /* Improved contrast for WCAG AA */
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
@@ -54,7 +54,7 @@
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
+  --muted: oklch(0.38 0 0);
   --muted-foreground: oklch(0.75 0 0); /* Improved contrast for WCAG AA */
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
@@ -218,21 +218,21 @@
 
   /* Draggable item base state */
   .draggable {
-    @apply cursor-grab hover:bg-accent/50 transition-all;
-    @apply border-2 border-transparent hover:border-primary/30;
+    @apply cursor-grab hover:bg-muted/50 transition-all;
+    @apply border-2 border-transparent hover:border-border;
   }
 
   /* Active drag state */
   .dragging {
     @apply cursor-grabbing opacity-80 shadow-xl;
-    @apply border-primary;
+    @apply border-muted-foreground;
     transform: scale(0.95);
   }
 
   /* Drop zone active highlighting */
   .drop-zone-active {
-    @apply ring-2 ring-primary ring-offset-2 bg-primary/10;
-    @apply border-dashed border-2 border-primary;
+    @apply ring-2 ring-muted-foreground ring-offset-2 bg-muted/10;
+    @apply border-dashed border-2 border-muted-foreground;
   }
 
   /* Invalid drop shake animation */

@@ -503,7 +503,7 @@ export function OperationDetailModal({
                                 onClick={() => {
                                   onAssignVehicle(vehicle.id, vehicle.name, operation.id)
                                 }}
-                                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors"
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
                               >
                                 <Truck className="h-4 w-4 text-muted-foreground" />
                                 <div className="text-left">

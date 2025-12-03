@@ -24,7 +24,7 @@ export function NotificationBellTrigger() {
       onClick={toggleSidebar}
       className={cn(
         'relative rounded-lg h-9 w-9 md:h-10 md:w-10',
-        isSidebarOpen && 'bg-accent'
+        isSidebarOpen && 'bg-muted'
       )}
       aria-label={`Benachrichtigungen ${unreadCount > 0 ? `(${unreadCount} ungelesene)` : ''}`}
       aria-pressed={isSidebarOpen}

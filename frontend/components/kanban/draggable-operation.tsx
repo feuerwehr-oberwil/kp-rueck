@@ -154,12 +154,12 @@ function DraggableOperationBase({
         style={{ opacity: isDragging ? 0.5 : 1 }}
         data-incident-id={operation.id}
         className={cn(
-          'operation-card border backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg cursor-pointer',
+          'operation-card border backdrop-blur-sm p-4 transition-all hover:border-border hover:shadow-lg cursor-pointer',
           columnColor,
           priority === 'high' ? 'border-red-500/40 border-2' : 'border-border/50',
-          isOver && 'ring-2 ring-primary',
-          isHighlighted && 'ring-4 ring-accent animate-pulse',
-          isKeyboardFocused && !isHighlighted && 'ring-2 ring-blue-500/50 shadow-xl'
+          isOver && 'ring-2 ring-border',
+          isHighlighted && 'ring-4 ring-muted-foreground animate-pulse',
+          isKeyboardFocused && !isHighlighted && 'ring-2 ring-muted-foreground/50 shadow-xl'
         )}
         onMouseEnter={() => onHover(operation.id)}
         onMouseLeave={() => onHover(null)}
@@ -205,7 +205,7 @@ function DraggableOperationBase({
               <Link
                 href={`/map?highlight=${operation.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-md hover:bg-primary/20 transition-all hover-delight"
+                className="p-1.5 rounded-md hover:bg-muted transition-all hover-delight"
                 title="Auf Karte anzeigen"
               >
                 <MapIcon className="h-4 w-4 text-muted-foreground" />

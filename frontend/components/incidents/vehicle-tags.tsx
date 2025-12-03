@@ -185,7 +185,7 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
                       setIsPopoverOpen(false)
                     }}
                     disabled={loadingVehicleId === vehicle.id || pendingOperations.has(vehicle.id)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors disabled:opacity-50"
+                    className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors disabled:opacity-50"
                   >
                     <div className="flex items-center gap-2">
                       <Truck className="h-4 w-4 text-muted-foreground" />

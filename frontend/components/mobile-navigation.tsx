@@ -142,10 +142,10 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
                       className={`
                         group relative flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all duration-200
                         ${active
-                          ? 'bg-accent/50'
+                          ? 'bg-muted'
                           : disabled
                           ? 'opacity-40 cursor-not-allowed'
-                          : 'hover:bg-accent/30 active:scale-[0.98]'
+                          : 'hover:bg-muted/70 active:scale-[0.98]'
                         }
                       `}
                       onClick={(e) => {
@@ -195,8 +195,8 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
                       className={`
                         group relative flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all duration-200
                         ${active
-                          ? 'bg-accent/50'
-                          : 'hover:bg-accent/30 active:scale-[0.98]'
+                          ? 'bg-muted'
+                          : 'hover:bg-muted/70 active:scale-[0.98]'
                         }
                       `}
                       onClick={() => onOpenChange?.(false)}

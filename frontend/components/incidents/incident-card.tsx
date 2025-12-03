@@ -71,8 +71,8 @@ export function IncidentCard({
       ref={ref}
       style={{ opacity: isDragging ? 0.5 : 1 }}
       onClick={onEdit}
-      className={`w-full ${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-primary/50 hover:shadow-lg ${
-        isHighlighted ? "ring-4 ring-accent animate-pulse" : ""
+      className={`w-full ${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-border hover:shadow-lg ${
+        isHighlighted ? "ring-4 ring-muted-foreground animate-pulse" : ""
       } ${isDraggable ? "cursor-move" : onEdit ? "cursor-pointer" : "cursor-default"}`}
     >
       <div className="space-y-2.5">
@@ -96,7 +96,7 @@ export function IncidentCard({
               <Link
                 href={`/map?highlight=${incident.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-md hover:bg-primary/20 transition-colors"
+                className="p-1.5 rounded-md hover:bg-muted transition-colors"
                 title="Auf Karte anzeigen"
               >
                 <Map className="h-4 w-4 text-muted-foreground" />
