@@ -324,23 +324,23 @@ export class MainPage extends BasePage {
   }
 
   /**
-   * Open shortcuts modal with ? key
+   * Open command palette with ? key
    */
-  async openShortcutsModal() {
+  async openCommandPalette() {
     await this.page.keyboard.press('Shift+/'); // ? is Shift+/
 
-    // Wait for modal to open
-    const modal = this.page.locator('[role="dialog"]', { hasText: 'Tastaturkürzel' });
+    // Wait for command palette to open
+    const modal = this.page.locator('[role="dialog"]', { hasText: 'Befehl suchen' });
     await modal.waitFor({ state: 'visible', timeout: 3000 });
   }
 
   /**
-   * Close shortcuts modal
+   * Close command palette
    */
-  async closeShortcutsModal() {
+  async closeCommandPalette() {
     await this.page.keyboard.press('Escape');
 
-    const modal = this.page.locator('[role="dialog"]', { hasText: 'Tastaturkürzel' });
+    const modal = this.page.locator('[role="dialog"]', { hasText: 'Befehl suchen' });
     await modal.waitFor({ state: 'hidden', timeout: 2000 });
   }
 

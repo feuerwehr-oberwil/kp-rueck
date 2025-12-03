@@ -30,7 +30,6 @@ import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
-import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { CommandPalette } from "@/components/ui/command-palette"
@@ -106,7 +105,6 @@ export default function FireStationDashboard() {
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
-  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
@@ -401,9 +399,6 @@ export default function FireStationDashboard() {
         // Only prevent default if no modifier keys (allows cmd+m for minimize on Mac)
         e.preventDefault()
         document.getElementById('material-search-input')?.focus()
-      } else if (e.key === '?') {
-        e.preventDefault()
-        setShortcutsModalOpen(true)
       } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
         // Toggle vehicle status sheet
         e.preventDefault()
@@ -953,27 +948,11 @@ export default function FireStationDashboard() {
 
 
             {!isMobile && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Kbd className="h-4 text-[10px]">E</Kbd>
-                  <span>Bearbeiten</span>
-                </div>
-                <span>•</span>
-                <div className="flex items-center gap-1">
-                  <Kbd className="h-4 text-[10px]">↑</Kbd>
-                  <Kbd className="h-4 text-[10px]">↓</Kbd>
-                  <span>Navigation</span>
-                </div>
-                <span>•</span>
-                <div className="flex items-center gap-1">
-                  <Kbd className="h-4 text-[10px]">⌘K</Kbd>
-                  <span>Befehle</span>
-                </div>
-                <span>•</span>
-                <div className="flex items-center gap-1">
-                  <Kbd className="h-4 text-[10px]">?</Kbd>
-                  <span>Hilfe</span>
-                </div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Kbd className="h-4 text-[10px]">⌘K</Kbd>
+                <span>oder</span>
+                <Kbd className="h-4 text-[10px]">?</Kbd>
+                <span>Befehle & Hilfe</span>
               </div>
             )}
           </div>
@@ -1030,12 +1009,6 @@ export default function FireStationDashboard() {
         onAssignResource={handleOpenAssignmentDialog}
         onRemoveCrew={removeCrew}
         onRemoveMaterial={removeMaterial}
-      />
-
-      <ShortcutsModal
-        open={shortcutsModalOpen}
-        onOpenChange={setShortcutsModalOpen}
-        vehicleTypes={vehicleTypes}
       />
 
       <NewEmergencyModal
@@ -1119,11 +1092,84 @@ export default function FireStationDashboard() {
       {/* Command Palette */}
       <CommandPalette
         onNewOperation={() => setNewEmergencyModalOpen(true)}
-        onShowHelp={() => setShortcutsModalOpen(true)}
-        onRefresh={refreshOperations}
+        onRefresh={() => {
+          refreshOperations()
+          toast.success("Daten aktualisiert")
+        }}
         onToggleLeftSidebar={() => setShowLeftSidebar(prev => !prev)}
         onToggleRightSidebar={() => setShowRightSidebar(prev => !prev)}
         onToggleVehicleStatus={() => setVehicleStatusSheetOpen(prev => !prev)}
+        onToggleNotifications={toggleNotificationSidebar}
+        hasSelectedIncident={!!hoveredOperationId}
+        onEditIncident={() => {
+          if (hoveredOperationId) {
+            const operation = operations.find(op => op.id === hoveredOperationId)
+            if (operation) {
+              setSelectedOperation(operation)
+              setDetailModalOpen(true)
+            }
+          }
+        }}
+        onDeleteIncident={() => {
+          if (hoveredOperationId) {
+            const operation = operations.find(op => op.id === hoveredOperationId)
+            if (operation) {
+              setOperationToDelete(operation)
+              setDeleteDialogOpen(true)
+            }
+          }
+        }}
+        onMoveStatusForward={() => {
+          if (hoveredOperationId) {
+            moveOperationRight(hoveredOperationId)
+          }
+        }}
+        onMoveStatusBackward={() => {
+          if (hoveredOperationId) {
+            moveOperationLeft(hoveredOperationId)
+          }
+        }}
+        onSetPriority={(priority) => {
+          if (hoveredOperationId) {
+            updateOperation(hoveredOperationId, { priority })
+          }
+        }}
+        onAssignVehicle={(vehicleNumber) => {
+          if (hoveredOperationId) {
+            const vehicleType = vehicleTypes[vehicleNumber - 1]
+            if (vehicleType) {
+              const operation = operations.find(op => op.id === hoveredOperationId)
+              if (operation) {
+                const isAssigned = operation.vehicles.includes(vehicleType.name)
+                if (isAssigned) {
+                  removeVehicle(hoveredOperationId, vehicleType.name)
+                } else {
+                  assignVehicleToOperation(vehicleType.id, vehicleType.name, hoveredOperationId)
+                }
+              }
+            }
+          }
+        }}
+        onSelectPreviousIncident={() => {
+          if (operations.length === 0) return
+          if (!hoveredOperationId) {
+            setHoveredOperationId(operations[0].id)
+            return
+          }
+          const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
+          const newIndex = currentIndex > 0 ? currentIndex - 1 : operations.length - 1
+          setHoveredOperationId(operations[newIndex].id)
+        }}
+        onSelectNextIncident={() => {
+          if (operations.length === 0) return
+          if (!hoveredOperationId) {
+            setHoveredOperationId(operations[0].id)
+            return
+          }
+          const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
+          const newIndex = (currentIndex + 1) % operations.length
+          setHoveredOperationId(operations[newIndex].id)
+        }}
       />
 
       {/* Vehicle Status Sheet */}

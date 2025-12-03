@@ -16,7 +16,6 @@ import { useOperations, type Operation, type OperationStatus } from "@/lib/conte
 import { useEvent } from "@/lib/contexts/event-context"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
-import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { CommandPalette } from "@/components/ui/command-palette"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
@@ -68,7 +67,6 @@ export default function CombinedViewPage() {
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [operationForModal, setOperationForModal] = useState<Operation | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
@@ -308,9 +306,6 @@ export default function CombinedViewPage() {
       } else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         document.getElementById('material-search-input')?.focus()
-      } else if (e.key === '?') {
-        e.preventDefault()
-        setShortcutsModalOpen(true)
       } else if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         setNewEmergencyModalOpen(true)
@@ -523,13 +518,6 @@ export default function CombinedViewPage() {
           onRemoveMaterial={removeMaterial}
         />
 
-        {/* Shortcuts Modal */}
-        <ShortcutsModal
-          open={shortcutsModalOpen}
-          onOpenChange={setShortcutsModalOpen}
-          vehicleTypes={vehicleTypes}
-        />
-
         {/* New Emergency Modal */}
         <NewEmergencyModal
           open={newEmergencyModalOpen}
@@ -541,8 +529,81 @@ export default function CombinedViewPage() {
         {/* Command Palette */}
         <CommandPalette
           onNewOperation={() => setNewEmergencyModalOpen(true)}
-          onShowHelp={() => setShortcutsModalOpen(true)}
-          onRefresh={refreshOperations}
+          onRefresh={() => {
+            refreshOperations()
+            toast.success("Daten aktualisiert")
+          }}
+          onToggleNotifications={toggleNotificationSidebar}
+          hasSelectedIncident={!!hoveredOperationId}
+          onEditIncident={() => {
+            if (hoveredOperationId) {
+              const operation = operations.find(op => op.id === hoveredOperationId)
+              if (operation) {
+                setOperationForModal(operation)
+                setModalOpen(true)
+              }
+            }
+          }}
+          onDeleteIncident={() => {
+            if (hoveredOperationId) {
+              const operation = operations.find(op => op.id === hoveredOperationId)
+              if (operation) {
+                setOperationToDelete(operation)
+                setDeleteDialogOpen(true)
+              }
+            }
+          }}
+          onMoveStatusForward={() => {
+            if (hoveredOperationId) {
+              moveOperationRight(hoveredOperationId)
+            }
+          }}
+          onMoveStatusBackward={() => {
+            if (hoveredOperationId) {
+              moveOperationLeft(hoveredOperationId)
+            }
+          }}
+          onSetPriority={(priority) => {
+            if (hoveredOperationId) {
+              updateOperation(hoveredOperationId, { priority })
+            }
+          }}
+          onAssignVehicle={(vehicleNumber) => {
+            if (hoveredOperationId) {
+              const vehicleType = vehicleTypes[vehicleNumber - 1]
+              if (vehicleType) {
+                const operation = operations.find(op => op.id === hoveredOperationId)
+                if (operation) {
+                  const isAssigned = operation.vehicles.includes(vehicleType.name)
+                  if (isAssigned) {
+                    removeVehicle(hoveredOperationId, vehicleType.name)
+                  } else {
+                    assignVehicleToOperation(vehicleType.id, vehicleType.name, hoveredOperationId)
+                  }
+                }
+              }
+            }
+          }}
+          onSelectPreviousIncident={() => {
+            if (operations.length === 0) return
+            if (!hoveredOperationId) {
+              setHoveredOperationId(operations[0].id)
+              return
+            }
+            const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
+            const newIndex = currentIndex > 0 ? currentIndex - 1 : operations.length - 1
+            setHoveredOperationId(operations[newIndex].id)
+          }}
+          onSelectNextIncident={() => {
+            if (operations.length === 0) return
+            if (!hoveredOperationId) {
+              setHoveredOperationId(operations[0].id)
+              return
+            }
+            const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
+            const newIndex = (currentIndex + 1) % operations.length
+            setHoveredOperationId(operations[newIndex].id)
+          }}
         />
 
         {/* Delete Operation Confirmation Dialog */}
