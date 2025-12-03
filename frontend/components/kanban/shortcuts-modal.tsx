@@ -69,6 +69,7 @@ export function ShortcutsModal({ open, onOpenChange, vehicleTypes }: ShortcutsMo
         { keys: ['Tab'], description: 'Durchlaufen' },
         { keys: ['['], description: 'Linke Sidebar ein/aus' },
         { keys: [']'], description: 'Rechte Sidebar ein/aus' },
+        { keys: ['B'], description: 'Benachrichtigungen ein/aus' },
       ],
     },
   ]

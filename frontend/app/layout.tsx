@@ -6,6 +6,8 @@ import { EventProvider } from '@/lib/contexts/event-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
 import { NotificationToasts } from '@/components/notifications/notification-toasts'
+import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
+import { AppShell } from '@/components/app-shell'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -36,8 +38,11 @@ export default function RootLayout({
           <EventProvider>
             <OperationsProvider>
               <NotificationProvider>
-                {children}
+                <AppShell>
+                  {children}
+                </AppShell>
                 <NotificationToasts />
+                <PersistentNotificationSidebar />
               </NotificationProvider>
             </OperationsProvider>
           </EventProvider>

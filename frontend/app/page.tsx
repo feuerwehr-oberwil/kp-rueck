@@ -20,6 +20,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { QRCodeSVG } from 'qrcode.react'
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
+import { useNotifications } from "@/lib/contexts/notification-context"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
@@ -65,6 +66,7 @@ export default function FireStationDashboard() {
   } = useOperations()
 
   const { selectedEvent, isEventLoaded } = useEvent()
+  const { toggleSidebar: toggleNotificationSidebar } = useNotifications()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -415,6 +417,10 @@ export default function FireStationDashboard() {
       } else if (e.key === ']') {
         e.preventDefault()
         setShowRightSidebar(prev => !prev)
+      } else if ((e.key === 'b' || e.key === 'B') && !e.metaKey && !e.ctrlKey) {
+        // Toggle notification sidebar
+        e.preventDefault()
+        toggleNotificationSidebar()
       } else if (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') {
         // Open detail modal for hovered operation
         // Only use 'e' if no modifier keys (Enter always works)
@@ -720,51 +726,57 @@ export default function FireStationDashboard() {
 
         <div className="flex flex-1 overflow-hidden">
           {showLeftSidebar && (
-            <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
-              <div className="mb-4">
-                <h2 className="text-base font-bold text-foreground">Verfügbare Personen</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {personnel.filter((p) => p.status === "available").length} von {personnel.length} verfügbar
-                </p>
+            <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm flex flex-col">
+              {/* Sticky header */}
+              <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm p-4 pb-0">
+                <div className="mb-4">
+                  <h2 className="text-base font-bold text-foreground">Verfügbare Personen</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {personnel.filter((p) => p.status === "available").length} von {personnel.length} verfügbar
+                  </p>
+                </div>
+
+                <div className="relative mb-4">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="personnel-search-input"
+                    type="text"
+                    placeholder="Suchen..."
+                    value={personnelSearchQuery}
+                    onChange={(e) => setPersonnelSearchQuery(e.target.value)}
+                    className="h-8 pl-7 pr-8 text-xs"
+                  />
+                  {!isMobile && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <Kbd className="h-4 text-[10px]">P</Kbd>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="relative mb-4">
-                <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="personnel-search-input"
-                  type="text"
-                  placeholder="Suchen..."
-                  value={personnelSearchQuery}
-                  onChange={(e) => setPersonnelSearchQuery(e.target.value)}
-                  className="h-8 pl-7 pr-8 text-xs"
-                />
-                {!isMobile && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Kbd className="h-4 text-[10px]">P</Kbd>
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto p-4 pt-0">
+                {isLoading ? (
+                  <PersonnelSidebarLoading />
+                ) : (
+                  <div className="space-y-4">
+                    {Object.keys(groupedPersonnel).map((role) => (
+                      <div key={role}>
+                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
+                        <div className="space-y-2">
+                          {groupedPersonnel[role as PersonRole]?.map((person) => (
+                            <DraggablePerson
+                              key={person.id}
+                              person={person}
+                              onClick={() => handlePersonClick(person)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              {isLoading ? (
-                <PersonnelSidebarLoading />
-              ) : (
-                <div className="space-y-4">
-                  {Object.keys(groupedPersonnel).map((role) => (
-                    <div key={role}>
-                      <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
-                      <div className="space-y-2">
-                        {groupedPersonnel[role as PersonRole]?.map((person) => (
-                          <DraggablePerson
-                            key={person.id}
-                            person={person}
-                            onClick={() => handlePersonClick(person)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </aside>
           )}
 
@@ -801,51 +813,57 @@ export default function FireStationDashboard() {
           </main>
 
           {showRightSidebar && (
-            <aside className="w-64 border-l border-border/50 bg-card/30 backdrop-blur-sm p-4 overflow-y-auto">
-              <div className="mb-4">
-                <h2 className="text-base font-bold text-foreground">Verfügbares Material</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {materials.filter((m) => m.status === "available").length} von {materials.length} verfügbar
-                </p>
+            <aside className="w-64 border-l border-border/50 bg-card/30 backdrop-blur-sm flex flex-col">
+              {/* Sticky header */}
+              <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm p-4 pb-0">
+                <div className="mb-4">
+                  <h2 className="text-base font-bold text-foreground">Verfügbares Material</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {materials.filter((m) => m.status === "available").length} von {materials.length} verfügbar
+                  </p>
+                </div>
+
+                <div className="relative mb-4">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="material-search-input"
+                    type="text"
+                    placeholder="Suchen..."
+                    value={materialSearchQuery}
+                    onChange={(e) => setMaterialSearchQuery(e.target.value)}
+                    className="h-8 pl-7 pr-8 text-xs"
+                  />
+                  {!isMobile && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <Kbd className="h-4 text-[10px]">M</Kbd>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="relative mb-4">
-                <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="material-search-input"
-                  type="text"
-                  placeholder="Suchen..."
-                  value={materialSearchQuery}
-                  onChange={(e) => setMaterialSearchQuery(e.target.value)}
-                  className="h-8 pl-7 pr-8 text-xs"
-                />
-                {!isMobile && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Kbd className="h-4 text-[10px]">M</Kbd>
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto p-4 pt-0">
+                {isLoading ? (
+                  <MaterialSidebarLoading />
+                ) : (
+                  <div className="space-y-4">
+                    {Object.entries(groupedMaterials).map(([category, items]) => (
+                      <div key={category}>
+                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
+                        <div className="space-y-2">
+                          {items.map((material) => (
+                            <DraggableMaterial
+                              key={material.id}
+                              material={material}
+                              onClick={() => handleMaterialClick(material)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              {isLoading ? (
-                <MaterialSidebarLoading />
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(groupedMaterials).map(([category, items]) => (
-                    <div key={category}>
-                      <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
-                      <div className="space-y-2">
-                        {items.map((material) => (
-                          <DraggableMaterial
-                            key={material.id}
-                            material={material}
-                            onClick={() => handleMaterialClick(material)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </aside>
           )}
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react'
 import type { Notification, NotificationSettings } from '@/lib/types/notification'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
 import { useEvent } from '@/lib/contexts/event-context'
@@ -15,6 +15,11 @@ interface NotificationContextValue {
   dismissAllNotifications: () => Promise<void>
   updateSettings: (settings: Partial<NotificationSettings>) => Promise<void>
   refetchNotifications: () => Promise<void>
+  // Sidebar state
+  isSidebarOpen: boolean
+  toggleSidebar: () => void
+  openSidebar: () => void
+  closeSidebar: () => void
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
@@ -41,6 +46,30 @@ export function NotificationProvider({
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS)
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  // Sidebar state with localStorage persistence
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('notification-sidebar-open') === 'true'
+  })
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarOpen(prev => {
+      const newValue = !prev
+      localStorage.setItem('notification-sidebar-open', String(newValue))
+      return newValue
+    })
+  }, [])
+
+  const openSidebar = useCallback(() => {
+    setIsSidebarOpen(true)
+    localStorage.setItem('notification-sidebar-open', 'true')
+  }, [])
+
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false)
+    localStorage.setItem('notification-sidebar-open', 'false')
+  }, [])
 
   // Load previously seen notification IDs from localStorage on mount
   const previousNotificationIds = useRef<Set<string>>(
@@ -260,6 +289,10 @@ export function NotificationProvider({
     dismissAllNotifications,
     updateSettings,
     refetchNotifications,
+    isSidebarOpen,
+    toggleSidebar,
+    openSidebar,
+    closeSidebar,
   }
 
   return (

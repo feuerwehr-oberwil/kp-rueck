@@ -54,13 +54,18 @@ function cleanupOldToastIds(): Set<string> {
 }
 
 export function NotificationToasts() {
-  const { notifications, dismissNotification } = useNotifications()
+  const { notifications, dismissNotification, isSidebarOpen } = useNotifications()
 
   // Initialize with previously shown notification IDs from localStorage
   // Clean up IDs older than 24 hours on component mount
   const shownToastIds = useRef<Set<string>>(cleanupOldToastIds())
 
   useEffect(() => {
+    // Don't show toasts when sidebar is open - notifications are visible there
+    if (isSidebarOpen) {
+      return
+    }
+
     // Show new undismissed notifications as toasts
     const newNotifications = notifications.filter(
       (n) => !n.dismissed && !shownToastIds.current.has(n.id)
@@ -119,7 +124,7 @@ export function NotificationToasts() {
       toast.dismiss(notification.id)
       // Keep in shownToastIds to prevent re-showing
     })
-  }, [notifications, dismissNotification])
+  }, [notifications, dismissNotification, isSidebarOpen])
 
   return (
     <Toaster

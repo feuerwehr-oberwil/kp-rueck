@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
-import { CheckCircle2, XCircle } from 'lucide-react'
 import { useEvent } from '@/lib/contexts/event-context'
+import { useNotifications } from '@/lib/contexts/notification-context'
 import type { Operation } from '@/lib/contexts/operations-context'
 
 /**
- * Hook to track and notify users of new Reko reports across all incidents
+ * Hook to track new Reko reports across all incidents and update operation state.
+ * Notifications are now handled by the backend notification system and shown in the sidebar.
  */
 export function useRekoNotifications(
   incidents: Array<{ id: string }>,
@@ -22,6 +22,7 @@ export function useRekoNotifications(
   }) => void
 ) {
   const { selectedEvent } = useEvent()
+  const { refetchNotifications } = useNotifications()
   const [seenRekoIds, setSeenRekoIds] = useState<Set<string>>(new Set())
   const isInitialLoad = useRef(true)
 
@@ -60,11 +61,8 @@ export function useRekoNotifications(
           // Update seen IDs
           setSeenRekoIds(new Set(flatReports.map(r => r.id)))
 
-          // Show persistent toast for each new report
+          // Update operation state for each new report
           newReports.forEach((report) => {
-            const incidentTitle = report.incident_title || 'Unbekannter Einsatz'
-            const isRelevant = report.is_relevant
-
             // Extract danger types
             const dangerTypes: string[] = []
             if (report.dangers_json) {
@@ -85,46 +83,10 @@ export function useRekoNotifications(
                 estimatedDuration: report.effort_json?.estimated_duration_hours ?? null,
               })
             }
-
-            toast(
-              <div className="flex items-start gap-3 cursor-pointer" onClick={() => {
-                if (onOpenIncidentModal && report.incident_id) {
-                  onOpenIncidentModal(report.incident_id)
-                  toast.dismiss()
-                }
-              }}>
-                {isRelevant ? (
-                  <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                )}
-                <div className="flex-1">
-                  <div className="font-semibold">Neue Reko-Meldung</div>
-                  <div className="text-sm text-muted-foreground">{incidentTitle}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {isRelevant ? 'Einsatz relevant' : 'Kein Einsatz nötig'}
-                  </div>
-                </div>
-              </div>,
-              {
-                duration: Infinity, // Persistent - user must dismiss
-                action: {
-                  label: 'Ansehen',
-                  onClick: () => {
-                    if (onOpenIncidentModal && report.incident_id) {
-                      onOpenIncidentModal(report.incident_id)
-                    } else {
-                      // Fallback to scroll if modal callback not provided
-                      const element = document.querySelector(`[data-incident-id="${report.incident_id}"]`)
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                      }
-                    }
-                  },
-                },
-              }
-            )
           })
+
+          // Trigger notification refetch to show new reko notifications in sidebar
+          refetchNotifications()
         }
       } catch (error) {
         console.error('Failed to check for new rekos:', error)
@@ -136,5 +98,5 @@ export function useRekoNotifications(
     const interval = setInterval(checkForNewRekos, 3000)
 
     return () => clearInterval(interval)
-  }, [incidents, selectedEvent, seenRekoIds])
+  }, [incidents, selectedEvent, seenRekoIds, refetchNotifications])
 }

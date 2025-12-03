@@ -470,3 +470,47 @@ async def dismiss_notification(
         await db.refresh(notification)
 
     return notification
+
+
+async def create_reko_notification(
+    db: AsyncSession,
+    incident_id: UUID,
+    event_id: UUID,
+    incident_title: str,
+    is_relevant: bool,
+    submitted_by_name: str | None = None
+) -> Notification:
+    """
+    Create a notification for a new Reko report submission.
+
+    Args:
+        db: Database session
+        incident_id: ID of the incident the reko is for
+        event_id: ID of the event
+        incident_title: Title of the incident for the message
+        is_relevant: Whether the reko found the incident relevant
+        submitted_by_name: Optional name of personnel who submitted
+
+    Returns:
+        Created notification
+    """
+    # Build message
+    relevance_text = "Einsatz relevant" if is_relevant else "Kein Einsatz nötig"
+    if submitted_by_name:
+        message = f"Neue Reko-Meldung von {submitted_by_name}: {incident_title} - {relevance_text}"
+    else:
+        message = f"Neue Reko-Meldung: {incident_title} - {relevance_text}"
+
+    notification = Notification(
+        type="reko_submitted",
+        severity="info",
+        message=message,
+        incident_id=incident_id,
+        event_id=event_id,
+    )
+
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
+
+    return notification

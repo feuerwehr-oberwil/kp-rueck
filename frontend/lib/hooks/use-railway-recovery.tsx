@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import { useNotifications } from '@/lib/contexts/notification-context'
 import type { SyncStatusResponse } from '@/types/sync'
 
 interface UseRailwayRecoveryOptions {
@@ -18,6 +19,7 @@ export function useRailwayRecovery(
   options: UseRailwayRecoveryOptions = {}
 ) {
   const { onRecovery } = options
+  const { isSidebarOpen } = useNotifications()
   const previousHealthyRef = useRef<boolean | null>(null)
 
   useEffect(() => {
@@ -27,8 +29,8 @@ export function useRailwayRecovery(
     const isNowHealthy = status.railway_healthy === true
 
     // Detect Railway recovery (unhealthy → healthy transition)
-    if (wasUnhealthy && isNowHealthy) {
-      // Show recovery notification with action to sync
+    if (wasUnhealthy && isNowHealthy && !isSidebarOpen) {
+      // Show recovery notification with action to sync (only if sidebar is closed)
       toast.success('Railway ist wieder online!', {
         description: 'Lokale Änderungen zu Railway synchronisieren?',
         duration: 10000, // 10 seconds
@@ -54,5 +56,5 @@ export function useRailwayRecovery(
 
     // Update previous state
     previousHealthyRef.current = status.railway_healthy
-  }, [status, onRecovery])
+  }, [status, onRecovery, isSidebarOpen])
 }

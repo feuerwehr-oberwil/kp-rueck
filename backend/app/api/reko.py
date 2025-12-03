@@ -15,6 +15,7 @@ from ..models import RekoReport, Incident
 from ..services.audit import log_action
 from ..services.tokens import generate_form_token, validate_form_token
 from ..services.photo_storage import photo_storage
+from ..services.notification_service import create_reko_notification
 
 router = APIRouter(prefix="/reko", tags=["reko"])
 
@@ -91,7 +92,7 @@ async def submit_reko_report(
     update_data = schemas.RekoReportUpdate(**report_data.model_dump(exclude={'incident_id', 'token'}))
     updated = await crud.update_reko_report(db, report.id, update_data, submit=submit)
 
-    # Fetch incident title
+    # Fetch incident details
     incident_result = await db.execute(
         select(Incident).where(Incident.id == report_data.incident_id)
     )
@@ -104,6 +105,24 @@ async def submit_reko_report(
         response_data.incident_location = incident.location_address
         response_data.incident_type = incident.type
         response_data.incident_description = incident.description
+
+    # Create notification when report is submitted (not draft)
+    if submit and incident and incident.event_id:
+        # Get personnel name if available
+        submitted_by_name = None
+        if updated.submitted_by_personnel_id:
+            await db.refresh(updated, ['submitted_by_personnel'])
+            if updated.submitted_by_personnel:
+                submitted_by_name = updated.submitted_by_personnel.name
+
+        await create_reko_notification(
+            db=db,
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            incident_title=incident.title or incident.location_address or "Unbekannt",
+            is_relevant=updated.is_relevant if updated.is_relevant is not None else True,
+            submitted_by_name=submitted_by_name
+        )
 
     return response_data
 
