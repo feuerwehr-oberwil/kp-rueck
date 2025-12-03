@@ -699,7 +699,7 @@ class DiveraEmergency(Base):
     address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
-    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0=low, 1=medium, 2=high
+    # Note: priority is inferred from title/text when creating incidents, not stored
 
     # Store raw Divera payload for reference
     raw_payload_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)

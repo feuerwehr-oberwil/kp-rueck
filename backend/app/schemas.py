@@ -1259,7 +1259,7 @@ class DiveraWebhookPayload(BaseModel):
     address: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
-    priority: int = 0  # 0 = low, 1 = medium, 2 = high (assumed)
+    # Note: priority is inferred from title/text content, not from Divera payload
     cluster: Optional[list[str]] = None  # e.g., ["Untereinheit 1"]
     group: Optional[list[str]] = None  # e.g., ["Gruppe 1", "Gruppe 2"]
     vehicle: Optional[list[str]] = None  # e.g., ["HLF-1", "LF-10"]
@@ -1280,7 +1280,7 @@ class DiveraEmergencyResponse(BaseModel):
     address: Optional[str] = None
     latitude: Optional[Union[str, Decimal]] = None
     longitude: Optional[Union[str, Decimal]] = None
-    priority: int  # 0=low, 1=medium, 2=high
+    # Note: priority is inferred from title/text when creating incidents
     received_at: datetime
     attached_to_event_id: Optional[UUID] = None
     attached_at: Optional[datetime] = None

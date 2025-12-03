@@ -64,18 +64,89 @@ def detect_incident_type(title: str) -> schemas.IncidentType:
     return schemas.IncidentType.DIVERSE_EINSAETZE
 
 
-def map_divera_priority(divera_priority: int) -> schemas.IncidentPriority:
+def infer_priority_from_text(title: str, text: str | None = None) -> schemas.IncidentPriority:
     """
-    Map Divera priority integer to IncidentPriority enum.
+    Infer incident priority from title and text content.
 
-    Divera: 0 = low, 1 = medium, 2 = high (assumed)
+    HIGH priority keywords indicate life-threatening or critical situations:
+    - Fire/Brand emergencies
+    - BMA (building fire alarms)
+    - Person rescue situations
+    - Gas leaks
+    - Chemical hazards
+    - Medical emergencies
+
+    Everything else defaults to MEDIUM (we're dealing with emergencies, not routine tasks).
+
+    Args:
+        title: Incident title (e.g., "Wohnungsbrand", "BMA Schulhaus")
+        text: Optional incident description/text
+
+    Returns:
+        IncidentPriority.HIGH for critical situations, MEDIUM otherwise
     """
-    if divera_priority >= 2:
-        return schemas.IncidentPriority.HIGH
-    elif divera_priority == 1:
-        return schemas.IncidentPriority.MEDIUM
-    else:
-        return schemas.IncidentPriority.LOW
+    # Combine title and text for keyword search
+    combined = f"{title} {text or ''}".upper()
+
+    # HIGH priority keywords - life-threatening or critical situations
+    high_priority_keywords = [
+        # Fire emergencies
+        "BRAND",
+        "FEUER",
+        "FEUERALARM",
+        "VOLLBRAND",
+        "RAUCH",
+        "FLAMMEN",
+        # Building fire alarms
+        "BMA",
+        "BRANDMELDEANLAGE",
+        "BRANDMELDER",
+        "RAUCHMELDER",
+        # Person in danger / rescue (specific phrases to avoid false positives)
+        "PERSON IN",  # Person in Lift, Person in Gefahr
+        "PERSON IM",  # Person im Wasser
+        "EINGEKLEMMT",
+        "EINGESCHLOSSEN",
+        "ABSTURZ",  # Person abgestürzt
+        "VERMISST",
+        "BEWUSSTLOS",
+        "VERLETZT",
+        # Traffic accidents with people
+        "VU",  # Verkehrsunfall
+        "VERKEHRSUNFALL",
+        # Gas / Chemical hazards
+        "GAS",
+        "GASGERUCH",
+        "GASAUSTRITT",
+        "CHEMIE",
+        "CHEMIKALIEN",
+        "GEFAHRGUT",
+        "GEFAHRSTOFF",
+        # Medical emergencies
+        "MED USTÜ",  # Medizinische Unterstützung
+        "MED.",  # Med. Notfall
+        "MEDIZINISCH",
+        "REANIMATION",
+        "NOTARZT",
+        "RETTUNGSDIENST",
+        # Explosions
+        "EXPLOSION",
+        "DETONATION",
+        # Building collapse
+        "EINSTURZ",
+        "EINGESTÜRZT",
+        # Lift/elevator emergencies
+        "LIFT",
+        "AUFZUG",
+        "FAHRSTUHL",
+    ]
+
+    for keyword in high_priority_keywords:
+        if keyword in combined:
+            return schemas.IncidentPriority.HIGH
+
+    # Default to MEDIUM for all other emergencies
+    return schemas.IncidentPriority.MEDIUM
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
@@ -257,8 +328,8 @@ async def attach_emergency_to_event(
     # Detect incident type from title
     incident_type = detect_incident_type(emergency.title)
 
-    # Map priority
-    priority = map_divera_priority(emergency.priority)
+    # Infer priority from title and text content
+    priority = infer_priority_from_text(emergency.title, emergency.text)
 
     # Create incident from emergency
     incident_create = schemas.IncidentCreate(
@@ -355,9 +426,9 @@ async def bulk_attach_emergencies(
 
             # Allow re-attachment to different events
 
-            # Detect type and priority
+            # Detect type and infer priority from text
             incident_type = detect_incident_type(emergency.title)
-            priority = map_divera_priority(emergency.priority)
+            priority = infer_priority_from_text(emergency.title, emergency.text)
 
             # Create incident
             incident_create = schemas.IncidentCreate(

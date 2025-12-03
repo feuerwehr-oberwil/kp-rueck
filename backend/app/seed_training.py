@@ -8,38 +8,74 @@ from uuid import uuid4
 import time
 import random
 
-# Emergency Templates - Storm-focused scenarios
+# Emergency Templates - Storm and water-focused scenarios
 EMERGENCY_TEMPLATES = [
-    # NORMAL - Wasserschaden (35%)
+    # NORMAL - Wasserschaden / Keller auspumpen (45%)
     {
-        "title_pattern": "Wasserschaden Einfamilienhaus",
+        "title_pattern": "Wasser im Keller Einfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller unter Wasser, ca. 20cm Wasserhöhe. Heizung betroffen. Bewohner anwesend."
+        "message_pattern": "Keller unter Wasser, ca. 25cm Wasserhöhe. Heizung und Elektroinstallation betroffen. Bewohner vor Ort."
     },
     {
         "title_pattern": "Überflutung Tiefgarage",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Tiefgarage überflutet durch Starkregen. Mehrere Fahrzeuge betroffen. Wasser steigt weiter."
+        "message_pattern": "Tiefgarage überflutet durch Starkregen. Ca. 40cm Wasser. Mehrere Fahrzeuge betroffen."
     },
     {
-        "title_pattern": "Wassereinbruch Geschäftshaus",
+        "title_pattern": "Wasserschaden Mehrfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser dringt durch Decke. Büroräume betroffen. Elektronik gefährdet."
+        "message_pattern": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. Pumpen benötigt."
     },
     {
-        "title_pattern": "Keller auspumpen Mehrfamilienhaus",
+        "title_pattern": "Keller auspumpen Gewerbebetrieb",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Grundwasser im Keller, ca. 30cm. Mehrere Wohnungen betroffen. Dringend Pumpen benötigt."
+        "message_pattern": "Grundwasser im Keller, ca. 35cm. Lagerware gefährdet. Dringend Tauchpumpen erforderlich."
     },
     {
-        "title_pattern": "Wasserschaden Erdgeschoss",
+        "title_pattern": "Wassereinbruch nach Rohrbruch",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Regenwasser durch defekte Dachentwässerung. Wohnräume überflutet."
+        "message_pattern": "Wasserrohr im Keller gebrochen. Wasser läuft aus. Haupthahn abgestellt. Auspumpen erforderlich."
+    },
+    {
+        "title_pattern": "Keller geflutet Reihenhaussiedlung",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Mehrere Keller in Siedlung überflutet. Ca. 20-30cm Wasser. Koordinierte Hilfeleistung nötig."
+    },
+    {
+        "title_pattern": "Wasserschaden Schule",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Untergeschoss der Turnhalle unter Wasser. Sportgeräte betroffen. Grosser Pumpeinsatz nötig."
+    },
+    {
+        "title_pattern": "Wasser in Liftschacht",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Wasser im Liftschacht Mehrfamilienhaus. Lift ausser Betrieb. Fachfirma vor Ort."
+    },
+    {
+        "title_pattern": "Überfluteter Parkplatz",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Parkplatz steht unter Wasser nach Gewitter. Mehrere Fahrzeuge eingeschlossen. Abfluss verstopft."
+    },
+    {
+        "title_pattern": "Wasserschaden Arztpraxis",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Keller der Arztpraxis überflutet. Medizinische Geräte im Lager bedroht. Priorität hoch."
+    },
+    {
+        "title_pattern": "Rückstau Kanalisation",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Abwasser drückt in Keller zurück. Kanalisation überlastet. Geruchsbelästigung. Pumpen nötig."
     },
     {
         "title_pattern": "Heizöl im Keller",
@@ -47,11 +83,78 @@ EMERGENCY_TEMPLATES = [
         "category": "normal",
         "message_pattern": "Heizöltank leckt. Öl im Keller, ca. 50 Liter. Kein Gewässer betroffen."
     },
+    # Simple/routine water in cellar cases - varying sizes
     {
-        "title_pattern": "Überschwemmung Industriegebiet",
+        "title_pattern": "Wasser im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Starkregen, Kanalisation überlastet. Strasse überflutet, Verkehr behindert."
+        "message_pattern": "Wasser im Keller nach Regen. Ca. 5cm in einem Raum. Bewohner bittet um Hilfe."
+    },
+    {
+        "title_pattern": "Keller feucht",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Keller steht unter Wasser, ca. 10cm. Nur Kellerabteil betroffen. Kleine Pumpe reicht."
+    },
+    {
+        "title_pattern": "Wasser in Waschküche",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Waschküche überflutet. Ca. 3cm Wasser. Waschmaschine steht im Wasser."
+    },
+    {
+        "title_pattern": "Wasser im Hauseingang",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Regenwasser im Hauseingang. Ca. 2cm. Läuft nicht ab. Wassersauger genügt."
+    },
+    {
+        "title_pattern": "Keller vollgelaufen",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Keller komplett unter Wasser. Ca. 50cm Wasserhöhe. Mehrere Räume. Grosse Pumpe nötig."
+    },
+    {
+        "title_pattern": "Wasserschaden Hobbyraum",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Hobbyraum im UG unter Wasser. Ca. 15cm. Möbel und Geräte betroffen."
+    },
+    {
+        "title_pattern": "Wasser im Veloraum",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Veloraum im Keller überflutet. Ca. 8cm Wasser. Velos müssen raus."
+    },
+    {
+        "title_pattern": "Pfütze im Keller",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Wasser sammelt sich im Keller. Kleine Pfütze, ca. 2cm. Ursache unklar."
+    },
+    {
+        "title_pattern": "Keller halb voll",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Kellerräume zur Hälfte geflutet. Ca. 30cm Wasser. Heizraum betroffen."
+    },
+    {
+        "title_pattern": "Wasser im Treppenhaus",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Wasser läuft ins Treppenhaus. Ca. 1cm auf Treppenstufen. Rutschgefahr."
+    },
+    {
+        "title_pattern": "Garage unter Wasser",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Einzelgarage überflutet. Ca. 12cm Wasser. Auto steht drin."
+    },
+    {
+        "title_pattern": "Wasser im Lagerraum",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Lagerraum im Keller nass. Ca. 6cm Wasser. Kartons und Kisten betroffen."
     },
 
     # NORMAL - Sturmschaden (25%)
@@ -130,24 +233,24 @@ EMERGENCY_TEMPLATES = [
         "message_pattern": "Grosse Eiche nach Sturm instabil. Wurzeln aus Boden. Akute Umsturzgefahr."
     },
 
-    # NORMAL - Keller auspumpen (10%)
+    # NORMAL - Weitere Wasserschäden (10%)
     {
-        "title_pattern": "Keller unter Wasser",
+        "title_pattern": "Wasser im Keller Restaurant",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Kellerräume überflutet, 40cm Wasser. Heizung und Waschküche betroffen."
+        "message_pattern": "Lagerraum Restaurant überflutet. Ca. 25cm Wasser. Lebensmittelvorräte gefährdet."
     },
     {
-        "title_pattern": "Grundwasser im Keller",
+        "title_pattern": "Überschwemmung Garageneinfahrt",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Grundwasserspiegel gestiegen. Keller läuft voll. Pumpe ausgefallen."
+        "message_pattern": "Einfahrt zur Tiefgarage überflutet. Wasser läuft in Garage. Ablauf verstopft."
     },
     {
-        "title_pattern": "Abwasser Rückstau",
+        "title_pattern": "Wasserschaden Kindergarten",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Kanalisation überlastet. Abwasser drückt in Keller zurück. Geruchsbelästigung."
+        "message_pattern": "Keller des Kindergartens unter Wasser. Material und Spielsachen betroffen. Pumpen nötig."
     },
 
     # NORMAL - Andere (10%)

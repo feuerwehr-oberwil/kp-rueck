@@ -34,7 +34,7 @@ async def create_divera_emergency(
         address=payload.address,
         latitude=payload.lat,
         longitude=payload.lng,
-        priority=payload.priority,
+        # Note: priority is inferred from title/text when creating incidents
         raw_payload_json=payload.model_dump(),
     )
 
