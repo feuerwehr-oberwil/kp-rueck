@@ -12,7 +12,6 @@ import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { ProtectedRoute } from '@/components/protected-route';
 import { PageNavigation } from '@/components/page-navigation';
-import { MobileNavigation } from '@/components/mobile-navigation';
 import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
@@ -48,10 +47,6 @@ export default function ResourcesPage() {
               <PageNavigation currentPage="resources" hasSelectedEvent={!!selectedEvent} />
             )}
 
-            {/* Mobile Navigation */}
-            {isMobile && (
-              <MobileNavigation hasSelectedEvent={!!selectedEvent} />
-            )}
           </div>
         </header>
 

@@ -43,6 +43,7 @@ import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 
 export default function FireStationDashboard() {
   const {
@@ -723,7 +724,22 @@ export default function FireStationDashboard() {
           )}
         </header>
 
-
+        {/* Mobile View */}
+        {isMobile ? (
+          <MobileIncidentListView
+            operations={filteredOperations}
+            materials={materials}
+            formatLocation={formatLocation}
+            onRefresh={refreshOperations}
+            onNewEmergency={() => setNewEmergencyModalOpen(true)}
+            onCheckIn={generateCheckInQR}
+            onVehicleStatus={() => setVehicleStatusSheetOpen(true)}
+            isTraining={selectedEvent?.training_flag}
+            isLoading={isLoading}
+          />
+        ) : (
+          /* Desktop View */
+          <>
         <div className="flex flex-1 overflow-hidden">
           {showLeftSidebar && (
             <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm flex flex-col">
@@ -962,6 +978,8 @@ export default function FireStationDashboard() {
             )}
           </div>
         </footer>
+          </>
+        )}
       </div>
 
       {/* Drag Preview Overlay */}
@@ -1125,7 +1143,7 @@ export default function FireStationDashboard() {
       />
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNavigation currentPage="kanban" hasSelectedEvent={!!selectedEvent} />
+      <MobileBottomNavigation currentPage="kanban" hasSelectedEvent={!!selectedEvent} onCheckIn={generateCheckInQR} />
     </ProtectedRoute>
   )
 }

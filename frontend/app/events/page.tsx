@@ -21,7 +21,6 @@ import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCirc
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { EventExportButton } from '@/components/event-export-button'
-import { MobileNavigation } from '@/components/mobile-navigation'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
 
@@ -251,10 +250,6 @@ export default function EventsPage() {
               <PageNavigation currentPage="events" hasSelectedEvent={!!selectedEvent} />
             )}
 
-            {/* Mobile Navigation */}
-            {isMobile && (
-              <MobileNavigation hasSelectedEvent={!!selectedEvent} />
-            )}
           </div>
         </header>
 

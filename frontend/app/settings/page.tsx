@@ -27,7 +27,6 @@ import { Settings2, Save, AlertCircle, Bell, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
-import { MobileNavigation } from '@/components/mobile-navigation';
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
 import { SyncStatusCard } from '@/components/sync/sync-status-card';
@@ -228,10 +227,6 @@ export default function SettingsPage() {
               <PageNavigation currentPage="settings" />
             )}
 
-            {/* Mobile Navigation */}
-            {isMobile && (
-              <MobileNavigation />
-            )}
           </div>
         </header>
 

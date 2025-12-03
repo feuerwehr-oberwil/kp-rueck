@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MobileNavigation } from '@/components/mobile-navigation';
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useEvent } from '@/lib/contexts/event-context';
@@ -328,9 +327,6 @@ export default function HelpPage() {
           {/* Desktop: Full navigation, Mobile: MobileNavigation */}
           {!isMobile && isAuthenticated && (
             <PageNavigation currentPage="help" hasSelectedEvent={!!selectedEvent} />
-          )}
-          {isMobile && isAuthenticated && (
-            <MobileNavigation hasSelectedEvent={!!selectedEvent} />
           )}
         </div>
       </header>

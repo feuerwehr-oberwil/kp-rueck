@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import {
@@ -11,11 +11,16 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
-import { MobileNavigation } from "@/components/mobile-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
-import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
+import { useNotifications } from "@/lib/contexts/notification-context"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
+import { ShortcutsModal } from "@/components/kanban/shortcuts-modal"
+import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
+import { CommandPalette } from "@/components/ui/command-palette"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
+import { columns } from "@/lib/kanban-utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -44,13 +49,18 @@ export default function CombinedViewPage() {
   const {
     operations,
     materials,
+    removeCrew,
+    removeMaterial,
     refreshOperations,
     updateOperation,
     removeVehicle,
     assignVehicleToOperation,
-    deleteOperation
+    deleteOperation,
+    createOperation,
+    getNextOperationId
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
+  const { toggleSidebar: toggleNotificationSidebar } = useNotifications()
   const router = useRouter()
   const isMobile = useIsMobile()
 
@@ -58,9 +68,15 @@ export default function CombinedViewPage() {
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [operationForModal, setOperationForModal] = useState<Operation | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
+  const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [isMounted, setIsMounted] = useState(false)
   const [mapResetTrigger, setMapResetTrigger] = useState(0)
+  const [gPrefixActive, setGPrefixActive] = useState(false)
+  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Set mounted state
   useEffect(() => {
@@ -79,10 +95,13 @@ export default function CombinedViewPage() {
     const loadVehicles = async () => {
       try {
         const vehicles = await apiClient.getVehicles()
-        const typesWithKeys = vehicles.slice(0, 5).map((vehicle, index) => ({
-          key: String(index + 1),
+        // Sort vehicles by display_order and create vehicle types array with keyboard shortcuts
+        const sortedVehicles = vehicles.sort((a, b) => a.display_order - b.display_order)
+        const typesWithKeys = sortedVehicles.map((vehicle) => ({
+          key: String(vehicle.display_order),
           name: vehicle.name,
-          id: vehicle.id
+          id: vehicle.id,
+          type: vehicle.type
         }))
         setVehicleTypes(typesWithKeys)
       } catch (error) {
@@ -96,6 +115,245 @@ export default function CombinedViewPage() {
   useEffect(() => {
     refreshOperations()
   }, [])
+
+  // Move operation to next status column
+  const moveOperationRight = useCallback((operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation) return
+
+    const currentColumnIndex = columns.findIndex((col) => col.status.includes(operation.status))
+    if (currentColumnIndex < columns.length - 1) {
+      const nextColumn = columns[currentColumnIndex + 1]
+      const newStatus = nextColumn.status[0] as OperationStatus
+      updateOperation(operationId, { status: newStatus })
+    }
+  }, [operations, updateOperation])
+
+  // Move operation to previous status column
+  const moveOperationLeft = useCallback((operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation) return
+
+    const currentColumnIndex = columns.findIndex((col) => col.status.includes(operation.status))
+    if (currentColumnIndex > 0) {
+      const prevColumn = columns[currentColumnIndex - 1]
+      const newStatus = prevColumn.status[0] as OperationStatus
+      updateOperation(operationId, { status: newStatus })
+    }
+  }, [operations, updateOperation])
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Esc to blur search input or cancel g-prefix mode
+      if (e.key === 'Escape') {
+        if (gPrefixActive) {
+          setGPrefixActive(false)
+          if (gPrefixTimeoutRef.current) {
+            clearTimeout(gPrefixTimeoutRef.current)
+            gPrefixTimeoutRef.current = null
+          }
+          return
+        }
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+          (e.target as HTMLElement).blur()
+          return
+        }
+      }
+
+      // Ignore other shortcuts if typing in input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Handle g-prefix navigation
+      if (gPrefixActive) {
+        e.preventDefault()
+        setGPrefixActive(false)
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+          gPrefixTimeoutRef.current = null
+        }
+
+        if (e.key === 'k' || e.key === 'K') {
+          router.push('/')
+          return
+        } else if (e.key === 'm' || e.key === 'M') {
+          router.push('/map')
+          return
+        } else if (e.key === 'e' || e.key === 'E') {
+          router.push('/events')
+          return
+        } else if (e.key === 'c' || e.key === 'C') {
+          // Already on combined, do nothing
+          return
+        }
+        return
+      }
+
+      // Activate g-prefix mode
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setGPrefixActive(true)
+        // Reset g-prefix mode after 1.5 seconds
+        if (gPrefixTimeoutRef.current) {
+          clearTimeout(gPrefixTimeoutRef.current)
+        }
+        gPrefixTimeoutRef.current = setTimeout(() => {
+          setGPrefixActive(false)
+          gPrefixTimeoutRef.current = null
+        }, 1500)
+        return
+      }
+
+      // Arrow key navigation between operations
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const allOps = operations
+        if (allOps.length === 0) return
+
+        if (!hoveredOperationId) {
+          // No operation selected, select first
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
+        if (currentIndex === -1) {
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        if (e.key === 'ArrowUp') {
+          // Move to previous operation
+          const newIndex = currentIndex > 0 ? currentIndex - 1 : allOps.length - 1
+          setHoveredOperationId(allOps[newIndex].id)
+        } else {
+          // Move to next operation
+          const newIndex = currentIndex < allOps.length - 1 ? currentIndex + 1 : 0
+          setHoveredOperationId(allOps[newIndex].id)
+        }
+        return
+      }
+
+      // Tab navigation - cycle through all operations
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        const allOps = operations
+        if (allOps.length === 0) return
+
+        if (!hoveredOperationId) {
+          setHoveredOperationId(allOps[0].id)
+          return
+        }
+
+        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
+        const newIndex = (currentIndex + 1) % allOps.length
+        setHoveredOperationId(allOps[newIndex].id)
+        return
+      }
+
+      // Vehicle assignment shortcuts (1-5) - works on hovered operation
+      const vehicleShortcut = vehicleTypes.find(vt => vt.key === e.key)
+      if (vehicleShortcut && hoveredOperationId) {
+        const operation = operations.find(op => op.id === hoveredOperationId)
+        if (operation) {
+          // Check if vehicle is already assigned
+          const isAssigned = operation.vehicles.includes(vehicleShortcut.name)
+          if (isAssigned) {
+            // Unassign the vehicle
+            removeVehicle(hoveredOperationId, vehicleShortcut.name)
+          } else {
+            // Assign the vehicle
+            assignVehicleToOperation(vehicleShortcut.id, vehicleShortcut.name, hoveredOperationId)
+          }
+        }
+        return
+      }
+
+      // Priority assignment shortcuts (Shift+1-3) - works on hovered operation
+      if (e.shiftKey && hoveredOperationId) {
+        if (e.key === '1' || e.key === '!') {
+          e.preventDefault()
+          updateOperation(hoveredOperationId, { priority: 'low' })
+          return
+        } else if (e.key === '2' || e.key === '@') {
+          e.preventDefault()
+          updateOperation(hoveredOperationId, { priority: 'medium' })
+          return
+        } else if (e.key === '3' || e.key === '#') {
+          e.preventDefault()
+          updateOperation(hoveredOperationId, { priority: 'high' })
+          return
+        }
+      }
+
+      // Navigation shortcuts - works on hovered operation
+      if (e.key === '>' || e.key === '.') {
+        e.preventDefault()
+        if (hoveredOperationId) {
+          moveOperationRight(hoveredOperationId)
+        }
+      } else if (e.key === '<' || e.key === ',') {
+        e.preventDefault()
+        if (hoveredOperationId) {
+          moveOperationLeft(hoveredOperationId)
+        }
+      } else if (e.key === '/') {
+        e.preventDefault()
+        document.getElementById('personnel-search-input')?.focus()
+      } else if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        document.getElementById('personnel-search-input')?.focus()
+      } else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        document.getElementById('material-search-input')?.focus()
+      } else if (e.key === '?') {
+        e.preventDefault()
+        setShortcutsModalOpen(true)
+      } else if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setNewEmergencyModalOpen(true)
+      } else if ((e.key === 'b' || e.key === 'B') && !e.metaKey && !e.ctrlKey) {
+        // Toggle notification sidebar
+        e.preventDefault()
+        toggleNotificationSidebar()
+      } else if (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') {
+        // Open detail modal for hovered operation
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            e.preventDefault()
+            setOperationForModal(operation)
+            setModalOpen(true)
+          }
+        }
+      } else if ((e.key === 'r' || e.key === 'R' || e.key === 'F5') && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        refreshOperations()
+        toast.success("Daten aktualisiert")
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Delete hovered operation with confirmation dialog
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            e.preventDefault()
+            setOperationToDelete(operation)
+            setDeleteDialogOpen(true)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      // Clean up timeout on unmount
+      if (gPrefixTimeoutRef.current) {
+        clearTimeout(gPrefixTimeoutRef.current)
+      }
+    }
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, toggleNotificationSidebar])
 
   // Active operations (excluding completed)
   const activeOperations = operations.filter((op) => op.status !== "complete")
@@ -153,6 +411,20 @@ export default function CombinedViewPage() {
     }
   }
 
+  // Handle operation deletion from keyboard shortcut
+  const handleDeleteOperationConfirm = async () => {
+    if (!operationToDelete) return
+    try {
+      await deleteOperation(operationToDelete.id)
+      toast.success("Einsatz gelöscht")
+    } catch (error) {
+      console.error('Failed to delete operation:', error)
+      toast.error("Fehler beim Löschen")
+    } finally {
+      setOperationToDelete(null)
+    }
+  }
+
   // Don't render until mounted to avoid hydration issues
   if (!isMounted) {
     return (
@@ -183,10 +455,6 @@ export default function CombinedViewPage() {
               <PageNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
             )}
 
-            {/* Mobile Navigation */}
-            {isMobile && (
-              <MobileNavigation hasSelectedEvent={!!selectedEvent} />
-            )}
           </div>
         </header>
 
@@ -251,6 +519,39 @@ export default function CombinedViewPage() {
           vehicleTypes={vehicleTypes}
           onAssignVehicle={handleVehicleAssign}
           onRemoveVehicle={handleVehicleRemove}
+          onRemoveCrew={removeCrew}
+          onRemoveMaterial={removeMaterial}
+        />
+
+        {/* Shortcuts Modal */}
+        <ShortcutsModal
+          open={shortcutsModalOpen}
+          onOpenChange={setShortcutsModalOpen}
+          vehicleTypes={vehicleTypes}
+        />
+
+        {/* New Emergency Modal */}
+        <NewEmergencyModal
+          open={newEmergencyModalOpen}
+          onOpenChange={setNewEmergencyModalOpen}
+          onCreateOperation={createOperation}
+          nextOperationId={getNextOperationId()}
+        />
+
+        {/* Command Palette */}
+        <CommandPalette
+          onNewOperation={() => setNewEmergencyModalOpen(true)}
+          onShowHelp={() => setShortcutsModalOpen(true)}
+          onRefresh={refreshOperations}
+        />
+
+        {/* Delete Operation Confirmation Dialog */}
+        <DeleteConfirmDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title="Einsatz löschen"
+          description={`Sind Sie sicher, dass Sie den Einsatz "${operationToDelete?.location}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+          onConfirm={handleDeleteOperationConfirm}
         />
       </div>
 

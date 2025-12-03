@@ -13,7 +13,6 @@ import { useIncidents, useOperations, type Operation, type Material } from "@/li
 import { useEvent } from "@/lib/contexts/event-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
-import { MobileNavigation } from "@/components/mobile-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import type { Incident } from "@/lib/types/incidents"
@@ -293,10 +292,6 @@ export default function MapPage() {
             </div>
           )}
 
-          {/* Mobile Burger Menu */}
-          {isMobile && (
-            <MobileNavigation hasSelectedEvent={!!selectedEvent} />
-          )}
         </header>
 
         <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
