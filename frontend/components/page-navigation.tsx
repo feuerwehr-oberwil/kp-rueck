@@ -8,7 +8,7 @@
 
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
-import { NotificationSidebar } from '@/components/notifications/notification-sidebar';
+import { NotificationBellTrigger } from '@/components/notifications/notification-bell-trigger';
 import { Map as MapIcon, List, HelpCircle, Calendar, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 
@@ -86,11 +86,11 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
           </Button>
         </Link>
 
-        {/* Notification Sidebar */}
-        <NotificationSidebar />
-
         {/* User Menu (Cog Dropdown) - now contains all secondary navigation */}
         <UserMenu />
+
+        {/* Notification Bell Trigger - rightmost to align with fixed sidebar */}
+        <NotificationBellTrigger />
     </div>
   );
 }
