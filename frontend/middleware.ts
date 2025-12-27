@@ -3,32 +3,68 @@ import type { NextRequest } from 'next/server'
 
 /**
  * Middleware to proxy /backend-api/* requests to the actual backend.
- * This runs at request time, so it can read runtime environment variables.
+ * Uses fetch() for true server-side proxying (not client redirect).
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Only handle /backend-api/* requests
-  if (pathname.startsWith('/backend-api')) {
-    const backendUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
-
-    if (!backendUrl) {
-      console.error('[Middleware] API_URL not configured!')
-      return new NextResponse('Backend URL not configured', { status: 500 })
-    }
-
-    // Remove /backend-api prefix and proxy to actual backend
-    const targetPath = pathname.replace('/backend-api', '')
-    const targetUrl = `${backendUrl}${targetPath}${request.nextUrl.search}`
-
-    // Clone the request headers
-    const headers = new Headers(request.headers)
-
-    // Forward the request to the backend
-    return NextResponse.rewrite(new URL(targetUrl))
+  if (!pathname.startsWith('/backend-api')) {
+    return NextResponse.next()
   }
 
-  return NextResponse.next()
+  const backendUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
+
+  if (!backendUrl) {
+    console.error('[Middleware] API_URL not configured!')
+    return new NextResponse(JSON.stringify({ error: 'Backend URL not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Remove /backend-api prefix and build target URL
+  const targetPath = pathname.replace('/backend-api', '')
+  const targetUrl = `${backendUrl}${targetPath}${request.nextUrl.search}`
+
+  try {
+    // Build headers to forward (excluding host)
+    const headers = new Headers()
+    request.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== 'host') {
+        headers.set(key, value)
+      }
+    })
+
+    // Proxy the request server-side
+    const response = await fetch(targetUrl, {
+      method: request.method,
+      headers,
+      body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.text() : undefined,
+    })
+
+    // Build response headers
+    const responseHeaders = new Headers()
+    response.headers.forEach((value, key) => {
+      // Skip headers that shouldn't be forwarded
+      if (!['content-encoding', 'transfer-encoding'].includes(key.toLowerCase())) {
+        responseHeaders.set(key, value)
+      }
+    })
+
+    // Return proxied response
+    return new NextResponse(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders,
+    })
+  } catch (error) {
+    console.error('[Middleware] Proxy error:', error)
+    return new NextResponse(JSON.stringify({ error: 'Proxy failed' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 }
 
 export const config = {
