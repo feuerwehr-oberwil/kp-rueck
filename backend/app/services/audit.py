@@ -53,7 +53,14 @@ async def log_action(
 
     if request:
         # Get real IP (handle reverse proxy)
-        ip_address = request.headers.get("X-Forwarded-For", request.client.host if request.client else None)
+        # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+        # We want the first one (the original client)
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # Take only the first IP (client IP)
+            ip_address = forwarded_for.split(",")[0].strip()
+        else:
+            ip_address = request.client.host if request.client else None
         user_agent = request.headers.get("User-Agent")
 
     # Create log entry
