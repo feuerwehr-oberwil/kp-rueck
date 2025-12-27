@@ -22,22 +22,35 @@ async function proxyRequest(request: NextRequest) {
   const targetPath = url.pathname.replace('/backend-api', '')
   const targetUrl = `${backendUrl}${targetPath}${url.search}`
 
-  // Get cookies from the request
+  // Debug: log all incoming headers
+  const allHeaders: Record<string, string> = {}
+  request.headers.forEach((value, key) => {
+    allHeaders[key] = key.toLowerCase() === 'cookie' ? value.substring(0, 50) + '...' : value.substring(0, 100)
+  })
+  console.log(`[API Proxy] Headers for ${targetPath}:`, JSON.stringify(allHeaders, null, 2))
+
+  // Try multiple methods to get cookies
+  // Method 1: cookies() from next/headers
   const cookieStore = await cookies()
   const accessToken = cookieStore.get('access_token')?.value
   const refreshToken = cookieStore.get('refresh_token')?.value
 
-  console.log(`[API Proxy] ${request.method} ${targetPath} - access_token: ${!!accessToken}, refresh_token: ${!!refreshToken}`)
+  // Method 2: Raw header from request
+  const rawCookie = request.headers.get('cookie')
+
+  console.log(`[API Proxy] ${request.method} ${targetPath} - cookies(): ${!!accessToken}, raw: ${!!rawCookie}`)
 
   // Build headers
   const headers = new Headers()
 
-  // Forward cookies
+  // Forward cookies - try cookies() first, then raw header
   if (accessToken || refreshToken) {
     const cookieParts: string[] = []
     if (accessToken) cookieParts.push(`access_token=${accessToken}`)
     if (refreshToken) cookieParts.push(`refresh_token=${refreshToken}`)
     headers.set('Cookie', cookieParts.join('; '))
+  } else if (rawCookie) {
+    headers.set('Cookie', rawCookie)
   }
 
   // Forward other headers (excluding problematic ones)
