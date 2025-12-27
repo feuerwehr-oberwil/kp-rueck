@@ -4,9 +4,10 @@ const nextConfig = {
   output: 'standalone',
 
   // Proxy API requests to backend - allows frontend to use relative URLs
-  // The NEXT_PUBLIC_API_URL is read at runtime (not build time) for standalone mode
+  // Uses API_URL (server-side only) for runtime configuration
   async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const backendUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    console.log('[Next.js Rewrites] Backend URL:', backendUrl)
     return [
       {
         source: '/backend-api/:path*',
