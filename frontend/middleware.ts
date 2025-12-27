@@ -36,6 +36,15 @@ export async function middleware(request: NextRequest) {
       }
     })
 
+    // Debug: log if cookies are being forwarded
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      const hasAccessToken = cookieHeader.includes('access_token')
+      console.log(`[Middleware] ${request.method} ${targetPath} - Cookie header present, access_token: ${hasAccessToken}`)
+    } else {
+      console.log(`[Middleware] ${request.method} ${targetPath} - No cookie header`)
+    }
+
     // Proxy the request server-side
     const response = await fetch(targetUrl, {
       method: request.method,
@@ -45,15 +54,23 @@ export async function middleware(request: NextRequest) {
 
     // Build response headers
     const responseHeaders = new Headers()
+
+    // Handle Set-Cookie headers specially - they need to be preserved individually
+    // The Headers API can merge them, so use getSetCookie() to get all cookies
+    const cookies = response.headers.getSetCookie()
+    if (cookies.length > 0) {
+      console.log(`[Middleware] Forwarding ${cookies.length} Set-Cookie header(s) for ${targetPath}`)
+    }
+    cookies.forEach(cookie => {
+      responseHeaders.append('Set-Cookie', cookie)
+    })
+
+    // Copy other headers
     response.headers.forEach((value, key) => {
-      // Skip headers that shouldn't be forwarded
-      if (!['content-encoding', 'transfer-encoding'].includes(key.toLowerCase())) {
-        // Use append for Set-Cookie to preserve multiple cookies
-        if (key.toLowerCase() === 'set-cookie') {
-          responseHeaders.append(key, value)
-        } else {
-          responseHeaders.set(key, value)
-        }
+      const lowerKey = key.toLowerCase()
+      // Skip headers that shouldn't be forwarded or already handled
+      if (!['content-encoding', 'transfer-encoding', 'set-cookie'].includes(lowerKey)) {
+        responseHeaders.set(key, value)
       }
     })
 
