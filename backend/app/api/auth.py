@@ -204,9 +204,19 @@ async def logout(
         await log_logout(db=db, user=current_user, request=request)
         await db.commit()
 
-    # Always clear cookies
-    response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token")
+    # Always clear cookies - must match attributes used when setting them
+    response.delete_cookie(
+        key="access_token",
+        httponly=auth_settings.COOKIE_HTTPONLY,
+        secure=auth_settings.cookie_secure,
+        samesite=auth_settings.COOKIE_SAMESITE,
+    )
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=auth_settings.COOKIE_HTTPONLY,
+        secure=auth_settings.cookie_secure,
+        samesite=auth_settings.COOKIE_SAMESITE,
+    )
     return {"message": "Erfolgreich abgemeldet"}
 
 
