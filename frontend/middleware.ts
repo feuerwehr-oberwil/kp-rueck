@@ -73,11 +73,11 @@ export async function middleware(request: NextRequest) {
 
     // Handle Set-Cookie headers specially - they need to be preserved individually
     // The Headers API can merge them, so use getSetCookie() to get all cookies
-    const cookies = response.headers.getSetCookie()
-    if (cookies.length > 0) {
-      console.log(`[Middleware] Forwarding ${cookies.length} Set-Cookie header(s) for ${targetPath}`)
+    const responseCookies = response.headers.getSetCookie()
+    if (responseCookies.length > 0) {
+      console.log(`[Middleware] Forwarding ${responseCookies.length} Set-Cookie header(s) for ${targetPath}`)
     }
-    cookies.forEach(cookie => {
+    responseCookies.forEach(cookie => {
       responseHeaders.append('Set-Cookie', cookie)
     })
 
