@@ -28,18 +28,28 @@ export async function middleware(request: NextRequest) {
   const targetUrl = `${backendUrl}${targetPath}${request.nextUrl.search}`
 
   try {
-    // Get cookies using Next.js cookies API (more reliable than headers.get)
-    const cookies = request.cookies
-    const accessToken = cookies.get('access_token')?.value
-    const refreshToken = cookies.get('refresh_token')?.value
+    // Try multiple ways to get cookies (Railway edge caching may interfere)
+    // Method 1: Next.js cookies API
+    const cookiesApi = request.cookies
+    const accessTokenApi = cookiesApi.get('access_token')?.value
+    const refreshTokenApi = cookiesApi.get('refresh_token')?.value
 
-    // Build cookie header string from Next.js cookies
-    const cookieParts: string[] = []
-    if (accessToken) cookieParts.push(`access_token=${accessToken}`)
-    if (refreshToken) cookieParts.push(`refresh_token=${refreshToken}`)
-    const cookieHeader = cookieParts.length > 0 ? cookieParts.join('; ') : null
+    // Method 2: Raw header (fallback)
+    const rawCookieHeader = request.headers.get('cookie')
 
-    console.log(`[Middleware] ${request.method} ${targetPath} - access_token: ${!!accessToken}, refresh_token: ${!!refreshToken}`)
+    // Use whichever method found the tokens
+    let cookieHeader: string | null = null
+    if (accessTokenApi || refreshTokenApi) {
+      const cookieParts: string[] = []
+      if (accessTokenApi) cookieParts.push(`access_token=${accessTokenApi}`)
+      if (refreshTokenApi) cookieParts.push(`refresh_token=${refreshTokenApi}`)
+      cookieHeader = cookieParts.join('; ')
+    } else if (rawCookieHeader) {
+      // Use raw header if API didn't work
+      cookieHeader = rawCookieHeader
+    }
+
+    console.log(`[Middleware] ${request.method} ${targetPath} - api: ${!!accessTokenApi}, raw: ${!!rawCookieHeader}`)
 
     // Build headers to forward
     const headers = new Headers()
@@ -89,6 +99,11 @@ export async function middleware(request: NextRequest) {
         responseHeaders.set(key, value)
       }
     })
+
+    // Prevent edge caching for API requests
+    responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    responseHeaders.set('Pragma', 'no-cache')
+    responseHeaders.set('Expires', '0')
 
     // Return proxied response
     return new NextResponse(response.body, {
