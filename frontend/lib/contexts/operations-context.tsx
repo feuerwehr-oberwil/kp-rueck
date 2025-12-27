@@ -8,6 +8,13 @@ import { useEvent } from "./event-context"
 import { toast } from "sonner"
 import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
 
+// Simple UUID validation to prevent invalid IDs from being used in API calls
+const isValidUUID = (id: string | undefined | null): id is string => {
+  if (!id) return false
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(id)
+}
+
 // Types
 export type PersonStatus = "available" | "assigned"
 export type PersonRole = string // Dynamic role - can be any string from backend
@@ -180,8 +187,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // Refresh operations from server
   const refreshOperations = useCallback(async () => {
-    // Don't load data if no event is selected
-    if (!selectedEvent) {
+    // Don't load data if no event is selected or event ID is invalid
+    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
       setIsLoading(false)
       return
@@ -360,13 +367,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Don't load data if no event is selected
-    if (!selectedEvent) {
+    // Don't load data if no event is selected or event ID is invalid
+    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
       setIsLoading(false)
       setIsLoaded(true)
       return
     }
+
+    // Capture the event ID to avoid closure issues during async operations
+    const eventId = selectedEvent.id
 
     const loadData = async (showLoading = true) => {
       try {
@@ -375,8 +385,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           setIsLoading(true)
         }
         const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
-          apiClient.getIncidents(selectedEvent.id),
-          apiClient.getAllPersonnel({ checked_in_only: true, event_id: selectedEvent.id }), // Only show checked-in personnel for this event
+          apiClient.getIncidents(eventId),
+          apiClient.getAllPersonnel({ checked_in_only: true, event_id: eventId }), // Only show checked-in personnel for this event
           apiClient.getAllMaterials(),
           apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
         ])
@@ -391,7 +401,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         // Fetch ALL assignments for this event in a single bulk request (optimized - replaces N+1 query pattern)
         try {
-          const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
+          const assignmentsByIncident = await apiClient.getAssignmentsByEvent(eventId)
 
           // Populate crew/materials/vehicles for each operation from bulk data
           operations.forEach((operation) => {
@@ -420,7 +430,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             }
           })
         } catch (error) {
-          console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+          console.error(`Failed to load assignments for event ${eventId}:`, error)
         }
 
         // Fetch reko reports for incidents with completed rekos
@@ -486,7 +496,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // First, identify reko personnel so they can be assigned to multiple incidents
         let rekoPersonnelIds = new Set<string>()
         try {
-          const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+          const specialFunctions = await apiClient.getEventSpecialFunctions(eventId)
           // Collect reko personnel IDs - they can be assigned to multiple incidents
           specialFunctions
             .filter(func => func.function_type === 'reko')

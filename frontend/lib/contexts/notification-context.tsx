@@ -24,6 +24,13 @@ interface NotificationContextValue {
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
 
+// Simple UUID validation to prevent invalid IDs from being used in API calls
+const isValidUUID = (id: string | undefined | null): id is string => {
+  if (!id) return false
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(id)
+}
+
 export function useNotifications() {
   const context = useContext(NotificationContext)
   if (!context) {
@@ -80,8 +87,8 @@ export function NotificationProvider({
 
   // Fetch notifications from backend
   const fetchNotifications = async (): Promise<Notification[]> => {
-    // Don't fetch if auth is loading, no event is selected, or user is not authenticated
-    if (authLoading || !selectedEvent || !isAuthenticated) {
+    // Don't fetch if auth is loading, no event is selected, event ID is invalid, or user is not authenticated
+    if (authLoading || !selectedEvent || !isValidUUID(selectedEvent.id) || !isAuthenticated) {
       return []
     }
 
@@ -260,8 +267,8 @@ export function NotificationProvider({
 
   // Poll for notifications
   useEffect(() => {
-    // Only poll if auth is loaded, we have a selected event, and user is authenticated
-    if (authLoading || !selectedEvent || !isAuthenticated) {
+    // Only poll if auth is loaded, we have a selected event with valid ID, and user is authenticated
+    if (authLoading || !selectedEvent || !isValidUUID(selectedEvent.id) || !isAuthenticated) {
       setNotifications([])
       return
     }
