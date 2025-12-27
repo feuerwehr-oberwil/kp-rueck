@@ -1,42 +1,29 @@
 /**
  * Runtime environment configuration
- * This allows the API URL to be determined at runtime, not build time
+ *
+ * In production, uses Next.js rewrites to proxy API requests through /backend-api
+ * This avoids CORS issues and doesn't require build-time env vars.
+ *
+ * In development (localhost), calls the backend directly.
  */
 
 export function getApiUrl(): string {
-  // ALWAYS force HTTPS for Railway API, regardless of env var
-  // This is a safety check to prevent mixed content errors
-  const envUrl = process.env.NEXT_PUBLIC_API_URL
-
-  // If env URL contains railway.app, FORCE it to HTTPS
-  if (envUrl && envUrl.includes('railway.app')) {
-    const httpsUrl = envUrl.replace('http://', 'https://')
-    console.log('[getApiUrl] Railway env detected, forcing HTTPS:', httpsUrl)
-    return httpsUrl
-  }
-
-  // Client-side: determine based on current location
+  // Client-side: check if we're in production (non-localhost)
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname
-    console.log('[getApiUrl] Client-side detection - hostname:', hostname)
 
-    // If we're on the production frontend domain, always use HTTPS for backend
-    if (hostname.includes('railway.app') || hostname.includes('up.railway.app')) {
-      console.log('[getApiUrl] Railway hostname detected, using HTTPS')
-      return 'https://fwo-kp-api.up.railway.app'
+    // In production (any non-localhost domain), use the proxy path
+    // Next.js rewrites will forward /backend-api/* to the actual backend
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return '/backend-api'
     }
-
-    console.log('[getApiUrl] Not Railway, falling through')
-  } else {
-    console.log('[getApiUrl] Server-side (no window), env:', envUrl)
   }
 
-  // Use env variable or default to localhost
+  // Server-side or localhost: use env var or default
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
   if (envUrl) {
-    console.log('[getApiUrl] Using env var:', envUrl)
     return envUrl
   }
 
-  console.log('[getApiUrl] Defaulting to localhost')
   return 'http://localhost:8000'
 }
