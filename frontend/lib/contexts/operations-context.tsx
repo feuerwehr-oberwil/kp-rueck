@@ -854,9 +854,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">) => {
-    // Don't create if no event is selected
-    if (!selectedEvent) {
-      console.error("Cannot create operation without selected event")
+    // Don't create if no event is selected or event ID is invalid
+    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
+      console.error("Cannot create operation without valid selected event")
       return
     }
 

@@ -81,16 +81,17 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
 
   // Save selected event to localStorage when it changes
   const setSelectedEvent = useCallback((event: Event | null) => {
-    setSelectedEventState(event)
     if (event) {
-      // Validate event ID before saving to localStorage
-      if (event.id && isValidUUID(event.id)) {
-        localStorage.setItem(SELECTED_EVENT_KEY, event.id)
-      } else {
-        console.warn('Attempted to save invalid event ID to localStorage:', event.id)
-        localStorage.removeItem(SELECTED_EVENT_KEY)
+      // Validate event ID before setting - reject invalid events
+      if (!event.id || !isValidUUID(event.id)) {
+        console.warn('Attempted to select event with invalid ID:', event.id)
+        // Don't set invalid events - keep current selection
+        return
       }
+      setSelectedEventState(event)
+      localStorage.setItem(SELECTED_EVENT_KEY, event.id)
     } else {
+      setSelectedEventState(null)
       localStorage.removeItem(SELECTED_EVENT_KEY)
     }
   }, [])
