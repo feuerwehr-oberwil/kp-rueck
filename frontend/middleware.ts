@@ -28,24 +28,28 @@ export async function middleware(request: NextRequest) {
   const targetUrl = `${backendUrl}${targetPath}${request.nextUrl.search}`
 
   try {
-    // Debug: log incoming cookies
-    const cookieHeader = request.headers.get('cookie')
-    if (cookieHeader) {
-      const hasAccessToken = cookieHeader.includes('access_token')
-      console.log(`[Middleware] ${request.method} ${targetPath} - Cookie header present, access_token: ${hasAccessToken}`)
-    } else {
-      console.log(`[Middleware] ${request.method} ${targetPath} - No cookie header`)
-    }
+    // Get cookies using Next.js cookies API (more reliable than headers.get)
+    const cookies = request.cookies
+    const accessToken = cookies.get('access_token')?.value
+    const refreshToken = cookies.get('refresh_token')?.value
 
-    // Build headers to forward - explicitly handle important headers
+    // Build cookie header string from Next.js cookies
+    const cookieParts: string[] = []
+    if (accessToken) cookieParts.push(`access_token=${accessToken}`)
+    if (refreshToken) cookieParts.push(`refresh_token=${refreshToken}`)
+    const cookieHeader = cookieParts.length > 0 ? cookieParts.join('; ') : null
+
+    console.log(`[Middleware] ${request.method} ${targetPath} - access_token: ${!!accessToken}, refresh_token: ${!!refreshToken}`)
+
+    // Build headers to forward
     const headers = new Headers()
 
-    // Explicitly forward the Cookie header first
+    // Set the Cookie header from our extracted cookies
     if (cookieHeader) {
       headers.set('Cookie', cookieHeader)
     }
 
-    // Forward other headers (excluding host)
+    // Forward other headers (excluding host and cookie)
     request.headers.forEach((value, key) => {
       const lowerKey = key.toLowerCase()
       if (lowerKey !== 'host' && lowerKey !== 'cookie') {
