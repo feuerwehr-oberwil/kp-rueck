@@ -30,6 +30,9 @@ async function proxyRequest(request: NextRequest) {
   // Fallback to raw header if cookies() doesn't work
   const rawCookie = request.headers.get('cookie')
 
+  // Debug: Log cookie status for all requests
+  console.log(`[API Proxy] ${request.method} ${targetPath} | cookies(): access=${!!accessToken} refresh=${!!refreshToken} | raw: ${!!rawCookie}`)
+
   // Build headers
   const headers = new Headers()
 
@@ -41,6 +44,8 @@ async function proxyRequest(request: NextRequest) {
     headers.set('Cookie', cookieParts.join('; '))
   } else if (rawCookie) {
     headers.set('Cookie', rawCookie)
+  } else {
+    console.log(`[API Proxy] WARNING: No cookies found for ${targetPath}`)
   }
 
   // Forward other headers (excluding problematic ones)
@@ -63,6 +68,11 @@ async function proxyRequest(request: NextRequest) {
       headers,
       body,
     })
+
+    // Debug: Log backend response status
+    if (response.status === 401) {
+      console.log(`[API Proxy] Backend returned 401 for ${targetPath} - Cookie header sent: ${headers.get('Cookie')?.substring(0, 50)}...`)
+    }
 
     // Build response headers
     const responseHeaders = new Headers()
