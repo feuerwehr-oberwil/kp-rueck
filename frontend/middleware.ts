@@ -48,7 +48,12 @@ export async function middleware(request: NextRequest) {
     response.headers.forEach((value, key) => {
       // Skip headers that shouldn't be forwarded
       if (!['content-encoding', 'transfer-encoding'].includes(key.toLowerCase())) {
-        responseHeaders.set(key, value)
+        // Use append for Set-Cookie to preserve multiple cookies
+        if (key.toLowerCase() === 'set-cookie') {
+          responseHeaders.append(key, value)
+        } else {
+          responseHeaders.set(key, value)
+        }
       }
     })
 
