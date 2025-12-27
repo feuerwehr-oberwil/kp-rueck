@@ -77,10 +77,11 @@ async def login(
         data={"sub": str(user.id)}
     )
 
-    # Set httpOnly cookies
+    # Set httpOnly cookies - explicitly set path="/" to ensure cookies are sent on all paths
     response.set_cookie(
         key="access_token",
         value=access_token,
+        path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
         samesite=auth_settings.COOKIE_SAMESITE,
@@ -90,6 +91,7 @@ async def login(
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
+        path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
         samesite=auth_settings.COOKIE_SAMESITE,
@@ -163,10 +165,11 @@ async def refresh_token(
         }
     )
 
-    # Update cookie
+    # Update cookie - explicitly set path="/" to match login
     response.set_cookie(
         key="access_token",
         value=access_token,
+        path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
         samesite=auth_settings.COOKIE_SAMESITE,
@@ -207,12 +210,14 @@ async def logout(
     # Always clear cookies - must match attributes used when setting them
     response.delete_cookie(
         key="access_token",
+        path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,
         samesite=auth_settings.COOKIE_SAMESITE,
     )
     response.delete_cookie(
         key="refresh_token",
+        path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,
         samesite=auth_settings.COOKIE_SAMESITE,
