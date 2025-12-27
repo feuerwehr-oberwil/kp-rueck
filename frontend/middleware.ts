@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
       method: request.method,
       headers,
       body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.text() : undefined,
-      credentials: 'include', // Ensure cookies are sent
+      // Note: Don't use credentials: 'include' for server-to-server - we set Cookie header explicitly
     })
 
     console.log(`[Middleware] Backend response: ${response.status} for ${targetPath}`)
