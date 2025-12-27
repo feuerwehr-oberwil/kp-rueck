@@ -23,6 +23,12 @@ const EventContext = createContext<EventContextType | undefined>(undefined)
 
 const SELECTED_EVENT_KEY = 'kp-rueck-selected-event'
 
+// Simple UUID validation to prevent invalid IDs from being used
+const isValidUUID = (id: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(id)
+}
+
 /**
  * Convert API event to frontend Event type
  */
@@ -53,6 +59,14 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
 
     const savedEventId = localStorage.getItem(SELECTED_EVENT_KEY)
     if (savedEventId) {
+      // Validate that the saved ID is a valid UUID before making API call
+      if (!isValidUUID(savedEventId)) {
+        console.warn('Invalid event ID in localStorage, removing:', savedEventId)
+        localStorage.removeItem(SELECTED_EVENT_KEY)
+        setIsEventLoaded(true)
+        return
+      }
+
       apiClient.getEvent(savedEventId)
         .then(apiEvent => setSelectedEventState(apiEventToEvent(apiEvent)))
         .catch(err => {
@@ -69,7 +83,13 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
   const setSelectedEvent = useCallback((event: Event | null) => {
     setSelectedEventState(event)
     if (event) {
-      localStorage.setItem(SELECTED_EVENT_KEY, event.id)
+      // Validate event ID before saving to localStorage
+      if (event.id && isValidUUID(event.id)) {
+        localStorage.setItem(SELECTED_EVENT_KEY, event.id)
+      } else {
+        console.warn('Attempted to save invalid event ID to localStorage:', event.id)
+        localStorage.removeItem(SELECTED_EVENT_KEY)
+      }
     } else {
       localStorage.removeItem(SELECTED_EVENT_KEY)
     }
