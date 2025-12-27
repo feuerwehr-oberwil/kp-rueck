@@ -22,23 +22,13 @@ async function proxyRequest(request: NextRequest) {
   const targetPath = url.pathname.replace('/backend-api', '')
   const targetUrl = `${backendUrl}${targetPath}${url.search}`
 
-  // Debug: log all incoming headers
-  const allHeaders: Record<string, string> = {}
-  request.headers.forEach((value, key) => {
-    allHeaders[key] = key.toLowerCase() === 'cookie' ? value.substring(0, 50) + '...' : value.substring(0, 100)
-  })
-  console.log(`[API Proxy] Headers for ${targetPath}:`, JSON.stringify(allHeaders, null, 2))
-
-  // Try multiple methods to get cookies
-  // Method 1: cookies() from next/headers
+  // Get cookies from the request
   const cookieStore = await cookies()
   const accessToken = cookieStore.get('access_token')?.value
   const refreshToken = cookieStore.get('refresh_token')?.value
 
-  // Method 2: Raw header from request
+  // Fallback to raw header if cookies() doesn't work
   const rawCookie = request.headers.get('cookie')
-
-  console.log(`[API Proxy] ${request.method} ${targetPath} - cookies(): ${!!accessToken}, raw: ${!!rawCookie}`)
 
   // Build headers
   const headers = new Headers()
@@ -62,8 +52,6 @@ async function proxyRequest(request: NextRequest) {
   })
 
   try {
-    console.log(`[API Proxy] Proxying to ${targetUrl}`)
-
     // Get request body for non-GET requests
     let body: string | undefined
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -76,16 +64,11 @@ async function proxyRequest(request: NextRequest) {
       body,
     })
 
-    console.log(`[API Proxy] Backend response: ${response.status} for ${targetPath}`)
-
     // Build response headers
     const responseHeaders = new Headers()
 
     // Forward Set-Cookie headers
     const responseCookies = response.headers.getSetCookie()
-    if (responseCookies.length > 0) {
-      console.log(`[API Proxy] Forwarding ${responseCookies.length} Set-Cookie header(s)`)
-    }
     responseCookies.forEach(cookie => {
       responseHeaders.append('Set-Cookie', cookie)
     })

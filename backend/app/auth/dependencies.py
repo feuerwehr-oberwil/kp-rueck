@@ -50,12 +50,6 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Debug: log cookie presence
-    raw_cookie = request.headers.get("cookie")
-    print(f"[Auth] access_token param: {bool(access_token)}, raw cookie header: {bool(raw_cookie)}")
-    if raw_cookie:
-        print(f"[Auth] Cookie header value: {raw_cookie[:100]}...")
-
     # Check if token present
     if not access_token:
         raise credentials_exception
