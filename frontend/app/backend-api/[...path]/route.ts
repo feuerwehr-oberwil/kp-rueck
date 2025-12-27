@@ -79,6 +79,9 @@ async function proxyRequest(request: NextRequest) {
 
     // Forward Set-Cookie headers
     const responseCookies = response.headers.getSetCookie()
+    if (responseCookies.length > 0) {
+      console.log(`[API Proxy] Set-Cookie from backend for ${targetPath}:`, responseCookies)
+    }
     responseCookies.forEach(cookie => {
       responseHeaders.append('Set-Cookie', cookie)
     })
