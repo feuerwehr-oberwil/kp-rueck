@@ -28,15 +28,7 @@ export async function middleware(request: NextRequest) {
   const targetUrl = `${backendUrl}${targetPath}${request.nextUrl.search}`
 
   try {
-    // Build headers to forward (excluding host)
-    const headers = new Headers()
-    request.headers.forEach((value, key) => {
-      if (key.toLowerCase() !== 'host') {
-        headers.set(key, value)
-      }
-    })
-
-    // Debug: log if cookies are being forwarded
+    // Debug: log incoming cookies
     const cookieHeader = request.headers.get('cookie')
     if (cookieHeader) {
       const hasAccessToken = cookieHeader.includes('access_token')
@@ -45,12 +37,32 @@ export async function middleware(request: NextRequest) {
       console.log(`[Middleware] ${request.method} ${targetPath} - No cookie header`)
     }
 
+    // Build headers to forward - explicitly handle important headers
+    const headers = new Headers()
+
+    // Explicitly forward the Cookie header first
+    if (cookieHeader) {
+      headers.set('Cookie', cookieHeader)
+    }
+
+    // Forward other headers (excluding host)
+    request.headers.forEach((value, key) => {
+      const lowerKey = key.toLowerCase()
+      if (lowerKey !== 'host' && lowerKey !== 'cookie') {
+        headers.set(key, value)
+      }
+    })
+
     // Proxy the request server-side
+    console.log(`[Middleware] Proxying to ${targetUrl}`)
     const response = await fetch(targetUrl, {
       method: request.method,
       headers,
       body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.text() : undefined,
+      credentials: 'include', // Ensure cookies are sent
     })
+
+    console.log(`[Middleware] Backend response: ${response.status} for ${targetPath}`)
 
     // Build response headers
     const responseHeaders = new Headers()
