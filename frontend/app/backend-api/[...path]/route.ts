@@ -22,7 +22,14 @@ async function proxyRequest(request: NextRequest) {
 
   // Get the path after /backend-api/
   const url = new URL(request.url)
-  const targetPath = url.pathname.replace('/backend-api', '')
+  let targetPath = url.pathname.replace('/backend-api', '')
+
+  // Ensure API paths have trailing slash to match FastAPI routes
+  // This prevents 307 redirects that break cookie forwarding
+  if (targetPath.startsWith('/api/') && !targetPath.endsWith('/')) {
+    targetPath = targetPath + '/'
+  }
+
   const targetUrl = `${backendUrl}${targetPath}${url.search}`
 
   // Get cookies from the request

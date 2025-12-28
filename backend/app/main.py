@@ -106,6 +106,8 @@ app = FastAPI(
     description=settings.description,
     version=settings.version,
     lifespan=lifespan,
+    # Disable automatic trailing slash redirects - they break cookie forwarding through proxies
+    redirect_slashes=False,
 )
 
 # CORS middleware with Railway domain support
