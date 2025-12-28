@@ -22,14 +22,7 @@ async function proxyRequest(request: NextRequest) {
 
   // Get the path after /backend-api/
   const url = new URL(request.url)
-  let targetPath = url.pathname.replace('/backend-api', '')
-
-  // Ensure API paths have trailing slash to match FastAPI routes
-  // This prevents 307 redirects that break cookie forwarding
-  if (targetPath.startsWith('/api/') && !targetPath.endsWith('/')) {
-    targetPath = targetPath + '/'
-  }
-
+  const targetPath = url.pathname.replace('/backend-api', '')
   const targetUrl = `${backendUrl}${targetPath}${url.search}`
 
   // Get cookies from the request
@@ -73,11 +66,27 @@ async function proxyRequest(request: NextRequest) {
       body = await request.text()
     }
 
-    const response = await fetch(targetUrl, {
+    // Disable automatic redirect following to preserve method and cookies
+    let response = await fetch(targetUrl, {
       method: request.method,
       headers,
       body,
+      redirect: 'manual',
     })
+
+    // Handle 307/308 redirects manually to preserve method and cookies
+    if (response.status === 307 || response.status === 308) {
+      const location = response.headers.get('location')
+      if (location) {
+        console.log(`[API Proxy] Following ${response.status} redirect to: ${location}`)
+        response = await fetch(location, {
+          method: request.method,
+          headers,
+          body,
+          redirect: 'manual',
+        })
+      }
+    }
 
     // Debug: Log backend response status
     if (response.status === 401) {
