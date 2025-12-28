@@ -52,11 +52,14 @@ async def get_current_user(
 
     # Check if token present
     if not access_token:
+        print("[Auth Debug] No access_token cookie found")
         raise credentials_exception
 
     try:
         # Decode token
+        print(f"[Auth Debug] Decoding token: {access_token[:50]}...")
         payload = decode_token(access_token)
+        print(f"[Auth Debug] Token decoded successfully, payload: {payload}")
 
         # Verify token type
         if payload.get("type") != "access":
@@ -69,19 +72,25 @@ async def get_current_user(
 
         user_id = uuid.UUID(user_id_str)
 
-    except JWTError:
+    except JWTError as e:
+        print(f"[Auth Debug] JWTError: {e}")
         raise credentials_exception
-    except ValueError:  # Invalid UUID
+    except ValueError as e:  # Invalid UUID
+        print(f"[Auth Debug] ValueError: {e}")
         raise credentials_exception
 
     # Load user from database
+    print(f"[Auth Debug] Looking up user: {user_id}")
     result = await db.execute(
         select(User).where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
 
     if user is None:
+        print(f"[Auth Debug] User not found: {user_id}")
         raise credentials_exception
+
+    print(f"[Auth Debug] User found: {user.username}")
 
     # Set user on request state for middleware access
     request.state.user = user
