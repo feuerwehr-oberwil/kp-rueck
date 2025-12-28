@@ -134,14 +134,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Debug: Log all incoming requests
-@app.middleware("http")
-async def log_requests(request, call_next):
-    print(f"[Request Debug] {request.method} {request.url.path} - Cookie: {request.headers.get('cookie', 'none')[:50] if request.headers.get('cookie') else 'none'}...")
-    response = await call_next(request)
-    print(f"[Request Debug] {request.method} {request.url.path} -> {response.status_code}")
-    return response
-
 # Add audit middleware
 app.add_middleware(AuditMiddleware)
 

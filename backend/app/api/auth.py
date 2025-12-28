@@ -84,7 +84,7 @@ async def login(
         path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
-        samesite=auth_settings.COOKIE_SAMESITE,
+        samesite=auth_settings.cookie_samesite,  # Use property: "none" in prod (cross-site), "lax" in dev
         max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
@@ -94,7 +94,7 @@ async def login(
         path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
-        samesite=auth_settings.COOKIE_SAMESITE,
+        samesite=auth_settings.cookie_samesite,  # Use property: "none" in prod (cross-site), "lax" in dev
         max_age=auth_settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
@@ -172,7 +172,7 @@ async def refresh_token(
         path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
-        samesite=auth_settings.COOKIE_SAMESITE,
+        samesite=auth_settings.cookie_samesite,  # Use property: "none" in prod (cross-site), "lax" in dev
         max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
@@ -213,14 +213,14 @@ async def logout(
         path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,
-        samesite=auth_settings.COOKIE_SAMESITE,
+        samesite=auth_settings.cookie_samesite,
     )
     response.delete_cookie(
         key="refresh_token",
         path="/",
         httponly=auth_settings.COOKIE_HTTPONLY,
         secure=auth_settings.cookie_secure,
-        samesite=auth_settings.COOKIE_SAMESITE,
+        samesite=auth_settings.cookie_samesite,
     )
     return {"message": "Erfolgreich abgemeldet"}
 

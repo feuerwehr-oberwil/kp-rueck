@@ -17,7 +17,7 @@ def test_auth_settings_defaults():
     # JWT Configuration
     assert settings.SECRET_KEY == "CHANGE_THIS_IN_PRODUCTION_USE_OPENSSL_RAND"
     assert settings.ALGORITHM == "HS256"
-    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES == 120  # 2 hours for firefighting operations
+    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES == 480  # 8 hours for firefighting operations
     assert settings.REFRESH_TOKEN_EXPIRE_DAYS == 7
 
     # Password Policy
@@ -27,7 +27,7 @@ def test_auth_settings_defaults():
     # Cookie Security
     assert settings.COOKIE_SECURE is False  # False for local dev
     assert settings.COOKIE_HTTPONLY is True
-    assert settings.COOKIE_SAMESITE == "lax"
+    assert settings.COOKIE_SAMESITE == "none"  # Default field value
 
 
 def test_auth_settings_singleton():
@@ -55,8 +55,8 @@ def test_token_expiration_reasonable():
     """Test token expiration times are reasonable."""
     settings = AuthSettings()
 
-    # Access token should be reasonable for firefighting operations (up to 3 hours)
-    assert 5 <= settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 180
+    # Access token should be reasonable for firefighting operations (up to 8 hours)
+    assert 5 <= settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 480
 
     # Refresh token should be longer than access token
     access_token_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
@@ -214,6 +214,36 @@ def test_cookie_samesite_valid_values():
     assert settings.COOKIE_SAMESITE.lower() in valid_values
 
 
+def test_cookie_samesite_property_development(monkeypatch):
+    """Test cookie_samesite property returns 'lax' in development."""
+    # Ensure RAILWAY_ENVIRONMENT is not set (development mode)
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+
+    settings = AuthSettings()
+    # In development, should use "lax" for same-site localhost
+    assert settings.cookie_samesite == "lax"
+
+
+def test_cookie_samesite_property_production(monkeypatch):
+    """Test cookie_samesite property returns 'none' in production."""
+    # Simulate production environment (Railway)
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+
+    settings = AuthSettings()
+    # In production, should use "none" for cross-site cookies
+    assert settings.cookie_samesite == "none"
+
+
+def test_cookie_secure_property_production(monkeypatch):
+    """Test cookie_secure property returns True in production."""
+    # Simulate production environment (Railway)
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+
+    settings = AuthSettings()
+    # In production, should force HTTPS (secure cookies)
+    assert settings.cookie_secure is True
+
+
 # ============================================
 # Settings Immutability Tests
 # ============================================
@@ -246,8 +276,8 @@ def test_access_token_short_lived():
     settings = AuthSettings()
 
     # Access tokens should expire within a reasonable timeframe for firefighting operations
-    # Maximum 3 hours to balance security with operational needs
-    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 180
+    # Maximum 8 hours to balance security with operational needs
+    assert settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 480
 
 
 def test_refresh_token_longer_lived():

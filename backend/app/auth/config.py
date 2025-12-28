@@ -24,7 +24,7 @@ class AuthSettings(BaseSettings):
     # Cookie Security
     COOKIE_SECURE: bool = False  # Will be overridden by property in production
     COOKIE_HTTPONLY: bool = True  # Prevent XSS attacks
-    COOKIE_SAMESITE: str = "lax"  # CSRF protection
+    COOKIE_SAMESITE: str = "none"  # Required for cross-site cookies (different domains)
 
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
@@ -80,6 +80,22 @@ class AuthSettings(BaseSettings):
         if is_production:
             return True  # Force HTTPS in production
         return self.COOKIE_SECURE  # Use configured value in development
+
+    @property
+    def cookie_samesite(self) -> str:
+        """
+        Return appropriate SameSite value based on environment.
+
+        In production (Railway), we use cross-site cookies (different domains)
+        so SameSite=None is required. This also requires Secure=True.
+
+        In development (localhost), we use SameSite=Lax for better security
+        since frontend and backend are on the same site (localhost).
+        """
+        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+        if is_production:
+            return "none"  # Required for cross-site cookies (kp.fwo.li ↔ fwo-kp-api.up.railway.app)
+        return "lax"  # Same-site in development (localhost:3000 ↔ localhost:8000)
 
     @property
     def is_auth_bypassed(self) -> bool:
