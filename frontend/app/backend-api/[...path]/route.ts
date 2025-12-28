@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[API Proxy] POST handler called:', request.url)
   return proxyRequest(request)
 }
 
