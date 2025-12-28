@@ -17,6 +17,9 @@ async function proxyRequest(request: NextRequest) {
     return NextResponse.json({ error: 'Backend URL not configured' }, { status: 500 })
   }
 
+  // Log backend URL once per request (helps debug connectivity)
+  console.log(`[API Proxy] Backend URL: ${backendUrl}`)
+
   // Get the path after /backend-api/
   const url = new URL(request.url)
   const targetPath = url.pathname.replace('/backend-api', '')
