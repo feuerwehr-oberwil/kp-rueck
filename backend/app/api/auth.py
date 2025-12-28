@@ -78,24 +78,28 @@ async def login(
     )
 
     # Set httpOnly cookies - explicitly set path="/" to ensure cookies are sent on all paths
+    # In production, domain=".fwo.li" allows cookies to be shared across subdomains
+    cookie_kwargs = {
+        "path": "/",
+        "httponly": auth_settings.COOKIE_HTTPONLY,
+        "secure": auth_settings.cookie_secure,
+        "samesite": auth_settings.cookie_samesite,
+    }
+    if auth_settings.cookie_domain:
+        cookie_kwargs["domain"] = auth_settings.cookie_domain
+
     response.set_cookie(
         key="access_token",
         value=access_token,
-        path="/",
-        httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
-        samesite=auth_settings.cookie_samesite,  # Use property: "none" in prod (cross-site), "lax" in dev
         max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        **cookie_kwargs,
     )
 
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
-        path="/",
-        httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
-        samesite=auth_settings.cookie_samesite,  # Use property: "none" in prod (cross-site), "lax" in dev
         max_age=auth_settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        **cookie_kwargs,
     )
 
     # Update last login
@@ -166,14 +170,20 @@ async def refresh_token(
     )
 
     # Update cookie - explicitly set path="/" to match login
+    cookie_kwargs = {
+        "path": "/",
+        "httponly": auth_settings.COOKIE_HTTPONLY,
+        "secure": auth_settings.cookie_secure,
+        "samesite": auth_settings.cookie_samesite,
+    }
+    if auth_settings.cookie_domain:
+        cookie_kwargs["domain"] = auth_settings.cookie_domain
+
     response.set_cookie(
         key="access_token",
         value=access_token,
-        path="/",
-        httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.cookie_secure,  # Use property that forces HTTPS in production
-        samesite=auth_settings.cookie_samesite,  # Use property: "none" in prod (cross-site), "lax" in dev
         max_age=auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        **cookie_kwargs,
     )
 
     return user
@@ -208,20 +218,17 @@ async def logout(
         await db.commit()
 
     # Always clear cookies - must match attributes used when setting them
-    response.delete_cookie(
-        key="access_token",
-        path="/",
-        httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.cookie_secure,
-        samesite=auth_settings.cookie_samesite,
-    )
-    response.delete_cookie(
-        key="refresh_token",
-        path="/",
-        httponly=auth_settings.COOKIE_HTTPONLY,
-        secure=auth_settings.cookie_secure,
-        samesite=auth_settings.cookie_samesite,
-    )
+    cookie_kwargs = {
+        "path": "/",
+        "httponly": auth_settings.COOKIE_HTTPONLY,
+        "secure": auth_settings.cookie_secure,
+        "samesite": auth_settings.cookie_samesite,
+    }
+    if auth_settings.cookie_domain:
+        cookie_kwargs["domain"] = auth_settings.cookie_domain
+
+    response.delete_cookie(key="access_token", **cookie_kwargs)
+    response.delete_cookie(key="refresh_token", **cookie_kwargs)
     return {"message": "Erfolgreich abgemeldet"}
 
 

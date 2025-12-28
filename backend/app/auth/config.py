@@ -25,6 +25,7 @@ class AuthSettings(BaseSettings):
     COOKIE_SECURE: bool = False  # Will be overridden by property in production
     COOKIE_HTTPONLY: bool = True  # Prevent XSS attacks
     COOKIE_SAMESITE: str = "none"  # Required for cross-site cookies (different domains)
+    COOKIE_DOMAIN: str = ""  # Empty = use request host. Set to ".fwo.li" for subdomain sharing
 
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
@@ -96,6 +97,22 @@ class AuthSettings(BaseSettings):
         if is_production:
             return "none"  # Required for cross-site cookies (kp.fwo.li ↔ fwo-kp-api.up.railway.app)
         return "lax"  # Same-site in development (localhost:3000 ↔ localhost:8000)
+
+    @property
+    def cookie_domain(self) -> str | None:
+        """
+        Return cookie domain for production (enables subdomain sharing).
+
+        In production, returns ".fwo.li" so cookies work across:
+        - kp.fwo.li (frontend)
+        - kp-api.fwo.li (backend)
+
+        In development, returns None (cookie bound to exact host).
+        """
+        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+        if is_production:
+            return ".fwo.li"  # Share cookies across all fwo.li subdomains
+        return None  # Don't set domain in development
 
     @property
     def is_auth_bypassed(self) -> bool:

@@ -1,8 +1,8 @@
 /**
  * Runtime environment configuration
  *
- * In production, uses Next.js rewrites to proxy API requests through /backend-api
- * This avoids CORS issues and doesn't require build-time env vars.
+ * In production, calls the backend directly at kp-api.fwo.li.
+ * Cookies work across subdomains because backend sets domain=".fwo.li".
  *
  * In development (localhost), calls the backend directly.
  */
@@ -12,8 +12,13 @@ export function getApiUrl(): string {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname
 
-    // In production (any non-localhost domain), use the proxy path
-    // Next.js rewrites will forward /backend-api/* to the actual backend
+    // In production on fwo.li domain, use the API subdomain directly
+    // Cookies work because backend sets domain=".fwo.li"
+    if (hostname.endsWith('.fwo.li') || hostname === 'fwo.li') {
+      return 'https://kp-api.fwo.li'
+    }
+
+    // For other non-localhost domains (e.g., railway.app), use proxy
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return '/backend-api'
     }
