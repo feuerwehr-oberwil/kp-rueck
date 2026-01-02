@@ -39,6 +39,7 @@ from .api.settings import router as settings_router
 from .api.special_functions import router as special_functions_router
 from .api.stats import router as stats_router
 from .api.sync import router as sync_router
+from .api.traccar import router as traccar_router
 from .api.training import router as training_router
 from .api.vehicles import router as vehicles_router
 from .background import start_sync_scheduler, stop_sync_scheduler
@@ -159,6 +160,7 @@ app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(special_functions_router, prefix=settings.api_v1_prefix)
 app.include_router(stats_router, prefix=settings.api_v1_prefix)
 app.include_router(sync_router, prefix=settings.api_v1_prefix)
+app.include_router(traccar_router, prefix=settings.api_v1_prefix)
 app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(training_router, prefix=settings.api_v1_prefix)
 app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])

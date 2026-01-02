@@ -123,6 +123,11 @@ class Settings(BaseSettings):
     sync_conflict_buffer_seconds: int = 5  # Timestamp buffer for conflict resolution (Local wins if within buffer)
     sync_timeout_seconds: int = 30  # HTTP timeout for sync requests
 
+    # Traccar GPS Integration
+    traccar_url: str = ""  # Traccar server URL (e.g., https://gps.fwo.li)
+    traccar_email: str = ""  # Traccar account email for authentication
+    traccar_password: str = ""  # Traccar account password for authentication
+
     @property
     def is_production(self) -> bool:
         """Check if we're in production mode (Railway)."""

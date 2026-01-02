@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
+import { MapContainer, TileLayer, Marker, useMap, Tooltip } from "react-leaflet"
 import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { useIncidents } from "@/lib/contexts/operations-context"
 import type { Incident } from "@/lib/types/incidents"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
@@ -59,6 +59,47 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
   return L.divIcon({
     html,
     className: "custom-marker",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  })
+}
+
+// Create vehicle marker icon (truck icon with rotation based on heading)
+function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
+  const isOnline = vehicle.status === 'online'
+  const size = 28
+  const rotation = vehicle.course ?? 0
+
+  // SVG truck icon pointing up (north)
+  const truckSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="${size}" height="${size}">
+      <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+    </svg>
+  `
+
+  const html = `
+    <div style="
+      width: ${size}px;
+      height: ${size}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
+      color: white;
+      border: 2px solid white;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transform: rotate(${rotation}deg);
+      transition: all 0.3s ease;
+    ">
+      ${truckSvg}
+    </div>
+  `
+
+  return L.divIcon({
+    html,
+    className: "vehicle-marker",
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -size / 2],
@@ -268,6 +309,10 @@ export default function MapView({
     47.51637699933488, 7.561800450458299,
   ])
 
+  // Vehicle positions from Traccar GPS
+  const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
+  const [traccarConfigured, setTraccarConfigured] = useState<boolean>(false)
+
   // Map mode management
   const {
     preferredMode,
@@ -300,6 +345,48 @@ export default function MapView({
 
     loadSettings()
   }, [])
+
+  // Fetch vehicle positions from Traccar
+  const fetchVehiclePositions = useCallback(async () => {
+    try {
+      const positions = await apiClient.getVehiclePositions()
+      setVehiclePositions(positions)
+    } catch (error) {
+      // Silent fail - Traccar might not be configured
+      console.debug("Failed to fetch vehicle positions:", error)
+    }
+  }, [])
+
+  // Check Traccar status and start polling if configured
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null
+
+    const checkTraccarStatus = async () => {
+      try {
+        const status = await apiClient.getTraccarStatus()
+        setTraccarConfigured(status.configured)
+
+        if (status.configured) {
+          // Fetch immediately
+          await fetchVehiclePositions()
+
+          // Poll every 10 seconds
+          pollInterval = setInterval(fetchVehiclePositions, 10000)
+        }
+      } catch (error) {
+        console.debug("Traccar status check failed:", error)
+        setTraccarConfigured(false)
+      }
+    }
+
+    checkTraccarStatus()
+
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval)
+      }
+    }
+  }, [fetchVehiclePositions])
 
   // Filter incidents with valid coordinates and exclude completed incidents
   const mappableIncidents = useMemo(
@@ -374,6 +461,29 @@ export default function MapView({
             />
           )
         })}
+
+        {/* Vehicle GPS Markers */}
+        {vehiclePositions.map((vehicle) => (
+          <Marker
+            key={`vehicle-${vehicle.device_id}`}
+            position={[vehicle.latitude, vehicle.longitude]}
+            icon={createVehicleIcon(vehicle)}
+          >
+            <Tooltip permanent={false} direction="top" offset={[0, -14]}>
+              <div className="text-sm">
+                <div className="font-semibold">{vehicle.device_name}</div>
+                {vehicle.speed !== null && vehicle.speed > 1 && (
+                  <div className="text-xs text-muted-foreground">
+                    {Math.round(vehicle.speed)} km/h
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  {vehicle.status === 'online' ? 'Online' : 'Offline'}
+                </div>
+              </div>
+            </Tooltip>
+          </Marker>
+        ))}
 
         {/* Auto-fit bounds to show all incidents */}
         <FitBounds incidents={mappableIncidents} />

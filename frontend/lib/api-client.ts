@@ -419,6 +419,25 @@ export interface ApiTransferAssignmentsResponse {
   message: string
 }
 
+// Traccar GPS Tracking Types
+export interface ApiTraccarStatus {
+  configured: boolean
+  url: string | null
+}
+
+export interface ApiVehiclePosition {
+  device_id: number
+  device_name: string
+  unique_id: string
+  status: string  // 'online' | 'offline'
+  latitude: number
+  longitude: number
+  speed: number | null  // km/h
+  course: number | null  // heading in degrees
+  last_update: string
+  address: string | null
+}
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -1258,6 +1277,17 @@ class ApiClient {
   async triggerImmediateSync(): Promise<SyncResult> {
     return this.request<SyncResult>('/api/sync/trigger-immediate', {
       method: 'POST',
+    })
+  }
+
+  // Traccar GPS Tracking
+  async getTraccarStatus(): Promise<ApiTraccarStatus> {
+    return this.request<ApiTraccarStatus>('/api/traccar/status')
+  }
+
+  async getVehiclePositions(): Promise<ApiVehiclePosition[]> {
+    return this.request<ApiVehiclePosition[]>('/api/traccar/positions', {
+      skipToast: true,  // Don't show toast for polling errors
     })
   }
 }
