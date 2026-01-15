@@ -51,8 +51,8 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
       const selectedPerson = personnel.find(p => p.id === personnelId)
 
       toast.success('Reko-Link kopiert', {
-        description: selectedPerson
-          ? `Link für ${selectedPerson.name} wurde kopiert`
+        description: incident?.location
+          ? `Link für "${incident.location}" wurde kopiert`
           : undefined
       })
 
