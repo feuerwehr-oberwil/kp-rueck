@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Truck, User, MapPin, Clock, Radio, X, Search, ArrowUpDown, RefreshCw, AlertTriangle } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
+import { Truck, User, MapPin, Clock, Radio, X, Search, ArrowUpDown, RefreshCw, AlertTriangle, Plus } from "lucide-react"
+import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useOperations } from "@/lib/contexts/operations-context"
+import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
 interface VehicleStatus {
   id: string
@@ -80,10 +82,16 @@ function getIncidentStatusBadgeVariant(incidentStatus: string | null): "default"
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
   const router = useRouter()
+  const { personnel } = useOperations()
   const [vehicles, setVehicles] = useState<VehicleStatus[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(-1)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Driver assignment state
+  const [driverDialogOpen, setDriverDialogOpen] = useState(false)
+  const [selectedVehicleForDriver, setSelectedVehicleForDriver] = useState<VehicleStatus | null>(null)
+  const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
 
   // Auto-refresh every 10 seconds while sheet is open
   useEffect(() => {
@@ -112,8 +120,13 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     }
 
     try {
-      // First get all vehicles
-      const allVehicles = await apiClient.getVehicles()
+      // Load vehicles and special functions in parallel
+      const [allVehicles, functions] = await Promise.all([
+        apiClient.getVehicles(),
+        apiClient.getEventSpecialFunctions(eventId),
+      ])
+
+      setSpecialFunctions(functions)
 
       // Then get status for each vehicle
       const statusPromises = allVehicles.map(async (vehicle) => {
@@ -160,6 +173,17 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         setLoading(false)
       }
     }
+  }
+
+  const handleOpenDriverDialog = (vehicle: VehicleStatus, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedVehicleForDriver(vehicle)
+    setDriverDialogOpen(true)
+  }
+
+  const handleDriverAssigned = () => {
+    // Reload vehicle statuses after driver assignment
+    loadVehicleStatuses(true)
   }
 
   // Vehicles are already sorted by display_order in loadVehicleStatuses
@@ -295,13 +319,23 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         </span>
                       </div>
 
-                      {/* Driver */}
-                      <div className="flex items-center gap-2 min-w-[120px]">
+                      {/* Driver - Clickable to assign */}
+                      <button
+                        onClick={(e) => handleOpenDriverDialog(vehicle, e)}
+                        className={cn(
+                          "flex items-center gap-2 min-w-[120px] rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
+                          "hover:bg-muted/80 cursor-pointer group"
+                        )}
+                        title={vehicle.driver_name ? "Fahrer ändern" : "Fahrer zuweisen"}
+                      >
                         <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                         <span className={cn("text-sm truncate", vehicle.driver_name ? "" : "text-muted-foreground")}>
                           {vehicle.driver_name || "Kein Fahrer"}
                         </span>
-                      </div>
+                        {!vehicle.driver_name && (
+                          <Plus className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        )}
+                      </button>
 
                       {/* Current Incident Location */}
                       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -372,6 +406,22 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
           </div>
         </SheetFooter>
       </SheetContent>
+
+      {/* Driver Assignment Dialog */}
+      {selectedVehicleForDriver && eventId && (
+        <DriverAssignmentDialog
+          open={driverDialogOpen}
+          onOpenChange={setDriverDialogOpen}
+          vehicleId={selectedVehicleForDriver.id}
+          vehicleName={selectedVehicleForDriver.name}
+          eventId={eventId}
+          currentDriverId={selectedVehicleForDriver.driver_id}
+          currentDriverName={selectedVehicleForDriver.driver_name}
+          personnel={personnel}
+          specialFunctions={specialFunctions}
+          onDriverAssigned={handleDriverAssigned}
+        />
+      )}
     </Sheet>
   )
 }
