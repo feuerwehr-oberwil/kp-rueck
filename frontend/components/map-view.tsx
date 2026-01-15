@@ -35,7 +35,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 function createIncidentIcon(incident: Incident, isHighlighted: boolean = false): L.DivIcon {
   const priorityColor = PRIORITY_COLORS[incident.priority] || "#6b7280"
   const size = isHighlighted ? 32 : 24
-  const pulse = isHighlighted ? 'animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
+  const pulse = isHighlighted ? 'animation: pulse 0.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
 
   const html = `
     <style>
@@ -205,7 +205,7 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
   if (incidents.length === 0) return null
 
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 dark:bg-yellow-900/90 border-2 border-yellow-400 dark:border-yellow-600 text-yellow-800 dark:text-yellow-100 px-4 py-2 rounded-lg shadow-xl z-[1000] max-w-md backdrop-blur-sm">
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-warning/15 border border-warning text-warning-foreground px-4 py-2 rounded-lg shadow-md z-[1000] max-w-md backdrop-blur-sm">
       <div
         className="flex items-center gap-2 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -220,11 +220,11 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
       </div>
 
       {isExpanded && (
-        <ul className="mt-3 space-y-1 text-sm border-t border-yellow-400 dark:border-yellow-600 pt-2 max-h-60 overflow-y-auto">
+        <ul className="mt-3 space-y-1 text-sm border-t border-warning/50 pt-2 max-h-60 overflow-y-auto">
           {incidents.map((incident) => (
             <li
               key={incident.id}
-              className="hover:bg-yellow-200 dark:hover:bg-yellow-800 px-2 py-1.5 rounded cursor-pointer transition-colors"
+              className="hover:bg-warning/20 px-2 py-1.5 rounded cursor-pointer transition-colors"
               onClick={(e) => {
                 e.stopPropagation()
                 onIncidentClick?.(incident.id)
@@ -260,10 +260,10 @@ function MapModeIndicator({
       {/* Mode indicator */}
       <div
         className={`
-          flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-sm font-medium
+          flex items-center gap-2 px-3 py-2 rounded-lg shadow-md text-sm font-medium
           ${isOnline
-            ? 'bg-green-100 border border-green-400 text-green-800 dark:bg-green-950 dark:border-green-700 dark:text-green-300'
-            : 'bg-orange-100 border border-orange-400 text-orange-800 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300'
+            ? 'bg-success/15 border border-success text-success-foreground'
+            : 'bg-warning/15 border border-warning text-warning-foreground'
           }
         `}
         title={`Karten-Modus: ${preferredMode} (${isOnline ? 'Online' : 'Offline'})`}
@@ -276,7 +276,7 @@ function MapModeIndicator({
       {showFallbackIndicator && (
         <button
           onClick={onReset}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-sm font-medium bg-blue-100 border border-blue-400 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-md text-sm font-medium bg-info/15 border border-info text-info-foreground hover:bg-info/25 transition-colors"
           title="Online-Modus erneut versuchen"
         >
           <RefreshCw className="h-4 w-4" />

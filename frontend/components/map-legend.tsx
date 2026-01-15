@@ -14,15 +14,15 @@ export function MapLegend() {
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-red-500 border-2 border-white shadow-sm flex-shrink-0" />
+            <div className="w-6 h-6 rounded-full bg-red-500 border-[3px] border-white shadow-md flex-shrink-0" />
             <span className="text-xs">Hohe Priorität</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-yellow-500 border-2 border-white shadow-sm flex-shrink-0" />
+            <div className="w-6 h-6 rounded-full bg-yellow-500 border-[3px] border-white shadow-md flex-shrink-0" />
             <span className="text-xs">Mittlere Priorität</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-green-500 border-2 border-white shadow-sm flex-shrink-0" />
+            <div className="w-6 h-6 rounded-full bg-green-500 border-[3px] border-white shadow-md flex-shrink-0" />
             <span className="text-xs">Niedrige Priorität</span>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Material } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
+import { Check, Minus } from 'lucide-react'
 
 interface DraggableMaterialProps {
   material: Material
@@ -47,16 +48,23 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          {/* Status indicator - filled circle for available, empty circle for unavailable */}
+          {/* Status indicator - icon + background for accessibility */}
           <div
             className={cn(
-              "h-2 w-2 rounded-full flex-shrink-0",
+              "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
               material.status === "available"
-                ? "bg-emerald-500"
-                : "border border-zinc-500 bg-transparent"
+                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground"
             )}
-            aria-label={material.status === "available" ? "Available" : "Assigned"}
-          />
+            aria-label={material.status === "available" ? "Verfügbar" : "Im Einsatz"}
+            title={material.status === "available" ? "Verfügbar" : "Im Einsatz"}
+          >
+            {material.status === "available" ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <Minus className="h-3 w-3" />
+            )}
+          </div>
 
           <span className="font-medium text-sm text-foreground truncate">{material.name}</span>
         </div>

@@ -135,9 +135,9 @@ export function IncidentsKanban() {
               <div key={column.id} className="flex w-64 flex-shrink-0 flex-col">
                 {/* Column header */}
                 <div
-                  className={`mb-3 rounded-lg ${column.color} border border-border/50 px-4 py-3 transition-all`}
+                  className={`mb-3 rounded-lg ${column.color} border border-border px-4 py-3 transition-all`}
                 >
-                  <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">
+                  <h2 className="text-balance text-sm font-semibold text-foreground">
                     {column.title}
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">

@@ -70,10 +70,10 @@ export const DroppableColumn = memo(function DroppableColumn({
   return (
     <div className="flex min-w-[320px] w-[320px] flex-shrink-0 flex-col transition-all">
       <div className={cn(
-        "mb-3 rounded-lg border border-border/50 px-4 py-3 transition-all",
+        "mb-3 rounded-lg border border-border px-4 py-3 transition-all",
         column.color
       )}>
-        <h2 className="text-balance text-sm font-bold uppercase tracking-wide text-foreground">{column.title}</h2>
+        <h2 className="text-balance text-sm font-semibold text-foreground">{column.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
       </div>
 
@@ -89,7 +89,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         {/* Empty state hint when dragging over */}
         {isOver && operations.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-sm text-muted-foreground font-medium">Drop here to move incident</p>
+            <p className="text-sm text-foreground/70 font-medium">Einsatz hier ablegen</p>
           </div>
         )}
 

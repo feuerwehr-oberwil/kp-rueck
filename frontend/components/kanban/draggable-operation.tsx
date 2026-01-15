@@ -34,19 +34,22 @@ interface DraggableOperationProps {
   showMeldung?: boolean
 }
 
-// Priority visual configuration - dot + chevron for better visibility
+// Priority visual configuration - dot + chevron + card styling for better visibility
 const priorityStyles = {
   high: {
     dot: 'bg-red-500',
     chevron: 'text-red-600 dark:text-red-400',
+    card: 'border-red-500/70 border-2 bg-red-500/5',
   },
   medium: {
     dot: 'bg-orange-500',
     chevron: 'text-orange-600 dark:text-orange-400',
+    card: '',
   },
   low: {
     dot: 'bg-green-500',
     chevron: 'text-green-600 dark:text-green-400',
+    card: '',
   },
 } as const
 
@@ -156,7 +159,7 @@ function DraggableOperationBase({
         className={cn(
           'operation-card border backdrop-blur-sm p-4 transition-all hover:border-border hover:shadow-lg cursor-pointer',
           columnColor,
-          priority === 'high' ? 'border-red-500/40 border-2' : 'border-border/50',
+          priorityConfig?.card || 'border-border',
           isOver && 'ring-2 ring-border',
           isHighlighted && 'ring-4 ring-muted-foreground animate-pulse',
           isKeyboardFocused && !isHighlighted && 'ring-2 ring-muted-foreground/50 shadow-xl'
@@ -177,7 +180,7 @@ function DraggableOperationBase({
               <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
                 {/* Priority indicator - dot + chevron for visibility */}
                 <div
-                  className={cn('h-2.5 w-2.5 rounded-full', priorityConfig?.dot)}
+                  className={cn('h-3 w-3 rounded-full', priorityConfig?.dot)}
                   aria-hidden="true"
                 />
                 {priority === "high" ? (
@@ -256,7 +259,7 @@ function DraggableOperationBase({
                       <Badge
                         key={idx}
                         variant="secondary"
-                        className="text-[10px] px-1.5 py-0 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
                       >
                         <span>{crewName}</span>
                         <button
@@ -279,7 +282,7 @@ function DraggableOperationBase({
                   <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {operation.vehicles.map((vehicleName, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal cursor-default">
+                      <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0.5 font-normal cursor-default">
                         {vehicleName}
                       </Badge>
                     ))}
@@ -296,7 +299,7 @@ function DraggableOperationBase({
                         <Badge
                           key={idx}
                           variant="secondary"
-                          className="text-[10px] px-1.5 py-0 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                          className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
                         >
                           <span>{material?.name || materialId}</span>
                           <button
@@ -326,7 +329,7 @@ function DraggableOperationBase({
                   <AlertTriangle className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1">
                     {operation.rekoSummary.dangerTypes.map((danger, idx) => (
-                      <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0">
+                      <Badge key={idx} variant="outline" className="text-xs px-1.5 py-0.5">
                         {danger}
                       </Badge>
                     ))}

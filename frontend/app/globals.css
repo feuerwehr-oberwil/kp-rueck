@@ -41,6 +41,14 @@
   --status-active: oklch(0.72 0.22 60);
   --status-returning: oklch(0.50 0.15 250);
   --status-complete: oklch(0.42 0.08 0);
+
+  /* Semantic feedback colors for UI states */
+  --success: oklch(0.55 0.15 145);
+  --success-foreground: oklch(0.25 0.05 145);
+  --warning: oklch(0.70 0.15 85);
+  --warning-foreground: oklch(0.30 0.10 85);
+  --info: oklch(0.55 0.15 250);
+  --info-foreground: oklch(0.25 0.10 250);
 }
 
 .dark {
@@ -76,6 +84,14 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* Semantic feedback colors - dark mode */
+  --success: oklch(0.45 0.12 145);
+  --success-foreground: oklch(0.85 0.08 145);
+  --warning: oklch(0.45 0.12 85);
+  --warning-foreground: oklch(0.90 0.08 85);
+  --info: oklch(0.45 0.12 250);
+  --info-foreground: oklch(0.85 0.08 250);
 }
 
 @theme inline {
@@ -119,6 +135,14 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Semantic feedback colors */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
 }
 
 @layer base {

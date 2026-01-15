@@ -8,7 +8,7 @@ import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
-import { Car, Binoculars, Package2 } from 'lucide-react'
+import { Car, Binoculars, Package2, Check, Minus } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 interface DraggablePersonProps {
@@ -133,16 +133,23 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              {/* Status indicator - filled circle for available, empty circle for unavailable */}
+              {/* Status indicator - icon + dot for accessibility */}
               <div
                 className={cn(
-                  "h-2 w-2 rounded-full flex-shrink-0",
+                  "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
                   person.status === "available"
-                    ? "bg-emerald-500"
-                    : "border border-zinc-500 bg-transparent"
+                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                    : "bg-muted text-muted-foreground"
                 )}
-                aria-label={person.status === "available" ? "Available" : "Assigned"}
-              />
+                aria-label={person.status === "available" ? "Verfügbar" : "Im Einsatz"}
+                title={person.status === "available" ? "Verfügbar" : "Im Einsatz"}
+              >
+                {person.status === "available" ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Minus className="h-3 w-3" />
+                )}
+              </div>
 
               <span className="font-medium text-sm text-foreground truncate">{person.name}</span>
             </div>

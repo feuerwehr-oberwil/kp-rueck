@@ -195,7 +195,7 @@ export default function CombinedKanbanBoard({
                     className="h-8 pl-7 pr-8 text-xs"
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Kbd className="h-4 text-[10px]">P</Kbd>
+                    <Kbd className="h-5 text-xs">P</Kbd>
                   </div>
                 </div>
               </div>
@@ -203,7 +203,7 @@ export default function CombinedKanbanBoard({
               <div className="space-y-4">
                 {Object.keys(groupedPersonnel).map((role) => (
                   <div key={role}>
-                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
+                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{role}</h3>
                     <div className="space-y-2">
                       {groupedPersonnel[role as PersonRole]?.map((person) => (
                         <DraggablePerson
@@ -241,7 +241,7 @@ export default function CombinedKanbanBoard({
                     className="h-8 pl-7 pr-8 text-xs"
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Kbd className="h-4 text-[10px]">M</Kbd>
+                    <Kbd className="h-5 text-xs">M</Kbd>
                   </div>
                 </div>
               </div>
@@ -249,7 +249,7 @@ export default function CombinedKanbanBoard({
               <div className="space-y-4">
                 {Object.entries(groupedMaterials).map(([category, items]) => (
                   <div key={category}>
-                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
+                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</h3>
                     <div className="space-y-2">
                       {items.map((material) => (
                         <DraggableMaterial

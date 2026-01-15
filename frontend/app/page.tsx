@@ -671,7 +671,7 @@ export default function FireStationDashboard() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
+        <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {selectedEvent ? (
               <>
@@ -737,7 +737,7 @@ export default function FireStationDashboard() {
           <>
         <div className="flex flex-1 overflow-hidden">
           {showLeftSidebar && (
-            <aside className="w-64 border-r border-border/50 bg-card/30 backdrop-blur-sm flex flex-col">
+            <aside className="w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
               {/* Sticky header */}
               <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm p-4 pb-0">
                 <div className="mb-4">
@@ -759,7 +759,7 @@ export default function FireStationDashboard() {
                   />
                   {!isMobile && (
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <Kbd className="h-4 text-[10px]">P</Kbd>
+                      <Kbd className="h-5 text-xs">P</Kbd>
                     </div>
                   )}
                 </div>
@@ -773,7 +773,7 @@ export default function FireStationDashboard() {
                   <div className="space-y-4">
                     {Object.keys(groupedPersonnel).map((role) => (
                       <div key={role}>
-                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{role}</h3>
+                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{role}</h3>
                         <div className="space-y-2">
                           {groupedPersonnel[role as PersonRole]?.map((person) => (
                             <DraggablePerson
@@ -824,7 +824,7 @@ export default function FireStationDashboard() {
           </main>
 
           {showRightSidebar && (
-            <aside className="w-64 border-l border-border/50 bg-card/30 backdrop-blur-sm flex flex-col">
+            <aside className="w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
               {/* Sticky header */}
               <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm p-4 pb-0">
                 <div className="mb-4">
@@ -846,7 +846,7 @@ export default function FireStationDashboard() {
                   />
                   {!isMobile && (
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <Kbd className="h-4 text-[10px]">M</Kbd>
+                      <Kbd className="h-5 text-xs">M</Kbd>
                     </div>
                   )}
                 </div>
@@ -860,7 +860,7 @@ export default function FireStationDashboard() {
                   <div className="space-y-4">
                     {Object.entries(groupedMaterials).map(([category, items]) => (
                       <div key={category}>
-                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</h3>
+                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</h3>
                         <div className="space-y-2">
                           {items.map((material) => (
                             <DraggableMaterial
@@ -879,7 +879,7 @@ export default function FireStationDashboard() {
           )}
         </div>
 
-        <footer className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3 pb-20 md:pb-3">
+        <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3 pb-20 md:pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex gap-2 flex-wrap">
               <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>

@@ -274,7 +274,7 @@ export default function MapPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
+        <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-2xl shadow-lg">
               🚒
@@ -296,7 +296,7 @@ export default function MapPage() {
 
         <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
           {/* Map - full height on desktop, half height on mobile */}
-          <main className={`p-4 ${isMobile ? 'h-[50vh]' : 'flex-1'}`}>
+          <main className={`p-4 ${isMobile ? 'h-[60vh]' : 'flex-1'}`}>
             <MapView
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
@@ -307,10 +307,10 @@ export default function MapPage() {
           </main>
 
           {/* Active Emergencies - sidebar on desktop, bottom section on mobile */}
-          <aside className={`border-border/50 bg-card/30 backdrop-blur-sm overflow-y-auto ${
+          <aside className={`bg-card/30 backdrop-blur-sm overflow-y-auto ${
             isMobile
-              ? 'flex-1 border-t'
-              : 'w-96 border-l flex-shrink-0'
+              ? 'flex-1 border-t border-border'
+              : 'w-80 border-l border-border flex-shrink-0'
           }`}>
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">

@@ -433,7 +433,7 @@ export default function CombinedViewPage() {
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
+        <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6 py-4 min-h-20">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-orange-600 text-2xl shadow-lg">
               🚒
@@ -465,7 +465,7 @@ export default function CombinedViewPage() {
           >
             {/* Kanban Board Panel - 60% default */}
             <ResizablePanel defaultSize={60} minSize={30}>
-              <div className="h-full rounded-lg border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
+              <div className="h-full rounded-lg border border-border bg-card/30 backdrop-blur-sm overflow-hidden">
                 <KanbanBoard
                   onCardHover={handleKanbanCardHover}
                   onCardClick={handleDetailsClick}
@@ -486,7 +486,7 @@ export default function CombinedViewPage() {
                 setMapResetTrigger(prev => prev + 1)
               }}
             >
-              <div className="h-full rounded-lg border border-border/50 overflow-hidden">
+              <div className="h-full rounded-lg border border-border overflow-hidden">
                 <MapView
                   selectedIncidentId={hoveredOperationId}
                   onMarkerClick={handleMapMarkerClick}
