@@ -3,6 +3,8 @@
 Run with: uv run python -m app.seed
 """
 import asyncio
+import os
+import secrets
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -12,6 +14,35 @@ from sqlalchemy import select
 from . import models
 from .database import async_session_maker
 from .seed_training import seed_training_data
+
+
+def get_admin_password() -> str:
+    """
+    Get admin password for seeding.
+
+    Security: In production, ADMIN_SEED_PASSWORD must be explicitly set.
+    In development, generates a random password if not provided.
+    """
+    is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+    admin_password = os.getenv("ADMIN_SEED_PASSWORD", "")
+
+    if admin_password:
+        # Validate provided password
+        if len(admin_password) < 12:
+            raise ValueError(
+                "ADMIN_SEED_PASSWORD must be at least 12 characters long"
+            )
+        return admin_password
+
+    if is_production:
+        raise ValueError(
+            "ADMIN_SEED_PASSWORD environment variable is required in production. "
+            "Generate a strong password and set it in Railway variables."
+        )
+
+    # Development: Generate random password
+    generated_password = secrets.token_urlsafe(16)  # 128-bit random
+    return generated_password
 
 
 async def seed_database() -> None:
@@ -41,8 +72,8 @@ async def seed_database() -> None:
             )
             db.add(dev_user)
 
-            # Create admin user
-            password = "changeme123"  # CHANGE IN PRODUCTION
+            # Create admin user with secure password
+            password = get_admin_password()
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
             admin_user = models.User(
@@ -606,7 +637,12 @@ async def seed_database() -> None:
             # ============================================
             await db.commit()
             print("\n✅ Database seeded successfully!")
-            print(f"  - Created dev-user (for auth bypass) and admin user: admin / changeme123 (CHANGE IN PRODUCTION)")
+            is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+            if is_production:
+                print(f"  - Created dev-user (for auth bypass) and admin user: admin / [password from ADMIN_SEED_PASSWORD]")
+            else:
+                print(f"  - Created dev-user (for auth bypass) and admin user: admin / {password}")
+                print(f"  ⚠️  Save this password - it was randomly generated for development")
             print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")

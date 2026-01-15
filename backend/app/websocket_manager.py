@@ -1,20 +1,59 @@
 """WebSocket manager for real-time updates."""
 
 import asyncio
+import os
+import re
 from typing import Dict, Set, Any
 import socketio
 from fastapi import HTTPException
 import logging
 
+from .config import settings
+
 logger = logging.getLogger(__name__)
 
-# Create async Socket.IO server
-# Use permissive CORS for WebSocket connections
-# The actual security is handled by the FastAPI CORS middleware
+
+def get_websocket_cors_origins() -> list[str]:
+    """
+    Get allowed origins for WebSocket CORS.
+
+    Security: Use explicit whitelist instead of wildcard to prevent
+    Cross-Site WebSocket Hijacking (CSWSH) attacks.
+    """
+    origins = list(settings.cors_origins)
+
+    # Add production domains
+    origins.extend([
+        "https://kp.fwo.li",
+        "https://kp-api.fwo.li",
+    ])
+
+    # Add Railway domains only in production (more restrictive than wildcard)
+    railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    railway_backend = os.getenv("RAILWAY_STATIC_URL", "")
+
+    if railway_frontend:
+        origins.append(f"https://{railway_frontend}")
+    if railway_backend:
+        origins.append(f"https://{railway_backend}")
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_origins = []
+    for origin in origins:
+        if origin not in seen:
+            seen.add(origin)
+            unique_origins.append(origin)
+
+    return unique_origins
+
+
+# Create async Socket.IO server with explicit CORS whitelist
+# Security: Explicit origins prevent Cross-Site WebSocket Hijacking
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins="*",  # Allow all origins for WebSocket
-    cors_credentials=True,      # Allow credentials (cookies)
+    cors_allowed_origins=get_websocket_cors_origins(),
+    cors_credentials=True,
     logger=True,
     engineio_logger=True
 )
