@@ -18,8 +18,8 @@ async def list_events(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
     include_archived: bool = False,
-    skip: int = 0,
-    limit: int = Query(default=100, le=500),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
 ):
     """
     List all events (excluding archived by default).

@@ -67,8 +67,8 @@ async def list_incidents(
     current_user: CurrentUser,
     event_id: uuid.UUID,  # Required: filter by event
     status: Optional[str] = None,
-    skip: int = 0,
-    limit: int = Query(default=100, le=500),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
 ):
     """
     List incidents for a specific event.

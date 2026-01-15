@@ -1,7 +1,7 @@
 """API routes."""
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import crud, schemas
@@ -19,8 +19,8 @@ router = APIRouter()
 @router.get("/incidents", response_model=list[schemas.IncidentResponse])
 async def read_incidents(
     current_user: CurrentUser,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
     db: AsyncSession = Depends(get_db)
 ) -> list[schemas.IncidentResponse]:
     """Get all incidents (requires authentication)."""

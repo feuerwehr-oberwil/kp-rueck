@@ -25,8 +25,8 @@ async def query_audit_log(
     action_type: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    limit: int = Query(default=100, le=1000),
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ):
     """
     Query audit log with filters.
