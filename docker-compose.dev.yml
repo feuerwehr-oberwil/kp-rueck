@@ -3,6 +3,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: kprueck-db-dev
+    restart: unless-stopped
     environment:
       POSTGRES_USER: kprueck
       POSTGRES_PASSWORD: kprueck
@@ -16,6 +17,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     networks:
       - kprueck-network
 
@@ -24,6 +29,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: kprueck-backend-dev
+    restart: unless-stopped
     command: ./start-dev.sh
     volumes:
       - ./backend:/app
@@ -37,6 +43,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     networks:
       - kprueck-network
 
@@ -45,6 +61,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     container_name: kprueck-frontend-dev
+    restart: unless-stopped
     command: pnpm dev
     volumes:
       - ./frontend:/app
@@ -58,6 +75,16 @@ services:
       INTERNAL_API_URL: http://backend:8000
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     networks:
       - kprueck-network
 
@@ -83,6 +110,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
 networks:
   kprueck-network:
