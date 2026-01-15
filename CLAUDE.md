@@ -435,3 +435,4 @@ def upgrade():
 - `frontend/package.json` - Frontend scripts and dependencies
 - Ensure commits are always! pushed to the main branch otherwise other worktrees don't have access
 - Always commit to origin main
+- I'm visually testing the frontend by having pnpm dev running in a separate tab. You therefore can't constantly rebuild npm which makes me have to restart the dev server. Use alternative ways of testing / verifying

@@ -53,9 +53,9 @@ function formatDuration(minutes: number | null): string {
 
 function getDurationColor(minutes: number | null): string {
   if (minutes === null) return ""
-  if (minutes < 60) return "text-green-600 dark:text-green-400" // < 1 hour
-  if (minutes < 120) return "text-yellow-600 dark:text-yellow-400" // < 2 hours
-  return "text-red-600 dark:text-red-400" // >= 2 hours
+  if (minutes < 60) return "text-muted-foreground" // < 1 hour
+  if (minutes < 120) return "text-muted-foreground" // < 2 hours
+  return "text-muted-foreground font-medium" // >= 2 hours
 }
 
 function getVehicleStatusBadge(status: string): { variant: "default" | "secondary" | "destructive" | "outline"; label: string; color?: string } {
@@ -65,7 +65,7 @@ function getVehicleStatusBadge(status: string): { variant: "default" | "secondar
     case "assigned":
       return { variant: "secondary", label: "Im Einsatz", color: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800" }
     case "maintenance":
-      return { variant: "destructive", label: "Wartung", color: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800" }
+      return { variant: "secondary", label: "Wartung", color: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700" }
     default:
       return { variant: "outline", label: status }
   }
@@ -332,7 +332,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
                         {/* Show maintenance badge if in maintenance */}
                         {vehicle.status === "maintenance" && (
-                          <Badge className={cn("text-xs", "bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800")}>
+                          <Badge className={cn("text-xs", "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700")}>
                             Wartung
                           </Badge>
                         )}

@@ -604,10 +604,10 @@ export function OperationDetailModal({
         {/* Actions - Fixed Footer */}
         <div className="flex-shrink-0 flex items-center gap-3 pt-4 mt-4 border-t">
           <Button
-            variant="destructive"
+            variant="outline"
             onClick={() => setShowDeleteConfirm(true)}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
             Löschen
           </Button>
           <Button

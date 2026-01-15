@@ -109,7 +109,7 @@ export function IncidentsKanban() {
           </Button>
 
           {/* Create button */}
-          <Button onClick={handleCreateClick} size="sm" className="gap-2">
+          <Button onClick={handleCreateClick} size="sm" variant="secondary" className="gap-2">
             <Plus className="h-4 w-4" />
             Neuer Einsatz
           </Button>

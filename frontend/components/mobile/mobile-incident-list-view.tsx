@@ -200,6 +200,7 @@ export function MobileIncidentListView({
         <div className="flex gap-2 overflow-x-auto">
           <Button
             size="sm"
+            variant="secondary"
             onClick={onNewEmergency}
             className="gap-1.5 flex-shrink-0"
           >
