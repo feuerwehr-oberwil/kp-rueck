@@ -477,10 +477,6 @@ class ApiClient {
     const skipToast = options?.skipToast || false
     const maxRetries = options?.maxRetries ?? (isGetRequest ? 3 : 1) // Retry GET requests by default, not mutations
 
-    // Only log non-GET requests to avoid polling spam
-    if (!isGetRequest) {
-      console.log(`[API] ${method} ${endpoint}`)
-    }
 
     let lastError: Error | null = null
 
@@ -533,7 +529,6 @@ class ApiClient {
 
           if (isRetryable && retryCount < maxRetries) {
             const delay = this.getBackoffDelay(retryCount)
-            console.log(`[API Retry] Attempt ${retryCount + 1}/${maxRetries} after ${delay}ms for ${method} ${endpoint}`)
             await this.sleep(delay)
             continue // Retry
           }
@@ -554,16 +549,10 @@ class ApiClient {
         // Handle empty responses (e.g., DELETE operations with 204 No Content)
         const contentType = response.headers.get('content-type')
         if (response.status === 204 || !contentType || contentType.indexOf('application/json') === -1) {
-          if (!isGetRequest) {
-            console.log(`[API Success] ${method} ${endpoint} (no content)`)
-          }
           return undefined as T
         }
 
         const data = await response.json()
-        if (!isGetRequest) {
-          console.log(`[API Success] ${method} ${endpoint}`, data)
-        }
         return data
 
       } catch (error) {
@@ -573,7 +562,6 @@ class ApiClient {
         if (error instanceof TypeError && error.message.includes('fetch')) {
           if (retryCount < maxRetries) {
             const delay = this.getBackoffDelay(retryCount)
-            console.log(`[API Retry] Network error, attempt ${retryCount + 1}/${maxRetries} after ${delay}ms`)
             await this.sleep(delay)
             continue // Retry
           }
@@ -1059,6 +1047,7 @@ class ApiClient {
 
     const response = await fetch(url, {
       method: 'POST',
+      credentials: 'include',  // Include auth cookies
       headers: {
         'X-Reko-Token': token
       },

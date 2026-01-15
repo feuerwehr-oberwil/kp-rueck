@@ -104,7 +104,6 @@ export async function login(username: string, password: string): Promise<User> {
     }
 
     const user = await response.json();
-    console.log('[Auth] Login successful:', user.username);
     return user;
   } catch (error) {
     if (error instanceof AuthError) {
@@ -144,7 +143,6 @@ export async function getCurrentUser(): Promise<User | null> {
     }
 
     const user = await response.json();
-    console.log('[Auth] Current user:', user.username, `(${user.role})`);
     return user;
   } catch (error) {
     if (error instanceof AuthError) {
@@ -169,7 +167,6 @@ export async function logout(): Promise<void> {
       method: 'POST',
       credentials: 'include',
     }, 5000);
-    console.log('[Auth] Logout successful');
   } catch (error) {
     // Logout failed, but we'll clear local state anyway
     console.error('[Auth] Logout request failed (clearing state anyway):', error);
@@ -190,12 +187,10 @@ export async function refreshToken(): Promise<User | null> {
     }, 10000);
 
     if (!response.ok) {
-      console.log('[Auth] Token refresh failed - user needs to log in again');
       return null;
     }
 
     const user = await response.json();
-    console.log('[Auth] Token refreshed for user:', user.username);
     return user;
   } catch (error) {
     console.error('[Auth] Token refresh error:', error);
