@@ -41,23 +41,31 @@ async def _log_api_request(
             logger.error("Audit logging failed: %s", e)
     else:
         # Production: use separate connection pool
-        async with audit_session_maker() as db:
-            try:
-                await log_action(
-                    db=db,
-                    action_type=f"{method.lower()}_request",
-                    resource_type="api",
-                    user=user,
-                    changes={
-                        "path": path,
-                        "method": method,
-                        "duration_ms": duration_ms,
-                    },
-                    request=None,
-                )
-                await db.commit()
-            except Exception as e:
-                logger.error("Audit logging failed: %s", e)
+        # Catch pool timeout errors gracefully - audit should never block requests
+        try:
+            async with audit_session_maker() as db:
+                try:
+                    await log_action(
+                        db=db,
+                        action_type=f"{method.lower()}_request",
+                        resource_type="api",
+                        user=user,
+                        changes={
+                            "path": path,
+                            "method": method,
+                            "duration_ms": duration_ms,
+                        },
+                        request=None,
+                    )
+                    await db.commit()
+                except Exception as e:
+                    logger.error("Audit logging failed: %s", e)
+        except TimeoutError:
+            # Pool exhausted - log warning but don't fail
+            logger.warning("Audit pool timeout - request not logged: %s %s", method, path)
+        except Exception as e:
+            # Any other pool/connection error
+            logger.error("Audit session error: %s", e)
 
 
 class AuditMiddleware(BaseHTTPMiddleware):

@@ -29,13 +29,14 @@ async_session_maker = async_sessionmaker(
 
 # Create separate engine and session factory for audit logging
 # This avoids connection pool conflicts with the main request/response cycle
+# Note: Reduced max_overflow and timeout to prevent pool exhaustion under load
 audit_engine = create_async_engine(
     settings.database_url,
     echo=False,
     future=True,
     pool_size=5,            # Smaller pool for audit operations
-    max_overflow=10,        # Allow overflow for bursts
-    pool_timeout=30,        # Same timeout settings
+    max_overflow=5,         # Limited overflow to prevent pool exhaustion
+    pool_timeout=10,        # Short timeout - audit should not block requests
     pool_recycle=1800,      # Recycle connections after 30 minutes
     pool_pre_ping=True,     # Verify connections before using
 )
