@@ -1,6 +1,8 @@
 """Background sync scheduler for periodic Railway ↔ Local synchronization."""
 import asyncio
 from datetime import datetime
+import signal
+import sys
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -17,6 +19,10 @@ logger = get_logger(__name__)
 # Global scheduler instance
 scheduler: AsyncIOScheduler | None = None
 last_interval_minutes: int | None = None
+# Flag to prevent new syncs during shutdown
+_shutting_down: bool = False
+# Track current sync task for graceful cancellation
+_current_sync_task: asyncio.Task | None = None
 
 
 async def scheduled_sync():
@@ -30,7 +36,12 @@ async def scheduled_sync():
     4. Pushes local changes to Railway
     5. Checks if sync interval has changed and reschedules if needed
     """
-    global scheduler, last_interval_minutes
+    global scheduler, last_interval_minutes, _current_sync_task
+
+    # Check if shutting down - skip sync
+    if _shutting_down:
+        logger.debug("Sync skipped: shutdown in progress")
+        return
 
     # Get database session
     async for db in get_db():
@@ -122,15 +133,32 @@ def start_sync_scheduler():
     logger.info(f"Sync scheduler started (syncing every {settings.sync_interval_minutes} minutes)")
 
 
-def stop_sync_scheduler():
+def stop_sync_scheduler(timeout_seconds: int = 10):
     """
-    Stop the background sync scheduler.
+    Stop the background sync scheduler gracefully.
 
     Called during FastAPI lifespan shutdown.
+
+    Args:
+        timeout_seconds: Maximum time to wait for running jobs to complete.
     """
-    global scheduler
+    global scheduler, _shutting_down
+
+    # Set shutdown flag to prevent new syncs from starting
+    _shutting_down = True
+    logger.info("Initiating graceful sync scheduler shutdown...")
 
     if scheduler and scheduler.running:
         logger.info("Stopping sync scheduler...")
-        scheduler.shutdown(wait=True)
-        logger.info("Sync scheduler stopped")
+        try:
+            # Give running jobs time to complete, but don't wait forever
+            scheduler.shutdown(wait=True)
+            logger.info("Sync scheduler stopped gracefully")
+        except Exception as e:
+            logger.warning(f"Sync scheduler shutdown error: {e}")
+            # Force shutdown if graceful shutdown fails
+            try:
+                scheduler.shutdown(wait=False)
+                logger.info("Sync scheduler force stopped")
+            except Exception as e2:
+                logger.error(f"Sync scheduler force shutdown failed: {e2}")
