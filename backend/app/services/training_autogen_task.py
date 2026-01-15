@@ -1,5 +1,6 @@
 """Background task for training emergency auto-generation."""
 import asyncio
+import logging
 from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models import Event, Setting, Incident
 from app.services.training import TrainingGenerator
+
+logger = logging.getLogger(__name__)
 
 
 class TrainingAutoGenTask:
@@ -24,7 +27,7 @@ class TrainingAutoGenTask:
 
         self.running = True
         self.task = asyncio.create_task(self._monitor_loop())
-        print("Training auto-generation task started")
+        logger.info("Training auto-generation task started")
 
     async def stop(self):
         """Stop the background task."""
@@ -35,7 +38,7 @@ class TrainingAutoGenTask:
                 await self.task
             except asyncio.CancelledError:
                 pass
-        print("Training auto-generation task stopped")
+        logger.info("Training auto-generation task stopped")
 
     async def _monitor_loop(self):
         """Monitor settings and manage auto-generation."""
@@ -48,7 +51,7 @@ class TrainingAutoGenTask:
                         await db.close()
                         break
             except Exception as e:
-                print(f"Error in training auto-gen monitor: {e}")
+                logger.error("Error in training auto-gen monitor: %s", e)
 
             # Check every 5 seconds
             await asyncio.sleep(5)
@@ -99,7 +102,8 @@ class TrainingAutoGenTask:
         if incident_count >= max_emergencies:
             # Max reached - stop auto-generation
             if self.current_event_id == event.id:
-                print(f"⚠ Training auto-gen stopped: Max emergencies ({max_emergencies}) reached for event {event.id}")
+                logger.info("Training auto-gen stopped: Max emergencies (%d) reached for event %s",
+                           max_emergencies, event.id)
                 self.current_event_id = None
             return
 
@@ -140,9 +144,10 @@ class TrainingAutoGenTask:
                 # Generate emergency
                 generator = TrainingGenerator(db)
                 incident = await generator.generate_emergency(event.id, settings=settings)
-                print(f"Auto-generated training emergency: {incident.title} (interval: {actual_interval_min:.1f}min)")
+                logger.info("Auto-generated training emergency: %s (interval: %.1f min)",
+                           incident.title, actual_interval_min)
             except Exception as e:
-                print(f"Failed to auto-generate emergency: {e}")
+                logger.error("Failed to auto-generate emergency: %s", e)
 
 
 # Global task instance

@@ -1,4 +1,5 @@
 """Middleware to automatically log API requests."""
+import logging
 import time
 from typing import Callable
 
@@ -8,6 +9,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from ..services.audit import log_action
 from ..database import async_session_maker, audit_session_maker
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def _log_api_request(
@@ -35,7 +38,7 @@ async def _log_api_request(
             )
             await test_db_session.commit()
         except Exception as e:
-            print(f"Audit logging failed: {e}")
+            logger.error("Audit logging failed: %s", e)
     else:
         # Production: use separate connection pool
         async with audit_session_maker() as db:
@@ -54,7 +57,7 @@ async def _log_api_request(
                 )
                 await db.commit()
             except Exception as e:
-                print(f"Audit logging failed: {e}")
+                logger.error("Audit logging failed: %s", e)
 
 
 class AuditMiddleware(BaseHTTPMiddleware):

@@ -1,5 +1,6 @@
 """Incident API endpoints."""
 import asyncio
+import logging
 from datetime import datetime
 from typing import Annotated, Optional
 import uuid
@@ -14,6 +15,8 @@ from ..crud import incidents as crud
 from ..crud import events as events_crud
 from ..database import get_db
 from ..websocket_manager import broadcast_incident_update
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -33,7 +36,7 @@ async def trigger_sync_background():
                 # Check Railway URL from database settings
                 railway_url = await get_setting_value(db, "railway_database_url", "")
                 if not railway_url:
-                    print("Background sync skipped: No Railway database URL configured")
+                    logger.debug("Background sync skipped: No Railway database URL configured")
                     return
 
                 sync_service = await create_sync_service(db)
@@ -41,20 +44,21 @@ async def trigger_sync_background():
                 # Check Railway health
                 railway_healthy = await sync_service.check_railway_health()
                 if not railway_healthy:
-                    print("Background sync skipped: Railway unreachable")
+                    logger.debug("Background sync skipped: Railway unreachable")
                     return
 
                 # Push local changes to Railway (event-based)
                 result = await sync_service.sync_to_railway()
                 if result.success:
-                    print(f"Event-based sync to Railway successful: {sum(result.records_synced.values())} records")
+                    logger.info("Event-based sync to Railway successful: %d records",
+                               sum(result.records_synced.values()))
                 else:
-                    print(f"Event-based sync to Railway failed: {result.errors}")
+                    logger.warning("Event-based sync to Railway failed: %s", result.errors)
             finally:
                 break
     except Exception as e:
         # Log error but don't fail the incident creation
-        print(f"Background sync failed: {e}")
+        logger.error("Background sync failed: %s", e)
 
 
 @router.get("/", response_model=list[schemas.IncidentResponse])

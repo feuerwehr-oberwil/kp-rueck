@@ -1,4 +1,5 @@
 """Training emergency auto-generation service."""
+import logging
 import random
 import asyncio
 from datetime import datetime, timedelta
@@ -15,6 +16,8 @@ from app.models import (
     Setting,
     Notification
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TrainingGenerator:
@@ -143,7 +146,8 @@ class TrainingGenerator:
         await self.db.commit()
 
         # Log emergency creation
-        print(f"✓ Training emergency created: {incident.title} at {full_address} (category: {category})")
+        logger.info("Training emergency created: %s at %s (category: %s)",
+                   incident.title, full_address, category)
 
         return incident
 
@@ -188,7 +192,7 @@ class TrainingGenerator:
             try:
                 await self.generate_emergency(event_id, settings=settings)
             except Exception as e:
-                print(f"Error generating emergency: {e}")
+                logger.error("Error generating emergency: %s", e)
                 continue
 
     async def _get_setting(self, key: str) -> str | None:
