@@ -31,8 +31,8 @@ export function DriverAssignmentDialog({
   vehicleId,
   vehicleName,
   eventId,
-  currentDriverId,
-  currentDriverName,
+  currentDriverId: initialDriverId,
+  currentDriverName: initialDriverName,
   personnel,
   specialFunctions,
   onDriverAssigned,
@@ -40,6 +40,18 @@ export function DriverAssignmentDialog({
   const [searchQuery, setSearchQuery] = useState("")
   const [isAssigning, setIsAssigning] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
+
+  // Track driver locally so we can update UI immediately
+  const [localDriverId, setLocalDriverId] = useState<string | null>(initialDriverId)
+  const [localDriverName, setLocalDriverName] = useState<string | null>(initialDriverName)
+
+  // Sync local state when props change (e.g., dialog reopened)
+  useEffect(() => {
+    if (open) {
+      setLocalDriverId(initialDriverId)
+      setLocalDriverName(initialDriverName)
+    }
+  }, [open, initialDriverId, initialDriverName])
 
   // Reset search on close
   useEffect(() => {
@@ -78,9 +90,9 @@ export function DriverAssignmentDialog({
     setIsAssigning(true)
     try {
       // If there's a current driver, unassign them first
-      if (currentDriverId) {
+      if (localDriverId) {
         await apiClient.unassignSpecialFunction(eventId, {
-          personnel_id: currentDriverId,
+          personnel_id: localDriverId,
           function_type: 'driver',
           vehicle_id: vehicleId,
         })
@@ -92,6 +104,10 @@ export function DriverAssignmentDialog({
         function_type: 'driver',
         vehicle_id: vehicleId,
       })
+
+      // Update local state
+      setLocalDriverId(person.id)
+      setLocalDriverName(person.name)
 
       setJustAssigned(person.id)
       setTimeout(() => setJustAssigned(null), 600)
@@ -108,15 +124,19 @@ export function DriverAssignmentDialog({
   }
 
   const handleRemoveDriver = async () => {
-    if (!currentDriverId) return
+    if (!localDriverId) return
 
     setIsAssigning(true)
     try {
       await apiClient.unassignSpecialFunction(eventId, {
-        personnel_id: currentDriverId,
+        personnel_id: localDriverId,
         function_type: 'driver',
         vehicle_id: vehicleId,
       })
+
+      // Clear local state immediately
+      setLocalDriverId(null)
+      setLocalDriverName(null)
 
       toast.success(`Fahrer von ${vehicleName} entfernt`)
       onDriverAssigned()
@@ -138,8 +158,8 @@ export function DriverAssignmentDialog({
             Fahrer für {vehicleName}
           </DialogTitle>
           <DialogDescription>
-            {currentDriverName
-              ? `Aktueller Fahrer: ${currentDriverName}`
+            {localDriverName
+              ? `Aktueller Fahrer: ${localDriverName}`
               : 'Kein Fahrer zugewiesen'
             }
           </DialogDescription>
@@ -147,12 +167,12 @@ export function DriverAssignmentDialog({
 
         <div className="space-y-4">
           {/* Current driver with remove option */}
-          {currentDriverId && currentDriverName && (
+          {localDriverId && localDriverName && (
             <div className="flex items-center justify-between p-3 rounded-lg border border-primary/50 bg-primary/5">
               <div className="flex items-center gap-3">
                 <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-sm">{currentDriverName}</p>
+                  <p className="font-medium text-sm">{localDriverName}</p>
                   <p className="text-xs text-muted-foreground">Aktueller Fahrer</p>
                 </div>
               </div>
@@ -188,7 +208,7 @@ export function DriverAssignmentDialog({
           <ScrollArea className="h-[300px] pr-4">
             <div className="space-y-2">
               {filteredPersonnel.map((person, index) => {
-                const isCurrentDriver = person.id === currentDriverId
+                const isCurrentDriver = person.id === localDriverId
                 const wasJustAssigned = justAssigned === person.id
 
                 return (
