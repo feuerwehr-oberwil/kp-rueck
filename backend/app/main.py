@@ -109,27 +109,51 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware with Railway domain support
+# CORS middleware with explicit domain whitelist
 def get_cors_origins() -> list[str]:
-    """Get CORS origins including automatic Railway domain support."""
+    """
+    Get CORS origins using explicit whitelist instead of wildcards.
+
+    Security: Using explicit domains instead of wildcards to prevent
+    malicious Railway deployments from accessing the API.
+    """
     origins = list(settings.cors_origins)
 
-    # Automatically allow all Railway domains in production
-    # This allows frontend and backend to communicate without manual configuration
-    railway_patterns = [
-        "https://*.railway.app",
-        "https://*.up.railway.app",
-    ]
-    origins.extend(railway_patterns)
+    # Add production domains
+    origins.extend([
+        "https://kp.fwo.li",
+        "https://kp-api.fwo.li",
+    ])
 
-    return origins
+    # Add Railway-specific domains from environment variables
+    # This allows automatic configuration without wildcards
+    railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    railway_backend = os.getenv("RAILWAY_STATIC_URL", "")
+    frontend_url = os.getenv("FRONTEND_URL", "")
+
+    if railway_frontend:
+        origins.append(f"https://{railway_frontend}")
+    if railway_backend:
+        origins.append(f"https://{railway_backend}")
+    if frontend_url:
+        origins.append(frontend_url)
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_origins = []
+    for origin in origins:
+        if origin and origin not in seen:
+            seen.add(origin)
+            unique_origins.append(origin)
+
+    return unique_origins
 
 # NOTE: CORS middleware must be added BEFORE wrapping with Socket.IO
 # This ensures it applies to both WebSocket and regular HTTP requests
+# Security: Removed wildcard regex - using explicit origins only
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
-    allow_origin_regex=r"https://.*\.(railway\.app|up\.railway\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
