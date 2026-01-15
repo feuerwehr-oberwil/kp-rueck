@@ -1,8 +1,28 @@
 """Authentication configuration and security settings."""
+import logging
 import os
 from datetime import timedelta
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
+
+
+def _is_production_environment() -> bool:
+    """
+    Detect production environment using multiple Railway indicators.
+
+    Security: Use multiple checks to reduce risk of accidentally
+    enabling auth bypass due to missing environment variables.
+    """
+    railway_indicators = [
+        "RAILWAY_ENVIRONMENT",
+        "RAILWAY_PROJECT_ID",
+        "RAILWAY_SERVICE_ID",
+        "RAILWAY_STATIC_URL",
+        "RAILWAY_PUBLIC_DOMAIN",
+    ]
+    return any(os.getenv(indicator) is not None for indicator in railway_indicators)
 
 
 class AuthSettings(BaseSettings):
@@ -27,6 +47,25 @@ class AuthSettings(BaseSettings):
     COOKIE_SAMESITE: str = "none"  # Required for cross-site cookies (different domains)
     COOKIE_DOMAIN: str = ""  # Empty = use request host. Set to ".fwo.li" for subdomain sharing
 
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> "AuthSettings":
+        """
+        Fail-fast validation at startup to prevent security misconfigurations.
+
+        Security: This ensures the application won't start with dangerous settings.
+        """
+        is_production = _is_production_environment()
+
+        # CRITICAL: Block auth bypass in production
+        if is_production and self.BYPASS_AUTH_DEV:
+            raise ValueError(
+                "SECURITY ERROR: AUTH_BYPASS_AUTH_DEV=True is forbidden in production! "
+                "Authentication bypass is only allowed in local development. "
+                "Remove this environment variable or set it to False."
+            )
+
+        return self
+
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
@@ -46,19 +85,21 @@ class AuthSettings(BaseSettings):
             "demo",
         ]
 
+        is_production = _is_production_environment()
+
         # Check if key contains any weak patterns (case-insensitive)
         v_lower = v.lower()
         for weak_pattern in weak_defaults:
             if weak_pattern in v_lower:
                 # In production, reject weak keys entirely
-                if os.getenv("RAILWAY_ENVIRONMENT") is not None:
+                if is_production:
                     raise ValueError(
                         f"AUTH_SECRET_KEY contains weak pattern '{weak_pattern}'. "
                         "You MUST set a strong AUTH_SECRET_KEY environment variable in production. "
                         "Generate one with: openssl rand -hex 32"
                     )
                 # In development, warn but allow (for local testing)
-                print(f"⚠️  WARNING: AUTH_SECRET_KEY contains weak pattern '{weak_pattern}'. This is only acceptable in development!")
+                logger.warning("AUTH_SECRET_KEY contains weak pattern '%s'. This is only acceptable in development!", weak_pattern)
 
         # Enforce minimum length (256 bits = 32 bytes = 64 hex chars recommended)
         if len(v) < 32:
@@ -122,17 +163,17 @@ class AuthSettings(BaseSettings):
         Returns True if BYPASS_AUTH_DEV is enabled AND NOT in production.
         In production (Railway), auth bypass is ALWAYS disabled for security.
         """
-        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+        is_production = _is_production_environment()
 
         # NEVER allow auth bypass in production - this is a security requirement
         if is_production:
             if self.BYPASS_AUTH_DEV:
-                print("🚫 AUTH BYPASS BLOCKED - Cannot bypass authentication in production!")
+                logger.critical("AUTH BYPASS BLOCKED - Cannot bypass authentication in production!")
             return False
 
         # Only allow bypass in development
         if self.BYPASS_AUTH_DEV:
-            print("🔓 AUTH BYPASS ENABLED - Authentication is disabled for development!")
+            logger.warning("AUTH BYPASS ENABLED - Authentication is disabled for development!")
             return True
         return False
 
