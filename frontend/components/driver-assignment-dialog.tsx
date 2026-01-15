@@ -120,7 +120,7 @@ export function DriverAssignmentDialog({
 
       toast.success(`Fahrer von ${vehicleName} entfernt`)
       onDriverAssigned()
-      onOpenChange(false)
+      // Keep modal open to allow selecting a new driver
     } catch (error) {
       console.error('Failed to remove driver:', error)
       toast.error('Fehler beim Entfernen des Fahrers')
