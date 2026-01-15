@@ -363,6 +363,9 @@ class SyncService:
                 started_at=started_at,
                 completed_at=datetime.now(timezone.utc)
             )
+        finally:
+            # Always close Railway connection to prevent pool exhaustion
+            await self.close_railway_connection()
 
     async def sync_to_railway(self) -> SyncResult:
         """
@@ -546,7 +549,9 @@ class SyncService:
                 started_at=started_at,
                 completed_at=datetime.now(timezone.utc)
             )
-
+        finally:
+            # Always close Railway connection to prevent pool exhaustion
+            await self.close_railway_connection()
 
     async def sync_bidirectional(self) -> dict[str, SyncResult]:
         """
