@@ -46,6 +46,7 @@ from .background import start_sync_scheduler, stop_sync_scheduler
 from .config import settings
 from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
+from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
 
@@ -161,6 +162,9 @@ app.add_middleware(
 
 # Add audit middleware
 app.add_middleware(AuditMiddleware)
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Include routers
 app.include_router(health_router)  # No prefix - available at /health
