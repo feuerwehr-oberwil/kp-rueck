@@ -1045,20 +1045,35 @@ class ApiClient {
 
     const url = `${this.getBaseUrl()}/api/reko/${incidentId}/photos`
 
-    const response = await fetch(url, {
-      method: 'POST',
-      credentials: 'include',  // Include auth cookies
-      headers: {
-        'X-Reko-Token': token
-      },
-      body: formData,
-    })
+    // Create AbortController for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout for large files
 
-    if (!response.ok) {
-      throw new Error('Photo upload failed')
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',  // Include auth cookies
+        headers: {
+          'X-Reko-Token': token
+        },
+        body: formData,
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error('Photo upload failed')
+      }
+
+      return response.json()
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Upload-Zeitüberschreitung - bitte erneut versuchen')
+      }
+      throw error
     }
-
-    return response.json()
   }
 
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
