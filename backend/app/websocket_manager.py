@@ -2,8 +2,8 @@
 
 import asyncio
 import os
-import re
-from typing import Dict, Set, Any
+import time
+from typing import Dict, Set, Any, Optional
 import socketio
 from fastapi import HTTPException
 import logging
@@ -11,6 +11,15 @@ import logging
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+# Session timeout constants
+STALE_SESSION_TIMEOUT_SECONDS = 300  # 5 minutes without activity
+CLEANUP_INTERVAL_SECONDS = 60  # Run cleanup every minute
+
+
+def _is_production() -> bool:
+    """Check if running in production environment."""
+    return os.getenv("RAILWAY_ENVIRONMENT") is not None
 
 
 def get_websocket_cors_origins() -> list[str]:
@@ -50,12 +59,13 @@ def get_websocket_cors_origins() -> list[str]:
 
 # Create async Socket.IO server with explicit CORS whitelist
 # Security: Explicit origins prevent Cross-Site WebSocket Hijacking
+# Performance: Disable verbose logging in production to reduce noise
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins=get_websocket_cors_origins(),
     cors_credentials=True,
-    logger=True,
-    engineio_logger=True
+    logger=not _is_production(),  # Disable in production
+    engineio_logger=not _is_production()  # Disable in production
 )
 
 class WebSocketManager:
@@ -67,13 +77,70 @@ class WebSocketManager:
             "admin": set(),       # Admin users for system-wide updates
         }
         self.user_sessions: Dict[str, Dict[str, Any]] = {}  # sid -> user info
+        self._cleanup_task: Optional[asyncio.Task] = None
+
+    async def start_cleanup_task(self):
+        """Start the background stale session cleanup task."""
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._cleanup_stale_sessions())
+            logger.info("Started WebSocket stale session cleanup task")
+
+    async def stop_cleanup_task(self):
+        """Stop the background cleanup task."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Stopped WebSocket stale session cleanup task")
+
+    async def _cleanup_stale_sessions(self):
+        """Background task to clean up stale sessions periodically."""
+        while True:
+            try:
+                await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+                await self._remove_stale_sessions()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in stale session cleanup: {e}")
+
+    async def _remove_stale_sessions(self):
+        """Remove sessions that haven't had activity within the timeout period."""
+        current_time = time.time()
+        stale_sids = []
+
+        for sid, session in self.user_sessions.items():
+            last_activity = session.get("last_activity", session.get("connected_at", 0))
+            if current_time - last_activity > STALE_SESSION_TIMEOUT_SECONDS:
+                stale_sids.append(sid)
+
+        for sid in stale_sids:
+            logger.warning(f"Removing stale session: {sid}")
+            await self.disconnect(sid)
+            # Disconnect from Socket.IO as well
+            try:
+                await sio.disconnect(sid)
+            except Exception as e:
+                logger.debug(f"Error disconnecting stale session {sid}: {e}")
+
+        if stale_sids:
+            logger.info(f"Cleaned up {len(stale_sids)} stale sessions")
+
+    def update_activity(self, sid: str):
+        """Update the last activity timestamp for a session."""
+        if sid in self.user_sessions:
+            self.user_sessions[sid]["last_activity"] = time.time()
 
     async def connect(self, sid: str, environ: dict):
         """Handle new WebSocket connection."""
         logger.info(f"Client {sid} connected")
-        # Store basic session info
+        current_time = time.time()
+        # Store basic session info with activity tracking
         self.user_sessions[sid] = {
-            "connected_at": asyncio.get_event_loop().time(),
+            "connected_at": current_time,
+            "last_activity": current_time,
             "rooms": set()
         }
 
@@ -174,7 +241,8 @@ async def leave(sid, data):
 @sio.event
 async def ping(sid):
     """Handle ping requests for connection keep-alive."""
-    await sio.emit('pong', {'timestamp': asyncio.get_event_loop().time()}, to=sid)
+    ws_manager.update_activity(sid)  # Refresh activity on ping
+    await sio.emit('pong', {'timestamp': time.time()}, to=sid)
 
 # Broadcast functions for CRUD operations
 async def broadcast_incident_update(incident_data: dict, action: str = "update"):

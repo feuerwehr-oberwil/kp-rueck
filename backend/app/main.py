@@ -19,7 +19,7 @@ setup_logging(
 logger = get_logger(__name__)
 
 from .api import routes
-from .websocket_manager import sio as socket_server
+from .websocket_manager import sio as socket_server, ws_manager
 from .api.admin import router as admin_router
 from .api.assignments import router as assignments_router, bulk_router as assignments_bulk_router
 from .api.auth import router as auth_router
@@ -88,8 +88,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Sync scheduler failed to start: {e}")
 
+    # Start WebSocket stale session cleanup
+    logger.info("Starting WebSocket stale session cleanup...")
+    try:
+        await ws_manager.start_cleanup_task()
+    except Exception as e:
+        logger.warning(f"WebSocket cleanup task failed to start: {e}")
+
     logger.info("Application startup complete")
     yield
+
+    # Shutdown: Stop WebSocket cleanup
+    logger.info("Stopping WebSocket cleanup task...")
+    try:
+        await ws_manager.stop_cleanup_task()
+    except Exception as e:
+        logger.warning(f"WebSocket cleanup shutdown failed: {e}")
 
     # Shutdown: Stop sync scheduler
     logger.info("Stopping sync scheduler...")
