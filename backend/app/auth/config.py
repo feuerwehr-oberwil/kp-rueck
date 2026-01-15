@@ -38,7 +38,7 @@ class AuthSettings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Longer-lived refresh token
 
     # Password Policy
-    MIN_PASSWORD_LENGTH: int = 8
+    MIN_PASSWORD_LENGTH: int = 12  # Increased from 8 for better security
     MAX_PASSWORD_LENGTH: int = 72  # Bcrypt has a hard limit of 72 bytes
 
     # Cookie Security

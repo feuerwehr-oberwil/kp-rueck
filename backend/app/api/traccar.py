@@ -1,4 +1,5 @@
 """Traccar GPS tracking API endpoints."""
+import logging
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -7,6 +8,8 @@ from typing import Optional
 
 from app.traccar import traccar_client, VehiclePosition
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/traccar", tags=["traccar"])
 
@@ -67,7 +70,9 @@ async def get_vehicle_positions() -> list[VehiclePositionResponse]:
             for p in positions
         ]
     except Exception as e:
+        # Log detailed error server-side, return generic message to client
+        logger.error("Failed to fetch positions from Traccar: %s", e)
         raise HTTPException(
             status_code=502,
-            detail=f"Failed to fetch positions from Traccar: {str(e)}",
+            detail="GPS-Tracking-Service momentan nicht erreichbar",
         )
