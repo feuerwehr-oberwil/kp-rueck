@@ -9,6 +9,60 @@ from fastapi import Request
 from ..models import AuditLog, User
 
 
+# Fields that should never be logged for security reasons
+SENSITIVE_FIELDS = frozenset({
+    # Authentication
+    "password",
+    "password_hash",
+    "token",
+    "access_token",
+    "refresh_token",
+    "secret",
+    "secret_key",
+    "api_key",
+    # Personal identifiable information
+    "email",
+    "phone",
+    "phone_number",
+    # Other sensitive data
+    "credit_card",
+    "card_number",
+    "cvv",
+    "ssn",
+    "social_security",
+})
+
+
+def _sanitize_changes(changes: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """
+    Remove sensitive fields from changes dict before logging.
+
+    Security: Prevents passwords, tokens, and PII from being stored in audit logs.
+    """
+    if changes is None:
+        return None
+
+    def sanitize_value(key: str, value: Any) -> Any:
+        """Recursively sanitize nested dictionaries."""
+        # Check if key contains sensitive field name (case-insensitive)
+        key_lower = key.lower()
+        for sensitive in SENSITIVE_FIELDS:
+            if sensitive in key_lower:
+                return "[REDACTED]"
+
+        # Recursively sanitize nested dicts
+        if isinstance(value, dict):
+            return {k: sanitize_value(k, v) for k, v in value.items()}
+
+        # Recursively sanitize lists
+        if isinstance(value, list):
+            return [sanitize_value(key, item) if isinstance(item, dict) else item for item in value]
+
+        return value
+
+    return {k: sanitize_value(k, v) for k, v in changes.items()}
+
+
 async def log_action(
     db: AsyncSession,
     action_type: str,
@@ -71,12 +125,15 @@ async def log_action(
         if str(user.id) != "00000000-0000-0000-0000-000000000000":
             user_id = user.id
 
+    # Sanitize changes to remove sensitive data before storing
+    sanitized_changes = _sanitize_changes(changes)
+
     audit_entry = AuditLog(
         user_id=user_id,
         action_type=action_type,
         resource_type=resource_type,
         resource_id=resource_id,
-        changes_json=changes,
+        changes_json=sanitized_changes,
         ip_address=ip_address,
         user_agent=user_agent,
         timestamp=datetime.utcnow(),
