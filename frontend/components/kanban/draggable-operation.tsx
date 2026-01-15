@@ -238,7 +238,7 @@ function DraggableOperationBase({
 
           {/* Meldung (notes) - shown when toggle is enabled */}
           {showMeldung && operation.notes && (
-            <div className="border-t pt-2 mt-1">
+            <div className="border-t pt-3">
               <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
                 {operation.notes}
               </p>
@@ -247,7 +247,7 @@ function DraggableOperationBase({
 
           {/* Resource assignments - show names with quick removal */}
           {(operation.crew.length > 0 || operation.vehicles.length > 0 || operation.materials.length > 0) && (
-            <div className="border-t pt-2 space-y-1.5 text-xs">
+            <div className="border-t pt-3 space-y-1.5 text-xs">
               {operation.crew.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -320,7 +320,7 @@ function DraggableOperationBase({
 
           {/* Reko Summary */}
           {operation.rekoSummary && (
-            <div className="border-t pt-2 mt-2 space-y-1.5">
+            <div className="border-t pt-3 space-y-1.5">
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   <AlertTriangle className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />

@@ -312,7 +312,7 @@ export function OperationDetailModal({
               placeholder="Notizen, Besonderheiten, Gefahren..."
               value={operation.notes}
               onChange={(e) => onUpdate({ notes: e.target.value })}
-              className="mt-2 min-h-[100px]"
+              className="mt-1.5 min-h-[100px]"
             />
           </div>
 
@@ -326,7 +326,7 @@ export function OperationDetailModal({
                 value={operation.incidentType}
                 onValueChange={(value) => onUpdate({ incidentType: value })}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Einsatzart auswählen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -340,7 +340,7 @@ export function OperationDetailModal({
             </div>
 
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2">
                 <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
                   Priorität
                 </Label>
@@ -354,7 +354,7 @@ export function OperationDetailModal({
                 value={operation.priority}
                 onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-1.5">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -374,7 +374,7 @@ export function OperationDetailModal({
               placeholder="Name, Telefonnummer..."
               value={operation.contact}
               onChange={(e) => onUpdate({ contact: e.target.value })}
-              className="mt-2"
+              className="mt-1.5"
             />
           </div>
 
@@ -386,7 +386,7 @@ export function OperationDetailModal({
               placeholder="Interne Notizen..."
               value={operation.internalNotes}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
-              className="mt-2 min-h-[80px]"
+              className="mt-1.5 min-h-[80px]"
             />
           </div>
           </div>
@@ -398,20 +398,20 @@ export function OperationDetailModal({
             <Label className="text-sm font-semibold text-muted-foreground">
               Rekognoszierungs-Meldungen
             </Label>
-            <div className="mt-3">
+            <div className="mt-1.5">
               <RekoReportSection incidentId={operation.id} />
             </div>
           </div>
 
           {/* Resource Assignment Section */}
           <div>
-            <Label className="text-sm font-semibold text-muted-foreground mb-3 block">
+            <Label className="text-sm font-semibold text-muted-foreground block">
               Zugewiesene Ressourcen
             </Label>
 
             {/* Mannschaft (Crew) */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Mannschaft ({operation.crew.length})</span>
@@ -459,8 +459,8 @@ export function OperationDetailModal({
             </div>
 
             {/* Fahrzeuge (Vehicles) */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Truck className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Fahrzeuge ({operation.vehicles.length})</span>
@@ -549,8 +549,8 @@ export function OperationDetailModal({
             </div>
 
             {/* Material */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Material ({operation.materials.length})</span>

@@ -129,7 +129,7 @@ export function NewEmergencyModal({
                   placeholder="Notizen, Besonderheiten, Gefahren..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="mt-2 min-h-[100px]"
+                  className="mt-1.5 min-h-[100px]"
                 />
               </div>
 
@@ -143,7 +143,7 @@ export function NewEmergencyModal({
                     value={formData.incidentType}
                     onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
                   >
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger className="mt-1.5">
                       <SelectValue placeholder="Einsatzart auswählen" />
                     </SelectTrigger>
                     <SelectContent>
@@ -164,7 +164,7 @@ export function NewEmergencyModal({
                     value={formData.priority}
                     onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
                   >
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger className="mt-1.5">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -186,7 +186,7 @@ export function NewEmergencyModal({
                   placeholder="Name, Telefonnummer..."
                   value={formData.contact}
                   onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                  className="mt-2"
+                  className="mt-1.5"
                 />
               </div>
 
