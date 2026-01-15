@@ -6,31 +6,15 @@ Last updated: 2025-01-15
 
 | Severity | Count |
 |----------|-------|
-| Critical | 1 |
 | High | 1 |
 | Medium | 2 |
 | Low | 2 |
 
 ---
 
-## Critical Issues
-
-### 1. Hardcoded Credentials in .env File
-
-**File**: `backend/.env`
-
-**Issue**: The `.env` file contains actual production credentials that were committed to git history.
-
-**Action Required**:
-- Remove `.env` from git history using `git filter-repo --path backend/.env`
-- Rotate all exposed credentials immediately on Railway
-- Use Railway's secret management
-
----
-
 ## High Severity Issues
 
-### 2. Form Token Security (Token Reuse)
+### 1. Form Token Security (Token Reuse)
 
 **File**: `backend/app/services/tokens.py:69-99`
 
@@ -46,7 +30,7 @@ Last updated: 2025-01-15
 
 ## Medium Severity Issues
 
-### 3. Photo Upload - No Malware Scanning
+### 2. Photo Upload - No Malware Scanning
 
 **File**: `backend/app/services/photo_storage.py:97-105`
 
@@ -58,7 +42,7 @@ Last updated: 2025-01-15
 
 ---
 
-### 4. Missing Database Size Checks
+### 3. Missing Database Size Checks
 
 **File**: `backend/app/services/notification_service.py:343-347`
 
@@ -75,7 +59,7 @@ Last updated: 2025-01-15
 
 ## Low Severity Issues
 
-### 5. No Request Rate Limiting
+### 4. No Request Rate Limiting
 
 **Files**: All API endpoints in `backend/app/api/`
 
@@ -83,7 +67,7 @@ Last updated: 2025-01-15
 
 ---
 
-### 6. Insufficient Security Event Logging
+### 5. Insufficient Security Event Logging
 
 **Recommendation**: Log all failed auth attempts with username, IP, timestamp in separate security log.
 

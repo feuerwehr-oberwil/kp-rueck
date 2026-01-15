@@ -6,30 +6,14 @@ Last updated: 2025-01-15
 
 | Severity | Count |
 |----------|-------|
-| Critical | 1 |
 | Medium | 2 |
 | Low | 1 |
 
 ---
 
-## Critical Issues
-
-### 1. Exposed Secrets in Version Control
-
-**File**: `backend/.env`
-
-The `.env` file contains actual production credentials that were committed to git history.
-
-**Action Required**:
-1. Remove from git history: `git filter-repo --path backend/.env`
-2. Rotate all credentials immediately on Railway
-3. Use Railway's secret management
-
----
-
 ## Medium Severity Issues
 
-### 2. Default Database Credentials in Source
+### 1. Default Database Credentials in Source
 
 **Files**: `docker-compose.yml`, `docker-compose.dev.yml`
 
@@ -49,7 +33,7 @@ POSTGRES_PASSWORD: ${DB_PASSWORD?Database password required}
 
 ---
 
-### 3. Missing Environment Validation
+### 2. Missing Environment Validation
 
 **File**: `backend/app/config.py`
 
@@ -61,7 +45,7 @@ Database URL with special characters may not work with asyncpg.
 
 ## Low Severity Issues
 
-### 4. Exposed API Documentation
+### 3. Exposed API Documentation
 
 **File**: `backend/app/main.py`
 
