@@ -444,15 +444,11 @@ async def test_export_event_long_name(editor_client: AsyncClient, db_session: As
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.skip(reason="Bug: Export service has encoding issues with non-ASCII characters in event names")
 async def test_export_event_unicode_name(editor_client: AsyncClient, db_session: AsyncSession):
     """Test exporting an event with unicode characters in name.
 
-    BUG: The export service fails with 500 Internal Server Error when
-    the event name contains non-ASCII characters (e.g., Japanese characters).
-    This is likely a ReportLab PDF encoding issue.
-
-    TODO: Fix export_service.py to handle unicode event names properly.
+    Non-ASCII characters (Japanese, German umlauts) are converted to
+    underscores in the filename but the content is preserved in the PDF/Excel.
     """
     event = Event(
         id=uuid4(),
@@ -466,6 +462,12 @@ async def test_export_event_unicode_name(editor_client: AsyncClient, db_session:
 
     response = await editor_client.post(f"/api/exports/events/{event.id}")
     assert response.status_code == 200
+
+    # Verify filename is ASCII-safe (umlauts and Japanese characters replaced)
+    disposition = response.headers.get("content-disposition", "")
+    assert "filename=" in disposition
+    # Japanese characters should be replaced with underscores
+    assert "日本語" not in disposition
 
 
 # ============================================
