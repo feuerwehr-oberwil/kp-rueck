@@ -1,0 +1,53 @@
+# Pre-commit hooks for kp-rueck
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Backend - Python linting and formatting
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Ruff lint (backend)
+        entry: bash -c 'cd backend && uv run ruff check .'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+      - id: ruff-format-check
+        name: Ruff format check (backend)
+        entry: bash -c 'cd backend && uv run ruff format --check .'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+  # Frontend - TypeScript linting
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint (frontend)
+        entry: bash -c 'cd frontend && pnpm lint'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: typescript-check
+        name: TypeScript check (frontend)
+        entry: bash -c 'cd frontend && pnpm exec tsc --noEmit'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(frontend/pnpm-lock\.yaml|backend/uv\.lock)$
+      - id: end-of-file-fixer
+        exclude: ^(frontend/pnpm-lock\.yaml|backend/uv\.lock)$
+      - id: check-yaml
+        exclude: ^(frontend/pnpm-lock\.yaml)$
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: detect-private-key
