@@ -14,8 +14,12 @@ COPY pyproject.toml uv.lock ./
 # Install dependencies using uv
 RUN uv sync --frozen --no-dev
 
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create non-root user for security with home directory
+RUN groupadd -r appuser && useradd -r -g appuser -m appuser
+
+# Create uv cache directory with proper permissions
+RUN mkdir -p /home/appuser/.cache/uv && \
+    chown -R appuser:appuser /home/appuser
 
 # Copy application code
 COPY . .
@@ -26,6 +30,9 @@ RUN chmod +x start.sh start-dev.sh && \
 
 # Switch to non-root user
 USER appuser
+
+# Set environment variable for uv cache
+ENV UV_CACHE_DIR=/home/appuser/.cache/uv
 
 # Expose port (Railway will set PORT env var)
 EXPOSE ${PORT:-8000}
