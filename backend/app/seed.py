@@ -2,6 +2,7 @@
 
 Run with: uv run python -m app.seed
 """
+
 import asyncio
 import os
 import secrets
@@ -29,9 +30,7 @@ def get_admin_password() -> str:
     if admin_password:
         # Validate provided password
         if len(admin_password) < 12:
-            raise ValueError(
-                "ADMIN_SEED_PASSWORD must be at least 12 characters long"
-            )
+            raise ValueError("ADMIN_SEED_PASSWORD must be at least 12 characters long")
         return admin_password
 
     if is_production:
@@ -64,6 +63,7 @@ async def seed_database() -> None:
 
             # Create dev-bypass user (required for auth bypass mode)
             import uuid
+
             dev_user = models.User(
                 id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
                 username="dev-user",
@@ -74,7 +74,7 @@ async def seed_database() -> None:
 
             # Create admin user with secure password
             password = get_admin_password()
-            password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
             admin_user = models.User(
                 id=uuid4(),
@@ -105,9 +105,7 @@ async def seed_database() -> None:
             settings_created = 0
             for key, value in default_settings_data:
                 # Check if setting already exists
-                result = await db.execute(
-                    select(models.Setting).where(models.Setting.key == key)
-                )
+                result = await db.execute(select(models.Setting).where(models.Setting.key == key))
                 existing = result.scalar_one_or_none()
 
                 if not existing:
@@ -119,7 +117,9 @@ async def seed_database() -> None:
                     db.add(setting)
                     settings_created += 1
 
-            print(f"  - Settings: {settings_created} new, {len(default_settings_data) - settings_created} already exist")
+            print(
+                f"  - Settings: {settings_created} new, {len(default_settings_data) - settings_created} already exist"
+            )
 
             # ============================================
             # 3. SEED VEHICLES
@@ -182,7 +182,6 @@ async def seed_database() -> None:
                 {"name": "Leuenberger Luca", "role": "Offiziere", "availability": "available", "tags": ["F"]},
                 {"name": "Steiner Lukas", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
                 {"name": "Hofer Max", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-
                 # Wachtmeister
                 {"name": "Lehmann Bastian", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
                 {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
@@ -194,7 +193,6 @@ async def seed_database() -> None:
                 {"name": "Arnold Samuel", "role": "Wachtmeister", "availability": "available", "tags": []},
                 {"name": "Kaufmann Alain", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
                 {"name": "Wyss Fabio", "role": "Wachtmeister", "availability": "available", "tags": []},
-
                 # Korporal
                 {"name": "Vogel Simon", "role": "Korporal", "availability": "available", "tags": []},
                 {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
@@ -207,7 +205,6 @@ async def seed_database() -> None:
                 {"name": "Hoffmann Lisa", "role": "Korporal", "availability": "available", "tags": []},
                 {"name": "Schwarz Jan", "role": "Korporal", "availability": "available", "tags": []},
                 {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["F"]},
-
                 # Mannschaft (Rf, Sdt, Rekr)
                 {"name": "Koch René", "role": "Mannschaft", "availability": "available", "tags": []},
                 {"name": "Aebischer Yannick", "role": "Mannschaft", "availability": "available", "tags": []},
@@ -271,7 +268,6 @@ async def seed_database() -> None:
                 {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
                 {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
                 {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
-
                 # Wassersauger
                 {"name": "Wassersauger", "type": "Wassersauger", "location": "Pio", "status": "available"},
                 {"name": "Wassersauger", "type": "Wassersauger", "location": "Modul", "status": "available"},
@@ -281,7 +277,6 @@ async def seed_database() -> None:
                 {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
                 {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
                 {"name": "Wassersauger Kl.", "type": "Wassersauger", "location": "Bühne", "status": "available"},
-
                 # Sägen
                 {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Pio", "status": "available"},
                 {"name": "Motorsäge Kl.", "type": "Sägen", "location": "Pio", "status": "available"},
@@ -289,12 +284,10 @@ async def seed_database() -> None:
                 {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
                 {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
                 {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
-
                 # Generatoren
                 {"name": "Generator", "type": "Generatoren", "location": "TLF", "status": "available"},
                 {"name": "Generator", "type": "Generatoren", "location": "MoWa", "status": "available"},
                 {"name": "Generator", "type": "Generatoren", "location": "Bühne", "status": "available"},
-
                 # Spannungsprüfer
                 {"name": "Spannungsprüfer", "type": "Elektrowerkzeug", "location": "MoWa", "status": "available"},
             ]
@@ -497,29 +490,31 @@ async def seed_database() -> None:
             ]
 
             # Assign resources to second incident (Verkehrsunfall)
-            assignments.extend([
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[1].id,
-                    resource_type="vehicle",
-                    resource_id=vehicles[3].id,  # Pio
-                    assigned_by=admin_user.id,
-                ),
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[1].id,
-                    resource_type="personnel",
-                    resource_id=personnel[4].id,  # K. Wagner
-                    assigned_by=admin_user.id,
-                ),
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[1].id,
-                    resource_type="material",
-                    resource_id=materials[5].id,  # Hydraulisches Rettungsgerät
-                    assigned_by=admin_user.id,
-                ),
-            ])
+            assignments.extend(
+                [
+                    models.IncidentAssignment(
+                        id=uuid4(),
+                        incident_id=incidents[1].id,
+                        resource_type="vehicle",
+                        resource_id=vehicles[3].id,  # Pio
+                        assigned_by=admin_user.id,
+                    ),
+                    models.IncidentAssignment(
+                        id=uuid4(),
+                        incident_id=incidents[1].id,
+                        resource_type="personnel",
+                        resource_id=personnel[4].id,  # K. Wagner
+                        assigned_by=admin_user.id,
+                    ),
+                    models.IncidentAssignment(
+                        id=uuid4(),
+                        incident_id=incidents[1].id,
+                        resource_type="material",
+                        resource_id=materials[5].id,  # Hydraulisches Rettungsgerät
+                        assigned_by=admin_user.id,
+                    ),
+                ]
+            )
 
             for assignment in assignments:
                 db.add(assignment)
@@ -639,15 +634,17 @@ async def seed_database() -> None:
             print("\n✅ Database seeded successfully!")
             is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
             if is_production:
-                print(f"  - Created dev-user (for auth bypass) and admin user: admin / [password from ADMIN_SEED_PASSWORD]")
+                print(
+                    "  - Created dev-user (for auth bypass) and admin user: admin / [password from ADMIN_SEED_PASSWORD]"
+                )
             else:
                 print(f"  - Created dev-user (for auth bypass) and admin user: admin / {password}")
-                print(f"  ⚠️  Save this password - it was randomly generated for development")
+                print("  ⚠️  Save this password - it was randomly generated for development")
             print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")
             print(f"  - Created {len(materials)} materials")
-            print(f"  - Created 2 events (1 training, 1 operational)")
+            print("  - Created 2 events (1 training, 1 operational)")
             print(f"  - Created {len(incidents)} incidents (1 training, 4 operational)")
             print(f"  - Created {len(assignments)} resource assignments")
             print(f"  - Created {len(special_functions)} special function assignments (drivers, reko, magazin)")
@@ -665,7 +662,6 @@ async def seed_database() -> None:
     try:
         # Skip geocoding in production (Railway) to avoid slow startup
         # Use environment-based detection for production
-        import os
         is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
         await seed_training_data(skip_geocoding=is_production)
         print("✅ Training data seeded successfully!")

@@ -1,4 +1,5 @@
 """Event export service - generates ZIP archives of event data."""
+
 import io
 import json
 from datetime import datetime
@@ -15,9 +16,6 @@ from sqlalchemy.orm import selectinload
 from ..models import (
     Event,
     Incident,
-    IncidentAssignment,
-    RekoReport,
-    StatusTransition,
 )
 
 
@@ -70,7 +68,7 @@ async def export_event_to_zip(db: AsyncSession, event_id: str) -> io.BytesIO:
     # Create ZIP buffer
     zip_buffer = io.BytesIO()
 
-    with ZipFile(zip_buffer, 'w', ZIP_DEFLATED) as zip_file:
+    with ZipFile(zip_buffer, "w", ZIP_DEFLATED) as zip_file:
         # 1. Event metadata
         event_data = {
             "id": str(event.id),
@@ -82,10 +80,7 @@ async def export_event_to_zip(db: AsyncSession, event_id: str) -> io.BytesIO:
             "last_activity_at": event.last_activity_at.isoformat(),
             "incident_count": len(event.incidents),
         }
-        zip_file.writestr(
-            "event_metadata.json",
-            json.dumps(event_data, indent=2, ensure_ascii=False)
-        )
+        zip_file.writestr("event_metadata.json", json.dumps(event_data, indent=2, ensure_ascii=False))
 
         # 2. Incidents data
         incidents_data = []
@@ -113,62 +108,56 @@ async def export_event_to_zip(db: AsyncSession, event_id: str) -> io.BytesIO:
 
             # Assignments
             for assignment in incident.assignments:
-                assignments_data.append({
-                    "id": str(assignment.id),
-                    "incident_id": str(assignment.incident_id),
-                    "resource_type": assignment.resource_type,
-                    "resource_id": str(assignment.resource_id),
-                    "assigned_at": assignment.assigned_at.isoformat(),
-                    "assigned_by": str(assignment.assigned_by) if assignment.assigned_by else None,
-                    "unassigned_at": assignment.unassigned_at.isoformat() if assignment.unassigned_at else None,
-                })
+                assignments_data.append(
+                    {
+                        "id": str(assignment.id),
+                        "incident_id": str(assignment.incident_id),
+                        "resource_type": assignment.resource_type,
+                        "resource_id": str(assignment.resource_id),
+                        "assigned_at": assignment.assigned_at.isoformat(),
+                        "assigned_by": str(assignment.assigned_by) if assignment.assigned_by else None,
+                        "unassigned_at": assignment.unassigned_at.isoformat() if assignment.unassigned_at else None,
+                    }
+                )
 
             # Status transitions
             for transition in incident.status_transitions:
-                transitions_data.append({
-                    "id": str(transition.id),
-                    "incident_id": str(transition.incident_id),
-                    "from_status": transition.from_status,
-                    "to_status": transition.to_status,
-                    "timestamp": transition.timestamp.isoformat(),
-                    "user_id": str(transition.user_id) if transition.user_id else None,
-                    "notes": transition.notes,
-                })
+                transitions_data.append(
+                    {
+                        "id": str(transition.id),
+                        "incident_id": str(transition.incident_id),
+                        "from_status": transition.from_status,
+                        "to_status": transition.to_status,
+                        "timestamp": transition.timestamp.isoformat(),
+                        "user_id": str(transition.user_id) if transition.user_id else None,
+                        "notes": transition.notes,
+                    }
+                )
 
             # Reko reports
             for report in incident.reko_reports:
-                reko_reports_data.append({
-                    "id": str(report.id),
-                    "incident_id": str(report.incident_id),
-                    "submitted_at": report.submitted_at.isoformat(),
-                    "updated_at": report.updated_at.isoformat(),
-                    "is_relevant": report.is_relevant,
-                    "dangers_json": report.dangers_json,
-                    "effort_json": report.effort_json,
-                    "power_supply": report.power_supply,
-                    "photos_json": report.photos_json,
-                    "summary_text": report.summary_text,
-                    "additional_notes": report.additional_notes,
-                    "is_draft": report.is_draft,
-                })
+                reko_reports_data.append(
+                    {
+                        "id": str(report.id),
+                        "incident_id": str(report.incident_id),
+                        "submitted_at": report.submitted_at.isoformat(),
+                        "updated_at": report.updated_at.isoformat(),
+                        "is_relevant": report.is_relevant,
+                        "dangers_json": report.dangers_json,
+                        "effort_json": report.effort_json,
+                        "power_supply": report.power_supply,
+                        "photos_json": report.photos_json,
+                        "summary_text": report.summary_text,
+                        "additional_notes": report.additional_notes,
+                        "is_draft": report.is_draft,
+                    }
+                )
 
         # Write JSON files
-        zip_file.writestr(
-            "incidents.json",
-            json.dumps(incidents_data, indent=2, ensure_ascii=False)
-        )
-        zip_file.writestr(
-            "assignments.json",
-            json.dumps(assignments_data, indent=2, ensure_ascii=False)
-        )
-        zip_file.writestr(
-            "status_transitions.json",
-            json.dumps(transitions_data, indent=2, ensure_ascii=False)
-        )
-        zip_file.writestr(
-            "reko_reports.json",
-            json.dumps(reko_reports_data, indent=2, ensure_ascii=False)
-        )
+        zip_file.writestr("incidents.json", json.dumps(incidents_data, indent=2, ensure_ascii=False))
+        zip_file.writestr("assignments.json", json.dumps(assignments_data, indent=2, ensure_ascii=False))
+        zip_file.writestr("status_transitions.json", json.dumps(transitions_data, indent=2, ensure_ascii=False))
+        zip_file.writestr("reko_reports.json", json.dumps(reko_reports_data, indent=2, ensure_ascii=False))
 
         # 3. Create Excel summary
         excel_buffer = _create_incidents_excel(event, incidents_data)
@@ -180,7 +169,7 @@ async def export_event_to_zip(db: AsyncSession, event_id: str) -> io.BytesIO:
 
 Export Date: {datetime.utcnow().isoformat()}
 Event ID: {event.id}
-Training Mode: {'Yes' if event.training_flag else 'No'}
+Training Mode: {"Yes" if event.training_flag else "No"}
 Created: {event.created_at.isoformat()}
 Incident Count: {len(event.incidents)}
 
@@ -218,10 +207,7 @@ def _create_incidents_excel(event: Event, incidents_data: list[dict]) -> io.Byte
     header_font = Font(color="FFFFFF", bold=True)
 
     # Headers
-    headers = [
-        "ID", "Title", "Type", "Priority", "Status",
-        "Location", "Description", "Created At", "Completed At"
-    ]
+    headers = ["ID", "Title", "Type", "Priority", "Status", "Location", "Description", "Created At", "Completed At"]
 
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_num)
@@ -249,7 +235,7 @@ def _create_incidents_excel(event: Event, incidents_data: list[dict]) -> io.Byte
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-            except:
+            except Exception:
                 pass
         adjusted_width = min(max_length + 2, 50)
         ws.column_dimensions[column_letter].width = adjusted_width

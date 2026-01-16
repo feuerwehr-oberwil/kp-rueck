@@ -4,12 +4,13 @@ Help Documentation API
 Provides endpoints for help documentation, including PDF export.
 """
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
 from io import BytesIO
 from pathlib import Path
-from typing import List
+
 import markdown
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+
 from app.auth.dependencies import CurrentUser
 
 router = APIRouter(prefix="/help", tags=["help"])
@@ -25,12 +26,12 @@ async def export_help_pdf(current_user: CurrentUser):
     try:
         # Import PDF generation libraries
         try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import inch
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
-            from reportlab.lib.enums import TA_LEFT, TA_CENTER
             from reportlab.lib import colors
+            from reportlab.lib.enums import TA_CENTER
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+            from reportlab.lib.units import inch
+            from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
         except ImportError:
             return {"error": "PDF generation requires reportlab package. Install with: uv add reportlab"}
 
@@ -51,19 +52,19 @@ async def export_help_pdf(current_user: CurrentUser):
         # Define styles
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
+            "CustomTitle",
+            parent=styles["Heading1"],
             fontSize=24,
-            textColor=colors.HexColor('#1a56db'),
+            textColor=colors.HexColor("#1a56db"),
             spaceAfter=30,
             alignment=TA_CENTER,
         )
 
         heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
+            "CustomHeading",
+            parent=styles["Heading2"],
             fontSize=16,
-            textColor=colors.HexColor('#1a56db'),
+            textColor=colors.HexColor("#1a56db"),
             spaceAfter=12,
             spaceBefore=12,
         )
@@ -71,8 +72,8 @@ async def export_help_pdf(current_user: CurrentUser):
         # Title Page
         elements.append(Paragraph("KP Rück", title_style))
         elements.append(Paragraph("Hilfe & Dokumentation", title_style))
-        elements.append(Spacer(1, 0.5*inch))
-        elements.append(Paragraph("Umfassende Anleitung für die Einsatzverwaltung", styles['Normal']))
+        elements.append(Spacer(1, 0.5 * inch))
+        elements.append(Paragraph("Umfassende Anleitung für die Einsatzverwaltung", styles["Normal"]))
         elements.append(PageBreak())
 
         # Find all markdown files
@@ -83,15 +84,15 @@ async def export_help_pdf(current_user: CurrentUser):
 
         # Order of topics (updated 2025-10-30)
         topic_order = [
-            'getting-started.md',           # 5-min intro - start here
-            'online-offline-modes.md',      # Critical deployment modes guide
-            'workflow.md',                  # Simplified workflow
-            'kanban.md',                    # Kanban board features
-            'map-combined.md',              # Map + combined view
-            'events-management.md',         # Event management
-            'training-mode.md',             # Training mode guide
-            'check-in-reko.md',             # Check-in + reko merged
-            'keyboard-shortcuts.md',        # Keyboard reference
+            "getting-started.md",  # 5-min intro - start here
+            "online-offline-modes.md",  # Critical deployment modes guide
+            "workflow.md",  # Simplified workflow
+            "kanban.md",  # Kanban board features
+            "map-combined.md",  # Map + combined view
+            "events-management.md",  # Event management
+            "training-mode.md",  # Training mode guide
+            "check-in-reko.md",  # Check-in + reko merged
+            "keyboard-shortcuts.md",  # Keyboard reference
         ]
 
         # Process each markdown file
@@ -101,52 +102,52 @@ async def export_help_pdf(current_user: CurrentUser):
             if not md_file.exists():
                 continue
 
-            with open(md_file, 'r', encoding='utf-8') as f:
+            with open(md_file, encoding="utf-8") as f:
                 md_content = f.read()
 
             # Convert markdown to HTML
-            html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+            markdown.markdown(md_content, extensions=["tables", "fenced_code"])
 
             # Simple HTML to ReportLab conversion
             # This is a basic implementation - for production, consider using a proper HTML to PDF library
-            lines = md_content.split('\n')
+            lines = md_content.split("\n")
 
             for line in lines:
                 line = line.strip()
 
                 if not line:
-                    elements.append(Spacer(1, 0.1*inch))
+                    elements.append(Spacer(1, 0.1 * inch))
                     continue
 
                 # Headers
-                if line.startswith('# '):
+                if line.startswith("# "):
                     elements.append(PageBreak())
                     elements.append(Paragraph(line[2:], heading_style))
-                elif line.startswith('## '):
-                    elements.append(Paragraph(line[3:], styles['Heading3']))
-                elif line.startswith('### '):
-                    elements.append(Paragraph(line[4:], styles['Heading4']))
+                elif line.startswith("## "):
+                    elements.append(Paragraph(line[3:], styles["Heading3"]))
+                elif line.startswith("### "):
+                    elements.append(Paragraph(line[4:], styles["Heading4"]))
                 # Lists
-                elif line.startswith('- ') or line.startswith('* '):
-                    elements.append(Paragraph(f"• {line[2:]}", styles['Normal']))
+                elif line.startswith("- ") or line.startswith("* "):
+                    elements.append(Paragraph(f"• {line[2:]}", styles["Normal"]))
                 # Numbered lists
-                elif len(line) > 2 and line[0].isdigit() and line[1:3] == '. ':
-                    elements.append(Paragraph(line, styles['Normal']))
+                elif len(line) > 2 and line[0].isdigit() and line[1:3] == ". ":
+                    elements.append(Paragraph(line, styles["Normal"]))
                 # Code blocks (skip backticks)
-                elif line.startswith('```'):
+                elif line.startswith("```"):
                     continue
                 # Bold text (simplified)
-                elif '**' in line:
-                    clean_line = line.replace('**', '<b>').replace('**', '</b>')
-                    elements.append(Paragraph(clean_line, styles['Normal']))
+                elif "**" in line:
+                    clean_line = line.replace("**", "<b>").replace("**", "</b>")
+                    elements.append(Paragraph(clean_line, styles["Normal"]))
                 # Regular text
                 else:
                     # Skip image references for now
-                    if not line.startswith('!['):
+                    if not line.startswith("!["):
                         try:
-                            elements.append(Paragraph(line, styles['Normal']))
-                        except:
-                            # Skip problematic lines
+                            elements.append(Paragraph(line, styles["Normal"]))
+                        except Exception:
+                            # Skip problematic lines (e.g., malformed XML/HTML entities)
                             pass
 
         # Build PDF
@@ -159,7 +160,7 @@ async def export_help_pdf(current_user: CurrentUser):
             headers={
                 "Content-Disposition": "attachment; filename=kprueck-hilfe.pdf",
                 "Content-Type": "application/pdf",
-            }
+            },
         )
 
     except Exception as e:

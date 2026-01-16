@@ -51,6 +51,18 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# E402: Module import not at top - intentional for logging setup before imports
+"app/main.py" = ["E402"]
+# E402: Secondary routers defined after primary router in same file
+"app/api/assignments.py" = ["E402"]
+"app/api/reko.py" = ["E402"]
+# N815: Traccar model uses camelCase to match external Traccar API response format
+"app/traccar.py" = ["N815"]
+# N806: BATCH_SIZE is a constant, uppercase is intentional
+"app/services/sync_service.py" = ["N806"]
+"app/seed.py" = ["N806"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
