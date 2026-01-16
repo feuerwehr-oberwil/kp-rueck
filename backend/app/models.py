@@ -1,14 +1,13 @@
 """Database models for KP Rück system."""
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -18,11 +17,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import INET, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
-
 
 # ============================================
 # USERS & AUTHENTICATION
@@ -39,18 +38,14 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     created_incidents: Mapped[list["Incident"]] = relationship(
         "Incident", back_populates="creator", foreign_keys="Incident.created_by"
     )
-    assignments: Mapped[list["IncidentAssignment"]] = relationship(
-        "IncidentAssignment", back_populates="assigner"
-    )
-    status_transitions: Mapped[list["StatusTransition"]] = relationship(
-        "StatusTransition", back_populates="user"
-    )
+    assignments: Mapped[list["IncidentAssignment"]] = relationship("IncidentAssignment", back_populates="assigner")
+    status_transitions: Mapped[list["StatusTransition"]] = relationship("StatusTransition", back_populates="user")
     audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
     setting_updates: Mapped[list["Setting"]] = relationship("Setting", back_populates="updater")
 
@@ -79,9 +74,7 @@ class Vehicle(Base):
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_vehicle_status"
-        ),
+        CheckConstraint("status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_vehicle_status"),
     )
 
 
@@ -92,15 +85,15 @@ class Personnel(Base):
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
-    tags: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True, default=list)
+    tags: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
 
     # Check-in tracking
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
-    checked_in_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    checked_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -115,9 +108,9 @@ class Personnel(Base):
         # Check-in only allowed if not unavailable
         CheckConstraint(
             "(checked_in = false) OR (checked_in = true AND availability != 'unavailable')",
-            name="valid_checkin_availability"
+            name="valid_checkin_availability",
         ),
-        Index('idx_personnel_checked_in', 'checked_in'),
+        Index("idx_personnel_checked_in", "checked_in"),
     )
 
 
@@ -131,7 +124,7 @@ class Material(Base):
     type: Mapped[str] = mapped_column(String(50), nullable=False, default="Sonstiges")
     location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     location_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="available")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -139,9 +132,7 @@ class Material(Base):
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_material_status"
-        ),
+        CheckConstraint("status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_material_status"),
     )
 
 
@@ -161,21 +152,17 @@ class Event(Base):
     auto_attach_divera: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
-    archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_activity_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     # Relationships
-    incidents: Mapped[list["Incident"]] = relationship(
-        "Incident", back_populates="event", cascade="all, delete-orphan"
-    )
+    incidents: Mapped[list["Incident"]] = relationship("Incident", back_populates="event", cascade="all, delete-orphan")
     attendance_records: Mapped[list["EventAttendance"]] = relationship(
         "EventAttendance", back_populates="event", cascade="all, delete-orphan"
     )
@@ -190,15 +177,13 @@ class EventAttendance(Base):
     __tablename__ = "event_attendance"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    event_id: Mapped[UUID] = mapped_column(
-        ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     personnel_id: Mapped[UUID] = mapped_column(
         ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
     )
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    checked_in_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    checked_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -221,44 +206,33 @@ class EventSpecialFunction(Base):
     __tablename__ = "event_special_functions"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    event_id: Mapped[UUID] = mapped_column(
-        ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     personnel_id: Mapped[UUID] = mapped_column(
         ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
     )
     function_type: Mapped[str] = mapped_column(String(20), nullable=False)
 
     # For driver assignments: which vehicle they drive
-    vehicle_id: Mapped[Optional[UUID]] = mapped_column(
+    vehicle_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    assigned_by: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
+    assigned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     __table_args__ = (
-        CheckConstraint(
-            "function_type IN ('driver', 'reko', 'magazin')",
-            name="valid_function_type"
-        ),
+        CheckConstraint("function_type IN ('driver', 'reko', 'magazin')", name="valid_function_type"),
         # Driver assignments require a vehicle
         CheckConstraint(
             "(function_type != 'driver') OR (function_type = 'driver' AND vehicle_id IS NOT NULL)",
-            name="driver_requires_vehicle"
+            name="driver_requires_vehicle",
         ),
         # For drivers: one driver per vehicle per event (unique)
         # For reko/magazin: same person can have the function multiple times if needed (no vehicle_id)
-        UniqueConstraint(
-            "event_id", "vehicle_id",
-            name="unique_event_vehicle_driver"
-        ),
+        UniqueConstraint("event_id", "vehicle_id", name="unique_event_vehicle_driver"),
         # Also ensure one person can only drive one vehicle per event
         UniqueConstraint(
-            "event_id", "personnel_id", "function_type", "vehicle_id",
-            name="unique_personnel_function_assignment"
+            "event_id", "personnel_id", "function_type", "vehicle_id", name="unique_personnel_function_assignment"
         ),
         Index("idx_event_special_functions_event", "event_id"),
         Index("idx_event_special_functions_personnel", "personnel_id"),
@@ -279,30 +253,26 @@ class Incident(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
     # Event relationship
-    event_id: Mapped[UUID] = mapped_column(
-        ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     event: Mapped["Event"] = relationship("Event", back_populates="incidents")
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     priority: Mapped[str] = mapped_column(String(20), nullable=False)
-    location_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    location_lat: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
-    location_lng: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
+    location_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    location_lat: Mapped[float | None] = mapped_column(Numeric(10, 8), nullable=True)
+    location_lng: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="eingegangen")
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    contact: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Reporter/contact info
-    internal_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Internal notes
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # Internal notes
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    created_by: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(
@@ -326,11 +296,9 @@ class Incident(Base):
             "'einsatz_bahnanlagen', 'bma_unechte_alarme', 'dienstleistungen', "
             "'diverse_einsaetze', 'gerettete_menschen', 'gerettete_tiere'"
             ")",
-            name="valid_incident_type"
+            name="valid_incident_type",
         ),
-        CheckConstraint(
-            "priority IN ('low', 'medium', 'high')", name="valid_priority"
-        ),
+        CheckConstraint("priority IN ('low', 'medium', 'high')", name="valid_priority"),
         CheckConstraint(
             "status IN ('eingegangen', 'reko', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss')",
             name="valid_status",
@@ -340,11 +308,11 @@ class Incident(Base):
             "(location_lat IS NOT NULL AND location_lng IS NOT NULL)",
             name="valid_location",
         ),
-        Index('idx_incidents_status', 'status'),
+        Index("idx_incidents_status", "status"),
         # Composite index for common query pattern (event_id, status, deleted_at)
-        Index('idx_incidents_event_status_deleted', 'event_id', 'status', 'deleted_at'),
-        Index('idx_incidents_priority', 'priority'),
-        Index('idx_incidents_created_at', 'created_at'),
+        Index("idx_incidents_event_status_deleted", "event_id", "status", "deleted_at"),
+        Index("idx_incidents_priority", "priority"),
+        Index("idx_incidents_created_at", "created_at"),
     )
 
 
@@ -365,10 +333,8 @@ class IncidentAssignment(Base):
     resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
     resource_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    assigned_by: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
-    unassigned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    assigned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    unassigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
@@ -379,16 +345,12 @@ class IncidentAssignment(Base):
         "Vehicle",
         primaryjoin="and_(IncidentAssignment.resource_id == Vehicle.id, IncidentAssignment.resource_type == 'vehicle')",
         foreign_keys=[resource_id],
-        viewonly=True
+        viewonly=True,
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"
-        ),
-        UniqueConstraint(
-            "incident_id", "resource_type", "resource_id", "unassigned_at", name="unique_assignment"
-        ),
+        CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
+        UniqueConstraint("incident_id", "resource_type", "resource_id", "unassigned_at", name="unique_assignment"),
         Index("idx_assignments_incident", "incident_id"),
         Index("idx_assignments_resource", "resource_type", "resource_id"),
         Index("idx_assignments_resource_id", "resource_id"),
@@ -417,17 +379,17 @@ class RekoReport(Base):
     )
 
     # Form fields
-    is_relevant: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    dangers_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    effort_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    power_supply: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    photos_json: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
-    summary_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    additional_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_relevant: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    dangers_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    effort_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    power_supply: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    photos_json: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    additional_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Metadata
-    submitted_by_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    submitted_by_personnel_id: Mapped[Optional[UUID]] = mapped_column(
+    submitted_by_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    submitted_by_personnel_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
     )
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -459,10 +421,8 @@ class StatusTransition(Base):
     from_status: Mapped[str] = mapped_column(String(50), nullable=False)
     to_status: Mapped[str] = mapped_column(String(50), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    user_id: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    user_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="status_transitions")
@@ -480,16 +440,14 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
+    user_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    resource_id: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
-    changes_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    resource_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    changes_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
-    ip_address: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
-    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     user: Mapped[Optional["User"]] = relationship("User", back_populates="audit_logs")
@@ -514,18 +472,14 @@ class SyncLog(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     sync_direction: Mapped[str] = mapped_column(String(20), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    records_synced: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    errors: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    records_synced: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    errors: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
-        CheckConstraint(
-            "sync_direction IN ('from_railway', 'to_railway')", name="valid_sync_direction"
-        ),
-        CheckConstraint(
-            "status IN ('success', 'failed', 'partial', 'in_progress')", name="valid_sync_status"
-        ),
+        CheckConstraint("sync_direction IN ('from_railway', 'to_railway')", name="valid_sync_direction"),
+        CheckConstraint("status IN ('success', 'failed', 'partial', 'in_progress')", name="valid_sync_status"),
         Index("idx_sync_log_started_at", "started_at"),
         Index("idx_sync_log_status", "status"),
     )
@@ -546,9 +500,7 @@ class Setting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    updated_by: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
+    updated_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     # Relationships
     updater: Mapped[Optional["User"]] = relationship("User", back_populates="setting_updates")
@@ -570,36 +522,32 @@ class Notification(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Optional associations
-    incident_id: Mapped[Optional[UUID]] = mapped_column(
+    incident_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    event_id: Mapped[Optional[UUID]] = mapped_column(
+    event_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    dismissed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    dismissed_by: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dismissed_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     __table_args__ = (
-        CheckConstraint(
-            "severity IN ('critical', 'warning', 'info')", name="valid_notification_severity"
-        ),
+        CheckConstraint("severity IN ('critical', 'warning', 'info')", name="valid_notification_severity"),
         CheckConstraint(
             "type IN ("
             "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
-            "'missing_location', 'event_size_limit'"
+            "'missing_location', 'event_size_limit', 'reko_submitted'"
             ")",
-            name="valid_notification_type"
+            name="valid_notification_type",
         ),
-        Index('idx_notifications_event', 'event_id'),
-        Index('idx_notifications_incident', 'incident_id'),
-        Index('idx_notifications_dismissed', 'dismissed'),
-        Index('idx_notifications_created_at', 'created_at'),
+        Index("idx_notifications_event", "event_id"),
+        Index("idx_notifications_incident", "incident_id"),
+        Index("idx_notifications_dismissed", "dismissed"),
+        Index("idx_notifications_created_at", "created_at"),
     )
 
 
@@ -624,19 +572,13 @@ class EmergencyTemplate(Base):
     message_pattern: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Metadata
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
-        CheckConstraint(
-            "category IN ('normal', 'critical')", name="valid_emergency_category"
-        ),
-        Index('ix_emergency_templates_category', 'category'),
-        Index('ix_emergency_templates_is_active', 'is_active'),
+        CheckConstraint("category IN ('normal', 'critical')", name="valid_emergency_category"),
+        Index("ix_emergency_templates_category", "category"),
+        Index("ix_emergency_templates_is_active", "is_active"),
     )
 
     def __repr__(self):
@@ -657,18 +599,16 @@ class TrainingLocation(Base):
     city: Mapped[str] = mapped_column(String(100), nullable=False, default="Oberwil")
 
     # Building type (optional, for realism)
-    building_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    building_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Geocoding
-    latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
-    longitude: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Numeric(10, 8), nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
 
     # Metadata
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    __table_args__ = (
-        Index('ix_training_locations_is_active', 'is_active'),
-    )
+    __table_args__ = (Index("ix_training_locations_is_active", "is_active"),)
 
     def get_full_address(self) -> str:
         return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
@@ -691,18 +631,18 @@ class DiveraEmergency(Base):
 
     # Divera identifiers for deduplication
     divera_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True, index=True)
-    divera_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # e.g., "E-123"
+    divera_number: Mapped[str | None] = mapped_column(String(50), nullable=True)  # e.g., "E-123"
 
     # Emergency details from Divera
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 8), nullable=True)
-    longitude: Mapped[Optional[float]] = mapped_column(Numeric(11, 8), nullable=True)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Numeric(10, 8), nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
     # Note: priority is inferred from title/text when creating incidents, not stored
 
     # Store raw Divera payload for reference
-    raw_payload_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    raw_payload_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Timestamps
     received_at: Mapped[datetime] = mapped_column(
@@ -710,23 +650,23 @@ class DiveraEmergency(Base):
     )
 
     # Attachment tracking
-    attached_to_event_id: Mapped[Optional[UUID]] = mapped_column(
+    attached_to_event_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    attached_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_incident_id: Mapped[Optional[UUID]] = mapped_column(
+    attached_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_incident_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
     )
 
     # Archival
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
-    archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
-        Index('idx_divera_emergencies_divera_id', 'divera_id'),
-        Index('idx_divera_emergencies_received_at', 'received_at'),
-        Index('idx_divera_emergencies_attached', 'attached_to_event_id'),
-        Index('idx_divera_emergencies_archived', 'is_archived'),
+        Index("idx_divera_emergencies_divera_id", "divera_id"),
+        Index("idx_divera_emergencies_received_at", "received_at"),
+        Index("idx_divera_emergencies_attached", "attached_to_event_id"),
+        Index("idx_divera_emergencies_archived", "is_archived"),
     )
 
     def __repr__(self):

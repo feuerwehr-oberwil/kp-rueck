@@ -338,18 +338,12 @@ class TestValidateAndParseExcel:
             validate_and_parse_excel(file_bytes)
 
     def test_sets_default_personnel_availability(self):
-        """Test sets default availability when empty.
-
-        NOTE: Production code sets 'not-available' but DB constraint expects 'unavailable'.
-        This test validates the current behavior even though it's a bug.
-        """
+        """Test sets default availability to 'unavailable' when empty."""
         file_bytes = create_valid_excel_bytes(
             personnel=[{"name": "Test Person", "role": "Test", "availability": None}]
         )
         result = validate_and_parse_excel(file_bytes)
-        # Current behavior (bug): sets to 'not-available'
-        # Should be: 'unavailable' to match DB constraint
-        assert result["personnel"][0]["availability"] == "not-available"
+        assert result["personnel"][0]["availability"] == "unavailable"
 
     def test_validates_vehicle_required_fields(self):
         """Test validates all Vehicle required fields."""
@@ -736,9 +730,6 @@ class TestExportDataToExcel:
 class TestRoundTrip:
     """Tests for export-import round-trip integrity."""
 
-    @pytest.mark.skip(
-        reason="Export outputs 'unavailable' but import validates against 'not-available' - production bug"
-    )
     @pytest.mark.asyncio
     async def test_export_import_round_trip(
         self,
@@ -748,11 +739,7 @@ class TestRoundTrip:
         sample_vehicles: list[Vehicle],
         sample_materials: list[Material],
     ):
-        """Test data survives export and re-import.
-
-        NOTE: Skipped because there's a mismatch between DB constraint ('unavailable')
-        and PERSONNEL_STATUSES validation ('not-available').
-        """
+        """Test data survives export and re-import."""
         # Export current data
         exported = await export_data_to_excel(db_session)
 
@@ -773,16 +760,9 @@ class TestRoundTrip:
         assert counts["vehicles"] == len(sample_vehicles)
         assert counts["materials"] == len(sample_materials)
 
-    @pytest.mark.skip(
-        reason="Template uses 'not-available' but DB constraint expects 'unavailable' - production bug"
-    )
     @pytest.mark.asyncio
     async def test_template_is_importable(self, db_session: AsyncSession, excel_user: User):
-        """Test generated template can be imported.
-
-        NOTE: Skipped because template uses 'not-available' but DB expects 'unavailable'.
-        This is a production code bug that needs to be fixed.
-        """
+        """Test generated template can be imported."""
         template = generate_empty_template()
         parsed = validate_and_parse_excel(template.getvalue())
 
@@ -854,11 +834,7 @@ class TestEdgeCases:
         assert counts["materials"] == 100
 
     def test_validates_all_personnel_statuses(self):
-        """Test all valid personnel statuses are accepted by parser.
-
-        NOTE: PERSONNEL_STATUSES uses 'not-available' but DB expects 'unavailable'.
-        This test validates parser accepts the values, not that they match DB.
-        """
+        """Test all valid personnel statuses are accepted by parser."""
         for status in PERSONNEL_STATUSES:
             file_bytes = create_valid_excel_bytes(
                 personnel=[{"name": "Test", "role": "Test", "availability": status}]

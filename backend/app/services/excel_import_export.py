@@ -1,15 +1,15 @@
 """Excel import/export service for bulk data management."""
+
 from io import BytesIO
 from typing import Any, Literal
-from datetime import datetime
+
 import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
 
-from ..models import Personnel, Vehicle, Material
-
+from ..models import Material, Personnel, Vehicle
 
 # Column definitions
 PERSONNEL_COLUMNS = [
@@ -36,12 +36,13 @@ MATERIAL_COLUMNS = [
 # Valid enum values
 VEHICLE_TYPES = ["TLF", "DLK", "MTW", "KDO", "KdoW", "VRW", "RW", "Anhänger"]
 VEHICLE_STATUSES = ["available", "assigned", "maintenance"]
-PERSONNEL_STATUSES = ["available", "not-available", "assigned"]
+PERSONNEL_STATUSES = ["available", "unavailable", "assigned"]
 # Material types are no longer hardcoded - validation now accepts any non-empty string
 
 
 class ExcelImportError(Exception):
     """Excel import validation error."""
+
     pass
 
 
@@ -59,7 +60,7 @@ def generate_empty_template() -> BytesIO:
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example rows
     ws_personnel.append(["Max Mustermann", "Fahrer", "available"])
-    ws_personnel.append(["Anna Schmidt", "", "not-available"])
+    ws_personnel.append(["Anna Schmidt", "", "unavailable"])
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -113,9 +114,7 @@ def validate_and_parse_excel(
         expected_headers = [col[0] for col in PERSONNEL_COLUMNS]
 
         if headers != expected_headers:
-            raise ExcelImportError(
-                f"Personnel sheet: Expected columns {expected_headers}, got {headers}"
-            )
+            raise ExcelImportError(f"Personnel sheet: Expected columns {expected_headers}, got {headers}")
 
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if all(cell is None for cell in row):
@@ -128,8 +127,7 @@ def validate_and_parse_excel(
                 raise ExcelImportError(f"Personnel row {row_idx}: 'name' is required")
 
             # Validate enum values
-            if row_data.get("availability") and \
-               row_data["availability"] not in PERSONNEL_STATUSES:
+            if row_data.get("availability") and row_data["availability"] not in PERSONNEL_STATUSES:
                 raise ExcelImportError(
                     f"Personnel row {row_idx}: Invalid availability '{row_data['availability']}'. "
                     f"Must be one of: {PERSONNEL_STATUSES}"
@@ -137,7 +135,7 @@ def validate_and_parse_excel(
 
             # Set defaults
             if not row_data.get("availability"):
-                row_data["availability"] = "not-available"
+                row_data["availability"] = "unavailable"
 
             result["personnel"].append(row_data)
 
@@ -148,9 +146,7 @@ def validate_and_parse_excel(
         expected_headers = [col[0] for col in VEHICLE_COLUMNS]
 
         if headers != expected_headers:
-            raise ExcelImportError(
-                f"Vehicles sheet: Expected columns {expected_headers}, got {headers}"
-            )
+            raise ExcelImportError(f"Vehicles sheet: Expected columns {expected_headers}, got {headers}")
 
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if all(cell is None for cell in row):
@@ -167,17 +163,14 @@ def validate_and_parse_excel(
             # Validate status enum
             if row_data["status"] not in VEHICLE_STATUSES:
                 raise ExcelImportError(
-                    f"Vehicles row {row_idx}: Invalid status '{row_data['status']}'. "
-                    f"Must be one of: {VEHICLE_STATUSES}"
+                    f"Vehicles row {row_idx}: Invalid status '{row_data['status']}'. Must be one of: {VEHICLE_STATUSES}"
                 )
 
             # Validate display_order is integer
             try:
                 row_data["display_order"] = int(row_data["display_order"])
             except (ValueError, TypeError):
-                raise ExcelImportError(
-                    f"Vehicles row {row_idx}: display_order must be an integer"
-                )
+                raise ExcelImportError(f"Vehicles row {row_idx}: display_order must be an integer")
 
             result["vehicles"].append(row_data)
 
@@ -188,9 +181,7 @@ def validate_and_parse_excel(
         expected_headers = [col[0] for col in MATERIAL_COLUMNS]
 
         if headers != expected_headers:
-            raise ExcelImportError(
-                f"Materials sheet: Expected columns {expected_headers}, got {headers}"
-            )
+            raise ExcelImportError(f"Materials sheet: Expected columns {expected_headers}, got {headers}")
 
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if all(cell is None for cell in row):
@@ -282,11 +273,13 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
     result = await db.execute(select(Personnel).order_by(Personnel.name))
     personnel = result.scalars().all()
     for person in personnel:
-        ws_personnel.append([
-            person.name,
-            person.role or "",
-            person.availability,
-        ])
+        ws_personnel.append(
+            [
+                person.name,
+                person.role or "",
+                person.availability,
+            ]
+        )
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -298,13 +291,15 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
     result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
     vehicles = result.scalars().all()
     for vehicle in vehicles:
-        ws_vehicles.append([
-            vehicle.name,
-            vehicle.type,
-            vehicle.display_order,
-            vehicle.status,
-            vehicle.radio_call_sign,
-        ])
+        ws_vehicles.append(
+            [
+                vehicle.name,
+                vehicle.type,
+                vehicle.display_order,
+                vehicle.status,
+                vehicle.radio_call_sign,
+            ]
+        )
 
     # Materials sheet
     ws_materials = wb.create_sheet("Materials")
@@ -316,12 +311,14 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
     result = await db.execute(select(Material).order_by(Material.location, Material.name))
     materials = result.scalars().all()
     for material in materials:
-        ws_materials.append([
-            material.name,
-            material.type,
-            material.location,
-            material.description or "",
-        ])
+        ws_materials.append(
+            [
+                material.name,
+                material.type,
+                material.location,
+                material.description or "",
+            ]
+        )
 
     # Save to BytesIO
     output = BytesIO()

@@ -661,14 +661,8 @@ class TestDismissNotification:
 
 
 class TestCreateRekoNotification:
-    """Tests for create_reko_notification function.
+    """Tests for create_reko_notification function."""
 
-    NOTE: These tests are skipped because the 'reko_submitted' notification type
-    is not in the valid_notification_type database constraint. This is a production
-    code issue that needs to be fixed by adding 'reko_submitted' to the constraint.
-    """
-
-    @pytest.mark.skip(reason="'reko_submitted' not in valid_notification_type DB constraint")
     @pytest.mark.asyncio
     async def test_creates_relevant_reko_notification(
         self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident
@@ -690,7 +684,6 @@ class TestCreateRekoNotification:
         assert notification.incident_id == notif_incident.id
         assert notification.event_id == notif_event.id
 
-    @pytest.mark.skip(reason="'reko_submitted' not in valid_notification_type DB constraint")
     @pytest.mark.asyncio
     async def test_creates_not_relevant_reko_notification(
         self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident
@@ -706,7 +699,6 @@ class TestCreateRekoNotification:
 
         assert "Kein Einsatz nötig" in notification.message
 
-    @pytest.mark.skip(reason="'reko_submitted' not in valid_notification_type DB constraint")
     @pytest.mark.asyncio
     async def test_creates_reko_without_submitter(
         self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident
