@@ -1,4 +1,5 @@
 """Tests for settings API endpoints."""
+
 from uuid import uuid4
 
 import pytest
@@ -22,9 +23,7 @@ async def client(db_session: AsyncSession) -> AsyncClient:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
@@ -61,9 +60,7 @@ async def test_viewer_user(db_session: AsyncSession) -> User:
 
 
 @pytest_asyncio.fixture
-async def authenticated_editor_client(
-    client: AsyncClient, test_editor_user: User
-) -> AsyncClient:
+async def authenticated_editor_client(client: AsyncClient, test_editor_user: User) -> AsyncClient:
     """Create authenticated editor client."""
     response = await client.post(
         "/api/auth/login",
@@ -74,9 +71,7 @@ async def authenticated_editor_client(
 
 
 @pytest_asyncio.fixture
-async def authenticated_viewer_client(
-    client: AsyncClient, test_viewer_user: User
-) -> AsyncClient:
+async def authenticated_viewer_client(client: AsyncClient, test_viewer_user: User) -> AsyncClient:
     """Create authenticated viewer client."""
     response = await client.post(
         "/api/auth/login",
@@ -144,9 +139,7 @@ class TestGetSingleSetting:
         self, authenticated_editor_client: AsyncClient, test_settings_data: list[Setting]
     ):
         """Get single setting returns correct schema."""
-        response = await authenticated_editor_client.get(
-            "/api/settings/polling_interval_ms"
-        )
+        response = await authenticated_editor_client.get("/api/settings/polling_interval_ms")
         assert response.status_code == 200
 
         data = response.json()
@@ -155,9 +148,7 @@ class TestGetSingleSetting:
         assert "updated_at" in data
 
     @pytest.mark.asyncio
-    async def test_get_single_setting_not_found(
-        self, authenticated_editor_client: AsyncClient
-    ):
+    async def test_get_single_setting_not_found(self, authenticated_editor_client: AsyncClient):
         """Get non-existent setting returns 404."""
         response = await authenticated_editor_client.get("/api/settings/nonexistent_key")
         assert response.status_code == 404
@@ -197,9 +188,7 @@ class TestUpdateSetting:
         assert data["value"] == "true"
 
         # Verify in database
-        result = await db_session.execute(
-            select(Setting).where(Setting.key == "training_mode")
-        )
+        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
         setting = result.scalar_one()
         assert setting.value == "true"
 
@@ -234,9 +223,7 @@ class TestUpdateSetting:
         assert audit_entry.changes_json["after"] == "true"
 
     @pytest.mark.asyncio
-    async def test_update_setting_validation(
-        self, authenticated_editor_client: AsyncClient
-    ):
+    async def test_update_setting_validation(self, authenticated_editor_client: AsyncClient):
         """Invalid payload returns 422."""
         response = await authenticated_editor_client.patch(
             "/api/settings/training_mode",
@@ -253,9 +240,7 @@ class TestUpdateSetting:
     ):
         """Update changes updated_at timestamp."""
         # Get original timestamp
-        result = await db_session.execute(
-            select(Setting).where(Setting.key == "training_mode")
-        )
+        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
         original_setting = result.scalar_one()
         original_timestamp = original_setting.updated_at
 
@@ -267,9 +252,7 @@ class TestUpdateSetting:
         assert response.status_code == 200
 
         # Verify timestamp updated
-        result = await db_session.execute(
-            select(Setting).where(Setting.key == "training_mode")
-        )
+        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
         updated_setting = result.scalar_one()
         assert updated_setting.updated_at > original_timestamp
 
@@ -289,8 +272,6 @@ class TestUpdateSetting:
         assert response.status_code == 200
 
         # Verify updated_by is set
-        result = await db_session.execute(
-            select(Setting).where(Setting.key == "training_mode")
-        )
+        result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
         setting = result.scalar_one()
         assert setting.updated_by == test_editor_user.id

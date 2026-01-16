@@ -1,7 +1,9 @@
 """FastAPI dependency injection for authentication."""
+
 import logging
-from typing import Annotated
 import uuid
+from datetime import UTC
+from typing import Annotated
 
 from fastapi import Cookie, Depends, HTTPException, Request, status
 from jose import JWTError
@@ -10,16 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models import User
-from .security import decode_token
 from .config import auth_settings
+from .security import decode_token
 
 logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
-    request: Request,
-    access_token: Annotated[str | None, Cookie()] = None,
-    db: AsyncSession = Depends(get_db)
+    request: Request, access_token: Annotated[str | None, Cookie()] = None, db: AsyncSession = Depends(get_db)
 ) -> User:
     """
     Get the currently authenticated user from JWT cookie.
@@ -35,13 +35,14 @@ async def get_current_user(
     # Development bypass mode - return mock user
     if auth_settings.is_auth_bypassed:
         # Create a mock user for development
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         mock_user = User(
             id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
             username="dev-user",
             password_hash="",  # Not used in bypass mode
             role="editor",
-            created_at=datetime.now(timezone.utc),  # Required field
+            created_at=datetime.now(UTC),  # Required field
             last_login=None,
         )
         # Set on request state for logging/audit
@@ -81,9 +82,7 @@ async def get_current_user(
         raise credentials_exception
 
     # Load user from database
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -98,9 +97,7 @@ async def get_current_user(
     return user
 
 
-async def get_current_editor(
-    current_user: Annotated[User, Depends(get_current_user)]
-) -> User:
+async def get_current_editor(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     """
     Verify current user has 'editor' role.
 
@@ -111,10 +108,7 @@ async def get_current_editor(
         HTTPException 403: If user is not an editor
     """
     if current_user.role != "editor":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Editor-Berechtigung erforderlich"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
     return current_user
 
 

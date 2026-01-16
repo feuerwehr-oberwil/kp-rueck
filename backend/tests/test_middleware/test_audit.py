@@ -1,5 +1,6 @@
 """Tests for audit middleware."""
-from unittest.mock import AsyncMock, MagicMock, patch
+
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -26,13 +27,11 @@ async def client(db_session: AsyncSession) -> AsyncClient:
     # Inject test db_session for middleware to use
     app.state.test_db_session = db_session
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
-    delattr(app.state, 'test_db_session')
+    delattr(app.state, "test_db_session")
 
 
 @pytest_asyncio.fixture
@@ -92,9 +91,7 @@ class TestAuditMiddleware:
         assert "duration_ms" in entry.changes_json
 
     @pytest.mark.asyncio
-    async def test_middleware_skips_health_check(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_middleware_skips_health_check(self, client: AsyncClient, db_session: AsyncSession):
         """Health check endpoint should not be logged."""
         # Note: /api/health might not exist, but test the middleware logic
         # We'll test that non-API paths are skipped instead
@@ -111,7 +108,7 @@ class TestAuditMiddleware:
         # and confirming non-health paths ARE logged (tested above)
 
         # For this test, we verify the inverse: that paths ARE logged when not health
-        response = await client.get("/docs")  # Non-API path
+        await client.get("/docs")  # Non-API path
 
         result = await db_session.execute(select(AuditLog))
         count_after = len(result.scalars().all())
@@ -120,15 +117,13 @@ class TestAuditMiddleware:
         assert count_after == count_before
 
     @pytest.mark.asyncio
-    async def test_middleware_skips_non_api_paths(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_middleware_skips_non_api_paths(self, client: AsyncClient, db_session: AsyncSession):
         """Non-API paths should not be logged."""
         result = await db_session.execute(select(AuditLog))
         count_before = len(result.scalars().all())
 
         # Request to non-API path
-        response = await client.get("/docs")
+        await client.get("/docs")
 
         result = await db_session.execute(select(AuditLog))
         count_after = len(result.scalars().all())
@@ -137,24 +132,18 @@ class TestAuditMiddleware:
         assert count_after == count_before
 
     @pytest.mark.asyncio
-    async def test_middleware_skips_failed_requests(
-        self, authenticated_client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_middleware_skips_failed_requests(self, authenticated_client: AsyncClient, db_session: AsyncSession):
         """Failed requests (4xx, 5xx) should not be logged by middleware."""
         # Get count before
-        result = await db_session.execute(
-            select(AuditLog).where(AuditLog.resource_type == "api")
-        )
-        count_before = len(result.scalars().all())
+        result = await db_session.execute(select(AuditLog).where(AuditLog.resource_type == "api"))
+        len(result.scalars().all())
 
         # Make request that will 404
         response = await authenticated_client.get("/api/nonexistent_endpoint_12345")
         assert response.status_code == 404
 
         # Check that middleware did NOT log this (status >= 300)
-        result = await db_session.execute(
-            select(AuditLog).where(AuditLog.resource_type == "api")
-        )
+        result = await db_session.execute(select(AuditLog).where(AuditLog.resource_type == "api"))
         api_logs = result.scalars().all()
 
         # Filter for the nonexistent endpoint
@@ -172,10 +161,12 @@ class TestAuditMiddleware:
 
         # Find the audit log entry
         result = await db_session.execute(
-            select(AuditLog).where(
+            select(AuditLog)
+            .where(
                 AuditLog.resource_type == "api",
                 AuditLog.action_type == "get_request",
-            ).order_by(AuditLog.timestamp.desc())
+            )
+            .order_by(AuditLog.timestamp.desc())
         )
         entries = result.scalars().all()
 
@@ -187,9 +178,7 @@ class TestAuditMiddleware:
         assert entry.user_id == test_editor_user.id
 
     @pytest.mark.asyncio
-    async def test_middleware_handles_logging_failure_gracefully(
-        self, authenticated_client: AsyncClient
-    ):
+    async def test_middleware_handles_logging_failure_gracefully(self, authenticated_client: AsyncClient):
         """Middleware should not crash request if audit logging fails."""
         # Mock log_action to raise exception
         with patch("app.middleware.audit.log_action", side_effect=Exception("Database error")):

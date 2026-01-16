@@ -19,7 +19,6 @@ from app.database import get_db
 from app.main import app
 from app.models import Personnel, User
 
-
 # ============================================
 # Fixtures
 # ============================================

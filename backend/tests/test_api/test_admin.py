@@ -8,9 +8,7 @@ Tests cover:
 - Permission enforcement
 """
 
-import io
-from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -22,7 +20,6 @@ from app.auth.security import hash_password
 from app.database import get_db
 from app.main import app
 from app.models import Material, Personnel, User, Vehicle
-
 
 # ============================================
 # Fixtures
@@ -179,7 +176,9 @@ async def test_import_preview_requires_auth(client: AsyncClient):
 async def test_import_preview_viewer_forbidden(viewer_client: AsyncClient):
     """Test that viewers cannot preview import."""
     # Create a mock file
-    files = {"file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    files = {
+        "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    }
     response = await viewer_client.post("/api/admin/import/preview", files=files)
     assert response.status_code == 403
 
@@ -206,7 +205,13 @@ async def test_import_preview_with_valid_excel(editor_client: AsyncClient):
             "materials": [{"name": "Schlauch", "category": "schlauch"}],
         },
     ):
-        files = {"file": ("test.xlsx", b"fake excel content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+        files = {
+            "file": (
+                "test.xlsx",
+                b"fake excel content",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        }
         response = await editor_client.post("/api/admin/import/preview", files=files)
         assert response.status_code == 200
         data = response.json()
@@ -233,7 +238,9 @@ async def test_import_execute_requires_auth(client: AsyncClient):
 @pytest.mark.api
 async def test_import_execute_viewer_forbidden(viewer_client: AsyncClient):
     """Test that viewers cannot execute import."""
-    files = {"file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    files = {
+        "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    }
     response = await viewer_client.post("/api/admin/import/execute", files=files)
     assert response.status_code == 403
 
@@ -242,8 +249,12 @@ async def test_import_execute_viewer_forbidden(viewer_client: AsyncClient):
 @pytest.mark.api
 async def test_import_execute_invalid_mode(editor_client: AsyncClient):
     """Test that invalid import mode is rejected."""
-    with patch("app.api.admin.validate_and_parse_excel", return_value={"personnel": [], "vehicles": [], "materials": []}):
-        files = {"file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    with patch(
+        "app.api.admin.validate_and_parse_excel", return_value={"personnel": [], "vehicles": [], "materials": []}
+    ):
+        files = {
+            "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        }
         response = await editor_client.post("/api/admin/import/execute", files=files, params={"mode": "invalid"})
         assert response.status_code == 400
         assert "Invalid mode" in response.json()["detail"]
@@ -253,15 +264,20 @@ async def test_import_execute_invalid_mode(editor_client: AsyncClient):
 @pytest.mark.api
 async def test_import_execute_replace_mode(editor_client: AsyncClient):
     """Test import execution in replace mode (mocked)."""
-    with patch(
-        "app.api.admin.validate_and_parse_excel",
-        return_value={"personnel": [], "vehicles": [], "materials": []},
-    ), patch(
-        "app.api.admin.import_data",
-        new_callable=AsyncMock,
-        return_value={"personnel": 5, "vehicles": 3, "materials": 10},
+    with (
+        patch(
+            "app.api.admin.validate_and_parse_excel",
+            return_value={"personnel": [], "vehicles": [], "materials": []},
+        ),
+        patch(
+            "app.api.admin.import_data",
+            new_callable=AsyncMock,
+            return_value={"personnel": 5, "vehicles": 3, "materials": 10},
+        ),
     ):
-        files = {"file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+        files = {
+            "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        }
         response = await editor_client.post("/api/admin/import/execute", files=files, params={"mode": "replace"})
         assert response.status_code == 200
         data = response.json()
@@ -274,15 +290,20 @@ async def test_import_execute_replace_mode(editor_client: AsyncClient):
 @pytest.mark.api
 async def test_import_execute_append_mode(editor_client: AsyncClient):
     """Test import execution in append mode (mocked)."""
-    with patch(
-        "app.api.admin.validate_and_parse_excel",
-        return_value={"personnel": [], "vehicles": [], "materials": []},
-    ), patch(
-        "app.api.admin.import_data",
-        new_callable=AsyncMock,
-        return_value={"personnel": 2, "vehicles": 1, "materials": 5},
+    with (
+        patch(
+            "app.api.admin.validate_and_parse_excel",
+            return_value={"personnel": [], "vehicles": [], "materials": []},
+        ),
+        patch(
+            "app.api.admin.import_data",
+            new_callable=AsyncMock,
+            return_value={"personnel": 2, "vehicles": 1, "materials": 5},
+        ),
     ):
-        files = {"file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+        files = {
+            "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        }
         response = await editor_client.post("/api/admin/import/execute", files=files, params={"mode": "append"})
         assert response.status_code == 200
         data = response.json()
@@ -409,18 +430,24 @@ async def test_seed_training_failure(editor_client: AsyncClient):
 @pytest.mark.api
 async def test_import_creates_audit_log(editor_client: AsyncClient, db_session: AsyncSession):
     """Test that import execution creates audit log entry."""
-    from app.models import AuditLog
     from sqlalchemy import select
 
-    with patch(
-        "app.api.admin.validate_and_parse_excel",
-        return_value={"personnel": [], "vehicles": [], "materials": []},
-    ), patch(
-        "app.api.admin.import_data",
-        new_callable=AsyncMock,
-        return_value={"personnel": 0, "vehicles": 0, "materials": 0},
+    from app.models import AuditLog
+
+    with (
+        patch(
+            "app.api.admin.validate_and_parse_excel",
+            return_value={"personnel": [], "vehicles": [], "materials": []},
+        ),
+        patch(
+            "app.api.admin.import_data",
+            new_callable=AsyncMock,
+            return_value={"personnel": 0, "vehicles": 0, "materials": 0},
+        ),
     ):
-        files = {"file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+        files = {
+            "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        }
         response = await editor_client.post("/api/admin/import/execute", files=files)
         assert response.status_code == 200
 
@@ -436,8 +463,9 @@ async def test_import_creates_audit_log(editor_client: AsyncClient, db_session: 
 @pytest.mark.api
 async def test_export_creates_audit_log(editor_client: AsyncClient, db_session: AsyncSession):
     """Test that data export creates audit log entry."""
-    from app.models import AuditLog
     from sqlalchemy import select
+
+    from app.models import AuditLog
 
     response = await editor_client.get("/api/admin/export/data")
     assert response.status_code == 200

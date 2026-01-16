@@ -1,19 +1,19 @@
 """Tests for authentication security utilities (password hashing, JWT tokens)."""
-from datetime import timedelta, datetime, timezone
+
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import JWTError, jwt
 
+from app.auth.config import auth_settings
 from app.auth.security import (
-    hash_password,
-    verify_password,
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_password,
+    verify_password,
 )
-from app.auth.config import auth_settings
-
 
 # ============================================
 # Password Hashing Tests
@@ -175,8 +175,8 @@ def test_create_access_token_custom_expiration():
     payload = decode_token(token)
 
     # Verify custom expiration is used
-    exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-    iat_time = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+    exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
+    iat_time = datetime.fromtimestamp(payload["iat"], tz=UTC)
     actual_delta = exp_time - iat_time
 
     # Allow 2 second tolerance for test execution time
@@ -327,7 +327,7 @@ def test_decode_token_invalid_signature():
 
 def test_decode_token_wrong_algorithm():
     """Test decoding a token signed with wrong algorithm raises error."""
-    data = {"sub": str(uuid.uuid4()), "exp": datetime.now(timezone.utc) + timedelta(minutes=15)}
+    data = {"sub": str(uuid.uuid4()), "exp": datetime.now(UTC) + timedelta(minutes=15)}
 
     # Create token with different algorithm
     wrong_algo_token = jwt.encode(data, "wrong_secret", algorithm="HS512")
@@ -397,11 +397,13 @@ def test_full_token_lifecycle():
     role = "editor"
 
     # Create access token
-    access_token = create_access_token({
-        "sub": user_id,
-        "username": username,
-        "role": role,
-    })
+    access_token = create_access_token(
+        {
+            "sub": user_id,
+            "username": username,
+            "role": role,
+        }
+    )
 
     # Create refresh token
     refresh_token = create_refresh_token({"sub": user_id})
@@ -429,8 +431,8 @@ def test_token_expiration_timing():
     access_token = create_access_token(data)
     access_payload = decode_token(access_token)
 
-    exp_time = datetime.fromtimestamp(access_payload["exp"], tz=timezone.utc)
-    iat_time = datetime.fromtimestamp(access_payload["iat"], tz=timezone.utc)
+    exp_time = datetime.fromtimestamp(access_payload["exp"], tz=UTC)
+    iat_time = datetime.fromtimestamp(access_payload["iat"], tz=UTC)
     actual_minutes = (exp_time - iat_time).total_seconds() / 60
 
     # Should match configured expiration (allow 0.1 minute tolerance)

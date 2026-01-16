@@ -1,13 +1,13 @@
 """Traccar GPS tracking API endpoints."""
+
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from datetime import datetime
-from typing import Optional
 
-from app.traccar import traccar_client, VehiclePosition
 from app.config import settings
+from app.traccar import traccar_client
 
 logger = logging.getLogger(__name__)
 
@@ -16,22 +16,24 @@ router = APIRouter(prefix="/traccar", tags=["traccar"])
 
 class TraccarStatusResponse(BaseModel):
     """Response for Traccar status endpoint."""
+
     configured: bool
-    url: Optional[str] = None
+    url: str | None = None
 
 
 class VehiclePositionResponse(BaseModel):
     """Response for a single vehicle position."""
+
     device_id: int
     device_name: str
     unique_id: str
     status: str
     latitude: float
     longitude: float
-    speed: Optional[float] = None  # km/h
-    course: Optional[float] = None  # degrees
+    speed: float | None = None  # km/h
+    course: float | None = None  # degrees
     last_update: datetime
-    address: Optional[str] = None
+    address: str | None = None
 
 
 @router.get("/status", response_model=TraccarStatusResponse)

@@ -1,7 +1,7 @@
 """Resource assignment CRUD operations."""
-from datetime import datetime
-from typing import Optional
+
 import uuid
+from datetime import datetime
 
 from fastapi import Request
 from sqlalchemy import and_, select
@@ -45,11 +45,9 @@ async def assign_resource(
     existing_assignments = existing.scalars().all()
 
     # Check if already assigned to THIS incident
-    already_assigned_to_this = any(
-        assignment.incident_id == incident_id for assignment in existing_assignments
-    )
+    already_assigned_to_this = any(assignment.incident_id == incident_id for assignment in existing_assignments)
     if already_assigned_to_this:
-        raise ValueError(f"Resource already assigned to this incident")
+        raise ValueError("Resource already assigned to this incident")
 
     # Check if assigned to OTHER incidents (conflict)
     if existing_assignments:
@@ -102,9 +100,7 @@ async def unassign_resource(
 
     Sets unassigned_at timestamp and updates resource status to 'available'.
     """
-    result = await db.execute(
-        select(IncidentAssignment).where(IncidentAssignment.id == assignment_id)
-    )
+    result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
     assignment = result.scalar_one_or_none()
 
     if not assignment:
@@ -114,9 +110,7 @@ async def unassign_resource(
     assignment.unassigned_at = datetime.utcnow()
 
     # Update resource status back to 'available'
-    await update_resource_status(
-        db, assignment.resource_type, assignment.resource_id, "available"
-    )
+    await update_resource_status(db, assignment.resource_type, assignment.resource_id, "available")
 
     # Log unassignment
     await log_action(
@@ -133,9 +127,7 @@ async def unassign_resource(
     return True
 
 
-async def update_resource_status(
-    db: AsyncSession, resource_type: str, resource_id: uuid.UUID, new_status: str
-):
+async def update_resource_status(db: AsyncSession, resource_type: str, resource_id: uuid.UUID, new_status: str):
     """Update resource availability/status field."""
     if resource_type == "personnel":
         result = await db.execute(select(Personnel).where(Personnel.id == resource_id))
@@ -159,9 +151,7 @@ async def update_resource_status(
             resource.updated_at = datetime.utcnow()
 
 
-async def get_incident_assignments(
-    db: AsyncSession, incident_id: uuid.UUID
-) -> list[IncidentAssignment]:
+async def get_incident_assignments(db: AsyncSession, incident_id: uuid.UUID) -> list[IncidentAssignment]:
     """Get all active assignments for an incident."""
     result = await db.execute(
         select(IncidentAssignment)
@@ -238,9 +228,7 @@ async def get_assignments_by_event(
     return assignments_by_incident
 
 
-async def check_resource_conflicts(
-    db: AsyncSession, resource_type: str, resource_id: uuid.UUID
-) -> list[uuid.UUID]:
+async def check_resource_conflicts(db: AsyncSession, resource_type: str, resource_id: uuid.UUID) -> list[uuid.UUID]:
     """
     Check if resource is assigned to any active incidents.
 
@@ -324,16 +312,12 @@ async def transfer_assignments(
     from ..models import Incident
 
     # Verify both incidents exist
-    source_result = await db.execute(
-        select(Incident).where(Incident.id == source_incident_id)
-    )
+    source_result = await db.execute(select(Incident).where(Incident.id == source_incident_id))
     source_incident = source_result.scalar_one_or_none()
     if not source_incident:
         raise ValueError("Source incident not found")
 
-    target_result = await db.execute(
-        select(Incident).where(Incident.id == target_incident_id)
-    )
+    target_result = await db.execute(select(Incident).where(Incident.id == target_incident_id))
     target_incident = target_result.scalar_one_or_none()
     if not target_incident:
         raise ValueError("Target incident not found")
@@ -346,9 +330,7 @@ async def transfer_assignments(
 
     # Check for conflicts - resources already assigned to target
     target_assignments = await get_incident_assignments(db, target_incident_id)
-    target_resources = {
-        (a.resource_type, a.resource_id) for a in target_assignments
-    }
+    target_resources = {(a.resource_type, a.resource_id) for a in target_assignments}
 
     conflicts = []
     for assignment in source_assignments:
@@ -357,9 +339,7 @@ async def transfer_assignments(
             conflicts.append(f"{assignment.resource_type} {assignment.resource_id}")
 
     if conflicts:
-        raise ValueError(
-            f"Cannot transfer: Resources already assigned to target incident: {', '.join(conflicts)}"
-        )
+        raise ValueError(f"Cannot transfer: Resources already assigned to target incident: {', '.join(conflicts)}")
 
     # Transfer assignments
     new_assignment_ids = []

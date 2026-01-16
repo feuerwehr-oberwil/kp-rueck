@@ -1,12 +1,13 @@
 """Seed training emergency templates and locations."""
+
 import asyncio
+import random
+from uuid import uuid4
+
 import httpx
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import async_session_maker
 from app.models import EmergencyTemplate, TrainingLocation
-from uuid import uuid4
-import time
-import random
 
 # Emergency Templates - Storm and water-focused scenarios
 EMERGENCY_TEMPLATES = [
@@ -15,360 +16,352 @@ EMERGENCY_TEMPLATES = [
         "title_pattern": "Wasser im Keller Einfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller unter Wasser, ca. 25cm Wasserhöhe. Heizung und Elektroinstallation betroffen. Bewohner vor Ort."
+        "message_pattern": "Keller unter Wasser, ca. 25cm Wasserhöhe. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
     },
     {
         "title_pattern": "Überflutung Tiefgarage",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Tiefgarage überflutet durch Starkregen. Ca. 40cm Wasser. Mehrere Fahrzeuge betroffen."
+        "message_pattern": "Tiefgarage überflutet durch Starkregen. Ca. 40cm Wasser. Mehrere Fahrzeuge betroffen.",
     },
     {
         "title_pattern": "Wasserschaden Mehrfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. Pumpen benötigt."
+        "message_pattern": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. Pumpen benötigt.",
     },
     {
         "title_pattern": "Keller auspumpen Gewerbebetrieb",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Grundwasser im Keller, ca. 35cm. Lagerware gefährdet. Dringend Tauchpumpen erforderlich."
+        "message_pattern": "Grundwasser im Keller, ca. 35cm. Lagerware gefährdet. Dringend Tauchpumpen erforderlich.",
     },
     {
         "title_pattern": "Wassereinbruch nach Rohrbruch",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasserrohr im Keller gebrochen. Wasser läuft aus. Haupthahn abgestellt. Auspumpen erforderlich."
+        "message_pattern": "Wasserrohr im Keller gebrochen. Wasser läuft aus. Haupthahn abgestellt. Auspumpen erforderlich.",
     },
     {
         "title_pattern": "Keller geflutet Reihenhaussiedlung",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Mehrere Keller in Siedlung überflutet. Ca. 20-30cm Wasser. Koordinierte Hilfeleistung nötig."
+        "message_pattern": "Mehrere Keller in Siedlung überflutet. Ca. 20-30cm Wasser. Koordinierte Hilfeleistung nötig.",
     },
     {
         "title_pattern": "Wasserschaden Schule",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Untergeschoss der Turnhalle unter Wasser. Sportgeräte betroffen. Grosser Pumpeinsatz nötig."
+        "message_pattern": "Untergeschoss der Turnhalle unter Wasser. Sportgeräte betroffen. Grosser Pumpeinsatz nötig.",
     },
     {
         "title_pattern": "Wasser in Liftschacht",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser im Liftschacht Mehrfamilienhaus. Lift ausser Betrieb. Fachfirma vor Ort."
+        "message_pattern": "Wasser im Liftschacht Mehrfamilienhaus. Lift ausser Betrieb. Fachfirma vor Ort.",
     },
     {
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Parkplatz steht unter Wasser nach Gewitter. Mehrere Fahrzeuge eingeschlossen. Abfluss verstopft."
+        "message_pattern": "Parkplatz steht unter Wasser nach Gewitter. Mehrere Fahrzeuge eingeschlossen. Abfluss verstopft.",
     },
     {
         "title_pattern": "Wasserschaden Arztpraxis",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller der Arztpraxis überflutet. Medizinische Geräte im Lager bedroht. Priorität hoch."
+        "message_pattern": "Keller der Arztpraxis überflutet. Medizinische Geräte im Lager bedroht. Priorität hoch.",
     },
     {
         "title_pattern": "Rückstau Kanalisation",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Abwasser drückt in Keller zurück. Kanalisation überlastet. Geruchsbelästigung. Pumpen nötig."
+        "message_pattern": "Abwasser drückt in Keller zurück. Kanalisation überlastet. Geruchsbelästigung. Pumpen nötig.",
     },
     {
         "title_pattern": "Heizöl im Keller",
         "incident_type": "oelwehr",
         "category": "normal",
-        "message_pattern": "Heizöltank leckt. Öl im Keller, ca. 50 Liter. Kein Gewässer betroffen."
+        "message_pattern": "Heizöltank leckt. Öl im Keller, ca. 50 Liter. Kein Gewässer betroffen.",
     },
     # Simple/routine water in cellar cases - varying sizes
     {
         "title_pattern": "Wasser im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser im Keller nach Regen. Ca. 5cm in einem Raum. Bewohner bittet um Hilfe."
+        "message_pattern": "Wasser im Keller nach Regen. Ca. 5cm in einem Raum. Bewohner bittet um Hilfe.",
     },
     {
         "title_pattern": "Keller feucht",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller steht unter Wasser, ca. 10cm. Nur Kellerabteil betroffen. Kleine Pumpe reicht."
+        "message_pattern": "Keller steht unter Wasser, ca. 10cm. Nur Kellerabteil betroffen. Kleine Pumpe reicht.",
     },
     {
         "title_pattern": "Wasser in Waschküche",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Waschküche überflutet. Ca. 3cm Wasser. Waschmaschine steht im Wasser."
+        "message_pattern": "Waschküche überflutet. Ca. 3cm Wasser. Waschmaschine steht im Wasser.",
     },
     {
         "title_pattern": "Wasser im Hauseingang",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Regenwasser im Hauseingang. Ca. 2cm. Läuft nicht ab. Wassersauger genügt."
+        "message_pattern": "Regenwasser im Hauseingang. Ca. 2cm. Läuft nicht ab. Wassersauger genügt.",
     },
     {
         "title_pattern": "Keller vollgelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller komplett unter Wasser. Ca. 50cm Wasserhöhe. Mehrere Räume. Grosse Pumpe nötig."
+        "message_pattern": "Keller komplett unter Wasser. Ca. 50cm Wasserhöhe. Mehrere Räume. Grosse Pumpe nötig.",
     },
     {
         "title_pattern": "Wasserschaden Hobbyraum",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Hobbyraum im UG unter Wasser. Ca. 15cm. Möbel und Geräte betroffen."
+        "message_pattern": "Hobbyraum im UG unter Wasser. Ca. 15cm. Möbel und Geräte betroffen.",
     },
     {
         "title_pattern": "Wasser im Veloraum",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Veloraum im Keller überflutet. Ca. 8cm Wasser. Velos müssen raus."
+        "message_pattern": "Veloraum im Keller überflutet. Ca. 8cm Wasser. Velos müssen raus.",
     },
     {
         "title_pattern": "Pfütze im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser sammelt sich im Keller. Kleine Pfütze, ca. 2cm. Ursache unklar."
+        "message_pattern": "Wasser sammelt sich im Keller. Kleine Pfütze, ca. 2cm. Ursache unklar.",
     },
     {
         "title_pattern": "Keller halb voll",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Kellerräume zur Hälfte geflutet. Ca. 30cm Wasser. Heizraum betroffen."
+        "message_pattern": "Kellerräume zur Hälfte geflutet. Ca. 30cm Wasser. Heizraum betroffen.",
     },
     {
         "title_pattern": "Wasser im Treppenhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser läuft ins Treppenhaus. Ca. 1cm auf Treppenstufen. Rutschgefahr."
+        "message_pattern": "Wasser läuft ins Treppenhaus. Ca. 1cm auf Treppenstufen. Rutschgefahr.",
     },
     {
         "title_pattern": "Garage unter Wasser",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Einzelgarage überflutet. Ca. 12cm Wasser. Auto steht drin."
+        "message_pattern": "Einzelgarage überflutet. Ca. 12cm Wasser. Auto steht drin.",
     },
     {
         "title_pattern": "Wasser im Lagerraum",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Lagerraum im Keller nass. Ca. 6cm Wasser. Kartons und Kisten betroffen."
+        "message_pattern": "Lagerraum im Keller nass. Ca. 6cm Wasser. Kartons und Kisten betroffen.",
     },
-
     # NORMAL - Sturmschaden (25%)
     {
         "title_pattern": "Dachziegel gelöst",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Sturm hat Dachziegel gelöst. Absturzgefahr auf Gehweg. Sicherung erforderlich."
+        "message_pattern": "Sturm hat Dachziegel gelöst. Absturzgefahr auf Gehweg. Sicherung erforderlich.",
     },
     {
         "title_pattern": "Fassadenteile lose",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Fassadenelemente durch Sturm beschädigt. Öffentlicher Bereich gefährdet."
+        "message_pattern": "Fassadenelemente durch Sturm beschädigt. Öffentlicher Bereich gefährdet.",
     },
     {
         "title_pattern": "Fenster eingeschlagen",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Sturmschaden - mehrere Fenster eingeschlagen. Gebäude offen, Wasser dringt ein."
+        "message_pattern": "Sturmschaden - mehrere Fenster eingeschlagen. Gebäude offen, Wasser dringt ein.",
     },
     {
         "title_pattern": "Gerüst beschädigt",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Baugerüst durch Sturm beschädigt. Einsturzgefahr. Absperrung notwendig."
+        "message_pattern": "Baugerüst durch Sturm beschädigt. Einsturzgefahr. Absperrung notwendig.",
     },
     {
         "title_pattern": "Werbetafel gefährdet",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Grosse Werbetafel droht zu fallen. Sturm. Strasse muss gesperrt werden."
+        "message_pattern": "Grosse Werbetafel droht zu fallen. Sturm. Strasse muss gesperrt werden.",
     },
     {
         "title_pattern": "Dach abgedeckt",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Sturmschaden - Dachteile fehlen. Regenwasser dringt ein. Notabdeckung erforderlich."
+        "message_pattern": "Sturmschaden - Dachteile fehlen. Regenwasser dringt ein. Notabdeckung erforderlich.",
     },
-
     # NORMAL - Baum (20%)
     {
         "title_pattern": "Baum auf Strasse",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Baum umgestürzt, blockiert Fahrbahn komplett. Verkehr gestaut."
+        "message_pattern": "Baum umgestürzt, blockiert Fahrbahn komplett. Verkehr gestaut.",
     },
     {
         "title_pattern": "Ast auf parkiertes Auto",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Grosser Ast auf Fahrzeug gefallen. Auto beschädigt. Niemand verletzt."
+        "message_pattern": "Grosser Ast auf Fahrzeug gefallen. Auto beschädigt. Niemand verletzt.",
     },
     {
         "title_pattern": "Baum droht zu fallen",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Baum stark angeschlagen durch Sturm. Kippt Richtung Gebäude. Sicherung dringend."
+        "message_pattern": "Baum stark angeschlagen durch Sturm. Kippt Richtung Gebäude. Sicherung dringend.",
     },
     {
         "title_pattern": "Äste auf Oberleitung",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Baum auf Stromleitung. Kurzschlussgefahr. EW bereits informiert."
+        "message_pattern": "Baum auf Stromleitung. Kurzschlussgefahr. EW bereits informiert.",
     },
     {
         "title_pattern": "Baum blockiert Gehweg",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Umgestürzter Baum versperrt Fussgängerweg. Schulweg betroffen."
+        "message_pattern": "Umgestürzter Baum versperrt Fussgängerweg. Schulweg betroffen.",
     },
     {
         "title_pattern": "Wurzelwerk gelockert",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Grosse Eiche nach Sturm instabil. Wurzeln aus Boden. Akute Umsturzgefahr."
+        "message_pattern": "Grosse Eiche nach Sturm instabil. Wurzeln aus Boden. Akute Umsturzgefahr.",
     },
-
     # NORMAL - Weitere Wasserschäden (10%)
     {
         "title_pattern": "Wasser im Keller Restaurant",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Lagerraum Restaurant überflutet. Ca. 25cm Wasser. Lebensmittelvorräte gefährdet."
+        "message_pattern": "Lagerraum Restaurant überflutet. Ca. 25cm Wasser. Lebensmittelvorräte gefährdet.",
     },
     {
         "title_pattern": "Überschwemmung Garageneinfahrt",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Einfahrt zur Tiefgarage überflutet. Wasser läuft in Garage. Ablauf verstopft."
+        "message_pattern": "Einfahrt zur Tiefgarage überflutet. Wasser läuft in Garage. Ablauf verstopft.",
     },
     {
         "title_pattern": "Wasserschaden Kindergarten",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller des Kindergartens unter Wasser. Material und Spielsachen betroffen. Pumpen nötig."
+        "message_pattern": "Keller des Kindergartens unter Wasser. Material und Spielsachen betroffen. Pumpen nötig.",
     },
-
     # NORMAL - Andere (10%)
     {
         "title_pattern": "Ölspur Hauptstrasse",
         "incident_type": "oelwehr",
         "category": "normal",
-        "message_pattern": "Lange Ölspur auf Fahrbahn, ca. 100m. Unfallgefahr. Bindemittel notwendig."
+        "message_pattern": "Lange Ölspur auf Fahrbahn, ca. 100m. Unfallgefahr. Bindemittel notwendig.",
     },
     {
         "title_pattern": "Dachentwässerung verstopft",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Dachrinne überlauft. Wasser läuft an Fassade herunter. Eindringen in Mauerwerk."
+        "message_pattern": "Dachrinne überlauft. Wasser läuft an Fassade herunter. Eindringen in Mauerwerk.",
     },
     {
         "title_pattern": "Lichtmast beschädigt",
         "incident_type": "strassenrettung",
         "category": "normal",
-        "message_pattern": "Strassenlaterne nach Sturm schief. Umzustürzen droht. Strasse sperren."
+        "message_pattern": "Strassenlaterne nach Sturm schief. Umzustürzen droht. Strasse sperren.",
     },
     {
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Parkplatz steht unter Wasser. Mehrere Fahrzeuge betroffen. Zufahrt gesperrt."
+        "message_pattern": "Parkplatz steht unter Wasser. Mehrere Fahrzeuge betroffen. Zufahrt gesperrt.",
     },
     {
         "title_pattern": "Kanaldeckel hochgedrückt",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Kanaldeckel durch Wasserdruck angehoben. Stolpergefahr. Absperrung erforderlich."
+        "message_pattern": "Kanaldeckel durch Wasserdruck angehoben. Stolpergefahr. Absperrung erforderlich.",
     },
-
     # CRITICAL - Brand (40% of critical = 4% total)
     {
         "title_pattern": "Wohnungsbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Feuer in Wohnung, 2. OG. Rauchentwicklung stark. Personen evtl. noch im Gebäude."
+        "message_pattern": "Feuer in Wohnung, 2. OG. Rauchentwicklung stark. Personen evtl. noch im Gebäude.",
     },
     {
         "title_pattern": "Fahrzeugbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "PKW brennt auf Parkplatz. Flammen sichtbar. Übergriff auf Nachbarfahrzeuge möglich."
+        "message_pattern": "PKW brennt auf Parkplatz. Flammen sichtbar. Übergriff auf Nachbarfahrzeuge möglich.",
     },
     {
         "title_pattern": "Brand Gartenhaus",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Gartenhütte in Vollbrand. Gasflaschen gelagert. Übergriffsgefahr auf Wohnhaus."
+        "message_pattern": "Gartenhütte in Vollbrand. Gasflaschen gelagert. Übergriffsgefahr auf Wohnhaus.",
     },
     {
         "title_pattern": "Küchenbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Feuer in Küche, Fettbrand. Starke Rauchentwicklung. Bewohner evakuiert."
+        "message_pattern": "Feuer in Küche, Fettbrand. Starke Rauchentwicklung. Bewohner evakuiert.",
     },
     {
         "title_pattern": "Brand Dachstock",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Dachstockbrand Mehrfamilienhaus. Flammen durch Dach. Mehrere Wohnungen betroffen."
+        "message_pattern": "Dachstockbrand Mehrfamilienhaus. Flammen durch Dach. Mehrere Wohnungen betroffen.",
     },
-
     # CRITICAL - BMA (30% of critical = 3% total)
     {
         "title_pattern": "BMA Schulhaus",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Automatische Brandmeldeanlage ausgelöst. Schulhaus. Schüler werden evakuiert."
+        "message_pattern": "Automatische Brandmeldeanlage ausgelöst. Schulhaus. Schüler werden evakuiert.",
     },
     {
         "title_pattern": "BMA Altersheim",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Brandmeldeanlage Pflegeheim aktiv. Melder 2. Stock Ost. Evakuation läuft."
+        "message_pattern": "Brandmeldeanlage Pflegeheim aktiv. Melder 2. Stock Ost. Evakuation läuft.",
     },
     {
         "title_pattern": "BMA Gewerbe",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "BMA Industriebetrieb. Rauchmelder Produktionshalle. Ursache unklar."
+        "message_pattern": "BMA Industriebetrieb. Rauchmelder Produktionshalle. Ursache unklar.",
     },
-
     # CRITICAL - Personenrettung (20% of critical = 2% total)
     {
         "title_pattern": "Person in Lift",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "Person eingeschlossen in Personenlift. 4. OG. Lift steht zwischen Stockwerken."
+        "message_pattern": "Person eingeschlossen in Personenlift. 4. OG. Lift steht zwischen Stockwerken.",
     },
     {
         "title_pattern": "Verkehrsunfall eingeklemmt",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "VU zwei PKW. Eine Person eingeklemmt. Sanität vor Ort. Rettung erforderlich."
+        "message_pattern": "VU zwei PKW. Eine Person eingeklemmt. Sanität vor Ort. Rettung erforderlich.",
     },
     {
         "title_pattern": "Absturz Baugerüst",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "Person von Gerüst gestürzt. Ca. 3m Höhe. Bewusstlos. Sanität alarmiert."
+        "message_pattern": "Person von Gerüst gestürzt. Ca. 3m Höhe. Bewusstlos. Sanität alarmiert.",
     },
-
     # CRITICAL - Andere (10% of critical = 1% total)
     {
         "title_pattern": "Gasgeruch",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "Starker Gasgeruch in Mehrfamilienhaus. Quelle unbekannt. Bewohner besorgt."
+        "message_pattern": "Starker Gasgeruch in Mehrfamilienhaus. Quelle unbekannt. Bewohner besorgt.",
     },
     {
         "title_pattern": "Chemikalienunfall Labor",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "Chemikalien ausgelaufen. Schule, Chemiesaal. Dämpfe. Gebäude wird geräumt."
+        "message_pattern": "Chemikalien ausgelaufen. Schule, Chemiesaal. Dämpfe. Gebäude wird geräumt.",
     },
 ]
 
@@ -378,10 +371,10 @@ print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 # Oberwil BL bounding box (approximate area)
 # These coordinates define the rectangle that contains Oberwil
 OBERWIL_BOUNDS = {
-    "min_lat": 47.508,   # Southern boundary
-    "max_lat": 47.522,   # Northern boundary
-    "min_lon": 7.552,    # Western boundary
-    "max_lon": 7.568     # Eastern boundary
+    "min_lat": 47.508,  # Southern boundary
+    "max_lat": 47.522,  # Northern boundary
+    "min_lon": 7.552,  # Western boundary
+    "max_lon": 7.568,  # Eastern boundary
 }
 
 
@@ -410,7 +403,7 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
                 "zoom": 18,  # Building level
             },
             headers={"User-Agent": "KP-Rueck-Training-System/1.0"},
-            timeout=5.0
+            timeout=5.0,
         )
 
         if response.status_code == 200:
@@ -424,10 +417,7 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
             city = address.get("city") or address.get("town") or address.get("village")
 
             # Verify this is actually in Oberwil with a house number
-            if (street and house_number and
-                postcode == "4104" and
-                city and city.lower() == "oberwil"):
-
+            if street and house_number and postcode == "4104" and city and city.lower() == "oberwil":
                 # Use the actual coordinates returned by Nominatim (more accurate)
                 actual_lat = float(data["lat"])
                 actual_lon = float(data["lon"])
@@ -444,7 +434,7 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
                     "house_number": house_number,
                     "building_type": building_type,
                     "latitude": actual_lat,
-                    "longitude": actual_lon
+                    "longitude": actual_lon,
                 }
     except Exception:
         pass
@@ -463,7 +453,7 @@ async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[t
     Returns:
         List of tuples: (street_name, house_number, building_type, latitude, longitude)
     """
-    print(f"\n🗺️  Generating real addresses via reverse geocoding...")
+    print("\n🗺️  Generating real addresses via reverse geocoding...")
     print(f"   Randomly sampling {target_count} points within Oberwil boundaries")
 
     addresses = []
@@ -487,13 +477,15 @@ async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[t
                     continue
 
                 seen.add(key)
-                addresses.append((
-                    result["street"],
-                    result["house_number"],
-                    result["building_type"],
-                    result["latitude"],
-                    result["longitude"]
-                ))
+                addresses.append(
+                    (
+                        result["street"],
+                        result["house_number"],
+                        result["building_type"],
+                        result["latitude"],
+                        result["longitude"],
+                    )
+                )
 
                 print(f"      ✓ {result['street']} {result['house_number']} ({len(addresses)}/{target_count})")
 
@@ -522,7 +514,8 @@ async def seed_training_data(skip_geocoding: bool = False):
         print("=" * 60)
 
         # Check if templates already exist
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
+
         template_count = await session.scalar(select(func.count()).select_from(EmergencyTemplate))
 
         if template_count > 0:
@@ -532,10 +525,7 @@ async def seed_training_data(skip_geocoding: bool = False):
         # Seed emergency templates
         print(f"\n📝 Seeding {len(EMERGENCY_TEMPLATES)} emergency templates...")
         for template_data in EMERGENCY_TEMPLATES:
-            template = EmergencyTemplate(
-                id=uuid4(),
-                **template_data
-            )
+            template = EmergencyTemplate(id=uuid4(), **template_data)
             session.add(template)
 
         await session.commit()
@@ -546,7 +536,7 @@ async def seed_training_data(skip_geocoding: bool = False):
         addresses = []
 
         if skip_geocoding:
-            print(f"\n⚠️  Skip geocoding enabled - using fallback to Oberwil center")
+            print("\n⚠️  Skip geocoding enabled - using fallback to Oberwil center")
             # Fallback: use Oberwil center
             addresses = [("Hauptstrasse", "95", "commercial", 47.5164, 7.5618)]
         else:
@@ -554,7 +544,7 @@ async def seed_training_data(skip_geocoding: bool = False):
             addresses = await fetch_real_addresses_reverse_geocode(target_count)
 
             if not addresses:
-                print(f"\n⚠️  Reverse geocoding failed - using fallback to Oberwil center")
+                print("\n⚠️  Reverse geocoding failed - using fallback to Oberwil center")
                 addresses = [("Hauptstrasse", "95", "commercial", 47.5164, 7.5618)]
 
         print(f"\n📍 Seeding {len(addresses)} real addresses...")
@@ -569,7 +559,7 @@ async def seed_training_data(skip_geocoding: bool = False):
                 building_type=building_type,
                 latitude=lat,
                 longitude=lon,
-                is_active=True
+                is_active=True,
             )
             session.add(location)
 

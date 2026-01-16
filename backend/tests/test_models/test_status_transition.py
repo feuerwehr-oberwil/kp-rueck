@@ -1,4 +1,5 @@
 """Tests for StatusTransition model."""
+
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -11,9 +12,7 @@ from app.models import Incident, StatusTransition, User
 class TestStatusTransitionModel:
     """Test StatusTransition model operations."""
 
-    async def test_create_status_transition(
-        self, db_session: AsyncSession, test_incident: Incident, test_user: User
-    ):
+    async def test_create_status_transition(self, db_session: AsyncSession, test_incident: Incident, test_user: User):
         """Test creating a status transition."""
         transition = StatusTransition(
             id=uuid4(),
@@ -35,9 +34,7 @@ class TestStatusTransitionModel:
         assert transition.notes == "Fahrzeug alarmiert"
         assert transition.timestamp is not None
 
-    async def test_status_transition_without_user(
-        self, db_session: AsyncSession, test_incident: Incident
-    ):
+    async def test_status_transition_without_user(self, db_session: AsyncSession, test_incident: Incident):
         """Test creating a status transition without user (automated)."""
         transition = StatusTransition(
             id=uuid4(),
@@ -73,9 +70,7 @@ class TestStatusTransitionModel:
         await db_session.commit()
 
         # Transition should be deleted
-        result = await db_session.execute(
-            select(StatusTransition).where(StatusTransition.id == transition_id)
-        )
+        result = await db_session.execute(select(StatusTransition).where(StatusTransition.id == transition_id))
         assert result.scalar_one_or_none() is None
 
     async def test_status_transition_relationship(
@@ -105,17 +100,13 @@ class TestStatusTransitionModel:
 
         # Load incident with transitions
         result = await db_session.execute(
-            select(Incident)
-            .options(selectinload(Incident.status_transitions))
-            .where(Incident.id == test_incident.id)
+            select(Incident).options(selectinload(Incident.status_transitions)).where(Incident.id == test_incident.id)
         )
         incident = result.scalar_one()
 
         assert len(incident.status_transitions) == 2
 
-    async def test_status_transition_index(
-        self, db_session: AsyncSession, test_incident: Incident, test_user: User
-    ):
+    async def test_status_transition_index(self, db_session: AsyncSession, test_incident: Incident, test_user: User):
         """Test that timestamp index exists for efficient queries."""
         # Create transitions
         for i in range(5):

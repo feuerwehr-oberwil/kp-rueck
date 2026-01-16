@@ -1,8 +1,9 @@
 """Personnel management API endpoints."""
+
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -27,11 +28,7 @@ async def list_personnel(
 
     Use checked_in_only=true with event_id to show only personnel checked in for a specific event.
     """
-    return await crud.get_all_personnel(
-        db,
-        checked_in_only=checked_in_only,
-        event_id=event_id
-    )
+    return await crud.get_all_personnel(db, checked_in_only=checked_in_only, event_id=event_id)
 
 
 @router.get("/{personnel_id}", response_model=schemas.Personnel)
@@ -60,11 +57,7 @@ async def create_personnel(
 
     # Convert to Pydantic and broadcast WebSocket update
     personnel_response = schemas.Personnel.model_validate(new_personnel)
-    background_tasks.add_task(
-        broadcast_personnel_update,
-        personnel_response.model_dump(mode='json'),
-        "create"
-    )
+    background_tasks.add_task(broadcast_personnel_update, personnel_response.model_dump(mode="json"), "create")
 
     return personnel_response
 
@@ -85,11 +78,7 @@ async def update_personnel(
 
     # Convert to Pydantic and broadcast WebSocket update
     personnel_response = schemas.Personnel.model_validate(updated)
-    background_tasks.add_task(
-        broadcast_personnel_update,
-        personnel_response.model_dump(mode='json'),
-        "update"
-    )
+    background_tasks.add_task(broadcast_personnel_update, personnel_response.model_dump(mode="json"), "update")
 
     return personnel_response
 
@@ -108,11 +97,7 @@ async def delete_personnel(
         raise HTTPException(status_code=404, detail="Personnel not found")
 
     # Broadcast WebSocket update for deletion
-    background_tasks.add_task(
-        broadcast_personnel_update,
-        {'id': str(personnel_id)},
-        "delete"
-    )
+    background_tasks.add_task(broadcast_personnel_update, {"id": str(personnel_id)}, "delete")
 
 
 @router.post("/categories/sort-order", status_code=status.HTTP_200_OK)

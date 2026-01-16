@@ -9,10 +9,9 @@ Tests cover:
 """
 
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-import pytest_asyncio
 
 from app.websocket_manager import (
     CLEANUP_INTERVAL_SECONDS,
@@ -27,7 +26,6 @@ from app.websocket_manager import (
     get_websocket_cors_origins,
     ws_manager,
 )
-
 
 # ============================================
 # WebSocket Manager Unit Tests

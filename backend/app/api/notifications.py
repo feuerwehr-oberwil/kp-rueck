@@ -1,4 +1,5 @@
 """Notification API endpoints."""
+
 from typing import Annotated
 from uuid import UUID
 
@@ -39,15 +40,10 @@ async def dismiss_notification(
 
     Any authenticated user can dismiss notifications.
     """
-    notification = await notification_service.dismiss_notification(
-        db, notification_id, current_user.id
-    )
+    notification = await notification_service.dismiss_notification(db, notification_id, current_user.id)
 
     if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notification not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
 
 @router.get("/settings/", response_model=schemas.NotificationSettings)
@@ -84,8 +80,6 @@ async def update_notification_settings(
         setattr(current_settings, field, value)
 
     # Save updated settings
-    updated_settings = await notification_service.save_notification_settings(
-        db, current_settings, current_user.id
-    )
+    updated_settings = await notification_service.save_notification_settings(db, current_settings, current_user.id)
 
     return updated_settings

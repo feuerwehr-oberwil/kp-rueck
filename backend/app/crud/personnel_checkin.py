@@ -1,14 +1,14 @@
 """Personnel check-in CRUD operations."""
-from datetime import datetime
+
 import uuid
+from datetime import datetime
 
 from fastapi import Request
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Personnel, User, EventAttendance, Incident, IncidentAssignment
+from ..models import EventAttendance, Incident, IncidentAssignment, Personnel, User
 from ..services.audit import log_action
 
 
@@ -30,34 +30,29 @@ async def get_available_personnel(
         List of personnel with event-specific check-in status
     """
     # Get all available personnel
-    query = select(Personnel).where(
-        Personnel.availability != 'unavailable'
-    ).order_by(Personnel.name.asc())
+    query = select(Personnel).where(Personnel.availability != "unavailable").order_by(Personnel.name.asc())
 
     result = await db.execute(query)
     personnel_list = list(result.scalars().all())
 
     # Get event-specific attendance records
-    attendance_query = select(EventAttendance).where(
-        EventAttendance.event_id == event_id
-    )
+    attendance_query = select(EventAttendance).where(EventAttendance.event_id == event_id)
     attendance_result = await db.execute(attendance_query)
-    attendance_map = {
-        att.personnel_id: att
-        for att in attendance_result.scalars().all()
-    }
+    attendance_map = {att.personnel_id: att for att in attendance_result.scalars().all()}
 
     # Get personnel assignment status for this event
     # Check if personnel are assigned to any incident in this event
-    assignment_query = select(IncidentAssignment.resource_id).where(
-        and_(
-            IncidentAssignment.resource_type == 'personnel',
-            IncidentAssignment.unassigned_at.is_(None),  # Only active assignments
-            IncidentAssignment.incident_id.in_(
-                select(Incident.id).where(Incident.event_id == event_id)
+    assignment_query = (
+        select(IncidentAssignment.resource_id)
+        .where(
+            and_(
+                IncidentAssignment.resource_type == "personnel",
+                IncidentAssignment.unassigned_at.is_(None),  # Only active assignments
+                IncidentAssignment.incident_id.in_(select(Incident.id).where(Incident.event_id == event_id)),
             )
         )
-    ).distinct()
+        .distinct()
+    )
     assignment_result = await db.execute(assignment_query)
     assigned_personnel_ids = set(assignment_result.scalars().all())
 
@@ -112,37 +107,36 @@ async def check_in_personnel(
         ValueError: If personnel is unavailable
     """
     # Get personnel record
-    result = await db.execute(
-        select(Personnel).where(Personnel.id == personnel_id)
-    )
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     person = result.scalar_one_or_none()
 
     if not person:
         return None
 
     # Can't check in if unavailable
-    if person.availability == 'unavailable':
+    if person.availability == "unavailable":
         raise ValueError("Cannot check in unavailable personnel")
 
     # Check if assigned to any incident in this event
-    assignment_query = select(IncidentAssignment.id).where(
-        and_(
-            IncidentAssignment.resource_type == 'personnel',
-            IncidentAssignment.resource_id == personnel_id,
-            IncidentAssignment.unassigned_at.is_(None),
-            IncidentAssignment.incident_id.in_(
-                select(Incident.id).where(Incident.event_id == event_id)
+    assignment_query = (
+        select(IncidentAssignment.id)
+        .where(
+            and_(
+                IncidentAssignment.resource_type == "personnel",
+                IncidentAssignment.resource_id == personnel_id,
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.incident_id.in_(select(Incident.id).where(Incident.event_id == event_id)),
             )
         )
-    ).limit(1)
+        .limit(1)
+    )
     is_assigned_result = await db.execute(assignment_query)
     is_assigned = is_assigned_result.scalar_one_or_none() is not None
 
     # Get or create event attendance record
     attendance_result = await db.execute(
         select(EventAttendance).where(
-            EventAttendance.event_id == event_id,
-            EventAttendance.personnel_id == personnel_id
+            EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id
         )
     )
     attendance = attendance_result.scalar_one_or_none()
@@ -224,25 +218,25 @@ async def check_out_personnel(
         Updated personnel with event-specific check-in status, or None if not found
     """
     # Get personnel record
-    result = await db.execute(
-        select(Personnel).where(Personnel.id == personnel_id)
-    )
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     person = result.scalar_one_or_none()
 
     if not person:
         return None
 
     # Check if assigned to any incident in this event
-    assignment_query = select(IncidentAssignment.id).where(
-        and_(
-            IncidentAssignment.resource_type == 'personnel',
-            IncidentAssignment.resource_id == personnel_id,
-            IncidentAssignment.unassigned_at.is_(None),
-            IncidentAssignment.incident_id.in_(
-                select(Incident.id).where(Incident.event_id == event_id)
+    assignment_query = (
+        select(IncidentAssignment.id)
+        .where(
+            and_(
+                IncidentAssignment.resource_type == "personnel",
+                IncidentAssignment.resource_id == personnel_id,
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.incident_id.in_(select(Incident.id).where(Incident.event_id == event_id)),
             )
         )
-    ).limit(1)
+        .limit(1)
+    )
     is_assigned_result = await db.execute(assignment_query)
     is_assigned = is_assigned_result.scalar_one_or_none() is not None
 
@@ -253,8 +247,7 @@ async def check_out_personnel(
     # Get event attendance record
     attendance_result = await db.execute(
         select(EventAttendance).where(
-            EventAttendance.event_id == event_id,
-            EventAttendance.personnel_id == personnel_id
+            EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id
         )
     )
     attendance = attendance_result.scalar_one_or_none()

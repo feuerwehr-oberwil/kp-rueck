@@ -1,7 +1,8 @@
 """Authentication configuration and security settings."""
+
 import logging
 import os
-from datetime import timedelta
+
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
@@ -99,7 +100,9 @@ class AuthSettings(BaseSettings):
                         "Generate one with: openssl rand -hex 32"
                     )
                 # In development, warn but allow (for local testing)
-                logger.warning("AUTH_SECRET_KEY contains weak pattern '%s'. This is only acceptable in development!", weak_pattern)
+                logger.warning(
+                    "AUTH_SECRET_KEY contains weak pattern '%s'. This is only acceptable in development!", weak_pattern
+                )
 
         # Enforce minimum length (256 bits = 32 bytes = 64 hex chars recommended)
         if len(v) < 32:

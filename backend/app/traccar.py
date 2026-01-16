@@ -1,8 +1,8 @@
 """Traccar GPS tracking integration service."""
 
-import httpx
 from datetime import datetime
-from typing import Optional
+
+import httpx
 from pydantic import BaseModel
 
 from app.config import settings
@@ -10,44 +10,47 @@ from app.config import settings
 
 class TraccarDevice(BaseModel):
     """Traccar device model."""
+
     id: int
     name: str
     uniqueId: str
     status: str  # online, offline, unknown
-    lastUpdate: Optional[datetime] = None
-    positionId: Optional[int] = None
-    category: Optional[str] = None
+    lastUpdate: datetime | None = None
+    positionId: int | None = None
+    category: str | None = None
 
 
 class TraccarPosition(BaseModel):
     """Traccar position model."""
+
     id: int
     deviceId: int
     latitude: float
     longitude: float
-    altitude: Optional[float] = None
-    speed: Optional[float] = None  # in knots
-    course: Optional[float] = None  # heading in degrees
-    accuracy: Optional[float] = None
+    altitude: float | None = None
+    speed: float | None = None  # in knots
+    course: float | None = None  # heading in degrees
+    accuracy: float | None = None
     deviceTime: datetime
     serverTime: datetime
     fixTime: datetime
-    address: Optional[str] = None
-    attributes: Optional[dict] = None
+    address: str | None = None
+    attributes: dict | None = None
 
 
 class VehiclePosition(BaseModel):
     """Combined vehicle and position data for frontend."""
+
     device_id: int
     device_name: str
     unique_id: str  # Can be used to match with local vehicles
     status: str  # online, offline
     latitude: float
     longitude: float
-    speed: Optional[float] = None  # in km/h
-    course: Optional[float] = None  # heading in degrees
+    speed: float | None = None  # in km/h
+    course: float | None = None  # heading in degrees
     last_update: datetime
-    address: Optional[str] = None
+    address: str | None = None
 
 
 class TraccarClient:
@@ -139,18 +142,20 @@ class TraccarClient:
                     if pos.get("speed") is not None:
                         speed_kmh = pos["speed"] * 1.852  # 1 knot = 1.852 km/h
 
-                    result.append(VehiclePosition(
-                        device_id=pos["deviceId"],
-                        device_name=device["name"],
-                        unique_id=device["uniqueId"],
-                        status=device.get("status", "unknown"),
-                        latitude=pos["latitude"],
-                        longitude=pos["longitude"],
-                        speed=speed_kmh,
-                        course=pos.get("course"),
-                        last_update=pos["deviceTime"],
-                        address=pos.get("address"),
-                    ))
+                    result.append(
+                        VehiclePosition(
+                            device_id=pos["deviceId"],
+                            device_name=device["name"],
+                            unique_id=device["uniqueId"],
+                            status=device.get("status", "unknown"),
+                            latitude=pos["latitude"],
+                            longitude=pos["longitude"],
+                            speed=speed_kmh,
+                            course=pos.get("course"),
+                            last_update=pos["deviceTime"],
+                            address=pos.get("address"),
+                        )
+                    )
 
             return result
 

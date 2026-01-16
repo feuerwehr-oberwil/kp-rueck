@@ -21,7 +21,6 @@ from app.database import get_db
 from app.main import app
 from app.models import Event, Incident, IncidentAssignment, Material, Personnel, User, Vehicle
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -199,9 +198,7 @@ async def viewer_client(client: AsyncClient, test_viewer: User) -> AsyncClient:
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_assign_personnel_success(
-    editor_client: AsyncClient, test_incident: Incident, test_personnel: Personnel
-):
+async def test_assign_personnel_success(editor_client: AsyncClient, test_incident: Incident, test_personnel: Personnel):
     """Test assigning personnel to incident."""
     assignment_data = {
         "resource_type": "personnel",

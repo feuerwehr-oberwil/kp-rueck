@@ -1,25 +1,25 @@
 """Incident CRUD operations."""
-from datetime import datetime
-from typing import Optional
+
 import uuid
+from datetime import datetime
 
 from fastapi import Request
-from sqlalchemy import and_, select, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, IncidentAssignment, StatusTransition, User, Vehicle, RekoReport
+from ..models import Incident, IncidentAssignment, RekoReport, StatusTransition, User, Vehicle
 from ..services.audit import calculate_changes, log_action
 from . import events as events_crud
 
 
 async def get_incidents(
     db: AsyncSession,
-    event_id: Optional[uuid.UUID] = None,
+    event_id: uuid.UUID | None = None,
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = None,
+    status: str | None = None,
 ) -> list[Incident]:
     """
     Get incidents with optional filters.
@@ -40,7 +40,7 @@ async def get_incidents(
         .options(
             selectinload(Incident.status_transitions),
             selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports)
+            selectinload(Incident.reko_reports),
         )
         .where(Incident.deleted_at.is_(None))
         .order_by(Incident.created_at.desc())
@@ -65,14 +65,9 @@ async def get_incidents(
     incident_ids = [incident.id for incident in incidents]
 
     # Subquery to get latest status transition timestamp for each incident
-    from sqlalchemy import desc
-    from sqlalchemy.sql import text
 
     latest_transitions_query = (
-        select(
-            StatusTransition.incident_id,
-            func.max(StatusTransition.timestamp).label('latest_timestamp')
-        )
+        select(StatusTransition.incident_id, func.max(StatusTransition.timestamp).label("latest_timestamp"))
         .where(StatusTransition.incident_id.in_(incident_ids))
         .group_by(StatusTransition.incident_id)
     )
@@ -83,10 +78,9 @@ async def get_incidents(
     # Batch load all assignments and vehicles in one query
     assignments_query = (
         select(IncidentAssignment, Vehicle)
-        .outerjoin(Vehicle, and_(
-            Vehicle.id == IncidentAssignment.resource_id,
-            IncidentAssignment.resource_type == "vehicle"
-        ))
+        .outerjoin(
+            Vehicle, and_(Vehicle.id == IncidentAssignment.resource_id, IncidentAssignment.resource_type == "vehicle")
+        )
         .where(
             and_(
                 IncidentAssignment.incident_id.in_(incident_ids),
@@ -119,12 +113,7 @@ async def get_incidents(
     # Batch load reko completion status for all incidents
     reko_query = (
         select(RekoReport.incident_id)
-        .where(
-            and_(
-                RekoReport.incident_id.in_(incident_ids),
-                RekoReport.is_draft == False
-            )
-        )
+        .where(and_(RekoReport.incident_id.in_(incident_ids), not RekoReport.is_draft))
         .distinct()
     )
     reko_result = await db.execute(reko_query)
@@ -152,7 +141,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         .options(
             selectinload(Incident.status_transitions),
             selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports)
+            selectinload(Incident.reko_reports),
         )
         .where(Incident.id == incident_id)
     )
@@ -177,14 +166,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 
         # Check for completed reko report
         reko_check = await db.execute(
-            select(RekoReport.id)
-            .where(
-                and_(
-                    RekoReport.incident_id == incident.id,
-                    RekoReport.is_draft == False
-                )
-            )
-            .limit(1)
+            select(RekoReport.id).where(and_(RekoReport.incident_id == incident.id, not RekoReport.is_draft)).limit(1)
         )
         incident.has_completed_reko = reko_check.scalar_one_or_none() is not None
 
@@ -213,7 +195,7 @@ async def create_incident(
         resource_type="incident",
         resource_id=db_incident.id,
         user=current_user,
-        changes={"created": incident.model_dump(mode='json')},
+        changes={"created": incident.model_dump(mode="json")},
         request=request,
     )
 
@@ -232,7 +214,7 @@ async def update_incident(
     incident_update: schemas.IncidentUpdate,
     current_user: User,
     request: Request,
-    expected_updated_at: Optional[datetime] = None,  # For optimistic locking
+    expected_updated_at: datetime | None = None,  # For optimistic locking
 ) -> Incident | None:
     """
     Update incident with optimistic locking and audit logging.
@@ -249,10 +231,7 @@ async def update_incident(
 
     # Optimistic locking check
     if expected_updated_at and incident.updated_at != expected_updated_at:
-        raise ValueError(
-            f"Concurrent modification detected. "
-            f"Expected {expected_updated_at}, got {incident.updated_at}"
-        )
+        raise ValueError(f"Concurrent modification detected. Expected {expected_updated_at}, got {incident.updated_at}")
 
     # Capture before state
     before_state = {
@@ -289,6 +268,7 @@ async def update_incident(
 
             # Automatically release personnel and vehicles (but keep materials)
             from . import assignments as assignments_crud
+
             await assignments_crud.auto_release_incident_resources(
                 db=db,
                 incident_id=incident.id,
@@ -337,7 +317,7 @@ async def update_incident_status(
     new_status: str,
     current_user: User,
     request: Request,
-    notes: Optional[str] = None,
+    notes: str | None = None,
 ) -> Incident | None:
     """
     Update incident status and create status transition record.
@@ -363,6 +343,7 @@ async def update_incident_status(
 
         # Automatically release personnel and vehicles (but keep materials)
         from . import assignments as assignments_crud
+
         await assignments_crud.auto_release_incident_resources(
             db=db,
             incident_id=incident_id,
@@ -440,9 +421,7 @@ async def delete_incident(
     return True
 
 
-async def get_incident_status_history(
-    db: AsyncSession, incident_id: uuid.UUID
-) -> list[StatusTransition]:
+async def get_incident_status_history(db: AsyncSession, incident_id: uuid.UUID) -> list[StatusTransition]:
     """Get all status transitions for an incident."""
     result = await db.execute(
         select(StatusTransition)
@@ -452,9 +431,7 @@ async def get_incident_status_history(
     return list(result.scalars().all())
 
 
-async def _get_assigned_vehicles(
-    db: AsyncSession, incident_id: uuid.UUID
-) -> list[schemas.AssignedVehicle]:
+async def _get_assigned_vehicles(db: AsyncSession, incident_id: uuid.UUID) -> list[schemas.AssignedVehicle]:
     """
     Get all assigned vehicles for an incident with vehicle details.
 

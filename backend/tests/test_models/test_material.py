@@ -1,4 +1,5 @@
 """Tests for Material model."""
+
 from uuid import uuid4
 
 import pytest

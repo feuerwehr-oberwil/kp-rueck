@@ -1,9 +1,9 @@
 """Incident API endpoints."""
-import asyncio
+
 import logging
-from datetime import datetime
-from typing import Annotated, Optional
 import uuid
+from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
-from ..crud import incidents as crud
 from ..crud import events as events_crud
+from ..crud import incidents as crud
 from ..database import get_db
 from ..websocket_manager import broadcast_incident_update
 
@@ -27,8 +27,8 @@ async def trigger_sync_background():
     When an incident is created/updated locally, we push changes TO Railway.
     """
     try:
-        from ..services.sync_service import create_sync_service
         from ..services.settings import get_setting_value
+        from ..services.sync_service import create_sync_service
 
         # Get a new database session for background task
         async for db in get_db():
@@ -50,8 +50,9 @@ async def trigger_sync_background():
                 # Push local changes to Railway (event-based)
                 result = await sync_service.sync_to_railway()
                 if result.success:
-                    logger.info("Event-based sync to Railway successful: %d records",
-                               sum(result.records_synced.values()))
+                    logger.info(
+                        "Event-based sync to Railway successful: %d records", sum(result.records_synced.values())
+                    )
                 else:
                     logger.warning("Event-based sync to Railway failed: %s", result.errors)
             finally:
@@ -66,7 +67,7 @@ async def list_incidents(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
     event_id: uuid.UUID,  # Required: filter by event
-    status: Optional[str] = None,
+    status: str | None = None,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
 ):
@@ -102,9 +103,7 @@ async def get_incident(
     return incident
 
 
-@router.post(
-    "/", response_model=schemas.IncidentResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=schemas.IncidentResponse, status_code=status.HTTP_201_CREATED)
 async def create_incident(
     incident: schemas.IncidentCreate,
     request: Request,
@@ -121,10 +120,7 @@ async def create_incident(
     # Verify event exists
     event = await events_crud.get_event_by_id(db, incident.event_id)
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     # Create incident
     new_incident = await crud.create_incident(
@@ -141,11 +137,7 @@ async def create_incident(
     incident_response = schemas.IncidentResponse.model_validate(new_incident)
 
     # Broadcast WebSocket update
-    background_tasks.add_task(
-        broadcast_incident_update,
-        incident_response.model_dump(mode='json'),
-        "create"
-    )
+    background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
 
     return incident_response
 
@@ -158,7 +150,7 @@ async def update_incident(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-    expected_updated_at: Optional[datetime] = None,
+    expected_updated_at: datetime | None = None,
 ):
     """
     Update incident (editor only).
@@ -184,11 +176,7 @@ async def update_incident(
     incident_response = schemas.IncidentResponse.model_validate(incident)
 
     # Broadcast WebSocket update
-    background_tasks.add_task(
-        broadcast_incident_update,
-        incident_response.model_dump(mode='json'),
-        "update"
-    )
+    background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
 
     return incident_response
 
@@ -223,18 +211,12 @@ async def update_status(
     incident_response = schemas.IncidentResponse.model_validate(incident)
 
     # Broadcast WebSocket update for status change
-    background_tasks.add_task(
-        broadcast_incident_update,
-        incident_response.model_dump(mode='json'),
-        "update"
-    )
+    background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
 
     return incident_response
 
 
-@router.get(
-    "/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse]
-)
+@router.get("/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse])
 async def get_status_history(
     incident_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -264,11 +246,7 @@ async def delete_incident(
         raise HTTPException(status_code=404, detail="Incident not found")
 
     # Broadcast WebSocket update for deletion
-    background_tasks.add_task(
-        broadcast_incident_update,
-        {'id': str(incident_id)},
-        "delete"
-    )
+    background_tasks.add_task(broadcast_incident_update, {"id": str(incident_id)}, "delete")
 
 
 @router.post("/{incident_id}/transfer", response_model=schemas.TransferAssignmentsResponse)
@@ -309,14 +287,13 @@ async def transfer_assignments(
             raise HTTPException(status_code=400, detail=str(e))
 
     # Get event_id for WebSocket broadcast
-    incident_result = await db.execute(
-        select(crud.Incident).where(crud.Incident.id == incident_id)
-    )
+    incident_result = await db.execute(select(crud.Incident).where(crud.Incident.id == incident_id))
     incident = incident_result.scalar_one()
     event_id = incident.event_id
 
     # Broadcast WebSocket update
     from ..websocket_manager import broadcast_message
+
     background_tasks.add_task(
         broadcast_message,
         data={
@@ -327,11 +304,11 @@ async def transfer_assignments(
             "count": result["transferred_count"],
             "event_id": str(event_id),
         },
-        room="operations"
+        room="operations",
     )
 
     return schemas.TransferAssignmentsResponse(
         transferred_count=result["transferred_count"],
         assignment_ids=result["assignment_ids"],
-        message=f"{result['transferred_count']} Ressourcen übertragen"
+        message=f"{result['transferred_count']} Ressourcen übertragen",
     )

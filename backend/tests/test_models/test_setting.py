@@ -1,5 +1,4 @@
 """Tests for Setting model."""
-from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -92,9 +91,7 @@ class TestSettingModel:
         await db_session.commit()
 
         # Query by key
-        result = await db_session.execute(
-            select(Setting).where(Setting.key == "setting2")
-        )
+        result = await db_session.execute(select(Setting).where(Setting.key == "setting2"))
         setting = result.scalar_one()
 
         assert setting.key == "setting2"

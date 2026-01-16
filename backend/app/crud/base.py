@@ -1,5 +1,6 @@
 """Generic base CRUD operations."""
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+
+from typing import Any, TypeVar
 from uuid import UUID
 
 from fastapi import Request
@@ -17,14 +18,14 @@ CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 
 
-class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
+class CRUDBase[ModelType: Base, CreateSchemaType: BaseModel, UpdateSchemaType: BaseModel]:
     """Base class for CRUD operations.
 
     Provides common database operations for all models.
     Reduces code duplication across CRUD modules.
     """
 
-    def __init__(self, model: Type[ModelType]):
+    def __init__(self, model: type[ModelType]):
         """Initialize CRUD base with model class.
 
         Args:
@@ -36,7 +37,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self,
         db: AsyncSession,
         id: UUID,
-    ) -> Optional[ModelType]:
+    ) -> ModelType | None:
         """Get a single record by ID.
 
         Args:
@@ -46,9 +47,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         Returns:
             Model instance or None if not found
         """
-        result = await db.execute(
-            select(self.model).where(self.model.id == id)
-        )
+        result = await db.execute(select(self.model).where(self.model.id == id))
         return result.scalar_one_or_none()
 
     async def get_multi(
@@ -57,7 +56,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         *,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[ModelType]:
+    ) -> list[ModelType]:
         """Get multiple records with pagination.
 
         Args:
@@ -68,9 +67,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         Returns:
             List of model instances
         """
-        result = await db.execute(
-            select(self.model).offset(skip).limit(limit)
-        )
+        result = await db.execute(select(self.model).offset(skip).limit(limit))
         return list(result.scalars().all())
 
     async def create(
@@ -78,8 +75,8 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db: AsyncSession,
         *,
         obj_in: CreateSchemaType,
-        current_user: Optional[User] = None,
-        request: Optional[Request] = None,
+        current_user: User | None = None,
+        request: Request | None = None,
     ) -> ModelType:
         """Create a new record.
 
@@ -121,9 +118,9 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db: AsyncSession,
         *,
         db_obj: ModelType,
-        obj_in: Union[UpdateSchemaType, Dict[str, Any]],
-        current_user: Optional[User] = None,
-        request: Optional[Request] = None,
+        obj_in: UpdateSchemaType | dict[str, Any],
+        current_user: User | None = None,
+        request: Request | None = None,
     ) -> ModelType:
         """Update an existing record.
 
@@ -183,8 +180,8 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db: AsyncSession,
         *,
         id: UUID,
-        current_user: Optional[User] = None,
-        request: Optional[Request] = None,
+        current_user: User | None = None,
+        request: Request | None = None,
     ) -> bool:
         """Delete a record.
 
@@ -224,7 +221,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         *,
         field_name: str,
         field_value: Any,
-    ) -> Optional[ModelType]:
+    ) -> ModelType | None:
         """Get a single record by a specific field value.
 
         Args:
@@ -238,9 +235,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         if not hasattr(self.model, field_name):
             raise ValueError(f"Model {self.model.__name__} has no field {field_name}")
 
-        result = await db.execute(
-            select(self.model).where(getattr(self.model, field_name) == field_value)
-        )
+        result = await db.execute(select(self.model).where(getattr(self.model, field_name) == field_value))
         return result.scalar_one_or_none()
 
     async def get_multi_by_field(
@@ -251,7 +246,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         field_value: Any,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[ModelType]:
+    ) -> list[ModelType]:
         """Get multiple records by a specific field value.
 
         Args:
@@ -268,10 +263,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             raise ValueError(f"Model {self.model.__name__} has no field {field_name}")
 
         result = await db.execute(
-            select(self.model)
-            .where(getattr(self.model, field_name) == field_value)
-            .offset(skip)
-            .limit(limit)
+            select(self.model).where(getattr(self.model, field_name) == field_value).offset(skip).limit(limit)
         )
         return list(result.scalars().all())
 
@@ -289,9 +281,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         from sqlalchemy import func
 
-        result = await db.execute(
-            select(func.count()).select_from(self.model)
-        )
+        result = await db.execute(select(func.count()).select_from(self.model))
         return result.scalar() or 0
 
     async def exists(
@@ -309,7 +299,5 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         Returns:
             True if exists, False otherwise
         """
-        result = await db.execute(
-            select(self.model.id).where(self.model.id == id)
-        )
+        result = await db.execute(select(self.model.id).where(self.model.id == id))
         return result.scalar_one_or_none() is not None

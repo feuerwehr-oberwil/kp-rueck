@@ -1,6 +1,7 @@
 """Vehicle CRUD operations."""
-from datetime import datetime
+
 import uuid
+from datetime import datetime
 
 from fastapi import Request
 from sqlalchemy import select
@@ -34,6 +35,8 @@ async def create_vehicle(
         name=vehicle_data.name,
         type=vehicle_data.type,
         status=vehicle_data.status or "available",
+        display_order=vehicle_data.display_order,
+        radio_call_sign=vehicle_data.radio_call_sign,
     )
     db.add(vehicle)
     await db.flush()
@@ -49,6 +52,8 @@ async def create_vehicle(
             "name": vehicle_data.name,
             "type": vehicle_data.type,
             "status": vehicle_data.status,
+            "display_order": vehicle_data.display_order,
+            "radio_call_sign": vehicle_data.radio_call_sign,
         },
         request=request,
     )

@@ -1,10 +1,11 @@
 """Tests for authentication API endpoints."""
-from datetime import timedelta
+
+from datetime import UTC, timedelta
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import create_access_token, hash_password
@@ -288,16 +289,10 @@ async def test_password_hashing():
 async def test_expired_token_rejected(client: AsyncClient, test_editor_user: User):
     """Test expired tokens are rejected."""
     # Create already-expired token
-    expired_token = create_access_token(
-        data={"sub": str(test_editor_user.id)},
-        expires_delta=timedelta(minutes=-1)
-    )
+    expired_token = create_access_token(data={"sub": str(test_editor_user.id)}, expires_delta=timedelta(minutes=-1))
 
     # Try to use expired token
-    response = await client.get(
-        "/api/auth/me",
-        cookies={"access_token": expired_token}
-    )
+    response = await client.get("/api/auth/me", cookies={"access_token": expired_token})
 
     assert response.status_code == 401
 
@@ -311,10 +306,7 @@ async def test_invalid_token_type(client: AsyncClient, test_editor_user: User):
     refresh_token = create_refresh_token(data={"sub": str(test_editor_user.id)})
 
     # Try to use refresh token as access token
-    response = await client.get(
-        "/api/auth/me",
-        cookies={"access_token": refresh_token}
-    )
+    response = await client.get("/api/auth/me", cookies={"access_token": refresh_token})
 
     assert response.status_code == 401
 
@@ -327,10 +319,7 @@ async def test_invalid_token_type(client: AsyncClient, test_editor_user: User):
 @pytest.mark.asyncio
 async def test_malformed_token(client: AsyncClient):
     """Test malformed JWT is rejected."""
-    response = await client.get(
-        "/api/auth/me",
-        cookies={"access_token": "invalid.jwt.token"}
-    )
+    response = await client.get("/api/auth/me", cookies={"access_token": "invalid.jwt.token"})
     assert response.status_code == 401
 
 
@@ -338,14 +327,9 @@ async def test_malformed_token(client: AsyncClient):
 async def test_token_with_nonexistent_user(client: AsyncClient):
     """Test token with valid format but non-existent user ID."""
     # Create token with random UUID
-    fake_token = create_access_token(
-        data={"sub": str(uuid4())}
-    )
+    fake_token = create_access_token(data={"sub": str(uuid4())})
 
-    response = await client.get(
-        "/api/auth/me",
-        cookies={"access_token": fake_token}
-    )
+    response = await client.get("/api/auth/me", cookies={"access_token": fake_token})
 
     assert response.status_code == 401
 
@@ -358,13 +342,12 @@ async def test_token_with_nonexistent_user(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_login_updates_last_login(client: AsyncClient, test_editor_user: User, db_session: AsyncSession):
     """Test login updates last_login timestamp."""
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from sqlalchemy import select
 
     # Verify last_login is None initially
-    result = await db_session.execute(
-        select(User).where(User.id == test_editor_user.id)
-    )
+    result = await db_session.execute(select(User).where(User.id == test_editor_user.id))
     user_before = result.scalar_one()
     assert user_before.last_login is None
 
@@ -377,30 +360,27 @@ async def test_login_updates_last_login(client: AsyncClient, test_editor_user: U
 
     # Verify last_login was updated
     await db_session.refresh(user_before)
-    result = await db_session.execute(
-        select(User).where(User.id == test_editor_user.id)
-    )
+    result = await db_session.execute(select(User).where(User.id == test_editor_user.id))
     user_after = result.scalar_one()
 
     assert user_after.last_login is not None
     # Should be very recent (within last minute)
-    time_diff = datetime.now(timezone.utc) - user_after.last_login
+    time_diff = datetime.now(UTC) - user_after.last_login
     assert time_diff.total_seconds() < 60
 
 
 @pytest.mark.asyncio
-async def test_login_updates_last_login_on_second_login(client: AsyncClient, test_editor_user: User, db_session: AsyncSession):
+async def test_login_updates_last_login_on_second_login(
+    client: AsyncClient, test_editor_user: User, db_session: AsyncSession
+):
     """Test last_login is updated on subsequent logins."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta
+
     from sqlalchemy import select, update
 
     # Set an old last_login timestamp
-    old_timestamp = datetime.now(timezone.utc) - timedelta(days=7)
-    await db_session.execute(
-        update(User)
-        .where(User.id == test_editor_user.id)
-        .values(last_login=old_timestamp)
-    )
+    old_timestamp = datetime.now(UTC) - timedelta(days=7)
+    await db_session.execute(update(User).where(User.id == test_editor_user.id).values(last_login=old_timestamp))
     await db_session.commit()
 
     # Login
@@ -411,27 +391,25 @@ async def test_login_updates_last_login_on_second_login(client: AsyncClient, tes
     assert response.status_code == 200
 
     # Verify last_login was updated to a recent time
-    result = await db_session.execute(
-        select(User).where(User.id == test_editor_user.id)
-    )
+    result = await db_session.execute(select(User).where(User.id == test_editor_user.id))
     user = result.scalar_one()
 
     assert user.last_login is not None
     assert user.last_login > old_timestamp
     # Should be very recent
-    time_diff = datetime.now(timezone.utc) - user.last_login
+    time_diff = datetime.now(UTC) - user.last_login
     assert time_diff.total_seconds() < 60
 
 
 @pytest.mark.asyncio
-async def test_failed_login_does_not_update_last_login(client: AsyncClient, test_editor_user: User, db_session: AsyncSession):
+async def test_failed_login_does_not_update_last_login(
+    client: AsyncClient, test_editor_user: User, db_session: AsyncSession
+):
     """Test failed login does not update last_login timestamp."""
     from sqlalchemy import select
 
     # Verify last_login is None initially
-    result = await db_session.execute(
-        select(User).where(User.id == test_editor_user.id)
-    )
+    result = await db_session.execute(select(User).where(User.id == test_editor_user.id))
     user_before = result.scalar_one()
     initial_last_login = user_before.last_login
 
@@ -443,9 +421,7 @@ async def test_failed_login_does_not_update_last_login(client: AsyncClient, test
     assert response.status_code == 401
 
     # Verify last_login was NOT updated
-    result = await db_session.execute(
-        select(User).where(User.id == test_editor_user.id)
-    )
+    result = await db_session.execute(select(User).where(User.id == test_editor_user.id))
     user_after = result.scalar_one()
     assert user_after.last_login == initial_last_login
 
@@ -500,7 +476,7 @@ async def test_access_token_max_age(client: AsyncClient, test_editor_user: User)
 
     assert response.status_code == 200
     # Cookie should be set with appropriate max_age (15 minutes = 900 seconds)
-    expected_max_age = auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     # Just verify cookies are set (httpx doesn't expose max_age easily)
     assert "access_token" in response.cookies
 
@@ -524,10 +500,7 @@ async def test_refresh_with_access_token_fails(client: AsyncClient, test_editor_
     access_token = login_response.cookies.get("access_token")
 
     # Try to refresh with access token instead of refresh token
-    response = await client.post(
-        "/api/auth/refresh",
-        cookies={"refresh_token": access_token}
-    )
+    response = await client.post("/api/auth/refresh", cookies={"refresh_token": access_token})
 
     assert response.status_code == 401
 

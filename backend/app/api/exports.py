@@ -88,8 +88,7 @@ async def export_event(
         # Generate filename - only ASCII alphanumeric characters allowed in HTTP headers
         # Non-ASCII characters (like Japanese, umlauts) are replaced with underscores
         event_name_safe = "".join(
-            c if c.isascii() and (c.isalnum() or c in (" ", "-", "_")) else "_"
-            for c in event.name
+            c if c.isascii() and (c.isalnum() or c in (" ", "-", "_")) else "_" for c in event.name
         )
         # Collapse multiple underscores and strip trailing underscores
         event_name_safe = re.sub(r"_+", "_", event_name_safe).strip("_")

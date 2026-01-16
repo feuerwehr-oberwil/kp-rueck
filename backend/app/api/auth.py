@@ -1,7 +1,8 @@
 """Authentication API endpoints."""
-from datetime import datetime, timezone
-from typing import Annotated
+
 import uuid
+from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -10,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
+from ..auth.config import auth_settings
 from ..auth.dependencies import CurrentUser, get_current_user
 from ..auth.security import (
     create_access_token,
@@ -17,7 +19,6 @@ from ..auth.security import (
     decode_token,
     verify_password,
 )
-from ..auth.config import auth_settings
 from ..database import get_db
 from ..models import User
 from ..services.audit import log_login, log_logout
@@ -30,7 +31,7 @@ async def login(
     request: Request,
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Login with username and password.
@@ -46,9 +47,7 @@ async def login(
         6. Return user data
     """
     # Find user by username
-    result = await db.execute(
-        select(User).where(User.username == form_data.username)
-    )
+    result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
 
     # Verify credentials
@@ -73,9 +72,7 @@ async def login(
         }
     )
 
-    refresh_token = create_refresh_token(
-        data={"sub": str(user.id)}
-    )
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     # Set httpOnly cookies - explicitly set path="/" to ensure cookies are sent on all paths
     # In production, domain=".fwo.li" allows cookies to be shared across subdomains
@@ -103,7 +100,7 @@ async def login(
     )
 
     # Update last login
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(UTC)
 
     # Log successful login
     await log_login(db=db, user=user, request=request, success=True)
@@ -115,9 +112,7 @@ async def login(
 
 @router.post("/refresh", response_model=schemas.UserResponse)
 async def refresh_token(
-    response: Response,
-    refresh_token: Annotated[str | None, Cookie()] = None,
-    db: AsyncSession = Depends(get_db)
+    response: Response, refresh_token: Annotated[str | None, Cookie()] = None, db: AsyncSession = Depends(get_db)
 ):
     """
     Refresh access token using refresh token.
@@ -125,40 +120,26 @@ async def refresh_token(
     Frontend calls this when access token is about to expire (8 hours).
     """
     if not refresh_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh-Token fehlt"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh-Token fehlt")
 
     try:
         payload = decode_token(refresh_token)
 
         # Verify token type
         if payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Ungültiger Token-Typ"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Token-Typ")
 
         user_id = uuid.UUID(payload.get("sub"))
 
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Ungültiger Refresh-Token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Refresh-Token")
 
     # Load user
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Benutzer nicht gefunden"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzer nicht gefunden")
 
     # Create new access token
     access_token = create_access_token(
@@ -194,7 +175,7 @@ async def logout(
     request: Request,
     response: Response,
     access_token: Annotated[str | None, Cookie()] = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Logout by clearing cookies.

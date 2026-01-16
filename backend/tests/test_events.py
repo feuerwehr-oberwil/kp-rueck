@@ -1,4 +1,5 @@
 """Tests for event CRUD operations."""
+
 from datetime import datetime
 
 import pytest
@@ -6,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
 from app.crud import events as crud
-from app.models import Event, Incident
+from app.models import Incident
 
 
 @pytest.mark.asyncio
@@ -48,7 +49,7 @@ async def test_get_events_exclude_archived(db_session: AsyncSession):
     event1_data = schemas.EventCreate(name="Active Event", training_flag=False)
     event2_data = schemas.EventCreate(name="Archived Event", training_flag=False)
 
-    event1 = await crud.create_event(db_session, event1_data)
+    await crud.create_event(db_session, event1_data)
     event2 = await crud.create_event(db_session, event2_data)
 
     # Archive one event
@@ -210,9 +211,7 @@ async def test_cascade_delete_incidents(db_session: AsyncSession):
     # Verify incident is also deleted (cascade)
     from sqlalchemy import select
 
-    result = await db_session.execute(
-        select(Incident).where(Incident.id == incident_id)
-    )
+    result = await db_session.execute(select(Incident).where(Incident.id == incident_id))
     deleted_incident = result.scalar_one_or_none()
     assert deleted_incident is None
 
@@ -246,9 +245,9 @@ async def test_events_ordered_by_activity(db_session: AsyncSession):
     event2_data = schemas.EventCreate(name="Event 2", training_flag=False)
     event3_data = schemas.EventCreate(name="Event 3", training_flag=False)
 
-    event1 = await crud.create_event(db_session, event1_data)
+    await crud.create_event(db_session, event1_data)
     event2 = await crud.create_event(db_session, event2_data)
-    event3 = await crud.create_event(db_session, event3_data)
+    await crud.create_event(db_session, event3_data)
 
     # Update activity on event2 (make it most recent)
     import asyncio

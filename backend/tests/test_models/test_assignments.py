@@ -1,4 +1,5 @@
 """Tests for IncidentAssignment model."""
+
 from uuid import uuid4
 
 import pytest
@@ -105,9 +106,7 @@ class TestIncidentAssignmentModel:
         await db_session.commit()
 
         # Assignment should be deleted
-        result = await db_session.execute(
-            select(IncidentAssignment).where(IncidentAssignment.id == assignment_id)
-        )
+        result = await db_session.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
         assert result.scalar_one_or_none() is None
 
     async def test_relationship_loading(
@@ -133,9 +132,7 @@ class TestIncidentAssignmentModel:
 
         # Reload incident with eager loading of assignments
         result = await db_session.execute(
-            select(Incident)
-            .options(selectinload(Incident.assignments))
-            .where(Incident.id == test_incident.id)
+            select(Incident).options(selectinload(Incident.assignments)).where(Incident.id == test_incident.id)
         )
         incident = result.scalar_one()
 

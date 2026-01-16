@@ -24,7 +24,6 @@ from app.main import app
 from app.models import Event, Incident, Personnel, RekoReport, User
 from app.services.tokens import generate_form_token
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -180,9 +179,7 @@ async def viewer_client(client: AsyncClient, test_viewer: User) -> AsyncClient:
 @pytest.mark.api
 async def test_get_reko_form_creates_new_report(client: AsyncClient, test_incident: Incident, valid_token: str):
     """Test that getting form creates a new report if none exists."""
-    response = await client.get(
-        f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}"
-    )
+    response = await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}")
     assert response.status_code == 200
     data = response.json()
     assert data["incident_id"] == str(test_incident.id)
@@ -196,9 +193,7 @@ async def test_get_reko_form_returns_existing_report(
     client: AsyncClient, test_incident: Incident, test_reko_report: RekoReport
 ):
     """Test that getting form returns existing report."""
-    response = await client.get(
-        f"/api/reko/form?incident_id={test_incident.id}&token={test_reko_report.token}"
-    )
+    response = await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={test_reko_report.token}")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == str(test_reko_report.id)
@@ -207,13 +202,9 @@ async def test_get_reko_form_returns_existing_report(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_reko_form_includes_incident_details(
-    client: AsyncClient, test_incident: Incident, valid_token: str
-):
+async def test_get_reko_form_includes_incident_details(client: AsyncClient, test_incident: Incident, valid_token: str):
     """Test that form response includes incident details."""
-    response = await client.get(
-        f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}"
-    )
+    response = await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}")
     assert response.status_code == 200
     data = response.json()
     assert data["incident_title"] == test_incident.title
@@ -239,9 +230,7 @@ async def test_get_reko_form_with_personnel(
 @pytest.mark.api
 async def test_get_reko_form_invalid_token(client: AsyncClient, test_incident: Incident):
     """Test that invalid token is rejected."""
-    response = await client.get(
-        f"/api/reko/form?incident_id={test_incident.id}&token=invalid_token"
-    )
+    response = await client.get(f"/api/reko/form?incident_id={test_incident.id}&token=invalid_token")
     assert response.status_code == 400
 
 
@@ -666,9 +655,7 @@ async def test_complete_reko_workflow(client: AsyncClient, test_incident: Incide
     token = link_response.json()["token"]
 
     # Step 2: Get form (creates draft)
-    form_response = await client.get(
-        f"/api/reko/form?incident_id={test_incident.id}&token={token}"
-    )
+    form_response = await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={token}")
     assert form_response.status_code == 200
     assert form_response.json()["is_draft"] is True
 

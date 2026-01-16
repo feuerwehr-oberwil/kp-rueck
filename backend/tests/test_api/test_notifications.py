@@ -9,7 +9,6 @@ Tests cover:
 """
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -21,7 +20,6 @@ from app.auth.security import hash_password
 from app.database import get_db
 from app.main import app
 from app.models import Event, Incident, Notification, User
-
 
 # ============================================
 # Fixtures

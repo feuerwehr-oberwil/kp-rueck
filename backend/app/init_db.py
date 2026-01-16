@@ -2,6 +2,7 @@
 
 Run with: uv run python -m app.init_db
 """
+
 import asyncio
 
 from . import models  # noqa: F401 - Import models to register them

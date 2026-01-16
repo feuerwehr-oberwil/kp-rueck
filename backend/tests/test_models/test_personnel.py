@@ -1,4 +1,5 @@
 """Tests for Personnel model."""
+
 from uuid import uuid4
 
 import pytest

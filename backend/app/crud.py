@@ -1,4 +1,5 @@
 """CRUD operations using async SQLAlchemy."""
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -6,15 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models, schemas
 
-
 # ============================================
 # Incident CRUD
 # ============================================
 
 
-async def get_incidents(
-    db: AsyncSession, skip: int = 0, limit: int = 100
-) -> list[models.Incident]:
+async def get_incidents(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[models.Incident]:
     """Get all incidents."""
     result = await db.execute(select(models.Incident).offset(skip).limit(limit))
     return list(result.scalars().all())
@@ -69,9 +67,7 @@ async def delete_incident(db: AsyncSession, incident_id: UUID) -> bool:
 # ============================================
 
 
-async def get_personnel(
-    db: AsyncSession, skip: int = 0, limit: int = 100
-) -> list[models.Personnel]:
+async def get_personnel(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[models.Personnel]:
     """Get all personnel."""
     result = await db.execute(select(models.Personnel).offset(skip).limit(limit))
     return list(result.scalars().all())
@@ -92,9 +88,7 @@ async def create_person(db: AsyncSession, person: schemas.PersonnelCreate) -> mo
     return db_person
 
 
-async def update_person(
-    db: AsyncSession, person_id: UUID, person: schemas.PersonnelUpdate
-) -> models.Personnel | None:
+async def update_person(db: AsyncSession, person_id: UUID, person: schemas.PersonnelUpdate) -> models.Personnel | None:
     """Update a person."""
     db_person = await get_person(db, person_id)
     if db_person:
@@ -132,9 +126,7 @@ async def create_vehicle(db: AsyncSession, vehicle: schemas.VehicleCreate) -> mo
     return db_vehicle
 
 
-async def update_vehicle(
-    db: AsyncSession, vehicle_id: UUID, vehicle: schemas.VehicleUpdate
-) -> models.Vehicle | None:
+async def update_vehicle(db: AsyncSession, vehicle_id: UUID, vehicle: schemas.VehicleUpdate) -> models.Vehicle | None:
     """Update a vehicle."""
     db_vehicle = await get_vehicle(db, vehicle_id)
     if db_vehicle:

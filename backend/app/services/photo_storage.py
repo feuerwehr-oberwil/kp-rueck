@@ -1,19 +1,19 @@
 """Photo storage and processing service for Reko forms."""
+
 import io
-import os
 import uuid
 from pathlib import Path
-from typing import Optional
 
 # Optional MIME type detection for enhanced security
 try:
     import magic
+
     HAS_MAGIC = True
 except ImportError:
     HAS_MAGIC = False
 
-from PIL import Image
 from fastapi import HTTPException, UploadFile
+from PIL import Image
 
 from ..config import get_settings
 
@@ -41,7 +41,7 @@ class PhotoStorageService:
         incident_dir.mkdir(parents=True, exist_ok=True)
         return incident_dir
 
-    def _validate_file_type(self, content: bytes, filename: Optional[str] = None) -> None:
+    def _validate_file_type(self, content: bytes, filename: str | None = None) -> None:
         """
         Validate file type using both extension and MIME type magic bytes.
 
@@ -52,8 +52,7 @@ class PhotoStorageService:
             ext = Path(filename).suffix.lower()
             if ext not in self.allowed_extensions:
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid file extension. Allowed: {', '.join(self.allowed_extensions)}"
+                    status_code=400, detail=f"Invalid file extension. Allowed: {', '.join(self.allowed_extensions)}"
                 )
 
         # Check actual file content using magic bytes if available
@@ -61,14 +60,16 @@ class PhotoStorageService:
             try:
                 mime = magic.from_buffer(content, mime=True)
                 allowed_mimes = {
-                    'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
-                    'application/octet-stream'  # Some browsers send this for images
+                    "image/jpeg",
+                    "image/jpg",
+                    "image/png",
+                    "image/webp",
+                    "application/octet-stream",  # Some browsers send this for images
                 }
 
                 if mime and mime not in allowed_mimes:
                     raise HTTPException(
-                        status_code=400,
-                        detail=f"Invalid file type detected: {mime}. Only image files are allowed."
+                        status_code=400, detail=f"Invalid file type detected: {mime}. Only image files are allowed."
                     )
             except Exception:
                 # Fall back to PIL validation if magic fails
@@ -79,10 +80,7 @@ class PhotoStorageService:
             img = Image.open(io.BytesIO(content))
             img.verify()  # Verify it's a valid image
         except Exception:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid or corrupted image file"
-            )
+            raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
 
     def _sanitize_filename(self, filename: str) -> str:
         """
@@ -142,7 +140,7 @@ class PhotoStorageService:
         self,
         incident_id: uuid.UUID,
         file: UploadFile,
-        current_photos: Optional[list[str]],
+        current_photos: list[str] | None,
     ) -> str:
         """
         Save and compress photo for Reko report.
@@ -161,20 +159,14 @@ class PhotoStorageService:
         # Validate photo count
         photo_count = len(current_photos) if current_photos else 0
         if photo_count >= self.max_photos:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Maximum {self.max_photos} photos per report"
-            )
+            raise HTTPException(status_code=400, detail=f"Maximum {self.max_photos} photos per report")
 
         # Read file content first (needed for all validations)
         content = await file.read()
 
         # Validate file size
         if len(content) > self.max_size_bytes:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB"
-            )
+            raise HTTPException(status_code=400, detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB")
 
         # Validate file type (extension + MIME type)
         self._validate_file_type(content, file.filename)
@@ -187,10 +179,7 @@ class PhotoStorageService:
             image = Image.open(io.BytesIO(content))
             compressed_data = self._compress_image(image)
         except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid image file: {str(e)}"
-            )
+            raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
 
         # Generate safe, unique filename (always use UUID to prevent attacks)
         filename = self._sanitize_filename(file.filename or "photo.jpg")
@@ -204,7 +193,7 @@ class PhotoStorageService:
 
         return filename
 
-    def get_photo_path(self, incident_id: uuid.UUID, filename: str) -> Optional[Path]:
+    def get_photo_path(self, incident_id: uuid.UUID, filename: str) -> Path | None:
         """
         Get full path to photo file with path traversal protection.
 
@@ -224,33 +213,21 @@ class PhotoStorageService:
 
         # Validate filename doesn't contain path traversal sequences
         if "/" in filename or "\\" in filename or ".." in filename:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid filename: path traversal sequences not allowed"
-            )
+            raise HTTPException(status_code=400, detail="Invalid filename: path traversal sequences not allowed")
 
         # Ensure filename matches expected pattern (UUID.jpg)
-        if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$', filename):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid filename format: must be UUID.jpg"
-            )
+        if not re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$", filename):
+            raise HTTPException(status_code=400, detail="Invalid filename format: must be UUID.jpg")
 
         file_path = self.photos_dir / str(incident_id) / filename
 
         # Ensure resolved path is within photos_dir (prevents traversal)
         try:
             if not file_path.resolve().is_relative_to(self.photos_dir.resolve()):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Path traversal detected"
-                )
+                raise HTTPException(status_code=400, detail="Path traversal detected")
         except ValueError:
             # is_relative_to() raises ValueError if paths are on different drives
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid path"
-            )
+            raise HTTPException(status_code=400, detail="Invalid path")
 
         return file_path if file_path.exists() else None
 

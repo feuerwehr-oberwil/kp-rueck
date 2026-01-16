@@ -1,14 +1,14 @@
 """Middleware to automatically log API requests."""
+
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import BackgroundTasks, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from ..database import audit_session_maker
 from ..services.audit import log_action
-from ..database import async_session_maker, audit_session_maker
-from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +84,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # Only log successful API requests (skip health checks, static files)
-        if (
-            response.status_code < 300
-            and request.url.path.startswith("/api/")
-            and request.url.path != "/api/health"
-        ):
+        if response.status_code < 300 and request.url.path.startswith("/api/") and request.url.path != "/api/health":
             duration_ms = round((time.time() - start_time) * 1000, 2)
             user = getattr(request.state, "user", None)
 

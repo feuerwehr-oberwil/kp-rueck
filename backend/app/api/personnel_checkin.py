@@ -1,4 +1,5 @@
 """Personnel check-in API endpoints."""
+
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -30,7 +31,7 @@ async def generate_checkin_link(
     link = f"/check-in?token={token}"
 
     # Get base URL from request
-    base_url = str(request.base_url).rstrip('/')
+    base_url = str(request.base_url).rstrip("/")
 
     return {
         "token": token,
@@ -58,6 +59,7 @@ async def list_personnel_for_checkin(
 
     # Get event information
     from ..crud import events as events_crud
+
     event = await events_crud.get_event_by_id(db, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -112,14 +114,14 @@ async def check_in(
         background_tasks.add_task(
             broadcast_personnel_update,
             {
-                'id': str(person.id),
-                'name': person.name,
-                'role': person.role,
-                'availability': person.availability,
-                'checked_in': person.checked_in,
-                'event_id': str(event_id),
+                "id": str(person.id),
+                "name": person.name,
+                "role": person.role,
+                "availability": person.availability,
+                "checked_in": person.checked_in,
+                "event_id": str(event_id),
             },
-            "update"
+            "update",
         )
 
     return person
@@ -159,14 +161,14 @@ async def check_out(
         background_tasks.add_task(
             broadcast_personnel_update,
             {
-                'id': str(person.id),
-                'name': person.name,
-                'role': person.role,
-                'availability': person.availability,
-                'checked_in': person.checked_in,
-                'event_id': str(event_id),
+                "id": str(person.id),
+                "name": person.name,
+                "role": person.role,
+                "availability": person.availability,
+                "checked_in": person.checked_in,
+                "event_id": str(event_id),
             },
-            "update"
+            "update",
         )
 
     return person

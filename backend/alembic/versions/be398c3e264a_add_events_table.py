@@ -5,19 +5,20 @@ Revises: 0d5cc7325349
 Create Date: 2025-10-25 20:20:32.921902
 
 """
-from typing import Sequence, Union
-import uuid
 
-from alembic import op
+import uuid
+from collections.abc import Sequence
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'be398c3e264a'
-down_revision: Union[str, Sequence[str], None] = '0d5cc7325349'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "be398c3e264a"
+down_revision: str | Sequence[str] | None = "0d5cc7325349"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -34,19 +35,19 @@ def upgrade() -> None:
     """
     # Step 1: Create events table
     op.create_table(
-        'events',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
-        sa.Column('name', sa.String(255), nullable=False),
-        sa.Column('training_flag', sa.Boolean, nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column('archived_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('last_activity_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        "events",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+        sa.Column("name", sa.String(255), nullable=False),
+        sa.Column("training_flag", sa.Boolean, nullable=False, server_default="false"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("last_activity_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
 
     # Step 2: Add indexes on events table
-    op.create_index('ix_events_archived_at', 'events', ['archived_at'])
-    op.create_index('ix_events_last_activity_at', 'events', ['last_activity_at'])
+    op.create_index("ix_events_archived_at", "events", ["archived_at"])
+    op.create_index("ix_events_last_activity_at", "events", ["last_activity_at"])
 
     # Step 3: Create default event for existing incidents
     default_event_id = str(uuid.uuid4())
@@ -56,9 +57,7 @@ def upgrade() -> None:
     """)
 
     # Step 4: Add event_id column to incidents (nullable initially)
-    op.add_column('incidents',
-        sa.Column('event_id', postgresql.UUID(as_uuid=True), nullable=True)
-    )
+    op.add_column("incidents", sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=True))
 
     # Step 5: Migrate all existing incidents to the default event
     op.execute(f"""
@@ -66,22 +65,17 @@ def upgrade() -> None:
     """)
 
     # Step 6: Make event_id non-nullable now that all rows have values
-    op.alter_column('incidents', 'event_id', nullable=False)
+    op.alter_column("incidents", "event_id", nullable=False)
 
     # Step 7: Add foreign key constraint with CASCADE delete
-    op.create_foreign_key(
-        'fk_incidents_event_id',
-        'incidents', 'events',
-        ['event_id'], ['id'],
-        ondelete='CASCADE'
-    )
+    op.create_foreign_key("fk_incidents_event_id", "incidents", "events", ["event_id"], ["id"], ondelete="CASCADE")
 
     # Step 8: Add index on event_id for fast filtering
-    op.create_index('ix_incidents_event_id', 'incidents', ['event_id'])
+    op.create_index("ix_incidents_event_id", "incidents", ["event_id"])
 
     # Step 9: Remove training_flag from incidents table (now on events)
-    op.drop_index('idx_incidents_training', 'incidents')
-    op.drop_column('incidents', 'training_flag')
+    op.drop_index("idx_incidents_training", "incidents")
+    op.drop_column("incidents", "training_flag")
 
 
 def downgrade() -> None:
@@ -91,9 +85,7 @@ def downgrade() -> None:
     This migration reverses the event management system changes.
     """
     # Step 1: Add training_flag back to incidents
-    op.add_column('incidents',
-        sa.Column('training_flag', sa.Boolean, nullable=False, server_default='false')
-    )
+    op.add_column("incidents", sa.Column("training_flag", sa.Boolean, nullable=False, server_default="false"))
 
     # Step 2: Restore training_flag values from events
     op.execute("""
@@ -104,18 +96,18 @@ def downgrade() -> None:
     """)
 
     # Step 3: Recreate training_flag index
-    op.create_index('idx_incidents_training', 'incidents', ['training_flag'])
+    op.create_index("idx_incidents_training", "incidents", ["training_flag"])
 
     # Step 4: Drop foreign key and indexes
-    op.drop_constraint('fk_incidents_event_id', 'incidents', type_='foreignkey')
-    op.drop_index('ix_incidents_event_id', 'incidents')
+    op.drop_constraint("fk_incidents_event_id", "incidents", type_="foreignkey")
+    op.drop_index("ix_incidents_event_id", "incidents")
 
     # Step 5: Drop event_id column
-    op.drop_column('incidents', 'event_id')
+    op.drop_column("incidents", "event_id")
 
     # Step 6: Drop events table indexes
-    op.drop_index('ix_events_last_activity_at', 'events')
-    op.drop_index('ix_events_archived_at', 'events')
+    op.drop_index("ix_events_last_activity_at", "events")
+    op.drop_index("ix_events_archived_at", "events")
 
     # Step 7: Drop events table
-    op.drop_table('events')
+    op.drop_table("events")

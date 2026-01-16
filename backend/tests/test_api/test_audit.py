@@ -1,5 +1,6 @@
 """Tests for audit log API endpoints."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -22,9 +23,7 @@ async def client(db_session: AsyncSession) -> AsyncClient:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
@@ -61,9 +60,7 @@ async def test_viewer_user(db_session: AsyncSession) -> User:
 
 
 @pytest_asyncio.fixture
-async def authenticated_editor_client(
-    client: AsyncClient, test_editor_user: User
-) -> AsyncClient:
+async def authenticated_editor_client(client: AsyncClient, test_editor_user: User) -> AsyncClient:
     """Create authenticated editor client."""
     response = await client.post(
         "/api/auth/login",
@@ -74,9 +71,7 @@ async def authenticated_editor_client(
 
 
 @pytest_asyncio.fixture
-async def authenticated_viewer_client(
-    client: AsyncClient, test_viewer_user: User
-) -> AsyncClient:
+async def authenticated_viewer_client(client: AsyncClient, test_viewer_user: User) -> AsyncClient:
     """Create authenticated viewer client."""
     response = await client.post(
         "/api/auth/login",
@@ -87,9 +82,7 @@ async def authenticated_viewer_client(
 
 
 @pytest_asyncio.fixture
-async def test_audit_entries(
-    db_session: AsyncSession, test_editor_user: User
-) -> list[AuditLog]:
+async def test_audit_entries(db_session: AsyncSession, test_editor_user: User) -> list[AuditLog]:
     """Create test audit log entries."""
     entries = []
     resource_ids = [uuid4() for _ in range(3)]
@@ -112,7 +105,7 @@ async def test_audit_entries(
             resource_type=config["resource"],
             resource_id=config["rid"],
             changes_json={"field": f"value_{i}"},
-            timestamp=datetime.now(timezone.utc) - timedelta(minutes=i),
+            timestamp=datetime.now(UTC) - timedelta(minutes=i),
         )
         db_session.add(entry)
         entries.append(entry)
@@ -125,9 +118,7 @@ class TestAuditLogAuthentication:
     """Test authentication and authorization for audit endpoints."""
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_requires_editor(
-        self, authenticated_viewer_client: AsyncClient
-    ):
+    async def test_query_audit_log_requires_editor(self, authenticated_viewer_client: AsyncClient):
         """Verify viewer role gets 403 Forbidden."""
         response = await authenticated_viewer_client.get("/api/audit")
         assert response.status_code == 403
@@ -163,9 +154,7 @@ class TestAuditLogQuery:
         self, authenticated_editor_client: AsyncClient, test_audit_entries: list[AuditLog]
     ):
         """Query with resource_type filter."""
-        response = await authenticated_editor_client.get(
-            "/api/audit?resource_type=incident"
-        )
+        response = await authenticated_editor_client.get("/api/audit?resource_type=incident")
         assert response.status_code == 200
 
         data = response.json()
@@ -180,9 +169,7 @@ class TestAuditLogQuery:
         # Get a specific resource_id from test entries
         resource_id = test_audit_entries[0].resource_id
 
-        response = await authenticated_editor_client.get(
-            f"/api/audit?resource_id={resource_id}"
-        )
+        response = await authenticated_editor_client.get(f"/api/audit?resource_id={resource_id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -197,9 +184,7 @@ class TestAuditLogQuery:
         test_editor_user: User,
     ):
         """Query with user_id filter."""
-        response = await authenticated_editor_client.get(
-            f"/api/audit?user_id={test_editor_user.id}"
-        )
+        response = await authenticated_editor_client.get(f"/api/audit?user_id={test_editor_user.id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -223,13 +208,11 @@ class TestAuditLogQuery:
         self, authenticated_editor_client: AsyncClient, test_audit_entries: list[AuditLog]
     ):
         """Query with date range filter."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         start_date = (now - timedelta(minutes=10)).isoformat()
         end_date = now.isoformat()
 
-        response = await authenticated_editor_client.get(
-            f"/api/audit?start_date={start_date}&end_date={end_date}"
-        )
+        response = await authenticated_editor_client.get(f"/api/audit?start_date={start_date}&end_date={end_date}")
         assert response.status_code == 200
 
         data = response.json()
@@ -238,9 +221,7 @@ class TestAuditLogQuery:
         assert len(data) >= 6
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_pagination(
-        self, authenticated_editor_client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_query_audit_log_pagination(self, authenticated_editor_client: AsyncClient, db_session: AsyncSession):
         """Test pagination with limit and offset."""
         # Create many entries
         for i in range(150):
@@ -248,7 +229,7 @@ class TestAuditLogQuery:
                 id=uuid4(),
                 action_type="test",
                 resource_type="test",
-                timestamp=datetime.now(timezone.utc) - timedelta(seconds=i),
+                timestamp=datetime.now(UTC) - timedelta(seconds=i),
             )
             db_session.add(entry)
         await db_session.commit()
@@ -269,22 +250,16 @@ class TestAuditLogQuery:
         assert data1[0]["id"] != data2[0]["id"]
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_max_limit(
-        self, authenticated_editor_client: AsyncClient
-    ):
+    async def test_query_audit_log_max_limit(self, authenticated_editor_client: AsyncClient):
         """Query with limit > 1000 should be capped."""
         response = await authenticated_editor_client.get("/api/audit?limit=2000")
         # Should fail validation (le=1000)
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_empty_result(
-        self, authenticated_editor_client: AsyncClient
-    ):
+    async def test_query_audit_log_empty_result(self, authenticated_editor_client: AsyncClient):
         """Query with filters matching no entries."""
-        response = await authenticated_editor_client.get(
-            "/api/audit?resource_type=nonexistent_type"
-        )
+        response = await authenticated_editor_client.get("/api/audit?resource_type=nonexistent_type")
         assert response.status_code == 200
 
         data = response.json()
@@ -302,9 +277,7 @@ class TestResourceHistory:
         resource_id = test_audit_entries[0].resource_id
         resource_type = test_audit_entries[0].resource_type
 
-        response = await authenticated_editor_client.get(
-            f"/api/audit/resource/{resource_type}/{resource_id}"
-        )
+        response = await authenticated_editor_client.get(f"/api/audit/resource/{resource_type}/{resource_id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -317,12 +290,8 @@ class TestResourceHistory:
         assert timestamps == sorted(timestamps, reverse=True)
 
     @pytest.mark.asyncio
-    async def test_get_resource_history_requires_editor(
-        self, authenticated_viewer_client: AsyncClient
-    ):
+    async def test_get_resource_history_requires_editor(self, authenticated_viewer_client: AsyncClient):
         """Verify viewer role gets 403."""
         fake_id = uuid4()
-        response = await authenticated_viewer_client.get(
-            f"/api/audit/resource/incident/{fake_id}"
-        )
+        response = await authenticated_viewer_client.get(f"/api/audit/resource/incident/{fake_id}")
         assert response.status_code == 403

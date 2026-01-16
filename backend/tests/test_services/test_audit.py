@@ -1,13 +1,12 @@
 """Tests for audit logging service."""
-from datetime import datetime
-from uuid import uuid4
+
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditLog, User
+from app.models import User
 from app.services.audit import (
     calculate_changes,
     log_action,
@@ -79,17 +78,13 @@ class TestLogAction:
         assert audit_entry.changes_json["priority"]["after"] == "high"
 
     @pytest.mark.asyncio
-    async def test_log_action_with_request_metadata(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_log_action_with_request_metadata(self, db_session: AsyncSession, test_user: User):
         """Verify IP address and user agent extraction."""
         # Create mock Request object
         mock_request = MagicMock()
         mock_request.client.host = "192.168.1.100"
         mock_request.headers.get = MagicMock(
-            side_effect=lambda key, default=None: {
-                "User-Agent": "Mozilla/5.0 TestClient"
-            }.get(key, default)
+            side_effect=lambda key, default=None: {"User-Agent": "Mozilla/5.0 TestClient"}.get(key, default)
         )
 
         audit_entry = await log_action(
@@ -147,9 +142,7 @@ class TestLogLogin:
         mock_request.client.host = "127.0.0.1"
         mock_request.headers.get = MagicMock(return_value=None)
 
-        audit_entry = await log_login(
-            db=db_session, user=test_user, request=mock_request, success=True
-        )
+        audit_entry = await log_login(db=db_session, user=test_user, request=mock_request, success=True)
 
         assert audit_entry.action_type == "login_success"
         assert audit_entry.resource_type == "user"
@@ -163,9 +156,7 @@ class TestLogLogin:
         mock_request.client.host = "127.0.0.1"
         mock_request.headers.get = MagicMock(return_value=None)
 
-        audit_entry = await log_login(
-            db=db_session, user=test_user, request=mock_request, success=False
-        )
+        audit_entry = await log_login(db=db_session, user=test_user, request=mock_request, success=False)
 
         assert audit_entry.action_type == "login_failure"
         assert audit_entry.resource_type == "user"

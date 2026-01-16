@@ -1,7 +1,8 @@
 """Assignment API endpoints."""
+
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -28,9 +29,7 @@ async def assign_resource(
     Checks for conflicts and shows warning in response.
     """
     # Check for conflicts first
-    conflicts = await crud.check_resource_conflicts(
-        db, assignment.resource_type, assignment.resource_id
-    )
+    conflicts = await crud.check_resource_conflicts(db, assignment.resource_type, assignment.resource_id)
 
     if conflicts:
         # Return warning but allow assignment (override behavior)
@@ -53,18 +52,12 @@ async def assign_resource(
     assignment_response = schemas.AssignmentResponse.model_validate(result)
 
     # Broadcast WebSocket update
-    background_tasks.add_task(
-        broadcast_assignment_update,
-        assignment_response.model_dump(mode='json'),
-        "create"
-    )
+    background_tasks.add_task(broadcast_assignment_update, assignment_response.model_dump(mode="json"), "create")
 
     return assignment_response
 
 
-@router.post(
-    "/{incident_id}/unassign/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.post("/{incident_id}/unassign/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def unassign_resource(
     incident_id: uuid.UUID,
     assignment_id: uuid.UUID,
@@ -86,15 +79,11 @@ async def unassign_resource(
 
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(
-        broadcast_assignment_update,
-        {'id': str(assignment_id), 'incident_id': str(incident_id)},
-        "delete"
+        broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(incident_id)}, "delete"
     )
 
 
-@router.get(
-    "/{incident_id}/assignments", response_model=list[schemas.AssignmentResponse]
-)
+@router.get("/{incident_id}/assignments", response_model=list[schemas.AssignmentResponse])
 async def get_assignments(
     incident_id: uuid.UUID,
     current_user: CurrentUser,
@@ -104,9 +93,7 @@ async def get_assignments(
     return await crud.get_incident_assignments(db, incident_id)
 
 
-@router.post(
-    "/{incident_id}/release-all", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.post("/{incident_id}/release-all", status_code=status.HTTP_204_NO_CONTENT)
 async def release_all_resources(
     incident_id: uuid.UUID,
     request: Request,
@@ -128,14 +115,13 @@ async def release_all_resources(
 
     # Broadcast WebSocket update for bulk release
     background_tasks.add_task(
-        broadcast_assignment_update,
-        {'incident_id': str(incident_id), 'action': 'release_all'},
-        "bulk_delete"
+        broadcast_assignment_update, {"incident_id": str(incident_id), "action": "release_all"}, "bulk_delete"
     )
 
 
 # Bulk assignments endpoint (outside incidents prefix)
 from fastapi import APIRouter as NewRouter
+
 bulk_router = NewRouter(prefix="/assignments", tags=["assignments"])
 
 

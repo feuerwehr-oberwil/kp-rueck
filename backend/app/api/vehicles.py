@@ -1,16 +1,17 @@
 """Vehicle management API endpoints."""
-import uuid
-from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status, Query
-from sqlalchemy import select, and_
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import vehicles as crud
 from ..database import get_db
-from ..models import Vehicle, EventSpecialFunction, IncidentAssignment, Incident, Personnel
+from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, Vehicle
 from ..websocket_manager import broadcast_vehicle_update
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -51,11 +52,7 @@ async def create_vehicle(
 
     # Convert to Pydantic and broadcast WebSocket update
     vehicle_response = schemas.Vehicle.model_validate(new_vehicle)
-    background_tasks.add_task(
-        broadcast_vehicle_update,
-        vehicle_response.model_dump(mode='json'),
-        "create"
-    )
+    background_tasks.add_task(broadcast_vehicle_update, vehicle_response.model_dump(mode="json"), "create")
 
     return vehicle_response
 
@@ -76,11 +73,7 @@ async def update_vehicle(
 
     # Convert to Pydantic and broadcast WebSocket update
     vehicle_response = schemas.Vehicle.model_validate(updated)
-    background_tasks.add_task(
-        broadcast_vehicle_update,
-        vehicle_response.model_dump(mode='json'),
-        "update"
-    )
+    background_tasks.add_task(broadcast_vehicle_update, vehicle_response.model_dump(mode="json"), "update")
 
     return vehicle_response
 
@@ -99,11 +92,7 @@ async def delete_vehicle(
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
     # Broadcast WebSocket update for deletion
-    background_tasks.add_task(
-        broadcast_vehicle_update,
-        {'id': str(vehicle_id)},
-        "delete"
-    )
+    background_tasks.add_task(broadcast_vehicle_update, {"id": str(vehicle_id)}, "delete")
 
 
 @router.get("/{vehicle_id}/status", response_model=schemas.VehicleStatusResponse)
@@ -137,7 +126,7 @@ async def get_vehicle_status(
             and_(
                 EventSpecialFunction.event_id == event_id,
                 EventSpecialFunction.vehicle_id == vehicle_id,
-                EventSpecialFunction.function_type == "driver"
+                EventSpecialFunction.function_type == "driver",
             )
         )
     )
@@ -164,7 +153,7 @@ async def get_vehicle_status(
                 IncidentAssignment.resource_id == vehicle_id,
                 IncidentAssignment.unassigned_at.is_(None),  # Active assignment
                 Incident.event_id == event_id,  # Must be in the specified event
-                Incident.deleted_at.is_(None)  # Not deleted
+                Incident.deleted_at.is_(None),  # Not deleted
             )
         )
     )
@@ -187,8 +176,8 @@ async def get_vehicle_status(
         incident_assigned_at = assignment.assigned_at
 
         # Calculate duration in minutes
-        from datetime import timezone
-        duration = datetime.now(timezone.utc) - assignment.assigned_at
+
+        duration = datetime.now(UTC) - assignment.assigned_at
         assignment_duration_minutes = int(duration.total_seconds() / 60)
 
     return schemas.VehicleStatusResponse(

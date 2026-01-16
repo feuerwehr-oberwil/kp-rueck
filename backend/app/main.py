@@ -1,14 +1,14 @@
 """FastAPI application entry point."""
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
+import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import socketio
 
-from .logging_config import setup_logging, get_logger
+from .logging_config import get_logger, setup_logging
 
 # Setup logging early
 setup_logging(
@@ -19,11 +19,11 @@ setup_logging(
 logger = get_logger(__name__)
 
 from .api import routes
-from .websocket_manager import sio as socket_server, ws_manager
 from .api.admin import router as admin_router
-from .api.assignments import router as assignments_router, bulk_router as assignments_bulk_router
-from .api.auth import router as auth_router
+from .api.assignments import bulk_router as assignments_bulk_router
+from .api.assignments import router as assignments_router
 from .api.audit import router as audit_router
+from .api.auth import router as auth_router
 from .api.divera import router as divera_router
 from .api.events import router as events_router
 from .api.exports import router as exports_router
@@ -34,7 +34,8 @@ from .api.materials import router as materials_router
 from .api.notifications import router as notifications_router
 from .api.personnel import router as personnel_router
 from .api.personnel_checkin import router as personnel_checkin_router
-from .api.reko import router as reko_router, photos_router
+from .api.reko import photos_router
+from .api.reko import router as reko_router
 from .api.settings import router as settings_router
 from .api.special_functions import router as special_functions_router
 from .api.stats import router as stats_router
@@ -49,6 +50,8 @@ from .middleware.audit import AuditMiddleware
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
+from .websocket_manager import sio as socket_server
+from .websocket_manager import ws_manager
 
 
 @asynccontextmanager
@@ -124,6 +127,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
 # CORS middleware with explicit domain whitelist
 def get_cors_origins() -> list[str]:
     """
@@ -135,10 +139,12 @@ def get_cors_origins() -> list[str]:
     origins = list(settings.cors_origins)
 
     # Add production domains
-    origins.extend([
-        "https://kp.fwo.li",
-        "https://kp-api.fwo.li",
-    ])
+    origins.extend(
+        [
+            "https://kp.fwo.li",
+            "https://kp-api.fwo.li",
+        ]
+    )
 
     # Add Railway-specific domains from environment variables
     # This allows automatic configuration without wildcards
@@ -162,6 +168,7 @@ def get_cors_origins() -> list[str]:
             unique_origins.append(origin)
 
     return unique_origins
+
 
 # NOTE: CORS middleware must be added BEFORE wrapping with Socket.IO
 # This ensures it applies to both WebSocket and regular HTTP requests
@@ -213,8 +220,7 @@ async def root() -> dict[str, str]:
     """Root endpoint."""
     return {"message": f"{settings.project_name} - FastAPI Backend"}
 
+
 # Mount Socket.IO at /socket.io/ path
 # This preserves the FastAPI app and its middleware for regular HTTP requests
 app.mount("/socket.io", socketio.ASGIApp(socket_server, other_asgi_app=None))
-
-

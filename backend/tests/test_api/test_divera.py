@@ -21,8 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.security import hash_password
 from app.database import get_db
 from app.main import app
-from app.models import DiveraEmergency, Event, Incident, User
-
+from app.models import DiveraEmergency, Event, User
 
 # ============================================
 # Fixtures
@@ -418,9 +417,7 @@ async def test_attach_emergency_viewer_forbidden(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_attach_emergency_success(
-    editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
-):
+async def test_attach_emergency_success(editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event):
     """Test successfully attaching an emergency to an event."""
     # Mock WebSocket broadcast
     with patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock):
@@ -542,9 +539,7 @@ async def test_bulk_attach_viewer_forbidden(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_bulk_attach_success(
-    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
-):
+async def test_bulk_attach_success(editor_client: AsyncClient, db_session: AsyncSession, test_event: Event):
     """Test successfully bulk attaching emergencies."""
     # Create multiple emergencies
     emergencies = []
@@ -634,9 +629,7 @@ async def test_archive_emergency_not_found(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_archive_emergency_idempotent(
-    editor_client: AsyncClient, db_session: AsyncSession
-):
+async def test_archive_emergency_idempotent(editor_client: AsyncClient, db_session: AsyncSession):
     """Test that archiving same emergency twice is handled gracefully."""
     emergency = DiveraEmergency(
         id=uuid4(),

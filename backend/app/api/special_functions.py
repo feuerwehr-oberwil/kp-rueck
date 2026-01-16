@@ -1,4 +1,5 @@
 """Special function management API endpoints."""
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -27,17 +28,13 @@ async def list_event_special_functions(
     response = []
     for assignment in assignments:
         # Get personnel name
-        personnel_result = await db.execute(
-            select(Personnel).where(Personnel.id == assignment.personnel_id)
-        )
+        personnel_result = await db.execute(select(Personnel).where(Personnel.id == assignment.personnel_id))
         personnel = personnel_result.scalar_one_or_none()
 
         # Get vehicle name if it's a driver assignment
         vehicle_name = None
         if assignment.vehicle_id:
-            vehicle_result = await db.execute(
-                select(Vehicle).where(Vehicle.id == assignment.vehicle_id)
-            )
+            vehicle_result = await db.execute(select(Vehicle).where(Vehicle.id == assignment.vehicle_id))
             vehicle = vehicle_result.scalar_one_or_none()
             if vehicle:
                 vehicle_name = vehicle.name
@@ -73,17 +70,13 @@ async def list_personnel_special_functions(
     response = []
     for assignment in assignments:
         # Get personnel name
-        personnel_result = await db.execute(
-            select(Personnel).where(Personnel.id == assignment.personnel_id)
-        )
+        personnel_result = await db.execute(select(Personnel).where(Personnel.id == assignment.personnel_id))
         personnel = personnel_result.scalar_one_or_none()
 
         # Get vehicle name if it's a driver assignment
         vehicle_name = None
         if assignment.vehicle_id:
-            vehicle_result = await db.execute(
-                select(Vehicle).where(Vehicle.id == assignment.vehicle_id)
-            )
+            vehicle_result = await db.execute(select(Vehicle).where(Vehicle.id == assignment.vehicle_id))
             vehicle = vehicle_result.scalar_one_or_none()
             if vehicle:
                 vehicle_name = vehicle.name
@@ -115,23 +108,17 @@ async def assign_special_function(
 ):
     """Assign a special function to personnel for an event (editor only)."""
     try:
-        db_assignment = await crud.create_special_function(
-            db, event_id, assignment, current_user, request
-        )
+        db_assignment = await crud.create_special_function(db, event_id, assignment, current_user, request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     # Get personnel and vehicle names for response
-    personnel_result = await db.execute(
-        select(Personnel).where(Personnel.id == assignment.personnel_id)
-    )
+    personnel_result = await db.execute(select(Personnel).where(Personnel.id == assignment.personnel_id))
     personnel = personnel_result.scalar_one_or_none()
 
     vehicle_name = None
     if assignment.vehicle_id:
-        vehicle_result = await db.execute(
-            select(Vehicle).where(Vehicle.id == assignment.vehicle_id)
-        )
+        vehicle_result = await db.execute(select(Vehicle).where(Vehicle.id == assignment.vehicle_id))
         vehicle = vehicle_result.scalar_one_or_none()
         if vehicle:
             vehicle_name = vehicle.name

@@ -1,8 +1,6 @@
 """Background sync scheduler for periodic Railway ↔ Local synchronization."""
+
 import asyncio
-from datetime import datetime
-import signal
-import sys
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -10,8 +8,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.config import settings
 from app.database import get_db
 from app.logging_config import get_logger
-from app.services.sync_service import create_sync_service
 from app.services.settings import get_setting_value
+from app.services.sync_service import create_sync_service
 
 logger = get_logger(__name__)
 
@@ -62,10 +60,7 @@ async def scheduled_sync():
 
                 # Reschedule the job with new interval
                 if scheduler and scheduler.running:
-                    scheduler.reschedule_job(
-                        'railway_sync',
-                        trigger=IntervalTrigger(minutes=current_interval)
-                    )
+                    scheduler.reschedule_job("railway_sync", trigger=IntervalTrigger(minutes=current_interval))
                     logger.info(f"Rescheduled sync job with {current_interval} minute interval")
 
             logger.debug("Running scheduled bidirectional sync...")
@@ -124,9 +119,9 @@ def start_sync_scheduler():
     scheduler.add_job(
         scheduled_sync,
         trigger=IntervalTrigger(minutes=settings.sync_interval_minutes),
-        id='railway_sync',
-        name='Railway ↔ Local bidirectional sync',
-        replace_existing=True
+        id="railway_sync",
+        name="Railway ↔ Local bidirectional sync",
+        replace_existing=True,
     )
 
     scheduler.start()

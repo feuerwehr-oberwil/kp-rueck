@@ -1,7 +1,7 @@
 """Audit log query endpoints."""
-from datetime import datetime
-from typing import Optional
+
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -19,12 +19,12 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 async def query_audit_log(
     current_user: CurrentEditor,  # Editor-only
     db: AsyncSession = Depends(get_db),
-    resource_type: Optional[str] = None,
-    resource_id: Optional[uuid.UUID] = None,
-    user_id: Optional[uuid.UUID] = None,
-    action_type: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    resource_type: str | None = None,
+    resource_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    action_type: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
 ):
@@ -42,19 +42,19 @@ async def query_audit_log(
     Returns up to 1000 entries (paginated). Returns empty array if no entries found.
     """
     # Parse datetime strings
-    start_dt: Optional[datetime] = None
-    end_dt: Optional[datetime] = None
+    start_dt: datetime | None = None
+    end_dt: datetime | None = None
 
     if start_date:
         try:
             # Handle URL encoding issues: + becomes space in URLs
             # So "2025-10-24T08:00:00+00:00" becomes "2025-10-24T08:00:00 00:00"
             # We need to replace " 00:00" back to "+00:00"
-            normalized_start = start_date.replace('Z', '+00:00')
+            normalized_start = start_date.replace("Z", "+00:00")
             # If there's a space before the timezone offset, replace it with +
-            if ' ' in normalized_start and ':' in normalized_start.split(' ')[-1]:
-                parts = normalized_start.rsplit(' ', 1)
-                normalized_start = parts[0] + '+' + parts[1]
+            if " " in normalized_start and ":" in normalized_start.split(" ")[-1]:
+                parts = normalized_start.rsplit(" ", 1)
+                normalized_start = parts[0] + "+" + parts[1]
             start_dt = datetime.fromisoformat(normalized_start)
         except ValueError:
             raise HTTPException(status_code=422, detail=f"Invalid start_date format: {start_date}")
@@ -62,10 +62,10 @@ async def query_audit_log(
     if end_date:
         try:
             # Handle URL encoding issues
-            normalized_end = end_date.replace('Z', '+00:00')
-            if ' ' in normalized_end and ':' in normalized_end.split(' ')[-1]:
-                parts = normalized_end.rsplit(' ', 1)
-                normalized_end = parts[0] + '+' + parts[1]
+            normalized_end = end_date.replace("Z", "+00:00")
+            if " " in normalized_end and ":" in normalized_end.split(" ")[-1]:
+                parts = normalized_end.rsplit(" ", 1)
+                normalized_end = parts[0] + "+" + parts[1]
             end_dt = datetime.fromisoformat(normalized_end)
         except ValueError:
             raise HTTPException(status_code=422, detail=f"Invalid end_date format: {end_date}")
@@ -116,10 +116,7 @@ async def get_resource_history(
     """
     result = await db.execute(
         select(AuditLog)
-        .where(
-            AuditLog.resource_type == resource_type,
-            AuditLog.resource_id == resource_id
-        )
+        .where(AuditLog.resource_type == resource_type, AuditLog.resource_id == resource_id)
         .order_by(AuditLog.timestamp.desc())
     )
 

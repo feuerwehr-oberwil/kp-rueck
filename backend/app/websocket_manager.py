@@ -1,12 +1,12 @@
 """WebSocket manager for real-time updates."""
 
 import asyncio
+import logging
 import os
 import time
-from typing import Dict, Set, Any, Optional
+from typing import Any
+
 import socketio
-from fastapi import HTTPException
-import logging
 
 from .config import settings
 
@@ -32,10 +32,12 @@ def get_websocket_cors_origins() -> list[str]:
     origins = list(settings.cors_origins)
 
     # Add production domains
-    origins.extend([
-        "https://kp.fwo.li",
-        "https://kp-api.fwo.li",
-    ])
+    origins.extend(
+        [
+            "https://kp.fwo.li",
+            "https://kp-api.fwo.li",
+        ]
+    )
 
     # Add Railway domains only in production (more restrictive than wildcard)
     railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
@@ -61,23 +63,24 @@ def get_websocket_cors_origins() -> list[str]:
 # Security: Explicit origins prevent Cross-Site WebSocket Hijacking
 # Performance: Disable verbose logging in production to reduce noise
 sio = socketio.AsyncServer(
-    async_mode='asgi',
+    async_mode="asgi",
     cors_allowed_origins=get_websocket_cors_origins(),
     cors_credentials=True,
     logger=not _is_production(),  # Disable in production
-    engineio_logger=not _is_production()  # Disable in production
+    engineio_logger=not _is_production(),  # Disable in production
 )
+
 
 class WebSocketManager:
     """Manages WebSocket connections and broadcasts."""
 
     def __init__(self):
-        self.active_connections: Dict[str, Set[str]] = {
+        self.active_connections: dict[str, set[str]] = {
             "operations": set(),  # Users subscribed to operations updates
-            "admin": set(),       # Admin users for system-wide updates
+            "admin": set(),  # Admin users for system-wide updates
         }
-        self.user_sessions: Dict[str, Dict[str, Any]] = {}  # sid -> user info
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self.user_sessions: dict[str, dict[str, Any]] = {}  # sid -> user info
+        self._cleanup_task: asyncio.Task | None = None
 
     async def start_cleanup_task(self):
         """Start the background stale session cleanup task."""
@@ -138,11 +141,7 @@ class WebSocketManager:
         logger.info(f"Client {sid} connected")
         current_time = time.time()
         # Store basic session info with activity tracking
-        self.user_sessions[sid] = {
-            "connected_at": current_time,
-            "last_activity": current_time,
-            "rooms": set()
-        }
+        self.user_sessions[sid] = {"connected_at": current_time, "last_activity": current_time, "rooms": set()}
 
     async def disconnect(self, sid: str):
         """Handle WebSocket disconnection."""
@@ -201,117 +200,104 @@ class WebSocketManager:
         """Get the number of clients in a specific room."""
         return len(self.active_connections.get(room, set()))
 
+
 # Create global WebSocket manager instance
 ws_manager = WebSocketManager()
+
 
 # Socket.IO event handlers
 @sio.event
 async def connect(sid, environ):
     """Handle client connection."""
     await ws_manager.connect(sid, environ)
-    await sio.emit('connected', {'message': 'Connected to KP Rück WebSocket'}, to=sid)
+    await sio.emit("connected", {"message": "Connected to KP Rück WebSocket"}, to=sid)
+
 
 @sio.event
 async def disconnect(sid):
     """Handle client disconnection."""
     await ws_manager.disconnect(sid)
 
+
 @sio.event
 async def join(sid, data):
     """Handle room join requests."""
-    room = data.get('room')
+    room = data.get("room")
     if room:
         success = await ws_manager.join_room(sid, room)
         if success:
             await sio.enter_room(sid, room)
-            await sio.emit('joined', {'room': room}, to=sid)
+            await sio.emit("joined", {"room": room}, to=sid)
         else:
-            await sio.emit('error', {'message': f'Invalid room: {room}'}, to=sid)
+            await sio.emit("error", {"message": f"Invalid room: {room}"}, to=sid)
+
 
 @sio.event
 async def leave(sid, data):
     """Handle room leave requests."""
-    room = data.get('room')
+    room = data.get("room")
     if room:
         success = await ws_manager.leave_room(sid, room)
         if success:
             await sio.leave_room(sid, room)
-            await sio.emit('left', {'room': room}, to=sid)
+            await sio.emit("left", {"room": room}, to=sid)
+
 
 @sio.event
 async def ping(sid):
     """Handle ping requests for connection keep-alive."""
     ws_manager.update_activity(sid)  # Refresh activity on ping
-    await sio.emit('pong', {'timestamp': time.time()}, to=sid)
+    await sio.emit("pong", {"timestamp": time.time()}, to=sid)
+
 
 # Broadcast functions for CRUD operations
 async def broadcast_incident_update(incident_data: dict, action: str = "update"):
     """Broadcast incident updates to all clients in operations room."""
     await ws_manager.broadcast_update(
-        'incident_update',
+        "incident_update",
         {
-            'action': action,  # 'create', 'update', 'delete'
-            'data': incident_data
+            "action": action,  # 'create', 'update', 'delete'
+            "data": incident_data,
         },
-        room='operations'
+        room="operations",
     )
+
 
 async def broadcast_personnel_update(personnel_data: dict, action: str = "update"):
     """Broadcast personnel updates to all clients in operations room."""
-    await ws_manager.broadcast_update(
-        'personnel_update',
-        {
-            'action': action,
-            'data': personnel_data
-        },
-        room='operations'
-    )
+    await ws_manager.broadcast_update("personnel_update", {"action": action, "data": personnel_data}, room="operations")
+
 
 async def broadcast_vehicle_update(vehicle_data: dict, action: str = "update"):
     """Broadcast vehicle updates to all clients in operations room."""
-    await ws_manager.broadcast_update(
-        'vehicle_update',
-        {
-            'action': action,
-            'data': vehicle_data
-        },
-        room='operations'
-    )
+    await ws_manager.broadcast_update("vehicle_update", {"action": action, "data": vehicle_data}, room="operations")
+
 
 async def broadcast_material_update(material_data: dict, action: str = "update"):
     """Broadcast material updates to all clients in operations room."""
-    await ws_manager.broadcast_update(
-        'material_update',
-        {
-            'action': action,
-            'data': material_data
-        },
-        room='operations'
-    )
+    await ws_manager.broadcast_update("material_update", {"action": action, "data": material_data}, room="operations")
+
 
 async def broadcast_assignment_update(assignment_data: dict, action: str = "update"):
     """Broadcast assignment updates to all clients in operations room."""
     await ws_manager.broadcast_update(
-        'assignment_update',
-        {
-            'action': action,
-            'data': assignment_data
-        },
-        room='operations'
+        "assignment_update", {"action": action, "data": assignment_data}, room="operations"
     )
+
 
 async def broadcast_system_message(message: str, level: str = "info"):
     """Broadcast system messages to all connected clients."""
     await ws_manager.broadcast_update(
-        'system_message',
+        "system_message",
         {
-            'message': message,
-            'level': level,  # 'info', 'warning', 'error'
-            'timestamp': asyncio.get_event_loop().time()
-        }
+            "message": message,
+            "level": level,  # 'info', 'warning', 'error'
+            "timestamp": asyncio.get_event_loop().time(),
+        },
     )
 
-async def broadcast_message(data: dict, room: str = 'operations'):
+
+async def broadcast_message(data: dict, room: str = "operations"):
     """
     Generic broadcast function for custom messages.
 
@@ -319,9 +305,5 @@ async def broadcast_message(data: dict, room: str = 'operations'):
         data: Dictionary containing message type and payload
         room: Target room (default: 'operations')
     """
-    message_type = data.get('type', 'update')
-    await ws_manager.broadcast_update(
-        message_type,
-        data,
-        room=room
-    )
+    message_type = data.get("type", "update")
+    await ws_manager.broadcast_update(message_type, data, room=room)

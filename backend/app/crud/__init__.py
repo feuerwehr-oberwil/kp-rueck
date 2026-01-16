@@ -1,4 +1,5 @@
 """CRUD operations package."""
+
 from .incidents import (
     create_incident,
     delete_incident,

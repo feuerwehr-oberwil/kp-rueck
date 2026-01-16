@@ -21,7 +21,6 @@ from app.database import get_db
 from app.main import app
 from app.models import User
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -153,13 +152,16 @@ async def test_export_pdf_requires_auth(client: AsyncClient):
 async def test_export_pdf_success(authenticated_client: AsyncClient):
     """Test successful PDF export when help directory exists."""
     # Create a mock help directory with content
-    with patch.object(Path, "exists", return_value=True), patch(
-        "builtins.open",
-        MagicMock(
-            return_value=MagicMock(
-                __enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value="# Test\n\nContent"))),
-                __exit__=MagicMock(return_value=False),
-            )
+    with (
+        patch.object(Path, "exists", return_value=True),
+        patch(
+            "builtins.open",
+            MagicMock(
+                return_value=MagicMock(
+                    __enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value="# Test\n\nContent"))),
+                    __exit__=MagicMock(return_value=False),
+                )
+            ),
         ),
     ):
         response = await authenticated_client.post("/api/help/export-pdf")

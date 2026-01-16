@@ -1,4 +1,5 @@
 """API routes."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,7 +22,7 @@ async def read_incidents(
     current_user: CurrentUser,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> list[schemas.IncidentResponse]:
     """Get all incidents (requires authentication)."""
     incidents = await crud.get_incidents(db, skip=skip, limit=limit)
@@ -30,9 +31,7 @@ async def read_incidents(
 
 @router.get("/incidents/{incident_id}", response_model=schemas.IncidentResponse)
 async def read_incident(
-    incident_id: UUID,
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
+    incident_id: UUID, current_user: CurrentUser, db: AsyncSession = Depends(get_db)
 ) -> schemas.IncidentResponse:
     """Get a specific incident (requires authentication)."""
     db_incident = await crud.get_incident(db, incident_id=incident_id)
@@ -43,9 +42,7 @@ async def read_incident(
 
 @router.post("/incidents", response_model=schemas.IncidentResponse, status_code=status.HTTP_201_CREATED)
 async def create_incident(
-    incident: schemas.IncidentCreate,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db)
+    incident: schemas.IncidentCreate, current_user: CurrentEditor, db: AsyncSession = Depends(get_db)
 ) -> schemas.IncidentResponse:
     """Create a new incident (editor only)."""
     return await crud.create_incident(db=db, incident=incident)
@@ -53,10 +50,7 @@ async def create_incident(
 
 @router.put("/incidents/{incident_id}", response_model=schemas.IncidentResponse)
 async def update_incident(
-    incident_id: UUID,
-    incident: schemas.IncidentUpdate,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db)
+    incident_id: UUID, incident: schemas.IncidentUpdate, current_user: CurrentEditor, db: AsyncSession = Depends(get_db)
 ) -> schemas.IncidentResponse:
     """Update an incident (editor only)."""
     db_incident = await crud.update_incident(db, incident_id=incident_id, incident=incident)
@@ -66,14 +60,8 @@ async def update_incident(
 
 
 @router.delete("/incidents/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_incident(
-    incident_id: UUID,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db)
-) -> None:
+async def delete_incident(incident_id: UUID, current_user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> None:
     """Delete an incident (editor only)."""
     success = await crud.delete_incident(db, incident_id=incident_id)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
-
-

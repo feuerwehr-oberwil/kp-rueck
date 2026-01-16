@@ -1,6 +1,6 @@
 """Sync API endpoints for Railway ↔ Local bidirectional sync."""
-from datetime import datetime, timezone
-from typing import Optional
+
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,14 +18,11 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 
 # Global state for sync operations (in-memory, could be Redis in production)
 _is_syncing = False
-_last_sync_result: Optional[dict] = None
+_last_sync_result: dict | None = None
 
 
 @router.get("/status", response_model=SyncStatusResponse)
-async def get_sync_status(
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_sync_status(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
     Get current sync status.
 
@@ -36,10 +33,7 @@ async def get_sync_status(
 
     # Get last successful sync
     result = await db.execute(
-        select(SyncLog)
-        .where(SyncLog.status == SyncStatus.SUCCESS.value)
-        .order_by(SyncLog.completed_at.desc())
-        .limit(1)
+        select(SyncLog).where(SyncLog.status == SyncStatus.SUCCESS.value).order_by(SyncLog.completed_at.desc()).limit(1)
     )
     last_sync = result.scalar_one_or_none()
 
@@ -63,15 +57,12 @@ async def get_sync_status(
         railway_healthy=railway_healthy,
         is_syncing=_is_syncing,
         records_pending=records_pending,
-        last_error=last_error
+        last_error=last_error,
     )
 
 
 @router.post("/from-railway", response_model=dict)
-async def sync_from_railway_endpoint(
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
-):
+async def sync_from_railway_endpoint(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
     Trigger manual sync FROM Railway to Local.
 
@@ -83,10 +74,7 @@ async def sync_from_railway_endpoint(
     global _is_syncing, _last_sync_result
 
     if _is_syncing:
-        raise HTTPException(
-            status_code=409,
-            detail="Sync operation already in progress"
-        )
+        raise HTTPException(status_code=409, detail="Sync operation already in progress")
 
     _is_syncing = True
     try:
@@ -98,7 +86,7 @@ async def sync_from_railway_endpoint(
             "direction": result.direction.value,
             "records_synced": result.records_synced,
             "errors": result.errors,
-            "completed_at": result.completed_at.isoformat() if result.completed_at else None
+            "completed_at": result.completed_at.isoformat() if result.completed_at else None,
         }
 
         return _last_sync_result
@@ -108,10 +96,7 @@ async def sync_from_railway_endpoint(
 
 
 @router.post("/to-railway", response_model=dict)
-async def sync_to_railway_endpoint(
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
-):
+async def sync_to_railway_endpoint(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
     Trigger manual sync TO Railway (recovery mode).
 
@@ -125,10 +110,7 @@ async def sync_to_railway_endpoint(
     global _is_syncing, _last_sync_result
 
     if _is_syncing:
-        raise HTTPException(
-            status_code=409,
-            detail="Sync operation already in progress"
-        )
+        raise HTTPException(status_code=409, detail="Sync operation already in progress")
 
     _is_syncing = True
     try:
@@ -140,7 +122,7 @@ async def sync_to_railway_endpoint(
             "direction": result.direction.value,
             "records_synced": result.records_synced,
             "errors": result.errors,
-            "completed_at": result.completed_at.isoformat() if result.completed_at else None
+            "completed_at": result.completed_at.isoformat() if result.completed_at else None,
         }
 
         return _last_sync_result
@@ -150,10 +132,7 @@ async def sync_to_railway_endpoint(
 
 
 @router.post("/trigger-immediate", response_model=dict)
-async def trigger_immediate_sync(
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
-):
+async def trigger_immediate_sync(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
     Trigger immediate bidirectional sync.
 
@@ -169,11 +148,7 @@ async def trigger_immediate_sync(
 
     # Don't block if sync is already running - just return current status
     if _is_syncing:
-        return {
-            "success": False,
-            "message": "Sync already in progress",
-            "is_syncing": True
-        }
+        return {"success": False, "message": "Sync already in progress", "is_syncing": True}
 
     _is_syncing = True
     try:
@@ -182,11 +157,7 @@ async def trigger_immediate_sync(
         # Check Railway health
         railway_healthy = await sync_service.check_railway_health()
         if not railway_healthy:
-            return {
-                "success": False,
-                "message": "Railway unavailable, sync skipped",
-                "railway_healthy": False
-            }
+            return {"success": False, "message": "Railway unavailable, sync skipped", "railway_healthy": False}
 
         # Perform bidirectional sync
         results = await sync_service.sync_bidirectional()
@@ -205,7 +176,7 @@ async def trigger_immediate_sync(
                 "records_synced": to_railway.records_synced,
                 "errors": to_railway.errors,
             },
-            "completed_at": to_railway.completed_at.isoformat() if to_railway.completed_at else None
+            "completed_at": to_railway.completed_at.isoformat() if to_railway.completed_at else None,
         }
 
         return _last_sync_result
@@ -216,11 +187,7 @@ async def trigger_immediate_sync(
 
 @router.get("/logs", response_model=list[SyncLogResponse])
 @router.get("/history", response_model=list[SyncLogResponse])  # Alias for frontend compatibility
-async def get_sync_logs(
-    current_user: CurrentUser,
-    limit: int = 20,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_sync_logs(current_user: CurrentUser, limit: int = 20, db: AsyncSession = Depends(get_db)):
     """
     Get recent sync operation logs.
     Requires authentication.
@@ -231,11 +198,7 @@ async def get_sync_logs(
     Returns:
         List of sync log entries, most recent first.
     """
-    result = await db.execute(
-        select(SyncLog)
-        .order_by(SyncLog.started_at.desc())
-        .limit(limit)
-    )
+    result = await db.execute(select(SyncLog).order_by(SyncLog.started_at.desc()).limit(limit))
     logs = result.scalars().all()
 
     return [
@@ -246,17 +209,14 @@ async def get_sync_logs(
             completed_at=log.completed_at,
             status=SyncStatus(log.status),
             records_synced=log.records_synced,
-            errors=log.errors
+            errors=log.errors,
         )
         for log in logs
     ]
 
 
 @router.get("/config", response_model=dict)
-async def get_sync_config(
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_sync_config(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
     Get sync configuration.
     Requires authentication.
@@ -287,15 +247,12 @@ async def get_sync_config(
         "auto_sync_on_create": auto_sync_on_create.lower() == "true",
         "railway_database_url": railway_database_url,
         "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds),
-        "is_production": settings.is_production  # True if running on Railway
+        "is_production": settings.is_production,  # True if running on Railway
     }
 
 
 @router.post("/bidirectional", response_model=dict)
-async def sync_bidirectional_endpoint(
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
-):
+async def sync_bidirectional_endpoint(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
     Trigger manual bidirectional sync: Railway ↔ Local.
 
@@ -308,10 +265,7 @@ async def sync_bidirectional_endpoint(
     global _is_syncing, _last_sync_result
 
     if _is_syncing:
-        raise HTTPException(
-            status_code=409,
-            detail="Sync operation already in progress"
-        )
+        raise HTTPException(status_code=409, detail="Sync operation already in progress")
 
     _is_syncing = True
     try:
@@ -319,10 +273,7 @@ async def sync_bidirectional_endpoint(
 
         # Check Railway health
         if not await sync_service.check_railway_health():
-            raise HTTPException(
-                status_code=503,
-                detail="Railway database is unreachable"
-            )
+            raise HTTPException(status_code=503, detail="Railway database is unreachable")
 
         # Perform bidirectional sync
         results = await sync_service.sync_bidirectional()
@@ -335,14 +286,14 @@ async def sync_bidirectional_endpoint(
                 "success": from_railway.success,
                 "records_synced": from_railway.records_synced,
                 "errors": from_railway.errors,
-                "completed_at": from_railway.completed_at.isoformat() if from_railway.completed_at else None
+                "completed_at": from_railway.completed_at.isoformat() if from_railway.completed_at else None,
             },
             "to_railway": {
                 "success": to_railway.success,
                 "records_synced": to_railway.records_synced,
                 "errors": to_railway.errors,
-                "completed_at": to_railway.completed_at.isoformat() if to_railway.completed_at else None
-            }
+                "completed_at": to_railway.completed_at.isoformat() if to_railway.completed_at else None,
+            },
         }
 
         _last_sync_result = response
@@ -353,11 +304,7 @@ async def sync_bidirectional_endpoint(
 
 
 @router.put("/config", response_model=dict)
-async def update_sync_config(
-    config: dict,
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
-):
+async def update_sync_config(config: dict, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
     Update sync configuration.
 
@@ -371,10 +318,7 @@ async def update_sync_config(
 
     if "sync_interval_minutes" in config:
         await update_setting(
-            db,
-            key="sync_interval_minutes",
-            value=str(config["sync_interval_minutes"]),
-            user_id=current_user.id
+            db, key="sync_interval_minutes", value=str(config["sync_interval_minutes"]), user_id=current_user.id
         )
 
     if "auto_sync_on_create" in config:
@@ -382,15 +326,12 @@ async def update_sync_config(
             db,
             key="auto_sync_on_create",
             value="true" if config["auto_sync_on_create"] else "false",
-            user_id=current_user.id
+            user_id=current_user.id,
         )
 
     if "railway_database_url" in config:
         await update_setting(
-            db,
-            key="railway_database_url",
-            value=config["railway_database_url"],
-            user_id=current_user.id
+            db, key="railway_database_url", value=config["railway_database_url"], user_id=current_user.id
         )
 
     if "sync_conflict_buffer_seconds" in config:
@@ -398,7 +339,7 @@ async def update_sync_config(
             db,
             key="sync_conflict_buffer_seconds",
             value=str(config["sync_conflict_buffer_seconds"]),
-            user_id=current_user.id
+            user_id=current_user.id,
         )
 
     await db.commit()
@@ -409,10 +350,7 @@ async def update_sync_config(
 # Helper endpoints for delta sync (used by sync_service.py)
 @router.get("/delta/{table_name}")
 async def get_delta_for_table(
-    table_name: str,
-    current_user: CurrentUser,
-    updated_since: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    table_name: str, current_user: CurrentUser, updated_since: str | None = None, db: AsyncSession = Depends(get_db)
 ):
     """
     Get delta (changed records) for a specific table.
@@ -424,7 +362,6 @@ async def get_delta_for_table(
     Returns:
         List of records changed since the given timestamp.
     """
-    from app.services.sync_service import SyncService
 
     if table_name not in SyncService.SYNCABLE_MODELS:
         raise HTTPException(status_code=400, detail=f"Invalid table name: {table_name}")
@@ -464,10 +401,7 @@ async def get_delta_for_table(
 
 @router.post("/apply/{table_name}")
 async def apply_delta_for_table(
-    table_name: str,
-    records: list[dict],
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db)
+    table_name: str, records: list[dict], current_user: CurrentUser, db: AsyncSession = Depends(get_db)
 ):
     """
     Apply delta (changed records) to a specific table.
@@ -482,7 +416,6 @@ async def apply_delta_for_table(
         Count of records applied.
     """
     from app.schemas import Delta
-    from app.services.sync_service import SyncService
 
     if table_name not in SyncService.SYNCABLE_MODELS:
         raise HTTPException(status_code=400, detail=f"Invalid table name: {table_name}")

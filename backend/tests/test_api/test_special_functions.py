@@ -20,7 +20,6 @@ from app.database import get_db
 from app.main import app
 from app.models import Event, EventSpecialFunction, Personnel, User, Vehicle
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -246,9 +245,7 @@ async def test_list_personnel_special_functions(
     editor_client: AsyncClient, test_event: Event, test_assignment: EventSpecialFunction, test_personnel: Personnel
 ):
     """Test listing special functions for a specific personnel."""
-    response = await editor_client.get(
-        f"/api/events/{test_event.id}/special-functions/personnel/{test_personnel.id}"
-    )
+    response = await editor_client.get(f"/api/events/{test_event.id}/special-functions/personnel/{test_personnel.id}")
     assert response.status_code == 200
 
     data = response.json()
@@ -262,9 +259,7 @@ async def test_list_personnel_special_functions_empty(
     editor_client: AsyncClient, test_event: Event, test_personnel: Personnel
 ):
     """Test listing special functions for personnel with no assignments."""
-    response = await editor_client.get(
-        f"/api/events/{test_event.id}/special-functions/personnel/{test_personnel.id}"
-    )
+    response = await editor_client.get(f"/api/events/{test_event.id}/special-functions/personnel/{test_personnel.id}")
     assert response.status_code == 200
     assert response.json() == []
 
@@ -276,9 +271,7 @@ async def test_list_personnel_special_functions_empty(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_assign_special_function_requires_auth(
-    client: AsyncClient, test_event: Event, test_personnel: Personnel
-):
+async def test_assign_special_function_requires_auth(client: AsyncClient, test_event: Event, test_personnel: Personnel):
     """Test that assigning special functions requires authentication."""
     response = await client.post(
         f"/api/events/{test_event.id}/special-functions/",

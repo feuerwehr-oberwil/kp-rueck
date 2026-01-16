@@ -1,7 +1,8 @@
 """Simple test to verify pytest is working."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 def test_addition():
@@ -43,12 +44,15 @@ class TestMathOperations:
             _ = 10 / 0
 
 
-@pytest.mark.parametrize("input_value,expected", [
-    (1, 2),
-    (2, 4),
-    (3, 6),
-    (4, 8),
-])
+@pytest.mark.parametrize(
+    "input_value,expected",
+    [
+        (1, 2),
+        (2, 4),
+        (3, 6),
+        (4, 8),
+    ],
+)
 def test_double_value(input_value, expected):
     """Test doubling values with parametrize."""
     assert input_value * 2 == expected

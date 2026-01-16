@@ -1,4 +1,5 @@
 """Special Function CRUD operations."""
+
 import uuid
 
 from fastapi import Request
@@ -6,17 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import EventSpecialFunction, Personnel, User, Vehicle
+from ..models import EventSpecialFunction, User
 from ..services.audit import log_action
 
 
-async def get_event_special_functions(
-    db: AsyncSession, event_id: uuid.UUID
-) -> list[EventSpecialFunction]:
+async def get_event_special_functions(db: AsyncSession, event_id: uuid.UUID) -> list[EventSpecialFunction]:
     """Get all special function assignments for an event."""
-    result = await db.execute(
-        select(EventSpecialFunction).where(EventSpecialFunction.event_id == event_id)
-    )
+    result = await db.execute(select(EventSpecialFunction).where(EventSpecialFunction.event_id == event_id))
     return list(result.scalars().all())
 
 
@@ -63,7 +60,7 @@ async def create_special_function(
     if assignment.function_type == "driver" and assignment.vehicle_id:
         existing = await check_vehicle_driver_exists(db, event_id, assignment.vehicle_id)
         if existing:
-            raise ValueError(f"Vehicle already has a driver assigned")
+            raise ValueError("Vehicle already has a driver assigned")
 
     # Create the assignment
     db_assignment = EventSpecialFunction(

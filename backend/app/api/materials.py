@@ -1,8 +1,9 @@
 """Material management API endpoints."""
+
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -50,11 +51,7 @@ async def create_material(
 
     # Convert to Pydantic and broadcast WebSocket update
     material_response = schemas.Material.model_validate(new_material)
-    background_tasks.add_task(
-        broadcast_material_update,
-        material_response.model_dump(mode='json'),
-        "create"
-    )
+    background_tasks.add_task(broadcast_material_update, material_response.model_dump(mode="json"), "create")
 
     return material_response
 
@@ -75,11 +72,7 @@ async def update_material(
 
     # Convert to Pydantic and broadcast WebSocket update
     material_response = schemas.Material.model_validate(updated)
-    background_tasks.add_task(
-        broadcast_material_update,
-        material_response.model_dump(mode='json'),
-        "update"
-    )
+    background_tasks.add_task(broadcast_material_update, material_response.model_dump(mode="json"), "update")
 
     return material_response
 
@@ -98,11 +91,7 @@ async def delete_material(
         raise HTTPException(status_code=404, detail="Material not found")
 
     # Broadcast WebSocket update for deletion
-    background_tasks.add_task(
-        broadcast_material_update,
-        {'id': str(material_id)},
-        "delete"
-    )
+    background_tasks.add_task(broadcast_material_update, {"id": str(material_id)}, "delete")
 
 
 @router.post("/categories/sort-order", status_code=status.HTTP_200_OK)

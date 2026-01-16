@@ -1,21 +1,21 @@
 """Reko form API endpoints (no authentication required for forms, authentication required for photos)."""
+
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, UploadFile, File
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..auth.dependencies import CurrentUser
 from ..crud import reko as crud
 from ..database import get_db
-from ..models import RekoReport, Incident
+from ..models import Incident, RekoReport
 from ..services.audit import log_action
-from ..services.tokens import generate_form_token, validate_form_token
-from ..services.photo_storage import photo_storage
 from ..services.notification_service import create_reko_notification
+from ..services.photo_storage import photo_storage
+from ..services.tokens import generate_form_token, validate_form_token
 
 router = APIRouter(prefix="/reko", tags=["reko"])
 
@@ -43,9 +43,7 @@ async def get_reko_form(
         report = await crud.get_or_create_reko_report(db, incident_id, token, personnel_id)
 
         # Fetch incident title
-        incident_result = await db.execute(
-            select(Incident).where(Incident.id == incident_id)
-        )
+        incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
         incident = incident_result.scalar_one_or_none()
 
         # Convert to response schema with incident details
@@ -58,7 +56,7 @@ async def get_reko_form(
         # Include personnel name if available
         if report.submitted_by_personnel_id:
             # Reload with relationship to get name
-            await db.refresh(report, ['submitted_by_personnel'])
+            await db.refresh(report, ["submitted_by_personnel"])
             if report.submitted_by_personnel:
                 response_data.submitted_by_personnel_name = report.submitted_by_personnel.name
 
@@ -84,18 +82,14 @@ async def submit_reko_report(
         raise HTTPException(status_code=400, detail="Invalid token")
 
     # Get or create report
-    report = await crud.get_or_create_reko_report(
-        db, report_data.incident_id, report_data.token
-    )
+    report = await crud.get_or_create_reko_report(db, report_data.incident_id, report_data.token)
 
     # Update with new data
-    update_data = schemas.RekoReportUpdate(**report_data.model_dump(exclude={'incident_id', 'token'}))
+    update_data = schemas.RekoReportUpdate(**report_data.model_dump(exclude={"incident_id", "token"}))
     updated = await crud.update_reko_report(db, report.id, update_data, submit=submit)
 
     # Fetch incident details
-    incident_result = await db.execute(
-        select(Incident).where(Incident.id == report_data.incident_id)
-    )
+    incident_result = await db.execute(select(Incident).where(Incident.id == report_data.incident_id))
     incident = incident_result.scalar_one_or_none()
 
     # Convert to response schema with incident details
@@ -111,7 +105,7 @@ async def submit_reko_report(
         # Get personnel name if available
         submitted_by_name = None
         if updated.submitted_by_personnel_id:
-            await db.refresh(updated, ['submitted_by_personnel'])
+            await db.refresh(updated, ["submitted_by_personnel"])
             if updated.submitted_by_personnel:
                 submitted_by_name = updated.submitted_by_personnel.name
 
@@ -121,7 +115,7 @@ async def submit_reko_report(
             event_id=incident.event_id,
             incident_title=incident.title or incident.location_address or "Unbekannt",
             is_relevant=updated.is_relevant if updated.is_relevant is not None else True,
-            submitted_by_name=submitted_by_name
+            submitted_by_name=submitted_by_name,
         )
 
     return response_data
@@ -139,9 +133,7 @@ async def update_report(
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit)
 
         # Fetch incident title
-        incident_result = await db.execute(
-            select(Incident).where(Incident.id == updated.incident_id)
-        )
+        incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))
         incident = incident_result.scalar_one_or_none()
 
         # Convert to response schema with incident details
@@ -163,18 +155,14 @@ async def get_report(
     db: AsyncSession = Depends(get_db),
 ):
     """Get Reko report by ID (for viewing on incident card)."""
-    result = await db.execute(
-        select(RekoReport).where(RekoReport.id == report_id)
-    )
+    result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
     report = result.scalar_one_or_none()
 
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
     # Fetch incident title
-    incident_result = await db.execute(
-        select(Incident).where(Incident.id == report.incident_id)
-    )
+    incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
     incident = incident_result.scalar_one_or_none()
 
     # Convert to response schema with incident details
@@ -197,9 +185,7 @@ async def get_incident_reports(
     reports = await crud.get_incident_reko_reports(db, incident_id)
 
     # Fetch incident title once
-    incident_result = await db.execute(
-        select(Incident).where(Incident.id == incident_id)
-    )
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = incident_result.scalar_one_or_none()
     incident_title = incident.title if incident else None
 
@@ -333,7 +319,7 @@ async def delete_photo(
         raise HTTPException(status_code=404, detail="Photo not found in report")
 
     # Delete from disk
-    deleted = photo_storage.delete_photo(incident_id, filename)
+    photo_storage.delete_photo(incident_id, filename)
 
     # Remove from report (even if file was already deleted from disk)
     report.photos_json = [p for p in current_photos if p != filename]
@@ -344,6 +330,7 @@ async def delete_photo(
 
 # Photo serving endpoint (separate router to avoid /reko prefix)
 from fastapi import APIRouter as BaseAPIRouter
+
 photos_router = BaseAPIRouter(prefix="/photos", tags=["photos"])
 
 
@@ -376,9 +363,7 @@ async def serve_photo(
         HTTPException 404: If photo not found
     """
     # Verify incident exists
-    incident_result = await db.execute(
-        select(Incident).where(Incident.id == incident_id)
-    )
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = incident_result.scalar_one_or_none()
 
     if not incident:
@@ -407,5 +392,5 @@ async def serve_photo(
         media_type="image/jpeg",
         headers={
             "Cache-Control": "private, max-age=3600",  # 1 hour cache for authenticated users
-        }
+        },
     )

@@ -5,17 +5,16 @@ Revises: b01cf4b340e5
 Create Date: 2025-10-24 22:31:34.726519
 
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
 
 from alembic import op
-import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
-revision: str = '0d5cc7325349'
-down_revision: Union[str, Sequence[str], None] = 'b01cf4b340e5'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "0d5cc7325349"
+down_revision: str | Sequence[str] | None = "b01cf4b340e5"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -24,24 +23,16 @@ def upgrade() -> None:
     op.execute("UPDATE incidents SET priority = 'high' WHERE priority = 'critical'")
 
     # Step 2: Drop the old constraint
-    op.drop_constraint('valid_priority', 'incidents', type_='check')
+    op.drop_constraint("valid_priority", "incidents", type_="check")
 
     # Step 3: Add new constraint with only 3 priority levels
-    op.create_check_constraint(
-        'valid_priority',
-        'incidents',
-        "priority IN ('low', 'medium', 'high')"
-    )
+    op.create_check_constraint("valid_priority", "incidents", "priority IN ('low', 'medium', 'high')")
 
 
 def downgrade() -> None:
     """Downgrade schema: Restore 'critical' priority option."""
     # Step 1: Drop the new constraint
-    op.drop_constraint('valid_priority', 'incidents', type_='check')
+    op.drop_constraint("valid_priority", "incidents", type_="check")
 
     # Step 2: Restore old constraint with 'critical' option
-    op.create_check_constraint(
-        'valid_priority',
-        'incidents',
-        "priority IN ('low', 'medium', 'high', 'critical')"
-    )
+    op.create_check_constraint("valid_priority", "incidents", "priority IN ('low', 'medium', 'high', 'critical')")

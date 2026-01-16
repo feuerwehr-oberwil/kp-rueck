@@ -8,6 +8,7 @@ Tests cover:
 - Incident count tracking
 """
 
+from datetime import UTC
 from uuid import uuid4
 
 import pytest
@@ -19,7 +20,6 @@ from app.auth.security import hash_password
 from app.database import get_db
 from app.main import app
 from app.models import Event, Incident, User
-
 
 # ============================================
 # Fixtures
@@ -89,13 +89,13 @@ async def test_event(db_session: AsyncSession) -> Event:
 @pytest_asyncio.fixture
 async def archived_event(db_session: AsyncSession) -> Event:
     """Create an archived test event."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     event = Event(
         id=uuid4(),
         name="Archived Event",
         training_flag=False,
-        archived_at=datetime.now(timezone.utc),
+        archived_at=datetime.now(UTC),
     )
     db_session.add(event)
     await db_session.commit()
@@ -209,9 +209,7 @@ async def test_list_events_excludes_archived_by_default(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_list_events_include_archived(
-    editor_client: AsyncClient, test_event: Event, archived_event: Event
-):
+async def test_list_events_include_archived(editor_client: AsyncClient, test_event: Event, archived_event: Event):
     """Test including archived events in list."""
     response = await editor_client.get("/api/events/?include_archived=true")
     assert response.status_code == 200
@@ -250,9 +248,7 @@ async def test_list_events_viewer_can_read(viewer_client: AsyncClient, test_even
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_list_events_with_incident_count(
-    editor_client: AsyncClient, event_with_incidents: Event
-):
+async def test_list_events_with_incident_count(editor_client: AsyncClient, event_with_incidents: Event):
     """Test that incident count is included in event response."""
     response = await editor_client.get("/api/events/")
     assert response.status_code == 200
@@ -557,7 +553,7 @@ async def test_delete_event_success(editor_client: AsyncClient, archived_event: 
     assert response.status_code == 204
 
     # Verify event is gone (even with include_archived)
-    response = await editor_client.get(f"/api/events/?include_archived=true")
+    response = await editor_client.get("/api/events/?include_archived=true")
     event_ids = [e["id"] for e in response.json()["events"]]
     assert str(archived_event.id) not in event_ids
 

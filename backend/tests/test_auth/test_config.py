@@ -1,9 +1,8 @@
 """Tests for authentication configuration and settings."""
-import os
+
 import pytest
 
 from app.auth.config import AuthSettings, auth_settings
-
 
 # ============================================
 # Default Configuration Tests
@@ -200,7 +199,7 @@ def test_negative_token_expiration_handled(monkeypatch):
     """Test negative token expiration is rejected."""
     monkeypatch.setenv("AUTH_ACCESS_TOKEN_EXPIRE_MINUTES", "-10")
 
-    settings = AuthSettings()
+    AuthSettings()
     # Note: Pydantic doesn't validate positive numbers by default
     # In production, you might want to add validators
     # For now, just document that negative values would create immediate expiration

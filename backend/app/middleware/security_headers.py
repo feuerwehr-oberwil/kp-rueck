@@ -1,5 +1,7 @@
 """Security headers middleware for HTTP response hardening."""
+
 import os
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response

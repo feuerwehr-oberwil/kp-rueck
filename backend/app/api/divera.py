@@ -1,11 +1,12 @@
 """Divera 24/7 webhook integration API endpoints."""
+
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
@@ -13,7 +14,7 @@ from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..database import get_db
-from ..websocket_manager import broadcast_message, broadcast_incident_update
+from ..websocket_manager import broadcast_incident_update, broadcast_message
 
 logger = logging.getLogger(__name__)
 
@@ -187,8 +188,8 @@ async def receive_divera_webhook(
             broadcast_message,
             {
                 "type": "divera_emergency_received",
-                "emergency": schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode='json'),
-            }
+                "emergency": schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
+            },
         )
 
         return {
@@ -199,24 +200,18 @@ async def receive_divera_webhook(
 
     except IntegrityError as e:
         logger.error(f"Database integrity error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Emergency already exists"
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists")
     except Exception as e:
         logger.error(f"Error processing Divera webhook: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error processing webhook"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing webhook")
 
 
 @router.get("/emergencies", response_model=schemas.DiveraEmergencyListResponse)
 async def list_divera_emergencies(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-    attached: Optional[bool] = Query(None, description="Filter by attachment status"),
-    event_id: Optional[UUID] = Query(None, description="Filter by event ID"),
+    attached: bool | None = Query(None, description="Filter by attachment status"),
+    event_id: UUID | None = Query(None, description="Filter by event ID"),
     include_archived: bool = Query(False, description="Include archived emergencies"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
@@ -268,10 +263,7 @@ async def get_divera_emergency(
     """Get a specific Divera emergency by ID."""
     emergency = await divera_crud.get_divera_emergency_by_id(db, emergency_id)
     if not emergency:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Divera emergency not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera emergency not found")
 
     return schemas.DiveraEmergencyResponse.model_validate(emergency)
 
@@ -303,27 +295,18 @@ async def attach_emergency_to_event(
     # Get emergency
     emergency = await divera_crud.get_divera_emergency_by_id(db, emergency_id)
     if not emergency:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Divera emergency not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera emergency not found")
 
     # Prevent re-attachment to the same event
     if emergency.attached_to_event_id == request_data.event_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Emergency already attached to this event"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Emergency already attached to this event")
 
     # Allow re-attachment to different events
 
     # Verify event exists
     event = await events_crud.get_event_by_id(db, request_data.event_id)
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     # Detect incident type from title
     incident_type = detect_incident_type(emergency.title)
@@ -361,24 +344,16 @@ async def attach_emergency_to_event(
             incident_id=incident.id,
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     # Convert to response schema
     incident_response = schemas.IncidentResponse.model_validate(incident)
 
     # Broadcast WebSocket update for instant board refresh
-    background_tasks.add_task(
-        broadcast_incident_update,
-        incident_response.model_dump(mode='json'),
-        "create"
-    )
+    background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
 
     logger.info(
-        f"Divera emergency {emergency_id} attached to event {request_data.event_id}, "
-        f"created incident {incident.id}"
+        f"Divera emergency {emergency_id} attached to event {request_data.event_id}, created incident {incident.id}"
     )
 
     return incident_response
@@ -403,10 +378,7 @@ async def bulk_attach_emergencies(
     # Verify event exists
     event = await events_crud.get_event_by_id(db, request_data.event_id)
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     created_incidents = []
     errors = []
@@ -470,16 +442,9 @@ async def bulk_attach_emergencies(
     # Broadcast all created incidents for instant board refresh
     for incident in created_incidents:
         incident_response = schemas.IncidentResponse.model_validate(incident)
-        background_tasks.add_task(
-            broadcast_incident_update,
-            incident_response.model_dump(mode='json'),
-            "create"
-        )
+        background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
 
-    logger.info(
-        f"Bulk attach completed: {len(created_incidents)} incidents created, "
-        f"{len(errors)} errors"
-    )
+    logger.info(f"Bulk attach completed: {len(created_incidents)} incidents created, {len(errors)} errors")
 
     return [schemas.IncidentResponse.model_validate(i) for i in created_incidents]
 
@@ -500,7 +465,4 @@ async def archive_divera_emergency(
         await divera_crud.archive_divera_emergency(db, emergency_id)
         logger.info(f"Divera emergency {emergency_id} archived by {current_user.username}")
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

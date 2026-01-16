@@ -1,14 +1,13 @@
 """Pydantic schemas for request/response validation."""
+
+import re
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
-from typing import Optional, Union
 from uuid import UUID
-import re
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, validator, EmailStr, HttpUrl
-
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 # ============================================
 # Personnel Schemas
@@ -19,12 +18,12 @@ class PersonnelBase(BaseModel):
     """Base personnel schema."""
 
     name: str
-    role: Optional[str] = None
+    role: str | None = None
     role_sort_order: int = 0
     availability: str  # 'available', 'assigned', 'unavailable'
-    tags: Optional[list[str]] = None
+    tags: list[str] | None = None
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         """Validate personnel name."""
@@ -33,18 +32,18 @@ class PersonnelBase(BaseModel):
         if len(v) > 100:
             raise ValueError("Name must be 100 characters or less")
         # Remove any excessive whitespace
-        return ' '.join(v.split())
+        return " ".join(v.split())
 
-    @field_validator('availability')
+    @field_validator("availability")
     @classmethod
     def validate_availability(cls, v: str) -> str:
         """Validate availability status."""
-        valid_statuses = {'available', 'assigned', 'unavailable'}
+        valid_statuses = {"available", "assigned", "unavailable"}
         if v not in valid_statuses:
             raise ValueError(f"Availability must be one of: {', '.join(valid_statuses)}")
         return v
 
-    @field_validator('role_sort_order')
+    @field_validator("role_sort_order")
     @classmethod
     def validate_sort_order(cls, v: int) -> int:
         """Validate sort order is non-negative."""
@@ -62,11 +61,11 @@ class PersonnelCreate(PersonnelBase):
 class PersonnelUpdate(BaseModel):
     """Schema for updating personnel."""
 
-    name: Optional[str] = None
-    role: Optional[str] = None
-    role_sort_order: Optional[int] = None
-    availability: Optional[str] = None
-    tags: Optional[list[str]] = None
+    name: str | None = None
+    role: str | None = None
+    role_sort_order: int | None = None
+    availability: str | None = None
+    tags: list[str] | None = None
 
 
 class Personnel(PersonnelBase):
@@ -76,8 +75,8 @@ class Personnel(PersonnelBase):
 
     id: UUID
     checked_in: bool = False
-    checked_in_at: Optional[datetime] = None
-    checked_out_at: Optional[datetime] = None
+    checked_in_at: datetime | None = None
+    checked_out_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -114,12 +113,12 @@ class PersonnelCheckInResponse(BaseModel):
 
     id: UUID
     name: str
-    role: Optional[str] = None
+    role: str | None = None
     availability: str
-    tags: Optional[list[str]] = None
+    tags: list[str] | None = None
     checked_in: bool
-    checked_in_at: Optional[datetime] = None
-    checked_out_at: Optional[datetime] = None
+    checked_in_at: datetime | None = None
+    checked_out_at: datetime | None = None
     is_assigned: bool = False  # Whether assigned to any incident in this event
 
 
@@ -130,8 +129,8 @@ class PersonnelListItem(BaseModel):
 
     id: UUID
     name: str
-    role: Optional[str] = None
-    tags: Optional[list[str]] = None
+    role: str | None = None
+    tags: list[str] | None = None
     checked_in: bool
     is_assigned: bool = False  # Whether assigned to any incident in this event
 
@@ -162,7 +161,7 @@ class EventSpecialFunctionCreate(BaseModel):
 
     personnel_id: UUID
     function_type: FunctionType
-    vehicle_id: Optional[UUID] = None  # Required for driver assignments
+    vehicle_id: UUID | None = None  # Required for driver assignments
 
 
 class EventSpecialFunctionDelete(BaseModel):
@@ -170,7 +169,7 @@ class EventSpecialFunctionDelete(BaseModel):
 
     personnel_id: UUID
     function_type: FunctionType
-    vehicle_id: Optional[UUID] = None  # Required for driver unassignments
+    vehicle_id: UUID | None = None  # Required for driver unassignments
 
 
 class EventSpecialFunctionResponse(BaseModel):
@@ -183,10 +182,10 @@ class EventSpecialFunctionResponse(BaseModel):
     personnel_id: UUID
     personnel_name: str  # Computed field
     function_type: FunctionType
-    vehicle_id: Optional[UUID] = None
-    vehicle_name: Optional[str] = None  # Computed field for drivers
+    vehicle_id: UUID | None = None
+    vehicle_name: str | None = None  # Computed field for drivers
     assigned_at: datetime
-    assigned_by: Optional[UUID] = None
+    assigned_by: UUID | None = None
 
 
 # ============================================
@@ -203,7 +202,7 @@ class VehicleBase(BaseModel):
     status: str  # 'available', 'assigned', 'planned', 'maintenance'
     radio_call_sign: str
 
-    @field_validator('name', 'radio_call_sign')
+    @field_validator("name", "radio_call_sign")
     @classmethod
     def validate_string_fields(cls, v: str) -> str:
         """Validate string fields are not empty."""
@@ -213,16 +212,16 @@ class VehicleBase(BaseModel):
             raise ValueError("Field must be 100 characters or less")
         return v.strip()
 
-    @field_validator('status')
+    @field_validator("status")
     @classmethod
     def validate_status(cls, v: str) -> str:
         """Validate vehicle status."""
-        valid_statuses = {'available', 'assigned', 'planned', 'maintenance'}
+        valid_statuses = {"available", "assigned", "planned", "maintenance"}
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
         return v
 
-    @field_validator('display_order')
+    @field_validator("display_order")
     @classmethod
     def validate_display_order(cls, v: int) -> int:
         """Validate display order is non-negative."""
@@ -240,11 +239,11 @@ class VehicleCreate(VehicleBase):
 class VehicleUpdate(BaseModel):
     """Schema for updating vehicle."""
 
-    name: Optional[str] = None
-    type: Optional[str] = None
-    display_order: Optional[int] = None
-    status: Optional[str] = None
-    radio_call_sign: Optional[str] = None
+    name: str | None = None
+    type: str | None = None
+    display_order: int | None = None
+    status: str | None = None
+    radio_call_sign: str | None = None
 
 
 class Vehicle(VehicleBase):
@@ -270,17 +269,17 @@ class VehicleStatusResponse(BaseModel):
     radio_call_sign: str
 
     # Driver information (if assigned for the event)
-    driver_id: Optional[UUID] = None
-    driver_name: Optional[str] = None
-    driver_assigned_at: Optional[datetime] = None
+    driver_id: UUID | None = None
+    driver_name: str | None = None
+    driver_assigned_at: datetime | None = None
 
     # Current incident assignment (if any)
-    incident_id: Optional[UUID] = None
-    incident_title: Optional[str] = None
-    incident_location_address: Optional[str] = None
-    incident_status: Optional[str] = None  # The column it's in
-    incident_assigned_at: Optional[datetime] = None  # When vehicle was assigned to incident
-    assignment_duration_minutes: Optional[int] = None  # Auto-calculated field
+    incident_id: UUID | None = None
+    incident_title: str | None = None
+    incident_location_address: str | None = None
+    incident_status: str | None = None  # The column it's in
+    incident_assigned_at: datetime | None = None  # When vehicle was assigned to incident
+    assignment_duration_minutes: int | None = None  # Auto-calculated field
 
 
 # ============================================
@@ -295,10 +294,10 @@ class MaterialBase(BaseModel):
     type: str  # Material type (e.g., 'Tauchpumpen', 'Wassersauger', 'Sägen', 'Generatoren', 'Anhänger')
     location: str  # Storage location (e.g., 'TLF', 'Pio', 'MoWa', 'Bühne', 'Depot')
     location_sort_order: int = 0
-    description: Optional[str] = None
+    description: str | None = None
     status: str = "available"  # 'available', 'assigned', 'planned', 'maintenance'
 
-    @field_validator('name', 'type', 'location')
+    @field_validator("name", "type", "location")
     @classmethod
     def validate_required_strings(cls, v: str) -> str:
         """Validate required string fields."""
@@ -308,24 +307,24 @@ class MaterialBase(BaseModel):
             raise ValueError("Field must be 100 characters or less")
         return v.strip()
 
-    @field_validator('description')
+    @field_validator("description")
     @classmethod
-    def validate_description(cls, v: Optional[str]) -> Optional[str]:
+    def validate_description(cls, v: str | None) -> str | None:
         """Validate description length if provided."""
         if v and len(v) > 500:
             raise ValueError("Description must be 500 characters or less")
         return v.strip() if v else v
 
-    @field_validator('status')
+    @field_validator("status")
     @classmethod
     def validate_status(cls, v: str) -> str:
         """Validate material status."""
-        valid_statuses = {'available', 'assigned', 'planned', 'maintenance'}
+        valid_statuses = {"available", "assigned", "planned", "maintenance"}
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
         return v
 
-    @field_validator('location_sort_order')
+    @field_validator("location_sort_order")
     @classmethod
     def validate_sort_order(cls, v: int) -> int:
         """Validate sort order is non-negative."""
@@ -343,12 +342,12 @@ class MaterialCreate(MaterialBase):
 class MaterialUpdate(BaseModel):
     """Schema for updating material."""
 
-    name: Optional[str] = None
-    type: Optional[str] = None
-    location: Optional[str] = None
-    location_sort_order: Optional[int] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
+    name: str | None = None
+    type: str | None = None
+    location: str | None = None
+    location_sort_order: int | None = None
+    description: str | None = None
+    status: str | None = None
 
 
 class Material(MaterialBase):
@@ -383,10 +382,10 @@ class EventCreate(EventBase):
 class EventUpdate(BaseModel):
     """Schema for updating an event."""
 
-    name: Optional[str] = None
-    training_flag: Optional[bool] = None
-    auto_attach_divera: Optional[bool] = None
-    archived_at: Optional[datetime] = None  # For archiving
+    name: str | None = None
+    training_flag: bool | None = None
+    auto_attach_divera: bool | None = None
+    archived_at: datetime | None = None  # For archiving
 
 
 class EventResponse(EventBase):
@@ -397,7 +396,7 @@ class EventResponse(EventBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
-    archived_at: Optional[datetime] = None
+    archived_at: datetime | None = None
     last_activity_at: datetime
     auto_attach_divera: bool
     incident_count: int = 0  # Computed field
@@ -458,15 +457,15 @@ class IncidentBase(BaseModel):
     title: str
     type: IncidentType
     priority: IncidentPriority
-    location_address: Optional[str] = None
-    location_lat: Optional[Union[str, Decimal]] = None
-    location_lng: Optional[Union[str, Decimal]] = None
+    location_address: str | None = None
+    location_lat: str | Decimal | None = None
+    location_lng: str | Decimal | None = None
     status: IncidentStatus = IncidentStatus.EINGEGANGEN
-    description: Optional[str] = None
-    contact: Optional[str] = None
-    internal_notes: Optional[str] = None
+    description: str | None = None
+    contact: str | None = None
+    internal_notes: str | None = None
 
-    @field_validator('title')
+    @field_validator("title")
     @classmethod
     def validate_title(cls, v: str) -> str:
         """Validate incident title."""
@@ -476,9 +475,9 @@ class IncidentBase(BaseModel):
             raise ValueError("Title must be 200 characters or less")
         return v.strip()
 
-    @field_validator('location_lat')
+    @field_validator("location_lat")
     @classmethod
-    def validate_latitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+    def validate_latitude(cls, v: str | Decimal | None) -> str | Decimal | None:
         """Validate latitude is within valid range."""
         if v is not None:
             try:
@@ -491,9 +490,9 @@ class IncidentBase(BaseModel):
                 raise
         return v
 
-    @field_validator('location_lng')
+    @field_validator("location_lng")
     @classmethod
-    def validate_longitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+    def validate_longitude(cls, v: str | Decimal | None) -> str | Decimal | None:
         """Validate longitude is within valid range."""
         if v is not None:
             try:
@@ -506,9 +505,9 @@ class IncidentBase(BaseModel):
                 raise
         return v
 
-    @field_validator('description')
+    @field_validator("description")
     @classmethod
-    def validate_description(cls, v: Optional[str]) -> Optional[str]:
+    def validate_description(cls, v: str | None) -> str | None:
         """Validate description length if provided."""
         if v and len(v) > 2000:
             raise ValueError("Description must be 2000 characters or less")
@@ -524,16 +523,16 @@ class IncidentCreate(IncidentBase):
 class IncidentUpdate(BaseModel):
     """Schema for updating incident."""
 
-    title: Optional[str] = None
-    type: Optional[IncidentType] = None
-    priority: Optional[IncidentPriority] = None
-    location_address: Optional[str] = None
-    location_lat: Optional[Union[str, Decimal]] = None
-    location_lng: Optional[Union[str, Decimal]] = None
-    status: Optional[IncidentStatus] = None
-    description: Optional[str] = None
-    contact: Optional[str] = None
-    internal_notes: Optional[str] = None
+    title: str | None = None
+    type: IncidentType | None = None
+    priority: IncidentPriority | None = None
+    location_address: str | None = None
+    location_lat: str | Decimal | None = None
+    location_lng: str | Decimal | None = None
+    status: IncidentStatus | None = None
+    description: str | None = None
+    contact: str | None = None
+    internal_notes: str | None = None
     # training_flag intentionally excluded (use separate endpoint)
 
 
@@ -558,13 +557,13 @@ class IncidentResponse(IncidentBase):
     event_id: UUID  # Include event_id in responses
     created_at: datetime
     updated_at: datetime
-    created_by: Optional[UUID] = None
-    completed_at: Optional[datetime] = None
-    status_changed_at: Optional[datetime] = None  # Timestamp of last status transition
+    created_by: UUID | None = None
+    completed_at: datetime | None = None
+    status_changed_at: datetime | None = None  # Timestamp of last status transition
     assigned_vehicles: list[AssignedVehicle] = []  # List of assigned vehicles with details
     has_completed_reko: bool = False  # Whether a non-draft reko report has been submitted
 
-    @field_serializer('location_lat', 'location_lng')
+    @field_serializer("location_lat", "location_lng")
     def serialize_decimal(self, value):
         """Convert Decimal to string for JSON serialization."""
         if value is None:
@@ -594,8 +593,8 @@ class AssignmentResponse(BaseModel):
     resource_type: str
     resource_id: UUID
     assigned_at: datetime
-    unassigned_at: Optional[datetime] = None
-    assigned_by: Optional[UUID] = None
+    unassigned_at: datetime | None = None
+    assigned_by: UUID | None = None
 
 
 # ============================================
@@ -608,7 +607,7 @@ class StatusTransitionCreate(BaseModel):
 
     from_status: IncidentStatus
     to_status: IncidentStatus
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class StatusTransitionResponse(BaseModel):
@@ -621,8 +620,8 @@ class StatusTransitionResponse(BaseModel):
     from_status: str
     to_status: str
     timestamp: datetime
-    user_id: Optional[UUID] = None
-    notes: Optional[str] = None
+    user_id: UUID | None = None
+    notes: str | None = None
 
 
 # ============================================
@@ -650,7 +649,7 @@ class User(UserBase):
 
     id: UUID
     created_at: datetime
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
 
 
 # Alias for API responses (matches task specification)
@@ -681,7 +680,7 @@ class Setting(SettingBase):
     model_config = ConfigDict(from_attributes=True)
 
     updated_at: datetime
-    updated_by: Optional[UUID] = None
+    updated_by: UUID | None = None
 
 
 # ============================================
@@ -697,27 +696,27 @@ class DangersAssessment(BaseModel):
     collapse: bool = False
     chemical: bool = False
     electrical: bool = False
-    other_notes: Optional[str] = None
+    other_notes: str | None = None
 
 
 class EffortEstimation(BaseModel):
     """Resource effort estimation."""
 
-    personnel_count: Optional[int] = None
+    personnel_count: int | None = None
     vehicles_needed: list[str] = []
     equipment_needed: list[str] = []
-    estimated_duration_hours: Optional[float] = None
+    estimated_duration_hours: float | None = None
 
 
 class RekoReportBase(BaseModel):
     """Base schema for Reko reports."""
 
-    is_relevant: Optional[bool] = None
-    dangers_json: Optional[DangersAssessment] = None
-    effort_json: Optional[EffortEstimation] = None
-    power_supply: Optional[str] = None  # 'available' | 'unavailable' | 'emergency_needed'
-    summary_text: Optional[str] = None
-    additional_notes: Optional[str] = None
+    is_relevant: bool | None = None
+    dangers_json: DangersAssessment | None = None
+    effort_json: EffortEstimation | None = None
+    power_supply: str | None = None  # 'available' | 'unavailable' | 'emergency_needed'
+    summary_text: str | None = None
+    additional_notes: str | None = None
     is_draft: bool = False
 
 
@@ -741,17 +740,17 @@ class RekoReportResponse(RekoReportBase):
 
     id: UUID
     incident_id: UUID
-    incident_title: Optional[str] = None  # Computed from incident.title
-    incident_location: Optional[str] = None  # Computed from incident.location_address
-    incident_type: Optional[str] = None  # Computed from incident.type
-    incident_description: Optional[str] = None  # Computed from incident.description
+    incident_title: str | None = None  # Computed from incident.title
+    incident_location: str | None = None  # Computed from incident.location_address
+    incident_type: str | None = None  # Computed from incident.type
+    incident_description: str | None = None  # Computed from incident.description
     submitted_at: datetime
     updated_at: datetime
     photos_json: list[str] = []  # Array of photo filenames
-    submitted_by_personnel_id: Optional[UUID] = None  # Who did the reko
-    submitted_by_personnel_name: Optional[str] = None  # Personnel name for display
+    submitted_by_personnel_id: UUID | None = None  # Who did the reko
+    submitted_by_personnel_name: str | None = None  # Personnel name for display
 
-    @field_validator('photos_json', mode='before')
+    @field_validator("photos_json", mode="before")
     @classmethod
     def ensure_photos_list(cls, v):
         """Convert None to empty list for photos_json."""
@@ -771,17 +770,17 @@ class AuditLogEntry(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    user_id: Optional[UUID] = None
+    user_id: UUID | None = None
     action_type: str
     resource_type: str
-    resource_id: Optional[UUID] = None
-    changes_json: Optional[dict] = None
+    resource_id: UUID | None = None
+    changes_json: dict | None = None
     timestamp: datetime
-    ip_address: Optional[Union[str, IPv4Address, IPv6Address]] = None
-    user_agent: Optional[str] = None
+    ip_address: str | IPv4Address | IPv6Address | None = None
+    user_agent: str | None = None
 
-    @field_serializer('ip_address')
-    def serialize_ip_address(self, ip_address: Optional[Union[str, IPv4Address, IPv6Address]], _info) -> Optional[str]:
+    @field_serializer("ip_address")
+    def serialize_ip_address(self, ip_address: str | IPv4Address | IPv6Address | None, _info) -> str | None:
         """Convert IPv4Address/IPv6Address to string."""
         if ip_address is None:
             return None
@@ -847,12 +846,12 @@ class NotificationResponse(BaseModel):
     type: NotificationType
     severity: NotificationSeverity
     message: str
-    incident_id: Optional[UUID] = None
-    event_id: Optional[UUID] = None
+    incident_id: UUID | None = None
+    event_id: UUID | None = None
     created_at: datetime
     dismissed: bool
-    dismissed_at: Optional[datetime] = None
-    dismissed_by: Optional[UUID] = None
+    dismissed_at: datetime | None = None
+    dismissed_by: UUID | None = None
 
 
 class NotificationDismiss(BaseModel):
@@ -929,37 +928,45 @@ class NotificationSettingsUpdate(BaseModel):
     """Schema for updating notification settings."""
 
     # All fields are optional for partial updates
-    live_eingegangen_min: Optional[int] = None
-    live_reko_min: Optional[int] = None
-    live_disponiert_min: Optional[int] = None
-    live_einsatz_hours: Optional[int] = None
-    live_rueckfahrt_min: Optional[int] = None
-    live_archive_hours: Optional[int] = None
+    live_eingegangen_min: int | None = None
+    live_reko_min: int | None = None
+    live_disponiert_min: int | None = None
+    live_einsatz_hours: int | None = None
+    live_rueckfahrt_min: int | None = None
+    live_archive_hours: int | None = None
 
-    training_eingegangen_min: Optional[int] = None
-    training_reko_min: Optional[int] = None
-    training_disponiert_min: Optional[int] = None
-    training_einsatz_hours: Optional[int] = None
-    training_rueckfahrt_min: Optional[int] = None
-    training_archive_hours: Optional[int] = None
+    training_eingegangen_min: int | None = None
+    training_reko_min: int | None = None
+    training_disponiert_min: int | None = None
+    training_einsatz_hours: int | None = None
+    training_rueckfahrt_min: int | None = None
+    training_archive_hours: int | None = None
 
-    fatigue_hours: Optional[int] = None
-    material_depletion_threshold: Optional[dict[str, int]] = None
-    database_size_limit_gb: Optional[int] = None
-    photo_size_limit_gb: Optional[int] = None
+    fatigue_hours: int | None = None
+    material_depletion_threshold: dict[str, int] | None = None
+    database_size_limit_gb: int | None = None
+    photo_size_limit_gb: int | None = None
 
-    re_alarm_interval_min: Optional[int] = None
+    re_alarm_interval_min: int | None = None
 
-    enabled_time_alerts: Optional[bool] = None
-    enabled_resource_alerts: Optional[bool] = None
-    enabled_data_quality_alerts: Optional[bool] = None
-    enabled_event_alerts: Optional[bool] = None
+    enabled_time_alerts: bool | None = None
+    enabled_resource_alerts: bool | None = None
+    enabled_data_quality_alerts: bool | None = None
+    enabled_event_alerts: bool | None = None
 
-    @field_validator('live_eingegangen_min', 'live_reko_min', 'live_disponiert_min',
-                    'live_rueckfahrt_min', 'training_eingegangen_min', 'training_reko_min',
-                    'training_disponiert_min', 'training_rueckfahrt_min', 're_alarm_interval_min')
+    @field_validator(
+        "live_eingegangen_min",
+        "live_reko_min",
+        "live_disponiert_min",
+        "live_rueckfahrt_min",
+        "training_eingegangen_min",
+        "training_reko_min",
+        "training_disponiert_min",
+        "training_rueckfahrt_min",
+        "re_alarm_interval_min",
+    )
     @classmethod
-    def validate_minute_fields(cls, v: Optional[int]) -> Optional[int]:
+    def validate_minute_fields(cls, v: int | None) -> int | None:
         """Validate minute fields are positive or zero."""
         if v is not None:
             if v < 0:
@@ -968,10 +975,11 @@ class NotificationSettingsUpdate(BaseModel):
                 raise ValueError("Time in minutes should not exceed 24 hours (1440 minutes)")
         return v
 
-    @field_validator('live_einsatz_hours', 'live_archive_hours',
-                    'training_einsatz_hours', 'training_archive_hours', 'fatigue_hours')
+    @field_validator(
+        "live_einsatz_hours", "live_archive_hours", "training_einsatz_hours", "training_archive_hours", "fatigue_hours"
+    )
     @classmethod
-    def validate_hour_fields(cls, v: Optional[int]) -> Optional[int]:
+    def validate_hour_fields(cls, v: int | None) -> int | None:
         """Validate hour fields are positive."""
         if v is not None:
             if v < 0:
@@ -980,9 +988,9 @@ class NotificationSettingsUpdate(BaseModel):
                 raise ValueError("Time in hours should not exceed 1 week (168 hours)")
         return v
 
-    @field_validator('database_size_limit_gb', 'photo_size_limit_gb')
+    @field_validator("database_size_limit_gb", "photo_size_limit_gb")
     @classmethod
-    def validate_size_limits(cls, v: Optional[int]) -> Optional[int]:
+    def validate_size_limits(cls, v: int | None) -> int | None:
         """Validate size limits are reasonable."""
         if v is not None:
             if v < 1:
@@ -1029,11 +1037,11 @@ class TrainingLocationBase(BaseModel):
     house_number: str
     postal_code: str = "4104"
     city: str = "Oberwil"
-    building_type: Optional[str] = None
-    latitude: Optional[Union[str, Decimal]] = None
-    longitude: Optional[Union[str, Decimal]] = None
+    building_type: str | None = None
+    latitude: str | Decimal | None = None
+    longitude: str | Decimal | None = None
 
-    @field_validator('street')
+    @field_validator("street")
     @classmethod
     def validate_street(cls, v: str) -> str:
         """Validate street name."""
@@ -1043,22 +1051,22 @@ class TrainingLocationBase(BaseModel):
             raise ValueError("Street must be 100 characters or less")
         return v.strip()
 
-    @field_validator('house_number')
+    @field_validator("house_number")
     @classmethod
     def validate_house_number(cls, v: str) -> str:
         """Validate house number format."""
         if not v or not v.strip():
             raise ValueError("House number cannot be empty")
         # Allow formats like "12", "12a", "12-14", etc.
-        if not re.match(r'^[\d]+[a-zA-Z\-\/]*$', v.strip()):
+        if not re.match(r"^[\d]+[a-zA-Z\-\/]*$", v.strip()):
             raise ValueError("Invalid house number format")
         return v.strip()
 
-    @field_validator('postal_code')
+    @field_validator("postal_code")
     @classmethod
     def validate_postal_code(cls, v: str) -> str:
         """Validate Swiss postal code."""
-        if not re.match(r'^\d{4}$', v):
+        if not re.match(r"^\d{4}$", v):
             raise ValueError("Postal code must be 4 digits")
         # Basel-Landschaft postal codes typically range from 4000-4499
         code = int(v)
@@ -1066,9 +1074,9 @@ class TrainingLocationBase(BaseModel):
             raise ValueError("Postal code should be in Basel-Landschaft range (4000-4499)")
         return v
 
-    @field_validator('latitude')
+    @field_validator("latitude")
     @classmethod
-    def validate_latitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+    def validate_latitude(cls, v: str | Decimal | None) -> str | Decimal | None:
         """Validate latitude is within Basel-Landschaft area."""
         if v is not None:
             try:
@@ -1082,9 +1090,9 @@ class TrainingLocationBase(BaseModel):
                 raise
         return v
 
-    @field_validator('longitude')
+    @field_validator("longitude")
     @classmethod
-    def validate_longitude(cls, v: Optional[Union[str, Decimal]]) -> Optional[Union[str, Decimal]]:
+    def validate_longitude(cls, v: str | Decimal | None) -> str | Decimal | None:
         """Validate longitude is within Basel-Landschaft area."""
         if v is not None:
             try:
@@ -1098,7 +1106,7 @@ class TrainingLocationBase(BaseModel):
                 raise
         return v
 
-    @field_serializer('latitude', 'longitude')
+    @field_serializer("latitude", "longitude")
     def serialize_decimal(self, value):
         """Convert Decimal to string for JSON serialization."""
         if value is None:
@@ -1138,7 +1146,7 @@ class TrainingAutoGenSettings(BaseModel):
 class GenerateEmergencyRequest(BaseModel):
     """Schema for manual emergency generation request."""
 
-    category: Optional[str] = None  # 'normal', 'critical', or None for random
+    category: str | None = None  # 'normal', 'critical', or None for random
     count: int = 1  # For burst generation (1-10)
 
 
@@ -1152,12 +1160,12 @@ class PersonnelActivity(BaseModel):
 
     personnel_id: UUID
     name: str
-    role: Optional[str] = None
+    role: str | None = None
     availability: str
     active_duration_minutes: int  # Time since checked in (for assigned personnel)
     assignment_count: int  # Number of incidents assigned to
-    current_incident_title: Optional[str] = None  # Current incident title if assigned
-    checked_in_at: Optional[datetime] = None
+    current_incident_title: str | None = None  # Current incident title if assigned
+    checked_in_at: datetime | None = None
 
 
 class EventStats(BaseModel):
@@ -1198,9 +1206,9 @@ class SyncResult(BaseModel):
     success: bool
     direction: SyncDirection
     records_synced: dict[str, int]  # e.g., {"incidents": 5, "personnel": 2}
-    errors: Optional[list[str]] = None
+    errors: list[str] | None = None
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 class Delta(BaseModel):
@@ -1222,12 +1230,12 @@ class Delta(BaseModel):
 class SyncStatusResponse(BaseModel):
     """Current sync status response."""
 
-    last_sync: Optional[datetime] = None
-    direction: Optional[SyncDirection] = None
+    last_sync: datetime | None = None
+    direction: SyncDirection | None = None
     railway_healthy: bool
     is_syncing: bool
     records_pending: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
 
 class SyncLogResponse(BaseModel):
@@ -1238,10 +1246,10 @@ class SyncLogResponse(BaseModel):
     id: UUID
     sync_direction: SyncDirection
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     status: SyncStatus
-    records_synced: Optional[dict] = None
-    errors: Optional[dict] = None
+    records_synced: dict | None = None
+    errors: dict | None = None
 
 
 # ============================================
@@ -1253,18 +1261,18 @@ class DiveraWebhookPayload(BaseModel):
     """Divera 24/7 webhook payload structure (actual format from Divera PRO)."""
 
     id: int
-    number: Optional[str] = None  # Incident number like "E-123"
+    number: str | None = None  # Incident number like "E-123"
     title: str
-    text: Optional[str] = None
-    address: Optional[str] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+    text: str | None = None
+    address: str | None = None
+    lat: float | None = None
+    lng: float | None = None
     # Note: priority is inferred from title/text content, not from Divera payload
-    cluster: Optional[list[str]] = None  # e.g., ["Untereinheit 1"]
-    group: Optional[list[str]] = None  # e.g., ["Gruppe 1", "Gruppe 2"]
-    vehicle: Optional[list[str]] = None  # e.g., ["HLF-1", "LF-10"]
-    ts_create: Optional[int] = None  # Unix timestamp
-    ts_update: Optional[int] = None  # Unix timestamp
+    cluster: list[str] | None = None  # e.g., ["Untereinheit 1"]
+    group: list[str] | None = None  # e.g., ["Gruppe 1", "Gruppe 2"]
+    vehicle: list[str] | None = None  # e.g., ["HLF-1", "LF-10"]
+    ts_create: int | None = None  # Unix timestamp
+    ts_update: int | None = None  # Unix timestamp
 
 
 class DiveraEmergencyResponse(BaseModel):
@@ -1274,20 +1282,20 @@ class DiveraEmergencyResponse(BaseModel):
 
     id: UUID
     divera_id: int
-    divera_number: Optional[str] = None
+    divera_number: str | None = None
     title: str
-    text: Optional[str] = None
-    address: Optional[str] = None
-    latitude: Optional[Union[str, Decimal]] = None
-    longitude: Optional[Union[str, Decimal]] = None
+    text: str | None = None
+    address: str | None = None
+    latitude: str | Decimal | None = None
+    longitude: str | Decimal | None = None
     # Note: priority is inferred from title/text when creating incidents
     received_at: datetime
-    attached_to_event_id: Optional[UUID] = None
-    attached_at: Optional[datetime] = None
-    created_incident_id: Optional[UUID] = None
+    attached_to_event_id: UUID | None = None
+    attached_at: datetime | None = None
+    created_incident_id: UUID | None = None
     is_archived: bool
 
-    @field_serializer('latitude', 'longitude')
+    @field_serializer("latitude", "longitude")
     def serialize_decimal(self, value):
         """Convert Decimal to string for JSON serialization."""
         if value is None:
@@ -1315,7 +1323,7 @@ class BulkAttachEmergenciesRequest(BaseModel):
     event_id: UUID
     emergency_ids: list[UUID]
 
-    @field_validator('emergency_ids')
+    @field_validator("emergency_ids")
     @classmethod
     def validate_emergency_ids(cls, v: list[UUID]) -> list[UUID]:
         """Validate emergency IDs list."""

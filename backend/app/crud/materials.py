@@ -1,6 +1,7 @@
 """Material CRUD operations."""
-from datetime import datetime
+
 import uuid
+from datetime import datetime
 
 from fastapi import Request
 from sqlalchemy import select
@@ -13,7 +14,9 @@ from ..services.audit import calculate_changes, log_action
 
 async def get_all_materials(db: AsyncSession) -> list[Material]:
     """Get all materials."""
-    result = await db.execute(select(Material).order_by(Material.location_sort_order.asc(), Material.location.asc(), Material.name.asc()))
+    result = await db.execute(
+        select(Material).order_by(Material.location_sort_order.asc(), Material.location.asc(), Material.name.asc())
+    )
     return list(result.scalars().all())
 
 
@@ -32,9 +35,11 @@ async def create_material(
     """Create new material."""
     material = Material(
         name=material_data.name,
+        type=material_data.type,
         status=material_data.status or "available",
         location=material_data.location,
         location_sort_order=material_data.location_sort_order,
+        description=material_data.description,
     )
     db.add(material)
     await db.flush()
@@ -48,8 +53,10 @@ async def create_material(
         user=current_user,
         changes={
             "name": material_data.name,
+            "type": material_data.type,
             "status": material_data.status,
             "location": material_data.location,
+            "description": material_data.description,
         },
         request=request,
     )

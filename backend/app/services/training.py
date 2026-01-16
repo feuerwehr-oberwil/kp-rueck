@@ -1,21 +1,16 @@
 """Training emergency auto-generation service."""
+
+import asyncio
 import logging
 import random
-import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID, uuid4
 
-from app.models import (
-    EmergencyTemplate,
-    TrainingLocation,
-    Incident,
-    Event,
-    Setting,
-    Notification
-)
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import EmergencyTemplate, Event, Incident, Notification, Setting, TrainingLocation
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +26,12 @@ class TrainingGenerator:
 
     async def _load_templates(self):
         """Load all active emergency templates."""
-        result = await self.db.execute(
-            select(EmergencyTemplate).where(EmergencyTemplate.is_active == True)
-        )
+        result = await self.db.execute(select(EmergencyTemplate).where(EmergencyTemplate.is_active))
         self._cache_templates = list(result.scalars().all())
 
     async def _load_locations(self):
         """Load all active training locations."""
-        result = await self.db.execute(
-            select(TrainingLocation).where(TrainingLocation.is_active == True)
-        )
+        result = await self.db.execute(select(TrainingLocation).where(TrainingLocation.is_active))
         self._cache_locations = list(result.scalars().all())
 
     def _calculate_time_weight(self, event_id: UUID, early_multiplier: float) -> float:
@@ -65,7 +56,7 @@ class TrainingGenerator:
         self,
         event_id: UUID,
         category: Literal["normal", "critical"] | None = None,
-        settings: dict[str, str] | None = None
+        settings: dict[str, str] | None = None,
     ) -> Incident:
         """
         Generate a random training emergency.
@@ -91,13 +82,9 @@ class TrainingGenerator:
 
         # Determine category (weighted random if not specified)
         if category is None:
-            normal_weight = int(settings.get('training_normal_weight', 90)) if settings else 90
-            critical_weight = int(settings.get('training_critical_weight', 10)) if settings else 10
-            category = random.choices(
-                ['normal', 'critical'],
-                weights=[normal_weight, critical_weight],
-                k=1
-            )[0]
+            normal_weight = int(settings.get("training_normal_weight", 90)) if settings else 90
+            critical_weight = int(settings.get("training_critical_weight", 10)) if settings else 10
+            category = random.choices(["normal", "critical"], weights=[normal_weight, critical_weight], k=1)[0]
 
         # Filter templates by category
         templates = [t for t in self._cache_templates if t.category == category]
@@ -146,16 +133,11 @@ class TrainingGenerator:
         await self.db.commit()
 
         # Log emergency creation
-        logger.info("Training emergency created: %s at %s (category: %s)",
-                   incident.title, full_address, category)
+        logger.info("Training emergency created: %s at %s (category: %s)", incident.title, full_address, category)
 
         return incident
 
-    async def start_auto_generation(
-        self,
-        event_id: UUID,
-        settings: dict[str, str]
-    ):
+    async def start_auto_generation(self, event_id: UUID, settings: dict[str, str]):
         """
         Start auto-generating emergencies for a training event.
         Runs in background until stopped.
@@ -165,14 +147,14 @@ class TrainingGenerator:
         # Store event start time
         self._event_start_time[event_id] = datetime.utcnow()
 
-        min_interval = int(settings.get('training_autogen_min_interval_sec', 120))
-        max_interval = int(settings.get('training_autogen_max_interval_sec', 420))
-        early_multiplier = float(settings.get('training_early_multiplier', 2.0))
+        min_interval = int(settings.get("training_autogen_min_interval_sec", 120))
+        max_interval = int(settings.get("training_autogen_max_interval_sec", 420))
+        early_multiplier = float(settings.get("training_early_multiplier", 2.0))
 
         while True:
             # Check if still enabled
-            enabled_setting = await self._get_setting('training_autogen_enabled')
-            if enabled_setting != 'true':
+            enabled_setting = await self._get_setting("training_autogen_enabled")
+            if enabled_setting != "true":
                 break
 
             # Check if event still exists and is training
@@ -197,18 +179,13 @@ class TrainingGenerator:
 
     async def _get_setting(self, key: str) -> str | None:
         """Helper to get setting value."""
-        result = await self.db.execute(
-            select(Setting).where(Setting.key == key)
-        )
+        result = await self.db.execute(select(Setting).where(Setting.key == key))
         setting = result.scalar_one_or_none()
         return setting.value if setting else None
 
 
 async def generate_training_emergency(
-    db: AsyncSession,
-    event_id: UUID,
-    category: Literal["normal", "critical"] | None = None,
-    count: int = 1
+    db: AsyncSession, event_id: UUID, category: Literal["normal", "critical"] | None = None, count: int = 1
 ) -> list[Incident]:
     """
     Generate one or more training emergencies.

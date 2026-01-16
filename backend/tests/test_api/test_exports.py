@@ -23,7 +23,6 @@ from app.database import get_db
 from app.main import app
 from app.models import Event, Incident, User
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -386,7 +385,7 @@ async def test_export_creates_audit_log(
     result = await db_session.execute(
         select(AuditLog).where(AuditLog.resource_type == "event").where(AuditLog.action_type == "export")
     )
-    audit_entry = result.scalar_one_or_none()
+    result.scalar_one_or_none()
 
     # Note: Depending on implementation, audit might be created
     # This test documents expected behavior

@@ -23,7 +23,6 @@ from app.database import get_db
 from app.main import app
 from app.models import Material, Personnel, User, Vehicle
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -179,7 +178,7 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
         json={"resource_type": "personnel", "resource_id": str(personnel.id)},
     )
     assert assign_response.status_code == 200, f"Failed to assign personnel: {assign_response.text}"
-    personnel_assignment_id = assign_response.json()["id"]
+    assign_response.json()["id"]
 
     # Assign vehicle
     assign_response = await editor_client.post(
@@ -221,7 +220,9 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
                 "notes": notes,
             },
         )
-        assert status_response.status_code == 200, f"Failed transition {from_status} → {to_status}: {status_response.text}"
+        assert status_response.status_code == 200, (
+            f"Failed transition {from_status} → {to_status}: {status_response.text}"
+        )
         updated_incident = status_response.json()
         assert updated_incident["status"] == to_status
 

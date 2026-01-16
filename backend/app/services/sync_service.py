@@ -1,13 +1,11 @@
 """Bidirectional sync service for Railway ↔ Local synchronization."""
-import asyncio
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
-from app.config import settings
 from app.logging_config import get_logger
 from app.models import Event, Incident, Material, Personnel, Setting, SyncLog, Vehicle
 from app.schemas import Delta, SyncDirection, SyncResult, SyncStatus
@@ -33,14 +31,15 @@ class SyncService:
     def __init__(self, db: AsyncSession):
         """Initialize sync service with database session."""
         self.db = db
-        self._railway_database_url: Optional[str] = None
-        self._railway_engine: Optional[AsyncEngine] = None
-        self._conflict_buffer: Optional[int] = None
+        self._railway_database_url: str | None = None
+        self._railway_engine: AsyncEngine | None = None
+        self._conflict_buffer: int | None = None
 
     async def get_railway_database_url(self) -> str:
         """Get Railway database URL from settings."""
         if self._railway_database_url is None:
             from app.services.settings import get_setting_value
+
             self._railway_database_url = await get_setting_value(self.db, "railway_database_url", "")
         return self._railway_database_url
 
@@ -48,11 +47,12 @@ class SyncService:
         """Get conflict buffer from database settings."""
         if self._conflict_buffer is None:
             from app.services.settings import get_setting_value
+
             buffer_str = await get_setting_value(self.db, "sync_conflict_buffer_seconds", "5")
             self._conflict_buffer = int(buffer_str)
         return self._conflict_buffer
 
-    async def get_railway_engine(self) -> Optional[AsyncEngine]:
+    async def get_railway_engine(self) -> AsyncEngine | None:
         """Get or create Railway database engine."""
         railway_url = await self.get_railway_database_url()
         if not railway_url:
@@ -60,11 +60,11 @@ class SyncService:
 
         if self._railway_engine is None:
             # Ensure the URL uses asyncpg driver for async operations
-            if railway_url.startswith('postgresql://'):
-                railway_url = railway_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
-            elif not railway_url.startswith('postgresql+asyncpg://'):
+            if railway_url.startswith("postgresql://"):
+                railway_url = railway_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif not railway_url.startswith("postgresql+asyncpg://"):
                 # If it's already postgresql+something, we should still ensure it's asyncpg
-                railway_url = railway_url.replace('postgresql+', 'postgresql+asyncpg+', 1)
+                railway_url = railway_url.replace("postgresql+", "postgresql+asyncpg+", 1)
 
             self._railway_engine = create_async_engine(railway_url, echo=False)
         return self._railway_engine
@@ -95,7 +95,7 @@ class SyncService:
             logger.warning(f"Railway health check failed: {e}")
             return False
 
-    async def get_last_sync_time(self, direction: SyncDirection) -> Optional[datetime]:
+    async def get_last_sync_time(self, direction: SyncDirection) -> datetime | None:
         """
         Get timestamp of last successful sync in given direction.
 
@@ -107,20 +107,14 @@ class SyncService:
         """
         result = await self.db.execute(
             select(SyncLog)
-            .where(
-                SyncLog.sync_direction == direction.value,
-                SyncLog.status == SyncStatus.SUCCESS.value
-            )
+            .where(SyncLog.sync_direction == direction.value, SyncLog.status == SyncStatus.SUCCESS.value)
             .order_by(SyncLog.completed_at.desc())
             .limit(1)
         )
         last_sync = result.scalar_one_or_none()
         return last_sync.completed_at if last_sync else None
 
-    async def get_sync_delta_from_railway(
-        self,
-        last_sync_time: Optional[datetime] = None
-    ) -> Delta:
+    async def get_sync_delta_from_railway(self, last_sync_time: datetime | None = None) -> Delta:
         """
         Get records changed since last sync from Railway database using batched loading.
 
@@ -183,11 +177,7 @@ class SyncService:
 
         return delta
 
-    async def apply_delta(
-        self,
-        delta: Delta,
-        conflict_strategy: str = "last_write_wins"
-    ) -> dict[str, int]:
+    async def apply_delta(self, delta: Delta, conflict_strategy: str = "last_write_wins") -> dict[str, int]:
         """
         Apply delta to local database with conflict resolution.
 
@@ -238,9 +228,7 @@ class SyncService:
                                 processed_data[key] = value
 
                         # Check if record exists locally
-                        result = await self.db.execute(
-                            select(model_class).where(model_class.id == UUID(record_id))
-                        )
+                        result = await self.db.execute(select(model_class).where(model_class.id == UUID(record_id)))
                         existing = result.scalar_one_or_none()
 
                         if existing:
@@ -274,7 +262,9 @@ class SyncService:
 
                     except IntegrityError as ie:
                         # Savepoint automatically rolls back, other records unaffected
-                        logger.debug(f"Skipping record {record_id} in {table_name} due to integrity constraint: {str(ie)[:200]}")
+                        logger.debug(
+                            f"Skipping record {record_id} in {table_name} due to integrity constraint: {str(ie)[:200]}"
+                        )
                         continue
                     except Exception as e:
                         logger.error(f"Error applying record {record_id} to {table_name}: {e}")
@@ -293,14 +283,12 @@ class SyncService:
         Returns:
             SyncResult with sync operation details.
         """
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         errors = []
 
         # Create sync log entry
         sync_log = SyncLog(
-            sync_direction=SyncDirection.FROM_RAILWAY.value,
-            status=SyncStatus.IN_PROGRESS.value,
-            started_at=started_at
+            sync_direction=SyncDirection.FROM_RAILWAY.value, status=SyncStatus.IN_PROGRESS.value, started_at=started_at
         )
         self.db.add(sync_log)
         await self.db.commit()
@@ -311,7 +299,7 @@ class SyncService:
                 errors.append("Railway is unreachable")
                 sync_log.status = SyncStatus.FAILED.value
                 sync_log.errors = {"error": errors}
-                sync_log.completed_at = datetime.now(timezone.utc)
+                sync_log.completed_at = datetime.now(UTC)
                 await self.db.commit()
 
                 return SyncResult(
@@ -320,7 +308,7 @@ class SyncService:
                     records_synced={},
                     errors=errors,
                     started_at=started_at,
-                    completed_at=datetime.now(timezone.utc)
+                    completed_at=datetime.now(UTC),
                 )
 
             # Get last sync time
@@ -333,7 +321,7 @@ class SyncService:
             applied_counts = await self.apply_delta(delta)
 
             # Update sync log
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
             sync_log.status = SyncStatus.SUCCESS.value
             sync_log.records_synced = applied_counts
             sync_log.completed_at = completed_at
@@ -345,14 +333,14 @@ class SyncService:
                 records_synced=applied_counts,
                 errors=None,
                 started_at=started_at,
-                completed_at=completed_at
+                completed_at=completed_at,
             )
 
         except Exception as e:
             errors.append(str(e))
             sync_log.status = SyncStatus.FAILED.value
             sync_log.errors = {"error": errors}
-            sync_log.completed_at = datetime.now(timezone.utc)
+            sync_log.completed_at = datetime.now(UTC)
             await self.db.commit()
 
             return SyncResult(
@@ -361,7 +349,7 @@ class SyncService:
                 records_synced={},
                 errors=errors,
                 started_at=started_at,
-                completed_at=datetime.now(timezone.utc)
+                completed_at=datetime.now(UTC),
             )
         finally:
             # Always close Railway connection to prevent pool exhaustion
@@ -374,14 +362,12 @@ class SyncService:
         Returns:
             SyncResult with sync operation details.
         """
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         errors = []
 
         # Create sync log entry
         sync_log = SyncLog(
-            sync_direction=SyncDirection.TO_RAILWAY.value,
-            status=SyncStatus.IN_PROGRESS.value,
-            started_at=started_at
+            sync_direction=SyncDirection.TO_RAILWAY.value, status=SyncStatus.IN_PROGRESS.value, started_at=started_at
         )
         self.db.add(sync_log)
         await self.db.commit()
@@ -392,7 +378,7 @@ class SyncService:
                 errors.append("Railway is unreachable")
                 sync_log.status = SyncStatus.FAILED.value
                 sync_log.errors = {"error": errors}
-                sync_log.completed_at = datetime.now(timezone.utc)
+                sync_log.completed_at = datetime.now(UTC)
                 await self.db.commit()
 
                 return SyncResult(
@@ -401,7 +387,7 @@ class SyncService:
                     records_synced={},
                     errors=errors,
                     started_at=started_at,
-                    completed_at=datetime.now(timezone.utc)
+                    completed_at=datetime.now(UTC),
                 )
 
             # Get last sync time
@@ -432,10 +418,7 @@ class SyncService:
 
                     # Convert batch to dict
                     batch_data = [
-                        {
-                            column.name: getattr(record, column.name)
-                            for column in model_class.__table__.columns
-                        }
+                        {column.name: getattr(record, column.name) for column in model_class.__table__.columns}
                         for record in batch_records
                     ]
                     records_data.extend(batch_data)
@@ -449,7 +432,7 @@ class SyncService:
                 errors.append("Railway database engine not available")
                 sync_log.status = SyncStatus.FAILED.value
                 sync_log.errors = {"errors": errors}
-                sync_log.completed_at = datetime.now(timezone.utc)
+                sync_log.completed_at = datetime.now(UTC)
                 await self.db.commit()
 
                 return SyncResult(
@@ -458,7 +441,7 @@ class SyncService:
                     records_synced={},
                     errors=errors,
                     started_at=started_at,
-                    completed_at=datetime.now(timezone.utc)
+                    completed_at=datetime.now(UTC),
                 )
 
             pushed_counts = {}
@@ -516,7 +499,7 @@ class SyncService:
                     errors.append(f"Error committing to Railway database: {str(e)}")
 
             # Update sync log
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
             status = SyncStatus.SUCCESS if not errors else SyncStatus.PARTIAL
             sync_log.status = status.value
             sync_log.records_synced = pushed_counts
@@ -531,14 +514,14 @@ class SyncService:
                 records_synced=pushed_counts,
                 errors=errors if errors else None,
                 started_at=started_at,
-                completed_at=completed_at
+                completed_at=completed_at,
             )
 
         except Exception as e:
             errors.append(str(e))
             sync_log.status = SyncStatus.FAILED.value
             sync_log.errors = {"error": errors}
-            sync_log.completed_at = datetime.now(timezone.utc)
+            sync_log.completed_at = datetime.now(UTC)
             await self.db.commit()
 
             return SyncResult(
@@ -547,7 +530,7 @@ class SyncService:
                 records_synced={},
                 errors=errors,
                 started_at=started_at,
-                completed_at=datetime.now(timezone.utc)
+                completed_at=datetime.now(UTC),
             )
         finally:
             # Always close Railway connection to prevent pool exhaustion

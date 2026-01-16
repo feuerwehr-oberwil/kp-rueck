@@ -1,12 +1,10 @@
 """Tests for settings management service."""
-from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Setting, User
 from app.services.settings import (
-    DEFAULT_SETTINGS,
     get_all_settings,
     get_setting,
     initialize_default_settings,
@@ -64,9 +62,7 @@ class TestUpdateSetting:
     """Test update_setting function."""
 
     @pytest.mark.asyncio
-    async def test_update_setting_existing(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_update_setting_existing(self, db_session: AsyncSession, test_user: User):
         """Create setting, then update it."""
         # Create setting
         setting = Setting(key="polling_interval_ms", value="5000")
@@ -76,18 +72,14 @@ class TestUpdateSetting:
         original_updated_at = setting.updated_at
 
         # Update it
-        updated = await update_setting(
-            db_session, "polling_interval_ms", "3000", test_user.id
-        )
+        updated = await update_setting(db_session, "polling_interval_ms", "3000", test_user.id)
 
         assert updated.value == "3000"
         assert updated.updated_by == test_user.id
         assert updated.updated_at >= original_updated_at
 
     @pytest.mark.asyncio
-    async def test_update_setting_creates_if_not_exists(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_update_setting_creates_if_not_exists(self, db_session: AsyncSession, test_user: User):
         """Update non-existent setting creates it."""
         updated = await update_setting(db_session, "new_key", "new_value", test_user.id)
 
@@ -116,14 +108,10 @@ class TestInitializeDefaultSettings:
         assert all_settings["alarm_webhook_secret"] == "CHANGE_ME_IN_PRODUCTION"
 
     @pytest.mark.asyncio
-    async def test_initialize_default_settings_skips_existing(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_initialize_default_settings_skips_existing(self, db_session: AsyncSession, test_user: User):
         """Existing settings are not overwritten, missing ones added."""
         # Create one custom setting
-        custom_setting = Setting(
-            key="polling_interval_ms", value="9999", updated_by=test_user.id
-        )
+        custom_setting = Setting(key="polling_interval_ms", value="9999", updated_by=test_user.id)
         db_session.add(custom_setting)
         await db_session.commit()
 

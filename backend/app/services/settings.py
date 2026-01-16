@@ -1,6 +1,6 @@
 """Settings management service."""
-from datetime import datetime, timezone
-from typing import Any
+
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -9,16 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import Setting
 
 DEFAULT_SETTINGS = {
-    'polling_interval_ms': '5000',
-    'training_mode': 'false',
-    'auto_archive_timeout_hours': '24',
-    'notification_enabled': 'false',
-    'alarm_webhook_secret': 'CHANGE_ME_IN_PRODUCTION',
-    'training_autogen_max_emergencies': '50',
-    'sync_interval_minutes': '2',
-    'auto_sync_on_create': 'true',
-    'railway_database_url': '',  # Railway PostgreSQL connection string (empty = local mode, no sync)
-    'sync_conflict_buffer_seconds': '5',  # Timestamp buffer for conflict resolution (Local wins if within buffer)
+    "polling_interval_ms": "5000",
+    "training_mode": "false",
+    "auto_archive_timeout_hours": "24",
+    "notification_enabled": "false",
+    "alarm_webhook_secret": "CHANGE_ME_IN_PRODUCTION",
+    "training_autogen_max_emergencies": "50",
+    "sync_interval_minutes": "2",
+    "auto_sync_on_create": "true",
+    "railway_database_url": "",  # Railway PostgreSQL connection string (empty = local mode, no sync)
+    "sync_conflict_buffer_seconds": "5",  # Timestamp buffer for conflict resolution (Local wins if within buffer)
 }
 
 
@@ -33,7 +33,7 @@ async def get_setting_value(db: AsyncSession, key: str, default: str = None) -> 
     """Get setting value with fallback to default."""
     value = await get_setting(db, key)
     if value is None:
-        return default if default is not None else DEFAULT_SETTINGS.get(key, '')
+        return default if default is not None else DEFAULT_SETTINGS.get(key, "")
     return value
 
 
@@ -44,12 +44,7 @@ async def get_all_settings(db: AsyncSession) -> dict[str, str]:
     return {s.key: s.value for s in settings}
 
 
-async def update_setting(
-    db: AsyncSession,
-    key: str,
-    value: str,
-    user_id: UUID
-) -> Setting:
+async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID) -> Setting:
     """Update or create setting."""
     result = await db.execute(select(Setting).where(Setting.key == key))
     setting = result.scalar_one_or_none()
@@ -57,7 +52,7 @@ async def update_setting(
     if setting:
         setting.value = value
         setting.updated_by = user_id
-        setting.updated_at = datetime.now(timezone.utc)
+        setting.updated_at = datetime.now(UTC)
     else:
         setting = Setting(key=key, value=value, updated_by=user_id)
         db.add(setting)

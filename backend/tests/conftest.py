@@ -1,18 +1,17 @@
 """Pytest configuration and fixtures for testing."""
+
 import asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.database import Base
 from app.models import (
     Incident,
-    IncidentAssignment,
     Material,
     Personnel,
     Setting,
@@ -114,6 +113,8 @@ async def test_vehicle(db_session: AsyncSession) -> Vehicle:
         name="TLF 1",
         type="TLF",
         status="available",
+        display_order=1,
+        radio_call_sign="Test-1",
     )
     db_session.add(vehicle)
     await db_session.commit()

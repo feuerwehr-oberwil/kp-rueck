@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.main import app
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -63,9 +62,7 @@ async def test_traccar_status_not_configured(client: AsyncClient):
 @pytest.mark.api
 async def test_traccar_status_configured(client: AsyncClient):
     """Test status when Traccar is configured."""
-    with patch("app.api.traccar.traccar_client") as mock_client, patch(
-        "app.api.traccar.settings"
-    ) as mock_settings:
+    with patch("app.api.traccar.traccar_client") as mock_client, patch("app.api.traccar.settings") as mock_settings:
         mock_client.is_configured = True
         mock_settings.traccar_url = "https://traccar.example.com"
 

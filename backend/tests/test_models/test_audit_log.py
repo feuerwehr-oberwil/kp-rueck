@@ -1,4 +1,5 @@
 """Tests for AuditLog model."""
+
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -52,9 +53,7 @@ class TestAuditLogModel:
 
         assert log.user_id is None
 
-    async def test_audit_log_optional_fields(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_audit_log_optional_fields(self, db_session: AsyncSession, test_user: User):
         """Test audit log with minimal fields."""
         log = AuditLog(
             id=uuid4(),
@@ -75,9 +74,7 @@ class TestAuditLogModel:
         assert log.ip_address is None
         assert log.user_agent is None
 
-    async def test_audit_log_complex_changes(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_audit_log_complex_changes(self, db_session: AsyncSession, test_user: User):
         """Test audit log with complex change data."""
         changes = {
             "before": {
@@ -107,9 +104,7 @@ class TestAuditLogModel:
         assert log.changes_json["before"]["status"] == "eingegangen"
         assert len(log.changes_json["after"]["assignments"]) == 3
 
-    async def test_audit_log_query_by_user(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_audit_log_query_by_user(self, db_session: AsyncSession, test_user: User):
         """Test querying audit logs by user."""
         # Create multiple logs
         for i in range(3):
@@ -124,9 +119,7 @@ class TestAuditLogModel:
         await db_session.commit()
 
         # Query by user
-        result = await db_session.execute(
-            select(AuditLog).where(AuditLog.user_id == test_user.id)
-        )
+        result = await db_session.execute(select(AuditLog).where(AuditLog.user_id == test_user.id))
         logs = result.scalars().all()
         assert len(logs) >= 3
 
@@ -148,9 +141,7 @@ class TestAuditLogModel:
 
         # Query by resource
         result = await db_session.execute(
-            select(AuditLog)
-            .where(AuditLog.resource_type == "vehicle")
-            .where(AuditLog.resource_id == resource_id)
+            select(AuditLog).where(AuditLog.resource_type == "vehicle").where(AuditLog.resource_id == resource_id)
         )
         logs = result.scalars().all()
         assert len(logs) == 3

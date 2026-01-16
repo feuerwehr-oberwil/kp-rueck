@@ -22,7 +22,6 @@ from app.database import get_db
 from app.main import app
 from app.models import Event, EventAttendance, Incident, Personnel, User
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -263,9 +262,7 @@ async def test_get_stats_avg_duration(db_session: AsyncSession, authenticated_cl
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_stats_no_completed_incidents(
-    authenticated_client: AsyncClient, test_event_with_incidents: Event
-):
+async def test_get_stats_no_completed_incidents(authenticated_client: AsyncClient, test_event_with_incidents: Event):
     """Test that avg duration is 0 when no incidents are completed."""
     # test_event_with_incidents has incidents but none with completed_at
     response = await authenticated_client.get(f"/api/events/{test_event_with_incidents.id}/stats")

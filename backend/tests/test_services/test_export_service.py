@@ -1,6 +1,6 @@
 """Tests for export_service.py - Event export functionality."""
 
-import zipfile
+from datetime import UTC
 from io import BytesIO
 from uuid import uuid4
 
@@ -25,7 +25,6 @@ from app.services.export_service import (
     export_event_pdf,
     export_event_photos,
 )
-
 
 # ============================================
 # Fixtures
@@ -100,7 +99,7 @@ async def export_incident(db_session: AsyncSession, export_event: Event, export_
 @pytest_asyncio.fixture
 async def export_incident_completed(db_session: AsyncSession, export_event: Event, export_user: User) -> Incident:
     """Create a completed incident for export tests."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     incident = Incident(
         id=uuid4(),
@@ -114,7 +113,7 @@ async def export_incident_completed(db_session: AsyncSession, export_event: Even
         description="Completed incident for export",
         event_id=export_event.id,
         created_by=export_user.id,
-        completed_at=datetime.now(timezone.utc) + timedelta(hours=2),
+        completed_at=datetime.now(UTC) + timedelta(hours=2),
     )
     db_session.add(incident)
     await db_session.commit()
@@ -266,9 +265,7 @@ class TestExportEventPdf:
     """Tests for export_event_pdf function."""
 
     @pytest.mark.asyncio
-    async def test_export_pdf_basic_event(
-        self, db_session: AsyncSession, export_event: Event, export_user: User
-    ):
+    async def test_export_pdf_basic_event(self, db_session: AsyncSession, export_event: Event, export_user: User):
         """Test PDF export with basic event (no incidents)."""
         result = await export_event_pdf(db_session, export_event.id, export_user)
 
@@ -392,10 +389,10 @@ class TestExportEventPdf:
         export_user: User,
     ):
         """Test that PDF export excludes soft-deleted incidents."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # Soft delete the incident
-        export_incident.deleted_at = datetime.now(timezone.utc)
+        export_incident.deleted_at = datetime.now(UTC)
         await db_session.commit()
 
         result = await export_event_pdf(db_session, export_event.id, export_user)
@@ -516,9 +513,7 @@ class TestExportEventExcel:
         assert "not found" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_export_excel_training_mode_display(
-        self, db_session: AsyncSession, export_training_event: Event
-    ):
+    async def test_export_excel_training_mode_display(self, db_session: AsyncSession, export_training_event: Event):
         """Test Excel export correctly displays training mode."""
         result = await export_event_excel(db_session, export_training_event.id)
 
@@ -529,9 +524,7 @@ class TestExportEventExcel:
         assert ws_overview["B6"].value == "Ja"
 
     @pytest.mark.asyncio
-    async def test_export_excel_non_training_mode_display(
-        self, db_session: AsyncSession, export_event: Event
-    ):
+    async def test_export_excel_non_training_mode_display(self, db_session: AsyncSession, export_event: Event):
         """Test Excel export correctly displays non-training mode."""
         result = await export_event_excel(db_session, export_event.id)
 
@@ -549,10 +542,10 @@ class TestExportEventExcel:
         export_incident: Incident,
     ):
         """Test that Excel export excludes soft-deleted incidents."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # Soft delete the incident
-        export_incident.deleted_at = datetime.now(timezone.utc)
+        export_incident.deleted_at = datetime.now(UTC)
         await db_session.commit()
 
         result = await export_event_excel(db_session, export_event.id)
@@ -725,7 +718,7 @@ class TestExportEventPhotos:
     ):
         """Test that photos from soft-deleted incidents are excluded."""
         import secrets
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # Create Reko with photo reference
         report = RekoReport(
@@ -738,7 +731,7 @@ class TestExportEventPhotos:
         db_session.add(report)
 
         # Soft delete the incident
-        export_incident.deleted_at = datetime.now(timezone.utc)
+        export_incident.deleted_at = datetime.now(UTC)
         await db_session.commit()
 
         result = await export_event_photos(db_session, export_event.id)

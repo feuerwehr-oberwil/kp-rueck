@@ -1,21 +1,23 @@
 """Admin API endpoints for import/export."""
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request
+
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..database import get_db
-from ..services.excel_import_export import (
-    generate_empty_template,
-    validate_and_parse_excel,
-    import_data,
-    export_data_to_excel,
-    ExcelImportError,
-)
-from ..services.audit import log_action
 from ..seed_training import seed_training_data
+from ..services.audit import log_action
+from ..services.excel_import_export import (
+    ExcelImportError,
+    export_data_to_excel,
+    generate_empty_template,
+    import_data,
+    validate_and_parse_excel,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -32,7 +34,7 @@ async def download_import_template(
     return StreamingResponse(
         template_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -45,7 +47,7 @@ async def preview_excel_import(
     Preview Excel import without committing to database.
     Returns first 10 rows of each sheet for user confirmation.
     """
-    if not file.filename.endswith(('.xlsx', '.xls')):
+    if not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
 
     file_bytes = await file.read()
@@ -85,7 +87,7 @@ async def execute_excel_import(
     if mode not in ["replace", "merge", "append"]:
         raise HTTPException(status_code=400, detail="Invalid mode. Must be replace, merge, or append")
 
-    if not file.filename.endswith(('.xlsx', '.xls')):
+    if not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
 
     file_bytes = await file.read()
@@ -96,9 +98,7 @@ async def execute_excel_import(
         raise HTTPException(status_code=400, detail=str(e))
 
     # Execute import
-    counts = await import_data(
-        db, parsed_data, mode, str(current_user.id)
-    )
+    counts = await import_data(db, parsed_data, mode, str(current_user.id))
 
     # Audit log
     await log_action(
@@ -112,7 +112,7 @@ async def execute_excel_import(
             "counts": counts,
             "filename": file.filename,
         },
-        request=request
+        request=request,
     )
     await db.commit()
 
@@ -143,14 +143,14 @@ async def export_all_data(
         resource_id=None,
         user=current_user,
         changes={"filename": filename},
-        request=request
+        request=request,
     )
     await db.commit()
 
     return StreamingResponse(
         excel_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -174,7 +174,8 @@ async def seed_training_templates(
         # If force_reseed, delete existing training data first
         if force_reseed:
             from sqlalchemy import delete
-            from ..models import TrainingLocation, EmergencyTemplate
+
+            from ..models import EmergencyTemplate, TrainingLocation
 
             await db.execute(delete(TrainingLocation))
             await db.execute(delete(EmergencyTemplate))
@@ -192,9 +193,9 @@ async def seed_training_templates(
             changes={
                 "skip_geocoding": skip_geocoding,
                 "force_reseed": force_reseed,
-                "action": "manual_seed_training_data"
+                "action": "manual_seed_training_data",
             },
-            request=request
+            request=request,
         )
         await db.commit()
 
@@ -202,10 +203,7 @@ async def seed_training_templates(
             "success": True,
             "message": "Training data seeded successfully",
             "skip_geocoding": skip_geocoding,
-            "force_reseed": force_reseed
+            "force_reseed": force_reseed,
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to seed training data: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to seed training data: {str(e)}")

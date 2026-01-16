@@ -9,8 +9,8 @@ Usage:
 
 import asyncio
 import os
+
 from app.seed_training import seed_training_data
-from app.database import async_session_maker
 
 
 async def main():
@@ -42,6 +42,7 @@ async def main():
         print("=" * 70)
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 

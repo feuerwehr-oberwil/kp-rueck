@@ -1,4 +1,5 @@
 """Application configuration using pydantic-settings."""
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -100,7 +101,9 @@ class Settings(BaseSettings):
                         "Generate one with: openssl rand -hex 32"
                     )
                 # In development, warn but allow (for local testing)
-                print(f"⚠️  WARNING: SECRET_KEY contains weak pattern '{weak_pattern}'. This is only acceptable in development!")
+                print(
+                    f"⚠️  WARNING: SECRET_KEY contains weak pattern '{weak_pattern}'. This is only acceptable in development!"
+                )
 
         # Enforce minimum length (256 bits = 32 bytes = 64 hex chars recommended)
         if len(v) < 32:
@@ -132,6 +135,7 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Check if we're in production mode (Railway)."""
         import os
+
         return os.getenv("RAILWAY_ENVIRONMENT") is not None
 
     @property
@@ -139,6 +143,7 @@ class Settings(BaseSettings):
         """Check if we're in test mode."""
         import os
         import sys
+
         # Check multiple indicators of test mode
         return (
             "pytest" in sys.modules  # pytest is running

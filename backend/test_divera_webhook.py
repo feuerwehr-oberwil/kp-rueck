@@ -24,10 +24,8 @@ import argparse
 import json
 import sys
 from datetime import datetime
-from typing import Optional
 
 import requests
-
 
 # Sample test payloads matching actual Divera PRO webhook format
 SAMPLE_PAYLOADS = [
@@ -124,13 +122,13 @@ def send_webhook(base_url: str, payload: dict, verbose: bool = True) -> bool:
     url = f"{base_url}/api/divera/webhook"
 
     if verbose:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Sending webhook to: {url}")
         print(f"Emergency ID: {payload['id']}")
         print(f"Number: {payload.get('number', 'N/A')}")
         print(f"Title: {payload['title']}")
         print(f"Priority: {payload['priority']} (0=low, 1=medium, 2=high)")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
     try:
         response = requests.post(
@@ -226,7 +224,7 @@ Examples:
     verbose = not args.quiet
 
     if verbose:
-        print(f"🔧 Divera Webhook Test Script")
+        print("🔧 Divera Webhook Test Script")
         print(f"Target: {base_url}")
         print()
 
@@ -259,9 +257,9 @@ Examples:
 
     # Summary
     if verbose:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Summary: {successes} succeeded, {failures} failed")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
     sys.exit(0 if failures == 0 else 1)
 

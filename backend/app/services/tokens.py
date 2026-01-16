@@ -1,8 +1,6 @@
 """Token generation and validation for check-in forms and reko forms."""
-import hashlib
-import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import jwt
@@ -23,7 +21,7 @@ def generate_checkin_token(event_id: UUID) -> str:
         JWT token string containing event_id and expiration
     """
     # Token expires in 24 hours
-    expiration = datetime.now(timezone.utc) + timedelta(hours=24)
+    expiration = datetime.now(UTC) + timedelta(hours=24)
 
     payload = {
         "event_id": str(event_id),
@@ -35,7 +33,7 @@ def generate_checkin_token(event_id: UUID) -> str:
     return token
 
 
-def validate_checkin_token(token: str) -> Optional[UUID]:
+def validate_checkin_token(token: str) -> UUID | None:
     """
     Validate check-in token and extract event_id.
 
@@ -84,13 +82,13 @@ def generate_form_token(incident_id: str, form_type: str = "reko", expires_hours
     import uuid
 
     # Token expires in 24 hours (or specified duration)
-    expiration = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
+    expiration = datetime.now(UTC) + timedelta(hours=expires_hours)
 
     payload = {
         "incident_id": incident_id,
         "form_type": form_type,
         "exp": expiration,
-        "iat": datetime.now(timezone.utc),  # Issued at
+        "iat": datetime.now(UTC),  # Issued at
         "jti": str(uuid.uuid4()),  # Unique JWT ID for token tracking
         "type": "reko_form",
     }

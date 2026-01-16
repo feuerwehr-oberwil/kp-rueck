@@ -1,21 +1,19 @@
 """Personnel CRUD operations."""
-from datetime import datetime
-from typing import Optional
+
 import uuid
+from datetime import datetime
 
 from fastapi import Request
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Personnel, User, EventAttendance
+from ..models import EventAttendance, Personnel, User
 from ..services.audit import calculate_changes, log_action
 
 
 async def get_all_personnel(
-    db: AsyncSession,
-    checked_in_only: bool = False,
-    event_id: Optional[uuid.UUID] = None
+    db: AsyncSession, checked_in_only: bool = False, event_id: uuid.UUID | None = None
 ) -> list[Personnel]:
     """
     Get all personnel, optionally filtered by event-specific check-in status.
@@ -37,12 +35,12 @@ async def get_all_personnel(
             and_(
                 EventAttendance.personnel_id == Personnel.id,
                 EventAttendance.event_id == event_id,
-                EventAttendance.checked_in == True
-            )
+                EventAttendance.checked_in,
+            ),
         )
     elif checked_in_only:
         # Legacy: fallback to global checked_in field if no event_id provided
-        query = query.where(Personnel.checked_in == True)
+        query = query.where(Personnel.checked_in)
 
     query = query.order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
 
@@ -68,6 +66,7 @@ async def create_personnel(
         role=personnel_data.role,
         role_sort_order=personnel_data.role_sort_order,
         availability=personnel_data.availability or "available",
+        tags=personnel_data.tags,
     )
     db.add(personnel)
     await db.flush()
@@ -83,6 +82,7 @@ async def create_personnel(
             "name": personnel_data.name,
             "role": personnel_data.role,
             "availability": personnel_data.availability,
+            "tags": personnel_data.tags,
         },
         request=request,
     )
@@ -100,9 +100,7 @@ async def update_personnel(
     request: Request,
 ) -> Personnel | None:
     """Update existing personnel."""
-    result = await db.execute(
-        select(Personnel).where(Personnel.id == personnel_id)
-    )
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     personnel = result.scalar_one_or_none()
 
     if not personnel:
@@ -156,9 +154,7 @@ async def delete_personnel(
     request: Request,
 ) -> bool:
     """Delete personnel (soft delete by marking as unavailable)."""
-    result = await db.execute(
-        select(Personnel).where(Personnel.id == personnel_id)
-    )
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     personnel = result.scalar_one_or_none()
 
     if not personnel:

@@ -1,13 +1,14 @@
 """Reko form CRUD operations."""
-from datetime import datetime, timezone
+
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import RekoReport, Incident, Personnel
+from ..models import Incident, RekoReport
 from ..services.tokens import validate_form_token
 
 
@@ -39,18 +40,13 @@ async def get_or_create_reko_report(
         raise ValueError("Invalid token")
 
     # Check if incident exists
-    result = await db.execute(
-        select(Incident).where(Incident.id == incident_id)
-    )
+    result = await db.execute(select(Incident).where(Incident.id == incident_id))
     if not result.scalar_one_or_none():
         raise ValueError("Incident not found")
 
     # Try to find existing report
     result = await db.execute(
-        select(RekoReport).where(
-            RekoReport.incident_id == incident_id,
-            RekoReport.token == token
-        )
+        select(RekoReport).where(RekoReport.incident_id == incident_id, RekoReport.token == token)
     )
     report = result.scalar_one_or_none()
 
@@ -97,9 +93,7 @@ async def update_reko_report(
     Raises:
         ValueError: If report not found
     """
-    result = await db.execute(
-        select(RekoReport).where(RekoReport.id == report_id)
-    )
+    result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
     report = result.scalar_one_or_none()
 
     if not report:
@@ -113,7 +107,7 @@ async def update_reko_report(
     if submit:
         report.is_draft = False
 
-    report.updated_at = datetime.now(timezone.utc)
+    report.updated_at = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(report)
@@ -121,10 +115,7 @@ async def update_reko_report(
     return report
 
 
-async def get_incident_reko_reports(
-    db: AsyncSession,
-    incident_id: uuid.UUID
-) -> list[RekoReport]:
+async def get_incident_reko_reports(db: AsyncSession, incident_id: uuid.UUID) -> list[RekoReport]:
     """
     Get all Reko reports for an incident.
 

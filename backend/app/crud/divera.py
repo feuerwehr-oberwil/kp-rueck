@@ -1,9 +1,9 @@
 """Divera emergency CRUD operations."""
+
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
@@ -48,29 +48,25 @@ async def create_divera_emergency(
 async def get_divera_emergency_by_id(
     db: AsyncSession,
     emergency_id: UUID,
-) -> Optional[models.DiveraEmergency]:
+) -> models.DiveraEmergency | None:
     """Get Divera emergency by UUID."""
-    result = await db.execute(
-        select(models.DiveraEmergency).where(models.DiveraEmergency.id == emergency_id)
-    )
+    result = await db.execute(select(models.DiveraEmergency).where(models.DiveraEmergency.id == emergency_id))
     return result.scalar_one_or_none()
 
 
 async def get_divera_emergency_by_divera_id(
     db: AsyncSession,
     divera_id: int,
-) -> Optional[models.DiveraEmergency]:
+) -> models.DiveraEmergency | None:
     """Get Divera emergency by Divera's internal ID (for deduplication)."""
-    result = await db.execute(
-        select(models.DiveraEmergency).where(models.DiveraEmergency.divera_id == divera_id)
-    )
+    result = await db.execute(select(models.DiveraEmergency).where(models.DiveraEmergency.divera_id == divera_id))
     return result.scalar_one_or_none()
 
 
 async def get_divera_emergencies(
     db: AsyncSession,
-    attached: Optional[bool] = None,
-    event_id: Optional[UUID] = None,
+    attached: bool | None = None,
+    event_id: UUID | None = None,
     include_archived: bool = False,
     skip: int = 0,
     limit: int = 100,
@@ -103,7 +99,7 @@ async def get_divera_emergencies(
 
     # Filter archived
     if not include_archived:
-        query = query.where(models.DiveraEmergency.is_archived == False)
+        query = query.where(not models.DiveraEmergency.is_archived)
 
     # Order by received time (newest first)
     query = query.order_by(models.DiveraEmergency.received_at.desc())
@@ -117,8 +113,8 @@ async def get_divera_emergencies(
 
 async def count_divera_emergencies(
     db: AsyncSession,
-    attached: Optional[bool] = None,
-    event_id: Optional[UUID] = None,
+    attached: bool | None = None,
+    event_id: UUID | None = None,
     include_archived: bool = False,
 ) -> int:
     """Count Divera emergencies with filters."""
@@ -134,7 +130,7 @@ async def count_divera_emergencies(
         query = query.where(models.DiveraEmergency.attached_to_event_id == event_id)
 
     if not include_archived:
-        query = query.where(models.DiveraEmergency.is_archived == False)
+        query = query.where(not models.DiveraEmergency.is_archived)
 
     result = await db.execute(query)
     return result.scalar_one()
@@ -144,7 +140,7 @@ async def attach_emergency_to_event(
     db: AsyncSession,
     emergency_id: UUID,
     event_id: UUID,
-    incident_id: Optional[UUID] = None,
+    incident_id: UUID | None = None,
 ) -> models.DiveraEmergency:
     """
     Attach a Divera emergency to an Event (and optionally link created Incident).

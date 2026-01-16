@@ -8,10 +8,10 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Backend Tests | 788 | Maintain/Grow |
-| Backend Coverage | ~37% | 50% (then 70%) |
+| Backend Tests | 998+ | Maintain/Grow |
+| Backend Coverage | ~41% | 50% (then 70%) |
 | Frontend E2E Tests | ~60 | Maintain/Grow |
-| CI Blocking | No | Yes |
+| CI Blocking | Yes | Yes |
 
 ### Critical Coverage Gaps
 
@@ -47,10 +47,10 @@
 
 ### Phase 3: Security Tests
 
-- [ ] 3.1 SQL injection prevention tests
-- [ ] 3.2 XSS prevention tests
-- [ ] 3.3 Authorization boundary tests
-- [ ] 3.4 Input validation tests
+- [x] 3.1 SQL injection prevention tests (45 tests)
+- [x] 3.2 XSS prevention tests (65 tests)
+- [x] 3.3 Authorization boundary tests (47 tests)
+- [x] 3.4 Input validation tests (53 tests)
 
 ### Phase 4: Integration Tests
 
@@ -69,6 +69,7 @@
 | 2026-01-16 | 051c662 | Phase 1.3 + 2.2: Fix lint errors, add sync_service.py tests (44 tests) |
 | 2026-01-16 | 6e4b555 | Fix production bugs: personnel availability + reko_submitted notification type |
 | 2026-01-16 | ad19405 | Phase 1.4: Fix frontend lint errors (158→0 errors) |
+| 2026-01-16 | 5876af9 | Phase 3: Add security tests (210 tests) + CRUD bug fixes |
 
 ---
 

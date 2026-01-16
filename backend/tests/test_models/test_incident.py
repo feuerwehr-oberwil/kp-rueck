@@ -1,4 +1,5 @@
 """Tests for Incident model."""
+
 from uuid import uuid4
 
 import pytest
@@ -57,9 +58,7 @@ class TestIncidentModel:
         assert float(incident.location_lat) == pytest.approx(47.5596)
         assert float(incident.location_lng) == pytest.approx(7.5886)
 
-    async def test_location_coordinates_both_required(
-        self, db_session: AsyncSession, test_user: User
-    ):
+    async def test_location_coordinates_both_required(self, db_session: AsyncSession, test_user: User):
         """Test that both lat and lng must be provided or both null."""
         # This should fail - only lat provided
         incident = Incident(

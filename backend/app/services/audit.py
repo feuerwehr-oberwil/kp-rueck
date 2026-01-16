@@ -1,39 +1,41 @@
 """Audit logging service for comprehensive action tracking."""
-from datetime import datetime
-from typing import Any, Optional
-import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
+import uuid
+from datetime import datetime
+from typing import Any
+
 from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import AuditLog, User
 
-
 # Fields that should never be logged for security reasons
-SENSITIVE_FIELDS = frozenset({
-    # Authentication
-    "password",
-    "password_hash",
-    "token",
-    "access_token",
-    "refresh_token",
-    "secret",
-    "secret_key",
-    "api_key",
-    # Personal identifiable information
-    "email",
-    "phone",
-    "phone_number",
-    # Other sensitive data
-    "credit_card",
-    "card_number",
-    "cvv",
-    "ssn",
-    "social_security",
-})
+SENSITIVE_FIELDS = frozenset(
+    {
+        # Authentication
+        "password",
+        "password_hash",
+        "token",
+        "access_token",
+        "refresh_token",
+        "secret",
+        "secret_key",
+        "api_key",
+        # Personal identifiable information
+        "email",
+        "phone",
+        "phone_number",
+        # Other sensitive data
+        "credit_card",
+        "card_number",
+        "cvv",
+        "ssn",
+        "social_security",
+    }
+)
 
 
-def _sanitize_changes(changes: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+def _sanitize_changes(changes: dict[str, Any] | None) -> dict[str, Any] | None:
     """
     Remove sensitive fields from changes dict before logging.
 
@@ -67,10 +69,10 @@ async def log_action(
     db: AsyncSession,
     action_type: str,
     resource_type: str,
-    resource_id: Optional[uuid.UUID] = None,
-    user: Optional[User] = None,
-    changes: Optional[dict[str, Any]] = None,
-    request: Optional[Request] = None,
+    resource_id: uuid.UUID | None = None,
+    user: User | None = None,
+    changes: dict[str, Any] | None = None,
+    request: Request | None = None,
 ) -> AuditLog:
     """
     Create an audit log entry.
@@ -145,12 +147,7 @@ async def log_action(
     return audit_entry
 
 
-async def log_login(
-    db: AsyncSession,
-    user: User,
-    request: Request,
-    success: bool = True
-) -> AuditLog:
+async def log_login(db: AsyncSession, user: User, request: Request, success: bool = True) -> AuditLog:
     """
     Log login attempt (success or failure).
 

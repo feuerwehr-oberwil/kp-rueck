@@ -1,7 +1,7 @@
 """Tests for Incident CRUD operations."""
+
 from uuid import uuid4
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
@@ -154,9 +154,7 @@ class TestIncidentCRUD:
         assert len(incidents) > 0
 
         # Find our test incident
-        our_incident = next(
-            (inc for inc in incidents if inc.id == test_incident.id), None
-        )
+        our_incident = next((inc for inc in incidents if inc.id == test_incident.id), None)
         assert our_incident is not None
         assert len(our_incident.assigned_vehicles) == 1
         assert our_incident.assigned_vehicles[0].vehicle_id == test_vehicle.id

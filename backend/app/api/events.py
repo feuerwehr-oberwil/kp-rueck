@@ -1,6 +1,7 @@
 """Event API endpoints."""
-from typing import Annotated
+
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,12 +30,7 @@ async def list_events(
         skip: Pagination offset
         limit: Max number of results (max 500)
     """
-    events = await crud.get_events(
-        db,
-        include_archived=include_archived,
-        skip=skip,
-        limit=limit
-    )
+    events = await crud.get_events(db, include_archived=include_archived, skip=skip, limit=limit)
 
     # Batch load incident counts for all events in one query
     event_ids = [event.id for event in events]
@@ -56,10 +52,7 @@ async def list_events(
         }
         event_responses.append(schemas.EventResponse.model_validate(event_dict))
 
-    return schemas.EventListResponse(
-        events=event_responses,
-        total=len(events)
-    )
+    return schemas.EventListResponse(events=event_responses, total=len(events))
 
 
 @router.get("/{event_id}", response_model=schemas.EventResponse)
@@ -71,10 +64,7 @@ async def get_event(
     """Get a single event by ID."""
     event = await crud.get_event_by_id(db, event_id)
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {
@@ -126,10 +116,7 @@ async def update_event(
     """Update an event (editor only)."""
     event = await crud.update_event(db, event_id, event_data)
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {
@@ -156,10 +143,7 @@ async def archive_event(
     """Archive an event (soft delete, editor only)."""
     event = await crud.archive_event(db, event_id)
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {
@@ -186,10 +170,7 @@ async def unarchive_event(
     """Unarchive an event (restore from archive, editor only)."""
     event = await crud.unarchive_event(db, event_id)
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {
@@ -221,14 +202,8 @@ async def delete_event(
     try:
         success = await crud.delete_event(db, event_id)
         if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Event not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     return None

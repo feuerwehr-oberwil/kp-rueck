@@ -1,29 +1,19 @@
 """Alembic environment configuration for async migrations."""
+
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
 
 # Import the app config and models
 from app.config import settings
 from app.database import Base
 
 # Import all models so Alembic can detect them
-from app.models import (
-    AuditLog,
-    Incident,
-    IncidentAssignment,
-    Material,
-    Personnel,
-    RekoReport,
-    Setting,
-    StatusTransition,
-    User,
-    Vehicle,
-)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -1,14 +1,14 @@
 """Tests for authentication dependency injection functions."""
-from datetime import timedelta
-from uuid import uuid4
+
+from datetime import UTC, timedelta
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, get_current_editor
+from app.auth.dependencies import get_current_editor, get_current_user
 from app.auth.security import create_access_token, create_refresh_token
 from app.models import User
 
@@ -30,12 +30,7 @@ def mock_request():
 async def test_get_current_user_valid_token(db_session: AsyncSession, mock_request):
     """Test get_current_user returns user with valid token."""
     # Create test user
-    user = User(
-        id=uuid4(),
-        username="testuser",
-        password_hash="hashed",
-        role="editor"
-    )
+    user = User(id=uuid4(), username="testuser", password_hash="hashed", role="editor")
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
@@ -64,20 +59,12 @@ async def test_get_current_user_no_token(db_session: AsyncSession, mock_request)
 @pytest.mark.asyncio
 async def test_get_current_user_expired_token(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 with expired token."""
-    user = User(
-        id=uuid4(),
-        username="testuser",
-        password_hash="hashed",
-        role="editor"
-    )
+    user = User(id=uuid4(), username="testuser", password_hash="hashed", role="editor")
     db_session.add(user)
     await db_session.commit()
 
     # Create already-expired token
-    expired_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=timedelta(seconds=-1)
-    )
+    expired_token = create_access_token(data={"sub": str(user.id)}, expires_delta=timedelta(seconds=-1))
 
     with pytest.raises(HTTPException) as exc_info:
         await get_current_user(request=mock_request, access_token=expired_token, db=db_session)
@@ -99,12 +86,7 @@ async def test_get_current_user_invalid_token_format(db_session: AsyncSession, m
 @pytest.mark.asyncio
 async def test_get_current_user_wrong_token_type(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when refresh token is used."""
-    user = User(
-        id=uuid4(),
-        username="testuser",
-        password_hash="hashed",
-        role="editor"
-    )
+    user = User(id=uuid4(), username="testuser", password_hash="hashed", role="editor")
     db_session.add(user)
     await db_session.commit()
 
@@ -134,15 +116,13 @@ async def test_get_current_user_nonexistent_user(db_session: AsyncSession, mock_
 async def test_get_current_user_missing_sub_claim(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when token missing 'sub' claim."""
     # Manually create token without 'sub' claim
-    from app.auth.config import auth_settings
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from jose import jwt
 
-    token_data = {
-        "username": "testuser",
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
-        "type": "access"
-    }
+    from app.auth.config import auth_settings
+
+    token_data = {"username": "testuser", "exp": datetime.now(UTC) + timedelta(minutes=15), "type": "access"}
     token = jwt.encode(token_data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -154,14 +134,16 @@ async def test_get_current_user_missing_sub_claim(db_session: AsyncSession, mock
 @pytest.mark.asyncio
 async def test_get_current_user_invalid_uuid_format(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 when 'sub' is not valid UUID."""
-    from app.auth.config import auth_settings
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from jose import jwt
+
+    from app.auth.config import auth_settings
 
     token_data = {
         "sub": "not-a-valid-uuid",
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
-        "type": "access"
+        "exp": datetime.now(UTC) + timedelta(minutes=15),
+        "type": "access",
     }
     token = jwt.encode(token_data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
 
@@ -174,12 +156,7 @@ async def test_get_current_user_invalid_uuid_format(db_session: AsyncSession, mo
 @pytest.mark.asyncio
 async def test_get_current_user_tampered_token(db_session: AsyncSession, mock_request):
     """Test get_current_user raises 401 with tampered token."""
-    user = User(
-        id=uuid4(),
-        username="testuser",
-        password_hash="hashed",
-        role="editor"
-    )
+    user = User(id=uuid4(), username="testuser", password_hash="hashed", role="editor")
     db_session.add(user)
     await db_session.commit()
 
@@ -201,12 +178,7 @@ async def test_get_current_user_tampered_token(db_session: AsyncSession, mock_re
 @pytest.mark.asyncio
 async def test_get_current_editor_with_editor_role(db_session: AsyncSession):
     """Test get_current_editor allows users with editor role."""
-    editor = User(
-        id=uuid4(),
-        username="editor",
-        password_hash="hashed",
-        role="editor"
-    )
+    editor = User(id=uuid4(), username="editor", password_hash="hashed", role="editor")
     db_session.add(editor)
     await db_session.commit()
     await db_session.refresh(editor)
@@ -221,12 +193,7 @@ async def test_get_current_editor_with_editor_role(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_get_current_editor_with_viewer_role(db_session: AsyncSession):
     """Test get_current_editor raises 403 for viewer role."""
-    viewer = User(
-        id=uuid4(),
-        username="viewer",
-        password_hash="hashed",
-        role="viewer"
-    )
+    viewer = User(id=uuid4(), username="viewer", password_hash="hashed", role="viewer")
     db_session.add(viewer)
     await db_session.commit()
 
@@ -240,12 +207,7 @@ async def test_get_current_editor_with_viewer_role(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_get_current_editor_returns_same_user():
     """Test get_current_editor returns the same user object passed in."""
-    editor = User(
-        id=uuid4(),
-        username="editor",
-        password_hash="hashed",
-        role="editor"
-    )
+    editor = User(id=uuid4(), username="editor", password_hash="hashed", role="editor")
 
     result = await get_current_editor(current_user=editor)
 
@@ -266,7 +228,7 @@ async def test_editor_role_exact_match():
         id=uuid4(),
         username="test1",
         password_hash="hashed",
-        role="Editor"  # Wrong case
+        role="Editor",  # Wrong case
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -282,7 +244,7 @@ async def test_invalid_role_rejected():
         id=uuid4(),
         username="test",
         password_hash="hashed",
-        role="admin"  # Not a valid role
+        role="admin",  # Not a valid role
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -300,12 +262,7 @@ async def test_invalid_role_rejected():
 async def test_full_dependency_chain_editor(db_session: AsyncSession, mock_request):
     """Test complete dependency chain for editor user."""
     # Create editor user
-    editor = User(
-        id=uuid4(),
-        username="editor",
-        password_hash="hashed",
-        role="editor"
-    )
+    editor = User(id=uuid4(), username="editor", password_hash="hashed", role="editor")
     db_session.add(editor)
     await db_session.commit()
     await db_session.refresh(editor)
@@ -327,12 +284,7 @@ async def test_full_dependency_chain_editor(db_session: AsyncSession, mock_reque
 async def test_full_dependency_chain_viewer(db_session: AsyncSession, mock_request):
     """Test dependency chain rejects viewer at editor check."""
     # Create viewer user
-    viewer = User(
-        id=uuid4(),
-        username="viewer",
-        password_hash="hashed",
-        role="viewer"
-    )
+    viewer = User(id=uuid4(), username="viewer", password_hash="hashed", role="viewer")
     db_session.add(viewer)
     await db_session.commit()
     await db_session.refresh(viewer)
@@ -375,12 +327,7 @@ async def test_www_authenticate_header(mock_request):
 async def test_get_current_user_with_deleted_user(db_session: AsyncSession, mock_request):
     """Test get_current_user handles case where user was deleted after token creation."""
     # Create user and token
-    user = User(
-        id=uuid4(),
-        username="testuser",
-        password_hash="hashed",
-        role="editor"
-    )
+    user = User(id=uuid4(), username="testuser", password_hash="hashed", role="editor")
     db_session.add(user)
     await db_session.commit()
     user_id = user.id

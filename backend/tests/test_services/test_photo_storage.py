@@ -1,12 +1,11 @@
 """Tests for photo storage service."""
+
 import io
-import tempfile
 import uuid
-from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 from PIL import Image
-from fastapi import HTTPException, UploadFile
 
 from app.config import Settings, get_settings
 from app.services.photo_storage import PhotoStorageService
@@ -220,6 +219,7 @@ class TestPhotoStorageService:
 
         class MockUploadFile:
             filename = "test.gif"
+
             async def read(self):
                 return b"fake data"
 
@@ -239,6 +239,7 @@ class TestPhotoStorageService:
 
         class MockUploadFile:
             filename = "test.jpg"
+
             async def read(self):
                 return large_content
 
@@ -255,6 +256,7 @@ class TestPhotoStorageService:
 
         class MockUploadFile:
             filename = "test.jpg"
+
             async def read(self):
                 return b"not an image"
 

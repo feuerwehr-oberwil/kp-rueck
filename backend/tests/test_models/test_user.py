@@ -1,4 +1,5 @@
 """Tests for User model."""
+
 from uuid import uuid4
 
 import pytest
@@ -93,9 +94,7 @@ class TestUserModel:
         await db_session.commit()
 
         # Query by username
-        result = await db_session.execute(
-            select(User).where(User.username == "query_test")
-        )
+        result = await db_session.execute(select(User).where(User.username == "query_test"))
         found_user = result.scalar_one()
 
         assert found_user.id == user.id

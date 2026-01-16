@@ -1,10 +1,10 @@
 """Health check endpoint."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 
-from ..database import get_db, engine, audit_engine
+from ..database import audit_engine, engine, get_db
 from ..websocket_manager import ws_manager
 
 router = APIRouter(tags=["health"])
@@ -39,7 +39,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         # Test database connection
         await db.execute(text("SELECT 1"))
         return {"status": "healthy"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed",
@@ -83,10 +83,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
         ws_status = {
             "status": "healthy",
             "connections": ws_manager.get_connection_count(),
-            "rooms": {
-                room: ws_manager.get_room_count(room)
-                for room in ws_manager.active_connections.keys()
-            },
+            "rooms": {room: ws_manager.get_room_count(room) for room in ws_manager.active_connections.keys()},
         }
         health_status["components"]["websocket"] = ws_status
     except Exception as e:
@@ -97,7 +94,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
 
     # Check sync scheduler
     try:
-        from ..background.sync_scheduler import scheduler, _shutting_down
+        from ..background.sync_scheduler import _shutting_down, scheduler
+
         if scheduler:
             health_status["components"]["sync_scheduler"] = {
                 "status": "healthy" if scheduler.running else "stopped",

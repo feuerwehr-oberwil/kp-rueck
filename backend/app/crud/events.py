@@ -1,7 +1,7 @@
 """Event CRUD operations."""
-from datetime import datetime
-from typing import Optional
+
 import uuid
+from datetime import datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,9 +47,7 @@ async def get_event_by_id(db: AsyncSession, event_id: uuid.UUID) -> Event | None
     return result.scalar_one_or_none()
 
 
-async def create_event(
-    db: AsyncSession, event_data: schemas.EventCreate
-) -> Event:
+async def create_event(db: AsyncSession, event_data: schemas.EventCreate) -> Event:
     """
     Create a new event.
 
@@ -72,9 +70,7 @@ async def create_event(
     return event
 
 
-async def update_event(
-    db: AsyncSession, event_id: uuid.UUID, event_data: schemas.EventUpdate
-) -> Event | None:
+async def update_event(db: AsyncSession, event_id: uuid.UUID, event_data: schemas.EventUpdate) -> Event | None:
     """
     Update an event.
 
@@ -188,9 +184,7 @@ async def get_event_incident_count(db: AsyncSession, event_id: uuid.UUID) -> int
     return result.scalar() or 0
 
 
-async def get_event_incident_counts_batch(
-    db: AsyncSession, event_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, int]:
+async def get_event_incident_counts_batch(db: AsyncSession, event_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
     """
     Get incident counts for multiple events in a single query.
 
@@ -205,7 +199,7 @@ async def get_event_incident_counts_batch(
         return {}
 
     query = (
-        select(Incident.event_id, func.count(Incident.id).label('count'))
+        select(Incident.event_id, func.count(Incident.id).label("count"))
         .where(Incident.event_id.in_(event_ids))
         .group_by(Incident.event_id)
     )
@@ -229,9 +223,5 @@ async def update_event_activity(db: AsyncSession, event_id: uuid.UUID) -> None:
         db: Database session
         event_id: Event ID to update
     """
-    await db.execute(
-        update(Event)
-        .where(Event.id == event_id)
-        .values(last_activity_at=datetime.utcnow())
-    )
+    await db.execute(update(Event).where(Event.id == event_id).values(last_activity_at=datetime.utcnow()))
     await db.commit()

@@ -8,7 +8,7 @@ Tests cover:
 - Sync scheduler status
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.main import app
-
 
 # ============================================
 # Fixtures
@@ -58,6 +57,7 @@ async def test_health_check_success(client: AsyncClient):
 @pytest.mark.api
 async def test_health_check_database_failure(client: AsyncClient):
     """Test health check returns 503 when database is unreachable."""
+
     # Override the dependency to simulate database failure
     async def failing_db():
         mock_session = AsyncMock()
@@ -157,6 +157,7 @@ async def test_detailed_health_check_pool_stats(client: AsyncClient):
 @pytest.mark.api
 async def test_detailed_health_check_degraded_on_db_failure():
     """Test detailed health check returns degraded when database fails."""
+
     # Create a client with failing database
     async def failing_db():
         mock_session = AsyncMock()

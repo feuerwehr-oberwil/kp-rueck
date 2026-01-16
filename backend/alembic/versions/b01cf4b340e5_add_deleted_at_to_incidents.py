@@ -5,24 +5,25 @@ Revises: dd20084b9da4
 Create Date: 2025-10-24 20:12:59.720358
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'b01cf4b340e5'
-down_revision: Union[str, Sequence[str], None] = 'dd20084b9da4'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "b01cf4b340e5"
+down_revision: str | Sequence[str] | None = "dd20084b9da4"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.add_column('incidents', sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True))
+    op.add_column("incidents", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_column('incidents', 'deleted_at')
+    op.drop_column("incidents", "deleted_at")

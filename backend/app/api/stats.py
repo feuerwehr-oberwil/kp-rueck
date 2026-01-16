@@ -1,9 +1,10 @@
 """Stats API endpoints for real-time event statistics."""
+
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
@@ -29,31 +30,20 @@ async def get_event_stats(
         - Resource utilization percentage
     """
     # Verify event exists
-    event_result = await db.execute(
-        select(models.Event).where(models.Event.id == event_id)
-    )
+    event_result = await db.execute(select(models.Event).where(models.Event.id == event_id))
     event = event_result.scalar_one_or_none()
     if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     # Get all incidents for this event (active and completed)
     incidents_result = await db.execute(
-        select(models.Incident).where(
-            models.Incident.event_id == event_id,
-            models.Incident.deleted_at.is_(None)
-        )
+        select(models.Incident).where(models.Incident.event_id == event_id, models.Incident.deleted_at.is_(None))
     )
     incidents = incidents_result.scalars().all()
 
     # Count incidents by status
     status_counts = {}
-    incident_statuses = [
-        "eingegangen", "reko", "disponiert",
-        "einsatz", "einsatz_beendet", "abschluss"
-    ]
+    incident_statuses = ["eingegangen", "reko", "disponiert", "einsatz", "einsatz_beendet", "abschluss"]
     for status_value in incident_statuses:
         count = sum(1 for i in incidents if i.status == status_value)
         status_counts[status_value] = count
@@ -63,7 +53,7 @@ async def get_event_stats(
     checked_in_result = await db.execute(
         select(models.EventAttendance.personnel_id).where(
             models.EventAttendance.event_id == event_id,
-            models.EventAttendance.checked_in == True,
+            models.EventAttendance.checked_in,
             models.EventAttendance.checked_out_at.is_(None),
         )
     )
@@ -72,9 +62,7 @@ async def get_event_stats(
     # Get those personnel records
     if checked_in_personnel_ids:
         personnel_result = await db.execute(
-            select(models.Personnel).where(
-                models.Personnel.id.in_(checked_in_personnel_ids)
-            )
+            select(models.Personnel).where(models.Personnel.id.in_(checked_in_personnel_ids))
         )
         personnel = personnel_result.scalars().all()
     else:
@@ -87,10 +75,7 @@ async def get_event_stats(
     # (from created_at to completed_at)
     completed_incidents = [i for i in incidents if i.completed_at is not None]
     if completed_incidents:
-        durations = [
-            (i.completed_at - i.created_at).total_seconds()
-            for i in completed_incidents
-        ]
+        durations = [(i.completed_at - i.created_at).total_seconds() for i in completed_incidents]
         avg_duration_sec = sum(durations) / len(durations)
         avg_duration_minutes = int(avg_duration_sec / 60)
     else:
