@@ -19,7 +19,7 @@
 |---------|---------|--------|--------|
 | `export_service.py` | **94%** | 70% | Done |
 | `sync_service.py` | **76%** | 70% | Done |
-| `event_export.py` | 0% | 70% | Pending |
+| `event_export.py` | **98%** | 70% | Done |
 | `training_autogen_task.py` | 0% | 70% | Pending |
 | `notification_service.py` | **92%** | 70% | Done |
 | `excel_import_export.py` | 12% | 70% | Pending |
@@ -41,7 +41,7 @@
 - [x] 2.1 Add export_service.py tests (32 tests, 94% coverage)
 - [x] 2.2 Add sync_service.py tests (44 tests, 76% coverage)
 - [x] 2.3 Add notification_service.py tests (32 tests, 92% coverage) + bug fix
-- [ ] 2.4 Add event_export.py tests
+- [x] 2.4 Add event_export.py tests (31 tests, 98% coverage)
 - [ ] 2.5 Add excel_import_export.py tests
 - [ ] 2.6 Add training_autogen_task.py tests
 
