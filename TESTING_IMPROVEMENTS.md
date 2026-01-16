@@ -69,7 +69,7 @@
 | 2026-01-16 | 051c662 | Phase 1.3 + 2.2: Fix lint errors, add sync_service.py tests (44 tests) |
 | 2026-01-16 | 6e4b555 | Fix production bugs: personnel availability + reko_submitted notification type |
 | 2026-01-16 | ad19405 | Phase 1.4: Fix frontend lint errors (158→0 errors) |
-| 2026-01-16 | 5876af9 | Phase 3: Add security tests (210 tests) + CRUD bug fixes |
+| 2026-01-16 | 7391bf3 | Phase 3: Add security tests (210 tests) + CRUD bug fixes |
 
 ---
 
