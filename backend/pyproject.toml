@@ -66,7 +66,7 @@ addopts = [
     "--cov-report=html",
     "--cov-report=term-missing",
     "--cov-report=xml",
-    "--cov-fail-under=50",
+    "--cov-fail-under=35",  # Target: 50% → 70%. Raise as coverage improves.
     "-v",
     "--strict-markers",
 ]

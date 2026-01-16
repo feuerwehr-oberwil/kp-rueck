@@ -1,11 +1,11 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 
 /**
  * Base Page Object Model class
  * Provides common functionality for all page objects
  */
 export class BasePage {
-  constructor(protected page: Page) {}
+  constructor(public readonly page: Page) {}
 
   /**
    * Navigate to a specific path

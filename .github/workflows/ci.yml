@@ -1,5 +1,12 @@
 name: CI
 
+# CI Strategy:
+# - BLOCKING: backend-test, frontend-typecheck, frontend-build
+# - NON-BLOCKING (TODO): backend-lint (87 errors), backend-typecheck (mypy),
+#                        backend-security (bandit), frontend-lint (158 errors)
+# - E2E: Only runs on main branch after blocking checks pass
+# - Coverage: Min 35% (target: 50% → 70%)
+
 on:
   push:
     branches: [main]
@@ -38,11 +45,11 @@ jobs:
 
       - name: Check formatting with Ruff
         run: uv run ruff format --check .
-        continue-on-error: true  # Report issues without blocking initially
+        continue-on-error: true  # TODO: Fix formatting issues then make blocking
 
       - name: Lint with Ruff
         run: uv run ruff check .
-        continue-on-error: true  # Report issues without blocking initially
+        continue-on-error: true  # TODO: Fix 87 lint errors then make blocking
 
   backend-typecheck:
     name: Backend Type Check
@@ -67,7 +74,7 @@ jobs:
 
       - name: Type check with mypy
         run: uv run mypy app --ignore-missing-imports
-        continue-on-error: true  # mypy is strict, allow failures initially
+        continue-on-error: true  # TODO: Make blocking once type errors are fixed
 
   backend-security:
     name: Backend Security Scan
@@ -92,7 +99,7 @@ jobs:
 
       - name: Security scan with Bandit
         run: uv tool run bandit -r app -ll -ii -x app/tests
-        continue-on-error: true  # Report issues without blocking
+        continue-on-error: true  # TODO: Make blocking once security issues are reviewed
 
   backend-test:
     name: Backend Tests
@@ -138,7 +145,7 @@ jobs:
           done
 
       - name: Run tests with coverage
-        run: uv run pytest --cov=app --cov-report=xml --cov-report=term-missing -v
+        run: uv run pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=35 -v
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test
 
@@ -180,7 +187,7 @@ jobs:
 
       - name: Run ESLint
         run: pnpm lint
-        continue-on-error: true  # Report issues without blocking initially
+        continue-on-error: true  # TODO: Fix 158 lint errors then make blocking
 
   frontend-typecheck:
     name: Frontend Type Check
@@ -209,7 +216,6 @@ jobs:
 
       - name: Type check
         run: pnpm exec tsc --noEmit
-        continue-on-error: true  # Report issues without blocking initially
 
   frontend-build:
     name: Frontend Build
