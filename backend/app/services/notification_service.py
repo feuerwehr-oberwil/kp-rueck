@@ -1,16 +1,14 @@
 """Notification evaluation and management service."""
 
 import json
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
+from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel
 from ..schemas import NotificationSettings
-
 
 NOTIFICATION_SETTINGS_KEY = "notification_settings"
 
@@ -32,9 +30,7 @@ async def get_notification_settings(db: AsyncSession) -> NotificationSettings:
 
 
 async def save_notification_settings(
-    db: AsyncSession,
-    settings: NotificationSettings,
-    user_id: UUID
+    db: AsyncSession, settings: NotificationSettings, user_id: UUID
 ) -> NotificationSettings:
     """Save notification settings to database."""
     from .settings import update_setting
@@ -63,44 +59,36 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
 
     # Time-based alerts
     if settings.enabled_time_alerts:
-        time_notifications = await _check_time_based_alerts(
-            db, event_id, is_training, settings
-        )
+        time_notifications = await _check_time_based_alerts(db, event_id, is_training, settings)
         notifications.extend(time_notifications)
 
     # Resource alerts
     if settings.enabled_resource_alerts:
-        resource_notifications = await _check_resource_alerts(
-            db, event_id, settings
-        )
+        resource_notifications = await _check_resource_alerts(db, event_id, settings)
         notifications.extend(resource_notifications)
 
     # Data quality alerts
     if settings.enabled_data_quality_alerts:
-        data_quality_notifications = await _check_data_quality_alerts(
-            db, event_id
-        )
+        data_quality_notifications = await _check_data_quality_alerts(db, event_id)
         notifications.extend(data_quality_notifications)
 
     # Event size alerts
     if settings.enabled_event_alerts:
-        event_notifications = await _check_event_size_alerts(
-            db, event_id, settings
-        )
+        event_notifications = await _check_event_size_alerts(db, event_id, settings)
         notifications.extend(event_notifications)
 
     # Deduplicate and save new notifications
-    saved_notifications = await _deduplicate_and_save(db, notifications, event_id)
+    await _deduplicate_and_save(db, notifications, event_id)
 
     # Return all active notifications AND recently dismissed ones (last 20 from last 24 hours)
     # This ensures the frontend can show history while preventing stale dismissed notifications
-    twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+    twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
 
     # Get active notifications
     active_result = await db.execute(
         select(Notification)
         .where(Notification.event_id == event_id)
-        .where(Notification.dismissed == False)
+        .where(Notification.dismissed == False)  # noqa: E712
         .order_by(Notification.created_at.desc())
     )
     active_notifications = list(active_result.scalars().all())
@@ -109,7 +97,7 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     dismissed_result = await db.execute(
         select(Notification)
         .where(Notification.event_id == event_id)
-        .where(Notification.dismissed == True)
+        .where(Notification.dismissed)
         .where(Notification.dismissed_at >= twenty_four_hours_ago)
         .order_by(Notification.dismissed_at.desc())
         .limit(20)
@@ -121,14 +109,11 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
 
 
 async def _check_time_based_alerts(
-    db: AsyncSession,
-    event_id: UUID,
-    is_training: bool,
-    settings: NotificationSettings
+    db: AsyncSession, event_id: UUID, is_training: bool, settings: NotificationSettings
 ) -> list[Notification]:
     """Check for time-based alerts on incidents."""
     notifications = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Get all active incidents (not in final status)
     result = await db.execute(
@@ -142,6 +127,7 @@ async def _check_time_based_alerts(
     for incident in incidents:
         # Get the most recent status transition to determine how long in current status
         from ..models import StatusTransition
+
         transition_result = await db.execute(
             select(StatusTransition)
             .where(StatusTransition.incident_id == incident.id)
@@ -163,13 +149,15 @@ async def _check_time_based_alerts(
             minutes = int(duration_minutes % 60)
             duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
 
-            notifications.append(Notification(
-                type="time_overdue",
-                severity="warning",
-                message=f"Einsatz '{incident.title}' ist {duration_str} im Status '{incident.status}'",
-                incident_id=incident.id,
-                event_id=event_id,
-            ))
+            notifications.append(
+                Notification(
+                    type="time_overdue",
+                    severity="warning",
+                    message=f"Einsatz '{incident.title}' ist {duration_str} im Status '{incident.status}'",
+                    incident_id=incident.id,
+                    event_id=event_id,
+                )
+            )
 
     # Check for completed incidents not archived
     archive_threshold_minutes = settings.get_threshold_minutes("abschluss", is_training)
@@ -190,21 +178,21 @@ async def _check_time_based_alerts(
                 minutes = int(time_since_completion % 60)
                 duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
 
-                notifications.append(Notification(
-                    type="time_overdue",
-                    severity="warning",
-                    message=f"Einsatz '{incident.title}' ist seit {duration_str} abgeschlossen, aber nicht archiviert",
-                    incident_id=incident.id,
-                    event_id=event_id,
-                ))
+                notifications.append(
+                    Notification(
+                        type="time_overdue",
+                        severity="warning",
+                        message=f"Einsatz '{incident.title}' ist seit {duration_str} abgeschlossen, aber nicht archiviert",
+                        incident_id=incident.id,
+                        event_id=event_id,
+                    )
+                )
 
     return notifications
 
 
 async def _check_resource_alerts(
-    db: AsyncSession,
-    event_id: UUID,
-    settings: NotificationSettings
+    db: AsyncSession, event_id: UUID, settings: NotificationSettings
 ) -> list[Notification]:
     """Check for resource constraint alerts."""
     notifications = []
@@ -212,10 +200,9 @@ async def _check_resource_alerts(
     # Check available personnel
     # Get personnel checked in for this event
     from ..models import EventAttendance
+
     result = await db.execute(
-        select(EventAttendance)
-        .where(EventAttendance.event_id == event_id)
-        .where(EventAttendance.checked_in == True)
+        select(EventAttendance).where(EventAttendance.event_id == event_id).where(EventAttendance.checked_in)
     )
     checked_in_personnel_ids = [att.personnel_id for att in result.scalars().all()]
 
@@ -234,15 +221,17 @@ async def _check_resource_alerts(
         available_count = len(checked_in_personnel_ids) - len(assigned_personnel_ids)
 
         if available_count == 0:
-            notifications.append(Notification(
-                type="no_personnel",
-                severity="critical",
-                message="Kein Personal mehr verfügbar - alle eingecheckten Personen sind zugewiesen",
-                event_id=event_id,
-            ))
+            notifications.append(
+                Notification(
+                    type="no_personnel",
+                    severity="critical",
+                    message="Kein Personal mehr verfügbar - alle eingecheckten Personen sind zugewiesen",
+                    event_id=event_id,
+                )
+            )
 
     # Check personnel fatigue (assigned > threshold hours)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     fatigue_threshold_minutes = settings.fatigue_hours * 60
 
     result = await db.execute(
@@ -259,12 +248,14 @@ async def _check_resource_alerts(
         duration_minutes = (now - assignment.assigned_at).total_seconds() / 60
         if duration_minutes > fatigue_threshold_minutes:
             hours = int(duration_minutes // 60)
-            notifications.append(Notification(
-                type="personnel_fatigue",
-                severity="warning",
-                message=f"{personnel_name} ist seit {hours} Stunden im Einsatz",
-                event_id=event_id,
-            ))
+            notifications.append(
+                Notification(
+                    type="personnel_fatigue",
+                    severity="warning",
+                    message=f"{personnel_name} ist seit {hours} Stunden im Einsatz",
+                    event_id=event_id,
+                )
+            )
 
     # Check material depletion
     # Skip material types with threshold -1 (disabled)
@@ -274,34 +265,33 @@ async def _check_resource_alerts(
             continue
 
         result = await db.execute(
-            select(func.count(Material.id))
-            .where(Material.type == material_type)
-            .where(Material.status == "available")
+            select(func.count(Material.id)).where(Material.type == material_type).where(Material.status == "available")
         )
         available_count = result.scalar_one()
 
         if available_count == 0:
-            notifications.append(Notification(
-                type="no_materials",
-                severity="critical",
-                message=f"Keine Einheiten von '{material_type}' mehr verfügbar",
-                event_id=event_id,
-            ))
+            notifications.append(
+                Notification(
+                    type="no_materials",
+                    severity="critical",
+                    message=f"Keine Einheiten von '{material_type}' mehr verfügbar",
+                    event_id=event_id,
+                )
+            )
         elif available_count <= threshold:
-            notifications.append(Notification(
-                type="no_materials",
-                severity="warning",
-                message=f"Nur noch {available_count} Einheiten von '{material_type}' verfügbar",
-                event_id=event_id,
-            ))
+            notifications.append(
+                Notification(
+                    type="no_materials",
+                    severity="warning",
+                    message=f"Nur noch {available_count} Einheiten von '{material_type}' verfügbar",
+                    event_id=event_id,
+                )
+            )
 
     return notifications
 
 
-async def _check_data_quality_alerts(
-    db: AsyncSession,
-    event_id: UUID
-) -> list[Notification]:
+async def _check_data_quality_alerts(db: AsyncSession, event_id: UUID) -> list[Notification]:
     """Check for data quality issues."""
     notifications = []
 
@@ -317,21 +307,21 @@ async def _check_data_quality_alerts(
     incidents_no_location = result.scalars().all()
 
     for incident in incidents_no_location:
-        notifications.append(Notification(
-            type="missing_location",
-            severity="info",
-            message=f"Einsatz '{incident.title}' hat keine geokodierte Position",
-            incident_id=incident.id,
-            event_id=event_id,
-        ))
+        notifications.append(
+            Notification(
+                type="missing_location",
+                severity="info",
+                message=f"Einsatz '{incident.title}' hat keine geokodierte Position",
+                incident_id=incident.id,
+                event_id=event_id,
+            )
+        )
 
     return notifications
 
 
 async def _check_event_size_alerts(
-    db: AsyncSession,
-    event_id: UUID,
-    settings: NotificationSettings
+    db: AsyncSession, event_id: UUID, settings: NotificationSettings
 ) -> list[Notification]:
     """Check for event size limit warnings."""
     notifications = []
@@ -352,9 +342,7 @@ async def _check_event_size_alerts(
 
 
 async def _deduplicate_and_save(
-    db: AsyncSession,
-    new_notifications: list[Notification],
-    event_id: UUID
+    db: AsyncSession, new_notifications: list[Notification], event_id: UUID
 ) -> list[Notification]:
     """
     Deduplicate notifications and save only new ones.
@@ -378,7 +366,7 @@ async def _deduplicate_and_save(
     saved = []
 
     for notification in new_notifications:
-        from sqlalchemy import or_, and_
+        from sqlalchemy import and_, or_
 
         # Base query for matching notification type and event
         base_conditions = [
@@ -393,7 +381,7 @@ async def _deduplicate_and_save(
             base_conditions.append(Notification.incident_id.is_(None))
 
         # Build suppression logic based on re-alarm settings
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Use longer suppression interval for fatigue warnings (2 hours instead of 30 minutes)
         # to avoid repeated alerts for the same person
@@ -406,16 +394,13 @@ async def _deduplicate_and_save(
 
             suppression_conditions = or_(
                 # Active notifications created recently
-                and_(
-                    Notification.dismissed == False,
-                    Notification.created_at >= active_suppression
-                ),
+                and_(Notification.dismissed == False, Notification.created_at >= active_suppression),  # noqa: E712
                 # Dismissed notifications within re-alarm interval
                 and_(
-                    Notification.dismissed == True,
+                    Notification.dismissed,
                     Notification.dismissed_at.isnot(None),
-                    Notification.dismissed_at >= dismissed_suppression
-                )
+                    Notification.dismissed_at >= dismissed_suppression,
+                ),
             )
         else:
             # Re-alarming disabled (default): suppress active notifications AND any dismissed notification
@@ -423,17 +408,12 @@ async def _deduplicate_and_save(
 
             suppression_conditions = or_(
                 # Active notifications created recently
-                and_(
-                    Notification.dismissed == False,
-                    Notification.created_at >= active_suppression
-                ),
+                and_(Notification.dismissed == False, Notification.created_at >= active_suppression),  # noqa: E712
                 # ANY dismissed notification (permanent suppression)
-                Notification.dismissed == True
+                Notification.dismissed,
             )
 
-        query = select(Notification).where(
-            and_(*base_conditions, suppression_conditions)
-        )
+        query = select(Notification).where(and_(*base_conditions, suppression_conditions))
 
         result = await db.execute(query)
         existing = result.scalars().first()
@@ -451,20 +431,14 @@ async def _deduplicate_and_save(
     return saved
 
 
-async def dismiss_notification(
-    db: AsyncSession,
-    notification_id: UUID,
-    user_id: UUID
-) -> Optional[Notification]:
+async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id: UUID) -> Notification | None:
     """Dismiss a notification."""
-    result = await db.execute(
-        select(Notification).where(Notification.id == notification_id)
-    )
+    result = await db.execute(select(Notification).where(Notification.id == notification_id))
     notification = result.scalar_one_or_none()
 
     if notification:
         notification.dismissed = True
-        notification.dismissed_at = datetime.now(timezone.utc)
+        notification.dismissed_at = datetime.now(UTC)
         notification.dismissed_by = user_id
         await db.commit()
         await db.refresh(notification)
@@ -478,7 +452,7 @@ async def create_reko_notification(
     event_id: UUID,
     incident_title: str,
     is_relevant: bool,
-    submitted_by_name: str | None = None
+    submitted_by_name: str | None = None,
 ) -> Notification:
     """
     Create a notification for a new Reko report submission.
