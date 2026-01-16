@@ -302,7 +302,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       const assignedMaterialIds = new Set<string>()
 
       // First, identify reko personnel so they can be assigned to multiple incidents
-      let rekoPersonnelIds = new Set<string>()
+      const rekoPersonnelIds = new Set<string>()
       try {
         const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
         // Collect reko personnel IDs - they can be assigned to multiple incidents
@@ -494,7 +494,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const assignedMaterialIds = new Set<string>()
 
         // First, identify reko personnel so they can be assigned to multiple incidents
-        let rekoPersonnelIds = new Set<string>()
+        const rekoPersonnelIds = new Set<string>()
         try {
           const specialFunctions = await apiClient.getEventSpecialFunctions(eventId)
           // Collect reko personnel IDs - they can be assigned to multiple incidents

@@ -21,6 +21,7 @@ export interface SystemMessage {
 class WebSocketClient {
   private socket: Socket | null = null
   private status: WebSocketStatus = 'disconnected'
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   private listeners: Map<string, Set<Function>> = new Map()
   private statusListeners: Set<(status: WebSocketStatus) => void> = new Set()
   private reconnectAttempts = 0
@@ -86,6 +87,7 @@ class WebSocketClient {
   /**
    * Subscribe to WebSocket events
    */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   on(event: string, callback: Function) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set())
@@ -106,6 +108,7 @@ class WebSocketClient {
   /**
    * Unsubscribe from WebSocket events
    */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   off(event: string, callback: Function) {
     const callbacks = this.listeners.get(event)
     if (callbacks) {

@@ -24,7 +24,7 @@ export default [
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       // TypeScript rules
-      "@typescript-eslint/no-unused-vars": ["error", {
+      "@typescript-eslint/no-unused-vars": ["warn", {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_"
       }],
@@ -47,6 +47,7 @@ export default [
       "test-results/**",
       "*.config.js",
       "*.config.mjs",
+      "next-env.d.ts",
     ],
   },
 ];

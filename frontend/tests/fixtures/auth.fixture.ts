@@ -36,6 +36,7 @@ export const test = base.extend<AuthFixtures>({
     await loginPage.waitForLoginSuccess();
 
     // Use the authenticated page
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },
 
@@ -44,6 +45,7 @@ export const test = base.extend<AuthFixtures>({
    */
   loginPage: async ({ page }, use) => {
     const loginPage = new LoginPage(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(loginPage);
   },
 
@@ -52,6 +54,7 @@ export const test = base.extend<AuthFixtures>({
    */
   dashboardPage: async ({ page }, use) => {
     const dashboardPage = new DashboardPage(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(dashboardPage);
   },
 });

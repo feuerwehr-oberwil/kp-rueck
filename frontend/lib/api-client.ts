@@ -331,6 +331,7 @@ export interface ApiRekoReportResponse extends ApiRekoReportBase {
   submitted_by_personnel_name?: string | null
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ApiRekoFormResponse extends ApiRekoReportResponse {
   // Same as ApiRekoReportResponse, backend returns this on GET /form
 }

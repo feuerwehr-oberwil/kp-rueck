@@ -31,6 +31,7 @@ export function useKanbanDragDrop({
   useEffect(() => {
     if (!isMounted) return
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
 
     return monitorForElements({

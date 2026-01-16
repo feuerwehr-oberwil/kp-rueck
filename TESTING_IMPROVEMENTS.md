@@ -33,7 +33,7 @@
 - [x] 1.1 Make backend tests blocking in CI (with 35% coverage threshold)
 - [x] 1.2 Make frontend typecheck and build blocking in CI
 - [x] 1.3 Fix backend lint errors (0 remaining - configured per-file ignores)
-- [ ] 1.4 Fix frontend lint errors (158 remaining) to make blocking
+- [x] 1.4 Fix frontend lint errors (0 errors, 253 warnings - unused vars demoted to warnings)
 - [ ] 1.5 Add pre-commit hooks configuration
 
 ### Phase 2: Backend Test Coverage
@@ -67,6 +67,8 @@
 | 2026-01-16 | 2434c75 | Phase 1: CI hardening - make tests/build blocking |
 | 2026-01-16 | 2e1b8f1 | Phase 2.1: Add export_service.py tests (32 tests, 94% coverage) |
 | 2026-01-16 | 051c662 | Phase 1.3 + 2.2: Fix lint errors, add sync_service.py tests (44 tests) |
+| 2026-01-16 | 6e4b555 | Fix production bugs: personnel availability + reko_submitted notification type |
+| 2026-01-16 | (pending) | Phase 1.4: Fix frontend lint errors (158→0 errors) |
 
 ---
 

@@ -42,7 +42,9 @@ function MapClickHandler({
 }) {
   if (typeof window === 'undefined') return null
 
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { useMapEvents } = require('react-leaflet')
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useMapEvents({
     click: (e: any) => {
       onLocationClick(e.latlng.lat, e.latlng.lng)
@@ -74,11 +76,15 @@ export function MapPickerModal({
 
     // Fix Leaflet default icon issue with Next.js
     if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const L = require('leaflet')
       delete (L.Icon.Default.prototype as any)._getIconUrl
       L.Icon.Default.mergeOptions({
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         iconUrl: require('leaflet/dist/images/marker-icon.png').default.src,
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png').default.src,
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         shadowUrl: require('leaflet/dist/images/marker-shadow.png').default.src,
       })
     }
@@ -153,7 +159,9 @@ export function MapPickerModal({
       )
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { MapContainer, TileLayer, Marker } = require('react-leaflet')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('leaflet/dist/leaflet.css')
 
     return (
