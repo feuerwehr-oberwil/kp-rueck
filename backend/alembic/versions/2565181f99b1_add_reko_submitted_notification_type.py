@@ -22,13 +22,14 @@ def upgrade() -> None:
     # Drop existing constraint
     op.drop_constraint("valid_notification_type", "notifications", type_="check")
 
-    # Recreate with reko_submitted type added
+    # Recreate with reko_submitted type added (include ALL existing types)
     op.create_check_constraint(
         "valid_notification_type",
         "notifications",
         "type IN ("
         "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
-        "'missing_location', 'event_size_limit', 'reko_submitted'"
+        "'missing_location', 'missing_personnel', 'missing_vehicle', "
+        "'event_size_limit', 'training_emergency', 'reko_submitted'"
         ")",
     )
 
@@ -38,12 +39,13 @@ def downgrade() -> None:
     # Drop constraint with reko_submitted
     op.drop_constraint("valid_notification_type", "notifications", type_="check")
 
-    # Recreate without reko_submitted
+    # Recreate without reko_submitted (keep all other existing types)
     op.create_check_constraint(
         "valid_notification_type",
         "notifications",
         "type IN ("
         "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
-        "'missing_location', 'event_size_limit'"
+        "'missing_location', 'missing_personnel', 'missing_vehicle', "
+        "'event_size_limit', 'training_emergency'"
         ")",
     )
