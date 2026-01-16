@@ -33,6 +33,7 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
     "httpx>=0.27.0",
+    "bandit>=1.7.0",
 ]
 
 [build-system]
@@ -59,21 +60,34 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = [
     "--cov=app",
     "--cov-report=html",
     "--cov-report=term-missing",
     "--cov-report=xml",
+    "--cov-fail-under=50",
     "-v",
+    "--strict-markers",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+markers = [
+    "unit: Unit tests (isolated, no external dependencies)",
+    "integration: Integration tests (may use database)",
+    "security: Security-focused tests",
+    "slow: Tests that take longer to run",
+    "api: API endpoint tests",
+]
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
+    "httpx>=0.28.1",
+    "bandit>=1.7.0",
 ]

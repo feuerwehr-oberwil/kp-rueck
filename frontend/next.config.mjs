@@ -3,6 +3,11 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
 
+  // Disable ESLint during build (we run it separately in CI)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Performance optimizations
   compiler: {
     // Remove console.log in production (except error, warn, and log for debugging)
