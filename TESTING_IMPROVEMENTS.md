@@ -66,8 +66,7 @@
 |------|--------|-------------|
 | 2026-01-16 | 2434c75 | Phase 1: CI hardening - make tests/build blocking |
 | 2026-01-16 | 2e1b8f1 | Phase 2.1: Add export_service.py tests (32 tests, 94% coverage) |
-| 2026-01-16 | pending | Phase 1.3: Fix backend lint errors (per-file ignores) |
-| 2026-01-16 | pending | Phase 2.2: Add sync_service.py tests (44 tests, 76% coverage) |
+| 2026-01-16 | 051c662 | Phase 1.3 + 2.2: Fix lint errors, add sync_service.py tests (44 tests) |
 
 ---
 
