@@ -17,9 +17,9 @@
 
 | Service | Current | Target | Status |
 |---------|---------|--------|--------|
+| `export_service.py` | **94%** | 70% | Done |
 | `event_export.py` | 0% | 70% | Pending |
 | `training_autogen_task.py` | 0% | 70% | Pending |
-| `export_service.py` | 8% | 70% | Pending |
 | `sync_service.py` | 9% | 70% | Pending |
 | `notification_service.py` | 11% | 70% | Pending |
 | `excel_import_export.py` | 12% | 70% | Pending |
@@ -38,7 +38,7 @@
 
 ### Phase 2: Backend Test Coverage
 
-- [ ] 2.1 Add export_service.py tests
+- [x] 2.1 Add export_service.py tests (32 tests, 94% coverage)
 - [ ] 2.2 Add sync_service.py tests
 - [ ] 2.3 Add notification_service.py tests
 - [ ] 2.4 Add event_export.py tests
@@ -64,7 +64,8 @@
 
 | Date | Commit | Description |
 |------|--------|-------------|
-| 2026-01-16 | TBD | Phase 1: CI hardening - make tests/build blocking |
+| 2026-01-16 | 2434c75 | Phase 1: CI hardening - make tests/build blocking |
+| 2026-01-16 | TBD | Phase 2.1: Add export_service.py tests (32 tests, 94% coverage) |
 
 ---
 
