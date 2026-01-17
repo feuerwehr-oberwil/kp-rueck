@@ -1,28 +1,36 @@
 # Testing Improvements Plan
 
-> **Status**: Phase 4 Complete
+> **Status**: Phase 5 In Progress
 > **Started**: 2026-01-16
 > **Goal**: Ensure adding new features doesn't break existing ones
 
-## Current State (Baseline)
+## Current State
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Backend Tests | 1060+ | Maintain/Grow |
-| Backend Coverage | ~41% | 50% (then 70%) |
+| Backend Tests | 1283 | Maintain/Grow |
+| Backend Coverage | **52%** | 70% |
 | Frontend E2E Tests | ~60 | Maintain/Grow |
 | CI Blocking | Yes | Yes |
 
-### Critical Coverage Gaps
+### Coverage Gaps (Priority Files)
 
-| Service | Current | Target | Status |
-|---------|---------|--------|--------|
-| `export_service.py` | **94%** | 70% | Done |
-| `sync_service.py` | **76%** | 70% | Done |
-| `event_export.py` | **98%** | 70% | Done |
-| `training_autogen_task.py` | **88%** | 70% | Done |
-| `notification_service.py` | **92%** | 70% | Done |
-| `excel_import_export.py` | **98%** | 70% | Done |
+| File | Coverage | Lines Missing | Priority |
+|------|----------|---------------|----------|
+| `services/sync_service.py` | 9% | 243 | High |
+| `services/export_service.py` | 13% | 209 | High |
+| `crud/personnel_checkin.py` | 19% | 64 | High |
+| `services/training.py` | 20% | 77 | High |
+| `background/sync_scheduler.py` | 21% | 59 | Medium |
+| `services/notification_service.py` | 22% | 132 | High |
+| `api/sync.py` | 24% | 106 | High |
+| `crud/incidents.py` | 26% | 93 | High |
+| `services/event_export.py` | 26% | 67 | Medium |
+| `crud/assignments.py` | 27% | 82 | High |
+| `crud/vehicles.py` | 27% | 36 | Medium |
+| `api/vehicles.py` | 31% | 53 | Medium |
+
+**To reach 70%**: Need ~1066 more lines covered (currently 2988/5792)
 
 ---
 
@@ -57,6 +65,19 @@
 - [x] 4.1 API contract validation tests (22 tests)
 - [x] 4.2 End-to-end workflow tests (11 tests)
 - [x] 4.3 Error recovery tests (29 tests)
+
+### Phase 5: Coverage Push to 70%
+
+Target: Cover 1066+ additional lines to reach 70% coverage
+
+- [x] 5.1 Add CRUD layer tests (63 tests: assignments, vehicles, personnel_checkin)
+  - `crud/assignments.py`: 27% → 73% (+46%)
+  - `crud/vehicles.py`: 27% → 100% (+73%)
+  - `crud/personnel_checkin.py`: 19% → 100% (+81%)
+  - `crud/incidents.py`: 26% → 48% (+22%)
+- [ ] 5.2 Add API route tests (sync, vehicles, reko)
+- [ ] 5.3 Add service layer tests (sync_service, export_service, notification_service, training)
+- [ ] 5.4 Add background task tests (sync_scheduler)
 
 ---
 

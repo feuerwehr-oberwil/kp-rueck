@@ -11,6 +11,7 @@ from sqlalchemy.pool import NullPool
 
 from app.database import Base
 from app.models import (
+    Event,
     Incident,
     Material,
     Personnel,
@@ -154,18 +155,32 @@ async def test_material(db_session: AsyncSession) -> Material:
 
 
 @pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_user: User) -> Incident:
+async def test_event(db_session: AsyncSession) -> Event:
+    """Create a test event."""
+    event = Event(
+        id=uuid4(),
+        name="Test Event",
+        training_flag=False,
+    )
+    db_session.add(event)
+    await db_session.commit()
+    await db_session.refresh(event)
+    return event
+
+
+@pytest_asyncio.fixture
+async def test_incident(db_session: AsyncSession, test_user: User, test_event: Event) -> Incident:
     """Create a test incident."""
     incident = Incident(
         id=uuid4(),
         title="Wohnungsbrand",
-        type="fire",
+        type="brandbekaempfung",
         priority="high",
         location_address="Hauptstrasse 123, Basel",
         location_lat=47.5596,
         location_lng=7.5886,
         status="eingegangen",
-        training_flag=False,
+        event_id=test_event.id,
         description="Brand in Mehrfamilienhaus",
         created_by=test_user.id,
     )
@@ -203,13 +218,12 @@ def valid_incident_data() -> dict:
     """Return valid incident data for testing."""
     return {
         "title": "Test Incident",
-        "type": "fire",
+        "type": "brandbekaempfung",
         "priority": "medium",
         "location_address": "Test Street 1",
         "location_lat": 47.5596,
         "location_lng": 7.5886,
         "status": "eingegangen",
-        "training_flag": False,
         "description": "Test description",
     }
 
