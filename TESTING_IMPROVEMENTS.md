@@ -8,8 +8,8 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Backend Tests | 1283 | Maintain/Grow |
-| Backend Coverage | **52%** | 70% |
+| Backend Tests | 1347 | Maintain/Grow |
+| Backend Coverage | **61%** | 70% |
 | Frontend E2E Tests | ~60 | Maintain/Grow |
 | CI Blocking | Yes | Yes |
 
@@ -17,20 +17,13 @@
 
 | File | Coverage | Lines Missing | Priority |
 |------|----------|---------------|----------|
-| `services/sync_service.py` | 9% | 243 | High |
-| `services/export_service.py` | 13% | 209 | High |
-| `crud/personnel_checkin.py` | 19% | 64 | High |
-| `services/training.py` | 20% | 77 | High |
+| `services/photo_storage.py` | 27% | 77 | Medium |
 | `background/sync_scheduler.py` | 21% | 59 | Medium |
-| `services/notification_service.py` | 22% | 132 | High |
-| `api/sync.py` | 24% | 106 | High |
-| `crud/incidents.py` | 26% | 93 | High |
-| `services/event_export.py` | 26% | 67 | Medium |
-| `crud/assignments.py` | 27% | 82 | High |
-| `crud/vehicles.py` | 27% | 36 | Medium |
-| `api/vehicles.py` | 31% | 53 | Medium |
+| `services/tokens.py` | 56% | 18 | Low |
+| `traccar.py` | 57% | 37 | Low |
+| `websocket_manager.py` | 42% | 94 | Low |
 
-**To reach 70%**: Need ~1066 more lines covered (currently 2988/5792)
+**To reach 70%**: Need ~521 more lines covered (currently 3519/5792)
 
 ---
 
@@ -79,7 +72,9 @@ Target: Cover 1066+ additional lines to reach 70% coverage
   - `api/sync.py`: 24% → 77% (+53%) - sync operations, status, delta endpoints
   - `api/vehicles.py`: 31% → 38% (+7%) - vehicle status endpoint with driver/incident info
   - `api/reko.py`: 39% (unchanged) - personnel names, incident details, photo serving
-- [ ] 5.3 Add service layer tests (sync_service, export_service, notification_service, training)
+- [x] 5.3 Add service layer tests (27 tests for training.py)
+  - `services/training.py`: 20% → 78% (+58%) - emergency generation, template/location loading, time weights
+  - Fixed models.py to include 'training_emergency' notification type in CHECK constraint
 - [ ] 5.4 Add background task tests (sync_scheduler)
 
 ---
@@ -97,6 +92,7 @@ Target: Cover 1066+ additional lines to reach 70% coverage
 | 2026-01-17 | 20c34e7 | Phase 4: Add integration tests (62 tests) - API contracts, E2E workflows, error recovery |
 | 2026-01-17 | fe5448d | Phase 5.1: Add CRUD layer tests (63 tests) - assignments, vehicles, personnel_checkin |
 | 2026-01-17 | 7d8070a | Phase 5.2: Add API route tests (37 tests) - sync, vehicles, reko |
+| 2026-01-17 | d868a2e | Phase 5.3: Add training service tests (27 tests) - 20% → 78% coverage |
 
 ---
 
