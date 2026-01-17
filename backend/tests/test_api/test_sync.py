@@ -339,3 +339,450 @@ async def test_sync_rejects_concurrent_operations(editor_client: AsyncClient):
     finally:
         # Restore original state
         sync_module._is_syncing = original_is_syncing
+
+
+# ============================================
+# Sync Status with Data Tests
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def sync_log_success(db_session: AsyncSession) -> "SyncLog":
+    """Create a successful sync log entry."""
+    from datetime import datetime, UTC
+    from uuid import uuid4
+
+    from app.models import SyncLog
+
+    log = SyncLog(
+        id=uuid4(),
+        sync_direction="from_railway",
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+        status="success",
+        records_synced={"incidents": 5, "personnel": 3},
+        errors=None,
+    )
+    db_session.add(log)
+    await db_session.commit()
+    await db_session.refresh(log)
+    return log
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_sync_status_with_successful_sync(editor_client: AsyncClient, sync_log_success):
+    """Test getting sync status when a successful sync exists."""
+    with patch("app.api.sync.create_sync_service") as mock_create:
+        mock_service = AsyncMock()
+        mock_service.check_railway_health = AsyncMock(return_value=True)
+        mock_create.return_value = mock_service
+
+        response = await editor_client.get("/api/sync/status")
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should have sync data from the log
+        assert data["last_sync"] is not None
+        assert data["direction"] == "from_railway"
+        assert data["railway_healthy"] is True
+        assert data["records_pending"] == 8  # 5 + 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_sync_status_with_last_error(editor_client: AsyncClient):
+    """Test getting sync status shows last error."""
+    import app.api.sync as sync_module
+
+    original_result = sync_module._last_sync_result
+    sync_module._last_sync_result = {
+        "success": False,
+        "errors": ["Connection timeout", "Database locked"],
+    }
+
+    try:
+        with patch("app.api.sync.create_sync_service") as mock_create:
+            mock_service = AsyncMock()
+            mock_service.check_railway_health = AsyncMock(return_value=False)
+            mock_create.return_value = mock_service
+
+            response = await editor_client.get("/api/sync/status")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["last_error"] == "Connection timeout"
+    finally:
+        sync_module._last_sync_result = original_result
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_sync_status_with_empty_errors(editor_client: AsyncClient):
+    """Test getting sync status with failed result but no error messages."""
+    import app.api.sync as sync_module
+
+    original_result = sync_module._last_sync_result
+    sync_module._last_sync_result = {"success": False, "errors": []}
+
+    try:
+        with patch("app.api.sync.create_sync_service") as mock_create:
+            mock_service = AsyncMock()
+            mock_service.check_railway_health = AsyncMock(return_value=True)
+            mock_create.return_value = mock_service
+
+            response = await editor_client.get("/api/sync/status")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["last_error"] is None
+    finally:
+        sync_module._last_sync_result = original_result
+
+
+# ============================================
+# Sync Operations Success Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_from_railway_success(editor_client: AsyncClient):
+    """Test successful sync from Railway."""
+    from datetime import datetime, UTC
+
+    from app.schemas import SyncDirection, SyncResult
+
+    mock_result = SyncResult(
+        success=True,
+        direction=SyncDirection.FROM_RAILWAY,
+        records_synced={"incidents": 10, "personnel": 5},
+        errors=None,
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+
+    with patch("app.api.sync.create_sync_service") as mock_create:
+        mock_service = AsyncMock()
+        mock_service.sync_from_railway = AsyncMock(return_value=mock_result)
+        mock_create.return_value = mock_service
+
+        response = await editor_client.post("/api/sync/from-railway")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["success"] is True
+        assert data["direction"] == "from_railway"
+        assert data["records_synced"]["incidents"] == 10
+        assert data["completed_at"] is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_to_railway_success(editor_client: AsyncClient):
+    """Test successful sync to Railway."""
+    from datetime import datetime, UTC
+
+    from app.schemas import SyncDirection, SyncResult
+
+    mock_result = SyncResult(
+        success=True,
+        direction=SyncDirection.TO_RAILWAY,
+        records_synced={"incidents": 3, "vehicles": 2},
+        errors=None,
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+
+    with patch("app.api.sync.create_sync_service") as mock_create:
+        mock_service = AsyncMock()
+        mock_service.sync_to_railway = AsyncMock(return_value=mock_result)
+        mock_create.return_value = mock_service
+
+        response = await editor_client.post("/api/sync/to-railway")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["success"] is True
+        assert data["direction"] == "to_railway"
+        assert data["records_synced"]["incidents"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_bidirectional_success(editor_client: AsyncClient):
+    """Test successful bidirectional sync."""
+    from datetime import datetime, UTC
+
+    from app.schemas import SyncDirection, SyncResult
+
+    from_railway_result = SyncResult(
+        success=True,
+        direction=SyncDirection.FROM_RAILWAY,
+        records_synced={"incidents": 5},
+        errors=None,
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+    to_railway_result = SyncResult(
+        success=True,
+        direction=SyncDirection.TO_RAILWAY,
+        records_synced={"personnel": 3},
+        errors=None,
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+
+    with patch("app.api.sync.create_sync_service") as mock_create:
+        mock_service = AsyncMock()
+        mock_service.check_railway_health = AsyncMock(return_value=True)
+        mock_service.sync_bidirectional = AsyncMock(
+            return_value={"from_railway": from_railway_result, "to_railway": to_railway_result}
+        )
+        mock_create.return_value = mock_service
+
+        response = await editor_client.post("/api/sync/bidirectional")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["success"] is True
+        assert data["from_railway"]["success"] is True
+        assert data["to_railway"]["success"] is True
+        assert data["from_railway"]["records_synced"]["incidents"] == 5
+        assert data["to_railway"]["records_synced"]["personnel"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_trigger_immediate_sync_success(editor_client: AsyncClient):
+    """Test successful immediate sync trigger."""
+    from datetime import datetime, UTC
+
+    from app.schemas import SyncDirection, SyncResult
+
+    from_railway_result = SyncResult(
+        success=True,
+        direction=SyncDirection.FROM_RAILWAY,
+        records_synced={"incidents": 2},
+        errors=None,
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+    to_railway_result = SyncResult(
+        success=True,
+        direction=SyncDirection.TO_RAILWAY,
+        records_synced={"materials": 1},
+        errors=None,
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+
+    with patch("app.api.sync.create_sync_service") as mock_create:
+        mock_service = AsyncMock()
+        mock_service.check_railway_health = AsyncMock(return_value=True)
+        mock_service.sync_bidirectional = AsyncMock(
+            return_value={"from_railway": from_railway_result, "to_railway": to_railway_result}
+        )
+        mock_create.return_value = mock_service
+
+        response = await editor_client.post("/api/sync/trigger-immediate")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["success"] is True
+        assert data["from_railway"]["records_synced"]["incidents"] == 2
+        assert data["to_railway"]["records_synced"]["materials"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_trigger_immediate_already_syncing(editor_client: AsyncClient):
+    """Test that immediate sync returns graceful response when already syncing."""
+    import app.api.sync as sync_module
+
+    original_is_syncing = sync_module._is_syncing
+    sync_module._is_syncing = True
+
+    try:
+        response = await editor_client.post("/api/sync/trigger-immediate")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is False
+        assert data["is_syncing"] is True
+        assert "already in progress" in data["message"].lower()
+    finally:
+        sync_module._is_syncing = original_is_syncing
+
+
+# ============================================
+# Sync Logs with Data Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_sync_logs_with_entries(editor_client: AsyncClient, sync_log_success):
+    """Test getting sync logs when entries exist."""
+    response = await editor_client.get("/api/sync/logs")
+    assert response.status_code == 200
+    logs = response.json()
+
+    assert len(logs) == 1
+    log = logs[0]
+    assert log["sync_direction"] == "from_railway"
+    assert log["status"] == "success"
+    assert log["records_synced"] == {"incidents": 5, "personnel": 3}
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_sync_logs_with_limit(editor_client: AsyncClient, db_session: AsyncSession):
+    """Test getting sync logs with custom limit."""
+    from datetime import datetime, UTC
+    from uuid import uuid4
+
+    from app.models import SyncLog
+
+    # Create multiple logs
+    for i in range(5):
+        log = SyncLog(
+            id=uuid4(),
+            sync_direction="from_railway",
+            started_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
+            status="success",
+            records_synced={"incidents": i},
+        )
+        db_session.add(log)
+    await db_session.commit()
+
+    response = await editor_client.get("/api/sync/logs?limit=3")
+    assert response.status_code == 200
+    logs = response.json()
+    assert len(logs) == 3
+
+
+# ============================================
+# Sync Config Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_sync_config_all_fields(editor_client: AsyncClient):
+    """Test updating all sync configuration fields."""
+    config_update = {
+        "sync_interval_minutes": 10,
+        "auto_sync_on_create": False,
+        "sync_conflict_buffer_seconds": 15,
+        "railway_database_url": "postgresql://test:test@localhost/testdb",
+    }
+
+    response = await editor_client.put("/api/sync/config", json=config_update)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["sync_interval_minutes"] == 10
+    assert data["auto_sync_on_create"] is False
+    assert data["sync_conflict_buffer_seconds"] == 15
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_sync_config_partial(editor_client: AsyncClient):
+    """Test updating only some sync configuration fields."""
+    # Only update interval
+    response = await editor_client.put("/api/sync/config", json={"sync_interval_minutes": 15})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["sync_interval_minutes"] == 15
+
+
+# ============================================
+# Delta Endpoint Tests with Data
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def test_personnel_for_sync(db_session: AsyncSession):
+    """Create test personnel for delta tests."""
+    from uuid import uuid4
+
+    from app.models import Personnel
+
+    personnel = Personnel(
+        id=uuid4(),
+        name="Delta Test Person",
+        role="Gruppenführer",
+        availability="available",
+    )
+    db_session.add(personnel)
+    await db_session.commit()
+    await db_session.refresh(personnel)
+    return personnel
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_delta_returns_records(editor_client: AsyncClient, test_personnel_for_sync):
+    """Test getting delta returns actual records."""
+    response = await editor_client.get("/api/sync/delta/personnel")
+    assert response.status_code == 200
+    records = response.json()
+
+    assert len(records) >= 1
+    # Find our test personnel
+    found = any(r["name"] == "Delta Test Person" for r in records)
+    assert found
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_delta_with_timestamp_filter(editor_client: AsyncClient, test_personnel_for_sync):
+    """Test that timestamp filter parameter is accepted."""
+    # Use past timestamp - should return some records including our test personnel
+    past_time = "2020-01-01T00:00:00"
+    response = await editor_client.get(f"/api/sync/delta/personnel?updated_since={past_time}")
+    assert response.status_code == 200
+    records = response.json()
+    # Should return at least the test personnel we created
+    assert len(records) >= 1
+    found = any(r["name"] == "Delta Test Person" for r in records)
+    assert found
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_apply_delta_with_records(editor_client: AsyncClient):
+    """Test applying delta with actual records."""
+    from uuid import uuid4
+
+    records = [
+        {
+            "id": str(uuid4()),
+            "name": "New Applied Personnel",
+            "role": "Mannschaft",
+            "availability": "available",
+        }
+    ]
+
+    with patch("app.api.sync.create_sync_service") as mock_create:
+        mock_service = AsyncMock()
+        mock_service.apply_delta = AsyncMock(return_value={"personnel": 1})
+        mock_create.return_value = mock_service
+
+        response = await editor_client.post("/api/sync/apply/personnel", json=records)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_delta_all_syncable_tables(editor_client: AsyncClient):
+    """Test getting delta for all syncable tables."""
+    syncable_tables = ["incidents", "personnel", "vehicles", "materials", "settings"]
+
+    for table in syncable_tables:
+        response = await editor_client.get(f"/api/sync/delta/{table}")
+        assert response.status_code == 200, f"Failed for table: {table}"
+        assert isinstance(response.json(), list)

@@ -75,7 +75,10 @@ Target: Cover 1066+ additional lines to reach 70% coverage
   - `crud/vehicles.py`: 27% → 100% (+73%)
   - `crud/personnel_checkin.py`: 19% → 100% (+81%)
   - `crud/incidents.py`: 26% → 48% (+22%)
-- [ ] 5.2 Add API route tests (sync, vehicles, reko)
+- [x] 5.2 Add API route tests (37 new tests: sync, vehicles, reko)
+  - `api/sync.py`: 24% → 77% (+53%) - sync operations, status, delta endpoints
+  - `api/vehicles.py`: 31% → 38% (+7%) - vehicle status endpoint with driver/incident info
+  - `api/reko.py`: 39% (unchanged) - personnel names, incident details, photo serving
 - [ ] 5.3 Add service layer tests (sync_service, export_service, notification_service, training)
 - [ ] 5.4 Add background task tests (sync_scheduler)
 
@@ -93,6 +96,7 @@ Target: Cover 1066+ additional lines to reach 70% coverage
 | 2026-01-16 | 7391bf3 | Phase 3: Add security tests (210 tests) + CRUD bug fixes |
 | 2026-01-17 | 20c34e7 | Phase 4: Add integration tests (62 tests) - API contracts, E2E workflows, error recovery |
 | 2026-01-17 | fe5448d | Phase 5.1: Add CRUD layer tests (63 tests) - assignments, vehicles, personnel_checkin |
+| 2026-01-17 | 484489c | Phase 5.2: Add API route tests (37 tests) - sync, vehicles, reko |
 
 ---
 

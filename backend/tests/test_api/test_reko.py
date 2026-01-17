@@ -697,3 +697,301 @@ async def test_complete_reko_workflow(client: AsyncClient, test_incident: Incide
     get_response = await client.get(f"/api/reko/{report_id}")
     assert get_response.status_code == 200
     assert get_response.json()["is_draft"] is False
+
+
+# ============================================
+# Additional Coverage Tests
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def reko_report_with_personnel(
+    db_session: AsyncSession, test_incident: Incident, test_personnel: Personnel
+) -> RekoReport:
+    """Create a reko report with personnel assigned."""
+    token = generate_form_token(str(test_incident.id), "reko")
+    report = RekoReport(
+        id=uuid4(),
+        incident_id=test_incident.id,
+        token=token,
+        submitted_by_personnel_id=test_personnel.id,
+        is_relevant=True,
+        summary_text="Report with personnel",
+        is_draft=True,
+    )
+    db_session.add(report)
+    await db_session.commit()
+    await db_session.refresh(report)
+    return report
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_reko_form_with_existing_personnel_assignment(
+    client: AsyncClient,
+    test_incident: Incident,
+    test_personnel: Personnel,
+    reko_report_with_personnel: RekoReport,
+):
+    """Test getting form returns personnel name when report has submitted_by_personnel."""
+    response = await client.get(
+        f"/api/reko/form?incident_id={test_incident.id}&token={reko_report_with_personnel.token}"
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    # Should include personnel name
+    assert data["submitted_by_personnel_id"] == str(test_personnel.id)
+    assert data["submitted_by_personnel_name"] == test_personnel.name
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_submit_reko_report_with_personnel(
+    client: AsyncClient, test_incident: Incident, test_personnel: Personnel
+):
+    """Test submitting report with personnel ID."""
+    token = generate_form_token(str(test_incident.id), "reko")
+
+    # First get the form with personnel
+    form_response = await client.get(
+        f"/api/reko/form?incident_id={test_incident.id}&token={token}&personnel_id={test_personnel.id}"
+    )
+    assert form_response.status_code == 200
+
+    # Submit with personnel
+    report_data = {
+        "incident_id": str(test_incident.id),
+        "token": token,
+        "is_relevant": True,
+        "summary_text": "Submitted by specific personnel",
+        "submitted_by_personnel_id": str(test_personnel.id),
+    }
+
+    with patch("app.api.reko.create_reko_notification", new_callable=AsyncMock) as mock_notify:
+        response = await client.post("/api/reko/?submit=true", json=report_data)
+        assert response.status_code == 200
+
+        # Verify notification was called with personnel name
+        mock_notify.assert_called_once()
+        call_kwargs = mock_notify.call_args.kwargs
+        assert call_kwargs["submitted_by_name"] == test_personnel.name
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_submit_reko_report_with_is_relevant_false(
+    client: AsyncClient, test_incident: Incident
+):
+    """Test submitting report with is_relevant=False."""
+    token = generate_form_token(str(test_incident.id), "reko")
+
+    report_data = {
+        "incident_id": str(test_incident.id),
+        "token": token,
+        "is_relevant": False,  # Not relevant
+        "summary_text": "False alarm - no incident",
+    }
+
+    with patch("app.api.reko.create_reko_notification", new_callable=AsyncMock) as mock_notify:
+        response = await client.post("/api/reko/?submit=true", json=report_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_relevant"] is False
+
+        # Notification should be called with is_relevant=False
+        mock_notify.assert_called_once()
+        call_kwargs = mock_notify.call_args.kwargs
+        assert call_kwargs["is_relevant"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_incident_reports_with_personnel_names(
+    client: AsyncClient,
+    test_incident: Incident,
+    test_personnel: Personnel,
+    reko_report_with_personnel: RekoReport,
+):
+    """Test getting incident reports includes personnel names."""
+    response = await client.get(f"/api/reko/incident/{test_incident.id}/reports")
+    assert response.status_code == 200
+    reports = response.json()
+
+    assert len(reports) == 1
+    report = reports[0]
+    assert report["submitted_by_personnel_name"] == test_personnel.name
+    assert report["incident_title"] == test_incident.title
+    assert report["incident_location"] == test_incident.location_address
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_report_includes_incident_details(
+    client: AsyncClient, test_reko_report: RekoReport, test_incident: Incident
+):
+    """Test that getting single report includes full incident details."""
+    response = await client.get(f"/api/reko/{test_reko_report.id}")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify incident details are included
+    assert data["incident_title"] == test_incident.title
+    assert data["incident_location"] == test_incident.location_address
+    assert data["incident_type"] == test_incident.type
+    assert data["incident_description"] == test_incident.description
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_report_includes_incident_details(
+    client: AsyncClient, test_reko_report: RekoReport, test_incident: Incident
+):
+    """Test that PATCH response includes incident details."""
+    update_data = {"summary_text": "Updated for testing"}
+    response = await client.patch(f"/api/reko/{test_reko_report.id}", json=update_data)
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify incident details are included in PATCH response
+    assert data["incident_title"] == test_incident.title
+    assert data["incident_location"] == test_incident.location_address
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_upload_photo_updates_report(
+    client: AsyncClient, db_session: AsyncSession, test_incident: Incident, valid_token: str
+):
+    """Test that photo upload updates the report's photos_json list."""
+    # First create a report
+    await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}")
+
+    # Upload photo
+    file_content = b"fake image content"
+    with patch("app.api.reko.photo_storage") as mock_storage:
+        mock_storage.save_photo = AsyncMock(return_value="uploaded-photo.jpg")
+
+        response = await client.post(
+            f"/api/reko/{test_incident.id}/photos",
+            files={"file": ("test.jpg", file_content, "image/jpeg")},
+            headers={"X-Reko-Token": valid_token},
+        )
+        assert response.status_code == 200
+
+    # Verify the report was updated with the photo
+    get_response = await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}")
+    assert response.status_code == 200
+    report_data = get_response.json()
+    assert "uploaded-photo.jpg" in report_data["photos_json"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_delete_photo_updates_report(
+    client: AsyncClient, db_session: AsyncSession, test_incident: Incident, valid_token: str
+):
+    """Test that photo deletion removes it from report's photos_json list."""
+    # Create report with photos
+    report = RekoReport(
+        id=uuid4(),
+        incident_id=test_incident.id,
+        token=valid_token,
+        photos_json=["photo1.jpg", "photo2.jpg", "photo3.jpg"],
+        is_draft=True,
+    )
+    db_session.add(report)
+    await db_session.commit()
+
+    with patch("app.api.reko.photo_storage") as mock_storage:
+        mock_storage.delete_photo = MagicMock(return_value=True)
+
+        response = await client.delete(
+            f"/api/reko/{test_incident.id}/photos/photo2.jpg",
+            headers={"X-Reko-Token": valid_token},
+        )
+        assert response.status_code == 200
+
+    # Verify the photo was removed from the list
+    get_response = await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}")
+    report_data = get_response.json()
+    assert "photo2.jpg" not in report_data["photos_json"]
+    assert "photo1.jpg" in report_data["photos_json"]
+    assert "photo3.jpg" in report_data["photos_json"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_serve_photo_success(
+    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
+):
+    """Test successfully serving a photo file."""
+    import tempfile
+    from pathlib import Path
+
+    # Create a temporary test image file
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+        tmp_file.write(b"fake jpeg content")
+        tmp_path = Path(tmp_file.name)
+
+    try:
+        with patch("app.api.reko.photo_storage") as mock_storage:
+            mock_storage.get_photo_path = MagicMock(return_value=tmp_path)
+
+            response = await editor_client.get(f"/api/photos/{test_incident.id}/test-photo.jpg")
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "image/jpeg"
+            assert "private" in response.headers.get("cache-control", "")
+    finally:
+        tmp_path.unlink()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_serve_photo_logs_access(
+    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
+):
+    """Test that serving a photo creates an audit log entry."""
+    import tempfile
+    from pathlib import Path
+
+    from sqlalchemy import select
+
+    from app.models import AuditLog
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+        tmp_file.write(b"fake jpeg content")
+        tmp_path = Path(tmp_file.name)
+
+    try:
+        with patch("app.api.reko.photo_storage") as mock_storage:
+            mock_storage.get_photo_path = MagicMock(return_value=tmp_path)
+
+            await editor_client.get(f"/api/photos/{test_incident.id}/audit-test-photo.jpg")
+
+        # Check audit log was created
+        result = await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action_type == "view_photo",
+                AuditLog.resource_type == "reko_photo",
+            )
+        )
+        audit_entry = result.scalar_one_or_none()
+        assert audit_entry is not None
+        # AuditLog uses changes_json column
+        assert audit_entry.changes_json["filename"] == "audit-test-photo.jpg"
+    finally:
+        tmp_path.unlink()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_generate_link_custom_form_type(client: AsyncClient, test_incident: Incident):
+    """Test generating link with custom form type."""
+    response = await client.post(
+        f"/api/reko/generate-link?incident_id={test_incident.id}&form_type=custom"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "token" in data
+    assert data["incident_id"] == str(test_incident.id)
