@@ -93,7 +93,7 @@ Target: Cover 1066+ additional lines to reach 70% coverage
 | 2026-01-17 | fe5448d | Phase 5.1: Add CRUD layer tests (63 tests) - assignments, vehicles, personnel_checkin |
 | 2026-01-17 | 7d8070a | Phase 5.2: Add API route tests (37 tests) - sync, vehicles, reko |
 | 2026-01-17 | fbb89a9 | Phase 5.3: Add training service tests (27 tests) - 20% → 78% coverage |
-| 2026-01-17 | b95f2aa | Phase 5.4: Add sync_scheduler tests (19 tests) - 21% → 99% coverage |
+| 2026-01-17 | 55b16f6 | Phase 5.4: Add sync_scheduler tests (19 tests) - 21% → 99% coverage |
 
 ---
 
