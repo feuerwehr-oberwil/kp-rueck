@@ -92,6 +92,7 @@ Target: Cover 1066+ additional lines to reach 70% coverage
 | 2026-01-16 | ad19405 | Phase 1.4: Fix frontend lint errors (158→0 errors) |
 | 2026-01-16 | 7391bf3 | Phase 3: Add security tests (210 tests) + CRUD bug fixes |
 | 2026-01-17 | 20c34e7 | Phase 4: Add integration tests (62 tests) - API contracts, E2E workflows, error recovery |
+| 2026-01-17 | fe5448d | Phase 5.1: Add CRUD layer tests (63 tests) - assignments, vehicles, personnel_checkin |
 
 ---
 
