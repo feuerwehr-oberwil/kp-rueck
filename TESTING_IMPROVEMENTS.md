@@ -70,7 +70,7 @@
 | 2026-01-16 | 6e4b555 | Fix production bugs: personnel availability + reko_submitted notification type |
 | 2026-01-16 | ad19405 | Phase 1.4: Fix frontend lint errors (158→0 errors) |
 | 2026-01-16 | 7391bf3 | Phase 3: Add security tests (210 tests) + CRUD bug fixes |
-| 2026-01-17 | pending | Phase 4: Add integration tests (62 tests) - API contracts, E2E workflows, error recovery |
+| 2026-01-17 | 20c34e7 | Phase 4: Add integration tests (62 tests) - API contracts, E2E workflows, error recovery |
 
 ---
 
