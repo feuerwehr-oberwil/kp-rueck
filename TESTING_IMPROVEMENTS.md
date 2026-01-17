@@ -1,6 +1,6 @@
 # Testing Improvements Plan
 
-> **Status**: Phase 5 In Progress
+> **Status**: Phase 5 Complete ✅
 > **Started**: 2026-01-16
 > **Goal**: Ensure adding new features doesn't break existing ones
 
@@ -8,8 +8,8 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Backend Tests | 1347 | Maintain/Grow |
-| Backend Coverage | **61%** | 70% |
+| Backend Tests | 1366 | Maintain/Grow |
+| Backend Coverage | **62%** | 70% |
 | Frontend E2E Tests | ~60 | Maintain/Grow |
 | CI Blocking | Yes | Yes |
 
@@ -18,12 +18,11 @@
 | File | Coverage | Lines Missing | Priority |
 |------|----------|---------------|----------|
 | `services/photo_storage.py` | 27% | 77 | Medium |
-| `background/sync_scheduler.py` | 21% | 59 | Medium |
 | `services/tokens.py` | 56% | 18 | Low |
 | `traccar.py` | 57% | 37 | Low |
 | `websocket_manager.py` | 42% | 94 | Low |
 
-**To reach 70%**: Need ~521 more lines covered (currently 3519/5792)
+**To reach 70%**: Need ~464 more lines covered (currently 3576/5792)
 
 ---
 
@@ -75,7 +74,8 @@ Target: Cover 1066+ additional lines to reach 70% coverage
 - [x] 5.3 Add service layer tests (27 tests for training.py)
   - `services/training.py`: 20% → 78% (+58%) - emergency generation, template/location loading, time weights
   - Fixed models.py to include 'training_emergency' notification type in CHECK constraint
-- [ ] 5.4 Add background task tests (sync_scheduler)
+- [x] 5.4 Add background task tests (19 tests for sync_scheduler)
+  - `background/sync_scheduler.py`: 21% → 99% (+78%) - scheduled_sync, start/stop, interval changes
 
 ---
 
@@ -92,7 +92,8 @@ Target: Cover 1066+ additional lines to reach 70% coverage
 | 2026-01-17 | 20c34e7 | Phase 4: Add integration tests (62 tests) - API contracts, E2E workflows, error recovery |
 | 2026-01-17 | fe5448d | Phase 5.1: Add CRUD layer tests (63 tests) - assignments, vehicles, personnel_checkin |
 | 2026-01-17 | 7d8070a | Phase 5.2: Add API route tests (37 tests) - sync, vehicles, reko |
-| 2026-01-17 | d868a2e | Phase 5.3: Add training service tests (27 tests) - 20% → 78% coverage |
+| 2026-01-17 | fbb89a9 | Phase 5.3: Add training service tests (27 tests) - 20% → 78% coverage |
+| 2026-01-17 | b95f2aa | Phase 5.4: Add sync_scheduler tests (19 tests) - 21% → 99% coverage |
 
 ---
 
