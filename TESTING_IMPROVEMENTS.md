@@ -1,6 +1,6 @@
 # Testing Improvements Plan
 
-> **Status**: In Progress
+> **Status**: Phase 4 Complete
 > **Started**: 2026-01-16
 > **Goal**: Ensure adding new features doesn't break existing ones
 
@@ -8,7 +8,7 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Backend Tests | 998+ | Maintain/Grow |
+| Backend Tests | 1060+ | Maintain/Grow |
 | Backend Coverage | ~41% | 50% (then 70%) |
 | Frontend E2E Tests | ~60 | Maintain/Grow |
 | CI Blocking | Yes | Yes |
@@ -54,9 +54,9 @@
 
 ### Phase 4: Integration Tests
 
-- [ ] 4.1 API contract validation
-- [ ] 4.2 End-to-end workflow tests
-- [ ] 4.3 Error recovery tests
+- [x] 4.1 API contract validation tests (22 tests)
+- [x] 4.2 End-to-end workflow tests (11 tests)
+- [x] 4.3 Error recovery tests (29 tests)
 
 ---
 
@@ -70,6 +70,7 @@
 | 2026-01-16 | 6e4b555 | Fix production bugs: personnel availability + reko_submitted notification type |
 | 2026-01-16 | ad19405 | Phase 1.4: Fix frontend lint errors (158→0 errors) |
 | 2026-01-16 | 7391bf3 | Phase 3: Add security tests (210 tests) + CRUD bug fixes |
+| 2026-01-17 | pending | Phase 4: Add integration tests (62 tests) - API contracts, E2E workflows, error recovery |
 
 ---
 
