@@ -73,6 +73,23 @@ function getVehicleStatusBadge(status: string): { variant: "default" | "secondar
   }
 }
 
+function getStatusBorderColor(status: string, hasIncident: boolean): string {
+  // If assigned to an incident, show yellow (active)
+  if (hasIncident) {
+    return "border-l-yellow-500"
+  }
+  switch (status) {
+    case "available":
+      return "border-l-green-500"
+    case "assigned":
+      return "border-l-yellow-500"
+    case "maintenance":
+      return "border-l-zinc-400 dark:border-l-zinc-600"
+    default:
+      return "border-l-muted"
+  }
+}
+
 function getIncidentStatusBadgeVariant(incidentStatus: string | null): "default" | "secondary" | "destructive" | "outline" {
   if (!incidentStatus) return "outline"
   if (incidentStatus === "einsatz") return "destructive"
@@ -292,6 +309,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                     onClick={() => isClickable && handleVehicleClick(vehicle)}
                     className={cn(
                       "border rounded-lg px-3 py-2.5 bg-card transition-all",
+                      "border-l-4",
+                      getStatusBorderColor(vehicle.status, !!vehicle.incident_id),
                       isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
                       isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                       !isClickable && "opacity-75"
