@@ -77,7 +77,7 @@ export default function FireStationDashboard() {
   const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
     const operation = operations.find(op => op.id === incidentId)
     if (operation) {
-      setSelectedOperation(operation)
+      setSelectedOperationId(operation.id)
       setDetailModalOpen(true)
     }
   }, [operations])
@@ -104,8 +104,13 @@ export default function FireStationDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
-  const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
+  const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  // Derive current operation from operations array to get real-time updates
+  const selectedOperation = useMemo(() => {
+    if (!selectedOperationId) return null
+    return operations.find(op => op.id === selectedOperationId) || null
+  }, [selectedOperationId, operations])
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
@@ -183,7 +188,7 @@ export default function FireStationDashboard() {
         if (hoveredOperationId) {
           const operation = operations.find(op => op.id === hoveredOperationId)
           if (operation) {
-            setSelectedOperation(operation)
+            setSelectedOperationId(operation.id)
             setDetailModalOpen(true)
           }
         }
@@ -516,7 +521,7 @@ export default function FireStationDashboard() {
           const operation = operations.find(op => op.id === hoveredOperationId)
           if (operation) {
             e.preventDefault()
-            setSelectedOperation(operation)
+            setSelectedOperationId(operation.id)
             setDetailModalOpen(true)
           }
         }
@@ -647,7 +652,6 @@ export default function FireStationDashboard() {
   // Use shared operation handlers hook
   const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
-    setSelectedOperation,
     updateOperation,
     removeVehicle,
     assignVehicleToOperation,
@@ -659,7 +663,7 @@ export default function FireStationDashboard() {
     if (isDraggingOperationRef.current) {
       return
     }
-    setSelectedOperation(operation)
+    setSelectedOperationId(operation.id)
     setHoveredOperationId(operation.id) // Set hovered ID so keyboard shortcuts work on this operation
     setDetailModalOpen(true)
   }

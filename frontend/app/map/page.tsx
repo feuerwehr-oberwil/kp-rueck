@@ -66,8 +66,13 @@ export default function MapPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     highlightParam
   )
-  const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
+  const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  // Derive current operation from operations array to get real-time updates
+  const selectedOperation = useMemo(() => {
+    if (!selectedOperationId) return null
+    return operations.find(op => op.id === selectedOperationId) || null
+  }, [selectedOperationId, operations])
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
   const [panTrigger, setPanTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
@@ -95,7 +100,7 @@ export default function MapPage() {
     // Find the corresponding operation
     const operation = operations.find(op => op.id === incident.id)
     if (operation) {
-      setSelectedOperation(operation)
+      setSelectedOperationId(operation.id)
       setDetailModalOpen(true)
     }
   }
@@ -103,7 +108,6 @@ export default function MapPage() {
   // Use shared operation handlers hook
   const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
-    setSelectedOperation,
     updateOperation,
     removeVehicle: removeVehicleFromOperation,
     assignVehicleToOperation,

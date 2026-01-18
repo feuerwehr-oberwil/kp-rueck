@@ -1,10 +1,8 @@
 import { toast } from 'sonner'
 import type { Operation } from '@/lib/contexts/operations-context'
-import type { Dispatch, SetStateAction } from 'react'
 
 interface UseOperationHandlersProps {
   selectedOperation: Operation | null
-  setSelectedOperation: Dispatch<SetStateAction<Operation | null>>
   updateOperation: (id: string, updates: Partial<Operation>) => void
   removeVehicle: (operationId: string, vehicleName: string) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
@@ -14,10 +12,12 @@ interface UseOperationHandlersProps {
 /**
  * Shared hook for common operation handler functions
  * Used across Kanban, Map, and Combined views
+ *
+ * Note: selectedOperation should be derived from the operations array via useMemo
+ * so that updates to operations are automatically reflected.
  */
 export function useOperationHandlers({
   selectedOperation,
-  setSelectedOperation,
   updateOperation,
   removeVehicle,
   assignVehicleToOperation,
@@ -26,28 +26,20 @@ export function useOperationHandlers({
 
   const handleOperationUpdate = (updates: Partial<Operation>) => {
     if (!selectedOperation) return
+    // Update operation in context - derived selectedOperation will auto-update
     updateOperation(selectedOperation.id, updates)
-    setSelectedOperation(prev => prev ? { ...prev, ...updates } : null)
   }
 
   const handleVehicleRemove = (operationId: string, vehicleName: string) => {
     if (!selectedOperation) return
+    // Remove vehicle - derived selectedOperation will auto-update
     removeVehicle(operationId, vehicleName)
-    // Update selectedOperation to remove the vehicle from the UI immediately
-    setSelectedOperation(prev => prev ? {
-      ...prev,
-      vehicles: prev.vehicles.filter(v => v !== vehicleName)
-    } : null)
   }
 
   const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
     if (!selectedOperation) return
+    // Assign vehicle - derived selectedOperation will auto-update
     assignVehicleToOperation(vehicleId, vehicleName, operationId)
-    // Update selectedOperation to add the vehicle to the UI immediately
-    setSelectedOperation(prev => prev ? {
-      ...prev,
-      vehicles: [...prev.vehicles, vehicleName]
-    } : null)
   }
 
   const handleOperationDelete = async (operationId: string) => {
