@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Copy, Check, Loader2, ChevronDown, X } from 'lucide-react'
+import { Copy, Check, Loader2, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
@@ -21,10 +21,11 @@ interface RekoQRCodeProps {
 
 export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   const [copied, setCopied] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPersonnelPicker, setShowPersonnelPicker] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCopying, setIsCopying] = useState(false)
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>('')
   const [rekoPersonnel, setRekoPersonnel] = useState<Array<{ id: string; name: string; role?: string }>>([])
+  const [error, setError] = useState<string | null>(null)
   const { personnel, operations } = useOperations()
   const { selectedEvent } = useEvent()
 
@@ -32,172 +33,174 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   const incident = operations.find(op => op.id === incidentId)
   const incidentCrew = incident?.crew || []
 
-  async function copyLinkToClipboard(personnelId: string) {
-    setIsLoading(true)
+  // Load reko personnel on mount
+  useEffect(() => {
+    async function loadRekoPersonnel() {
+      if (!selectedEvent) {
+        setError('Kein Event ausgewählt')
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Fetch special functions to find reko personnel
+        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+        const rekoFunctions = specialFunctions.filter(f => f.function_type === 'reko')
+
+        if (rekoFunctions.length === 0) {
+          setError('Keine Reko-Person zugewiesen')
+          setIsLoading(false)
+          return
+        }
+
+        // Map to personnel with names
+        const rekoPersonnelList = rekoFunctions
+          .map(f => {
+            const person = personnel.find(p => p.id === f.personnel_id)
+            return person ? { id: person.id, name: person.name, role: person.role } : null
+          })
+          .filter((p): p is NonNullable<typeof p> => p !== null)
+
+        if (rekoPersonnelList.length === 0) {
+          setError('Reko-Personen nicht eingecheckt')
+          setIsLoading(false)
+          return
+        }
+
+        // Check if any reko person is already assigned to this incident
+        const assignedRekoPersonnel = rekoPersonnelList.filter(rekoPerson =>
+          incidentCrew.includes(rekoPerson.name)
+        )
+
+        // Prefer assigned reko personnel, otherwise show all
+        if (assignedRekoPersonnel.length > 0) {
+          setRekoPersonnel(assignedRekoPersonnel)
+          // If only one assigned, pre-select them
+          if (assignedRekoPersonnel.length === 1) {
+            setSelectedPersonnelId(assignedRekoPersonnel[0].id)
+          }
+        } else {
+          setRekoPersonnel(rekoPersonnelList)
+          // If only one total, pre-select them
+          if (rekoPersonnelList.length === 1) {
+            setSelectedPersonnelId(rekoPersonnelList[0].id)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load reko personnel:', err)
+        setError('Fehler beim Laden')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadRekoPersonnel()
+  }, [selectedEvent, personnel, incidentCrew])
+
+  async function copyLinkToClipboard() {
+    if (!selectedPersonnelId) {
+      toast.error('Bitte zuerst eine Reko-Person auswählen')
+      return
+    }
+
+    setIsCopying(true)
     try {
-      const response = await apiClient.generateRekoLink(incidentId, personnelId)
+      const response = await apiClient.generateRekoLink(incidentId, selectedPersonnelId)
       const fullUrl = `${window.location.origin}${response.link}`
 
       await navigator.clipboard.writeText(fullUrl)
       setCopied(true)
 
+      const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
       toast.success('Reko-Link kopiert', {
-        description: incident?.location
-          ? `Link für "${incident.location}" wurde kopiert`
+        description: selectedPerson
+          ? `Link für ${selectedPerson.name} wurde kopiert`
           : undefined
       })
 
       setTimeout(() => setCopied(false), 2000)
-      setShowPersonnelPicker(false)
-      setSelectedPersonnelId('')
-    } catch (error) {
-      console.error('Failed to generate/copy Reko link:', error)
+    } catch (err) {
+      console.error('Failed to generate/copy Reko link:', err)
       toast.error('Fehler beim Kopieren des Links')
     } finally {
-      setIsLoading(false)
+      setIsCopying(false)
     }
   }
 
-  async function handleButtonClick() {
-    if (!selectedEvent) {
-      toast.error('Kein Event ausgewählt')
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      // Fetch special functions to find reko personnel
-      const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-      const rekoFunctions = specialFunctions.filter(f => f.function_type === 'reko')
-
-      if (rekoFunctions.length === 0) {
-        toast.error('Keine Reko-Person zugewiesen', {
-          description: 'Bitte zuerst eine Person als Reko markieren (Rechtsklick auf Person → Reko)'
-        })
-        setIsLoading(false)
-        return
-      }
-
-      // Map to personnel with names
-      const rekoPersonnelList = rekoFunctions
-        .map(f => {
-          const person = personnel.find(p => p.id === f.personnel_id)
-          return person ? { id: person.id, name: person.name, role: person.role } : null
-        })
-        .filter((p): p is NonNullable<typeof p> => p !== null)
-
-      if (rekoPersonnelList.length === 0) {
-        toast.error('Reko-Personen nicht gefunden', {
-          description: 'Die zugewiesenen Reko-Personen sind nicht mehr eingecheckt'
-        })
-        setIsLoading(false)
-        return
-      }
-
-      // Check if any reko person is already assigned to this incident
-      const assignedRekoPersonnel = rekoPersonnelList.filter(rekoPerson =>
-        incidentCrew.includes(rekoPerson.name)
-      )
-
-      // If a reko person is already assigned to the incident, use them directly
-      if (assignedRekoPersonnel.length === 1) {
-        await copyLinkToClipboard(assignedRekoPersonnel[0].id)
-        return
-      }
-
-      // If multiple reko people are assigned to this incident, let user pick from them
-      if (assignedRekoPersonnel.length > 1) {
-        setRekoPersonnel(assignedRekoPersonnel)
-        setShowPersonnelPicker(true)
-        return
-      }
-
-      // No reko person assigned to incident yet - show all reko personnel
-      // If only one reko person total, use them directly
-      if (rekoPersonnelList.length === 1) {
-        await copyLinkToClipboard(rekoPersonnelList[0].id)
-        return
-      }
-
-      // Multiple reko personnel - show inline picker
-      setRekoPersonnel(rekoPersonnelList)
-      setShowPersonnelPicker(true)
-    } catch (error) {
-      console.error('Failed to load reko personnel:', error)
-      toast.error('Fehler beim Laden der Reko-Personen')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  function handleConfirm() {
-    if (selectedPersonnelId) {
-      copyLinkToClipboard(selectedPersonnelId)
-    }
-  }
-
-  function handleCancel() {
-    setShowPersonnelPicker(false)
-    setSelectedPersonnelId('')
-  }
-
-  // When picker is visible, show inline controls
-  if (showPersonnelPicker) {
+  // Loading state
+  if (isLoading) {
     return (
-      <div className="flex items-center gap-2">
-        <Select value={selectedPersonnelId} onValueChange={setSelectedPersonnelId}>
-          <SelectTrigger className="w-[180px] h-8">
-            <SelectValue placeholder="Reko wählen..." />
-          </SelectTrigger>
-          <SelectContent>
-            {rekoPersonnel.map((person) => (
-              <SelectItem key={person.id} value={person.id}>
-                {person.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleConfirm}
-          disabled={!selectedPersonnelId || isLoading}
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleCancel}
-          className="h-8 w-8 p-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Lade Reko...
       </div>
     )
   }
 
+  // Error state - no reko personnel
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <AlertCircle className="h-4 w-4" />
+        {error}
+      </div>
+    )
+  }
+
+  // Single reko person - just show copy button
+  if (rekoPersonnel.length === 1) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={copyLinkToClipboard}
+        disabled={isCopying}
+      >
+        {isCopying ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : copied ? (
+          <Check className="mr-2 h-4 w-4 text-green-600" />
+        ) : (
+          <Copy className="mr-2 h-4 w-4" />
+        )}
+        Reko-Link ({rekoPersonnel[0].name})
+      </Button>
+    )
+  }
+
+  // Multiple reko personnel - show dropdown + copy button
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleButtonClick}
-      disabled={isLoading}
-    >
-      {isLoading ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      ) : copied ? (
-        <Check className="mr-2 h-4 w-4 text-green-600" />
-      ) : (
-        <Copy className="mr-2 h-4 w-4" />
-      )}
-      Reko-Link
-    </Button>
+    <div className="flex items-center gap-2">
+      <Select value={selectedPersonnelId} onValueChange={setSelectedPersonnelId}>
+        <SelectTrigger className="w-[160px] h-8">
+          <SelectValue placeholder="Reko wählen..." />
+        </SelectTrigger>
+        <SelectContent>
+          {rekoPersonnel.map((person) => (
+            <SelectItem key={person.id} value={person.id}>
+              {person.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={copyLinkToClipboard}
+        disabled={!selectedPersonnelId || isCopying}
+      >
+        {isCopying ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : copied ? (
+          <Check className="h-4 w-4 text-green-600" />
+        ) : (
+          <Copy className="h-4 w-4" />
+        )}
+      </Button>
+    </div>
   )
 }

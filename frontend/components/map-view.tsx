@@ -205,7 +205,7 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
   if (incidents.length === 0) return null
 
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-warning/15 border border-warning text-warning-foreground px-4 py-2 rounded-lg shadow-md z-[1000] max-w-md backdrop-blur-sm">
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-warning/15 border border-warning text-warning-foreground px-4 py-2 rounded-lg shadow-md z-30 max-w-md backdrop-blur-sm">
       <div
         className="flex items-center gap-2 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -256,7 +256,7 @@ function MapModeIndicator({
   const showFallbackIndicator = isAuto && !isOnline
 
   return (
-    <div className="absolute top-4 right-4 z-[1000] flex gap-2">
+    <div className="absolute top-4 right-4 z-30 flex gap-2">
       {/* Mode indicator */}
       <div
         className={`

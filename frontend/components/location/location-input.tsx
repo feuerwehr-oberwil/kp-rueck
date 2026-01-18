@@ -73,13 +73,13 @@ export function LocationInput({
   // Track the trigger button for autoFocus
   const triggerButtonRef = useRef<HTMLButtonElement>(null)
 
-  // Auto-focus: focus the trigger button when autoFocus is true
-  // User can then press Enter/Space to open or just Tab to move to next field
+  // Auto-focus: open the popover and focus the search input when autoFocus is true
   useEffect(() => {
     if (autoFocus && isMounted && !disabled) {
+      // Open the popover after a short delay to let the modal render
       const timer = setTimeout(() => {
-        triggerButtonRef.current?.focus()
-      }, 100)
+        setAddressSearchOpen(true)
+      }, 150)
       return () => clearTimeout(timer)
     }
   }, [autoFocus, isMounted, disabled])
@@ -243,6 +243,12 @@ export function LocationInput({
                     placeholder="Adresse suchen..."
                     value={addressSearchQuery}
                     onChange={(e) => setAddressSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Close popover on Tab and let focus move naturally
+                      if (e.key === 'Tab') {
+                        setAddressSearchOpen(false)
+                      }
+                    }}
                     className="h-9"
                   />
                 </div>

@@ -153,27 +153,28 @@ async def delete_personnel(
     current_user: User,
     request: Request,
 ) -> bool:
-    """Delete personnel (soft delete by marking as unavailable)."""
+    """Delete personnel permanently."""
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     personnel = result.scalar_one_or_none()
 
     if not personnel:
         return False
 
-    # Soft delete: mark as 'unavailable'
-    personnel.availability = "unavailable"
-    personnel.updated_at = datetime.utcnow()
+    # Store name for logging before deletion
+    personnel_name = personnel.name
 
-    # Log deletion
+    # Log deletion before actually deleting
     await log_action(
         db=db,
         action_type="delete",
         resource_type="personnel",
         resource_id=personnel.id,
         user=current_user,
-        changes={"name": personnel.name},
+        changes={"name": personnel_name},
         request=request,
     )
 
+    # Hard delete the personnel record
+    await db.delete(personnel)
     await db.commit()
     return True
