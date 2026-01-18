@@ -274,7 +274,7 @@ export function OperationDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!w-[90vw] !h-[85vh] !max-w-none sm:!max-w-none !pb-2 flex flex-col overflow-hidden">
+      <DialogContent className="!w-[90vw] !h-[85vh] !max-w-6xl !pb-2 flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-2xl flex items-center gap-3">
             <MapPin className="h-6 w-6 text-primary" />
