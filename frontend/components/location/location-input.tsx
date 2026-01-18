@@ -244,9 +244,14 @@ export function LocationInput({
                     value={addressSearchQuery}
                     onChange={(e) => setAddressSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
-                      // Close popover on Tab and let focus move naturally
+                      // Close popover on Tab and move focus to trigger to stay inside modal
                       if (e.key === 'Tab') {
+                        e.preventDefault()
                         setAddressSearchOpen(false)
+                        // Focus trigger button after popover closes so modal focus trap works
+                        setTimeout(() => {
+                          triggerButtonRef.current?.focus()
+                        }, 0)
                       }
                     }}
                     className="h-9"

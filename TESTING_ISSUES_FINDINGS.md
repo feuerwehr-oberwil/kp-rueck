@@ -9,19 +9,12 @@ This document contains detailed analysis of issues identified during manual test
 ### Issue
 Shortcuts should appear on all pages (e.g., G+K and Cmd+K also on help page).
 
-### Current Implementation
-- The `CommandPalette` component (`frontend/components/ui/command-palette.tsx`) registers global keyboard listeners for `Cmd+K` and `?`
-- However, the CommandPalette is only included in specific page layouts, not globally
-- The help page (`frontend/app/help/page.tsx`) doesn't include the CommandPalette
+### Status: ✅ RESOLVED
 
-### Affected Files
-- `frontend/components/ui/command-palette.tsx:82-99` - Keyboard listener setup
-- `frontend/app/help/page.tsx` - Missing CommandPalette
-- `frontend/app/map/page.tsx` - Also potentially missing
-- `frontend/app/combined/page.tsx` - Also potentially missing
-
-### Impact
-Users cannot use `Cmd+K`, `G+K`, or other global shortcuts when on help, settings, or other non-main pages.
+### Resolution
+- The `CommandPalette` component is now included globally via `AppShell` (`frontend/components/app-shell.tsx:34`)
+- `AppShell` wraps all children in the root layout (`frontend/app/layout.tsx:43`)
+- This means CommandPalette and its keyboard shortcuts (Cmd+K, ?) are available on ALL pages including help, map, combined, settings, etc.
 
 ---
 
@@ -30,14 +23,12 @@ Users cannot use `Cmd+K`, `G+K`, or other global shortcuts when on help, setting
 ### Issue
 Remove "Einsatz-ID: -Infinity (wird automatisch vergeben)" from new emergency modal.
 
-### Current Implementation
-- The `NewEmergencyModal` component (`frontend/components/kanban/new-emergency-modal.tsx`) does not contain this text in the current codebase
-- This might be from a cached/old version or the ID display was previously removed
-- The modal shows "Neuen Einsatz erstellen" as the title
+### Status: ✅ RESOLVED (Not applicable)
 
-### Investigation Notes
-- Searched for "Infinity", "-Infinity", "automatisch vergeben" - no matches found in current code
-- May have been a transient issue or cached version
+### Resolution
+- The `NewEmergencyModal` component (`frontend/components/kanban/new-emergency-modal.tsx`) does not contain this text
+- The modal shows "Neuer Einsatz" as the title with no ID display
+- This was either from a cached/old version or a transient issue that has been resolved
 
 ---
 
@@ -46,13 +37,16 @@ Remove "Einsatz-ID: -Infinity (wird automatisch vergeben)" from new emergency mo
 ### Issue
 Add visual identifier / vertical bars at Fahrzeugstatus sides.
 
-### Current Implementation
-- `VehicleStatusSheet` component (`frontend/components/vehicle-status-sheet.tsx`) displays vehicles in a simple list format
-- Vehicle status uses color-coded badges but no vertical bars or side indicators
-- Status display on lines 260-263 shows simple colored badges
+### Status: ✅ RESOLVED
 
-### Affected Files
-- `frontend/components/vehicle-status-sheet.tsx:260-263` - Status badge display
+### Resolution
+- `VehicleStatusSheet` component now has colored left borders as visual indicators:
+  - `frontend/components/vehicle-status-sheet.tsx:77-93` - `getStatusBorderColor()` function returns colored border classes
+  - `frontend/components/vehicle-status-sheet.tsx:312-315` - Each vehicle card has `border-l-4` with dynamic color
+- Color scheme:
+  - Green (`border-l-green-500`) for available vehicles
+  - Yellow (`border-l-yellow-500`) for vehicles assigned to incidents
+  - Zinc/gray (`border-l-zinc-400`) for unavailable/maintenance vehicles
 
 ---
 
@@ -61,14 +55,13 @@ Add visual identifier / vertical bars at Fahrzeugstatus sides.
 ### Issue
 All cars should be "verfügbar" by default in Fahrzeugstatus.
 
-### Current Implementation
-- In `VehicleSettings` (`frontend/components/settings/vehicle-settings.tsx:38-44`), the default form state sets `status: 'available'`
-- However, when creating new vehicles, the backend or seed data might use different defaults
-- The VehicleStatusSheet displays all vehicles regardless of initial status
+### Status: ✅ RESOLVED
 
-### Affected Files
-- `frontend/components/settings/vehicle-settings.tsx:38-44` - Form defaults
-- `backend/app/seed.py` - Initial seed data values
+### Resolution
+- **Backend seed data**: All vehicles in `backend/app/seed.py:128-164` are seeded with `"status": "available"`
+- **Frontend form**: `frontend/components/settings/vehicle-settings.tsx:42` sets default form state to `status: 'available'`
+- **Form reset**: When dialog closes, form resets to `status: 'available'` (line 120)
+- New vehicles are created with "Verfügbar" status by default in both seed data and UI
 
 ---
 
@@ -77,19 +70,15 @@ All cars should be "verfügbar" by default in Fahrzeugstatus.
 ### Issue
 Personal / Material suchen from Cmd+K not triggering the same behavior as pressing P/M directly.
 
-### Current Implementation
-- Command palette (`frontend/components/ui/command-palette.tsx:204-213`) tries to focus input by ID:
-  - `document.getElementById('personnel-search-input')?.focus()`
-  - `document.getElementById('material-search-input')?.focus()`
-- The P and M keyboard shortcuts likely have different behavior - they might open the sidebar first and then focus
-- The Command palette just tries to focus an input that may not exist if sidebar is closed
+### Status: ✅ RESOLVED
 
-### Root Cause
-The Cmd+K search action only attempts to focus an input element but doesn't ensure the corresponding sidebar is open first. Direct P/M shortcuts likely toggle the sidebar first.
-
-### Affected Files
-- `frontend/components/ui/command-palette.tsx:204-213` - Search command handlers
-- `frontend/app/page.tsx` - P/M shortcut handling (likely includes sidebar toggle)
+### Resolution
+- The command palette now uses context handlers that properly open sidebars first:
+  - `frontend/app/page.tsx:176-184` - `registerHandlers` provides `onSearchPersonnel` and `onSearchMaterial`
+  - `onSearchPersonnel`: Opens left sidebar (`setShowLeftSidebar(true)`), then focuses input after 100ms delay
+  - `onSearchMaterial`: Opens right sidebar (`setShowRightSidebar(true)`), then focuses input after 100ms delay
+- Command palette uses these handlers via context (`frontend/components/ui/command-palette.tsx:193-206`)
+- This matches the behavior of pressing P/M directly - sidebar opens first, then input is focused
 
 ---
 
@@ -98,17 +87,14 @@ The Cmd+K search action only attempts to focus an input element but doesn't ensu
 ### Issue
 New emergency -> address is highlighted but can't be used until clicking. Ensure one can type immediately.
 
-### Current Implementation
-- The `NewEmergencyModal` uses `LocationInput` component (`frontend/components/location/location-input.tsx`)
-- No `autoFocus` attribute is set on the address input
-- The input may receive visual highlighting but keyboard focus isn't programmatically set
+### Status: ✅ RESOLVED
 
-### Affected Files
-- `frontend/components/kanban/new-emergency-modal.tsx` - Modal component
-- `frontend/components/location/location-input.tsx` - Address input component
-
-### Expected Behavior
-When modal opens, the address input should have keyboard focus so users can start typing immediately.
+### Resolution
+- `NewEmergencyModal` passes `autoFocus={open}` to `LocationInput` (`frontend/components/kanban/new-emergency-modal.tsx:119`)
+- `LocationInput` handles autoFocus (`frontend/components/location/location-input.tsx:76-96`):
+  - When `autoFocus` is true and component is mounted, opens the address popover after 150ms delay
+  - When popover opens, focuses the search input after 50ms delay
+- Users can now start typing immediately in the address search field when the modal opens
 
 ---
 
