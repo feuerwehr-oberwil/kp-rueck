@@ -446,6 +446,7 @@ export function OperationDetailModal({
                           }}
                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Person entfernen"
+                          tabIndex={-1}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -504,6 +505,7 @@ export function OperationDetailModal({
                                   onAssignVehicle(vehicle.id, vehicle.name, operation.id)
                                 }}
                                 className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
+                                tabIndex={-1}
                               >
                                 <Truck className="h-4 w-4 text-muted-foreground" />
                                 <div className="text-left">
@@ -536,6 +538,7 @@ export function OperationDetailModal({
                           }}
                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Fahrzeug entfernen"
+                          tabIndex={-1}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -585,6 +588,7 @@ export function OperationDetailModal({
                           }}
                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Material entfernen"
+                          tabIndex={-1}
                         >
                           <X className="h-3 w-3" />
                         </button>
