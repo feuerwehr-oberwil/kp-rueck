@@ -78,13 +78,30 @@ export default function CombinedViewPage() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const mapResizeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Debounced map resize trigger to prevent jitter during rapid resize events
+  const triggerMapResize = useCallback(() => {
+    if (mapResizeTimeoutRef.current) {
+      clearTimeout(mapResizeTimeoutRef.current)
+    }
+    mapResizeTimeoutRef.current = setTimeout(() => {
+      setMapResetTrigger(prev => prev + 1)
+    }, 150) // Debounce for 150ms
+  }, [])
 
   // Set mounted state and start clock
   useEffect(() => {
     setIsMounted(true)
     setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+      // Clean up resize timeout on unmount
+      if (mapResizeTimeoutRef.current) {
+        clearTimeout(mapResizeTimeoutRef.current)
+      }
+    }
   }, [])
 
   // Redirect to events page if no event is selected (only after event is loaded from localStorage)
@@ -548,10 +565,7 @@ export default function CombinedViewPage() {
           <ResizablePanelGroup
             direction="horizontal"
             className="h-full gap-4"
-            onLayout={() => {
-              // Trigger map resize when panel layout changes
-              setMapResetTrigger(prev => prev + 1)
-            }}
+            onLayout={triggerMapResize}
           >
             {/* Kanban Board Panel - 60% default */}
             <ResizablePanel defaultSize={60} minSize={30}>
@@ -571,10 +585,7 @@ export default function CombinedViewPage() {
             <ResizablePanel
               defaultSize={40}
               minSize={25}
-              onResize={() => {
-                // Trigger map resize when this specific panel is resized
-                setMapResetTrigger(prev => prev + 1)
-              }}
+              onResize={triggerMapResize}
             >
               <div className="h-full rounded-lg border border-border overflow-hidden">
                 <MapView
