@@ -100,10 +100,10 @@ export function PersonnelSettings() {
     try {
       await apiClient.deletePersonnel(personnelToDelete.id);
       await loadPersonnel();
-      toast.success(`Person "${personnelToDelete.name}" gelöscht`);
+      toast.success(`Person "${personnelToDelete.name}" archiviert`);
     } catch (error) {
-      console.error('Failed to delete personnel:', error);
-      toast.error('Fehler beim Löschen der Person');
+      console.error('Failed to archive personnel:', error);
+      toast.error('Fehler beim Archivieren der Person');
     } finally {
       setPersonnelToDelete(null);
     }
@@ -292,8 +292,8 @@ export function PersonnelSettings() {
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Person löschen"
-        description={`Sind Sie sicher, dass Sie "${personnelToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        title="Person archivieren"
+        description={`Sind Sie sicher, dass Sie "${personnelToDelete?.name}" archivieren möchten? Die Person wird als nicht verfügbar markiert und nicht mehr in der Personalauswahl angezeigt.`}
         onConfirm={handleDeleteConfirm}
       />
     </div>
