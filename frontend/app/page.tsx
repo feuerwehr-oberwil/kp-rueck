@@ -352,6 +352,11 @@ export default function FireStationDashboard() {
         return
       }
 
+      // Ignore ALL shortcuts when any modal is open (let dialogs handle their own focus)
+      if (detailModalOpen || newEmergencyModalOpen || assignmentDialogOpen || qrDialogOpen || deleteDialogOpen) {
+        return
+      }
+
       // Handle g-prefix navigation
       if (gPrefixActive) {
         e.preventDefault()
@@ -419,8 +424,8 @@ export default function FireStationDashboard() {
         return
       }
 
-      // Tab navigation - cycle through all operations (only when no modal is open)
-      if (e.key === 'Tab' && !detailModalOpen && !newEmergencyModalOpen && !assignmentDialogOpen && !qrDialogOpen && !deleteDialogOpen) {
+      // Tab navigation - cycle through all operations
+      if (e.key === 'Tab') {
         e.preventDefault()
         const allOps = operations
         if (allOps.length === 0) return
