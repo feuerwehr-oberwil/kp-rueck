@@ -71,6 +71,13 @@ export function SyncConfigCard() {
       config.railway_database_url !== railwayDatabaseUrl ||
       (config.sync_conflict_buffer_seconds || 5) !== conflictBuffer)
 
+  // Check if the URL looks like an internal Railway URL (won't work from external networks)
+  const isInternalUrl = railwayDatabaseUrl && (
+    railwayDatabaseUrl.includes('containers-') ||
+    railwayDatabaseUrl.includes('.railway.internal') ||
+    railwayDatabaseUrl.includes('postgres.railway.internal')
+  )
+
   return (
     <Card>
       <CardHeader>
@@ -126,11 +133,17 @@ export function SyncConfigCard() {
                   )}
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {railwayDatabaseUrl
-                  ? 'PostgreSQL Connection String der Railway Datenbank (leer lassen für lokalen Modus)'
-                  : '⚠️ Keine Verbindung konfiguriert - Synchronisation deaktiviert'}
-              </p>
+              {isInternalUrl ? (
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  ⚠️ Diese URL sieht nach einer internen Railway-URL aus. Verwenden Sie die <strong>öffentliche</strong> Verbindungs-URL von Railway (unter Variables → DATABASE_PUBLIC_URL), damit die Synchronisation funktioniert.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {railwayDatabaseUrl
+                    ? 'PostgreSQL Connection String der Railway Datenbank (öffentliche URL verwenden!)'
+                    : '⚠️ Keine Verbindung konfiguriert - Synchronisation deaktiviert'}
+                </p>
+              )}
             </div>
 
             {/* Sync Interval */}
