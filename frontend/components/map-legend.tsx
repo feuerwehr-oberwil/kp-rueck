@@ -4,7 +4,7 @@ import { Truck } from "lucide-react"
 
 export function MapLegend() {
   return (
-    <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-[1000]">
+    <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-30">
       <h3 className="font-bold mb-3 text-sm">Legende</h3>
 
       {/* Priority Legend - simple single-color markers */}
