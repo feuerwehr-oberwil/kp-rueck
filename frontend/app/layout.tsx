@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
+import { CommandPaletteProvider } from '@/lib/contexts/command-palette-context'
 import { NotificationToasts } from '@/components/notifications/notification-toasts'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
 import { AppShell } from '@/components/app-shell'
@@ -38,11 +39,13 @@ export default function RootLayout({
           <EventProvider>
             <OperationsProvider>
               <NotificationProvider>
-                <AppShell>
-                  {children}
-                </AppShell>
-                <NotificationToasts />
-                <PersistentNotificationSidebar />
+                <CommandPaletteProvider>
+                  <AppShell>
+                    {children}
+                  </AppShell>
+                  <NotificationToasts />
+                  <PersistentNotificationSidebar />
+                </CommandPaletteProvider>
               </NotificationProvider>
             </OperationsProvider>
           </EventProvider>

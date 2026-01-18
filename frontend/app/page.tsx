@@ -24,6 +24,7 @@ import { useNotifications } from "@/lib/contexts/notification-context"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
+import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
@@ -32,7 +33,6 @@ import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
-import { CommandPalette } from "@/components/ui/command-palette"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
@@ -67,6 +67,7 @@ export default function FireStationDashboard() {
 
   const { selectedEvent, isEventLoaded } = useEvent()
   const { toggleSidebar: toggleNotificationSidebar } = useNotifications()
+  const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -154,6 +155,85 @@ export default function FireStationDashboard() {
       updateOperation(operationId, { status: newStatus })
     }
   }, [operations, updateOperation])
+
+  // Register command palette handlers
+  useEffect(() => {
+    registerHandlers({
+      onNewOperation: () => setNewEmergencyModalOpen(true),
+      onRefresh: () => {
+        refreshOperations()
+        toast.success("Daten aktualisiert")
+      },
+      onToggleLeftSidebar: () => setShowLeftSidebar(prev => !prev),
+      onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
+      onToggleVehicleStatus: () => setVehicleStatusSheetOpen(prev => !prev),
+      onToggleNotifications: toggleNotificationSidebar,
+      hasSelectedIncident: !!hoveredOperationId,
+      onEditIncident: () => {
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            setSelectedOperation(operation)
+            setDetailModalOpen(true)
+          }
+        }
+      },
+      onDeleteIncident: () => {
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            setOperationToDelete(operation)
+            setDeleteDialogOpen(true)
+          }
+        }
+      },
+      onMoveStatusForward: () => {
+        if (hoveredOperationId) {
+          moveOperationRight(hoveredOperationId)
+        }
+      },
+      onMoveStatusBackward: () => {
+        if (hoveredOperationId) {
+          moveOperationLeft(hoveredOperationId)
+        }
+      },
+      onSetPriority: (priority) => {
+        if (hoveredOperationId) {
+          updateOperation(hoveredOperationId, { priority })
+        }
+      },
+      onAssignVehicle: (vehicleNumber) => {
+        if (hoveredOperationId) {
+          const vehicleType = vehicleTypes[vehicleNumber - 1]
+          if (vehicleType) {
+            const operation = operations.find(op => op.id === hoveredOperationId)
+            if (operation) {
+              const isAssigned = operation.vehicles.includes(vehicleType.name)
+              if (isAssigned) {
+                removeVehicle(hoveredOperationId, vehicleType.name)
+              } else {
+                assignVehicleToOperation(vehicleType.id, vehicleType.name, hoveredOperationId)
+              }
+            }
+          }
+        }
+      },
+    })
+    return () => clearHandlers()
+  }, [
+    registerHandlers,
+    clearHandlers,
+    refreshOperations,
+    toggleNotificationSidebar,
+    hoveredOperationId,
+    operations,
+    vehicleTypes,
+    moveOperationRight,
+    moveOperationLeft,
+    updateOperation,
+    removeVehicle,
+    assignVehicleToOperation,
+  ])
 
   useEffect(() => {
     setIsMounted(true)
@@ -1088,89 +1168,6 @@ export default function FireStationDashboard() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Command Palette */}
-      <CommandPalette
-        onNewOperation={() => setNewEmergencyModalOpen(true)}
-        onRefresh={() => {
-          refreshOperations()
-          toast.success("Daten aktualisiert")
-        }}
-        onToggleLeftSidebar={() => setShowLeftSidebar(prev => !prev)}
-        onToggleRightSidebar={() => setShowRightSidebar(prev => !prev)}
-        onToggleVehicleStatus={() => setVehicleStatusSheetOpen(prev => !prev)}
-        onToggleNotifications={toggleNotificationSidebar}
-        hasSelectedIncident={!!hoveredOperationId}
-        onEditIncident={() => {
-          if (hoveredOperationId) {
-            const operation = operations.find(op => op.id === hoveredOperationId)
-            if (operation) {
-              setSelectedOperation(operation)
-              setDetailModalOpen(true)
-            }
-          }
-        }}
-        onDeleteIncident={() => {
-          if (hoveredOperationId) {
-            const operation = operations.find(op => op.id === hoveredOperationId)
-            if (operation) {
-              setOperationToDelete(operation)
-              setDeleteDialogOpen(true)
-            }
-          }
-        }}
-        onMoveStatusForward={() => {
-          if (hoveredOperationId) {
-            moveOperationRight(hoveredOperationId)
-          }
-        }}
-        onMoveStatusBackward={() => {
-          if (hoveredOperationId) {
-            moveOperationLeft(hoveredOperationId)
-          }
-        }}
-        onSetPriority={(priority) => {
-          if (hoveredOperationId) {
-            updateOperation(hoveredOperationId, { priority })
-          }
-        }}
-        onAssignVehicle={(vehicleNumber) => {
-          if (hoveredOperationId) {
-            const vehicleType = vehicleTypes[vehicleNumber - 1]
-            if (vehicleType) {
-              const operation = operations.find(op => op.id === hoveredOperationId)
-              if (operation) {
-                const isAssigned = operation.vehicles.includes(vehicleType.name)
-                if (isAssigned) {
-                  removeVehicle(hoveredOperationId, vehicleType.name)
-                } else {
-                  assignVehicleToOperation(vehicleType.id, vehicleType.name, hoveredOperationId)
-                }
-              }
-            }
-          }
-        }}
-        onSelectPreviousIncident={() => {
-          if (operations.length === 0) return
-          if (!hoveredOperationId) {
-            setHoveredOperationId(operations[0].id)
-            return
-          }
-          const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
-          const newIndex = currentIndex > 0 ? currentIndex - 1 : operations.length - 1
-          setHoveredOperationId(operations[newIndex].id)
-        }}
-        onSelectNextIncident={() => {
-          if (operations.length === 0) return
-          if (!hoveredOperationId) {
-            setHoveredOperationId(operations[0].id)
-            return
-          }
-          const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
-          const newIndex = (currentIndex + 1) % operations.length
-          setHoveredOperationId(operations[newIndex].id)
-        }}
-      />
 
       {/* Vehicle Status Sheet */}
       <VehicleStatusSheet

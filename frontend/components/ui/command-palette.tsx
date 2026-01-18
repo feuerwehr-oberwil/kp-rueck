@@ -20,13 +20,10 @@ import {
   Map,
   Calendar,
   Plus,
-  HelpCircle,
   RefreshCw,
   Search,
   Users,
   Package,
-  ArrowUp,
-  ArrowDown,
   ArrowRight,
   ArrowLeft,
   Edit,
@@ -35,48 +32,30 @@ import {
   Bell,
   AlertTriangle,
   BookOpen,
+  Columns,
 } from "lucide-react"
+import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 
-interface CommandPaletteProps {
-  onNewOperation?: () => void
-  onRefresh?: () => void
-  onToggleLeftSidebar?: () => void
-  onToggleRightSidebar?: () => void
-  onToggleVehicleStatus?: () => void
-  onToggleNotifications?: () => void
-  // Incident actions (require a selected incident)
-  onEditIncident?: () => void
-  onDeleteIncident?: () => void
-  onMoveStatusForward?: () => void
-  onMoveStatusBackward?: () => void
-  onAssignVehicle?: (vehicleNumber: number) => void
-  onSetPriority?: (priority: 'low' | 'medium' | 'high') => void
-  // Navigation between incidents
-  onSelectPreviousIncident?: () => void
-  onSelectNextIncident?: () => void
-  // Whether an incident is currently selected (to show incident actions)
-  hasSelectedIncident?: boolean
-}
-
-export function CommandPalette({
-  onNewOperation,
-  onRefresh,
-  onToggleLeftSidebar,
-  onToggleRightSidebar,
-  onToggleVehicleStatus,
-  onToggleNotifications,
-  onEditIncident,
-  onDeleteIncident,
-  onMoveStatusForward,
-  onMoveStatusBackward,
-  onAssignVehicle,
-  onSetPriority,
-  onSelectPreviousIncident,
-  onSelectNextIncident,
-  hasSelectedIncident = false,
-}: CommandPaletteProps) {
+export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+
+  // Get handlers from context
+  const {
+    onNewOperation,
+    onRefresh,
+    onToggleLeftSidebar,
+    onToggleRightSidebar,
+    onToggleVehicleStatus,
+    onToggleNotifications,
+    onEditIncident,
+    onDeleteIncident,
+    onMoveStatusForward,
+    onMoveStatusBackward,
+    onAssignVehicle,
+    onSetPriority,
+    hasSelectedIncident = false,
+  } = useCommandPaletteHandlers()
 
   // Listen for Cmd/Ctrl+K and ? key
   useEffect(() => {
@@ -127,6 +106,13 @@ export function CommandPalette({
                 <span className="ml-auto text-xs text-muted-foreground">G M</span>
               </CommandItem>
               <CommandItem
+                onSelect={() => runCommand(() => router.push("/combined"))}
+              >
+                <Columns className="mr-2 h-4 w-4" />
+                <span>Kombinierte Ansicht</span>
+                <span className="ml-auto text-xs text-muted-foreground">G C</span>
+              </CommandItem>
+              <CommandItem
                 onSelect={() => runCommand(() => router.push("/events"))}
               >
                 <Calendar className="mr-2 h-4 w-4" />
@@ -138,6 +124,7 @@ export function CommandPalette({
               >
                 <BookOpen className="mr-2 h-4 w-4" />
                 <span>Hilfe & Dokumentation</span>
+                <span className="ml-auto text-xs text-muted-foreground">G H</span>
               </CommandItem>
             </CommandGroup>
 
@@ -292,29 +279,6 @@ export function CommandPalette({
                       <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                       <span className="text-destructive">Einsatz löschen</span>
                       <span className="ml-auto text-xs text-muted-foreground">Del</span>
-                    </CommandItem>
-                  )}
-                </CommandGroup>
-              </>
-            )}
-
-            {/* Incident navigation - always available */}
-            {(onSelectPreviousIncident || onSelectNextIncident) && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Einsatz-Navigation">
-                  {onSelectPreviousIncident && (
-                    <CommandItem onSelect={() => runCommand(onSelectPreviousIncident)}>
-                      <ArrowUp className="mr-2 h-4 w-4" />
-                      <span>Vorheriger Einsatz</span>
-                      <span className="ml-auto text-xs text-muted-foreground">↑</span>
-                    </CommandItem>
-                  )}
-                  {onSelectNextIncident && (
-                    <CommandItem onSelect={() => runCommand(onSelectNextIncident)}>
-                      <ArrowDown className="mr-2 h-4 w-4" />
-                      <span>Nächster Einsatz</span>
-                      <span className="ml-auto text-xs text-muted-foreground">↓</span>
                     </CommandItem>
                   )}
                 </CommandGroup>

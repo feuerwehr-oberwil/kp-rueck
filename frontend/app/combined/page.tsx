@@ -15,9 +15,9 @@ import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useNotifications } from "@/lib/contexts/notification-context"
+import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
-import { CommandPalette } from "@/components/ui/command-palette"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { columns } from "@/lib/kanban-utils"
 import { apiClient } from "@/lib/api-client"
@@ -60,6 +60,7 @@ export default function CombinedViewPage() {
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
   const { toggleSidebar: toggleNotificationSidebar } = useNotifications()
+  const { registerHandlers, clearHandlers } = useCommandPalette()
   const router = useRouter()
   const isMobile = useIsMobile()
 
@@ -139,6 +140,82 @@ export default function CombinedViewPage() {
       updateOperation(operationId, { status: newStatus })
     }
   }, [operations, updateOperation])
+
+  // Register command palette handlers
+  useEffect(() => {
+    registerHandlers({
+      onNewOperation: () => setNewEmergencyModalOpen(true),
+      onRefresh: () => {
+        refreshOperations()
+        toast.success("Daten aktualisiert")
+      },
+      onToggleNotifications: toggleNotificationSidebar,
+      hasSelectedIncident: !!hoveredOperationId,
+      onEditIncident: () => {
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            setOperationForModal(operation)
+            setModalOpen(true)
+          }
+        }
+      },
+      onDeleteIncident: () => {
+        if (hoveredOperationId) {
+          const operation = operations.find(op => op.id === hoveredOperationId)
+          if (operation) {
+            setOperationToDelete(operation)
+            setDeleteDialogOpen(true)
+          }
+        }
+      },
+      onMoveStatusForward: () => {
+        if (hoveredOperationId) {
+          moveOperationRight(hoveredOperationId)
+        }
+      },
+      onMoveStatusBackward: () => {
+        if (hoveredOperationId) {
+          moveOperationLeft(hoveredOperationId)
+        }
+      },
+      onSetPriority: (priority) => {
+        if (hoveredOperationId) {
+          updateOperation(hoveredOperationId, { priority })
+        }
+      },
+      onAssignVehicle: (vehicleNumber) => {
+        if (hoveredOperationId) {
+          const vehicleType = vehicleTypes[vehicleNumber - 1]
+          if (vehicleType) {
+            const operation = operations.find(op => op.id === hoveredOperationId)
+            if (operation) {
+              const isAssigned = operation.vehicles.includes(vehicleType.name)
+              if (isAssigned) {
+                removeVehicle(hoveredOperationId, vehicleType.name)
+              } else {
+                assignVehicleToOperation(vehicleType.id, vehicleType.name, hoveredOperationId)
+              }
+            }
+          }
+        }
+      },
+    })
+    return () => clearHandlers()
+  }, [
+    registerHandlers,
+    clearHandlers,
+    refreshOperations,
+    toggleNotificationSidebar,
+    hoveredOperationId,
+    operations,
+    vehicleTypes,
+    moveOperationRight,
+    moveOperationLeft,
+    updateOperation,
+    removeVehicle,
+    assignVehicleToOperation,
+  ])
 
   // Keyboard shortcuts handler
   useEffect(() => {
@@ -524,86 +601,6 @@ export default function CombinedViewPage() {
           onOpenChange={setNewEmergencyModalOpen}
           onCreateOperation={createOperation}
           nextOperationId={getNextOperationId()}
-        />
-
-        {/* Command Palette */}
-        <CommandPalette
-          onNewOperation={() => setNewEmergencyModalOpen(true)}
-          onRefresh={() => {
-            refreshOperations()
-            toast.success("Daten aktualisiert")
-          }}
-          onToggleNotifications={toggleNotificationSidebar}
-          hasSelectedIncident={!!hoveredOperationId}
-          onEditIncident={() => {
-            if (hoveredOperationId) {
-              const operation = operations.find(op => op.id === hoveredOperationId)
-              if (operation) {
-                setOperationForModal(operation)
-                setModalOpen(true)
-              }
-            }
-          }}
-          onDeleteIncident={() => {
-            if (hoveredOperationId) {
-              const operation = operations.find(op => op.id === hoveredOperationId)
-              if (operation) {
-                setOperationToDelete(operation)
-                setDeleteDialogOpen(true)
-              }
-            }
-          }}
-          onMoveStatusForward={() => {
-            if (hoveredOperationId) {
-              moveOperationRight(hoveredOperationId)
-            }
-          }}
-          onMoveStatusBackward={() => {
-            if (hoveredOperationId) {
-              moveOperationLeft(hoveredOperationId)
-            }
-          }}
-          onSetPriority={(priority) => {
-            if (hoveredOperationId) {
-              updateOperation(hoveredOperationId, { priority })
-            }
-          }}
-          onAssignVehicle={(vehicleNumber) => {
-            if (hoveredOperationId) {
-              const vehicleType = vehicleTypes[vehicleNumber - 1]
-              if (vehicleType) {
-                const operation = operations.find(op => op.id === hoveredOperationId)
-                if (operation) {
-                  const isAssigned = operation.vehicles.includes(vehicleType.name)
-                  if (isAssigned) {
-                    removeVehicle(hoveredOperationId, vehicleType.name)
-                  } else {
-                    assignVehicleToOperation(vehicleType.id, vehicleType.name, hoveredOperationId)
-                  }
-                }
-              }
-            }
-          }}
-          onSelectPreviousIncident={() => {
-            if (operations.length === 0) return
-            if (!hoveredOperationId) {
-              setHoveredOperationId(operations[0].id)
-              return
-            }
-            const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
-            const newIndex = currentIndex > 0 ? currentIndex - 1 : operations.length - 1
-            setHoveredOperationId(operations[newIndex].id)
-          }}
-          onSelectNextIncident={() => {
-            if (operations.length === 0) return
-            if (!hoveredOperationId) {
-              setHoveredOperationId(operations[0].id)
-              return
-            }
-            const currentIndex = operations.findIndex(op => op.id === hoveredOperationId)
-            const newIndex = (currentIndex + 1) % operations.length
-            setHoveredOperationId(operations[newIndex].id)
-          }}
         />
 
         {/* Delete Operation Confirmation Dialog */}
