@@ -113,7 +113,7 @@ async def get_incidents(
     # Batch load reko completion status for all incidents
     reko_query = (
         select(RekoReport.incident_id)
-        .where(and_(RekoReport.incident_id.in_(incident_ids), not RekoReport.is_draft))
+        .where(and_(RekoReport.incident_id.in_(incident_ids), RekoReport.is_draft == False))  # noqa: E712
         .distinct()
     )
     reko_result = await db.execute(reko_query)
@@ -166,7 +166,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 
         # Check for completed reko report
         reko_check = await db.execute(
-            select(RekoReport.id).where(and_(RekoReport.incident_id == incident.id, not RekoReport.is_draft)).limit(1)
+            select(RekoReport.id).where(and_(RekoReport.incident_id == incident.id, RekoReport.is_draft == False)).limit(1)  # noqa: E712
         )
         incident.has_completed_reko = reko_check.scalar_one_or_none() is not None
 
