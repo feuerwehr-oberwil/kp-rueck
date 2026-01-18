@@ -168,6 +168,16 @@ export default function FireStationDashboard() {
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
       onToggleVehicleStatus: () => setVehicleStatusSheetOpen(prev => !prev),
       onToggleNotifications: toggleNotificationSidebar,
+      onSearchPersonnel: () => {
+        setShowLeftSidebar(true)
+        // Focus after sidebar opens
+        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 100)
+      },
+      onSearchMaterial: () => {
+        setShowRightSidebar(true)
+        // Focus after sidebar opens
+        setTimeout(() => document.getElementById('material-search-input')?.focus(), 100)
+      },
       hasSelectedIncident: !!hoveredOperationId,
       onEditIncident: () => {
         if (hoveredOperationId) {
@@ -474,11 +484,13 @@ export default function FireStationDashboard() {
       } else if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey) {
         // Only prevent default if no modifier keys (allows cmd+p/ctrl+p for print)
         e.preventDefault()
-        document.getElementById('personnel-search-input')?.focus()
+        setShowLeftSidebar(true)
+        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 100)
       } else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey) {
         // Only prevent default if no modifier keys (allows cmd+m for minimize on Mac)
         e.preventDefault()
-        document.getElementById('material-search-input')?.focus()
+        setShowRightSidebar(true)
+        setTimeout(() => document.getElementById('material-search-input')?.focus(), 100)
       } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
         // Toggle vehicle status sheet
         e.preventDefault()

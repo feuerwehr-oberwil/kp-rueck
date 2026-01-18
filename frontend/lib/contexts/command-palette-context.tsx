@@ -10,6 +10,9 @@ export interface CommandPaletteHandlers {
   onToggleRightSidebar?: () => void
   onToggleVehicleStatus?: () => void
   onToggleNotifications?: () => void
+  // Search actions (open sidebar and focus input)
+  onSearchPersonnel?: () => void
+  onSearchMaterial?: () => void
   // Incident actions (require a selected incident)
   onEditIncident?: () => void
   onDeleteIncident?: () => void

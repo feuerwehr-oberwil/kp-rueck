@@ -48,6 +48,8 @@ export function CommandPalette() {
     onToggleRightSidebar,
     onToggleVehicleStatus,
     onToggleNotifications,
+    onSearchPersonnel,
+    onSearchMaterial,
     onEditIncident,
     onDeleteIncident,
     onMoveStatusForward,
@@ -188,16 +190,20 @@ export function CommandPalette() {
                 <span>Einsätze durchsuchen</span>
                 <span className="ml-auto text-xs text-muted-foreground">/</span>
               </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => document.getElementById('personnel-search-input')?.focus())}>
-                <Users className="mr-2 h-4 w-4" />
-                <span>Personal durchsuchen</span>
-                <span className="ml-auto text-xs text-muted-foreground">P</span>
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => document.getElementById('material-search-input')?.focus())}>
-                <Package className="mr-2 h-4 w-4" />
-                <span>Material durchsuchen</span>
-                <span className="ml-auto text-xs text-muted-foreground">M</span>
-              </CommandItem>
+              {onSearchPersonnel && (
+                <CommandItem onSelect={() => runCommand(onSearchPersonnel)}>
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>Personal durchsuchen</span>
+                  <span className="ml-auto text-xs text-muted-foreground">P</span>
+                </CommandItem>
+              )}
+              {onSearchMaterial && (
+                <CommandItem onSelect={() => runCommand(onSearchMaterial)}>
+                  <Package className="mr-2 h-4 w-4" />
+                  <span>Material durchsuchen</span>
+                  <span className="ml-auto text-xs text-muted-foreground">M</span>
+                </CommandItem>
+              )}
             </CommandGroup>
 
             {/* Incident-specific actions - only show when an incident is selected */}
