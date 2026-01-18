@@ -199,7 +199,7 @@ class VehicleBase(BaseModel):
     name: str
     type: str  # Configurable vehicle types (e.g., 'TLF', 'DLK', 'MTW')
     display_order: int
-    status: str  # 'available', 'assigned', 'planned', 'maintenance'
+    status: str  # 'available', 'unavailable'
     radio_call_sign: str
 
     @field_validator("name", "radio_call_sign")
@@ -216,7 +216,15 @@ class VehicleBase(BaseModel):
     @classmethod
     def validate_status(cls, v: str) -> str:
         """Validate vehicle status."""
-        valid_statuses = {"available", "assigned", "planned", "maintenance"}
+        valid_statuses = {"available", "unavailable"}
+        # Map old status values to new ones for backwards compatibility
+        status_mapping = {
+            "assigned": "unavailable",
+            "planned": "unavailable",
+            "maintenance": "unavailable",
+        }
+        if v in status_mapping:
+            return status_mapping[v]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
         return v

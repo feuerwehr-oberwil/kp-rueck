@@ -209,9 +209,7 @@ export function VehicleSettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="available">Verfügbar</SelectItem>
-                    <SelectItem value="assigned">Zugewiesen</SelectItem>
-                    <SelectItem value="planned">Geplant</SelectItem>
-                    <SelectItem value="maintenance">Wartung</SelectItem>
+                    <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

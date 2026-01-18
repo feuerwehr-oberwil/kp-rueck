@@ -39,7 +39,7 @@ interface VehicleStatusSheetProps {
 }
 
 type SortOption = "name" | "status" | "duration"
-type FilterOption = "all" | "available" | "assigned" | "maintenance"
+type FilterOption = "all" | "available" | "assigned" | "unavailable"
 
 function formatDuration(minutes: number | null): string {
   if (minutes === null) return "-"
@@ -66,8 +66,9 @@ function getVehicleStatusBadge(status: string): { variant: "default" | "secondar
       return { variant: "outline", label: "Verfügbar", color: "bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" }
     case "assigned":
       return { variant: "secondary", label: "Im Einsatz", color: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800" }
+    case "unavailable":
     case "maintenance":
-      return { variant: "secondary", label: "Wartung", color: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700" }
+      return { variant: "secondary", label: "Nicht verfügbar", color: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700" }
     default:
       return { variant: "outline", label: status }
   }
@@ -83,6 +84,7 @@ function getStatusBorderColor(status: string, hasIncident: boolean): string {
       return "border-l-green-500"
     case "assigned":
       return "border-l-yellow-500"
+    case "unavailable":
     case "maintenance":
       return "border-l-zinc-400 dark:border-l-zinc-600"
     default:
@@ -360,7 +362,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                         <span className="text-sm truncate">
-                          {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "maintenance" ? "In Wartung" : "Bereit für Einsatz")}
+                          {vehicle.incident_location_address || vehicle.incident_title || ((vehicle.status === "maintenance" || vehicle.status === "unavailable") ? "Nicht verfügbar" : "Bereit für Einsatz")}
                         </span>
                       </div>
 
@@ -383,10 +385,10 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           </Badge>
                         )}
 
-                        {/* Show maintenance badge if in maintenance */}
-                        {vehicle.status === "maintenance" && (
+                        {/* Show unavailable badge if vehicle is not available */}
+                        {(vehicle.status === "maintenance" || vehicle.status === "unavailable") && (
                           <Badge className={cn("text-xs", "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700")}>
-                            Wartung
+                            Nicht verfügbar
                           </Badge>
                         )}
 
