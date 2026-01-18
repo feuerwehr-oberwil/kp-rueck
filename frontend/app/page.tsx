@@ -861,6 +861,47 @@ export default function FireStationDashboard() {
               <div className="flex-1 overflow-y-auto p-4 pt-0">
                 {isLoading ? (
                   <PersonnelSidebarLoading />
+                ) : personnel.filter((p) => p.status === "available").length === 0 ? (
+                  /* Show QR code when no available personnel */
+                  <div className="flex flex-col items-center gap-3 py-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Keine Personen verfügbar
+                    </p>
+                    {checkInUrl ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="rounded-lg border p-2 bg-white">
+                          <QRCodeSVG
+                            value={checkInUrl}
+                            size={120}
+                            level="M"
+                            includeMargin={false}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Check-In QR-Code scannen
+                        </p>
+                      </div>
+                    ) : selectedEvent ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const response = await apiClient.generateCheckInLink(selectedEvent.id)
+                            const fullUrl = `${window.location.origin}${response.link}`
+                            setCheckInUrl(fullUrl)
+                          } catch (error) {
+                            toast.error('Fehler', {
+                              description: 'QR-Code konnte nicht generiert werden.',
+                            })
+                          }
+                        }}
+                      >
+                        <QrCode className="h-4 w-4 mr-2" />
+                        QR-Code anzeigen
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {Object.keys(groupedPersonnel).map((role) => (
