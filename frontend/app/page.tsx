@@ -419,8 +419,8 @@ export default function FireStationDashboard() {
         return
       }
 
-      // Tab navigation - cycle through all operations
-      if (e.key === 'Tab') {
+      // Tab navigation - cycle through all operations (only when no modal is open)
+      if (e.key === 'Tab' && !detailModalOpen && !newEmergencyModalOpen && !assignmentDialogOpen && !qrDialogOpen && !deleteDialogOpen) {
         e.preventDefault()
         const allOps = operations
         if (allOps.length === 0) return
@@ -552,7 +552,7 @@ export default function FireStationDashboard() {
         clearTimeout(gPrefixTimeoutRef.current)
       }
     }
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation])
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, qrDialogOpen, deleteDialogOpen])
 
   // Use shared drag-and-drop hook
   useKanbanDragDrop({
