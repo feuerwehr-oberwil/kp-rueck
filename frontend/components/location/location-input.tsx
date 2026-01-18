@@ -70,12 +70,15 @@ export function LocationInput({
     setIsMounted(true)
   }, [])
 
-  // Auto-focus: open popover and focus search input when autoFocus is true
+  // Track the trigger button for autoFocus
+  const triggerButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Auto-focus: focus the trigger button when autoFocus is true
+  // User can then press Enter/Space to open or just Tab to move to next field
   useEffect(() => {
     if (autoFocus && isMounted && !disabled) {
-      // Small delay to ensure the popover is rendered
       const timer = setTimeout(() => {
-        setAddressSearchOpen(true)
+        triggerButtonRef.current?.focus()
       }, 100)
       return () => clearTimeout(timer)
     }
@@ -219,6 +222,7 @@ export function LocationInput({
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
             <PopoverTrigger asChild>
               <Button
+                ref={triggerButtonRef}
                 variant="outline"
                 role="combobox"
                 aria-expanded={addressSearchOpen}
