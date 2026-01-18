@@ -130,6 +130,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const criticalUpdateTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const recentAssignmentRef = useRef<boolean>(false)
   const assignmentCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  const recentStatusUpdateRef = useRef<boolean>(false)
+  const statusUpdateCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Helper functions to convert between API and frontend types
   const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
@@ -567,43 +569,47 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     wsClient.connect()
 
     // Listen for WebSocket updates
+    // Check both assignment and status update cooldowns to prevent overriding optimistic updates
+    const shouldSkipUpdate = () =>
+      criticalUpdateInProgress.current || recentAssignmentRef.current || recentStatusUpdateRef.current
+
     const unsubscribeIncidentUpdate = wsClient.on('incident_update', (update: WebSocketUpdate<ApiIncident>) => {
-      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+      if (!shouldSkipUpdate()) {
         // Refresh data when incident is updated via WebSocket
         loadData(false) // Don't show loading skeleton for real-time updates
       }
     })
 
     const unsubscribePersonnelUpdate = wsClient.on('personnel_update', (update: WebSocketUpdate<ApiPersonnel>) => {
-      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+      if (!shouldSkipUpdate()) {
         // Refresh data when personnel is updated via WebSocket
         loadData(false)
       }
     })
 
     const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', (update: WebSocketUpdate) => {
-      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+      if (!shouldSkipUpdate()) {
         // Refresh data when vehicle is updated via WebSocket
         loadData(false)
       }
     })
 
     const unsubscribeMaterialUpdate = wsClient.on('material_update', (update: WebSocketUpdate) => {
-      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+      if (!shouldSkipUpdate()) {
         // Refresh data when material is updated via WebSocket
         loadData(false)
       }
     })
 
     const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate) => {
-      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+      if (!shouldSkipUpdate()) {
         // Refresh data when assignment is updated via WebSocket
         loadData(false)
       }
     })
 
     const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (update: WebSocketUpdate) => {
-      if (!criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+      if (!shouldSkipUpdate()) {
         // Refresh data when assignments are transferred via WebSocket
         loadData(false)
 
@@ -623,7 +629,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // Start fallback polling if WebSocket is not connected
         if (!pollInterval) {
           pollInterval = setInterval(() => {
-            if (!isLoading && !criticalUpdateInProgress.current && !recentAssignmentRef.current) {
+            if (!isLoading && !shouldSkipUpdate()) {
               loadData(false)
             }
           }, 5000)
@@ -768,6 +774,18 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, ...enhancedUpdates } : op)),
     )
+
+    // Set status update cooldown to prevent WebSocket/polling from overriding optimistic update
+    // This is especially important for drag-drop operations
+    if (updates.status !== undefined) {
+      recentStatusUpdateRef.current = true
+      if (statusUpdateCooldownTimerRef.current) {
+        clearTimeout(statusUpdateCooldownTimerRef.current)
+      }
+      statusUpdateCooldownTimerRef.current = setTimeout(() => {
+        recentStatusUpdateRef.current = false
+      }, 2000) // Wait 2 seconds before allowing WebSocket updates again
+    }
 
     // For critical fields (location, coordinates), update immediately without debounce
     const isCriticalUpdate = updates.location !== undefined || updates.coordinates !== undefined
