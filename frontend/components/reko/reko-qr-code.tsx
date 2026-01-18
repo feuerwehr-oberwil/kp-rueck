@@ -3,20 +3,13 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Copy, Check, Loader2, Binoculars } from 'lucide-react'
+import { Copy, Check, Loader2, ChevronDown, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
@@ -47,8 +40,6 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
 
       await navigator.clipboard.writeText(fullUrl)
       setCopied(true)
-
-      const selectedPerson = personnel.find(p => p.id === personnelId)
 
       toast.success('Reko-Link kopiert', {
         description: incident?.location
@@ -128,7 +119,7 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
         return
       }
 
-      // Multiple reko personnel - show picker
+      // Multiple reko personnel - show inline picker
       setRekoPersonnel(rekoPersonnelList)
       setShowPersonnelPicker(true)
     } catch (error) {
@@ -145,69 +136,68 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     }
   }
 
+  function handleCancel() {
+    setShowPersonnelPicker(false)
+    setSelectedPersonnelId('')
+  }
+
+  // When picker is visible, show inline controls
+  if (showPersonnelPicker) {
+    return (
+      <div className="flex items-center gap-2">
+        <Select value={selectedPersonnelId} onValueChange={setSelectedPersonnelId}>
+          <SelectTrigger className="w-[180px] h-8">
+            <SelectValue placeholder="Reko wählen..." />
+          </SelectTrigger>
+          <SelectContent>
+            {rekoPersonnel.map((person) => (
+              <SelectItem key={person.id} value={person.id}>
+                {person.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleConfirm}
+          disabled={!selectedPersonnelId || isLoading}
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleCancel}
+          className="h-8 w-8 p-0"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleButtonClick}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : copied ? (
-          <Check className="mr-2 h-4 w-4 text-green-600" />
-        ) : (
-          <Copy className="mr-2 h-4 w-4" />
-        )}
-        Reko-Link
-      </Button>
-
-      <Dialog open={showPersonnelPicker} onOpenChange={setShowPersonnelPicker}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Binoculars className="h-5 w-5" />
-              Reko-Person auswählen
-            </DialogTitle>
-            <DialogDescription>
-              Welche Reko-Person geht zu diesem Einsatz?
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <Select value={selectedPersonnelId} onValueChange={setSelectedPersonnelId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Reko-Person auswählen..." />
-              </SelectTrigger>
-              <SelectContent>
-                {rekoPersonnel.map((person) => (
-                  <SelectItem key={person.id} value={person.id}>
-                    {person.name}
-                    {person.role && (
-                      <span className="text-muted-foreground ml-2">({person.role})</span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="flex justify-end">
-              <Button
-                onClick={handleConfirm}
-                disabled={!selectedPersonnelId || isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Copy className="mr-2 h-4 w-4" />
-                )}
-                Link kopieren
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleButtonClick}
+      disabled={isLoading}
+    >
+      {isLoading ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : copied ? (
+        <Check className="mr-2 h-4 w-4 text-green-600" />
+      ) : (
+        <Copy className="mr-2 h-4 w-4" />
+      )}
+      Reko-Link
+    </Button>
   )
 }
