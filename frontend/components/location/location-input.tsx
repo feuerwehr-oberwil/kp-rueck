@@ -37,6 +37,7 @@ interface LocationInputProps {
   onAddressChange: (address: string | null) => void
   onCoordinatesChange: (lat: number | null, lon: number | null) => void
   disabled?: boolean
+  autoFocus?: boolean
 }
 
 export function LocationInput({
@@ -46,6 +47,7 @@ export function LocationInput({
   onAddressChange,
   onCoordinatesChange,
   disabled = false,
+  autoFocus = false,
 }: LocationInputProps) {
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
   const [addressSearchQuery, setAddressSearchQuery] = useState("")
@@ -61,11 +63,34 @@ export function LocationInput({
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Only render map picker on client side
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Auto-focus: open popover and focus search input when autoFocus is true
+  useEffect(() => {
+    if (autoFocus && isMounted && !disabled) {
+      // Small delay to ensure the popover is rendered
+      const timer = setTimeout(() => {
+        setAddressSearchOpen(true)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [autoFocus, isMounted, disabled])
+
+  // Focus search input when popover opens
+  useEffect(() => {
+    if (addressSearchOpen && searchInputRef.current) {
+      // Small delay to ensure the input is visible
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus()
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [addressSearchOpen])
 
   // Sync coordinate input with props
   useEffect(() => {
@@ -210,6 +235,7 @@ export function LocationInput({
               <div className="flex flex-col max-h-[300px]">
                 <div className="p-2 border-b">
                   <Input
+                    ref={searchInputRef}
                     placeholder="Adresse suchen..."
                     value={addressSearchQuery}
                     onChange={(e) => setAddressSearchQuery(e.target.value)}

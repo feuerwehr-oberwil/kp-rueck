@@ -99,12 +99,12 @@ export function NewEmergencyModal({
             <DialogTitle className="text-2xl">Neuer Einsatz</DialogTitle>
           </div>
           <DialogDescription className="text-base">
-            Einsatz-ID: {nextOperationId} (wird automatisch vergeben)
+            Erfassen Sie die Details zum neuen Einsatz
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Location - Always shown */}
+          {/* Location - Always shown, autoFocus when modal opens */}
           <LocationInput
             address={formData.location}
             latitude={formData.coordinates[0]}
@@ -116,6 +116,7 @@ export function NewEmergencyModal({
                 coordinates: [lat ?? 47.51637699933488, lon ?? 7.561800450458299]
               }))
             }
+            autoFocus={open}
           />
 
           {/* All fields */}
