@@ -9,6 +9,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { Badge } from "@/components/ui/badge"
+import { Clock } from "lucide-react"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -74,12 +75,16 @@ export default function CombinedViewPage() {
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [isMounted, setIsMounted] = useState(false)
   const [mapResetTrigger, setMapResetTrigger] = useState(0)
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Set mounted state
+  // Set mounted state and start clock
   useEffect(() => {
     setIsMounted(true)
+    setCurrentTime(new Date())
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
   }, [])
 
   // Redirect to events page if no event is selected (only after event is loaded from localStorage)
@@ -522,11 +527,19 @@ export default function CombinedViewPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Clock */}
+            {!isMobile && (
+              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono text-lg font-semibold tabular-nums">
+                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+                </span>
+              </div>
+            )}
             {/* Desktop Navigation */}
             {!isMobile && (
               <PageNavigation currentPage="combined" hasSelectedEvent={!!selectedEvent} />
             )}
-
           </div>
         </header>
 

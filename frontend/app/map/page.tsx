@@ -80,6 +80,8 @@ export default function MapPage() {
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const mapRef = useRef<any>(null)
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   const selectedIncident = useMemo(
     () => incidents.find((inc) => inc.id === selectedIncidentId),
@@ -155,6 +157,14 @@ export default function MapPage() {
   // Refresh incidents immediately when map page loads
   useEffect(() => {
     refreshIncidents()
+  }, [])
+
+  // Clock update
+  useEffect(() => {
+    setIsMounted(true)
+    setCurrentTime(new Date())
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -292,6 +302,12 @@ export default function MapPage() {
           {/* Desktop Navigation */}
           {!isMobile && (
             <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono text-lg font-semibold tabular-nums">
+                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+                </span>
+              </div>
               <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
             </div>
           )}
