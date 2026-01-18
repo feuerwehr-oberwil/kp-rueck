@@ -57,6 +57,7 @@ export default function RekoForm() {
   const personnelId = searchParams.get('personnel_id')
 
   const [formData, setFormData] = useState<RekoFormData>(INITIAL_FORM_DATA)
+  const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
   const [incidentTitle, setIncidentTitle] = useState<string>('')
   const [incidentDetails, setIncidentDetails] = useState<{
     location?: string
@@ -70,6 +71,47 @@ export default function RekoForm() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [isTraining, setIsTraining] = useState(false)
+
+  // LocalStorage key for this specific reko form
+  const localStorageKey = incidentId ? `reko-form-${incidentId}` : null
+
+  // Save form data to localStorage on every change
+  const saveToLocalStorage = useCallback((data: RekoFormData) => {
+    if (!localStorageKey) return
+    try {
+      localStorage.setItem(localStorageKey, JSON.stringify({
+        data,
+        timestamp: new Date().toISOString()
+      }))
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error)
+    }
+  }, [localStorageKey])
+
+  // Load form data from localStorage
+  const loadFromLocalStorage = useCallback((): RekoFormData | null => {
+    if (!localStorageKey) return null
+    try {
+      const stored = localStorage.getItem(localStorageKey)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        return parsed.data as RekoFormData
+      }
+    } catch (error) {
+      console.error('Failed to load from localStorage:', error)
+    }
+    return null
+  }, [localStorageKey])
+
+  // Clear localStorage after successful submission
+  const clearLocalStorage = useCallback(() => {
+    if (!localStorageKey) return
+    try {
+      localStorage.removeItem(localStorageKey)
+    } catch (error) {
+      console.error('Failed to clear localStorage:', error)
+    }
+  }, [localStorageKey])
 
   // Dummy data generation functions for training mode
   const generateRandomDangers = (): Partial<ApiDangersAssessment> => {
@@ -174,8 +216,9 @@ export default function RekoForm() {
         // Backend should add: event_training_flag: boolean to ApiRekoFormResponse
         // setIsTraining(data.event_training_flag || false)
 
-        // Load existing report/draft
-        setFormData({
+        // Load existing report/draft - prefer localStorage for offline resilience
+        const localData = loadFromLocalStorage()
+        const serverData = {
           is_relevant: data.is_relevant,
           dangers_json: data.dangers_json || INITIAL_FORM_DATA.dangers_json,
           effort_json: data.effort_json || INITIAL_FORM_DATA.effort_json,
@@ -183,7 +226,19 @@ export default function RekoForm() {
           photos_json: data.photos_json || [],
           summary_text: data.summary_text || '',
           additional_notes: data.additional_notes || ''
-        })
+        }
+
+        // Use localStorage data if it exists and has meaningful content
+        // (user was likely editing offline)
+        if (localData && (localData.summary_text || localData.is_relevant !== null)) {
+          setFormData(localData)
+          toast.info('Lokale Änderungen wiederhergestellt', {
+            description: 'Ihre zuvor eingegebenen Daten wurden geladen.'
+          })
+        } else {
+          setFormData(serverData)
+        }
+        setLocalStorageLoaded(true)
       } catch (error) {
         console.error('Failed to load form:', error)
         setValidationError('Fehler beim Laden des Formulars. Token möglicherweise ungültig.')
@@ -195,7 +250,14 @@ export default function RekoForm() {
     init()
   }, [incidentId, token, personnelId])
 
-  // Auto-save draft every 30 seconds
+  // Save to localStorage on every form change for offline resilience
+  useEffect(() => {
+    // Don't save until we've loaded the initial data
+    if (!localStorageLoaded || isLoading) return
+    saveToLocalStorage(formData)
+  }, [formData, localStorageLoaded, isLoading, saveToLocalStorage])
+
+  // Auto-save draft to server every 30 seconds (backup to server)
   useEffect(() => {
     if (!incidentId || !token || isLoading) return
 
@@ -245,6 +307,9 @@ export default function RekoForm() {
         token,
         is_draft: false
       })
+
+      // Clear localStorage after successful submission
+      clearLocalStorage()
 
       toast.success('Meldung erfolgreich übermittelt')
 
