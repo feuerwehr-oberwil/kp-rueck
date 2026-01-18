@@ -244,11 +244,25 @@ export function LocationInput({
                     value={addressSearchQuery}
                     onChange={(e) => setAddressSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
-                      // Close popover on Tab and move focus to trigger to stay inside modal
-                      if (e.key === 'Tab') {
+                      // Close popover on Tab and move to next form field
+                      if (e.key === 'Tab' && !e.shiftKey) {
                         e.preventDefault()
                         setAddressSearchOpen(false)
-                        // Focus trigger button after popover closes so modal focus trap works
+                        // Find and focus the next form element (skip location buttons)
+                        setTimeout(() => {
+                          // Try to find notes textarea first (common next field in forms)
+                          const notesField = document.getElementById('notes')
+                          if (notesField) {
+                            notesField.focus()
+                          } else {
+                            // Fallback: focus trigger and let natural tab order work
+                            triggerButtonRef.current?.focus()
+                          }
+                        }, 0)
+                      } else if (e.key === 'Tab' && e.shiftKey) {
+                        // Shift+Tab: close popover and stay on trigger
+                        e.preventDefault()
+                        setAddressSearchOpen(false)
                         setTimeout(() => {
                           triggerButtonRef.current?.focus()
                         }, 0)
@@ -298,7 +312,7 @@ export function LocationInput({
             </PopoverContent>
           </Popover>
 
-          {/* Map Picker Button */}
+          {/* Map Picker Button - excluded from tab order for cleaner form navigation */}
           <Button
             type="button"
             variant="outline"
@@ -306,11 +320,12 @@ export function LocationInput({
             onClick={() => setMapPickerOpen(true)}
             disabled={disabled}
             title="Auf Karte wählen"
+            tabIndex={-1}
           >
             <Map className="h-4 w-4" />
           </Button>
 
-          {/* Show Coordinates Button */}
+          {/* Show Coordinates Button - excluded from tab order for cleaner form navigation */}
           <Button
             type="button"
             variant={showCoordinates ? "default" : "outline"}
@@ -318,6 +333,7 @@ export function LocationInput({
             onClick={() => setShowCoordinates(!showCoordinates)}
             disabled={disabled}
             title="Koordinaten eingeben"
+            tabIndex={-1}
           >
             <Navigation className="h-4 w-4" />
           </Button>
@@ -369,6 +385,7 @@ export function LocationInput({
                   onClick={handleSwapCoordinates}
                   disabled={disabled || !showCoordinates}
                   title="Lat/Lng vertauschen"
+                  tabIndex={-1}
                 >
                   <ArrowUpDown className="h-4 w-4" />
                 </Button>
@@ -383,6 +400,7 @@ export function LocationInput({
                   onClick={handleClearLocation}
                   disabled={disabled || !showCoordinates}
                   title="Standort löschen"
+                  tabIndex={-1}
                 >
                   <X className="h-4 w-4" />
                 </Button>

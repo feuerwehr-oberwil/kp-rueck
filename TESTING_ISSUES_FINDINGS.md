@@ -103,14 +103,18 @@ New emergency -> address is highlighted but can't be used until clicking. Ensure
 ### Issue
 Tab behavior for new emergency -> should go through full modal.
 
-### Current Implementation
-- The modal has multiple form fields but tab order may not be sequential
-- Some elements might be skipping or have incorrect `tabIndex` values
-- The modal uses a mix of custom components that may not all support proper tab navigation
+### Status: ⚠️ NEEDS MANUAL VERIFICATION
 
-### Affected Files
-- `frontend/components/kanban/new-emergency-modal.tsx` - Form structure
-- Various shadcn/ui components - May need explicit tabIndex
+### Current Implementation Analysis
+- The modal uses standard shadcn/ui form components (`Input`, `Textarea`, `Select`) which support native tab navigation
+- `LocationInput` properly handles Tab key (`frontend/components/location/location-input.tsx:248`) - closes popover and lets focus move naturally
+- Form field order in modal: LocationInput → Meldung (Textarea) → Einsatzart (Select) → Priorität (Select) → Kontakt (Input) → Buttons
+- No explicit `tabIndex` values are set, relying on DOM order (which is correct for the current layout)
+
+### Manual Testing Required
+- Verify that Tab navigates through all form fields in logical order
+- Verify that Shift+Tab works correctly for reverse navigation
+- Test that Select dropdowns can be navigated with keyboard
 
 ---
 
@@ -556,15 +560,15 @@ In Fahrzeugverwaltung only have status available/unavailable. The others don't m
 
 ## Summary
 
-| # | Issue | Severity | Component |
-|---|-------|----------|-----------|
-| 1 | Shortcuts not global | Medium | CommandPalette |
-| 2 | -Infinity ID display | Low | NewEmergencyModal |
-| 3 | Vehicle status visual bars | Low | VehicleStatusSheet |
-| 4 | Vehicle default status | Low | VehicleSettings |
-| 5 | Cmd+K search inconsistency | Medium | CommandPalette |
-| 6 | Address input focus | Medium | NewEmergencyModal |
-| 7 | Tab navigation | Medium | NewEmergencyModal |
+| # | Issue | Severity | Component | Status |
+|---|-------|----------|-----------|--------|
+| 1 | Shortcuts not global | Medium | CommandPalette | ✅ Resolved |
+| 2 | -Infinity ID display | Low | NewEmergencyModal | ✅ Resolved |
+| 3 | Vehicle status visual bars | Low | VehicleStatusSheet | ✅ Resolved |
+| 4 | Vehicle default status | Low | VehicleSettings | ✅ Resolved |
+| 5 | Cmd+K search inconsistency | Medium | CommandPalette | ✅ Resolved |
+| 6 | Address input focus | Medium | NewEmergencyModal | ✅ Resolved |
+| 7 | Tab navigation | Medium | NewEmergencyModal | ⚠️ Needs verification |
 | 8 | Drag & drop snap-back | High | useKanbanDragDrop |
 | 9 | QR display when 0 personnel | Low | Personnel sidebar |
 | 10 | Arrow keys in Cmd+K | Low | CommandPalette |
@@ -593,6 +597,12 @@ In Fahrzeugverwaltung only have status available/unavailable. The others don't m
 
 | # | Issue | Resolution | Commit |
 |---|-------|------------|--------|
+| 1 | Shortcuts not global | CommandPalette now included globally via AppShell in layout.tsx | Previous session |
+| 2 | -Infinity ID display | Not present in current code (was transient/cached issue) | N/A |
+| 3 | Vehicle status visual bars | Added colored left borders (`border-l-4`) with status-based colors | Previous session |
+| 4 | Vehicle default status | Backend seed and frontend form both default to `status: 'available'` | Previous session |
+| 5 | Cmd+K search inconsistency | Context handlers now open sidebar first, then focus input with delay | Previous session |
+| 6 | Address input focus | LocationInput handles autoFocus - opens popover and focuses search input | Previous session |
 | 8 | Drag & drop snap-back | Added status update cooldown (2s) to prevent WebSocket from overriding optimistic updates | Previous session |
 | 9 | QR display when 0 personnel | Added inline QR code display in personnel sidebar when no personnel available | Previous session |
 | 12 | Modal width on wide screens | Changed `!max-w-none` to `!max-w-6xl` on OperationDetailModal | Previous session |
@@ -612,4 +622,4 @@ In Fahrzeugverwaltung only have status available/unavailable. The others don't m
 
 *Document generated: 2025-01-18*
 *Testing performed on: Local development environment*
-*Last updated: 2025-01-18*
+*Last updated: 2026-01-18*
