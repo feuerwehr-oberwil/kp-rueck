@@ -100,6 +100,27 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     loadRekoPersonnel()
   }, [selectedEvent, personnel, incidentCrew])
 
+  // Fallback copy method for Safari (which has stricter clipboard permissions)
+  function copyToClipboardFallback(text: string): boolean {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    textarea.style.top = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+
+    try {
+      const successful = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return successful
+    } catch {
+      document.body.removeChild(textarea)
+      return false
+    }
+  }
+
   async function copyLinkToClipboard() {
     if (!selectedPersonnelId) {
       toast.error('Bitte zuerst eine Reko-Person auswählen')
@@ -111,17 +132,28 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
       const response = await apiClient.generateRekoLink(incidentId, selectedPersonnelId)
       const fullUrl = `${window.location.origin}${response.link}`
 
-      await navigator.clipboard.writeText(fullUrl)
-      setCopied(true)
+      // Try modern clipboard API first, fall back to execCommand for Safari
+      let copySuccess = false
+      try {
+        await navigator.clipboard.writeText(fullUrl)
+        copySuccess = true
+      } catch {
+        // Safari often denies clipboard.writeText after async operations
+        copySuccess = copyToClipboardFallback(fullUrl)
+      }
 
-      const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
-      toast.success('Reko-Link kopiert', {
-        description: selectedPerson
-          ? `Link für ${selectedPerson.name} wurde kopiert`
-          : undefined
-      })
-
-      setTimeout(() => setCopied(false), 2000)
+      if (copySuccess) {
+        setCopied(true)
+        const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
+        toast.success('Reko-Link kopiert', {
+          description: selectedPerson
+            ? `Link für ${selectedPerson.name} wurde kopiert`
+            : undefined
+        })
+        setTimeout(() => setCopied(false), 2000)
+      } else {
+        toast.error('Fehler beim Kopieren des Links')
+      }
     } catch (err) {
       console.error('Failed to generate/copy Reko link:', err)
       toast.error('Fehler beim Kopieren des Links')
