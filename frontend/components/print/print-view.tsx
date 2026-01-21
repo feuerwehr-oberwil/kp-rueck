@@ -94,8 +94,15 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
       (m) => m.status === "available" || m.status === "assigned"
     )
 
+    // Get material names by ID
+    const getMaterialNames = (materialIds: string[]) => {
+      return materialIds
+        .map((id) => materials.find((m) => m.id === id)?.name ?? id)
+        .join(", ")
+    }
+
     return (
-      <div ref={ref} className="print-view print-only bg-white text-black p-4 font-mono text-xs">
+      <div ref={ref} className="print-view print-only bg-white text-black p-4 font-sans text-xs">
         {/* Header */}
         <div className="border-b-2 border-black pb-2 mb-4">
           <h1 className="text-lg font-bold">KP RÜCK STATUSÜBERSICHT</h1>
@@ -112,68 +119,92 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
 
           return (
             <div key={status} className="mb-4">
-              <h2 className="font-bold border-b border-black mb-2">
+              <h2 className="font-bold border-b border-black mb-2 text-sm">
                 {statusInfo?.label ?? status.toUpperCase()} ({statusOps.length})
               </h2>
 
-              {/* Table for A4, will be styled as list for thermal via CSS */}
-              <table className="w-full text-xs border-collapse">
-                <thead className="print-a4-only">
-                  <tr className="border-b border-gray-400">
-                    <th className="text-left p-1">Adresse</th>
-                    <th className="text-left p-1">Typ</th>
-                    <th className="text-left p-1">Prio</th>
-                    <th className="text-left p-1">Zeit</th>
-                    <th className="text-left p-1">Personal</th>
-                    <th className="text-left p-1">Fahrzeuge</th>
-                    <th className="text-left p-1">Reko</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statusOps.map((op, idx) => (
-                    <tr key={op.id} className="border-b border-gray-200 align-top">
-                      <td className="p-1">
-                        <div className="font-semibold">{idx + 1}. {op.location}</div>
-                        {op.notes && (
-                          <div className="text-gray-600 text-[10px] mt-1 print-thermal-only">
-                            Meldung: {op.notes}
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-1">{op.incidentType}</td>
-                      <td className="p-1">
-                        <span className={op.priority === "high" ? "font-bold" : ""}>
-                          {PRIORITY_LABELS[op.priority] ?? op.priority}
-                        </span>
-                      </td>
-                      <td className="p-1">{formatTime(op.dispatchTime)}</td>
-                      <td className="p-1">{op.crew.join(", ") || "-"}</td>
-                      <td className="p-1">{op.vehicles.join(", ") || "-"}</td>
-                      <td className="p-1">
-                        {op.hasCompletedReko && op.rekoSummary ? (
-                          <div>
-                            {op.rekoSummary.hasDangers && op.rekoSummary.dangerTypes.length > 0 && (
-                              <div className="text-[10px]">
-                                {op.rekoSummary.dangerTypes
-                                  .map((d) => DANGER_LABELS[d] ?? d)
-                                  .join(", ")}
-                              </div>
-                            )}
-                            {op.rekoSummary.personnelCount && (
-                              <div className="text-[10px]">~{op.rekoSummary.personnelCount} Pers.</div>
-                            )}
-                            {op.rekoSummary.estimatedDuration && (
-                              <div className="text-[10px]">~{op.rekoSummary.estimatedDuration}h</div>
-                            )}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {/* Card-style layout for each incident */}
+              {statusOps.map((op, idx) => (
+                <div key={op.id} className="border border-gray-400 mb-2 p-2 page-break-inside-avoid">
+                  {/* Header row */}
+                  <div className="flex justify-between items-start border-b border-gray-300 pb-1 mb-1">
+                    <div className="font-bold text-sm">
+                      {idx + 1}. {op.location}
+                    </div>
+                    <div className="text-right text-[10px]">
+                      <span className={op.priority === "high" ? "font-bold" : ""}>
+                        {PRIORITY_LABELS[op.priority] ?? op.priority}
+                      </span>
+                      {" | "}
+                      {formatTime(op.dispatchTime)}
+                    </div>
+                  </div>
+
+                  {/* Two column layout */}
+                  <div className="flex gap-4">
+                    {/* Left column */}
+                    <div className="flex-1">
+                      <div className="mb-1">
+                        <span className="font-semibold">Typ:</span> {op.incidentType}
+                      </div>
+                      {op.crew.length > 0 && (
+                        <div className="mb-1">
+                          <span className="font-semibold">Personal:</span> {op.crew.join(", ")}
+                        </div>
+                      )}
+                      {op.vehicles.length > 0 && (
+                        <div className="mb-1">
+                          <span className="font-semibold">Fahrzeuge:</span> {op.vehicles.join(", ")}
+                        </div>
+                      )}
+                      {op.materials.length > 0 && (
+                        <div className="mb-1">
+                          <span className="font-semibold">Material:</span> {getMaterialNames(op.materials)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right column */}
+                    <div className="flex-1">
+                      {op.contact && (
+                        <div className="mb-1">
+                          <span className="font-semibold">Kontakt:</span> {op.contact}
+                        </div>
+                      )}
+                      {op.hasCompletedReko && op.rekoSummary && (
+                        <div className="mb-1">
+                          <span className="font-semibold">Reko:</span>{" "}
+                          {op.rekoSummary.hasDangers && op.rekoSummary.dangerTypes.length > 0 && (
+                            <span>
+                              {op.rekoSummary.dangerTypes
+                                .map((d) => DANGER_LABELS[d] ?? d)
+                                .join(", ")}
+                            </span>
+                          )}
+                          {op.rekoSummary.personnelCount && (
+                            <span> | ~{op.rekoSummary.personnelCount} Pers.</span>
+                          )}
+                          {op.rekoSummary.estimatedDuration && (
+                            <span> | ~{op.rekoSummary.estimatedDuration}h</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Full width fields */}
+                  {op.notes && (
+                    <div className="mt-1 pt-1 border-t border-gray-200">
+                      <span className="font-semibold">Meldung:</span> {op.notes}
+                    </div>
+                  )}
+                  {op.internalNotes && (
+                    <div className="mt-1 text-gray-600">
+                      <span className="font-semibold">Interne Notizen:</span> {op.internalNotes}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )
         })}
@@ -181,7 +212,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {/* Personnel Manifest */}
         {options.includePersonnel && filteredPersonnel.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
-            <h2 className="font-bold border-b border-black mb-2">
+            <h2 className="font-bold border-b border-black mb-2 text-sm">
               PERSONAL ({filteredPersonnel.length} eingecheckt)
             </h2>
             <table className="w-full text-xs border-collapse">
@@ -210,7 +241,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {/* Vehicle Status */}
         {options.includeVehicles && vehicles.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
-            <h2 className="font-bold border-b border-black mb-2">
+            <h2 className="font-bold border-b border-black mb-2 text-sm">
               FAHRZEUGE ({vehicles.length})
             </h2>
             <table className="w-full text-xs border-collapse">
@@ -241,7 +272,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {/* Materials */}
         {options.includeMaterials && filteredMaterials.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
-            <h2 className="font-bold border-b border-black mb-2">
+            <h2 className="font-bold border-b border-black mb-2 text-sm">
               MATERIAL ({filteredMaterials.length})
             </h2>
             <table className="w-full text-xs border-collapse">

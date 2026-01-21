@@ -1070,6 +1070,10 @@ export default function FireStationDashboard() {
                 <Truck className="h-4 w-4" />
                 Fahrzeugstatus
               </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setPrintModalOpen(true)} disabled={!selectedEvent}>
+                <Printer className="h-4 w-4" />
+                Drucken
+              </Button>
               {selectedEvent?.training_flag && (
                 <Link href="/training">
                   <Button size="sm" variant="outline" className="gap-2">
@@ -1088,10 +1092,6 @@ export default function FireStationDashboard() {
                   Meldung
                 </Label>
               </div>
-              <Button size="sm" variant="outline" className="gap-2" onClick={() => setPrintModalOpen(true)} disabled={!selectedEvent}>
-                <Printer className="h-4 w-4" />
-                Drucken
-              </Button>
             </div>
 
 
