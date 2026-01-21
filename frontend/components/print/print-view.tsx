@@ -95,7 +95,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
     )
 
     return (
-      <div ref={ref} className="print-view hidden print:block bg-white text-black p-4 font-mono text-xs">
+      <div ref={ref} className="print-view print-only bg-white text-black p-4 font-mono text-xs">
         {/* Header */}
         <div className="border-b-2 border-black pb-2 mb-4">
           <h1 className="text-lg font-bold">KP RÜCK STATUSÜBERSICHT</h1>

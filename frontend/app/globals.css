@@ -927,28 +927,41 @@
 }
 
 /* Emergency Print Styles */
+
+/* Hide print-only content on screen */
+.print-only {
+  display: none !important;
+}
+
 @media print {
-  /* Hide everything except print view */
-  body > *:not(.print-view),
-  header,
-  footer,
-  nav,
-  aside,
-  [data-radix-popper-content-wrapper],
-  [data-slot="dialog-overlay"],
-  [data-slot="dialog-content"] {
-    display: none !important;
+  /* Hide everything on the page */
+  body * {
+    visibility: hidden;
   }
 
-  /* Show print view */
-  .print-view {
+  /* Show print view and all its children */
+  .print-view,
+  .print-view * {
+    visibility: visible !important;
+  }
+
+  /* Override the screen-only hiding */
+  .print-only {
     display: block !important;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
+  }
+
+  /* Position print view to cover page */
+  .print-view {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: auto !important;
     background: white !important;
     color: black !important;
+    z-index: 99999 !important;
+    padding: 10mm !important;
+    box-sizing: border-box !important;
   }
 
   /* Page settings */
@@ -959,30 +972,31 @@
 
   /* Typography for print */
   .print-view {
-    font-size: 10pt;
-    line-height: 1.4;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
   }
 
   .print-view h1 {
-    font-size: 14pt;
+    font-size: 14pt !important;
   }
 
   .print-view h2 {
-    font-size: 11pt;
+    font-size: 11pt !important;
   }
 
   /* Table styling */
   .print-view table {
-    width: 100%;
-    border-collapse: collapse;
+    width: 100% !important;
+    border-collapse: collapse !important;
   }
 
   .print-view th,
   .print-view td {
-    border: 1px solid #333;
-    padding: 3px 6px;
-    text-align: left;
-    vertical-align: top;
+    border: 1px solid #333 !important;
+    padding: 3px 6px !important;
+    text-align: left !important;
+    vertical-align: top !important;
   }
 
   .print-view th {
@@ -998,11 +1012,11 @@
 
   /* Hide thermal-only elements on A4 */
   .print-thermal-only {
-    display: none;
+    display: none !important;
   }
 
   /* Show A4-only elements */
   .print-a4-only {
-    display: table-header-group;
+    display: table-header-group !important;
   }
 }
