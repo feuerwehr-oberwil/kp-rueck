@@ -842,6 +842,7 @@ class NotificationType(str, Enum):
     PERSONNEL_FATIGUE = "personnel_fatigue"
     MISSING_LOCATION = "missing_location"
     EVENT_SIZE_LIMIT = "event_size_limit"
+    REKO_SUBMITTED = "reko_submitted"
     TRAINING_EMERGENCY = "training_emergency"
 
 
