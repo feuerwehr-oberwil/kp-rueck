@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -43,6 +43,7 @@ import { EventSelectionEmptyState } from "@/components/empty-states/event-select
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
+import { PrintOptionsModal } from "@/components/print/print-options-modal"
 
 export default function FireStationDashboard() {
   const {
@@ -127,6 +128,7 @@ export default function FireStationDashboard() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
   const [showMeldung, setShowMeldung] = useState(false)
+  const [printModalOpen, setPrintModalOpen] = useState(false)
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -1086,6 +1088,10 @@ export default function FireStationDashboard() {
                   Meldung
                 </Label>
               </div>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setPrintModalOpen(true)} disabled={!selectedEvent}>
+                <Printer className="h-4 w-4" />
+                Drucken
+              </Button>
             </div>
 
 
@@ -1245,6 +1251,12 @@ export default function FireStationDashboard() {
         title="Einsatz löschen"
         description={`Sind Sie sicher, dass Sie den Einsatz "${operationToDelete?.location}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
         onConfirm={handleDeleteOperationConfirm}
+      />
+
+      {/* Print Options Modal */}
+      <PrintOptionsModal
+        open={printModalOpen}
+        onOpenChange={setPrintModalOpen}
       />
 
       {/* Mobile Bottom Navigation */}

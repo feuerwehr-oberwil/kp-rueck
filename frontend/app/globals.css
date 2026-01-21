@@ -925,3 +925,84 @@
     }
   }
 }
+
+/* Emergency Print Styles */
+@media print {
+  /* Hide everything except print view */
+  body > *:not(.print-view),
+  header,
+  footer,
+  nav,
+  aside,
+  [data-radix-popper-content-wrapper],
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"] {
+    display: none !important;
+  }
+
+  /* Show print view */
+  .print-view {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Page settings */
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  /* Typography for print */
+  .print-view {
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+
+  .print-view h1 {
+    font-size: 14pt;
+  }
+
+  .print-view h2 {
+    font-size: 11pt;
+  }
+
+  /* Table styling */
+  .print-view table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .print-view th,
+  .print-view td {
+    border: 1px solid #333;
+    padding: 3px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .print-view th {
+    background: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Prevent page breaks inside sections */
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+
+  /* Hide thermal-only elements on A4 */
+  .print-thermal-only {
+    display: none;
+  }
+
+  /* Show A4-only elements */
+  .print-a4-only {
+    display: table-header-group;
+  }
+}
