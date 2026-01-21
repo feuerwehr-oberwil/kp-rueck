@@ -208,9 +208,9 @@ async def get_incident_reports(
 
 @router.post("/generate-link")
 async def generate_reko_link(
-    incident_id: uuid.UUID,
-    form_type: str = "reko",
-    personnel_id: uuid.UUID | None = None,
+    incident_id: uuid.UUID = Query(...),
+    form_type: str = Query("reko"),
+    personnel_id: uuid.UUID | None = Query(None),
 ):
     """
     Generate Reko form link for an incident (editor-only in practice).
