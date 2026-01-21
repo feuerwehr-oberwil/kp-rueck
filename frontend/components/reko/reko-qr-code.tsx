@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -19,15 +20,24 @@ interface RekoQRCodeProps {
   incidentId: string
 }
 
+// Detect Safari browser
+function isSafari(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent.toLowerCase()
+  return ua.includes('safari') && !ua.includes('chrome') && !ua.includes('chromium')
+}
+
 export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   const [copied, setCopied] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [isGeneratingLink, setIsGeneratingLink] = useState(false)
+  const [isCopying, setIsCopying] = useState(false)
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>('')
   const [rekoPersonnel, setRekoPersonnel] = useState<Array<{ id: string; name: string; role?: string }>>([])
   const [error, setError] = useState<string | null>(null)
-  // Pre-generated link for synchronous clipboard access (Safari compatibility)
-  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
+  // For Safari: show the link in a visible input
+  const [showLinkInput, setShowLinkInput] = useState(false)
+  const [generatedLink, setGeneratedLink] = useState<string>('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const { personnel, operations } = useOperations()
   const { selectedEvent } = useEvent()
 
@@ -102,116 +112,51 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     loadRekoPersonnel()
   }, [selectedEvent, personnel, incidentCrew])
 
-  // Pre-generate link when personnel is selected (for Safari clipboard compatibility)
+  // Auto-select input text when shown
   useEffect(() => {
-    async function generateLink() {
-      if (!selectedPersonnelId) {
-        setGeneratedLink(null)
-        return
-      }
-
-      setIsGeneratingLink(true)
-      try {
-        const response = await apiClient.generateRekoLink(incidentId, selectedPersonnelId)
-        const fullUrl = `${window.location.origin}${response.link}`
-        setGeneratedLink(fullUrl)
-      } catch (err) {
-        console.error('Failed to pre-generate Reko link:', err)
-        setGeneratedLink(null)
-      } finally {
-        setIsGeneratingLink(false)
-      }
+    if (showLinkInput && inputRef.current) {
+      inputRef.current.select()
     }
+  }, [showLinkInput])
 
-    generateLink()
-  }, [incidentId, selectedPersonnelId])
-
-  // Copy/share function with multiple fallbacks for Safari compatibility
-  const copyLinkToClipboard = useCallback(async () => {
-    if (!generatedLink) {
-      toast.error('Link wird noch generiert...')
+  async function copyLinkToClipboard() {
+    if (!selectedPersonnelId) {
+      toast.error('Bitte zuerst eine Reko-Person auswählen')
       return
     }
 
-    const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
+    setIsCopying(true)
+    try {
+      const response = await apiClient.generateRekoLink(incidentId, selectedPersonnelId)
+      const fullUrl = `${window.location.origin}${response.link}`
 
-    // Try Web Share API first (works great on Safari/iOS)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Reko-Link',
-          text: selectedPerson ? `Reko-Link für ${selectedPerson.name}` : 'Reko-Link',
-          url: generatedLink,
-        })
-        setCopied(true)
-        toast.success('Link geteilt')
-        setTimeout(() => setCopied(false), 2000)
+      // Safari: show visible input for manual copy
+      if (isSafari()) {
+        setGeneratedLink(fullUrl)
+        setShowLinkInput(true)
+        toast.info('Link bereit - bitte manuell kopieren (Cmd+C)')
         return
-      } catch (err) {
-        // User cancelled share or share failed - try clipboard instead
-        if ((err as Error).name === 'AbortError') {
-          return // User cancelled, don't show error
-        }
       }
-    }
 
-    // Try clipboard API
-    let copySuccess = false
-
-    // Method 1: Modern Clipboard API
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      try {
-        await navigator.clipboard.writeText(generatedLink)
-        copySuccess = true
-      } catch {
-        // Continue to fallback
-      }
-    }
-
-    // Method 2: execCommand fallback
-    if (!copySuccess) {
-      const textarea = document.createElement('textarea')
-      textarea.value = generatedLink
-      // Make it visible but off-screen (Safari sometimes needs visibility)
-      textarea.style.position = 'fixed'
-      textarea.style.top = '0'
-      textarea.style.left = '0'
-      textarea.style.width = '2em'
-      textarea.style.height = '2em'
-      textarea.style.padding = '0'
-      textarea.style.border = 'none'
-      textarea.style.outline = 'none'
-      textarea.style.boxShadow = 'none'
-      textarea.style.background = 'transparent'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.focus()
-      textarea.select()
-
-      try {
-        copySuccess = document.execCommand('copy')
-      } catch {
-        copySuccess = false
-      }
-      document.body.removeChild(textarea)
-    }
-
-    if (copySuccess) {
+      // Chrome and others: use clipboard API directly
+      await navigator.clipboard.writeText(fullUrl)
       setCopied(true)
+
+      const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
       toast.success('Reko-Link kopiert', {
         description: selectedPerson
           ? `Link für ${selectedPerson.name} wurde kopiert`
           : undefined
       })
+
       setTimeout(() => setCopied(false), 2000)
-    } else {
-      // Final fallback: Show the link in a toast so user can manually copy
-      toast.info('Link zum Kopieren:', {
-        description: generatedLink,
-        duration: 10000,
-      })
+    } catch (err) {
+      console.error('Failed to generate/copy Reko link:', err)
+      toast.error('Fehler beim Kopieren des Links')
+    } finally {
+      setIsCopying(false)
     }
-  }, [generatedLink, rekoPersonnel, selectedPersonnelId])
+  }
 
   // Loading state
   if (isLoading) {
@@ -233,6 +178,36 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     )
   }
 
+  // Safari: Show visible link input for manual copy
+  if (showLinkInput) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Input
+            ref={inputRef}
+            value={generatedLink}
+            readOnly
+            className="text-xs font-mono h-8"
+            onFocus={(e) => e.target.select()}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setShowLinkInput(false)
+              setGeneratedLink('')
+            }}
+          >
+            Schliessen
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Link markiert - mit Cmd+C kopieren
+        </p>
+      </div>
+    )
+  }
+
   // Single reko person - just show copy button
   if (rekoPersonnel.length === 1) {
     return (
@@ -240,9 +215,9 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
         variant="outline"
         size="sm"
         onClick={copyLinkToClipboard}
-        disabled={isGeneratingLink || !generatedLink}
+        disabled={isCopying}
       >
-        {isGeneratingLink ? (
+        {isCopying ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : copied ? (
           <Check className="mr-2 h-4 w-4 text-green-600" />
@@ -274,9 +249,9 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
         variant="outline"
         size="sm"
         onClick={copyLinkToClipboard}
-        disabled={!selectedPersonnelId || isGeneratingLink || !generatedLink}
+        disabled={!selectedPersonnelId || isCopying}
       >
-        {isGeneratingLink ? (
+        {isCopying ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : copied ? (
           <Check className="h-4 w-4 text-green-600" />
