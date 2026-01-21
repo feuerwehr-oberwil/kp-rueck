@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -22,10 +22,12 @@ interface RekoQRCodeProps {
 export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   const [copied, setCopied] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [isCopying, setIsCopying] = useState(false)
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false)
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>('')
   const [rekoPersonnel, setRekoPersonnel] = useState<Array<{ id: string; name: string; role?: string }>>([])
   const [error, setError] = useState<string | null>(null)
+  // Pre-generated link for synchronous clipboard access (Safari compatibility)
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
   const { personnel, operations } = useOperations()
   const { selectedEvent } = useEvent()
 
@@ -100,10 +102,40 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     loadRekoPersonnel()
   }, [selectedEvent, personnel, incidentCrew])
 
-  // Fallback copy method for Safari (which has stricter clipboard permissions)
-  function copyToClipboardFallback(text: string): boolean {
+  // Pre-generate link when personnel is selected (for Safari clipboard compatibility)
+  useEffect(() => {
+    async function generateLink() {
+      if (!selectedPersonnelId) {
+        setGeneratedLink(null)
+        return
+      }
+
+      setIsGeneratingLink(true)
+      try {
+        const response = await apiClient.generateRekoLink(incidentId, selectedPersonnelId)
+        const fullUrl = `${window.location.origin}${response.link}`
+        setGeneratedLink(fullUrl)
+      } catch (err) {
+        console.error('Failed to pre-generate Reko link:', err)
+        setGeneratedLink(null)
+      } finally {
+        setIsGeneratingLink(false)
+      }
+    }
+
+    generateLink()
+  }, [incidentId, selectedPersonnelId])
+
+  // Synchronous copy function - must not await anything before clipboard access
+  const copyLinkToClipboard = useCallback(() => {
+    if (!generatedLink) {
+      toast.error('Link wird noch generiert...')
+      return
+    }
+
+    // Copy synchronously using execCommand (works in Safari)
     const textarea = document.createElement('textarea')
-    textarea.value = text
+    textarea.value = generatedLink
     textarea.style.position = 'fixed'
     textarea.style.left = '-9999px'
     textarea.style.top = '-9999px'
@@ -111,56 +143,35 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     textarea.focus()
     textarea.select()
 
+    let copySuccess = false
     try {
-      const successful = document.execCommand('copy')
-      document.body.removeChild(textarea)
-      return successful
+      copySuccess = document.execCommand('copy')
     } catch {
-      document.body.removeChild(textarea)
-      return false
+      copySuccess = false
     }
-  }
+    document.body.removeChild(textarea)
 
-  async function copyLinkToClipboard() {
-    if (!selectedPersonnelId) {
-      toast.error('Bitte zuerst eine Reko-Person auswählen')
-      return
+    // Also try modern API (won't hurt, might work in some browsers)
+    if (!copySuccess && navigator.clipboard) {
+      navigator.clipboard.writeText(generatedLink).catch(() => {
+        // Ignore - we already tried execCommand
+      })
+      copySuccess = true // Assume it worked if available
     }
 
-    setIsCopying(true)
-    try {
-      const response = await apiClient.generateRekoLink(incidentId, selectedPersonnelId)
-      const fullUrl = `${window.location.origin}${response.link}`
-
-      // Try modern clipboard API first, fall back to execCommand for Safari
-      let copySuccess = false
-      try {
-        await navigator.clipboard.writeText(fullUrl)
-        copySuccess = true
-      } catch {
-        // Safari often denies clipboard.writeText after async operations
-        copySuccess = copyToClipboardFallback(fullUrl)
-      }
-
-      if (copySuccess) {
-        setCopied(true)
-        const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
-        toast.success('Reko-Link kopiert', {
-          description: selectedPerson
-            ? `Link für ${selectedPerson.name} wurde kopiert`
-            : undefined
-        })
-        setTimeout(() => setCopied(false), 2000)
-      } else {
-        toast.error('Fehler beim Kopieren des Links')
-      }
-    } catch (err) {
-      console.error('Failed to generate/copy Reko link:', err)
+    if (copySuccess) {
+      setCopied(true)
+      const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
+      toast.success('Reko-Link kopiert', {
+        description: selectedPerson
+          ? `Link für ${selectedPerson.name} wurde kopiert`
+          : undefined
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } else {
       toast.error('Fehler beim Kopieren des Links')
-    } finally {
-      setIsCopying(false)
     }
-  }
+  }, [generatedLink, rekoPersonnel, selectedPersonnelId])
 
   // Loading state
   if (isLoading) {
@@ -189,9 +200,9 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
         variant="outline"
         size="sm"
         onClick={copyLinkToClipboard}
-        disabled={isCopying}
+        disabled={isGeneratingLink || !generatedLink}
       >
-        {isCopying ? (
+        {isGeneratingLink ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : copied ? (
           <Check className="mr-2 h-4 w-4 text-green-600" />
@@ -223,9 +234,9 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
         variant="outline"
         size="sm"
         onClick={copyLinkToClipboard}
-        disabled={!selectedPersonnelId || isCopying}
+        disabled={!selectedPersonnelId || isGeneratingLink || !generatedLink}
       >
-        {isCopying ? (
+        {isGeneratingLink ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : copied ? (
           <Check className="h-4 w-4 text-green-600" />
