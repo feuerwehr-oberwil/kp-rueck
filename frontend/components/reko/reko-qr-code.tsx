@@ -126,42 +126,78 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     generateLink()
   }, [incidentId, selectedPersonnelId])
 
-  // Synchronous copy function - must not await anything before clipboard access
-  const copyLinkToClipboard = useCallback(() => {
+  // Copy/share function with multiple fallbacks for Safari compatibility
+  const copyLinkToClipboard = useCallback(async () => {
     if (!generatedLink) {
       toast.error('Link wird noch generiert...')
       return
     }
 
-    // Copy synchronously using execCommand (works in Safari)
-    const textarea = document.createElement('textarea')
-    textarea.value = generatedLink
-    textarea.style.position = 'fixed'
-    textarea.style.left = '-9999px'
-    textarea.style.top = '-9999px'
-    document.body.appendChild(textarea)
-    textarea.focus()
-    textarea.select()
+    const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
 
-    let copySuccess = false
-    try {
-      copySuccess = document.execCommand('copy')
-    } catch {
-      copySuccess = false
+    // Try Web Share API first (works great on Safari/iOS)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Reko-Link',
+          text: selectedPerson ? `Reko-Link für ${selectedPerson.name}` : 'Reko-Link',
+          url: generatedLink,
+        })
+        setCopied(true)
+        toast.success('Link geteilt')
+        setTimeout(() => setCopied(false), 2000)
+        return
+      } catch (err) {
+        // User cancelled share or share failed - try clipboard instead
+        if ((err as Error).name === 'AbortError') {
+          return // User cancelled, don't show error
+        }
+      }
     }
-    document.body.removeChild(textarea)
 
-    // Also try modern API (won't hurt, might work in some browsers)
-    if (!copySuccess && navigator.clipboard) {
-      navigator.clipboard.writeText(generatedLink).catch(() => {
-        // Ignore - we already tried execCommand
-      })
-      copySuccess = true // Assume it worked if available
+    // Try clipboard API
+    let copySuccess = false
+
+    // Method 1: Modern Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(generatedLink)
+        copySuccess = true
+      } catch {
+        // Continue to fallback
+      }
+    }
+
+    // Method 2: execCommand fallback
+    if (!copySuccess) {
+      const textarea = document.createElement('textarea')
+      textarea.value = generatedLink
+      // Make it visible but off-screen (Safari sometimes needs visibility)
+      textarea.style.position = 'fixed'
+      textarea.style.top = '0'
+      textarea.style.left = '0'
+      textarea.style.width = '2em'
+      textarea.style.height = '2em'
+      textarea.style.padding = '0'
+      textarea.style.border = 'none'
+      textarea.style.outline = 'none'
+      textarea.style.boxShadow = 'none'
+      textarea.style.background = 'transparent'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+
+      try {
+        copySuccess = document.execCommand('copy')
+      } catch {
+        copySuccess = false
+      }
+      document.body.removeChild(textarea)
     }
 
     if (copySuccess) {
       setCopied(true)
-      const selectedPerson = rekoPersonnel.find(p => p.id === selectedPersonnelId)
       toast.success('Reko-Link kopiert', {
         description: selectedPerson
           ? `Link für ${selectedPerson.name} wurde kopiert`
@@ -169,7 +205,11 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
       })
       setTimeout(() => setCopied(false), 2000)
     } else {
-      toast.error('Fehler beim Kopieren des Links')
+      // Final fallback: Show the link in a toast so user can manually copy
+      toast.info('Link zum Kopieren:', {
+        description: generatedLink,
+        duration: 10000,
+      })
     }
   }, [generatedLink, rekoPersonnel, selectedPersonnelId])
 
