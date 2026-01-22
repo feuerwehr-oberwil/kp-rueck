@@ -1,5 +1,6 @@
 """Admin API endpoints for import/export."""
 
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -18,6 +19,9 @@ from ..services.excel_import_export import (
     import_data,
     validate_and_parse_excel,
 )
+from ..utils.errors import ErrorMessages
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -206,4 +210,5 @@ async def seed_training_templates(
             "force_reseed": force_reseed,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to seed training data: {str(e)}")
+        logger.error("Failed to seed training data: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=ErrorMessages.PROCESSING_FAILED)

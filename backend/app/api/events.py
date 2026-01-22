@@ -1,5 +1,6 @@
 """Event API endpoints."""
 
+import logging
 import uuid
 from typing import Annotated
 
@@ -10,6 +11,9 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import events as crud
 from ..database import get_db
+from ..utils.errors import ErrorMessages
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -202,8 +206,9 @@ async def delete_event(
     try:
         success = await crud.delete_event(db, event_id)
         if not success:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        logger.warning("Event deletion failed for %s: %s", event_id, e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST)
 
     return None

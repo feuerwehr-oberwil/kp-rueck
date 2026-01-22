@@ -1,6 +1,7 @@
 """Photo storage and processing service for Reko forms."""
 
 import io
+import logging
 import uuid
 from pathlib import Path
 
@@ -16,6 +17,9 @@ from fastapi import HTTPException, UploadFile
 from PIL import Image
 
 from ..config import get_settings
+from ..utils.errors import ErrorMessages
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -179,7 +183,8 @@ class PhotoStorageService:
             image = Image.open(io.BytesIO(content))
             compressed_data = self._compress_image(image)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
+            logger.warning("Failed to process image: %s", e)
+            raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_FILE)
 
         # Generate safe, unique filename (always use UUID to prevent attacks)
         filename = self._sanitize_filename(file.filename or "photo.jpg")

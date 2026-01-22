@@ -14,6 +14,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import events as events_crud
 from ..crud import incidents as crud
 from ..database import get_db
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update
 
 logger = logging.getLogger(__name__)
@@ -167,10 +168,11 @@ async def update_incident(
             expected_updated_at=expected_updated_at,
         )
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))  # Conflict
+        logger.warning("Incident update conflict for %s: %s", incident_id, e)
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
 
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
     incident_response = schemas.IncidentResponse.model_validate(incident)
@@ -279,12 +281,15 @@ async def transfer_assignments(
         )
     except ValueError as e:
         # Handle validation errors (no assignments, conflicts, etc.)
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e))
-        elif "already assigned" in str(e).lower() or "conflict" in str(e).lower():
-            raise HTTPException(status_code=409, detail=str(e))
+        # Log the actual error for debugging
+        logger.warning("Assignment transfer failed for incident %s: %s", incident_id, e)
+        error_str = str(e).lower()
+        if "not found" in error_str:
+            raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
+        elif "already assigned" in error_str or "conflict" in error_str:
+            raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED)
         else:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
 
     # Get event_id for WebSocket broadcast
     incident_result = await db.execute(select(crud.Incident).where(crud.Incident.id == incident_id))

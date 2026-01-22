@@ -11,8 +11,12 @@ from .. import schemas
 from ..auth.dependencies import CurrentUser
 from ..crud import reko as crud
 from ..database import get_db
+from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Incident, RekoReport
+from ..utils.errors import ErrorMessages
+
+logger = get_logger(__name__)
 from ..services.audit import log_action
 from ..services.notification_service import create_reko_notification
 from ..services.photo_storage import photo_storage
@@ -63,7 +67,8 @@ async def get_reko_form(
 
         return response_data
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Reko form validation failed: %s", e)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
 
 
 @router.post("/", response_model=schemas.RekoReportResponse)
@@ -147,7 +152,8 @@ async def update_report(
 
         return response_data
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        logger.warning("Reko report update failed: %s", e)
+        raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
 
 
 @router.get("/{report_id}", response_model=schemas.RekoReportResponse)

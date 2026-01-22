@@ -1,5 +1,6 @@
 """Special function management API endpoints."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -11,6 +12,9 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import special_functions as crud
 from ..database import get_db
 from ..models import Personnel, Vehicle
+from ..utils.errors import ErrorMessages
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/events/{event_id}/special-functions", tags=["special-functions"])
 
@@ -110,7 +114,8 @@ async def assign_special_function(
     try:
         db_assignment = await crud.create_special_function(db, event_id, assignment, current_user, request)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Special function assignment failed for event %s: %s", event_id, e)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
 
     # Get personnel and vehicle names for response
     personnel_result = await db.execute(select(Personnel).where(Personnel.id == assignment.personnel_id))

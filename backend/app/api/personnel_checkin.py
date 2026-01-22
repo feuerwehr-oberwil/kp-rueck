@@ -1,5 +1,6 @@
 """Personnel check-in API endpoints."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -10,7 +11,10 @@ from ..auth.dependencies import CurrentEditor
 from ..crud import personnel_checkin as crud
 from ..database import get_db
 from ..services.tokens import generate_checkin_token, validate_checkin_token
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/personnel/check-in", tags=["personnel-checkin"])
 
@@ -104,10 +108,11 @@ async def check_in(
             request=request,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Personnel check-in failed: %s", e)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
 
     if not person:
-        raise HTTPException(status_code=404, detail="Personnel not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
 
     # Broadcast WebSocket update for check-in
     if background_tasks:

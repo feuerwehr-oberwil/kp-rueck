@@ -1,5 +1,6 @@
 """Assignment API endpoints."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -9,7 +10,10 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import assignments as crud
 from ..database import get_db
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_assignment_update
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidents", tags=["assignments"])
 
@@ -46,7 +50,8 @@ async def assign_resource(
             request=request,
         )
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        logger.warning("Assignment conflict for incident %s: %s", incident_id, e)
+        raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED)
 
     # Convert SQLAlchemy model to Pydantic for response
     assignment_response = schemas.AssignmentResponse.model_validate(result)

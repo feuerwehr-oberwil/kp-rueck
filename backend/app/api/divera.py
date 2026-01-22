@@ -14,6 +14,7 @@ from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..database import get_db
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update, broadcast_message
 
 logger = logging.getLogger(__name__)
@@ -344,7 +345,8 @@ async def attach_emergency_to_event(
             incident_id=incident.id,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        logger.warning("Failed to attach emergency %s to event: %s", emergency_id, e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST)
 
     # Convert to response schema
     incident_response = schemas.IncidentResponse.model_validate(incident)
@@ -465,4 +467,5 @@ async def archive_divera_emergency(
         await divera_crud.archive_divera_emergency(db, emergency_id)
         logger.info(f"Divera emergency {emergency_id} archived by {current_user.username}")
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        logger.warning("Failed to archive emergency %s: %s", emergency_id, e)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.NOT_FOUND)

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor
 from ..database import get_db
+from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import AuditLog, Event
 from ..services.export_service import (
@@ -21,6 +22,9 @@ from ..services.export_service import (
     export_event_pdf,
     export_event_photos,
 )
+from ..utils.errors import ErrorMessages
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -104,8 +108,9 @@ async def export_event(
         )
 
     except Exception as e:
-        # Log error
+        # Log error with full details
+        logger.error("Export generation failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Export generation failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED
         )
