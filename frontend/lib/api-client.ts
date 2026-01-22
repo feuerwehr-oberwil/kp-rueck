@@ -399,7 +399,7 @@ export interface ApiDiveraEmergency {
   address: string | null
   latitude: string | null // Decimal as string
   longitude: string | null // Decimal as string
-  priority: number // 0=low, 1=medium, 2=high
+  // Note: priority is not stored - it's inferred when creating incidents
   received_at: string
   attached_to_event_id: string | null // UUID
   attached_at: string | null
