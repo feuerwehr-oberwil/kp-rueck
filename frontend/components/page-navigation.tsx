@@ -9,7 +9,7 @@
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationBellTrigger } from '@/components/notifications/notification-bell-trigger';
-import { Map as MapIcon, List, HelpCircle, Calendar, LayoutGrid } from 'lucide-react';
+import { Map as MapIcon, List, Calendar, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 
 interface PageNavigationProps {
@@ -70,19 +70,6 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
             title="Ereignisse"
           >
             <Calendar className="h-4 w-4 md:h-5 md:w-5" />
-          </Button>
-        </Link>
-
-        {/* Help Button */}
-        <Link href="/help" prefetch={true}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'help' ? 'opacity-40 cursor-default' : ''}`}
-            disabled={currentPage === 'help'}
-            title="Hilfe & Dokumentation"
-          >
-            <HelpCircle className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </Link>
 
