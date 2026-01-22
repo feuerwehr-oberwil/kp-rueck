@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
-import { apiClient, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
+import { apiClient, ApiError, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
@@ -827,9 +827,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           await apiClient.updateIncident(operationId, apiUpdates)
         } catch (err) {
           console.error("Failed to update operation:", err)
-          toast.error("Fehler beim Aktualisieren", {
-            description: "Der Einsatz konnte nicht aktualisiert werden."
-          })
+
+          // Handle 409 Conflict - concurrent modification detected
+          if (ApiError.isConflictError(err)) {
+            toast.error("Konflikt bei Aktualisierung", {
+              description: "Ein anderer Benutzer hat diesen Einsatz geändert. Daten werden aktualisiert..."
+            })
+            // Refresh data from server to get the latest state
+            // This ensures the UI shows the correct data after a conflict
+            await refreshOperations()
+          } else {
+            toast.error("Fehler beim Aktualisieren", {
+              description: "Der Einsatz konnte nicht aktualisiert werden."
+            })
+          }
         } finally {
           // Clear pending updates for this operation
           pendingUpdatesRef.current.delete(operationId)

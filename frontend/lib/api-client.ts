@@ -7,6 +7,28 @@ import { getApiUrl } from './env'
 import { toast } from '@/hooks/use-toast'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
+/**
+ * Custom API error class that includes HTTP status code
+ * Used to distinguish between different error types (e.g., 409 Conflict)
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly isConflict: boolean = false
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+
+  /**
+   * Check if this error is a 409 Conflict (concurrent modification)
+   */
+  static isConflictError(error: unknown): error is ApiError {
+    return error instanceof ApiError && error.status === 409
+  }
+}
+
 // Event Management Types
 export interface ApiEvent {
   id: string // UUID
@@ -534,10 +556,13 @@ class ApiClient {
             continue // Retry
           }
 
-          // Final error - show toast if not skipped
-          const error = new Error(errorMessage)
+          // Final error - create ApiError with status code for proper error handling
+          const isConflict = response.status === 409
+          const error = new ApiError(errorMessage, response.status, isConflict)
+
           // Don't show toast for 401 Unauthorized - user will be redirected to login
-          if (!skipToast && response.status !== 401) {
+          // Don't show toast for 409 Conflict - let the caller handle it with context-specific message
+          if (!skipToast && response.status !== 401 && !isConflict) {
             toast({
               variant: "destructive",
               title: "API Fehler",
