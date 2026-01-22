@@ -133,6 +133,34 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const recentStatusUpdateRef = useRef<boolean>(false)
   const statusUpdateCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
+  // Polling configuration with exponential backoff and jitter
+  const pollingBackoffRef = useRef<number>(1) // Current backoff multiplier (1 = base interval)
+  const POLLING_BASE_INTERVAL = 5000 // Base polling interval in ms
+  const POLLING_MAX_BACKOFF = 6 // Max backoff multiplier (5s * 6 = 30s max)
+  const POLLING_JITTER_RANGE = 0.2 // ±20% jitter
+
+  /**
+   * Calculate next polling interval with jitter and backoff.
+   * @param success - Whether the last poll was successful
+   * @returns Next polling interval in milliseconds
+   */
+  const getNextPollInterval = (success: boolean): number => {
+    if (success) {
+      // Reset backoff on success
+      pollingBackoffRef.current = 1
+    } else {
+      // Increase backoff on failure (exponential with cap)
+      pollingBackoffRef.current = Math.min(
+        pollingBackoffRef.current * 2,
+        POLLING_MAX_BACKOFF
+      )
+    }
+
+    // Apply jitter: random value between -JITTER_RANGE and +JITTER_RANGE
+    const jitter = 1 + (Math.random() * 2 - 1) * POLLING_JITTER_RANGE
+    return Math.round(POLLING_BASE_INTERVAL * pollingBackoffRef.current * jitter)
+  }
+
   // Helper functions to convert between API and frontend types
   const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
     id: String(apiPerson.id),
@@ -576,24 +604,61 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    // Fallback polling - only if WebSocket disconnects
-    let pollInterval: NodeJS.Timeout | undefined
+    // Fallback polling with jitter and exponential backoff
+    // Uses setTimeout instead of setInterval to allow dynamic interval adjustment
+    let pollTimeout: NodeJS.Timeout | undefined
+    let isPollingActive = false
+
+    const schedulePoll = () => {
+      if (!isPollingActive) return
+
+      const interval = getNextPollInterval(true) // Assume success, will be updated on error
+      pollTimeout = setTimeout(async () => {
+        if (!isPollingActive) return
+
+        if (!isLoading && !shouldSkipUpdate()) {
+          try {
+            await loadData(false)
+            // Success: reset backoff (already done in getNextPollInterval with true)
+          } catch {
+            // Error: increase backoff by calling with false next time
+            pollingBackoffRef.current = Math.min(
+              pollingBackoffRef.current * 2,
+              POLLING_MAX_BACKOFF
+            )
+          }
+        }
+
+        // Schedule next poll with updated interval
+        if (isPollingActive) {
+          schedulePoll()
+        }
+      }, interval)
+    }
+
+    const startPolling = () => {
+      if (!isPollingActive) {
+        isPollingActive = true
+        pollingBackoffRef.current = 1 // Reset backoff when starting
+        schedulePoll()
+      }
+    }
+
+    const stopPolling = () => {
+      isPollingActive = false
+      if (pollTimeout) {
+        clearTimeout(pollTimeout)
+        pollTimeout = undefined
+      }
+    }
+
     const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
       if (status === 'disconnected' || status === 'error') {
         // Start fallback polling if WebSocket is not connected
-        if (!pollInterval) {
-          pollInterval = setInterval(() => {
-            if (!isLoading && !shouldSkipUpdate()) {
-              loadData(false)
-            }
-          }, 5000)
-        }
+        startPolling()
       } else if (status === 'connected') {
         // Stop polling when WebSocket reconnects
-        if (pollInterval) {
-          clearInterval(pollInterval)
-          pollInterval = undefined
-        }
+        stopPolling()
       }
     })
 
@@ -608,9 +673,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       statusUnsubscribe()
 
       // Cleanup polling if active
-      if (pollInterval) {
-        clearInterval(pollInterval)
-      }
+      stopPolling()
 
       // Disconnect WebSocket
       wsClient.disconnect()
