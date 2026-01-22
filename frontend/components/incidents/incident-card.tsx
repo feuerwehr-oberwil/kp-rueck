@@ -3,13 +3,14 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Map, Truck, Siren, ArrowRightLeft } from 'lucide-react'
+import { MapPin, Clock, Map, Truck, Siren, ArrowRightLeft, Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { VehicleTags } from "./vehicle-tags"
+import { AssignRekoDialog } from "./assign-reko-dialog"
 
 interface IncidentCardProps {
   incident: Incident
@@ -19,6 +20,7 @@ interface IncidentCardProps {
   isDraggable?: boolean
   onUpdate?: () => void
   onTransfer?: () => void
+  showAssignReko?: boolean
 }
 
 function getTimeSince(date: Date): { text: string; isOverOneHour: boolean } {
@@ -44,9 +46,11 @@ export function IncidentCard({
   isDraggable = true,
   onUpdate,
   onTransfer,
+  showAssignReko,
 }: IncidentCardProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [showRekoDialog, setShowRekoDialog] = useState(false)
 
   useEffect(() => {
     const element = ref.current
@@ -153,6 +157,22 @@ export function IncidentCard({
           </div>
         )}
 
+        {/* Assign Reko button */}
+        {showAssignReko && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowRekoDialog(true)
+            }}
+            className="w-full gap-2 mt-2"
+          >
+            <Search className="h-4 w-4" />
+            Reko zuweisen
+          </Button>
+        )}
+
         {/* Transfer button */}
         {onTransfer && (
           <Button
@@ -169,6 +189,15 @@ export function IncidentCard({
           </Button>
         )}
       </div>
+
+      {/* Assign Reko Dialog */}
+      <AssignRekoDialog
+        open={showRekoDialog}
+        onOpenChange={setShowRekoDialog}
+        incidentId={incident.id}
+        incidentTitle={incident.title}
+        onAssigned={onUpdate}
+      />
     </Card>
   )
 }

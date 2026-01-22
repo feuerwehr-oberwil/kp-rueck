@@ -1,27 +1,38 @@
 'use client'
 
 import { Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import RekoForm from '@/components/reko/reko-form'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Loader2, ArrowLeft } from 'lucide-react'
 
 export default function RekoPage() {
+  const router = useRouter()
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      router.back()
+    } else {
+      router.push('/')
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-2xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Rekognoszierungs-Formular</CardTitle>
-            <CardDescription>
-              Einsatzrelevante Informationen erfassen
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Suspense fallback={<RekoFormSkeleton />}>
-              <RekoFormContent />
-            </Suspense>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen bg-background p-4 pb-20">
+      <div className="max-w-md mx-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleBack}
+          className="mb-4 -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Zurück
+        </Button>
+
+        <Suspense fallback={<RekoFormSkeleton />}>
+          <RekoFormContent />
+        </Suspense>
       </div>
     </div>
   )

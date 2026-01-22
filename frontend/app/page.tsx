@@ -129,6 +129,9 @@ export default function FireStationDashboard() {
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
   const [showMeldung, setShowMeldung] = useState(false)
   const [printModalOpen, setPrintModalOpen] = useState(false)
+  const [rekoQrDialogOpen, setRekoQrDialogOpen] = useState(false)
+  const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
+  const [rekoCopied, setRekoCopied] = useState(false)
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -710,6 +713,41 @@ export default function FireStationDashboard() {
     }
   }
 
+  const generateRekoDashboardQR = async () => {
+    if (!selectedEvent) {
+      toast.error('Fehler', {
+        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      })
+      return
+    }
+
+    try {
+      const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
+      // Build full URL for QR code
+      const fullUrl = `${window.location.origin}${response.link}`
+      setRekoDashboardUrl(fullUrl)
+      setRekoQrDialogOpen(true)
+    } catch (error) {
+      console.error('Failed to generate Reko Dashboard link:', error)
+      toast.error('Fehler', {
+        description: 'Reko-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      })
+    }
+  }
+
+  const copyRekoDashboardUrlToClipboard = async () => {
+    if (!rekoDashboardUrl) return
+
+    try {
+      await navigator.clipboard.writeText(rekoDashboardUrl)
+      setRekoCopied(true)
+      toast.success('Link kopiert')
+      setTimeout(() => setRekoCopied(false), 2000)
+    } catch (error) {
+      toast.error('Fehler beim Kopieren')
+    }
+  }
+
   // Handle resource assignment dialog
   const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => {
     setAssignmentResourceType(resourceType)
@@ -1066,6 +1104,10 @@ export default function FireStationDashboard() {
                 <QrCode className="h-4 w-4" />
                 Check-In
               </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={generateRekoDashboardQR}>
+                <Search className="h-4 w-4" />
+                Reko
+              </Button>
               <Button size="sm" variant="outline" className="gap-2" onClick={() => setVehicleStatusSheetOpen(true)} disabled={!selectedEvent}>
                 <Truck className="h-4 w-4" />
                 Fahrzeugstatus
@@ -1231,6 +1273,56 @@ export default function FireStationDashboard() {
 
               <p className="text-xs text-muted-foreground text-center">
                 Dieser Link ermöglicht den Zugriff auf das Check-In ohne Anmeldung
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reko Dashboard QR Code Dialog */}
+      <Dialog open={rekoQrDialogOpen} onOpenChange={setRekoQrDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reko</DialogTitle>
+            <DialogDescription>
+              QR-Code scannen oder Link teilen für Reko-Personal
+            </DialogDescription>
+          </DialogHeader>
+          {rekoDashboardUrl && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="rounded-lg border p-4 bg-white">
+                <QRCodeSVG
+                  value={rekoDashboardUrl}
+                  size={200}
+                  level="M"
+                  includeMargin
+                />
+              </div>
+
+              <div className="w-full">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={rekoDashboardUrl}
+                    readOnly
+                    className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyRekoDashboardUrlToClipboard}
+                  >
+                    {rekoCopied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Reko-Personal kann diesen Link nutzen um ihre Zuweisungen zu sehen und Formulare auszufüllen
               </p>
             </div>
           )}

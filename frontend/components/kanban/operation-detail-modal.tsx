@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -23,6 +23,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
+import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import type { Incident } from "@/lib/types/incidents"
 
 interface OperationDetailModalProps {
@@ -64,6 +65,7 @@ export function OperationDetailModal({
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
+  const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
 
   // Load vehicles and special functions when modal opens
   useEffect(() => {
@@ -629,6 +631,13 @@ export function OperationDetailModal({
             <ArrowRightLeft className="h-4 w-4" />
             Ressourcen übertragen
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setRekoDialogOpen(true)}
+          >
+            <Search className="h-4 w-4" />
+            Reko zuweisen
+          </Button>
           <Button variant="outline" className="ml-auto" onClick={() => onOpenChange(false)}>
             Schliessen
           </Button>
@@ -667,6 +676,14 @@ export function OperationDetailModal({
         availableIncidents={availableIncidents}
         onTransfer={handleTransfer}
         isTransferring={isTransferring}
+      />
+
+      {/* Assign Reko Dialog */}
+      <AssignRekoDialog
+        open={rekoDialogOpen}
+        onOpenChange={setRekoDialogOpen}
+        incidentId={operation.id}
+        incidentTitle={operation.location}
       />
     </Dialog>
   )

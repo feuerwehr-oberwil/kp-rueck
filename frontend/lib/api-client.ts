@@ -478,6 +478,51 @@ export interface ApiVehiclePosition {
   address: string | null
 }
 
+// Reko Dashboard Types
+export interface ApiRekoDashboardPersonnel {
+  personnel_id: string
+  name: string
+  role: string | null
+  assignment_count: number
+}
+
+export interface ApiRekoDashboardPersonnelListResponse {
+  personnel: ApiRekoDashboardPersonnel[]
+  event_id: string
+  event_name: string
+}
+
+export interface ApiRekoDashboardAssignment {
+  incident_id: string
+  incident_title: string
+  incident_type: string
+  incident_status: string
+  location_address: string | null
+  location_lat: string | null
+  location_lng: string | null
+  assignment_id: string
+  assigned_at: string
+  has_completed_reko: boolean
+}
+
+export interface ApiRekoDashboardAssignmentsResponse {
+  personnel_id: string
+  personnel_name: string
+  assignments: ApiRekoDashboardAssignment[]
+}
+
+export interface ApiAvailableRekoPersonnel {
+  personnel_id: string
+  name: string
+  role: string | null
+  assignment_count: number
+}
+
+export interface ApiAvailableRekoPersonnelResponse {
+  personnel: ApiAvailableRekoPersonnel[]
+  currently_assigned_id: string | null
+}
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -1344,6 +1389,44 @@ class ApiClient {
     return this.request<ApiVehiclePosition[]>('/api/traccar/positions', {
       skipToast: true,  // Don't show toast for polling errors
     })
+  }
+
+  // Reko Dashboard
+  async generateRekoDashboardLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
+    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+      `/api/reko-dashboard/generate-link?event_id=${encodeURIComponent(eventId)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getRekoDashboardPersonnel(token: string): Promise<ApiRekoDashboardPersonnelListResponse> {
+    return this.request<ApiRekoDashboardPersonnelListResponse>(
+      `/api/reko-dashboard/personnel?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  async getRekoDashboardAssignments(personnelId: string, token: string): Promise<ApiRekoDashboardAssignmentsResponse> {
+    return this.request<ApiRekoDashboardAssignmentsResponse>(
+      `/api/reko-dashboard/assignments/${personnelId}?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {
+    return this.request<ApiAvailableRekoPersonnelResponse>(
+      `/api/reko-dashboard/incidents/${incidentId}/available-reko`
+    )
+  }
+
+  async assignRekoPersonnel(incidentId: string, personnelId: string): Promise<ApiAssignment> {
+    return this.request<ApiAssignment>(
+      `/api/reko-dashboard/incidents/${incidentId}/assign-reko`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ personnel_id: personnelId }),
+      }
+    )
   }
 }
 

@@ -161,6 +161,7 @@ export function IncidentsKanban() {
                         onUpdate={refreshIncidents}
                         onTransfer={() => handleTransferClick(incident)}
                         isDraggable={false} // Disable dragging for now (can be enabled with drag-and-drop implementation)
+                        showAssignReko={true}
                       />
                     ))
                   )}

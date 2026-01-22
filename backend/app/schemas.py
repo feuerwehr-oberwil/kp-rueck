@@ -1414,3 +1414,70 @@ class TransferAssignmentsResponse(BaseModel):
     transferred_count: int
     assignment_ids: list[UUID]
     message: str
+
+
+# ============================================
+# Reko Dashboard Schemas
+# ============================================
+
+
+class RekoDashboardPersonnel(BaseModel):
+    """Reko personnel with assignment status for dashboard list."""
+
+    personnel_id: UUID
+    name: str
+    role: str | None = None
+    assignment_count: int = 0  # Number of incidents currently assigned
+
+
+class RekoDashboardPersonnelListResponse(BaseModel):
+    """Response for Reko dashboard personnel list."""
+
+    personnel: list[RekoDashboardPersonnel]
+    event_id: UUID
+    event_name: str
+
+
+class RekoDashboardAssignment(BaseModel):
+    """Active incident assignment for Reko personnel."""
+
+    incident_id: UUID
+    incident_title: str
+    incident_type: str
+    incident_status: str
+    location_address: str | None = None
+    location_lat: str | None = None
+    location_lng: str | None = None
+    assignment_id: UUID
+    assigned_at: datetime
+    has_completed_reko: bool = False
+
+
+class RekoDashboardAssignmentsResponse(BaseModel):
+    """Response for Reko personnel assignments."""
+
+    personnel_id: UUID
+    personnel_name: str
+    assignments: list[RekoDashboardAssignment]
+
+
+class AssignRekoPersonnelRequest(BaseModel):
+    """Request to assign Reko personnel to an incident."""
+
+    personnel_id: UUID
+
+
+class AvailableRekoPersonnel(BaseModel):
+    """Available Reko personnel for assignment."""
+
+    personnel_id: UUID
+    name: str
+    role: str | None = None
+    assignment_count: int = 0  # Current number of assignments
+
+
+class AvailableRekoPersonnelResponse(BaseModel):
+    """Response for available Reko personnel."""
+
+    personnel: list[AvailableRekoPersonnel]
+    currently_assigned_id: UUID | None = None  # ID of currently assigned Reko person (if any)

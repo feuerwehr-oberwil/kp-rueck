@@ -135,3 +135,57 @@ def validate_form_token(token: str, incident_id: str, form_type: str = "reko") -
     except (jwt.InvalidTokenError, KeyError, ValueError):
         # Invalid token format or missing fields
         return False
+
+
+# ============================================
+# REKO DASHBOARD TOKENS
+# ============================================
+
+
+def generate_reko_dashboard_token(event_id: UUID) -> str:
+    """
+    Generate a JWT token for Reko Dashboard access scoped to an event.
+
+    Args:
+        event_id: UUID of the event this dashboard is for
+
+    Returns:
+        JWT token string containing event_id and expiration
+    """
+    # Token expires in 24 hours
+    expiration = datetime.now(UTC) + timedelta(hours=24)
+
+    payload = {
+        "event_id": str(event_id),
+        "exp": expiration,
+        "type": "reko_dashboard",
+    }
+
+    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+    return token
+
+
+def validate_reko_dashboard_token(token: str) -> UUID | None:
+    """
+    Validate Reko Dashboard token and extract event_id.
+
+    Args:
+        token: The JWT token string to validate
+
+    Returns:
+        UUID of the event if token is valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+
+        # Check token type
+        if payload.get("type") != "reko_dashboard":
+            return None
+
+        event_id_str = payload.get("event_id")
+        if not event_id_str:
+            return None
+
+        return UUID(event_id_str)
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
+        return None

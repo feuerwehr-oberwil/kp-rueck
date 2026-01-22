@@ -9,8 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle2, AlertCircle, Send, Loader2, MapPin, Info, Binoculars } from 'lucide-react'
+import { AlertCircle, Send, Loader2, Binoculars } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
@@ -350,73 +349,53 @@ export default function RekoForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {/* Training Mode Dummy Data Generator */}
       <RekoDummyGenerator
         isTraining={isTraining}
         onGenerate={handleGenerateDummyData}
       />
 
-      {/* Incident Info Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-              {incidentDetails.location || incidentTitle}
-            </CardTitle>
-            {assignedPersonnelName && (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted px-2 py-1 rounded-md">
-                <Binoculars className="h-4 w-4" />
-                <span>{assignedPersonnelName}</span>
-              </div>
-            )}
-          </div>
-          {incidentDetails.type && (
-            <CardDescription className="capitalize">
-              {incidentDetails.type.replace(/_/g, ' ')}
-            </CardDescription>
-          )}
-        </CardHeader>
-        {incidentDetails.description && (
-          <CardContent className="pt-0">
-            <div className="flex items-start gap-2 text-sm">
-              <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <span className="text-muted-foreground">{incidentDetails.description}</span>
+      {/* Incident Info */}
+      <div className="rounded-lg bg-secondary/50 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <span className="font-medium">{incidentDetails.location || incidentTitle}</span>
+          {assignedPersonnelName && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Binoculars className="h-4 w-4" />
+              <span>{assignedPersonnelName}</span>
             </div>
-          </CardContent>
+          )}
+        </div>
+        {incidentDetails.description && (
+          <p className="text-sm text-muted-foreground mt-2">
+            {incidentDetails.description}
+          </p>
         )}
-      </Card>
+      </div>
 
       {/* Section 1: Basic Confirmation */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">
-            1
-          </span>
-          Grundlagen
-        </h3>
-
-        <div className="space-y-2">
-          <Label className="text-base">Ist der Einsatz relevant? *</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              type="button"
-              variant={formData.is_relevant === true ? 'default' : 'outline'}
-              onClick={() => updateFormData('is_relevant', true)}
-              className="h-14 text-lg font-medium"
-            >
-              Ja
-            </Button>
-            <Button
-              type="button"
-              variant={formData.is_relevant === false ? 'default' : 'outline'}
-              onClick={() => updateFormData('is_relevant', false)}
-              className="h-14 text-lg font-medium"
-            >
-              Nein
-            </Button>
-          </div>
+        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Einsatz relevant? *
+        </Label>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            type="button"
+            variant={formData.is_relevant === true ? 'default' : 'outline'}
+            onClick={() => updateFormData('is_relevant', true)}
+            className="h-12 text-base"
+          >
+            Ja
+          </Button>
+          <Button
+            type="button"
+            variant={formData.is_relevant === false ? 'default' : 'outline'}
+            onClick={() => updateFormData('is_relevant', false)}
+            className="h-12 text-base"
+          >
+            Nein
+          </Button>
         </div>
       </div>
 
@@ -424,26 +403,23 @@ export default function RekoForm() {
 
       {/* Section 2: Dangers Assessment */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">
-            2
-          </span>
+        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
           Gefahren
-        </h3>
+        </Label>
 
-        <div className="space-y-3">
-          <Label className="text-base">
-            Welche Gefahren bestehen? (Mehrfachauswahl)
-          </Label>
-
+        <div className="space-y-2">
           {[
             { key: 'fire', label: 'Feuer/Brand' },
             { key: 'explosion', label: 'Explosionsgefahr' },
             { key: 'collapse', label: 'Einsturzgefahr' },
-            { key: 'chemical', label: 'Gefahrstoffe (chemisch)' },
+            { key: 'chemical', label: 'Gefahrstoffe' },
             { key: 'electrical', label: 'Elektrische Gefahr' }
           ].map(({ key, label }) => (
-            <div key={key} className="flex items-center space-x-3 py-1">
+            <label
+              key={key}
+              htmlFor={`danger-${key}`}
+              className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
+            >
               <Checkbox
                 id={`danger-${key}`}
                 checked={formData.dangers_json[key as keyof ApiDangersAssessment] as boolean}
@@ -451,28 +427,25 @@ export default function RekoForm() {
                   ...formData.dangers_json,
                   [key]: checked === true
                 })}
-                className="h-6 w-6"
+                className="h-5 w-5"
               />
-              <Label htmlFor={`danger-${key}`} className="font-normal cursor-pointer text-base">
-                {label}
-              </Label>
-            </div>
+              <span className="text-sm">{label}</span>
+            </label>
           ))}
+        </div>
 
-          <div className="mt-3">
-            <Label htmlFor="danger-other" className="text-base">Weitere Gefahren</Label>
-            <Textarea
-              id="danger-other"
-              value={formData.dangers_json.other_notes || ''}
-              onChange={(e) => updateFormData('dangers_json', {
-                ...formData.dangers_json,
-                other_notes: e.target.value
-              })}
-              placeholder="Weitere Gefahren beschreiben..."
-              rows={3}
-              className="text-base"
-            />
-          </div>
+        <div className="pt-2">
+          <Label htmlFor="danger-other" className="text-sm mb-1.5 block">Weitere Gefahren</Label>
+          <Textarea
+            id="danger-other"
+            value={formData.dangers_json.other_notes || ''}
+            onChange={(e) => updateFormData('dangers_json', {
+              ...formData.dangers_json,
+              other_notes: e.target.value
+            })}
+            placeholder="Beschreibung..."
+            rows={2}
+          />
         </div>
       </div>
 
@@ -480,16 +453,13 @@ export default function RekoForm() {
 
       {/* Section 3: Effort Assessment */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">
-            3
-          </span>
+        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
           Aufwand
-        </h3>
+        </Label>
 
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="personnel-count" className="text-base">Geschätzter Personalaufwand (Anzahl Personen)</Label>
+            <Label htmlFor="personnel-count" className="text-sm mb-1.5 block">Personal (Anz.)</Label>
             <Input
               id="personnel-count"
               type="number"
@@ -501,12 +471,12 @@ export default function RekoForm() {
                 personnel_count: e.target.value ? parseInt(e.target.value) : null
               })}
               placeholder="z.B. 10"
-              className="h-12 text-lg"
+              className="h-11"
             />
           </div>
 
           <div>
-            <Label htmlFor="duration" className="text-base">Geschätzte Dauer (Stunden)</Label>
+            <Label htmlFor="duration" className="text-sm mb-1.5 block">Dauer (Std.)</Label>
             <Input
               id="duration"
               type="number"
@@ -518,8 +488,8 @@ export default function RekoForm() {
                 ...formData.effort_json,
                 estimated_duration_hours: e.target.value ? parseFloat(e.target.value) : null
               })}
-              placeholder="z.B. 2.5"
-              className="h-12 text-lg"
+              placeholder="z.B. 2"
+              className="h-11"
             />
           </div>
         </div>
@@ -529,49 +499,26 @@ export default function RekoForm() {
 
       {/* Section 4: Power Supply */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">
-            4
-          </span>
+        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
           Stromversorgung
-        </h3>
-
-        <div className="space-y-2">
-          <Label className="text-base">Stromversorgung vor Ort</Label>
-          <div className="grid grid-cols-2 gap-3">
+        </Label>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { value: 'unknown', label: 'Unbekannt' },
+            { value: 'available', label: 'Vorhanden' },
+            { value: 'unavailable', label: 'Nicht vorhanden' },
+            { value: 'emergency_needed', label: 'Notstrom nötig' }
+          ].map(({ value, label }) => (
             <Button
+              key={value}
               type="button"
-              variant={formData.power_supply === 'unknown' ? 'default' : 'outline'}
-              onClick={() => updateFormData('power_supply', 'unknown')}
-              className="h-14 text-base font-medium"
+              variant={formData.power_supply === value ? 'default' : 'outline'}
+              onClick={() => updateFormData('power_supply', value)}
+              className="h-11 text-sm"
             >
-              Unbekannt
+              {label}
             </Button>
-            <Button
-              type="button"
-              variant={formData.power_supply === 'available' ? 'default' : 'outline'}
-              onClick={() => updateFormData('power_supply', 'available')}
-              className="h-14 text-base font-medium"
-            >
-              Vorhanden
-            </Button>
-            <Button
-              type="button"
-              variant={formData.power_supply === 'unavailable' ? 'default' : 'outline'}
-              onClick={() => updateFormData('power_supply', 'unavailable')}
-              className="h-14 text-base font-medium"
-            >
-              Nicht vorhanden
-            </Button>
-            <Button
-              type="button"
-              variant={formData.power_supply === 'emergency_needed' ? 'default' : 'outline'}
-              onClick={() => updateFormData('power_supply', 'emergency_needed')}
-              className="h-14 text-base font-medium"
-            >
-              Notstrom benötigt
-            </Button>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -579,7 +526,9 @@ export default function RekoForm() {
 
       {/* Photo Upload */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold">Fotos (optional)</h3>
+        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Fotos
+        </Label>
         <PhotoUpload
           photos={formData.photos_json}
           incidentId={incidentId!}
@@ -592,53 +541,45 @@ export default function RekoForm() {
 
       {/* Summary */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold">Zusammenfassung</h3>
+        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Zusammenfassung
+        </Label>
 
         <div>
-          <Label htmlFor="summary" className="text-base">Kurzzusammenfassung</Label>
+          <Label htmlFor="summary" className="text-sm mb-1.5 block">Kurzzusammenfassung</Label>
           <Textarea
             id="summary"
             value={formData.summary_text}
             onChange={(e) => updateFormData('summary_text', e.target.value)}
-            placeholder="Wichtigste Erkenntnisse zusammenfassen..."
-            rows={4}
-            className="text-base"
+            placeholder="Wichtigste Erkenntnisse..."
+            rows={3}
           />
         </div>
 
         <div>
-          <Label htmlFor="notes" className="text-base">Zusätzliche Notizen</Label>
+          <Label htmlFor="notes" className="text-sm mb-1.5 block">Zusätzliche Notizen</Label>
           <Textarea
             id="notes"
             value={formData.additional_notes}
             onChange={(e) => updateFormData('additional_notes', e.target.value)}
             placeholder="Weitere Bemerkungen..."
-            rows={3}
-            className="text-base"
+            rows={2}
           />
         </div>
       </div>
 
-      {/* Auto-save indicator */}
-      {lastSaved && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          Zuletzt gespeichert: {lastSaved.toLocaleTimeString('de-CH')}
-        </div>
-      )}
-
       {/* Action Buttons */}
-      <div className="pt-4">
+      <div className="pt-4 space-y-3">
         <Button
           type="submit"
           disabled={isSubmitting || isSaving}
-          className="w-full h-16 text-lg font-semibold"
+          className="w-full h-14"
           size="lg"
         >
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Wird übermittelt...
+              Übermitteln...
             </>
           ) : (
             <>
@@ -647,16 +588,16 @@ export default function RekoForm() {
             </>
           )}
         </Button>
-      </div>
 
-      {/* Help Text */}
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription className="text-sm">
-          Das Formular wird automatisch alle 30 Sekunden gespeichert.
-          Sie können es jederzeit verlassen und später weiterbearbeiten.
-        </AlertDescription>
-      </Alert>
+        {/* Auto-save indicator */}
+        <p className="text-xs text-center text-muted-foreground">
+          {lastSaved ? (
+            <>Gespeichert um {lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</>
+          ) : (
+            <>Wird automatisch gespeichert</>
+          )}
+        </p>
+      </div>
     </form>
   )
 }
