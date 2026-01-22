@@ -115,7 +115,10 @@ async def login(
 @router.post("/refresh", response_model=schemas.UserResponse)
 @limiter.limit(RateLimits.DEFAULT)
 async def refresh_token(
-    response: Response, refresh_token: Annotated[str | None, Cookie()] = None, db: AsyncSession = Depends(get_db)
+    request: Request,
+    response: Response,
+    refresh_token: Annotated[str | None, Cookie()] = None,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Refresh access token using refresh token.
