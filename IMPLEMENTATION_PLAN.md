@@ -11,11 +11,11 @@ This document tracks the implementation of 12 critical improvements identified d
 
 | # | Issue | Category | Status | Commit |
 |---|-------|----------|--------|--------|
-| 2 | Transaction isolation for assignments | Reliability | Pending | - |
-| 3 | Retry + state refresh for 409 Conflict | Reliability | Pending | - |
-| 4 | Create bulk reko endpoint | Performance | Pending | - |
-| 5 | Fix opacity-60 contrast issue | UI/UX | Pending | - |
-| 6 | Add rate limiting middleware | Security | Pending | - |
+| 2 | Transaction isolation for assignments | Reliability | ✅ Done | 956847e |
+| 3 | Retry + state refresh for 409 Conflict | Reliability | ✅ Done | eca60e3 |
+| 4 | Create bulk reko endpoint | Performance | ✅ Done | 661e476 |
+| 5 | Fix opacity-60 contrast issue | UI/UX | ✅ Done | d675f9a |
+| 6 | Add rate limiting middleware | Security | ✅ Done | e4bf90f |
 | 7 | Replace detail=str(e) with generic errors | Security | Pending | - |
 | 8 | Add jitter + exponential backoff to polling | Performance | Pending | - |
 | 9 | Increase mobile filter buttons to 44px | UI/UX | Pending | - |
@@ -200,5 +200,9 @@ This document tracks the implementation of 12 critical improvements identified d
 
 | Date | Item | Description | Commit |
 |------|------|-------------|--------|
-| - | - | - | - |
+| 2026-01-22 | #2 | Added SELECT FOR UPDATE to prevent race conditions in assignments | 956847e |
+| 2026-01-22 | #3 | Added ApiError class and 409 conflict handling with auto-refresh | eca60e3 |
+| 2026-01-22 | #4 | Created bulk reko endpoint, reducing 50 requests to 1 | 661e476 |
+| 2026-01-22 | #5 | Replaced opacity-60 with explicit color classes for WCAG compliance | d675f9a |
+| 2026-01-22 | #6 | Added slowapi rate limiting to login (5/min), exports (10/min), photos (30/min) | e4bf90f |
 
