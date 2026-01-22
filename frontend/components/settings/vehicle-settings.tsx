@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { apiClient, ApiVehicle } from '@/lib/api-client';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { toast } from 'sonner';
@@ -45,6 +45,8 @@ export function VehicleSettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<ApiVehicle | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [sortColumn, setSortColumn] = useState<'display_order' | 'name' | 'radio_call_sign' | 'status'>('display_order');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     loadVehicles();
@@ -61,6 +63,50 @@ export function VehicleSettings() {
 
   // Get unique vehicle types from existing vehicles
   const availableVehicleTypes = Array.from(new Set(vehicles.map(v => v.type))).sort();
+
+  // Handle column header click for sorting
+  const handleSort = (column: 'display_order' | 'name' | 'radio_call_sign' | 'status') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort vehicles based on current sort settings
+  const sortedVehicles = useMemo(() => {
+    return [...vehicles].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'display_order':
+          comparison = a.display_order - b.display_order;
+          break;
+        case 'name':
+          comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+          break;
+        case 'radio_call_sign':
+          comparison = a.radio_call_sign.toLowerCase().localeCompare(b.radio_call_sign.toLowerCase());
+          break;
+        case 'status':
+          comparison = a.status.localeCompare(b.status);
+          break;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [vehicles, sortColumn, sortDirection]);
+
+  // Render sort indicator
+  const SortIndicator = ({ column }: { column: 'display_order' | 'name' | 'radio_call_sign' | 'status' }) => {
+    if (sortColumn !== column) return null;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="ml-1 h-3 w-3 inline" />
+    ) : (
+      <ArrowDown className="ml-1 h-3 w-3 inline" />
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,17 +276,35 @@ export function VehicleSettings() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-16">#</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Funkrufname</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead
+              className="w-16 cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('display_order')}
+            >
+              #<SortIndicator column="display_order" />
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('name')}
+            >
+              Name<SortIndicator column="name" />
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('radio_call_sign')}
+            >
+              Funkrufname<SortIndicator column="radio_call_sign" />
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('status')}
+            >
+              Status<SortIndicator column="status" />
+            </TableHead>
             <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {vehicles
-            .sort((a, b) => a.display_order - b.display_order)
-            .map((vehicle) => (
+          {sortedVehicles.map((vehicle) => (
               <TableRow key={vehicle.id}>
                 <TableCell className="font-mono text-sm text-muted-foreground">{vehicle.display_order}</TableCell>
                 <TableCell className="font-medium">{vehicle.name}</TableCell>

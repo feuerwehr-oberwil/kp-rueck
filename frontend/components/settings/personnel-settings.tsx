@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { apiClient, ApiPersonnel } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
@@ -45,6 +45,8 @@ export function PersonnelSettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personnelToDelete, setPersonnelToDelete] = useState<ApiPersonnel | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'availability'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     loadPersonnel();
@@ -113,6 +115,55 @@ export function PersonnelSettings() {
     setIsDialogOpen(false);
     setEditingPersonnel(null);
     setFormData({ name: '', role: '', availability: 'available' });
+  };
+
+  // Handle column header click for sorting
+  const handleSort = (column: 'name' | 'role' | 'availability') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort personnel based on current sort settings
+  const sortedPersonnel = useMemo(() => {
+    return [...personnel].sort((a, b) => {
+      let aVal: string;
+      let bVal: string;
+
+      switch (sortColumn) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'role':
+          aVal = (a.role || '').toLowerCase();
+          bVal = (b.role || '').toLowerCase();
+          break;
+        case 'availability':
+          aVal = a.availability;
+          bVal = b.availability;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [personnel, sortColumn, sortDirection]);
+
+  // Render sort indicator
+  const SortIndicator = ({ column }: { column: 'name' | 'role' | 'availability' }) => {
+    if (sortColumn !== column) return null;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="ml-1 h-3 w-3 inline" />
+    ) : (
+      <ArrowDown className="ml-1 h-3 w-3 inline" />
+    );
   };
 
   // Extract unique roles with their sort orders and counts
@@ -229,14 +280,29 @@ export function PersonnelSettings() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Rolle</TableHead>
-            <TableHead>Verfügbarkeit</TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('name')}
+            >
+              Name<SortIndicator column="name" />
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('role')}
+            >
+              Rolle<SortIndicator column="role" />
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('availability')}
+            >
+              Verfügbarkeit<SortIndicator column="availability" />
+            </TableHead>
             <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {personnel.map((person) => (
+          {sortedPersonnel.map((person) => (
             <TableRow key={person.id}>
               <TableCell className="font-medium">{person.name}</TableCell>
               <TableCell>{person.role || '-'}</TableCell>

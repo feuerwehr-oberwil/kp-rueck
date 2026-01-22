@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { apiClient, ApiMaterialResource } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
@@ -45,6 +45,8 @@ export function MaterialSettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [materialToDelete, setMaterialToDelete] = useState<ApiMaterialResource | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [sortColumn, setSortColumn] = useState<'name' | 'location' | 'status'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     loadMaterials();
@@ -113,6 +115,55 @@ export function MaterialSettings() {
     setIsDialogOpen(false);
     setEditingMaterial(null);
     setFormData({ name: '', status: 'available', location: '' });
+  };
+
+  // Handle column header click for sorting
+  const handleSort = (column: 'name' | 'location' | 'status') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort materials based on current sort settings
+  const sortedMaterials = useMemo(() => {
+    return [...materials].sort((a, b) => {
+      let aVal: string;
+      let bVal: string;
+
+      switch (sortColumn) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'location':
+          aVal = (a.location || '').toLowerCase();
+          bVal = (b.location || '').toLowerCase();
+          break;
+        case 'status':
+          aVal = a.status;
+          bVal = b.status;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [materials, sortColumn, sortDirection]);
+
+  // Render sort indicator
+  const SortIndicator = ({ column }: { column: 'name' | 'location' | 'status' }) => {
+    if (sortColumn !== column) return null;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="ml-1 h-3 w-3 inline" />
+    ) : (
+      <ArrowDown className="ml-1 h-3 w-3 inline" />
+    );
   };
 
   // Extract unique locations with their sort orders and counts
@@ -243,14 +294,29 @@ export function MaterialSettings() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Kategorie</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('name')}
+            >
+              Name<SortIndicator column="name" />
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('location')}
+            >
+              Kategorie<SortIndicator column="location" />
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 select-none"
+              onClick={() => handleSort('status')}
+            >
+              Status<SortIndicator column="status" />
+            </TableHead>
             <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {materials.map((material) => (
+          {sortedMaterials.map((material) => (
             <TableRow key={material.id}>
               <TableCell className="font-medium">{material.name}</TableCell>
               <TableCell>
