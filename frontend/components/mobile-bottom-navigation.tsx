@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, BarChart3, Users, Radio, FileSpreadsheet, FileText, QrCode, Sparkles, LogOut } from 'lucide-react'
+import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Users, Radio, FileSpreadsheet, FileText, QrCode, Sparkles, LogOut } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -55,7 +55,6 @@ export function MobileBottomNavigation({
   const secondaryItems = [
     { id: 'events', label: 'Events', icon: Calendar, href: '/events', category: 'Navigation' },
     { id: 'settings', label: 'Einstellungen', icon: Settings, href: '/settings', category: 'Verwaltung' },
-    { id: 'stats', label: 'Statistiken', icon: BarChart3, href: '/stats', category: 'Verwaltung' },
     { id: 'divera', label: 'Divera Notfälle', icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
     { id: 'help', label: 'Hilfe & Dokumentation', icon: HelpCircle, href: '/help', category: 'Support' },
   ]
