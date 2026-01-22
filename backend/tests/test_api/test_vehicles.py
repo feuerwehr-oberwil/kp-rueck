@@ -209,20 +209,8 @@ async def test_create_vehicle_requires_auth(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.skip(reason="API bug: CRUD doesn't save radio_call_sign, causing response validation error")
 async def test_create_vehicle_success(editor_client: AsyncClient):
-    """Test creating a vehicle successfully.
-
-    BUG: The CRUD layer (crud.create_vehicle) doesn't save radio_call_sign
-    or display_order from the input. They use model defaults (empty string
-    for radio_call_sign, 0 for display_order). However, the response schema
-    (schemas.Vehicle) validates that radio_call_sign cannot be empty, causing
-    a ResponseValidationError when FastAPI tries to serialize the response.
-
-    TODO: Fix crud.create_vehicle to save all schema fields:
-    - radio_call_sign
-    - display_order
-    """
+    """Test creating a vehicle successfully."""
     vehicle_data = {
         "name": "DLK 23-12",
         "type": "DLK",
@@ -242,12 +230,8 @@ async def test_create_vehicle_success(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.skip(reason="API bug: CRUD doesn't save radio_call_sign, causing response validation error")
 async def test_create_vehicle_core_fields(editor_client: AsyncClient):
-    """Test creating vehicle - verifies core fields are saved.
-
-    Same bug as test_create_vehicle_success - skipped until CRUD is fixed.
-    """
+    """Test creating vehicle - verifies core fields are saved."""
     response = await editor_client.post(
         "/api/vehicles/",
         json={

@@ -258,24 +258,17 @@ async def test_assign_viewer_forbidden(viewer_client: AsyncClient, test_incident
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.skip(reason="API bug: invalid resource_type causes unhandled DB constraint violation (500)")
 async def test_assign_invalid_resource_type(editor_client: AsyncClient, test_incident: Incident):
-    """Test assigning with invalid resource type.
-
-    BUG: The API doesn't validate resource_type before inserting into DB.
-    This causes a database CHECK constraint violation which raises an unhandled
-    IntegrityError instead of returning a proper HTTP error response.
-
-    TODO: Add validation in API to return 422 for invalid resource_type.
-    Valid types are: 'personnel', 'vehicle', 'material'
-    """
+    """Test assigning with invalid resource type returns 422."""
     assignment_data = {
         "resource_type": "invalid_type",
         "resource_id": str(uuid4()),
     }
     response = await editor_client.post(f"/api/incidents/{test_incident.id}/assign", json=assignment_data)
-    # Should validate and return 422 or 409, currently causes 500
-    assert response.status_code in [409, 422]
+    assert response.status_code == 422
+    # Verify error message mentions resource_type
+    data = response.json()
+    assert "resource_type" in str(data).lower()
 
 
 @pytest.mark.asyncio

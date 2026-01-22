@@ -606,6 +606,15 @@ class AssignmentCreate(BaseModel):
     resource_type: str  # 'personnel', 'vehicle', 'material'
     resource_id: UUID
 
+    @field_validator("resource_type")
+    @classmethod
+    def validate_resource_type(cls, v: str) -> str:
+        """Validate resource type is one of the allowed values."""
+        valid_types = {"personnel", "vehicle", "material"}
+        if v not in valid_types:
+            raise ValueError(f"resource_type must be one of: {', '.join(sorted(valid_types))}")
+        return v
+
 
 class AssignmentResponse(BaseModel):
     """Assignment response schema."""

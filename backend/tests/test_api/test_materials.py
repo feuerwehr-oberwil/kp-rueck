@@ -209,12 +209,7 @@ async def test_create_material_requires_auth(client: AsyncClient):
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_create_material_success(editor_client: AsyncClient):
-    """Test creating a material successfully.
-
-    Note: Due to a bug in the CRUD layer, the 'type' field is not saved
-    from input and uses the model default 'Sonstiges' instead.
-    TODO: Fix crud.create_material to save all schema fields.
-    """
+    """Test creating a material successfully."""
     material_data = {
         "name": "Schlauchpaket B 20m",
         "type": "Tauchpumpen",
@@ -225,7 +220,7 @@ async def test_create_material_success(editor_client: AsyncClient):
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Schlauchpaket B 20m"
-    # type uses model default due to CRUD bug
+    assert data["type"] == "Tauchpumpen"
     assert data["location"] == "TLF"
     assert data["status"] == "available"
     assert "id" in data
