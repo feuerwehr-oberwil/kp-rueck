@@ -123,10 +123,12 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
           "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:bg-muted/50 hover:border-border",
           canDrag && "draggable",
           isDragging && "dragging",
-          // Assigned reko personnel: dimmed but still draggable
-          canDrag && person.isReko && person.status === "assigned" && "opacity-60",
-          // Non-reko assigned personnel: not draggable
-          !canDrag && person.status === "assigned" && "cursor-not-allowed opacity-60",
+          // Assigned reko personnel: subtle visual distinction but still draggable
+          // Use border and background colors instead of opacity for WCAG contrast compliance
+          canDrag && person.isReko && person.status === "assigned" && "bg-muted/30 border-border/30",
+          // Non-reko assigned personnel: clear visual indication they're not draggable
+          // Use distinct styling instead of opacity for accessibility
+          !canDrag && person.status === "assigned" && "cursor-not-allowed bg-muted/40 border-dashed border-muted-foreground/30",
           !canDrag && person.status !== "assigned" && "cursor-pointer"
         )}
       >
