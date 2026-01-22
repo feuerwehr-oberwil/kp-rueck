@@ -126,23 +126,47 @@ async def _check_time_based_alerts(
         .where(Incident.status.in_(["eingegangen", "reko", "disponiert", "einsatz", "einsatz_beendet"]))
         .where(Incident.deleted_at.is_(None))
     )
-    incidents = result.scalars().all()
+    incidents = list(result.scalars().all())
+
+    if not incidents:
+        return notifications
+
+    # OPTIMIZATION: Batch query all status transitions at once instead of N queries
+    # Get the most recent transition to current status for all incidents in one query
+
+    from ..models import StatusTransition
+
+    incident_ids = [i.id for i in incidents]
+
+    # Get latest transitions for each incident matching their current status
+    # Uses a correlated subquery to find the max timestamp per incident
+    subquery = (
+        select(
+            StatusTransition.incident_id,
+            func.max(StatusTransition.timestamp).label("max_timestamp"),
+        )
+        .where(StatusTransition.incident_id.in_(incident_ids))
+        .group_by(StatusTransition.incident_id)
+        .subquery()
+    )
+
+    transitions_result = await db.execute(
+        select(StatusTransition)
+        .join(subquery, and_(
+            StatusTransition.incident_id == subquery.c.incident_id,
+            StatusTransition.timestamp == subquery.c.max_timestamp,
+        ))
+    )
+    transitions = {str(t.incident_id): t for t in transitions_result.scalars().all()}
 
     for incident in incidents:
-        # Get the most recent status transition to determine how long in current status
-        from ..models import StatusTransition
+        # Use transition time if available and matches current status, else use creation time
+        transition = transitions.get(str(incident.id))
+        if transition and transition.to_status == incident.status:
+            status_start = transition.timestamp
+        else:
+            status_start = incident.created_at
 
-        transition_result = await db.execute(
-            select(StatusTransition)
-            .where(StatusTransition.incident_id == incident.id)
-            .where(StatusTransition.to_status == incident.status)
-            .order_by(StatusTransition.timestamp.desc())
-            .limit(1)
-        )
-        last_transition = transition_result.scalar_one_or_none()
-
-        # Use transition time or incident creation time
-        status_start = last_transition.timestamp if last_transition else incident.created_at
         duration_minutes = (now - status_start).total_seconds() / 60
 
         # Get threshold for this status
@@ -266,21 +290,23 @@ async def _check_resource_alerts(
     # Note: Material.status tracks if the item is broken/unavailable, NOT if it's assigned.
     # Assignments are tracked in the incident_assignments table, so we need to exclude
     # materials that have active assignments to get the truly available count.
+
+    # OPTIMIZATION: Query assigned material IDs once, before the loop
+    # instead of querying for each location (was N+1 query pattern)
+    assigned_material_ids_result = await db.execute(
+        select(IncidentAssignment.resource_id).where(
+            and_(
+                IncidentAssignment.resource_type == "material",
+                IncidentAssignment.unassigned_at.is_(None),  # Active assignment
+            )
+        )
+    )
+    assigned_material_ids = {row[0] for row in assigned_material_ids_result.all()}
+
     for material_location, threshold in settings.material_depletion_threshold.items():
         # Skip if notifications disabled for this location (threshold = -1)
         if threshold < 0:
             continue
-
-        # Get IDs of materials currently assigned to any incident (active assignments only)
-        assigned_material_ids_result = await db.execute(
-            select(IncidentAssignment.resource_id).where(
-                and_(
-                    IncidentAssignment.resource_type == "material",
-                    IncidentAssignment.unassigned_at.is_(None),  # Active assignment
-                )
-            )
-        )
-        assigned_material_ids = {row[0] for row in assigned_material_ids_result.all()}
 
         # Count materials that are:
         # 1. In this location
