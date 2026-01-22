@@ -355,6 +355,8 @@ class IncidentAssignment(Base):
         Index("idx_assignments_resource", "resource_type", "resource_id"),
         Index("idx_assignments_resource_id", "resource_id"),
         Index("idx_assignments_unassigned", "unassigned_at"),
+        # Compound index for active assignment queries: finding all active resources for an incident
+        Index("idx_assignments_incident_active", "incident_id", "resource_type", "unassigned_at"),
     )
 
 
