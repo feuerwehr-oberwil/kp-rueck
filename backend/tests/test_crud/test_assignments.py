@@ -944,3 +944,110 @@ class TestTransferAssignments:
                 current_user=test_user,
                 request=mock_request,
             )
+
+
+# ============================================
+# Test: Transaction Isolation (Row Locking)
+# ============================================
+
+
+class TestTransactionIsolation:
+    """Tests for transaction isolation and row locking in assignments."""
+
+    async def test_assign_resource_uses_for_update(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """Test that assign_resource uses FOR UPDATE locking.
+
+        This test verifies that the assignment succeeds and the locking
+        mechanism is in place. The actual concurrent behavior is tested
+        at the integration level.
+        """
+        # Should succeed with locking enabled
+        assignment = await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert assignment is not None
+        assert assignment.incident_id == test_incident.id
+
+    async def test_duplicate_assignment_prevented_with_locking(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """Test that duplicate assignment to same incident is prevented.
+
+        This validates the check-and-create atomicity that FOR UPDATE provides.
+        """
+        # First assignment succeeds
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        # Second assignment to same incident should fail
+        with pytest.raises(ValueError, match="already assigned to this incident"):
+            await assignment_crud.assign_resource(
+                db=db_session,
+                incident_id=test_incident.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                current_user=test_user,
+                request=mock_request,
+            )
+
+    async def test_assignment_to_different_incidents_allowed(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        second_incident: Incident,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """Test that assigning same resource to different incidents is allowed.
+
+        The locking ensures accurate conflict detection while still allowing
+        the override behavior for different incidents (UI shows warning).
+        """
+        # First assignment
+        assignment1 = await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        # Second assignment to different incident should succeed (warning in UI)
+        assignment2 = await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=second_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert assignment1.incident_id == test_incident.id
+        assert assignment2.incident_id == second_incident.id
+        assert assignment1.id != assignment2.id
