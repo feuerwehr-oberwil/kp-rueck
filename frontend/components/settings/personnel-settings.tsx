@@ -208,9 +208,7 @@ export function PersonnelSettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="available">Verfügbar</SelectItem>
-                    <SelectItem value="assigned">Zugewiesen</SelectItem>
-                    <SelectItem value="off_duty">Ausser Dienst</SelectItem>
-                    <SelectItem value="inactive">Inaktiv</SelectItem>
+                    <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -247,14 +245,10 @@ export function PersonnelSettings() {
                   className={`px-2 py-1 rounded text-xs ${
                     person.availability === 'available'
                       ? 'bg-zinc-100 text-zinc-800'
-                      : person.availability === 'assigned'
-                      ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {person.availability === 'available' ? 'Verfügbar' :
-                   person.availability === 'assigned' ? 'Zugewiesen' :
-                   person.availability === 'off_duty' ? 'Ausser Dienst' : 'Inaktiv'}
+                  {person.availability === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
                 </span>
               </TableCell>
               <TableCell className="text-right">

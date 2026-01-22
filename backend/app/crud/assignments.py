@@ -65,8 +65,7 @@ async def assign_resource(
     db.add(assignment)
     await db.flush()
 
-    # Update resource status to 'assigned'
-    await update_resource_status(db, resource_type, resource_id, "assigned")
+    # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
 
     # Log assignment
     await log_action(
@@ -109,8 +108,7 @@ async def unassign_resource(
     # Mark unassigned
     assignment.unassigned_at = datetime.utcnow()
 
-    # Update resource status back to 'available'
-    await update_resource_status(db, assignment.resource_type, assignment.resource_id, "available")
+    # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
 
     # Log unassignment
     await log_action(

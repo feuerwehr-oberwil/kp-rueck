@@ -193,9 +193,9 @@ class TestAssignResource:
         assert assignment.assigned_by == test_user.id
         assert assignment.unassigned_at is None
 
-        # Verify vehicle status updated
+        # Note: Base status is NOT updated - assignment is tracked via incident_assignments table
         await db_session.refresh(test_vehicle)
-        assert test_vehicle.status == "assigned"
+        assert test_vehicle.status == "available"  # Base status unchanged
 
     async def test_assign_personnel_to_incident(
         self,
@@ -218,9 +218,9 @@ class TestAssignResource:
         assert assignment is not None
         assert assignment.resource_type == "personnel"
 
-        # Verify personnel availability updated
+        # Note: Base availability is NOT updated - assignment is tracked via incident_assignments table
         await db_session.refresh(test_personnel)
-        assert test_personnel.availability == "assigned"
+        assert test_personnel.availability == "available"  # Base status unchanged
 
     async def test_assign_material_to_incident(
         self,
@@ -243,9 +243,9 @@ class TestAssignResource:
         assert assignment is not None
         assert assignment.resource_type == "material"
 
-        # Verify material status updated
+        # Note: Base status is NOT updated - assignment is tracked via incident_assignments table
         await db_session.refresh(test_material)
-        assert test_material.status == "assigned"
+        assert test_material.status == "available"  # Base status unchanged
 
     async def test_assign_duplicate_resource_raises_error(
         self,
@@ -382,13 +382,13 @@ class TestUpdateResourceStatus:
             db=db_session,
             resource_type="personnel",
             resource_id=test_personnel.id,
-            new_status="assigned",
+            new_status="unavailable",
         )
         # Note: update_resource_status doesn't commit - caller must commit
         await db_session.commit()
 
         await db_session.refresh(test_personnel)
-        assert test_personnel.availability == "assigned"
+        assert test_personnel.availability == "unavailable"
 
     async def test_update_vehicle_status(
         self,
@@ -400,12 +400,12 @@ class TestUpdateResourceStatus:
             db=db_session,
             resource_type="vehicle",
             resource_id=test_vehicle.id,
-            new_status="assigned",
+            new_status="unavailable",
         )
         await db_session.commit()
 
         await db_session.refresh(test_vehicle)
-        assert test_vehicle.status == "assigned"
+        assert test_vehicle.status == "unavailable"
 
     async def test_update_material_status(
         self,
@@ -417,12 +417,12 @@ class TestUpdateResourceStatus:
             db=db_session,
             resource_type="material",
             resource_id=test_material.id,
-            new_status="assigned",
+            new_status="unavailable",
         )
         await db_session.commit()
 
         await db_session.refresh(test_material)
-        assert test_material.status == "assigned"
+        assert test_material.status == "unavailable"
 
     async def test_update_nonexistent_resource(
         self,

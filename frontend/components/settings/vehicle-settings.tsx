@@ -250,14 +250,10 @@ export function VehicleSettings() {
                     className={`px-2 py-1 rounded text-xs ${
                       vehicle.status === 'available'
                         ? 'bg-zinc-100 text-zinc-800'
-                        : vehicle.status === 'assigned'
-                        ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}
                   >
-                    {vehicle.status === 'available' ? 'Verfügbar' :
-                     vehicle.status === 'assigned' ? 'Zugewiesen' :
-                     vehicle.status === 'planned' ? 'Geplant' : 'Wartung'}
+                    {vehicle.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
                   </span>
                 </TableCell>
                 <TableCell className="text-right">

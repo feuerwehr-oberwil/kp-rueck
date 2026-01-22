@@ -81,10 +81,25 @@ async def get_event_stats(
     else:
         avg_duration_minutes = 0
 
-    # Calculate resource utilization (percentage of personnel assigned)
-    assigned_personnel = sum(1 for p in personnel if p.availability == "assigned")
+    # Calculate resource utilization (percentage of personnel assigned to incidents)
+    # Get personnel assigned to any active incident in this event
+    assigned_result = await db.execute(
+        select(models.IncidentAssignment.resource_id)
+        .distinct()
+        .join(models.Incident, models.IncidentAssignment.incident_id == models.Incident.id)
+        .where(
+            models.IncidentAssignment.resource_type == "personnel",
+            models.IncidentAssignment.unassigned_at.is_(None),
+            models.Incident.event_id == event_id,
+            models.Incident.deleted_at.is_(None),
+        )
+    )
+    assigned_personnel_ids = set(row[0] for row in assigned_result.all())
+
+    # Count checked-in personnel who are assigned to incidents
+    assigned_count = sum(1 for p in personnel if p.id in assigned_personnel_ids)
     if total_personnel > 0:
-        utilization = (assigned_personnel / total_personnel) * 100
+        utilization = (assigned_count / total_personnel) * 100
     else:
         utilization = 0.0
 

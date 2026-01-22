@@ -124,15 +124,15 @@ async def delete_vehicle(
     current_user: User,
     request: Request,
 ) -> bool:
-    """Delete vehicle (soft delete by marking as maintenance)."""
+    """Delete vehicle (soft delete by marking as unavailable)."""
     result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
     vehicle = result.scalar_one_or_none()
 
     if not vehicle:
         return False
 
-    # Soft delete: mark as 'maintenance'
-    vehicle.status = "maintenance"
+    # Soft delete: mark as 'unavailable'
+    vehicle.status = "unavailable"
     vehicle.updated_at = datetime.utcnow()
 
     # Log deletion

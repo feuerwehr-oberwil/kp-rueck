@@ -127,15 +127,15 @@ async def delete_material(
     current_user: User,
     request: Request,
 ) -> bool:
-    """Delete material (soft delete by marking as maintenance)."""
+    """Delete material (soft delete by marking as unavailable)."""
     result = await db.execute(select(Material).where(Material.id == material_id))
     material = result.scalar_one_or_none()
 
     if not material:
         return False
 
-    # Soft delete: mark as 'maintenance'
-    material.status = "maintenance"
+    # Soft delete: mark as 'unavailable'
+    material.status = "unavailable"
     material.updated_at = datetime.utcnow()
 
     # Log deletion

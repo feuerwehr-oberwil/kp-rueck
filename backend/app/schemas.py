@@ -20,7 +20,7 @@ class PersonnelBase(BaseModel):
     name: str
     role: str | None = None
     role_sort_order: int = 0
-    availability: str  # 'available', 'assigned', 'unavailable'
+    availability: str  # 'available', 'unavailable'
     tags: list[str] | None = None
 
     @field_validator("name")
@@ -38,7 +38,15 @@ class PersonnelBase(BaseModel):
     @classmethod
     def validate_availability(cls, v: str) -> str:
         """Validate availability status."""
-        valid_statuses = {"available", "assigned", "unavailable"}
+        valid_statuses = {"available", "unavailable"}
+        # Map old status values to new ones for backwards compatibility
+        status_mapping = {
+            "assigned": "available",
+            "off_duty": "unavailable",
+            "inactive": "unavailable",
+        }
+        if v in status_mapping:
+            return status_mapping[v]
         if v not in valid_statuses:
             raise ValueError(f"Availability must be one of: {', '.join(valid_statuses)}")
         return v
@@ -303,7 +311,7 @@ class MaterialBase(BaseModel):
     location: str  # Storage location (e.g., 'TLF', 'Pio', 'MoWa', 'Bühne', 'Depot')
     location_sort_order: int = 0
     description: str | None = None
-    status: str = "available"  # 'available', 'assigned', 'planned', 'maintenance'
+    status: str = "available"  # 'available', 'unavailable'
 
     @field_validator("name", "type", "location")
     @classmethod
@@ -327,7 +335,15 @@ class MaterialBase(BaseModel):
     @classmethod
     def validate_status(cls, v: str) -> str:
         """Validate material status."""
-        valid_statuses = {"available", "assigned", "planned", "maintenance"}
+        valid_statuses = {"available", "unavailable"}
+        # Map old status values to new ones for backwards compatibility
+        status_mapping = {
+            "assigned": "available",
+            "planned": "unavailable",
+            "maintenance": "unavailable",
+        }
+        if v in status_mapping:
+            return status_mapping[v]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
         return v

@@ -222,9 +222,7 @@ export function MaterialSettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="available">Verfügbar</SelectItem>
-                    <SelectItem value="assigned">Zugewiesen</SelectItem>
-                    <SelectItem value="planned">Geplant</SelectItem>
-                    <SelectItem value="maintenance">Wartung</SelectItem>
+                    <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -265,14 +263,10 @@ export function MaterialSettings() {
                   className={`px-2 py-1 rounded text-xs ${
                     material.status === 'available'
                       ? 'bg-zinc-100 text-zinc-800'
-                      : material.status === 'assigned'
-                      ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {material.status === 'available' ? 'Verfügbar' :
-                   material.status === 'assigned' ? 'Zugewiesen' :
-                   material.status === 'planned' ? 'Geplant' : 'Wartung'}
+                  {material.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
                 </span>
               </TableCell>
               <TableCell className="text-right">

@@ -35,8 +35,8 @@ MATERIAL_COLUMNS = [
 
 # Valid enum values
 VEHICLE_TYPES = ["TLF", "DLK", "MTW", "KDO", "KdoW", "VRW", "RW", "Anhänger"]
-VEHICLE_STATUSES = ["available", "assigned", "maintenance"]
-PERSONNEL_STATUSES = ["available", "unavailable", "assigned"]
+VEHICLE_STATUSES = ["available", "unavailable"]
+PERSONNEL_STATUSES = ["available", "unavailable"]
 # Material types are no longer hardcoded - validation now accepts any non-empty string
 
 

@@ -74,7 +74,7 @@ class Vehicle(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_vehicle_status"),
+        CheckConstraint("status IN ('available', 'unavailable')", name="valid_vehicle_status"),
     )
 
 
@@ -102,7 +102,7 @@ class Personnel(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "availability IN ('available', 'assigned', 'unavailable')",
+            "availability IN ('available', 'unavailable')",
             name="valid_personnel_availability",
         ),
         # Check-in only allowed if not unavailable
@@ -132,7 +132,7 @@ class Material(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("status IN ('available', 'assigned', 'planned', 'maintenance')", name="valid_material_status"),
+        CheckConstraint("status IN ('available', 'unavailable')", name="valid_material_status"),
     )
 
 

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.security import hash_password
 from app.database import get_db
 from app.main import app
-from app.models import Event, EventAttendance, Incident, Personnel, User
+from app.models import Event, EventAttendance, Incident, IncidentAssignment, Personnel, User
 
 # ============================================
 # Fixtures
@@ -99,8 +99,9 @@ async def test_event_with_personnel(db_session: AsyncSession, test_event: Event)
     """Create an event with checked-in personnel."""
     personnel_list = []
 
-    # Create personnel with different availability states
-    for i, availability in enumerate(["available", "available", "assigned", "unavailable"]):
+    # Create personnel with different base availability states
+    # Note: "assigned" is now a runtime status based on incident_assignments, not a base status
+    for i, availability in enumerate(["available", "available", "available", "unavailable"]):
         person = Personnel(
             id=uuid4(),
             name=f"Person {i}",
@@ -112,7 +113,7 @@ async def test_event_with_personnel(db_session: AsyncSession, test_event: Event)
 
     await db_session.commit()
 
-    # Check in the available and assigned personnel
+    # Check in the first 3 personnel (available ones)
     for person in personnel_list[:3]:  # First 3 personnel
         await db_session.refresh(person)
         attendance = EventAttendance(
@@ -206,19 +207,46 @@ async def test_get_stats_personnel_counts(
     assert response.status_code == 200
 
     data = response.json()
-    # 3 personnel checked in (2 available + 1 assigned)
+    # 3 personnel checked in (all with base availability 'available')
     assert data["personnel_total"] == 3
-    # 2 personnel marked as available
-    assert data["personnel_available"] == 2
+    # All 3 personnel marked as available (base status)
+    assert data["personnel_available"] == 3
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_get_stats_resource_utilization(
-    authenticated_client: AsyncClient, test_event_with_personnel: tuple[Event, list[Personnel]]
+    db_session: AsyncSession,
+    authenticated_client: AsyncClient,
+    test_event_with_personnel: tuple[Event, list[Personnel]],
+    test_user: User,
 ):
-    """Test that resource utilization is calculated correctly."""
-    event, _ = test_event_with_personnel
+    """Test that resource utilization is calculated correctly based on incident assignments."""
+    event, personnel = test_event_with_personnel
+
+    # Create an incident and assign one personnel to it
+    incident = Incident(
+        id=uuid4(),
+        event_id=event.id,
+        title="Test Incident",
+        type="brandbekaempfung",
+        status="einsatz",
+        priority="medium",
+        location_address="Test Street",
+    )
+    db_session.add(incident)
+    await db_session.flush()
+
+    # Assign first personnel to the incident
+    assignment = IncidentAssignment(
+        id=uuid4(),
+        incident_id=incident.id,
+        resource_type="personnel",
+        resource_id=personnel[0].id,
+        assigned_by=test_user.id,
+    )
+    db_session.add(assignment)
+    await db_session.commit()
 
     response = await authenticated_client.get(f"/api/events/{event.id}/stats")
     assert response.status_code == 200
@@ -357,17 +385,17 @@ async def test_get_stats_response_format(authenticated_client: AsyncClient, test
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_get_stats_utilization_rounded(
-    db_session: AsyncSession, authenticated_client: AsyncClient, test_event: Event
+    db_session: AsyncSession, authenticated_client: AsyncClient, test_event: Event, test_user: User
 ):
     """Test that utilization percentage is rounded to 1 decimal place."""
-    # Create personnel with specific availability
+    # Create personnel with base availability
     personnel_list = []
     for i in range(3):
         person = Personnel(
             id=uuid4(),
             name=f"Person {i}",
             role="atemschutz",
-            availability="assigned" if i == 0 else "available",
+            availability="available",  # All have base availability "available"
         )
         db_session.add(person)
         personnel_list.append(person)
@@ -386,6 +414,28 @@ async def test_get_stats_utilization_rounded(
         )
         db_session.add(attendance)
 
+    # Create an incident and assign one personnel to it
+    incident = Incident(
+        id=uuid4(),
+        event_id=test_event.id,
+        title="Test Incident",
+        type="brandbekaempfung",
+        status="einsatz",
+        priority="medium",
+        location_address="Test Street",
+    )
+    db_session.add(incident)
+    await db_session.flush()
+
+    # Assign first personnel to the incident
+    assignment = IncidentAssignment(
+        id=uuid4(),
+        incident_id=incident.id,
+        resource_type="personnel",
+        resource_id=personnel_list[0].id,
+        assigned_by=test_user.id,
+    )
+    db_session.add(assignment)
     await db_session.commit()
 
     response = await authenticated_client.get(f"/api/events/{test_event.id}/stats")
