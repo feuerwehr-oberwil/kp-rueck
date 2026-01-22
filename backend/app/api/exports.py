@@ -7,13 +7,14 @@ from datetime import datetime
 from io import BytesIO
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..models import AuditLog, Event
 from ..services.export_service import (
     export_event_excel,
@@ -25,7 +26,9 @@ router = APIRouter(prefix="/exports", tags=["exports"])
 
 
 @router.post("/events/{event_id}")
+@limiter.limit(RateLimits.EXPORT)
 async def export_event(
+    request: Request,
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,  # Only editors can export

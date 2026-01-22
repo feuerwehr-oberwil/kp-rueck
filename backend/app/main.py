@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
 
 from .logging_config import get_logger, setup_logging
 
@@ -47,6 +48,7 @@ from .background import start_sync_scheduler, stop_sync_scheduler
 from .config import settings
 from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
+from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
@@ -126,6 +128,10 @@ app = FastAPI(
     version=settings.version,
     lifespan=lifespan,
 )
+
+# Add rate limiter state and exception handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 
 # CORS middleware with explicit domain whitelist

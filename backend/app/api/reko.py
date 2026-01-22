@@ -11,6 +11,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentUser
 from ..crud import reko as crud
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Incident, RekoReport
 from ..services.audit import log_action
 from ..services.notification_service import create_reko_notification
@@ -270,7 +271,9 @@ async def get_event_reko_summaries(
 
 
 @router.post("/{incident_id}/photos")
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
 async def upload_photo(
+    request: Request,
     incident_id: uuid.UUID,
     file: UploadFile = File(...),
     x_reko_token: str = Header(...),

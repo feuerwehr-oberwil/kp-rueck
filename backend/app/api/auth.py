@@ -20,6 +20,7 @@ from ..auth.security import (
     verify_password,
 )
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..models import User
 from ..services.audit import log_login, log_logout
 
@@ -27,6 +28,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/login", response_model=schemas.UserResponse)
+@limiter.limit(RateLimits.LOGIN)
 async def login(
     request: Request,
     response: Response,
@@ -111,6 +113,7 @@ async def login(
 
 
 @router.post("/refresh", response_model=schemas.UserResponse)
+@limiter.limit(RateLimits.DEFAULT)
 async def refresh_token(
     response: Response, refresh_token: Annotated[str | None, Cookie()] = None, db: AsyncSession = Depends(get_db)
 ):
