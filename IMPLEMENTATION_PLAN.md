@@ -1,7 +1,7 @@
 # Implementation Plan: Critical Fixes for KP Rück
 
 **Created**: 2026-01-22
-**Status**: In Progress
+**Status**: 11/12 Complete (Item 12 pending)
 
 This document tracks the implementation of 12 critical improvements identified during the full codebase sweep.
 
@@ -16,13 +16,13 @@ This document tracks the implementation of 12 critical improvements identified d
 | 4 | Create bulk reko endpoint | Performance | ✅ Done | 661e476 |
 | 5 | Fix opacity-60 contrast issue | UI/UX | ✅ Done | d675f9a |
 | 6 | Add rate limiting middleware | Security | ✅ Done | e4bf90f |
-| 7 | Replace detail=str(e) with generic errors | Security | Pending | - |
-| 8 | Add jitter + exponential backoff to polling | Performance | Pending | - |
-| 9 | Increase mobile filter buttons to 44px | UI/UX | Pending | - |
-| 10 | Add missing database indexes | Performance | Pending | - |
+| 7 | Replace detail=str(e) with generic errors | Security | ✅ Done | b932a45 |
+| 8 | Add jitter + exponential backoff to polling | Performance | ✅ Done | 5e479fa |
+| 9 | Increase mobile filter buttons to 44px | UI/UX | ✅ Done | 3b1f3b2 |
+| 10 | Add missing database indexes | Performance | ✅ Done | 1ce6a82 |
 | 12 | Split context providers | Performance | Pending | - |
-| 14 | Optimize notification service queries | Performance | Pending | - |
-| 15 | Add form validation feedback | UI/UX | Pending | - |
+| 14 | Optimize notification service queries | Performance | ✅ Done | afca6c7 |
+| 15 | Add form validation feedback | UI/UX | ✅ Done | 5b4074f |
 
 ---
 
@@ -205,4 +205,10 @@ This document tracks the implementation of 12 critical improvements identified d
 | 2026-01-22 | #4 | Created bulk reko endpoint, reducing 50 requests to 1 | 661e476 |
 | 2026-01-22 | #5 | Replaced opacity-60 with explicit color classes for WCAG compliance | d675f9a |
 | 2026-01-22 | #6 | Added slowapi rate limiting to login (5/min), exports (10/min), photos (30/min) | e4bf90f |
+| 2026-01-22 | #7 | Created ErrorMessages class, replaced all detail=str(e) with safe generic messages | b932a45 |
+| 2026-01-22 | #8 | Added jitter (±20%) and exponential backoff (2x, max 6x) to polling interval | 5e479fa |
+| 2026-01-22 | #9 | Increased mobile filter buttons from h-8 (32px) to min-h-[44px] for WCAG touch targets | 3b1f3b2 |
+| 2026-01-22 | #10 | Added compound index idx_assignments_incident_active for active assignment queries | 1ce6a82 |
+| 2026-01-22 | #14 | Moved assigned_material_ids query outside loop, batched status transition queries | afca6c7 |
+| 2026-01-22 | #15 | Added validation state tracking, error prop to LocationInput, required field indicator | 5b4074f |
 
