@@ -38,6 +38,8 @@ interface LocationInputProps {
   onCoordinatesChange: (lat: number | null, lon: number | null) => void
   disabled?: boolean
   autoFocus?: boolean
+  /** Show error styling for validation feedback */
+  error?: boolean
 }
 
 export function LocationInput({
@@ -48,6 +50,7 @@ export function LocationInput({
   onCoordinatesChange,
   disabled = false,
   autoFocus = false,
+  error = false,
 }: LocationInputProps) {
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
   const [addressSearchQuery, setAddressSearchQuery] = useState("")
@@ -215,9 +218,12 @@ export function LocationInput({
     <div className="space-y-4">
       {/* Address Input with Autocomplete */}
       <div className="min-h-[40px]">
-        <Label htmlFor="location_address" className="text-sm font-semibold text-muted-foreground">
-          Einsatzort (Adresse)
-        </Label>
+        <div className="flex items-center gap-1">
+          <Label htmlFor="location_address" className="text-sm font-semibold text-muted-foreground">
+            Einsatzort (Adresse)
+          </Label>
+          <span className="text-destructive" title="Pflichtfeld">*</span>
+        </div>
         <div className="flex items-start gap-2 mt-2">
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
             <PopoverTrigger asChild>
@@ -226,7 +232,11 @@ export function LocationInput({
                 variant="outline"
                 role="combobox"
                 aria-expanded={addressSearchOpen}
-                className="flex-1 justify-between"
+                aria-invalid={error}
+                className={cn(
+                  "flex-1 justify-between",
+                  error && "border-destructive focus:ring-destructive"
+                )}
                 disabled={disabled}
               >
                 <span className="truncate">

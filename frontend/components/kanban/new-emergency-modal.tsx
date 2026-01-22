@@ -56,16 +56,30 @@ export function NewEmergencyModal({
     vehicleAssignments: new Map(),
   })
 
+  // Form validation state
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [showValidationErrors, setShowValidationErrors] = useState(false)
+
+  // Validation rules
+  const isLocationValid = formData.location.trim().length > 0
+  const showLocationError = (touched.location || showValidationErrors) && !isLocationValid
+
 
   const handleSubmit = () => {
-    if (!formData.location) {
+    // Trigger validation display
+    setShowValidationErrors(true)
+
+    if (!isLocationValid) {
+      toast.error("Bitte füllen Sie alle Pflichtfelder aus", {
+        description: "Der Einsatzort ist erforderlich."
+      })
       return
     }
 
     onCreateOperation(formData)
     toast.success(`Einsatz erstellt: ${formData.location}`)
 
-    // Reset form
+    // Reset form and validation state
     setFormData({
       location: "",
       incidentType: "elementarereignis",
@@ -86,6 +100,8 @@ export function NewEmergencyModal({
       vehicles: [],
       vehicleAssignments: new Map(),
     })
+    setTouched({})
+    setShowValidationErrors(false)
 
     onOpenChange(false)
   }
@@ -104,20 +120,31 @@ export function NewEmergencyModal({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Location - Always shown, autoFocus when modal opens */}
-          <LocationInput
-            address={formData.location}
-            latitude={formData.coordinates[0]}
-            longitude={formData.coordinates[1]}
-            onAddressChange={(address) => setFormData(prev => ({ ...prev, location: address || "" }))}
-            onCoordinatesChange={(lat, lon) =>
-              setFormData(prev => ({
-                ...prev,
-                coordinates: [lat ?? 47.51637699933488, lon ?? 7.561800450458299]
-              }))
-            }
-            autoFocus={open}
-          />
+          {/* Location - Required field with validation */}
+          <div>
+            <LocationInput
+              address={formData.location}
+              latitude={formData.coordinates[0]}
+              longitude={formData.coordinates[1]}
+              onAddressChange={(address) => {
+                setFormData(prev => ({ ...prev, location: address || "" }))
+                setTouched(prev => ({ ...prev, location: true }))
+              }}
+              onCoordinatesChange={(lat, lon) =>
+                setFormData(prev => ({
+                  ...prev,
+                  coordinates: [lat ?? 47.51637699933488, lon ?? 7.561800450458299]
+                }))
+              }
+              autoFocus={open}
+              error={showLocationError}
+            />
+            {showLocationError && (
+              <p className="text-sm text-destructive mt-1.5">
+                Bitte geben Sie einen Einsatzort ein
+              </p>
+            )}
+          </div>
 
           {/* All fields */}
               {/* Meldung */}
