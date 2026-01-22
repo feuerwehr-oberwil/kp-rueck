@@ -133,3 +133,100 @@ async def get_incident_reko_reports(db: AsyncSession, incident_id: uuid.UUID) ->
         .order_by(RekoReport.submitted_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def get_reko_summaries_by_event(
+    db: AsyncSession, event_id: uuid.UUID
+) -> dict[uuid.UUID, dict]:
+    """
+    Get reko summaries for all incidents in an event (bulk load).
+
+    This is a performance optimization that fetches all reko data for an event
+    in a single query instead of N separate queries (one per incident).
+
+    Only returns the latest submitted (non-draft) report for each incident.
+
+    Args:
+        db: Database session
+        event_id: Event UUID
+
+    Returns:
+        Dictionary mapping incident_id to reko summary dict
+    """
+    from sqlalchemy import and_, func
+    from sqlalchemy.orm import aliased
+
+    # Subquery to get the latest submitted report per incident
+    # We want only non-draft reports, ordered by submission time
+    latest_report_subquery = (
+        select(
+            RekoReport.incident_id,
+            func.max(RekoReport.submitted_at).label("max_submitted_at"),
+        )
+        .where(RekoReport.is_draft == False)  # noqa: E712 - SQLAlchemy needs == not 'is'
+        .group_by(RekoReport.incident_id)
+        .subquery()
+    )
+
+    # Main query joining incidents with their latest reko reports
+    result = await db.execute(
+        select(
+            Incident.id.label("incident_id"),
+            RekoReport.id.label("report_id"),
+            RekoReport.is_relevant,
+            RekoReport.dangers_json,
+            RekoReport.effort_json,
+            RekoReport.summary_text,
+            RekoReport.submitted_at,
+            RekoReport.submitted_by_personnel_id,
+        )
+        .select_from(Incident)
+        .outerjoin(
+            latest_report_subquery,
+            Incident.id == latest_report_subquery.c.incident_id,
+        )
+        .outerjoin(
+            RekoReport,
+            and_(
+                RekoReport.incident_id == Incident.id,
+                RekoReport.submitted_at == latest_report_subquery.c.max_submitted_at,
+                RekoReport.is_draft == False,  # noqa: E712
+            ),
+        )
+        .where(
+            and_(
+                Incident.event_id == event_id,
+                Incident.deleted_at.is_(None),
+            )
+        )
+    )
+    rows = result.all()
+
+    # Build personnel lookup for names (batch load)
+    personnel_ids = {row.submitted_by_personnel_id for row in rows if row.submitted_by_personnel_id}
+    personnel_names = {}
+    if personnel_ids:
+        from ..models import Personnel
+
+        personnel_result = await db.execute(
+            select(Personnel.id, Personnel.name).where(Personnel.id.in_(personnel_ids))
+        )
+        personnel_names = {row.id: row.name for row in personnel_result.all()}
+
+    # Build response dictionary
+    summaries = {}
+    for row in rows:
+        summaries[row.incident_id] = {
+            "incident_id": row.incident_id,
+            "has_completed_reko": row.report_id is not None,
+            "is_relevant": row.is_relevant,
+            "dangers_json": row.dangers_json,
+            "effort_json": row.effort_json,
+            "summary_text": row.summary_text,
+            "submitted_at": row.submitted_at,
+            "submitted_by_personnel_name": personnel_names.get(row.submitted_by_personnel_id)
+            if row.submitted_by_personnel_id
+            else None,
+        }
+
+    return summaries

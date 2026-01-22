@@ -236,6 +236,34 @@ async def generate_reko_link(
     }
 
 
+@router.get("/event/{event_id}/summaries", response_model=schemas.EventRekoSummariesResponse)
+async def get_event_reko_summaries(
+    event_id: uuid.UUID,
+    _current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get reko summaries for all incidents in an event (bulk load).
+
+    This is a performance optimization endpoint that eliminates N+1 queries
+    when loading the kanban board. Instead of fetching reko data for each
+    incident separately, this returns all reko summaries in a single request.
+
+    Only returns the latest submitted (non-draft) report for each incident.
+
+    Requires authentication.
+    """
+    summaries = await crud.get_reko_summaries_by_event(db, event_id)
+
+    # Convert UUID keys to strings for JSON serialization
+    summaries_str_keys = {str(k): v for k, v in summaries.items()}
+
+    return schemas.EventRekoSummariesResponse(
+        summaries=summaries_str_keys,
+        total=len(summaries),
+    )
+
+
 # ============================================
 # Photo Upload Endpoints
 # ============================================

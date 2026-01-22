@@ -34,6 +34,7 @@ from app.models import (
 from app.schemas import NotificationSettings
 from app.services.notification_service import (
     NOTIFICATION_SETTINGS_KEY,
+    _auto_resolve_stale_notifications,
     _check_data_quality_alerts,
     _check_event_size_alerts,
     _check_resource_alerts,
@@ -135,6 +136,7 @@ async def notif_material(db_session: AsyncSession) -> Material:
         id=uuid4(),
         name="Test Atemschutzgerät",
         type="Atemschutz",
+        location="Depot",  # Location is used for threshold notifications
         status="available",
     )
     db_session.add(material)
@@ -411,8 +413,8 @@ class TestCheckResourceAlerts:
         notif_event: Event,
     ):
         """Test critical alert when no materials available."""
-        # No materials of type "Atemschutz" in database
-        settings = NotificationSettings(material_depletion_threshold={"Atemschutz": 2})
+        # No materials at location "Depot" in database
+        settings = NotificationSettings(material_depletion_threshold={"Depot": 2})
         notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
 
         assert any(n.type == "no_materials" and n.severity == "critical" for n in notifications)
@@ -425,8 +427,8 @@ class TestCheckResourceAlerts:
         notif_material: Material,
     ):
         """Test warning when materials below threshold."""
-        # Only 1 material available, threshold is 2
-        settings = NotificationSettings(material_depletion_threshold={"Atemschutz": 2})
+        # Only 1 material available at "Depot" location, threshold is 2
+        settings = NotificationSettings(material_depletion_threshold={"Depot": 2})
         notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
 
         assert any(n.type == "no_materials" and n.severity == "warning" for n in notifications)
@@ -437,12 +439,152 @@ class TestCheckResourceAlerts:
         db_session: AsyncSession,
         notif_event: Event,
     ):
-        """Test no alert when material type disabled (threshold -1)."""
-        settings = NotificationSettings(material_depletion_threshold={"Atemschutz": -1})
+        """Test no alert when material location disabled (threshold -1)."""
+        settings = NotificationSettings(material_depletion_threshold={"Depot": -1})
         notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
 
-        # No alerts for Atemschutz since disabled
-        assert not any(n.message and "Atemschutz" in n.message for n in notifications)
+        # No alerts for Depot since disabled
+        assert not any(n.message and "Depot" in n.message for n in notifications)
+
+    @pytest.mark.asyncio
+    async def test_material_depletion_excludes_assigned_materials(
+        self,
+        db_session: AsyncSession,
+        notif_event: Event,
+        notif_incident: Incident,
+    ):
+        """Test that assigned materials are excluded from available count."""
+        # Create 3 materials at "Depot" location
+        materials = []
+        for i in range(3):
+            material = Material(
+                id=uuid4(),
+                name=f"Test Material {i}",
+                type="TestType",
+                location="Depot",
+                status="available",
+            )
+            db_session.add(material)
+            materials.append(material)
+        await db_session.commit()
+
+        # With threshold=2 and 3 materials, no warning should appear
+        settings = NotificationSettings(material_depletion_threshold={"Depot": 2})
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        assert not any(n.type == "no_materials" and "Depot" in n.message for n in notifications)
+
+        # Now assign 2 materials to an incident
+        for i in range(2):
+            assignment = IncidentAssignment(
+                incident_id=notif_incident.id,
+                resource_type="material",
+                resource_id=materials[i].id,
+            )
+            db_session.add(assignment)
+        await db_session.commit()
+
+        # Now only 1 material is truly available (3 total - 2 assigned = 1 available)
+        # With threshold=2, this should trigger a warning
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        assert any(n.type == "no_materials" and n.severity == "warning" for n in notifications)
+        assert any("Depot" in n.message and "1" in n.message for n in notifications)
+
+    @pytest.mark.asyncio
+    async def test_material_depletion_critical_when_all_assigned(
+        self,
+        db_session: AsyncSession,
+        notif_event: Event,
+        notif_incident: Incident,
+    ):
+        """Test critical alert when all materials are assigned."""
+        # Create 2 materials at "TLF" location
+        materials = []
+        for i in range(2):
+            material = Material(
+                id=uuid4(),
+                name=f"TLF Material {i}",
+                type="TestType",
+                location="TLF",
+                status="available",
+            )
+            db_session.add(material)
+            materials.append(material)
+        await db_session.commit()
+
+        # Assign all materials to an incident
+        for material in materials:
+            assignment = IncidentAssignment(
+                incident_id=notif_incident.id,
+                resource_type="material",
+                resource_id=material.id,
+            )
+            db_session.add(assignment)
+        await db_session.commit()
+
+        # With threshold=1 and 0 available (all assigned), critical alert
+        settings = NotificationSettings(material_depletion_threshold={"TLF": 1})
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        assert any(n.type == "no_materials" and n.severity == "critical" for n in notifications)
+        assert any("TLF" in n.message and "Keine Einheiten" in n.message for n in notifications)
+
+    @pytest.mark.asyncio
+    async def test_material_depletion_unassigned_materials_counted(
+        self,
+        db_session: AsyncSession,
+        notif_event: Event,
+        notif_incident: Incident,
+    ):
+        """Test that unassigned (released) materials are counted as available."""
+        # Create 2 materials at "MoWa" location
+        materials = []
+        for i in range(2):
+            material = Material(
+                id=uuid4(),
+                name=f"MoWa Material {i}",
+                type="TestType",
+                location="MoWa",
+                status="available",
+            )
+            db_session.add(material)
+            materials.append(material)
+        await db_session.commit()
+
+        # Assign all materials
+        assignments = []
+        for material in materials:
+            assignment = IncidentAssignment(
+                incident_id=notif_incident.id,
+                resource_type="material",
+                resource_id=material.id,
+            )
+            db_session.add(assignment)
+            assignments.append(assignment)
+        await db_session.commit()
+        for assignment in assignments:
+            await db_session.refresh(assignment)
+
+        # With threshold=1 and 0 available, critical alert
+        settings = NotificationSettings(material_depletion_threshold={"MoWa": 1})
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        assert any(n.type == "no_materials" and n.severity == "critical" for n in notifications)
+
+        # Now unassign one material (release it)
+        assignments[0].unassigned_at = datetime.now(UTC)
+        await db_session.commit()
+
+        # Now 1 material is available, threshold is 1, so warning (not critical)
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        # Should no longer be critical (1 available, threshold 1 means warning OR no alert)
+        # Since available (1) <= threshold (1), still warning
+        assert any(n.type == "no_materials" and n.severity == "warning" for n in notifications)
+
+        # Unassign the second material too
+        assignments[1].unassigned_at = datetime.now(UTC)
+        await db_session.commit()
+
+        # Now 2 materials available, threshold is 1, no alert
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        assert not any(n.type == "no_materials" and "MoWa" in n.message for n in notifications)
 
 
 # ============================================
@@ -610,6 +752,77 @@ class TestDeduplicateAndSave:
         """Test empty list returns empty."""
         saved = await _deduplicate_and_save(db_session, [], notif_event.id)
         assert saved == []
+
+    @pytest.mark.asyncio
+    async def test_different_locations_not_suppressed(
+        self, db_session: AsyncSession, notif_event: Event, notif_user: User
+    ):
+        """Test that dismissed notification for one location doesn't suppress another location.
+
+        This is critical for material depletion notifications - a dismissed 'Bühne' notification
+        should NOT suppress a new 'Depot' notification, even though they have the same type.
+        """
+        # Create and dismiss a notification for "Bühne"
+        dismissed_buehne = Notification(
+            type="no_materials",
+            severity="critical",
+            message="Keine Einheiten von 'Bühne' mehr verfügbar",
+            incident_id=None,  # Event-level notification
+            event_id=notif_event.id,
+            dismissed=True,
+            dismissed_at=datetime.now(UTC) - timedelta(minutes=5),
+            dismissed_by=notif_user.id,
+        )
+        db_session.add(dismissed_buehne)
+        await db_session.commit()
+
+        # Try to add notification for different location "Depot"
+        new_depot_notification = Notification(
+            type="no_materials",
+            severity="warning",
+            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            incident_id=None,  # Event-level notification
+            event_id=notif_event.id,
+        )
+
+        saved = await _deduplicate_and_save(db_session, [new_depot_notification], notif_event.id)
+
+        # Should be saved because it's a different location (different message)
+        assert len(saved) == 1
+        assert "Depot" in saved[0].message
+
+    @pytest.mark.asyncio
+    async def test_same_location_is_suppressed(
+        self, db_session: AsyncSession, notif_event: Event, notif_user: User
+    ):
+        """Test that dismissed notification for same location IS suppressed."""
+        # Create and dismiss a notification for "Depot"
+        dismissed_depot = Notification(
+            type="no_materials",
+            severity="warning",
+            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            incident_id=None,
+            event_id=notif_event.id,
+            dismissed=True,
+            dismissed_at=datetime.now(UTC) - timedelta(minutes=5),
+            dismissed_by=notif_user.id,
+        )
+        db_session.add(dismissed_depot)
+        await db_session.commit()
+
+        # Try to add same notification again
+        new_depot_notification = Notification(
+            type="no_materials",
+            severity="warning",
+            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            incident_id=None,
+            event_id=notif_event.id,
+        )
+
+        saved = await _deduplicate_and_save(db_session, [new_depot_notification], notif_event.id)
+
+        # Should be suppressed because it's the exact same notification
+        assert len(saved) == 0
 
 
 # ============================================
@@ -926,3 +1139,97 @@ class TestNotificationEdgeCases:
 
         # Should be saved (different incident_id)
         assert len(saved) == 1
+
+
+# ============================================
+# Auto-Resolution Tests
+# ============================================
+
+
+class TestAutoResolution:
+    """Tests for automatic resolution of stale notifications."""
+
+    @pytest.mark.asyncio
+    async def test_material_notification_auto_resolves_when_condition_fixed(
+        self,
+        db_session: AsyncSession,
+        notif_event: Event,
+        notif_incident: Incident,
+    ):
+        """Test that material notification is auto-resolved when materials unassigned."""
+        # Create 3 materials at Depot
+        materials = []
+        for i in range(3):
+            material = Material(
+                id=uuid4(),
+                name=f"Depot Material {i}",
+                type="TestType",
+                location="Depot",
+                status="available",
+            )
+            db_session.add(material)
+            materials.append(material)
+        await db_session.commit()
+
+        # Assign 2 materials (leaving 1 available, below threshold of 2)
+        assignments = []
+        for i in range(2):
+            assignment = IncidentAssignment(
+                incident_id=notif_incident.id,
+                resource_type="material",
+                resource_id=materials[i].id,
+            )
+            db_session.add(assignment)
+            assignments.append(assignment)
+        await db_session.commit()
+        for a in assignments:
+            await db_session.refresh(a)
+
+        # Configure threshold
+        settings = NotificationSettings(material_depletion_threshold={"Depot": 2})
+
+        # First evaluation should create the notification
+        from app.services.notification_service import _check_resource_alerts, _auto_resolve_stale_notifications
+
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        assert any("Depot" in n.message for n in notifications)
+
+        # Save the notification
+        depot_notification = Notification(
+            type="no_materials",
+            severity="warning",
+            message="Nur noch 1 Einheiten von 'Depot' verfügbar",
+            incident_id=None,
+            event_id=notif_event.id,
+            dismissed=False,
+        )
+        db_session.add(depot_notification)
+        await db_session.commit()
+        await db_session.refresh(depot_notification)
+
+        # Now unassign 1 material (2 available now, equals threshold - still warning)
+        assignments[0].unassigned_at = datetime.now(UTC)
+        await db_session.commit()
+
+        # Re-check - should still generate notification (2 available <= 2 threshold)
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        # Message changes to "2 Einheiten" but still triggers
+        assert any("Depot" in n.message for n in notifications)
+
+        # Unassign second material (3 available now, above threshold)
+        assignments[1].unassigned_at = datetime.now(UTC)
+        await db_session.commit()
+
+        # Re-check - should NOT generate notification anymore
+        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
+        assert not any("Depot" in n.message for n in notifications)
+
+        # Auto-resolve should dismiss the old notification
+        await _auto_resolve_stale_notifications(db_session, notif_event.id, notifications, settings)
+
+        # Refresh and check it was dismissed
+        await db_session.refresh(depot_notification)
+        assert depot_notification.dismissed is True
+        assert depot_notification.dismissed_at is not None
+        # dismissed_by should be None for auto-resolved
+        assert depot_notification.dismissed_by is None

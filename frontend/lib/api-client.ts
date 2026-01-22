@@ -358,6 +358,23 @@ export interface ApiRekoFormResponse extends ApiRekoReportResponse {
   // Same as ApiRekoReportResponse, backend returns this on GET /form
 }
 
+// Bulk Reko Summary Types (performance optimization)
+export interface ApiRekoSummary {
+  incident_id: string
+  has_completed_reko: boolean
+  is_relevant: boolean | null
+  dangers_json: ApiDangersAssessment | null
+  effort_json: ApiEffortEstimation | null
+  summary_text: string | null
+  submitted_at: string | null
+  submitted_by_personnel_name: string | null
+}
+
+export interface ApiEventRekoSummariesResponse {
+  summaries: Record<string, ApiRekoSummary>  // incident_id -> summary
+  total: number
+}
+
 // Excel Import/Export Types
 export interface ApiExcelImportPreview {
   personnel_preview: Array<Record<string, any>>
@@ -1104,6 +1121,14 @@ class ApiClient {
 
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
     return this.request<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
+  }
+
+  /**
+   * Get reko summaries for all incidents in an event (bulk load).
+   * This eliminates N+1 queries when loading the kanban board.
+   */
+  async getEventRekoSummaries(eventId: string): Promise<ApiEventRekoSummariesResponse> {
+    return this.request<ApiEventRekoSummariesResponse>(`/api/reko/event/${eventId}/summaries`)
   }
 
   // Excel Import/Export

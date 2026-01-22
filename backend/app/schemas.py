@@ -783,6 +783,28 @@ class RekoReportResponse(RekoReportBase):
         return v
 
 
+class RekoSummary(BaseModel):
+    """Lightweight Reko report summary for bulk loading (used in kanban board)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    incident_id: UUID
+    has_completed_reko: bool  # Whether there's a submitted (non-draft) report
+    is_relevant: bool | None = None
+    dangers_json: DangersAssessment | None = None
+    effort_json: EffortEstimation | None = None
+    summary_text: str | None = None
+    submitted_at: datetime | None = None
+    submitted_by_personnel_name: str | None = None
+
+
+class EventRekoSummariesResponse(BaseModel):
+    """Response containing all reko summaries for an event."""
+
+    summaries: dict[str, RekoSummary]  # incident_id -> summary
+    total: int
+
+
 # ============================================
 # Audit Log Schemas
 # ============================================

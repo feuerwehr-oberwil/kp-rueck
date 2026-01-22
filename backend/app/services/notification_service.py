@@ -4,7 +4,8 @@ import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+# Helper subquery for assigned material IDs
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel
@@ -79,6 +80,9 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
 
     # Deduplicate and save new notifications
     await _deduplicate_and_save(db, notifications, event_id)
+
+    # Auto-resolve notifications whose conditions are no longer true
+    await _auto_resolve_stale_notifications(db, event_id, notifications, settings)
 
     # Return all active notifications AND recently dismissed ones (last 20 from last 24 hours)
     # This ensures the frontend can show history while preventing stale dismissed notifications
@@ -257,16 +261,40 @@ async def _check_resource_alerts(
                 )
             )
 
-    # Check material depletion
-    # Skip material types with threshold -1 (disabled)
-    for material_type, threshold in settings.material_depletion_threshold.items():
-        # Skip if notifications disabled for this type (threshold = -1)
+    # Check material depletion by location (e.g., 'Depot', 'TLF', 'MoWa')
+    # Skip material locations with threshold -1 (disabled)
+    # Note: Material.status tracks if the item is broken/unavailable, NOT if it's assigned.
+    # Assignments are tracked in the incident_assignments table, so we need to exclude
+    # materials that have active assignments to get the truly available count.
+    for material_location, threshold in settings.material_depletion_threshold.items():
+        # Skip if notifications disabled for this location (threshold = -1)
         if threshold < 0:
             continue
 
-        result = await db.execute(
-            select(func.count(Material.id)).where(Material.type == material_type).where(Material.status == "available")
+        # Get IDs of materials currently assigned to any incident (active assignments only)
+        assigned_material_ids_result = await db.execute(
+            select(IncidentAssignment.resource_id).where(
+                and_(
+                    IncidentAssignment.resource_type == "material",
+                    IncidentAssignment.unassigned_at.is_(None),  # Active assignment
+                )
+            )
         )
+        assigned_material_ids = {row[0] for row in assigned_material_ids_result.all()}
+
+        # Count materials that are:
+        # 1. In this location
+        # 2. Have status 'available' (not broken/unavailable)
+        # 3. NOT currently assigned to any incident
+        query = (
+            select(func.count(Material.id))
+            .where(Material.location == material_location)
+            .where(Material.status == "available")
+        )
+        if assigned_material_ids:
+            query = query.where(Material.id.notin_(assigned_material_ids))
+
+        result = await db.execute(query)
         available_count = result.scalar_one()
 
         if available_count == 0:
@@ -274,7 +302,7 @@ async def _check_resource_alerts(
                 Notification(
                     type="no_materials",
                     severity="critical",
-                    message=f"Keine Einheiten von '{material_type}' mehr verfügbar",
+                    message=f"Keine Einheiten von '{material_location}' mehr verfügbar",
                     event_id=event_id,
                 )
             )
@@ -283,7 +311,7 @@ async def _check_resource_alerts(
                 Notification(
                     type="no_materials",
                     severity="warning",
-                    message=f"Nur noch {available_count} Einheiten von '{material_type}' verfügbar",
+                    message=f"Nur noch {available_count} Einheiten von '{material_location}' verfügbar",
                     event_id=event_id,
                 )
             )
@@ -380,6 +408,11 @@ async def _deduplicate_and_save(
         else:
             base_conditions.append(Notification.incident_id.is_(None))
 
+        # For event-level notifications (no incident_id), also match on message
+        # This prevents e.g. a dismissed "Depot" notification from suppressing a new "TLF" notification
+        if not notification.incident_id:
+            base_conditions.append(Notification.message == notification.message)
+
         # Build suppression logic based on re-alarm settings
         now = datetime.now(UTC)
 
@@ -429,6 +462,61 @@ async def _deduplicate_and_save(
             await db.refresh(notification)
 
     return saved
+
+
+async def _auto_resolve_stale_notifications(
+    db: AsyncSession,
+    event_id: UUID,
+    current_notifications: list[Notification],
+    settings: NotificationSettings,
+) -> None:
+    """
+    Auto-resolve notifications whose conditions are no longer true.
+
+    This provides better UX by automatically clearing notifications when the underlying
+    issue is fixed (e.g., materials unassigned, personnel fatigue resolved).
+    """
+    # Get all active (non-dismissed) notifications for this event
+    result = await db.execute(
+        select(Notification)
+        .where(Notification.event_id == event_id)
+        .where(Notification.dismissed == False)  # noqa: E712
+    )
+    active_notifications = list(result.scalars().all())
+
+    if not active_notifications:
+        return
+
+    # Build a set of messages from current (still-valid) notifications
+    current_messages = {n.message for n in current_notifications}
+
+    # Check each active notification to see if its condition is still true
+    notifications_to_resolve = []
+    for notification in active_notifications:
+        # For material depletion notifications, check if the message is still in the current set
+        # If not, the condition has been resolved (materials back above threshold)
+        if notification.type == "no_materials":
+            if notification.message not in current_messages:
+                notifications_to_resolve.append(notification)
+
+        # For personnel fatigue, check if still in current notifications
+        elif notification.type == "personnel_fatigue":
+            if notification.message not in current_messages:
+                notifications_to_resolve.append(notification)
+
+        # For no_personnel alerts, check if still in current
+        elif notification.type == "no_personnel":
+            if notification.message not in current_messages:
+                notifications_to_resolve.append(notification)
+
+    # Auto-dismiss resolved notifications
+    if notifications_to_resolve:
+        now = datetime.now(UTC)
+        for notification in notifications_to_resolve:
+            notification.dismissed = True
+            notification.dismissed_at = now
+            # dismissed_by is None for auto-resolved notifications
+        await db.commit()
 
 
 async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id: UUID) -> Notification | None:
