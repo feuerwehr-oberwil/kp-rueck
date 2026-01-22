@@ -130,13 +130,13 @@ export function MobileIncidentListView({
           />
         </div>
 
-        {/* Status Filter Pills */}
+        {/* Status Filter Pills - 44px min height for touch targets (WCAG 2.5.5) */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
           <Button
             variant={activeFilter === null ? "default" : "outline"}
             size="sm"
             onClick={() => setActiveFilter(null)}
-            className="flex-shrink-0 h-8"
+            className="flex-shrink-0 min-h-[44px] px-4"
           >
             Alle ({operations.length})
           </Button>
@@ -146,7 +146,7 @@ export function MobileIncidentListView({
               variant={activeFilter === group.id ? "default" : "outline"}
               size="sm"
               onClick={() => setActiveFilter(activeFilter === group.id ? null : group.id)}
-              className="flex-shrink-0 h-8"
+              className="flex-shrink-0 min-h-[44px] px-4"
             >
               {group.label} ({statusCounts[group.id]})
             </Button>
