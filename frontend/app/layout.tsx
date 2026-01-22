@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
+import { PersonnelProvider } from '@/lib/contexts/personnel-context'
+import { MaterialsProvider } from '@/lib/contexts/materials-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
 import { CommandPaletteProvider } from '@/lib/contexts/command-palette-context'
@@ -37,17 +39,21 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <AuthProvider>
           <EventProvider>
-            <OperationsProvider>
-              <NotificationProvider>
-                <CommandPaletteProvider>
-                  <AppShell>
-                    {children}
-                  </AppShell>
-                  <NotificationToasts />
-                  <PersistentNotificationSidebar />
-                </CommandPaletteProvider>
-              </NotificationProvider>
-            </OperationsProvider>
+            <PersonnelProvider>
+              <MaterialsProvider>
+                <OperationsProvider>
+                  <NotificationProvider>
+                    <CommandPaletteProvider>
+                      <AppShell>
+                        {children}
+                      </AppShell>
+                      <NotificationToasts />
+                      <PersistentNotificationSidebar />
+                    </CommandPaletteProvider>
+                  </NotificationProvider>
+                </OperationsProvider>
+              </MaterialsProvider>
+            </PersonnelProvider>
           </EventProvider>
         </AuthProvider>
       </body>

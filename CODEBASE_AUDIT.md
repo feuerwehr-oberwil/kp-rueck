@@ -7,25 +7,25 @@ This document tracks open TODOs, pending work, and known issues in the KP Rück 
 
 ---
 
-## 1. Pending Implementation Items
+## 1. Completed Implementation Items
 
-### Item #12 - Split Context Providers
+### Item #12 - Split Context Providers ✅
 
-**Status**: Pending
+**Status**: Completed (2026-01-22)
 **Category**: Performance
 
-**Problem**: Single large context (`operations-context.tsx`) causes all components to re-render when any state changes.
+**Problem**: Single large context (`operations-context.tsx`) caused all components to re-render when any state changes.
 
 **Solution**: Split into domain-specific contexts:
-- `PersonnelContext` - personnel list and operations
-- `MaterialsContext` - materials list and operations
-- `OperationsContext` - incidents only
+- `PersonnelContext` (`personnel-context.tsx`) - personnel state and refresh
+- `MaterialsContext` (`materials-context.tsx`) - materials state and refresh
+- `OperationsContext` - operations state, consumes Personnel/Materials contexts
 
-**Files to modify**:
-- `frontend/lib/contexts/operations-context.tsx`
+**Files modified**:
+- `frontend/lib/contexts/operations-context.tsx` - refactored to use new contexts
 - `frontend/lib/contexts/personnel-context.tsx` (new)
 - `frontend/lib/contexts/materials-context.tsx` (new)
-- `frontend/app/layout.tsx`
+- `frontend/app/layout.tsx` - added new providers
 
 ---
 
@@ -101,7 +101,7 @@ Changes in settings (e.g., deleting personnel) should propagate to Kanban view i
 
 ### Medium Priority (UX/Performance)
 
-1. **Split context providers** (#12) - Performance optimization
+1. ~~**Split context providers** (#12) - ✅ Completed~~
 2. **Resource settings real-time updates** (#24) - UX improvement
 3. **Toast vs notification integration** (#11) - UX consistency
 4. **Reko submission notification** (#15) - Feature completeness
@@ -143,6 +143,7 @@ grep -r "TODO\|FIXME" --include="*.py" --include="*.ts" --include="*.tsx" .
 
 | Date | Change |
 |------|--------|
+| 2026-01-22 | Implemented #12 - Split context providers into PersonnelContext, MaterialsContext, OperationsContext |
 | 2026-01-22 | Cleaned up audit - removed all fixed bugs, updated issue list from TESTING_ISSUES_FINDINGS.md |
 | 2026-01-22 | Fixed all 3 high priority bugs: Vehicle CRUD, Material CRUD, Assignment validation |
 | 2026-01-22 | Initial audit created |

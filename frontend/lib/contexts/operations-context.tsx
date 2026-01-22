@@ -5,8 +5,15 @@ import { apiClient, ApiError, type ApiPersonnel, type ApiMaterialResource, type 
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
+import { usePersonnel, type Person, type PersonStatus } from "./personnel-context"
+import { useMaterials, type Material } from "./materials-context"
 import { toast } from "sonner"
 import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
+
+// Re-export types for backward compatibility
+export type { Person, PersonStatus } from "./personnel-context"
+export type { Material } from "./materials-context"
+export type PersonRole = string
 
 // Simple UUID validation to prevent invalid IDs from being used in API calls
 const isValidUUID = (id: string | undefined | null): id is string => {
@@ -16,25 +23,13 @@ const isValidUUID = (id: string | undefined | null): id is string => {
 }
 
 // Types
-export type PersonStatus = "available" | "assigned"
-export type PersonRole = string // Dynamic role - can be any string from backend
-
-export interface Person {
-  id: string
-  name: string
-  role: PersonRole
-  status: PersonStatus
-  tags?: string[]
-  isReko?: boolean  // Reko personnel can be assigned to multiple incidents
-}
-
 export type OperationStatus = "incoming" | "ready" | "enroute" | "active" | "returning" | "complete"
 export type VehicleType = string | null
 
 export interface RekoSummary {
   isRelevant: boolean
   hasDangers: boolean
-  dangerTypes: string[] // e.g., ["fire", "explosion"]
+  dangerTypes: string[]
   personnelCount: number | null
   estimatedDuration: number | null
 }
@@ -42,8 +37,8 @@ export interface RekoSummary {
 export interface Operation {
   id: string
   location: string
-  vehicle: VehicleType // Legacy field for backward compatibility
-  vehicles: string[] // Array of vehicle names
+  vehicle: VehicleType
+  vehicles: string[]
   incidentType: string
   dispatchTime: Date
   crew: string[]
@@ -54,61 +49,41 @@ export interface Operation {
   notes: string
   contact: string
   internalNotes: string
-  statusChangedAt: Date | null // Timestamp when the operation moved to its current status
-  hasCompletedReko: boolean // Whether a completed (non-draft) reko report exists
-  rekoSummary: RekoSummary | null // Summary of reko report for card display
-  // Track assignment IDs for unassignment
-  crewAssignments: Map<string, string> // name -> assignment_id
-  materialAssignments: Map<string, string> // material_id -> assignment_id
-  vehicleAssignments: Map<string, string> // vehicle_name -> assignment_id
+  statusChangedAt: Date | null
+  hasCompletedReko: boolean
+  rekoSummary: RekoSummary | null
+  crewAssignments: Map<string, string>
+  materialAssignments: Map<string, string>
+  vehicleAssignments: Map<string, string>
 }
-
-export interface Material {
-  id: string
-  name: string
-  category: string
-  status: "available" | "assigned"
-}
-
-// No initial/dummy data - all data comes from the backend database
 
 /**
  * Context interface for managing operations, personnel, and materials.
- * All mutation functions automatically persist changes to the database.
+ * Personnel and materials are delegated to their own contexts but exposed here for backward compatibility.
  */
 interface OperationsContextType {
+  // Delegated from PersonnelContext
   personnel: Person[]
   setPersonnel: React.Dispatch<React.SetStateAction<Person[]>>
+  // Delegated from MaterialsContext
   materials: Material[]
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
+  // Operations state
   operations: Operation[]
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   homeCity: string
-  /** Loading state for data fetching */
   isLoading: boolean
-  /** Format a location address for display based on home city */
   formatLocation: (fullAddress: string) => string
-  /** Refresh operations from the server */
   refreshOperations: () => Promise<void>
-  /** Remove a crew member from an operation (persists to DB) */
   removeCrew: (operationId: string, crewName: string) => void
-  /** Remove material from an operation (persists to DB) */
   removeMaterial: (operationId: string, materialId: string) => void
-  /** Remove vehicle from an operation (persists to DB) */
   removeVehicle: (operationId: string, vehicleName: string) => void
-  /** Update operation properties (persists to DB with debouncing) */
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
-  /** Create a new operation (persists to DB) */
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
-  /** Get the next available operation ID */
   getNextOperationId: () => string
-  /** Assign a person to an operation (persists both operation and person status to DB) */
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
-  /** Assign material to an operation (persists both operation and material status to DB) */
   assignMaterialToOperation: (materialId: string, operationId: string) => void
-  /** Assign vehicle to an operation (persists to DB) */
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
-  /** Delete an operation (persists to DB) */
   deleteOperation: (operationId: string) => Promise<void>
 }
 
@@ -117,13 +92,19 @@ const OperationsContext = createContext<OperationsContextType | undefined>(undef
 export function OperationsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { selectedEvent } = useEvent()
-  const [personnel, setPersonnel] = useState<Person[]>([])
-  const [materials, setMaterials] = useState<Material[]>([])
+
+  // Get personnel and materials from their dedicated contexts
+  const { personnel, setPersonnel, refreshPersonnel } = usePersonnel()
+  const { materials, setMaterials, refreshMaterials } = useMaterials()
+
+  // Operations state (only operations-specific state here)
   const [operations, setOperations] = useState<Operation[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [homeCity, setHomeCity] = useState<string>("")
+
+  // Refs for debouncing and cooldowns
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const criticalUpdateInProgress = useRef<boolean>(false)
   const pendingUpdatesRef = useRef<Map<string, Partial<Operation>>>(new Map())
@@ -133,53 +114,24 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const recentStatusUpdateRef = useRef<boolean>(false)
   const statusUpdateCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
-  // Polling configuration with exponential backoff and jitter
-  const pollingBackoffRef = useRef<number>(1) // Current backoff multiplier (1 = base interval)
-  const POLLING_BASE_INTERVAL = 5000 // Base polling interval in ms
-  const POLLING_MAX_BACKOFF = 6 // Max backoff multiplier (5s * 6 = 30s max)
-  const POLLING_JITTER_RANGE = 0.2 // ±20% jitter
+  // Polling configuration
+  const pollingBackoffRef = useRef<number>(1)
+  const POLLING_BASE_INTERVAL = 5000
+  const POLLING_MAX_BACKOFF = 6
+  const POLLING_JITTER_RANGE = 0.2
 
-  /**
-   * Calculate next polling interval with jitter and backoff.
-   * @param success - Whether the last poll was successful
-   * @returns Next polling interval in milliseconds
-   */
   const getNextPollInterval = (success: boolean): number => {
     if (success) {
-      // Reset backoff on success
       pollingBackoffRef.current = 1
     } else {
-      // Increase backoff on failure (exponential with cap)
-      pollingBackoffRef.current = Math.min(
-        pollingBackoffRef.current * 2,
-        POLLING_MAX_BACKOFF
-      )
+      pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
     }
-
-    // Apply jitter: random value between -JITTER_RANGE and +JITTER_RANGE
     const jitter = 1 + (Math.random() * 2 - 1) * POLLING_JITTER_RANGE
     return Math.round(POLLING_BASE_INTERVAL * pollingBackoffRef.current * jitter)
   }
 
-  // Helper functions to convert between API and frontend types
-  const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
-    id: String(apiPerson.id),
-    name: apiPerson.name,
-    role: apiPerson.role as PersonRole,
-    status: apiPerson.availability as PersonStatus, // Backend uses 'availability' field
-    tags: apiPerson.tags || [],
-  })
-
-  const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({
-    id: String(apiMat.id),
-    name: apiMat.name,
-    category: apiMat.location || "General",
-    status: (apiMat.status === "available" ? "available" : "assigned") as "available" | "assigned",
-  })
-
   // Helper to convert Incident to Operation
   const apiIncidentToOperation = (incident: ApiIncident): Operation => {
-    // Map incident status to operation status
     const statusMap: Record<string, OperationStatus> = {
       "eingegangen": "incoming",
       "reko": "ready",
@@ -192,23 +144,23 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return {
       id: incident.id,
       location: incident.location_address || incident.title,
-      vehicle: null, // Legacy field - kept for backward compatibility
-      vehicles: [], // Will be populated from assignments
+      vehicle: null,
+      vehicles: [],
       incidentType: incident.type || "elementarereignis",
       dispatchTime: new Date(incident.created_at),
-      crew: [], // Will be populated from assignments
+      crew: [],
       priority: incident.priority as "high" | "medium" | "low",
       status: statusMap[incident.status] || "incoming",
       coordinates: incident.location_lat && incident.location_lng
         ? [parseFloat(incident.location_lat), parseFloat(incident.location_lng)]
         : [47.51637699933488, 7.561800450458299],
-      materials: [], // Will be populated from assignments
+      materials: [],
       notes: incident.description || "",
       contact: incident.contact || "",
       internalNotes: incident.internal_notes || "",
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
-      rekoSummary: null, // Will be populated from reko reports API
+      rekoSummary: null,
       crewAssignments: new Map(),
       materialAssignments: new Map(),
       vehicleAssignments: new Map(),
@@ -217,7 +169,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // Refresh operations from server
   const refreshOperations = useCallback(async () => {
-    // Don't load data if no event is selected or event ID is invalid
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
       setIsLoading(false)
@@ -226,29 +177,25 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     try {
       setIsLoading(true)
-      const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
+
+      // Fetch all data in parallel
+      const [apiIncidents, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
         apiClient.getIncidents(selectedEvent.id),
-        apiClient.getAllPersonnel({ checked_in_only: true, event_id: selectedEvent.id }), // Only show checked-in personnel for this event
-        apiClient.getAllMaterials(),
-        apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
+        refreshPersonnel(),
+        refreshMaterials(),
+        apiClient.getAllSettings().catch(() => ({ home_city: "" })),
+        apiClient.getVehicles(),
       ])
 
-      // Convert to frontend types
-      const personnelList = apiPersonnel.map(apiPersonToPerson)
-      const materialsList = apiMats.map(apiMaterialToMaterial)
-      const operations = apiIncidents.map(apiIncidentToOperation)
+      // Convert incidents to operations
+      const ops = apiIncidents.map(apiIncidentToOperation)
 
-      // Fetch vehicles for vehicle assignment lookups
-      const vehiclesList = await apiClient.getVehicles()
-
-      // Fetch ALL assignments for this event in a single bulk request (optimized - replaces N+1 query pattern)
+      // Fetch assignments for this event
       try {
         const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
 
-        // Populate crew/materials/vehicles for each operation from bulk data
-        operations.forEach((operation) => {
+        ops.forEach((operation) => {
           const assignments = assignmentsByIncident[operation.id] || []
-
           for (const assignment of assignments) {
             if (assignment.resource_type === "personnel") {
               const person = personnelList.find(p => p.id === assignment.resource_id)
@@ -269,18 +216,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           }
         })
       } catch (error) {
-        console.error(`Failed to load assignments for event ${selectedEvent.id}:`, error)
+        console.error(`Failed to load assignments:`, error)
       }
 
-      // Fetch reko summaries in bulk (single API call instead of N+1)
+      // Fetch reko summaries
       try {
         const rekoSummaries = await apiClient.getEventRekoSummaries(selectedEvent.id)
-
-        // Populate reko summaries from bulk response
-        operations.forEach(op => {
+        ops.forEach(op => {
           const summary = rekoSummaries.summaries[op.id]
           if (summary?.has_completed_reko) {
-            // Extract danger types from the summary
             const dangerTypes: string[] = []
             if (summary.dangers_json) {
               if (summary.dangers_json.fire) dangerTypes.push("Feuer")
@@ -289,7 +233,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               if (summary.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
               if (summary.dangers_json.electrical) dangerTypes.push("Elektrisch")
             }
-
             op.hasCompletedReko = true
             op.rekoSummary = {
               isRelevant: summary.is_relevant ?? false,
@@ -307,74 +250,59 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Calculate event-scoped availability
       const assignedPersonIds = new Set<string>()
       const assignedMaterialIds = new Set<string>()
-
-      // First, identify reko personnel so they can be assigned to multiple incidents
       const rekoPersonnelIds = new Set<string>()
+
       try {
         const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        // Collect reko personnel IDs - they can be assigned to multiple incidents
         specialFunctions
           .filter(func => func.function_type === 'reko')
-          .forEach(func => {
-            rekoPersonnelIds.add(func.personnel_id)
-          })
-        // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
+          .forEach(func => rekoPersonnelIds.add(func.personnel_id))
         specialFunctions
           .filter(func => func.function_type !== 'reko')
-          .forEach(func => {
-            assignedPersonIds.add(func.personnel_id)
-          })
+          .forEach(func => assignedPersonIds.add(func.personnel_id))
       } catch (error) {
-        console.error('Failed to load special functions for personnel status:', error)
+        console.error('Failed to load special functions:', error)
       }
 
-      // Process incident crews - all personnel (including reko) get marked as assigned
-      operations.forEach(operation => {
+      ops.forEach(operation => {
         operation.crew.forEach(crewName => {
           const person = personnelList.find(p => p.name === crewName)
-          if (person) {
-            assignedPersonIds.add(person.id)
-          }
+          if (person) assignedPersonIds.add(person.id)
         })
-        operation.materials.forEach(materialId => {
-          assignedMaterialIds.add(materialId)
-        })
+        operation.materials.forEach(materialId => assignedMaterialIds.add(materialId))
       })
 
-      // Update personnel/material status based on event-scoped assignments
-      // Reko personnel are marked with isReko flag so they can still be dragged when assigned
+      // Update personnel status based on assignments
       const eventScopedPersonnel = personnelList.map(person => ({
         ...person,
         status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
         isReko: rekoPersonnelIds.has(person.id)
       }))
 
+      // Update material status based on assignments
       const eventScopedMaterials = materialsList.map(material => ({
         ...material,
         status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
       }))
 
-      setOperations(operations)
+      setOperations(ops)
       setPersonnel(eventScopedPersonnel)
       setMaterials(eventScopedMaterials)
       setHomeCity(settings.home_city || "")
     } catch (error) {
-      console.error("Failed to load data from API:", error)
-      // Leave arrays empty if API fails - no fallback data
+      console.error("Failed to load data:", error)
     } finally {
       setIsLoading(false)
     }
-  }, [selectedEvent])
+  }, [selectedEvent, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials])
 
-  // Load initial data from API - only when authenticated and event selected
+  // Load initial data and set up WebSocket/polling
   useEffect(() => {
-    // Don't load data if auth is still loading or user is not authenticated
     if (authLoading || !isAuthenticated) {
       setIsLoading(false)
       return
     }
 
-    // Don't load data if no event is selected or event ID is invalid
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
       setIsLoading(false)
@@ -382,52 +310,41 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Capture the event ID to avoid closure issues during async operations
     const eventId = selectedEvent.id
 
     const loadData = async (showLoading = true) => {
       try {
-        // Only show loading skeleton on initial load, not on polling updates
         if (showLoading && isInitialLoad) {
           setIsLoading(true)
         }
-        const [apiIncidents, apiPersonnel, apiMats, settings] = await Promise.all([
+
+        // Fetch all data in parallel
+        const [apiIncidents, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
           apiClient.getIncidents(eventId),
-          apiClient.getAllPersonnel({ checked_in_only: true, event_id: eventId }), // Only show checked-in personnel for this event
-          apiClient.getAllMaterials(),
-          apiClient.getAllSettings().catch(() => ({ home_city: "" })), // Don't fail if settings not available
+          refreshPersonnel(),
+          refreshMaterials(),
+          apiClient.getAllSettings().catch(() => ({ home_city: "" })),
+          apiClient.getVehicles(),
         ])
 
-        // Convert to frontend types
-        const personnelList = apiPersonnel.map(apiPersonToPerson)
-        const materialsList = apiMats.map(apiMaterialToMaterial)
-        const operations = apiIncidents.map(apiIncidentToOperation)
+        const ops = apiIncidents.map(apiIncidentToOperation)
 
-        // Fetch vehicles for vehicle assignment lookups
-        const vehiclesList = await apiClient.getVehicles()
-
-        // Fetch ALL assignments for this event in a single bulk request (optimized - replaces N+1 query pattern)
+        // Fetch assignments
         try {
           const assignmentsByIncident = await apiClient.getAssignmentsByEvent(eventId)
-
-          // Populate crew/materials/vehicles for each operation from bulk data
-          operations.forEach((operation) => {
+          ops.forEach((operation) => {
             const assignments = assignmentsByIncident[operation.id] || []
-
             for (const assignment of assignments) {
               if (assignment.resource_type === "personnel") {
-                // Find person by ID to get their name
                 const person = personnelList.find(p => p.id === assignment.resource_id)
                 if (person) {
                   operation.crew.push(person.name)
                   operation.crewAssignments.set(person.name, assignment.id)
                 }
               } else if (assignment.resource_type === "material") {
-                // Add material ID to materials array
                 operation.materials.push(assignment.resource_id)
                 operation.materialAssignments.set(assignment.resource_id, assignment.id)
               } else if (assignment.resource_type === "vehicle") {
-                // Find vehicle by ID to get its name
                 const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
                 if (vehicle) {
                   operation.vehicles.push(vehicle.name)
@@ -437,18 +354,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             }
           })
         } catch (error) {
-          console.error(`Failed to load assignments for event ${eventId}:`, error)
+          console.error(`Failed to load assignments:`, error)
         }
 
-        // Fetch reko summaries in bulk (single API call instead of N+1)
+        // Fetch reko summaries
         try {
           const rekoSummaries = await apiClient.getEventRekoSummaries(eventId)
-
-          // Populate reko summaries from bulk response
-          operations.forEach(op => {
+          ops.forEach(op => {
             const summary = rekoSummaries.summaries[op.id]
             if (summary?.has_completed_reko) {
-              // Extract danger types from the summary
               const dangerTypes: string[] = []
               if (summary.dangers_json) {
                 if (summary.dangers_json.fire) dangerTypes.push("Feuer")
@@ -457,7 +371,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
                 if (summary.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
                 if (summary.dangers_json.electrical) dangerTypes.push("Elektrisch")
               }
-
               op.hasCompletedReko = true
               op.rekoSummary = {
                 isRelevant: summary.is_relevant ?? false,
@@ -472,74 +385,52 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           console.error('Failed to load reko summaries:', error)
         }
 
-        // Calculate event-scoped availability:
-        // A person/material is "assigned" only if assigned to an incident in THIS event
+        // Calculate availability
         const assignedPersonIds = new Set<string>()
         const assignedMaterialIds = new Set<string>()
-
-        // First, identify reko personnel so they can be assigned to multiple incidents
         const rekoPersonnelIds = new Set<string>()
+
         try {
           const specialFunctions = await apiClient.getEventSpecialFunctions(eventId)
-          // Collect reko personnel IDs - they can be assigned to multiple incidents
           specialFunctions
             .filter(func => func.function_type === 'reko')
-            .forEach(func => {
-              rekoPersonnelIds.add(func.personnel_id)
-            })
-          // Mark personnel as assigned if they have blocking special functions (drivers, magazin)
+            .forEach(func => rekoPersonnelIds.add(func.personnel_id))
           specialFunctions
             .filter(func => func.function_type !== 'reko')
-            .forEach(func => {
-              assignedPersonIds.add(func.personnel_id)
-            })
+            .forEach(func => assignedPersonIds.add(func.personnel_id))
         } catch (error) {
-          console.error('Failed to load special functions for personnel status:', error)
+          console.error('Failed to load special functions:', error)
         }
 
-        // Process incident crews - all personnel (including reko) get marked as assigned
-        operations.forEach(operation => {
+        ops.forEach(operation => {
           operation.crew.forEach(crewName => {
             const person = personnelList.find(p => p.name === crewName)
-            if (person) {
-              assignedPersonIds.add(person.id)
-            }
+            if (person) assignedPersonIds.add(person.id)
           })
-          operation.materials.forEach(materialId => {
-            assignedMaterialIds.add(materialId)
-          })
+          operation.materials.forEach(materialId => assignedMaterialIds.add(materialId))
         })
 
-        // Update personnel status based on event-scoped assignments
-        // Reko personnel are marked with isReko flag so they can still be dragged when assigned
         const eventScopedPersonnel = personnelList.map(person => ({
           ...person,
           status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
           isReko: rekoPersonnelIds.has(person.id)
         }))
 
-        // Update material status based on event-scoped assignments
         const eventScopedMaterials = materialsList.map(material => ({
           ...material,
           status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
         }))
 
-        setOperations(operations)
+        setOperations(ops)
         setPersonnel(eventScopedPersonnel)
         setMaterials(eventScopedMaterials)
         setHomeCity(settings.home_city || "")
         setIsLoaded(true)
-        // Mark initial load as complete
-        if (isInitialLoad) {
-          setIsInitialLoad(false)
-        }
+        if (isInitialLoad) setIsInitialLoad(false)
       } catch (error) {
-        console.error("Failed to load data from API:", error)
-        // Leave arrays empty if API fails - no fallback data
+        console.error("Failed to load data:", error)
         setIsLoaded(true)
-        if (isInitialLoad) {
-          setIsInitialLoad(false)
-        }
+        if (isInitialLoad) setIsInitialLoad(false)
       } finally {
         setIsLoading(false)
       }
@@ -547,55 +438,30 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     loadData()
 
-    // Connect to WebSocket and set up real-time updates
+    // WebSocket setup
     wsClient.connect()
 
-    // Listen for WebSocket updates
-    // Check both assignment and status update cooldowns to prevent overriding optimistic updates
     const shouldSkipUpdate = () =>
       criticalUpdateInProgress.current || recentAssignmentRef.current || recentStatusUpdateRef.current
 
-    const unsubscribeIncidentUpdate = wsClient.on('incident_update', (update: WebSocketUpdate<ApiIncident>) => {
-      if (!shouldSkipUpdate()) {
-        // Refresh data when incident is updated via WebSocket
-        loadData(false) // Don't show loading skeleton for real-time updates
-      }
+    const unsubscribeIncidentUpdate = wsClient.on('incident_update', () => {
+      if (!shouldSkipUpdate()) loadData(false)
     })
-
-    const unsubscribePersonnelUpdate = wsClient.on('personnel_update', (update: WebSocketUpdate<ApiPersonnel>) => {
-      if (!shouldSkipUpdate()) {
-        // Refresh data when personnel is updated via WebSocket
-        loadData(false)
-      }
+    const unsubscribePersonnelUpdate = wsClient.on('personnel_update', () => {
+      if (!shouldSkipUpdate()) loadData(false)
     })
-
-    const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', (update: WebSocketUpdate) => {
-      if (!shouldSkipUpdate()) {
-        // Refresh data when vehicle is updated via WebSocket
-        loadData(false)
-      }
+    const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', () => {
+      if (!shouldSkipUpdate()) loadData(false)
     })
-
-    const unsubscribeMaterialUpdate = wsClient.on('material_update', (update: WebSocketUpdate) => {
-      if (!shouldSkipUpdate()) {
-        // Refresh data when material is updated via WebSocket
-        loadData(false)
-      }
+    const unsubscribeMaterialUpdate = wsClient.on('material_update', () => {
+      if (!shouldSkipUpdate()) loadData(false)
     })
-
-    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate) => {
-      if (!shouldSkipUpdate()) {
-        // Refresh data when assignment is updated via WebSocket
-        loadData(false)
-      }
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', () => {
+      if (!shouldSkipUpdate()) loadData(false)
     })
-
     const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (update: WebSocketUpdate) => {
       if (!shouldSkipUpdate()) {
-        // Refresh data when assignments are transferred via WebSocket
         loadData(false)
-
-        // Show success toast
         if (update.data && typeof update.data === 'object' && 'count' in update.data) {
           toast.success("Ressourcen übertragen", {
             description: `${update.data.count} Ressourcen wurden erfolgreich übertragen.`
@@ -604,42 +470,30 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    // Fallback polling with jitter and exponential backoff
-    // Uses setTimeout instead of setInterval to allow dynamic interval adjustment
+    // Fallback polling
     let pollTimeout: NodeJS.Timeout | undefined
     let isPollingActive = false
 
     const schedulePoll = () => {
       if (!isPollingActive) return
-
-      const interval = getNextPollInterval(true) // Assume success, will be updated on error
+      const interval = getNextPollInterval(true)
       pollTimeout = setTimeout(async () => {
         if (!isPollingActive) return
-
         if (!isLoading && !shouldSkipUpdate()) {
           try {
             await loadData(false)
-            // Success: reset backoff (already done in getNextPollInterval with true)
           } catch {
-            // Error: increase backoff by calling with false next time
-            pollingBackoffRef.current = Math.min(
-              pollingBackoffRef.current * 2,
-              POLLING_MAX_BACKOFF
-            )
+            pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
           }
         }
-
-        // Schedule next poll with updated interval
-        if (isPollingActive) {
-          schedulePoll()
-        }
+        if (isPollingActive) schedulePoll()
       }, interval)
     }
 
     const startPolling = () => {
       if (!isPollingActive) {
         isPollingActive = true
-        pollingBackoffRef.current = 1 // Reset backoff when starting
+        pollingBackoffRef.current = 1
         schedulePoll()
       }
     }
@@ -654,16 +508,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
       if (status === 'disconnected' || status === 'error') {
-        // Start fallback polling if WebSocket is not connected
         startPolling()
       } else if (status === 'connected') {
-        // Stop polling when WebSocket reconnects
         stopPolling()
       }
     })
 
     return () => {
-      // Cleanup WebSocket listeners
       unsubscribeIncidentUpdate()
       unsubscribePersonnelUpdate()
       unsubscribeVehicleUpdate()
@@ -671,63 +522,47 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       unsubscribeAssignmentUpdate()
       unsubscribeAssignmentsTransferred()
       statusUnsubscribe()
-
-      // Cleanup polling if active
       stopPolling()
-
-      // Disconnect WebSocket
       wsClient.disconnect()
     }
-  }, [authLoading, isAuthenticated, selectedEvent])
+  }, [authLoading, isAuthenticated, selectedEvent, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials, isLoading, isInitialLoad])
 
   const removeCrew = (operationId: string, crewName: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
 
-    // Get assignment ID from the map
     const assignmentId = operation.crewAssignments.get(crewName)
     if (!assignmentId) {
       console.warn(`No assignment ID found for crew member ${crewName}`)
       return
     }
 
-    // Update frontend state immediately
     setOperations((ops) =>
       ops.map((op) => {
         if (op.id === operationId) {
           const newCrewAssignments = new Map(op.crewAssignments)
           newCrewAssignments.delete(crewName)
-          return {
-            ...op,
-            crew: op.crew.filter((name) => name !== crewName),
-            crewAssignments: newCrewAssignments,
-          }
+          return { ...op, crew: op.crew.filter((name) => name !== crewName), crewAssignments: newCrewAssignments }
         }
         return op
       })
     )
 
-    // The API unassignment will automatically update the person's status to "available"
-    // So we just need to update our local state
     const person = personnel.find((p) => p.name === crewName)
     if (person) {
       const stillAssigned = operations.some(op => op.id !== operationId && op.crew.includes(crewName))
       if (!stillAssigned) {
         setPersonnel((people) =>
-          people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p)),
+          people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p))
         )
       }
     }
 
-    // Call unassignment API
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => {
-          console.error("Failed to unassign crew:", err)
-          toast.error("Fehler beim Entfernen", {
-            description: "Die Person konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
-          })
-        })
+      apiClient.unassignResource(operationId, assignmentId).catch(err => {
+        console.error("Failed to unassign crew:", err)
+        toast.error("Fehler beim Entfernen", { description: "Die Person konnte nicht entfernt werden." })
+      })
     }
   }
 
@@ -735,86 +570,62 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
 
-    // Get assignment ID from the map
     const assignmentId = operation.materialAssignments.get(materialId)
     if (!assignmentId) {
       console.warn(`No assignment ID found for material ${materialId}`)
       return
     }
 
-    // Update frontend state immediately
     setOperations((ops) =>
       ops.map((op) => {
         if (op.id === operationId) {
           const newMaterialAssignments = new Map(op.materialAssignments)
           newMaterialAssignments.delete(materialId)
-          return {
-            ...op,
-            materials: op.materials.filter((id) => id !== materialId),
-            materialAssignments: newMaterialAssignments,
-          }
+          return { ...op, materials: op.materials.filter((id) => id !== materialId), materialAssignments: newMaterialAssignments }
         }
         return op
       })
     )
 
-    // The API unassignment will automatically update the material's status to "available"
-    // So we just need to update our local state
     const material = materials.find((m) => m.id === materialId)
     if (material) {
       const stillAssigned = operations.some(op => op.id !== operationId && op.materials.includes(materialId))
       if (!stillAssigned) {
         setMaterials((mats) =>
-          mats.map((m) => (m.id === material.id ? { ...m, status: "available" as Material["status"] } : m)),
+          mats.map((m) => (m.id === material.id ? { ...m, status: "available" as Material["status"] } : m))
         )
       }
     }
 
-    // Call unassignment API
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => {
-          console.error("Failed to unassign material:", err)
-          toast.error("Fehler beim Entfernen", {
-            description: "Das Material konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
-          })
-        })
+      apiClient.unassignResource(operationId, assignmentId).catch(err => {
+        console.error("Failed to unassign material:", err)
+        toast.error("Fehler beim Entfernen", { description: "Das Material konnte nicht entfernt werden." })
+      })
     }
   }
 
   const updateOperation = (operationId: string, updates: Partial<Operation>) => {
-    // If status is being updated, also update statusChangedAt to current time
-    const enhancedUpdates = updates.status
-      ? { ...updates, statusChangedAt: new Date() }
-      : updates
+    const enhancedUpdates = updates.status ? { ...updates, statusChangedAt: new Date() } : updates
 
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, ...enhancedUpdates } : op)),
+      ops.map((op) => (op.id === operationId ? { ...op, ...enhancedUpdates } : op))
     )
 
-    // Set status update cooldown to prevent WebSocket/polling from overriding optimistic update
-    // This is especially important for drag-drop operations
     if (updates.status !== undefined) {
       recentStatusUpdateRef.current = true
-      if (statusUpdateCooldownTimerRef.current) {
-        clearTimeout(statusUpdateCooldownTimerRef.current)
-      }
+      if (statusUpdateCooldownTimerRef.current) clearTimeout(statusUpdateCooldownTimerRef.current)
       statusUpdateCooldownTimerRef.current = setTimeout(() => {
         recentStatusUpdateRef.current = false
-      }, 2000) // Wait 2 seconds before allowing WebSocket updates again
+      }, 2000)
     }
 
-    // For critical fields (location, coordinates), update immediately without debounce
     const isCriticalUpdate = updates.location !== undefined || updates.coordinates !== undefined
 
-    // Debounce API updates to avoid too many requests (except for critical updates)
     if (isLoaded) {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current)
-      }
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current)
 
       const performUpdate = async (batchedUpdates: Partial<Operation>) => {
-        // Map frontend status to backend status
         const statusToBackend: Record<OperationStatus, string> = {
           "incoming": "eingegangen",
           "ready": "reko",
@@ -825,7 +636,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         }
 
         const apiUpdates: Partial<ApiIncidentUpdate> = {}
-        // Only include fields that exist in ApiIncidentUpdate
         if (batchedUpdates.location !== undefined) apiUpdates.location_address = batchedUpdates.location
         if (batchedUpdates.incidentType !== undefined) apiUpdates.type = batchedUpdates.incidentType as ApiIncidentUpdate['type']
         if (batchedUpdates.priority !== undefined) apiUpdates.priority = batchedUpdates.priority
@@ -837,53 +647,31 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.notes !== undefined) apiUpdates.description = batchedUpdates.notes
         if (batchedUpdates.contact !== undefined) apiUpdates.contact = batchedUpdates.contact
         if (batchedUpdates.internalNotes !== undefined) apiUpdates.internal_notes = batchedUpdates.internalNotes
-        // Note: vehicle, crew, materials, and dispatchTime are not part of the incident update API
-        // These are handled separately through assignment APIs or are legacy fields
 
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
         } catch (err) {
           console.error("Failed to update operation:", err)
-
-          // Handle 409 Conflict - concurrent modification detected
           if (ApiError.isConflictError(err)) {
             toast.error("Konflikt bei Aktualisierung", {
               description: "Ein anderer Benutzer hat diesen Einsatz geändert. Daten werden aktualisiert..."
             })
-            // Refresh data from server to get the latest state
-            // This ensures the UI shows the correct data after a conflict
             await refreshOperations()
           } else {
-            toast.error("Fehler beim Aktualisieren", {
-              description: "Der Einsatz konnte nicht aktualisiert werden."
-            })
+            toast.error("Fehler beim Aktualisieren", { description: "Der Einsatz konnte nicht aktualisiert werden." })
           }
         } finally {
-          // Clear pending updates for this operation
           pendingUpdatesRef.current.delete(operationId)
-
-          // Release the critical update lock
-          if (criticalUpdateInProgress.current) {
-            criticalUpdateInProgress.current = false
-          }
+          if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
         }
       }
 
-      // Execute immediately for critical updates, with batching for rapid successive calls
       if (isCriticalUpdate) {
-        // Clear any existing critical update timer
-        if (criticalUpdateTimerRef.current) {
-          clearTimeout(criticalUpdateTimerRef.current)
-        }
-
-        // Merge with any pending updates for this operation
+        if (criticalUpdateTimerRef.current) clearTimeout(criticalUpdateTimerRef.current)
         const existingUpdates = pendingUpdatesRef.current.get(operationId) || {}
         const mergedUpdates = { ...existingUpdates, ...updates }
         pendingUpdatesRef.current.set(operationId, mergedUpdates)
-
         criticalUpdateInProgress.current = true
-
-        // Batch rapid updates within 50ms window
         criticalUpdateTimerRef.current = setTimeout(() => {
           const finalUpdates = pendingUpdatesRef.current.get(operationId) || updates
           performUpdate(finalUpdates)
@@ -900,7 +688,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">) => {
-    // Don't create if no event is selected or event ID is invalid
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       console.error("Cannot create operation without valid selected event")
       return
@@ -908,16 +695,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     if (isLoaded) {
       try {
-        // Transform Operation format to Incident format
         const incidentData = {
-          event_id: selectedEvent.id, // Use selected event's ID
+          event_id: selectedEvent.id,
           title: operation.location,
           type: (operation.incidentType || "elementarereignis") as any,
           priority: operation.priority as "low" | "medium" | "high",
           location_address: operation.location,
           location_lat: operation.coordinates[0]?.toString(),
           location_lng: operation.coordinates[1]?.toString(),
-          status: "eingegangen" as const, // Always start as eingegangen
+          status: "eingegangen" as const,
           description: operation.notes || null,
           contact: operation.contact || null,
           internal_notes: operation.internalNotes || null,
@@ -925,17 +711,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         const apiIncident = await apiClient.createIncident(incidentData)
 
-        // Transform Incident back to Operation for frontend state
         const newOperation: Operation = {
           id: apiIncident.id,
           location: apiIncident.location_address || apiIncident.title,
-          vehicle: operation.vehicle, // Keep vehicle from form (not in incident schema yet)
+          vehicle: operation.vehicle,
           vehicles: [],
           incidentType: operation.incidentType,
           dispatchTime: new Date(apiIncident.created_at),
           crew: [],
           priority: apiIncident.priority as "low" | "medium" | "high",
-          status: "incoming", // Map eingegangen to incoming
+          status: "incoming",
           coordinates: apiIncident.location_lat && apiIncident.location_lng
             ? [parseFloat(apiIncident.location_lat), parseFloat(apiIncident.location_lng)]
             : operation.coordinates,
@@ -944,8 +729,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           contact: apiIncident.contact || "",
           internalNotes: apiIncident.internal_notes || "",
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
-          hasCompletedReko: false, // New incidents don't have reko reports yet
-          rekoSummary: null, // New incidents don't have reko reports yet
+          hasCompletedReko: false,
+          rekoSummary: null,
           crewAssignments: new Map(),
           materialAssignments: new Map(),
           vehicleAssignments: new Map(),
@@ -955,7 +740,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         console.error("Failed to create operation:", error)
       }
     } else {
-      // Fallback if API not loaded
       const newOperation: Operation = {
         ...operation,
         id: getNextOperationId(),
@@ -971,36 +755,18 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /**
-   * Assigns a person to an operation's crew.
-   * Updates both frontend state and persists to the database.
-   *
-   * @param personId - The ID of the person to assign
-   * @param personName - The name of the person (for operation crew list)
-   * @param operationId - The ID of the operation to assign the person to
-   */
   const assignPersonToOperation = async (personId: string, personName: string, operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
-    // Block assignment if:
-    // - Operation or person not found
-    // - Person is already assigned AND is not a reko (reko can be on multiple incidents)
-    // - Person is already on this operation's crew
     if (!operation || !person || (person.status === "assigned" && !person.isReko) || operation.crew.includes(personName)) {
       return
     }
 
-    // Set assignment cooldown to prevent polling from overriding optimistic update
     recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) {
-      clearTimeout(assignmentCooldownTimerRef.current)
-    }
-    assignmentCooldownTimerRef.current = setTimeout(() => {
-      recentAssignmentRef.current = false
-    }, 3000) // Wait 3 seconds before allowing polling again
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
 
-    // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, crew: [...op.crew, personName] } : op))
     )
@@ -1008,15 +774,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       people.map((p) => (p.id === personId ? { ...p, status: "assigned" as PersonStatus } : p))
     )
 
-    // Persist to database via assignment API
     if (isLoaded) {
       try {
         const assignment = await apiClient.assignResource(operationId, {
           resource_type: "personnel",
           resource_id: personId,
         })
-
-        // Store assignment ID for later unassignment
         setOperations((ops) =>
           ops.map((op) => {
             if (op.id === operationId) {
@@ -1029,15 +792,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (err) {
         console.error("Failed to assign person:", err)
-        // Revert optimistic update on error
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, crew: op.crew.filter(n => n !== personName) } : op))
         )
         setPersonnel((people) =>
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
-
-        // Clear assignment cooldown on error so WebSocket updates can refresh if needed
         recentAssignmentRef.current = false
         if (assignmentCooldownTimerRef.current) {
           clearTimeout(assignmentCooldownTimerRef.current)
@@ -1047,13 +807,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /**
-   * Assigns material to an operation.
-   * Updates both frontend state and persists to the database.
-   *
-   * @param materialId - The ID of the material to assign
-   * @param operationId - The ID of the operation to assign the material to
-   */
   const assignMaterialToOperation = async (materialId: string, operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     const material = materials.find(m => m.id === materialId)
@@ -1062,16 +815,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Set assignment cooldown to prevent polling from overriding optimistic update
     recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) {
-      clearTimeout(assignmentCooldownTimerRef.current)
-    }
-    assignmentCooldownTimerRef.current = setTimeout(() => {
-      recentAssignmentRef.current = false
-    }, 3000) // Wait 3 seconds before allowing polling again
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
 
-    // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, materials: [...op.materials, materialId] } : op))
     )
@@ -1079,15 +826,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       mats.map((m) => (m.id === materialId ? { ...m, status: "assigned" as Material["status"] } : m))
     )
 
-    // Persist to database via assignment API
     if (isLoaded) {
       try {
         const assignment = await apiClient.assignResource(operationId, {
           resource_type: "material",
           resource_id: materialId,
         })
-
-        // Store assignment ID for later unassignment
         setOperations((ops) =>
           ops.map((op) => {
             if (op.id === operationId) {
@@ -1100,15 +844,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (err) {
         console.error("Failed to assign material:", err)
-        // Revert optimistic update on error
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, materials: op.materials.filter(id => id !== materialId) } : op))
         )
         setMaterials((mats) =>
           mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
         )
-
-        // Clear assignment cooldown on error so WebSocket updates can refresh if needed
         recentAssignmentRef.current = false
         if (assignmentCooldownTimerRef.current) {
           clearTimeout(assignmentCooldownTimerRef.current)
@@ -1118,14 +859,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /**
-   * Assigns a vehicle to an operation.
-   * Updates both frontend state and persists to the database.
-   *
-   * @param vehicleId - The ID of the vehicle to assign
-   * @param vehicleName - The name of the vehicle (for operation vehicles list)
-   * @param operationId - The ID of the operation to assign the vehicle to
-   */
   const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
 
@@ -1133,38 +866,26 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Validate vehicleId before proceeding
     if (!vehicleId || vehicleId.trim() === '') {
       console.error('[ERROR] Invalid vehicleId:', { vehicleId, vehicleName, operationId })
-      toast.error("Fehler", {
-        description: `Fahrzeug "${vehicleName}" hat keine gültige ID. Bitte laden Sie die Seite neu.`
-      })
+      toast.error("Fehler", { description: `Fahrzeug "${vehicleName}" hat keine gültige ID. Bitte laden Sie die Seite neu.` })
       return
     }
 
-    // Set assignment cooldown to prevent polling from overriding optimistic update
     recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) {
-      clearTimeout(assignmentCooldownTimerRef.current)
-    }
-    assignmentCooldownTimerRef.current = setTimeout(() => {
-      recentAssignmentRef.current = false
-    }, 3000) // Wait 3 seconds before allowing polling again
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
 
-    // Update frontend state immediately (optimistic update)
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
     )
 
-    // Persist to database via assignment API
     if (isLoaded) {
       try {
         const assignment = await apiClient.assignResource(operationId, {
           resource_type: "vehicle",
           resource_id: vehicleId,
         })
-
-        // Store assignment ID for later unassignment
         setOperations((ops) =>
           ops.map((op) => {
             if (op.id === operationId) {
@@ -1177,12 +898,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (err) {
         console.error("Failed to assign vehicle:", err)
-        // Revert optimistic update on error
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
         )
-
-        // Clear assignment cooldown on error so WebSocket updates can refresh if needed
         recentAssignmentRef.current = false
         if (assignmentCooldownTimerRef.current) {
           clearTimeout(assignmentCooldownTimerRef.current)
@@ -1192,59 +910,35 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /**
-   * Removes a vehicle from an operation (unassigns it).
-   * Updates frontend state and persists to the database.
-   *
-   * @param operationId - The ID of the operation to remove the vehicle from
-   * @param vehicleName - The name of the vehicle to remove
-   */
   const removeVehicle = (operationId: string, vehicleName: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
 
-    // Get assignment ID from the map
     const assignmentId = operation.vehicleAssignments.get(vehicleName)
     if (!assignmentId) {
       console.warn(`No assignment ID found for vehicle ${vehicleName}`)
       return
     }
 
-    // Update frontend state immediately
     setOperations((ops) =>
       ops.map((op) => {
         if (op.id === operationId) {
           const newVehicleAssignments = new Map(op.vehicleAssignments)
           newVehicleAssignments.delete(vehicleName)
-          return {
-            ...op,
-            vehicles: op.vehicles.filter((name) => name !== vehicleName),
-            vehicleAssignments: newVehicleAssignments,
-          }
+          return { ...op, vehicles: op.vehicles.filter((name) => name !== vehicleName), vehicleAssignments: newVehicleAssignments }
         }
         return op
       })
     )
 
-    // Call unassignment API
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId)
-        .catch(err => {
-          console.error("Failed to unassign vehicle:", err)
-          toast.error("Fehler beim Entfernen", {
-            description: "Das Fahrzeug konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
-          })
-        })
+      apiClient.unassignResource(operationId, assignmentId).catch(err => {
+        console.error("Failed to unassign vehicle:", err)
+        toast.error("Fehler beim Entfernen", { description: "Das Fahrzeug konnte nicht entfernt werden." })
+      })
     }
   }
 
-  /**
-   * Deletes an operation from the system.
-   * Updates frontend state and persists to the database.
-   * Also releases any assigned personnel and materials.
-   *
-   * @param operationId - The ID of the operation to delete
-   */
   const deleteOperation = async (operationId: string): Promise<void> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) {
@@ -1253,12 +947,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Delete from backend first
       if (isLoaded) {
         await apiClient.deleteIncident(operationId)
       }
 
-      // Release assigned personnel
       for (const crewName of operation.crew) {
         const person = personnel.find(p => p.name === crewName)
         if (person) {
@@ -1267,16 +959,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             setPersonnel((people) =>
               people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p))
             )
-            if (isLoaded) {
-              apiClient.updatePersonnel(person.id, {
-                availability: "available",
-              }).catch(err => console.error("Failed to update person:", err))
-            }
           }
         }
       }
 
-      // Release assigned materials
       for (const materialId of operation.materials) {
         const material = materials.find(m => m.id === materialId)
         if (material) {
@@ -1285,16 +971,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             setMaterials((mats) =>
               mats.map((m) => (m.id === material.id ? { ...m, status: "available" as Material["status"] } : m))
             )
-            if (isLoaded) {
-              apiClient.updateMaterialResource(material.id, {
-                status: "available",
-              }).catch(err => console.error("Failed to update material:", err))
-            }
           }
         }
       }
 
-      // Remove from frontend state
       setOperations((ops) => ops.filter((op) => op.id !== operationId))
     } catch (error) {
       console.error("Failed to delete operation:", error)
@@ -1302,11 +982,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /**
-   * Format a location for display based on home city setting.
-   * @param fullAddress - The complete address to format
-   * @returns Formatted address string
-   */
   const formatLocation = (fullAddress: string): string => {
     return formatLocationForDisplay(fullAddress, homeCity)
   }
@@ -1351,7 +1026,6 @@ export function useOperations() {
 
 /**
  * useIncidents - Compatibility hook for components that only need incident data
- * Returns a subset of the operations context data without assignment tracking
  */
 export function useIncidents() {
   const context = useContext(OperationsContext)
@@ -1361,7 +1035,6 @@ export function useIncidents() {
     throw new Error("useIncidents must be used within an OperationsProvider")
   }
 
-  // Map operation status to incident status
   const operationToIncidentStatus: Record<OperationStatus, string> = {
     "incoming": "eingegangen",
     "ready": "reko",
@@ -1371,10 +1044,9 @@ export function useIncidents() {
     "complete": "abschluss",
   }
 
-  // Convert operations to incidents format for compatibility
   const incidents = context.operations.map((op) => ({
     id: op.id,
-    event_id: selectedEvent?.id || "", // Use selected event's ID
+    event_id: selectedEvent?.id || "",
     title: op.location,
     type: op.incidentType as any,
     priority: op.priority as "low" | "medium" | "high",
@@ -1421,13 +1093,12 @@ export function useIncidents() {
     error: null,
     trainingMode: false,
     homeCity: context.homeCity,
-    setIncidents: () => {}, // No-op for compatibility
+    setIncidents: () => {},
     setPersonnel: context.setPersonnel,
     setMaterials: context.setMaterials,
-    setTrainingMode: (_trainingMode: boolean) => {}, // No-op for compatibility
+    setTrainingMode: (_trainingMode: boolean) => {},
     formatLocation: context.formatLocation,
     createIncident: async (data: any) => {
-      // Convert frontend IncidentCreate to ApiIncidentCreate (number coords -> string coords)
       const apiData: ApiIncidentCreate = {
         ...data,
         location_lat: data.location_lat != null ? String(data.location_lat) : null,
@@ -1438,7 +1109,6 @@ export function useIncidents() {
       return apiIncident
     },
     updateIncident: async (id: string, data: any) => {
-      // Convert frontend IncidentUpdate to ApiIncidentUpdate (number coords -> string coords)
       const apiData: Partial<ApiIncidentUpdate> = {
         ...data,
         location_lat: data.location_lat != null ? String(data.location_lat) : data.location_lat === null ? null : undefined,
@@ -1451,7 +1121,7 @@ export function useIncidents() {
       await context.deleteOperation(id)
     },
     refreshIncidents: context.refreshOperations,
-    updateIncidentStatus: async () => {}, // Not needed by map/form
+    updateIncidentStatus: async () => {},
     getStatusHistory: async () => [],
   }
 }
