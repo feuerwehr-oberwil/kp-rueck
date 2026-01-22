@@ -13,7 +13,7 @@ import { Map as MapIcon, List, Calendar, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 
 interface PageNavigationProps {
-  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training' | 'stats' | 'help' | 'resources' | 'divera';
+  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'combined' | 'training' | 'stats' | 'help' | 'divera';
   vehicleTypes?: Array<{ key: string; name: string }>;
   hasSelectedEvent?: boolean;
 }

@@ -168,11 +168,10 @@ export function VehicleSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-        <h2 className="text-2xl font-semibold">Fahrzeugverwaltung</h2>
+      <div className="flex justify-end">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditingVehicle(null)} className="w-full sm:w-auto">
+            <Button onClick={() => setEditingVehicle(null)}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Fahrzeug hinzufügen
             </Button>
@@ -311,10 +310,10 @@ export function VehicleSettings() {
                 <TableCell className="text-muted-foreground">{vehicle.radio_call_sign}</TableCell>
                 <TableCell>
                   <span
-                    className={`px-2 py-1 rounded text-xs ${
+                    className={`px-2 py-1 rounded text-xs font-medium ${
                       vehicle.status === 'available'
-                        ? 'bg-zinc-100 text-zinc-800'
-                        : 'bg-gray-100 text-gray-800'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                     }`}
                   >
                     {vehicle.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}

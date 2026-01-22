@@ -204,8 +204,6 @@ export function PersonnelSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">Personalverwaltung</h2>
-
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="list">Personalliste</TabsTrigger>
@@ -213,11 +211,10 @@ export function PersonnelSettings() {
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-            <div />  {/* Spacer */}
+          <div className="flex justify-end">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditingPersonnel(null)} className="w-full sm:w-auto">
+            <Button onClick={() => setEditingPersonnel(null)}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Personal hinzufügen
             </Button>
@@ -308,10 +305,10 @@ export function PersonnelSettings() {
               <TableCell>{person.role || '-'}</TableCell>
               <TableCell>
                 <span
-                  className={`px-2 py-1 rounded text-xs ${
+                  className={`px-2 py-1 rounded text-xs font-medium ${
                     person.availability === 'available'
-                      ? 'bg-zinc-100 text-zinc-800'
-                      : 'bg-gray-100 text-gray-800'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                   }`}
                 >
                   {person.availability === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}

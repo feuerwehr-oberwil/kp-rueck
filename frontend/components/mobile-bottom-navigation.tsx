@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Users, Radio, FileSpreadsheet, FileText, QrCode, Sparkles, LogOut } from 'lucide-react'
+import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -57,13 +57,6 @@ export function MobileBottomNavigation({
     { id: 'settings', label: 'Einstellungen', icon: Settings, href: '/settings', category: 'Verwaltung' },
     { id: 'divera', label: 'Divera Notfälle', icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
     { id: 'help', label: 'Hilfe & Dokumentation', icon: HelpCircle, href: '/help', category: 'Support' },
-  ]
-
-  // Admin items (editors only)
-  const adminItems = [
-    { id: 'resources', label: 'Ressourcen', icon: Users, href: '/resources' },
-    { id: 'import', label: 'Import/Export', icon: FileSpreadsheet, href: '/admin/import' },
-    { id: 'audit', label: 'Audit-Protokoll', icon: FileText, href: '/admin/audit' },
   ]
 
   // Handle tap animation
@@ -266,37 +259,6 @@ export function MobileBottomNavigation({
                   })}
                 </div>
               </div>
-
-              {/* Administration Section (Editors only) */}
-              {isEditor && (
-                <>
-                  <Separator />
-                  <div className="animate-category-fade" style={{ animationDelay: '0.2s' }}>
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">
-                      Administration
-                    </h3>
-                    <div className="space-y-2">
-                      {adminItems.map((item, index) => {
-                        const Icon = item.icon
-                        return (
-                          <Link key={item.id} href={item.href} onClick={() => setSheetOpen(false)}>
-                            <Button
-                              variant="ghost"
-                              className={cn(
-                                "w-full justify-start gap-3 h-12 touch-manipulation hover-delight",
-                                `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
-                              )}
-                            >
-                              <Icon className="h-5 w-5" />
-                              <span>{item.label}</span>
-                            </Button>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
 
               {/* Account Section */}
               <Separator />

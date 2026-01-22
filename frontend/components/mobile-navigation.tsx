@@ -9,7 +9,7 @@
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { Menu, List, Map as MapIcon, Calendar, Settings, Users, HelpCircle, LayoutGrid } from 'lucide-react';
+import { Menu, List, Map as MapIcon, Calendar, Settings, HelpCircle, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserMenu } from '@/components/user-menu';
@@ -64,16 +64,10 @@ const NAV_ITEMS: NavItem[] = [
 
 const SETTINGS_ITEMS: NavItem[] = [
   {
-    href: '/resources',
-    icon: Users,
-    label: 'Ressourcen',
-    description: 'Personal & Material',
-  },
-  {
     href: '/settings',
     icon: Settings,
     label: 'Einstellungen',
-    description: 'Systemkonfiguration',
+    description: 'Konfiguration & Verwaltung',
   },
   {
     href: '/help',

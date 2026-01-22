@@ -80,7 +80,7 @@ export function NavbarSyncIndicator() {
 
   return (
     <Link
-      href="/settings?tab=sync"
+      href="/settings?section=sync"
       className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-muted transition-colors group"
       title={getTooltipText()}
     >

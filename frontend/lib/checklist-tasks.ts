@@ -95,7 +95,7 @@ export function generateChecklistTasks(params: {
           label: 'Zur Personal-Verwaltung',
           icon: Users,
           variant: 'outline',
-          href: '/resources'
+          href: '/settings?section=personnel'
         }
       ]
     },
@@ -118,7 +118,7 @@ export function generateChecklistTasks(params: {
           label: 'Fahrer zuweisen',
           icon: Truck,
           variant: 'default',
-          href: '/resources#drivers'
+          href: '/settings?section=vehicles'
         },
         {
           label: 'Auto-Zuweisen',
@@ -146,7 +146,7 @@ export function generateChecklistTasks(params: {
           label: 'Reko-Offizier zuweisen',
           icon: Users,
           variant: 'default',
-          href: '/resources#reko'
+          href: '/settings?section=personnel'
         }
       ]
     },
@@ -170,7 +170,7 @@ export function generateChecklistTasks(params: {
           label: 'Magazin-Person zuweisen',
           icon: Users,
           variant: 'outline',
-          href: '/resources#magazin'
+          href: '/settings?section=personnel'
         }
       ]
     },

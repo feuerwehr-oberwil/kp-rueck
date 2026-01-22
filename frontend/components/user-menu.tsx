@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, FileText, LogOut, Users, FileSpreadsheet, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle } from 'lucide-react';
+import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -250,7 +250,7 @@ export function UserMenu() {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
-            <Link href="/settings?tab=sync" className={syncConfig?.is_production ? "cursor-pointer opacity-50" : "cursor-pointer"}>
+            <Link href="/settings?section=sync" className={syncConfig?.is_production ? "cursor-pointer opacity-50" : "cursor-pointer"}>
               <div className="flex items-center justify-between w-full">
                 <span className="text-xs text-muted-foreground">Sync</span>
                 <div className="flex items-center gap-2">
@@ -287,33 +287,6 @@ export function UserMenu() {
             </Link>
           </DropdownMenuItem>
 
-          {/* ADMIN GROUP (editors only) */}
-          {isEditor && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-                Administration
-              </DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <Link href="/resources" className="cursor-pointer">
-                  <Users className="mr-2 h-4 w-4" />
-                  <span>Ressourcen</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/import" className="cursor-pointer">
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  <span>Import/Export</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/audit" className="cursor-pointer">
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>Audit-Protokoll</span>
-                </Link>
-              </DropdownMenuItem>
-            </>
-          )}
 
           <DropdownMenuSeparator />
 

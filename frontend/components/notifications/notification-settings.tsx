@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Bell, Save } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { apiClient } from '@/lib/api-client'
@@ -66,21 +66,15 @@ export function NotificationSettingsCard() {
   }
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/20">
-          <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-        <div>
-          <h2 className="text-xl font-semibold">Benachrichtigungseinstellungen</h2>
-          <p className="text-sm text-muted-foreground">
-            Schwellenwerte für zeitbasierte und ressourcenbezogene Warnungen
-          </p>
-        </div>
-      </div>
+    <Card className="p-6 space-y-6">
+      {/* Intro text */}
+      <p className="text-sm text-muted-foreground">
+        Konfigurieren Sie Warnungen, die auf dem Einsatz-Board angezeigt werden.
+        Änderungen werden automatisch gespeichert.
+      </p>
 
       {/* Enable/Disable toggles */}
-      <div className="space-y-4 mb-6 p-4 bg-muted/50 rounded-lg">
+      <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
             <Label htmlFor="time-alerts">Zeitbasierte Warnungen</Label>
@@ -88,15 +82,12 @@ export function NotificationSettingsCard() {
               Warnung bei Überschreitung von Status-Zeitlimits
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="time-alerts"
-              checked={settings.enabled_time_alerts}
-              onCheckedChange={(checked) => updateSetting('enabled_time_alerts', checked)}
-              disabled={savingKey === 'enabled_time_alerts'}
-            />
-            {savingKey === 'enabled_time_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
-          </div>
+          <Switch
+            id="time-alerts"
+            checked={settings.enabled_time_alerts}
+            onCheckedChange={(checked) => updateSetting('enabled_time_alerts', checked)}
+            disabled={savingKey === 'enabled_time_alerts'}
+          />
         </div>
 
         <div className="flex items-center justify-between">
@@ -106,15 +97,12 @@ export function NotificationSettingsCard() {
               Warnung bei knappen Ressourcen oder Personalermüdung
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="resource-alerts"
-              checked={settings.enabled_resource_alerts}
-              onCheckedChange={(checked) => updateSetting('enabled_resource_alerts', checked)}
-              disabled={savingKey === 'enabled_resource_alerts'}
-            />
-            {savingKey === 'enabled_resource_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
-          </div>
+          <Switch
+            id="resource-alerts"
+            checked={settings.enabled_resource_alerts}
+            onCheckedChange={(checked) => updateSetting('enabled_resource_alerts', checked)}
+            disabled={savingKey === 'enabled_resource_alerts'}
+          />
         </div>
 
         <div className="flex items-center justify-between">
@@ -124,15 +112,12 @@ export function NotificationSettingsCard() {
               Warnung bei fehlenden Pflichtdaten
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="data-quality-alerts"
-              checked={settings.enabled_data_quality_alerts}
-              onCheckedChange={(checked) => updateSetting('enabled_data_quality_alerts', checked)}
-              disabled={savingKey === 'enabled_data_quality_alerts'}
-            />
-            {savingKey === 'enabled_data_quality_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
-          </div>
+          <Switch
+            id="data-quality-alerts"
+            checked={settings.enabled_data_quality_alerts}
+            onCheckedChange={(checked) => updateSetting('enabled_data_quality_alerts', checked)}
+            disabled={savingKey === 'enabled_data_quality_alerts'}
+          />
         </div>
 
         <div className="flex items-center justify-between">
@@ -142,30 +127,34 @@ export function NotificationSettingsCard() {
               Warnung bei Annäherung an Datenbankgrenzen
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="event-alerts"
-              checked={settings.enabled_event_alerts}
-              onCheckedChange={(checked) => updateSetting('enabled_event_alerts', checked)}
-              disabled={savingKey === 'enabled_event_alerts'}
-            />
-            {savingKey === 'enabled_event_alerts' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
-          </div>
+          <Switch
+            id="event-alerts"
+            checked={settings.enabled_event_alerts}
+            onCheckedChange={(checked) => updateSetting('enabled_event_alerts', checked)}
+            disabled={savingKey === 'enabled_event_alerts'}
+          />
         </div>
       </div>
 
       {/* Time threshold settings - Live vs Training */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'live' | 'training')}>
-        <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="live">Live-Modus</TabsTrigger>
-          <TabsTrigger value="training">Trainingsmodus</TabsTrigger>
-        </TabsList>
+      <div className="space-y-3">
+        <div>
+          <p className="text-sm font-medium">Status-Zeitlimits</p>
+          <p className="text-xs text-muted-foreground">
+            Warnung erscheint, wenn ein Einsatz länger als angegeben in einem Status verbleibt.
+          </p>
+        </div>
 
-        <TabsContent value="live" className="space-y-4">
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="live-eingegangen">Eingegangen (Minuten)</Label>
-              <div className="flex items-center gap-2">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'live' | 'training')}>
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="live">Live-Modus</TabsTrigger>
+            <TabsTrigger value="training">Trainingsmodus</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="live" className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="live-eingegangen">Eingegangen (Min)</Label>
                 <Input
                   id="live-eingegangen"
                   type="number"
@@ -178,13 +167,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'live_eingegangen_min'}
                 />
-                {savingKey === 'live_eingegangen_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="live-reko">Reko (Minuten)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="live-reko">Reko (Min)</Label>
                 <Input
                   id="live-reko"
                   type="number"
@@ -197,13 +183,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'live_reko_min'}
                 />
-                {savingKey === 'live_reko_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="live-disponiert">Disponiert/Unterwegs (Minuten)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="live-disponiert">Disponiert (Min)</Label>
                 <Input
                   id="live-disponiert"
                   type="number"
@@ -216,13 +199,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'live_disponiert_min'}
                 />
-                {savingKey === 'live_disponiert_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="live-einsatz">Einsatz (Stunden)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="live-einsatz">Einsatz (Std)</Label>
                 <Input
                   id="live-einsatz"
                   type="number"
@@ -235,13 +215,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'live_einsatz_hours'}
                 />
-                {savingKey === 'live_einsatz_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="live-rueckfahrt">Einsatz beendet/Rückfahrt (Minuten)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="live-rueckfahrt">Rückfahrt (Min)</Label>
                 <Input
                   id="live-rueckfahrt"
                   type="number"
@@ -254,13 +231,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'live_rueckfahrt_min'}
                 />
-                {savingKey === 'live_rueckfahrt_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="live-archive">Nicht archiviert nach Abschluss (Stunden)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="live-archive">Archivierung (Std)</Label>
                 <Input
                   id="live-archive"
                   type="number"
@@ -273,17 +247,14 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'live_archive_hours'}
                 />
-                {savingKey === 'live_archive_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="training" className="space-y-4">
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="training-eingegangen">Eingegangen (Minuten)</Label>
-              <div className="flex items-center gap-2">
+          <TabsContent value="training" className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="training-eingegangen">Eingegangen (Min)</Label>
                 <Input
                   id="training-eingegangen"
                   type="number"
@@ -296,13 +267,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'training_eingegangen_min'}
                 />
-                {savingKey === 'training_eingegangen_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="training-reko">Reko (Minuten)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="training-reko">Reko (Min)</Label>
                 <Input
                   id="training-reko"
                   type="number"
@@ -315,13 +283,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'training_reko_min'}
                 />
-                {savingKey === 'training_reko_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="training-disponiert">Disponiert/Unterwegs (Minuten)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="training-disponiert">Disponiert (Min)</Label>
                 <Input
                   id="training-disponiert"
                   type="number"
@@ -334,13 +299,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'training_disponiert_min'}
                 />
-                {savingKey === 'training_disponiert_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="training-einsatz">Einsatz (Stunden)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="training-einsatz">Einsatz (Std)</Label>
                 <Input
                   id="training-einsatz"
                   type="number"
@@ -353,13 +315,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'training_einsatz_hours'}
                 />
-                {savingKey === 'training_einsatz_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="training-rueckfahrt">Einsatz beendet/Rückfahrt (Minuten)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="training-rueckfahrt">Rückfahrt (Min)</Label>
                 <Input
                   id="training-rueckfahrt"
                   type="number"
@@ -372,13 +331,10 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'training_rueckfahrt_min'}
                 />
-                {savingKey === 'training_rueckfahrt_min' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="training-archive">Nicht archiviert nach Abschluss (Stunden)</Label>
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="training-archive">Archivierung (Std)</Label>
                 <Input
                   id="training-archive"
                   type="number"
@@ -391,20 +347,24 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={savingKey === 'training_archive_hours'}
                 />
-                {savingKey === 'training_archive_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
               </div>
             </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Resource and event settings */}
-      <div className="mt-6 space-y-4">
-        <h3 className="font-semibold">Ressourcen-Schwellenwerte</h3>
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-medium">Ressourcen-Schwellenwerte</p>
+          <p className="text-xs text-muted-foreground">
+            Warnung bei Überschreitung von Kapazitätsgrenzen.
+          </p>
+        </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="fatigue-hours">Personalermüdung (Stunden)</Label>
-          <div className="flex items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="fatigue-hours">Personalermüdung (Std)</Label>
             <Input
               id="fatigue-hours"
               type="number"
@@ -417,16 +377,10 @@ export function NotificationSettingsCard() {
               }}
               disabled={savingKey === 'fatigue_hours'}
             />
-            {savingKey === 'fatigue_hours' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Warnung, wenn Personal länger als diese Anzahl Stunden eingesetzt ist
-          </p>
-        </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="database-limit">Datenbank-Limit (GB)</Label>
-          <div className="flex items-center gap-2">
+          <div className="grid gap-2">
+            <Label htmlFor="database-limit">Datenbank (GB)</Label>
             <Input
               id="database-limit"
               type="number"
@@ -439,13 +393,10 @@ export function NotificationSettingsCard() {
               }}
               disabled={savingKey === 'database_size_limit_gb'}
             />
-            {savingKey === 'database_size_limit_gb' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
           </div>
-        </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="photo-limit">Foto-Limit (GB)</Label>
-          <div className="flex items-center gap-2">
+          <div className="grid gap-2">
+            <Label htmlFor="photo-limit">Foto-Limit (GB)</Label>
             <Input
               id="photo-limit"
               type="number"
@@ -458,61 +409,59 @@ export function NotificationSettingsCard() {
               }}
               disabled={savingKey === 'photo_size_limit_gb'}
             />
-            {savingKey === 'photo_size_limit_gb' && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
           </div>
         </div>
+      </div>
 
-        <div className="grid gap-2 pt-4 border-t">
-          <Label>Materialbestand-Schwellenwerte</Label>
-          <p className="text-xs text-muted-foreground mb-2">
-            Warnung wenn verfügbare Einheiten unter den Schwellenwert fallen. Deaktivieren Sie die Checkbox, um Warnungen für einen Typ zu unterdrücken.
+      {/* Material thresholds */}
+      <div className="space-y-3 pt-4 border-t">
+        <div>
+          <p className="text-sm font-medium">Materialbestand-Schwellenwerte</p>
+          <p className="text-xs text-muted-foreground">
+            Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen.
+            Deaktivieren Sie die Checkbox um Warnungen für eine Kategorie auszublenden.
           </p>
+        </div>
+        <div className="space-y-2">
           {materialTypes.map((materialType) => {
             const threshold = settings.material_depletion_threshold[materialType] ?? 2
             const isDisabled = threshold === -1
 
             return (
-              <div key={materialType} className="grid grid-cols-[auto_1fr_auto] gap-3 items-center py-2">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id={`enable-${materialType}`}
-                    checked={!isDisabled}
-                    onCheckedChange={(checked) => {
+              <div key={materialType} className="flex items-center gap-3 py-1">
+                <Checkbox
+                  id={`enable-${materialType}`}
+                  checked={!isDisabled}
+                  onCheckedChange={(checked) => {
+                    const newThresholds = { ...settings.material_depletion_threshold }
+                    newThresholds[materialType] = checked ? 2 : -1
+                    updateSetting('material_depletion_threshold', newThresholds)
+                  }}
+                  disabled={savingKey === 'material_depletion_threshold'}
+                />
+                <Label
+                  htmlFor={`enable-${materialType}`}
+                  className="text-sm font-normal cursor-pointer flex-1"
+                >
+                  {materialType}
+                </Label>
+                <Input
+                  id={`material-${materialType}`}
+                  type="number"
+                  min="0"
+                  value={isDisabled ? '' : threshold}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value)
+                    if (!isNaN(val) && val >= 0) {
                       const newThresholds = { ...settings.material_depletion_threshold }
-                      newThresholds[materialType] = checked ? 2 : -1
+                      newThresholds[materialType] = val
                       updateSetting('material_depletion_threshold', newThresholds)
-                    }}
-                    disabled={savingKey === 'material_depletion_threshold'}
-                  />
-                  <Label
-                    htmlFor={`enable-${materialType}`}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {materialType}
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id={`material-${materialType}`}
-                    type="number"
-                    min="0"
-                    value={isDisabled ? '' : threshold}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value)
-                      if (!isNaN(val) && val >= 0) {
-                        const newThresholds = { ...settings.material_depletion_threshold }
-                        newThresholds[materialType] = val
-                        updateSetting('material_depletion_threshold', newThresholds)
-                      }
-                    }}
-                    disabled={isDisabled || savingKey === 'material_depletion_threshold'}
-                    placeholder={isDisabled ? 'Deaktiviert' : 'Schwellenwert'}
-                    className="h-8"
-                  />
-                  {savingKey === 'material_depletion_threshold' && (
-                    <Save className="h-4 w-4 text-blue-600 animate-pulse" />
-                  )}
-                </div>
+                    }
+                  }}
+                  disabled={isDisabled || savingKey === 'material_depletion_threshold'}
+                  placeholder={isDisabled ? '-' : ''}
+                  className="h-8 w-20"
+                />
               </div>
             )
           })}
