@@ -17,24 +17,24 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
     switch (severity) {
       case 'critical':
         return {
-          border: 'border-l-2 border-l-destructive/60',
-          bg: 'bg-destructive/10 dark:bg-destructive/10',
-          icon: <AlertCircle className="h-4 w-4 text-destructive/70" />,
-          badge: 'bg-destructive/15 text-destructive dark:bg-destructive/20 dark:text-destructive',
+          border: 'border-l-2 border-l-destructive/40',
+          bg: 'bg-destructive/5',
+          icon: <AlertCircle className="h-4 w-4 text-destructive/50" />,
+          badge: 'bg-destructive/10 text-destructive/80',
         }
       case 'warning':
         return {
-          border: 'border-l-2 border-l-orange-500/60',
-          bg: 'bg-orange-950/15 dark:bg-orange-950/15',
-          icon: <AlertTriangle className="h-4 w-4 text-orange-500/70" />,
-          badge: 'bg-orange-900/20 text-orange-400 dark:bg-orange-900/30 dark:text-orange-400',
+          border: 'border-l-2 border-l-orange-400/40',
+          bg: 'bg-orange-950/10',
+          icon: <AlertTriangle className="h-4 w-4 text-orange-400/50" />,
+          badge: 'bg-orange-900/15 text-orange-400/80',
         }
       case 'info':
         return {
-          border: 'border-l-2 border-l-primary/60',
-          bg: 'bg-primary/10 dark:bg-primary/10',
-          icon: <Info className="h-4 w-4 text-primary/70" />,
-          badge: 'bg-primary/15 text-primary dark:bg-primary/20 dark:text-primary',
+          border: 'border-l-2 border-l-muted-foreground/40',
+          bg: 'bg-muted/30',
+          icon: <Info className="h-4 w-4 text-muted-foreground/70" />,
+          badge: 'bg-muted text-muted-foreground',
         }
     }
   }
@@ -136,7 +136,7 @@ export function PersistentNotificationSidebar() {
           <Bell className="h-5 w-5 text-muted-foreground" />
           <h2 className="text-base font-semibold">Benachrichtigungen</h2>
           {activeNotifications.length > 0 && (
-            <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold">
+            <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
               {activeNotifications.length}
             </span>
           )}

@@ -37,21 +37,18 @@ interface DraggableOperationProps {
   showMeldung?: boolean
 }
 
-// Priority visual configuration - dot + chevron + card styling for better visibility
+// Priority visual configuration - subtle color for high priority only
 const priorityStyles = {
   high: {
-    dot: 'bg-red-500',
-    chevron: 'text-red-600 dark:text-red-400',
-    card: 'border-red-500/70 border-2 bg-red-500/5',
+    icon: 'text-red-400',
+    card: 'border-l-2 border-l-red-400/50',
   },
   medium: {
-    dot: 'bg-orange-500',
-    chevron: 'text-orange-600 dark:text-orange-400',
+    icon: 'text-muted-foreground',
     card: '',
   },
   low: {
-    dot: 'bg-green-500',
-    chevron: 'text-green-600 dark:text-green-400',
+    icon: 'text-muted-foreground/50',
     card: '',
   },
 } as const
@@ -163,13 +160,14 @@ function DraggableOperationBase({
         style={{ opacity: isDragging ? 0.5 : 1 }}
         data-incident-id={operation.id}
         className={cn(
-          'operation-card border backdrop-blur-sm p-4 transition-all hover:border-border hover:shadow-lg cursor-pointer',
-          columnColor,
-          priorityConfig?.card || 'border-border',
-          isOver && 'ring-2 ring-border',
-          isHighlighted && 'ring-4 ring-muted-foreground animate-pulse',
-          isSelected && !isHighlighted && 'ring-2 ring-primary shadow-lg shadow-primary/20',
-          isKeyboardFocused && !isHighlighted && !isSelected && 'ring-2 ring-muted-foreground/50 shadow-xl'
+          'operation-card border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
+          // Priority styling (when not selected/highlighted)
+          !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
+          isOver && 'bg-muted/20',
+          // Selection/highlight states - use red for high priority
+          isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400 bg-muted/20' : 'border-l-4 border-l-foreground bg-muted/20'),
+          isSelected && !isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400/80 bg-muted/10' : 'border-l-4 border-l-foreground/70 bg-muted/10'),
+          isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-2 border-l-red-400/50' : 'border-l-2 border-l-muted-foreground/50')
         )}
         onMouseEnter={() => onHover(operation.id)}
         onMouseLeave={() => onHover(null)}
@@ -191,18 +189,14 @@ function DraggableOperationBase({
           <div className="flex items-start justify-between gap-2">
             {/* Draggable area */}
             <div className="flex items-start gap-2 min-w-0 flex-1">
-              <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
-                {/* Priority indicator - dot + chevron for visibility */}
-                <div
-                  className={cn('h-3 w-3 rounded-full', priorityConfig?.dot)}
-                  aria-hidden="true"
-                />
+              <div className="flex items-center flex-shrink-0 mt-0.5">
+                {/* Priority indicator - icon only, no colors */}
                 {priority === "high" ? (
-                  <ChevronUp className={cn('h-4 w-4', priorityConfig?.chevron)} aria-label="Hohe Priorität" />
+                  <ChevronUp className={cn('h-4 w-4', priorityConfig?.icon)} aria-label="Hohe Priorität" />
                 ) : priority === "medium" ? (
-                  <Minus className={cn('h-4 w-4', priorityConfig?.chevron)} aria-label="Mittlere Priorität" />
+                  <Minus className={cn('h-4 w-4', priorityConfig?.icon)} aria-label="Mittlere Priorität" />
                 ) : (
-                  <ChevronDown className={cn('h-4 w-4', priorityConfig?.chevron)} aria-label="Niedrige Priorität" />
+                  <ChevronDown className={cn('h-4 w-4', priorityConfig?.icon)} aria-label="Niedrige Priorität" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -213,10 +207,10 @@ function DraggableOperationBase({
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {operation.hasCompletedReko && (
                 <div
-                  className="p-1.5 rounded-md bg-green-500/20 animate-scale-in"
+                  className="p-1.5 rounded-md bg-muted"
                   title="Reko-Bericht ausgefüllt"
                 >
-                  <FileCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <FileCheck className="h-4 w-4 text-muted-foreground" />
                 </div>
               )}
               <Link
@@ -244,8 +238,8 @@ function DraggableOperationBase({
             </div>
             <span
               className={cn(
-                "font-mono text-xs",
-                isOverOneHour ? "text-red-600 dark:text-red-400 font-semibold" : "text-muted-foreground"
+                "font-mono text-xs text-muted-foreground",
+                isOverOneHour && "font-medium"
               )}
               title={isOverOneHour ? `In diesem Status seit über 1 Stunde (seit ${timeInStatus.toLocaleString("de-DE")})` : undefined}
             >

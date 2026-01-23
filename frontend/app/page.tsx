@@ -1188,7 +1188,7 @@ export default function FireStationDashboard() {
         <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex gap-2 flex-wrap">
-              <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Neuer Einsatz
               </Button>

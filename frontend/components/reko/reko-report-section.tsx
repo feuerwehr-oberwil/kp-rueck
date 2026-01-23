@@ -85,9 +85,9 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
           {report.is_relevant ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <CheckCircle2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           ) : (
-            <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+            <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           )}
           <div className="flex-1">
             <div className="flex items-center justify-between">
@@ -119,7 +119,7 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
           ) && (
             <div>
               <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                 Gefahren
               </h5>
               <div className="flex flex-wrap gap-2">

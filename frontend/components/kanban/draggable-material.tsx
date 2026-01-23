@@ -48,14 +48,9 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          {/* Status indicator - icon + background for accessibility */}
+          {/* Status indicator - icon only, muted colors */}
           <div
-            className={cn(
-              "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
-              material.status === "available"
-                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                : "bg-muted text-muted-foreground"
-            )}
+            className="flex items-center justify-center h-4 w-4 rounded flex-shrink-0 text-muted-foreground"
             aria-label={material.status === "available" ? "Verfügbar" : "Im Einsatz"}
             title={material.status === "available" ? "Verfügbar" : "Im Einsatz"}
           >

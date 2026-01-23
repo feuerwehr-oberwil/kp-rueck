@@ -24,24 +24,24 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
     switch (severity) {
       case 'critical':
         return {
-          border: 'border-l-4 border-l-destructive',
-          bg: 'bg-destructive/20 dark:bg-destructive/20',
-          icon: <AlertCircle className="h-5 w-5 text-destructive" />,
-          badge: 'bg-destructive/30 text-destructive-foreground dark:bg-destructive/40 dark:text-destructive-foreground',
+          border: 'border-l-2 border-l-destructive/40',
+          bg: 'bg-destructive/5',
+          icon: <AlertCircle className="h-5 w-5 text-destructive/50" />,
+          badge: 'bg-destructive/10 text-destructive/80',
         }
       case 'warning':
         return {
-          border: 'border-l-4 border-l-orange-500',
-          bg: 'bg-orange-950/30 dark:bg-orange-950/30',
-          icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
-          badge: 'bg-orange-900/50 text-orange-200 dark:bg-orange-900/60 dark:text-orange-200',
+          border: 'border-l-2 border-l-orange-400/40',
+          bg: 'bg-orange-950/10',
+          icon: <AlertTriangle className="h-5 w-5 text-orange-400/50" />,
+          badge: 'bg-orange-900/15 text-orange-400/80',
         }
       case 'info':
         return {
-          border: 'border-l-4 border-l-primary',
-          bg: 'bg-primary/20 dark:bg-primary/20',
-          icon: <Info className="h-5 w-5 text-primary" />,
-          badge: 'bg-primary/30 text-primary-foreground dark:bg-primary/40 dark:text-primary-foreground',
+          border: 'border-l-2 border-l-muted-foreground/40',
+          bg: 'bg-muted/30',
+          icon: <Info className="h-5 w-5 text-muted-foreground/70" />,
+          badge: 'bg-muted text-muted-foreground',
         }
     }
   }
@@ -135,7 +135,7 @@ export function NotificationSidebar() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold shadow-sm animate-in fade-in zoom-in duration-200">
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/80 text-background text-xs font-medium">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}

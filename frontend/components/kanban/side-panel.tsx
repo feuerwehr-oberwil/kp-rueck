@@ -174,11 +174,11 @@ export function SidePanel({
   )
 }
 
-// Priority visual configuration
+// Priority visual configuration - subtle color for high priority
 const priorityStyles = {
-  high: { dot: 'bg-red-500', label: 'Hoch' },
-  medium: { dot: 'bg-orange-500', label: 'Mittel' },
-  low: { dot: 'bg-green-500', label: 'Niedrig' },
+  high: { label: 'Hoch', color: 'text-red-400' },
+  medium: { label: 'Mittel', color: 'text-muted-foreground' },
+  low: { label: 'Niedrig', color: 'text-muted-foreground' },
 } as const
 
 function SidePanelDetail({
@@ -437,7 +437,7 @@ function SidePanelDetail({
           <span className="font-mono text-muted-foreground">{getTimeSince(timeInStatus)}</span>
         </div>
         {operation.hasCompletedReko && (
-          <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
             <FileCheck className="h-4 w-4" />
             <span className="text-xs font-medium">Reko</span>
           </div>
@@ -574,7 +574,7 @@ function SidePanelDetail({
 
           {assignedRekoPersonnel ? (
             <div className="space-y-2">
-              <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <Badge variant="secondary" className="text-xs">
                 <Search className="h-2.5 w-2.5 mr-1" />
                 {assignedRekoPersonnel.name}
               </Badge>
@@ -591,7 +591,7 @@ function SidePanelDetail({
                   {isCopyingRekoLink ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : rekoCopied === 'direct' ? (
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-muted-foreground" />
                   ) : (
                     <Link2 className="h-3 w-3" />
                   )}
@@ -605,7 +605,7 @@ function SidePanelDetail({
                   className="h-7 px-2 gap-1.5 text-xs flex-1"
                 >
                   {rekoCopied === 'dashboard' ? (
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-muted-foreground" />
                   ) : (
                     <LayoutDashboard className="h-3 w-3" />
                   )}

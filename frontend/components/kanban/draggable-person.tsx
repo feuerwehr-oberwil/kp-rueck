@@ -134,14 +134,9 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              {/* Status indicator - icon + dot for accessibility */}
+              {/* Status indicator - icon only, muted colors */}
               <div
-                className={cn(
-                  "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
-                  person.status === "available"
-                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                    : "bg-muted text-muted-foreground"
-                )}
+                className="flex items-center justify-center h-4 w-4 rounded flex-shrink-0 text-muted-foreground"
                 aria-label={person.status === "available" ? "Verfügbar" : "Im Einsatz"}
                 title={person.status === "available" ? "Verfügbar" : "Im Einsatz"}
               >

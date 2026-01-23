@@ -32,7 +32,7 @@ export function NotificationBellTrigger() {
     >
       <Bell className="h-4 w-4 md:h-5 md:w-5" />
       {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold shadow-sm animate-in fade-in zoom-in duration-200">
+        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/80 text-background text-xs font-medium">
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
