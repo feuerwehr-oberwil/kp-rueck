@@ -127,8 +127,7 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
           // Use border and background colors instead of opacity for WCAG contrast compliance
           canDrag && person.isReko && person.status === "assigned" && "bg-muted/30 border-border/30",
           // Non-reko assigned personnel: clear visual indication they're not draggable
-          // Use distinct styling instead of opacity for accessibility
-          !canDrag && person.status === "assigned" && "cursor-not-allowed bg-muted/40 border-dashed border-muted-foreground/30",
+          !canDrag && person.status === "assigned" && "cursor-not-allowed opacity-60",
           !canDrag && person.status !== "assigned" && "cursor-pointer"
         )}
       >
