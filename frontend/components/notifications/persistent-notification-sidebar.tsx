@@ -17,24 +17,24 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
     switch (severity) {
       case 'critical':
         return {
-          border: 'border-l-4 border-l-destructive',
-          bg: 'bg-destructive/20 dark:bg-destructive/20',
-          icon: <AlertCircle className="h-5 w-5 text-destructive" />,
-          badge: 'bg-destructive/30 text-destructive-foreground dark:bg-destructive/40 dark:text-destructive-foreground',
+          border: 'border-l-2 border-l-destructive/60',
+          bg: 'bg-destructive/10 dark:bg-destructive/10',
+          icon: <AlertCircle className="h-4 w-4 text-destructive/70" />,
+          badge: 'bg-destructive/15 text-destructive dark:bg-destructive/20 dark:text-destructive',
         }
       case 'warning':
         return {
-          border: 'border-l-4 border-l-orange-500',
-          bg: 'bg-orange-950/30 dark:bg-orange-950/30',
-          icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
-          badge: 'bg-orange-900/50 text-orange-200 dark:bg-orange-900/60 dark:text-orange-200',
+          border: 'border-l-2 border-l-orange-500/60',
+          bg: 'bg-orange-950/15 dark:bg-orange-950/15',
+          icon: <AlertTriangle className="h-4 w-4 text-orange-500/70" />,
+          badge: 'bg-orange-900/20 text-orange-400 dark:bg-orange-900/30 dark:text-orange-400',
         }
       case 'info':
         return {
-          border: 'border-l-4 border-l-primary',
-          bg: 'bg-primary/20 dark:bg-primary/20',
-          icon: <Info className="h-5 w-5 text-primary" />,
-          badge: 'bg-primary/30 text-primary-foreground dark:bg-primary/40 dark:text-primary-foreground',
+          border: 'border-l-2 border-l-primary/60',
+          bg: 'bg-primary/10 dark:bg-primary/10',
+          icon: <Info className="h-4 w-4 text-primary/70" />,
+          badge: 'bg-primary/15 text-primary dark:bg-primary/20 dark:text-primary',
         }
     }
   }
@@ -71,7 +71,7 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
         'p-3 rounded-lg border transition-all duration-200',
         styles.border,
         styles.bg,
-        notification.dismissed ? 'opacity-60' : 'shadow-sm hover:shadow-md'
+        notification.dismissed && 'opacity-50'
       )}
       role="article"
       aria-label={`${getSeverityLabel(notification.severity)} notification`}
