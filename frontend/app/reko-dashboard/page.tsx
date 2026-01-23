@@ -104,6 +104,18 @@ export default function RekoDashboardPage() {
     }
   }, [personnel, loading])
 
+  // Refresh assignments when page gains focus (e.g., after returning from reko form)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && selectedPerson && token) {
+        loadAssignments(selectedPerson.personnel_id)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [selectedPerson, token, loadAssignments])
+
   // WebSocket subscription (separate effect to avoid re-subscribing)
   useEffect(() => {
     if (!token) return
@@ -144,11 +156,16 @@ export default function RekoDashboardPage() {
   const handleOpenRekoForm = (assignment: ApiRekoDashboardAssignment) => {
     // Generate reko link and navigate to it
     // The form will be pre-populated with the personnel_id
-    if (selectedPerson) {
+    if (selectedPerson && token) {
       // We need to get a fresh reko link for this incident
       apiClient.generateRekoLink(assignment.incident_id, selectedPerson.personnel_id)
         .then(({ link }) => {
-          window.location.href = link
+          // Add return URL so user can navigate back to dashboard after submission
+          const returnUrl = encodeURIComponent(`/reko-dashboard?token=${token}`)
+          const linkWithReturn = link.includes('?')
+            ? `${link}&return_to=${returnUrl}`
+            : `${link}?return_to=${returnUrl}`
+          window.location.href = linkWithReturn
         })
         .catch((error) => {
           console.error('Failed to generate Reko link:', error)

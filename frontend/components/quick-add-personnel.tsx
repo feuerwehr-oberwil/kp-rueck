@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
 
 interface QuickAddPersonnelProps {
-  onPersonAdded: () => Promise<void>
+  /** Called after person is added - receives the new person data for optimistic update */
+  onPersonAdded: (newPerson?: { id: string; name: string; checked_in: boolean }) => Promise<void>
   /** Optional token for auto-check-in after creation */
   checkInToken?: string
 }
@@ -40,8 +41,12 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
 
       setNewPersonName('')
       setShowAddForm(false)
-      // Reload personnel list to include the new person
-      await onPersonAdded()
+      // Notify parent with the new person data for optimistic update
+      await onPersonAdded({
+        id: createdPerson.id,
+        name: createdPerson.name,
+        checked_in: !!checkInToken // Will be checked in if token was provided
+      })
     } catch (error) {
       console.error('Failed to add person:', error)
       alert('Fehler beim Hinzufügen der Person.')

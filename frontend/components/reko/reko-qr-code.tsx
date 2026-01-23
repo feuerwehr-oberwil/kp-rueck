@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { useEvent } from '@/lib/contexts/event-context'
+import { AssignRekoDialog } from '@/components/incidents/assign-reko-dialog'
 
 interface RekoQRCodeProps {
   incidentId: string
@@ -37,6 +38,7 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   // For Safari: show the link in a visible input
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [generatedLink, setGeneratedLink] = useState<string>('')
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const { personnel, operations } = useOperations()
   const { selectedEvent } = useEvent()
@@ -184,17 +186,40 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
 
   // Error state - no reko personnel
   if (error) {
+    // Show assign button when no reko person is assigned (but they exist for event)
+    if (error === 'Keine Reko-Person zugewiesen' || error === 'Reko-Personen nicht eingecheckt') {
+      return (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAssignDialogOpen(true)}
+          >
+            <Copy className="mr-2 h-4 w-4" />
+            Reko zuweisen
+          </Button>
+          <AssignRekoDialog
+            open={assignDialogOpen}
+            onOpenChange={setAssignDialogOpen}
+            incidentId={incidentId}
+            incidentTitle={incident?.location || incidentId}
+            onAssigned={() => {
+              // Reload reko personnel after assignment
+              setError(null)
+              setIsLoading(true)
+            }}
+          />
+        </>
+      )
+    }
+
+    // Other errors (like "Kein Event ausgewählt")
     return (
       <div className="flex flex-col gap-1 min-h-8 justify-center">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
-        {error === 'Keine Reko-Person zugewiesen' && (
-          <p className="text-xs text-muted-foreground/70 pl-6">
-            Tipp: Rechtsklick auf Person → "Als Reko zuweisen"
-          </p>
-        )}
       </div>
     )
   }

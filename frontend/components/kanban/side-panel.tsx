@@ -458,34 +458,6 @@ function SidePanelDetail({
         </div>
       </div>
 
-      {/* Reko Summary (if available) */}
-      {operation.rekoSummary && (
-        <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/30">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reko-Zusammenfassung</p>
-
-          {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
-              <div className="flex flex-wrap gap-1">
-                {operation.rekoSummary.dangerTypes.map((danger, idx) => (
-                  <Badge key={idx} variant="outline" className="text-xs">
-                    {danger}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            {operation.rekoSummary.personnelCount && (
-              <span>{operation.rekoSummary.personnelCount} Pers. benötigt</span>
-            )}
-            {operation.rekoSummary.estimatedDuration && (
-              <span>~{operation.rekoSummary.estimatedDuration}h</span>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Resource Assignment Section */}
       <div className="space-y-3">

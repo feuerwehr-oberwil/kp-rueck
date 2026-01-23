@@ -54,6 +54,7 @@ export default function RekoForm() {
   const incidentId = searchParams.get('incident_id')
   const token = searchParams.get('token')
   const personnelId = searchParams.get('personnel_id')
+  const returnTo = searchParams.get('return_to')
 
   const [formData, setFormData] = useState<RekoFormData>(INITIAL_FORM_DATA)
   const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
@@ -312,9 +313,13 @@ export default function RekoForm() {
 
       toast.success('Meldung erfolgreich übermittelt')
 
-      // Redirect to success page with token for back button functionality
+      // Redirect to success page with return URL for back button functionality
       setTimeout(() => {
-        router.push(`/reko/success?id=${incidentId}&token=${token}`)
+        let successUrl = `/reko/success?id=${incidentId}`
+        if (returnTo) {
+          successUrl += `&return_to=${encodeURIComponent(returnTo)}`
+        }
+        router.push(successUrl)
       }, 1000)
     } catch (error) {
       console.error('Submit failed:', error)

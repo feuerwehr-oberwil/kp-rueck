@@ -168,6 +168,37 @@ function getViewboxForCity(cityName: string): string {
 }
 
 /**
+ * Get center coordinates for a known city
+ * Returns [lon, lat] or null if city not found
+ */
+function getCityCenterCoords(cityName: string): [number, number] | null {
+  const normalizedName = cityName.toLowerCase().trim()
+
+  for (const [city, coords] of Object.entries(KNOWN_CITIES)) {
+    if (normalizedName.includes(city) || city.includes(normalizedName)) {
+      return coords
+    }
+  }
+  return null
+}
+
+/**
+ * Calculate distance between two points using Haversine formula
+ * Returns distance in kilometers
+ */
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371 // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+/**
  * Search for addresses using Nominatim
  * Returns natural formatted addresses prioritizing Basel-Landschaft region
  * Optionally prioritizes results near a home city
@@ -208,13 +239,29 @@ export async function searchAddress(query: string, options?: SearchOptions): Pro
 
     const results: GeocodingResult[] = await response.json()
 
-    return results.map((result, index) => ({
+    // Map results to SearchResult format
+    let searchResults = results.map((result, index) => ({
       id: `${result.lat}-${result.lon}-${index}`,
       display_name: result.display_name,
       lat: parseFloat(result.lat),
       lon: parseFloat(result.lon),
       formattedAddress: formatNaturalAddress(result),
     }))
+
+    // Sort results by proximity to home city if specified
+    if (options?.homeCity) {
+      const centerCoords = getCityCenterCoords(options.homeCity)
+      if (centerCoords) {
+        const [centerLon, centerLat] = centerCoords
+        searchResults = searchResults.sort((a, b) => {
+          const distA = calculateDistance(a.lat, a.lon, centerLat, centerLon)
+          const distB = calculateDistance(b.lat, b.lon, centerLat, centerLon)
+          return distA - distB
+        })
+      }
+    }
+
+    return searchResults
   } catch (error) {
     console.error('Geocoding search error:', error)
     return []

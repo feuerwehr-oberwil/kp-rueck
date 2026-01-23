@@ -155,7 +155,20 @@ export default function CheckInPage() {
         </div>
 
         {/* Quick Add Personnel Component */}
-        <QuickAddPersonnel onPersonAdded={loadPersonnel} checkInToken={token || undefined} />
+        <QuickAddPersonnel
+          onPersonAdded={async (newPerson) => {
+            // Optimistically add new person to list without full refresh
+            if (newPerson) {
+              setPersonnel(prev => [...prev, {
+                id: newPerson.id,
+                name: newPerson.name,
+                checked_in: newPerson.checked_in,
+                is_assigned: false
+              }])
+            }
+          }}
+          checkInToken={token || undefined}
+        />
       </div>
 
       {/* Personnel List */}

@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle } from 'lucide-react';
+import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle, Plus, QrCode, Search, Truck, Printer } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -28,7 +28,22 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export function UserMenu() {
+interface UserMenuProps {
+  // Quick action callbacks (optional, for pages that support them)
+  onNewIncident?: () => void;
+  onCheckIn?: () => void;
+  onReko?: () => void;
+  onVehicleStatus?: () => void;
+  onPrint?: () => void;
+}
+
+export function UserMenu({
+  onNewIncident,
+  onCheckIn,
+  onReko,
+  onVehicleStatus,
+  onPrint,
+}: UserMenuProps = {}) {
   const { user, logout, isEditor, isAuthenticated } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
@@ -226,6 +241,46 @@ export function UserMenu() {
           </DropdownMenuLabel>
 
           <DropdownMenuSeparator />
+
+          {/* QUICK ACTIONS GROUP - only shown when callbacks provided */}
+          {(onNewIncident || onCheckIn || onReko || onVehicleStatus || onPrint) && (
+            <>
+              <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+                Schnellzugriff
+              </DropdownMenuLabel>
+              {onNewIncident && (
+                <DropdownMenuItem onClick={onNewIncident} className="cursor-pointer">
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span>Neuer Einsatz</span>
+                </DropdownMenuItem>
+              )}
+              {onCheckIn && (
+                <DropdownMenuItem onClick={onCheckIn} className="cursor-pointer">
+                  <QrCode className="mr-2 h-4 w-4" />
+                  <span>Check-In</span>
+                </DropdownMenuItem>
+              )}
+              {onReko && (
+                <DropdownMenuItem onClick={onReko} className="cursor-pointer">
+                  <Search className="mr-2 h-4 w-4" />
+                  <span>Reko</span>
+                </DropdownMenuItem>
+              )}
+              {onVehicleStatus && (
+                <DropdownMenuItem onClick={onVehicleStatus} className="cursor-pointer">
+                  <Truck className="mr-2 h-4 w-4" />
+                  <span>Fahrzeugstatus</span>
+                </DropdownMenuItem>
+              )}
+              {onPrint && (
+                <DropdownMenuItem onClick={onPrint} className="cursor-pointer">
+                  <Printer className="mr-2 h-4 w-4" />
+                  <span>Drucken</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+            </>
+          )}
 
           {/* CONNECTION STATUS GROUP */}
           <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">

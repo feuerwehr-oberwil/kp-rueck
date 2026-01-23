@@ -16,9 +16,24 @@ interface PageNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'training' | 'stats' | 'help' | 'divera';
   vehicleTypes?: Array<{ key: string; name: string }>;
   hasSelectedEvent?: boolean;
+  // Quick action callbacks (for Kanban page)
+  onNewIncident?: () => void;
+  onCheckIn?: () => void;
+  onReko?: () => void;
+  onVehicleStatus?: () => void;
+  onPrint?: () => void;
 }
 
-export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEvent = true }: PageNavigationProps) {
+export function PageNavigation({
+  currentPage,
+  vehicleTypes = [],
+  hasSelectedEvent = true,
+  onNewIncident,
+  onCheckIn,
+  onReko,
+  onVehicleStatus,
+  onPrint,
+}: PageNavigationProps) {
   return (
     <div className="flex items-center gap-1 md:gap-2">
         {/* Kanban Icon */}
@@ -61,7 +76,13 @@ export function PageNavigation({ currentPage, vehicleTypes = [], hasSelectedEven
         </Link>
 
         {/* User Menu (Cog Dropdown) - now contains all secondary navigation */}
-        <UserMenu />
+        <UserMenu
+          onNewIncident={onNewIncident}
+          onCheckIn={onCheckIn}
+          onReko={onReko}
+          onVehicleStatus={onVehicleStatus}
+          onPrint={onPrint}
+        />
 
         {/* Notification Bell Trigger - rightmost to align with fixed sidebar */}
         <NotificationBellTrigger />

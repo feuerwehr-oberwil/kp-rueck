@@ -1,21 +1,28 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, ArrowLeft } from 'lucide-react'
 
 export default function RekoSuccessPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const incidentId = searchParams.get('id')
+  const returnTo = searchParams.get('return_to')
 
   const handleGoBack = () => {
-    // Go back 2 steps to skip the form page and return to the dashboard
-    // If there's not enough history, the user can just close the window
-    if (window.history.length > 2) {
-      window.history.go(-2)
+    // If we have a return URL (from reko-dashboard), use it
+    if (returnTo) {
+      router.push(decodeURIComponent(returnTo))
+      return
+    }
+
+    // Fallback: go back in history or navigate to root
+    if (window.history.length > 1) {
+      router.back()
     } else {
-      window.history.back()
+      router.push('/')
     }
   }
 

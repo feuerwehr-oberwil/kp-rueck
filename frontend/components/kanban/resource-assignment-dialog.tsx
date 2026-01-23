@@ -76,29 +76,40 @@ export function ResourceAssignmentDialog({
     }
   }, [open])
 
-  // Get available resources based on type
-  // For crew: exclude personnel assigned as Reko for this incident (they can't be both Reko and active crew)
-  const availablePersonnel = useMemo(() => {
-    return personnel.filter(p =>
-      p.status === 'available' &&
-      !rekoPersonnelNames.includes(p.name)
-    )
-  }, [personnel, rekoPersonnelNames])
+  // Get resources that can be shown in the dialog
+  // For crew: show available personnel OR personnel already assigned to THIS operation (for deselection)
+  // Exclude Reko personnel UNLESS they're already assigned to this operation's crew (for removal)
+  const selectablePersonnel = useMemo(() => {
+    return personnel.filter(p => {
+      const isAssignedToCrew = assignedPersonnel.includes(p.name)
+      const isRekoPersonnel = rekoPersonnelNames.includes(p.name)
+
+      // Always show if already assigned to this operation's crew (allows deselection)
+      if (isAssignedToCrew) return true
+
+      // Don't show Reko personnel for new crew assignments
+      if (isRekoPersonnel) return false
+
+      // Show available personnel
+      return p.status === 'available'
+    })
+  }, [personnel, rekoPersonnelNames, assignedPersonnel])
 
   const availableVehicles = useMemo(() => {
     return vehicles.filter(v => !assignedVehicles.includes(v.name))
   }, [vehicles, assignedVehicles])
 
-  const availableMaterials = useMemo(() => {
-    return materials.filter(m => m.status === 'available')
-  }, [materials])
+  // For materials: show available materials OR materials already assigned to THIS operation (for deselection)
+  const selectableMaterials = useMemo(() => {
+    return materials.filter(m => m.status === 'available' || assignedMaterials.includes(m.id))
+  }, [materials, assignedMaterials])
 
   // Filter resources by search query
   const filteredPersonnel = useMemo(() => {
-    if (!searchQuery.trim()) return availablePersonnel
+    if (!searchQuery.trim()) return selectablePersonnel
     const query = searchQuery.toLowerCase()
-    return availablePersonnel.filter(p => p.name.toLowerCase().includes(query))
-  }, [availablePersonnel, searchQuery])
+    return selectablePersonnel.filter(p => p.name.toLowerCase().includes(query))
+  }, [selectablePersonnel, searchQuery])
 
   const filteredVehicles = useMemo(() => {
     if (!searchQuery.trim()) return availableVehicles
@@ -109,12 +120,12 @@ export function ResourceAssignmentDialog({
   }, [availableVehicles, searchQuery])
 
   const filteredMaterials = useMemo(() => {
-    if (!searchQuery.trim()) return availableMaterials
+    if (!searchQuery.trim()) return selectableMaterials
     const query = searchQuery.toLowerCase()
-    return availableMaterials.filter(m =>
+    return selectableMaterials.filter(m =>
       m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)
     )
-  }, [availableMaterials, searchQuery])
+  }, [selectableMaterials, searchQuery])
 
   // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
   const isPersonSelected = (personName: string) => selectedPersonnel.has(personName)
@@ -238,11 +249,11 @@ export function ResourceAssignmentDialog({
   const getDialogDescription = () => {
     switch (resourceType) {
       case 'crew':
-        return `${selectedPersonnel.size} ausgewählt, ${availablePersonnel.length} verfügbar`
+        return `${selectedPersonnel.size} ausgewählt, ${selectablePersonnel.length} verfügbar`
       case 'vehicles':
         return `${assignedVehicles.length} Fahrzeug(e) zugewiesen, ${availableVehicles.length} verfügbar`
       case 'materials':
-        return `${selectedMaterials.size} ausgewählt, ${availableMaterials.length} verfügbar`
+        return `${selectedMaterials.size} ausgewählt, ${selectableMaterials.length} verfügbar`
       default:
         return ''
     }
@@ -427,10 +438,10 @@ export function ResourceAssignmentDialog({
                 <div className="text-center py-12 animate-fade-in-up">
                   <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                   <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? 'Keine Personen gefunden' : 'Keine verfügbaren Personen'}
+                    {searchQuery ? 'Keine Personen gefunden' : 'Keine auswählbaren Personen'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Personen sind bereits im Einsatz'}
+                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Personen sind anderen Einsätzen zugewiesen'}
                   </p>
                 </div>
               )}
@@ -441,7 +452,7 @@ export function ResourceAssignmentDialog({
                     {searchQuery ? 'Keine Fahrzeuge gefunden' : 'Keine verfügbaren Fahrzeuge'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Fahrzeuge sind bereits im Einsatz'}
+                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Fahrzeuge sind bereits zugewiesen'}
                   </p>
                 </div>
               )}
@@ -449,10 +460,10 @@ export function ResourceAssignmentDialog({
                 <div className="text-center py-12 animate-fade-in-up">
                   <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                   <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? 'Keine Materialien gefunden' : 'Keine verfügbaren Materialien'}
+                    {searchQuery ? 'Keine Materialien gefunden' : 'Keine auswählbaren Materialien'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Materialien sind bereits im Einsatz'}
+                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Materialien sind anderen Einsätzen zugewiesen'}
                   </p>
                 </div>
               )}
