@@ -24,6 +24,9 @@ export default function PhotoUpload({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
+  // Store local blob URLs for immediate preview (mobile-friendly)
+  const [localPreviews, setLocalPreviews] = useState<Map<string, string>>(new Map())
+
   async function handleFileUpload(files: FileList | null) {
     if (!files || files.length === 0) return
 
@@ -43,8 +46,19 @@ export default function PhotoUpload({
           return null
         }
 
+        // Create local blob URL for immediate preview (works better on mobile)
+        const localUrl = URL.createObjectURL(file)
+
         // Upload photo
         const response = await apiClient.uploadRekoPhoto(incidentId, token, file)
+
+        // Store local preview URL mapped to the server filename
+        setLocalPreviews(prev => {
+          const next = new Map(prev)
+          next.set(response.filename, localUrl)
+          return next
+        })
+
         return response.filename
       })
 
@@ -68,12 +82,29 @@ export default function PhotoUpload({
   }
 
   function handleRemovePhoto(filename: string) {
+    // Revoke local blob URL to free memory
+    const localUrl = localPreviews.get(filename)
+    if (localUrl) {
+      URL.revokeObjectURL(localUrl)
+      setLocalPreviews(prev => {
+        const next = new Map(prev)
+        next.delete(filename)
+        return next
+      })
+    }
+
     onPhotosChange(photos.filter(f => f !== filename))
     toast.success('Foto entfernt')
   }
 
-  // Convert filename to full URL
+  // Get photo URL - prefer local blob URL for preview, fall back to server URL
   function getPhotoUrl(filename: string): string {
+    // Use local blob URL if available (better for mobile preview)
+    const localUrl = localPreviews.get(filename)
+    if (localUrl) {
+      return localUrl
+    }
+    // Fall back to server URL
     const apiUrl = getApiUrl()
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
   }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars } from 'lucide-react'
@@ -12,15 +12,13 @@ interface RekoReportSectionProps {
   incidentId: string
 }
 
+const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
+
 export default function RekoReportSection({ incidentId }: RekoReportSectionProps) {
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    loadReports()
-  }, [incidentId])
-
-  async function loadReports() {
+  const loadReports = useCallback(async () => {
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
       // Filter out drafts, only show submitted reports
@@ -30,7 +28,17 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [incidentId])
+
+  // Initial load and polling for updates
+  useEffect(() => {
+    loadReports()
+
+    // Set up polling interval for live updates
+    const pollInterval = setInterval(loadReports, POLL_INTERVAL_MS)
+
+    return () => clearInterval(pollInterval)
+  }, [loadReports])
 
   if (isLoading) {
     return (
@@ -201,10 +209,9 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
             </div>
           )}
 
-          {/* Summary */}
+          {/* Summary - show text directly without label */}
           {report.summary_text && (
             <div>
-              <h5 className="font-medium text-sm mb-2">Zusammenfassung</h5>
               <p className="text-sm">{report.summary_text}</p>
             </div>
           )}

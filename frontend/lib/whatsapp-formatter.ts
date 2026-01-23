@@ -114,18 +114,10 @@ export function formatWhatsAppMessage({ operation, materials, rekoReport, vehicl
       lines.push(`📌 ${rekoReport.additional_notes}`)
     }
 
-    // Effort Estimation - inline
+    // Effort Estimation - only vehicles and equipment (people/hours not relevant for WhatsApp)
     if (rekoReport.effort_json) {
       const effort = rekoReport.effort_json
       const effortParts: string[] = []
-
-      if (effort.personnel_count !== null && effort.personnel_count > 0) {
-        effortParts.push(`👥 ${effort.personnel_count} Pers`)
-      }
-
-      if (effort.estimated_duration_hours !== null && effort.estimated_duration_hours > 0) {
-        effortParts.push(`⏱️ ${effort.estimated_duration_hours}h`)
-      }
 
       if (effort.vehicles_needed && effort.vehicles_needed.length > 0) {
         effortParts.push(`🚗 ${effort.vehicles_needed.join(', ')}`)

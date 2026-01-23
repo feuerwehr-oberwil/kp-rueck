@@ -8,9 +8,11 @@ import { UserPlus } from 'lucide-react'
 
 interface QuickAddPersonnelProps {
   onPersonAdded: () => Promise<void>
+  /** Optional token for auto-check-in after creation */
+  checkInToken?: string
 }
 
-export function QuickAddPersonnel({ onPersonAdded }: QuickAddPersonnelProps) {
+export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPersonnelProps) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPersonName, setNewPersonName] = useState('')
   const [addingPerson, setAddingPerson] = useState(false)
@@ -24,7 +26,18 @@ export function QuickAddPersonnel({ onPersonAdded }: QuickAddPersonnelProps) {
         name: newPersonName.trim(),
         availability: 'available',
       }
-      await apiClient.createPersonnel(newPerson)
+      const createdPerson = await apiClient.createPersonnel(newPerson)
+
+      // Auto-check-in the new person if token is provided
+      if (checkInToken && createdPerson.id) {
+        try {
+          await apiClient.checkInPersonnel(createdPerson.id, checkInToken)
+        } catch (checkInError) {
+          console.error('Failed to auto-check-in new person:', checkInError)
+          // Don't fail the whole operation if check-in fails
+        }
+      }
+
       setNewPersonName('')
       setShowAddForm(false)
       // Reload personnel list to include the new person

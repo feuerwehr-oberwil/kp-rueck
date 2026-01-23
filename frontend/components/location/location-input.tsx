@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { searchAddress, geocodeAddress } from "@/lib/geocoding"
 import { parseCoordinates, checkRegion } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
+import { apiClient } from "@/lib/api-client"
 
 // Dynamically import MapPickerModal to avoid SSR issues with Leaflet
 const MapPickerModal = dynamic(
@@ -64,9 +65,25 @@ export function LocationInput({
   const [coordinateError, setCoordinateError] = useState<string | null>(null)
   const [coordinateWarning, setCoordinateWarning] = useState<string | null>(null)
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
+  const [homeCity, setHomeCity] = useState<string | null>(null)
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch home_city setting on mount to prioritize search results
+  useEffect(() => {
+    async function fetchHomeCity() {
+      try {
+        const settings = await apiClient.getAllSettings()
+        if (settings['home_city']) {
+          setHomeCity(settings['home_city'])
+        }
+      } catch (error) {
+        console.error('Failed to fetch home_city setting:', error)
+      }
+    }
+    fetchHomeCity()
+  }, [])
 
   // Only render map picker on client side
   useEffect(() => {
@@ -129,7 +146,10 @@ export function LocationInput({
 
     setIsSearching(true)
     searchTimeoutRef.current = setTimeout(async () => {
-      const results = await searchAddress(addressSearchQuery)
+      // Pass home city to prioritize results near it
+      const results = await searchAddress(addressSearchQuery, {
+        homeCity: homeCity || undefined
+      })
       setAddressResults(results)
       setIsSearching(false)
     }, 300) // Debounce 300ms
@@ -139,7 +159,7 @@ export function LocationInput({
         clearTimeout(searchTimeoutRef.current)
       }
     }
-  }, [addressSearchQuery])
+  }, [addressSearchQuery, homeCity])
 
   // Geocode address when it changes (if no coordinates set yet)
   useEffect(() => {

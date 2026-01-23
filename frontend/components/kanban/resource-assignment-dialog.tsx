@@ -22,6 +22,8 @@ interface ResourceAssignmentDialogProps {
   assignedPersonnel: string[] // Array of personnel names
   assignedVehicles: string[] // Array of vehicle names
   assignedMaterials: string[] // Array of material IDs
+  /** Personnel names assigned as Reko for this incident (should be excluded from crew assignment) */
+  rekoPersonnelNames?: string[]
   onAssignPerson: (personId: string, personName: string, operationId: string) => void
   onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
   onAssignMaterial: (materialId: string, operationId: string) => void
@@ -41,6 +43,7 @@ export function ResourceAssignmentDialog({
   assignedPersonnel,
   assignedVehicles,
   assignedMaterials,
+  rekoPersonnelNames = [],
   onAssignPerson,
   onAssignVehicle,
   onAssignMaterial,
@@ -52,6 +55,19 @@ export function ResourceAssignmentDialog({
   const [searchFocused, setSearchFocused] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
 
+  // Local selection state for crew and materials (deferred assignment)
+  // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
+  const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string>>(new Set())
+  const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set())
+
+  // Initialize selection state from assigned state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSelectedPersonnel(new Set(assignedPersonnel))
+      setSelectedMaterials(new Set(assignedMaterials))
+    }
+  }, [open, assignedPersonnel, assignedMaterials])
+
   // Reset search on close
   useEffect(() => {
     if (!open) {
@@ -61,9 +77,13 @@ export function ResourceAssignmentDialog({
   }, [open])
 
   // Get available resources based on type
+  // For crew: exclude personnel assigned as Reko for this incident (they can't be both Reko and active crew)
   const availablePersonnel = useMemo(() => {
-    return personnel.filter(p => p.status === 'available')
-  }, [personnel])
+    return personnel.filter(p =>
+      p.status === 'available' &&
+      !rekoPersonnelNames.includes(p.name)
+    )
+  }, [personnel, rekoPersonnelNames])
 
   const availableVehicles = useMemo(() => {
     return vehicles.filter(v => !assignedVehicles.includes(v.name))
@@ -96,26 +116,27 @@ export function ResourceAssignmentDialog({
     )
   }, [availableMaterials, searchQuery])
 
-  // Check if a resource is assigned
-  const isPersonAssigned = (personName: string) => assignedPersonnel.includes(personName)
+  // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
+  const isPersonSelected = (personName: string) => selectedPersonnel.has(personName)
   const isVehicleAssigned = (vehicleName: string) => assignedVehicles.includes(vehicleName)
-  const isMaterialAssigned = (materialId: string) => assignedMaterials.includes(materialId)
+  const isMaterialSelected = (materialId: string) => selectedMaterials.has(materialId)
 
-  const handleTogglePerson = (person: Person) => {
-    if (!operationId) return
-
-    const isAssigned = isPersonAssigned(person.name)
-    if (isAssigned) {
-      onRemovePerson(operationId, person.name)
-      toast.success(`${person.name} entfernt`)
-    } else {
-      onAssignPerson(person.id, person.name, operationId)
-      setJustAssigned(person.id)
-      setTimeout(() => setJustAssigned(null), 600)
-      toast.success(`${person.name} zugewiesen`)
-    }
+  // Toggle selection for crew (local state only, doesn't call API)
+  const handleTogglePersonSelection = (person: Person) => {
+    setSelectedPersonnel(prev => {
+      const next = new Set(prev)
+      if (next.has(person.name)) {
+        next.delete(person.name)
+      } else {
+        next.add(person.name)
+        setJustAssigned(person.id)
+        setTimeout(() => setJustAssigned(null), 600)
+      }
+      return next
+    })
   }
 
+  // Vehicles still use instant assignment
   const handleToggleVehicle = (vehicle: { id: string; name: string }) => {
     if (!operationId) return
 
@@ -131,19 +152,74 @@ export function ResourceAssignmentDialog({
     }
   }
 
-  const handleToggleMaterial = (material: Material) => {
-    if (!operationId) return
+  // Toggle selection for materials (local state only, doesn't call API)
+  const handleToggleMaterialSelection = (material: Material) => {
+    setSelectedMaterials(prev => {
+      const next = new Set(prev)
+      if (next.has(material.id)) {
+        next.delete(material.id)
+      } else {
+        next.add(material.id)
+        setJustAssigned(material.id)
+        setTimeout(() => setJustAssigned(null), 600)
+      }
+      return next
+    })
+  }
 
-    const isAssigned = isMaterialAssigned(material.id)
-    if (isAssigned) {
-      onRemoveMaterial(operationId, material.id)
-      toast.success(`${material.name} entfernt`)
-    } else {
-      onAssignMaterial(material.id, operationId)
-      setJustAssigned(material.id)
-      setTimeout(() => setJustAssigned(null), 600)
-      toast.success(`${material.name} zugewiesen`)
+  // Commit changes when "Fertig" is clicked (for crew and materials)
+  const handleConfirm = () => {
+    if (!operationId) {
+      onOpenChange(false)
+      return
     }
+
+    // Process crew changes
+    if (resourceType === 'crew') {
+      const currentAssigned = new Set(assignedPersonnel)
+      const toAdd = [...selectedPersonnel].filter(name => !currentAssigned.has(name))
+      const toRemove = [...currentAssigned].filter(name => !selectedPersonnel.has(name))
+
+      // Add new assignments
+      for (const name of toAdd) {
+        const person = personnel.find(p => p.name === name)
+        if (person) {
+          onAssignPerson(person.id, person.name, operationId)
+        }
+      }
+
+      // Remove unselected
+      for (const name of toRemove) {
+        onRemovePerson(operationId, name)
+      }
+
+      if (toAdd.length > 0 || toRemove.length > 0) {
+        toast.success(`Mannschaft aktualisiert`)
+      }
+    }
+
+    // Process material changes
+    if (resourceType === 'materials') {
+      const currentAssigned = new Set(assignedMaterials)
+      const toAdd = [...selectedMaterials].filter(id => !currentAssigned.has(id))
+      const toRemove = [...currentAssigned].filter(id => !selectedMaterials.has(id))
+
+      // Add new assignments
+      for (const id of toAdd) {
+        onAssignMaterial(id, operationId)
+      }
+
+      // Remove unselected
+      for (const id of toRemove) {
+        onRemoveMaterial(operationId, id)
+      }
+
+      if (toAdd.length > 0 || toRemove.length > 0) {
+        toast.success(`Material aktualisiert`)
+      }
+    }
+
+    onOpenChange(false)
   }
 
   const getDialogTitle = () => {
@@ -162,11 +238,11 @@ export function ResourceAssignmentDialog({
   const getDialogDescription = () => {
     switch (resourceType) {
       case 'crew':
-        return `${assignedPersonnel.length} Person(en) zugewiesen, ${availablePersonnel.length} verfügbar`
+        return `${selectedPersonnel.size} ausgewählt, ${availablePersonnel.length} verfügbar`
       case 'vehicles':
         return `${assignedVehicles.length} Fahrzeug(e) zugewiesen, ${availableVehicles.length} verfügbar`
       case 'materials':
-        return `${assignedMaterials.length} Material(ien) zugewiesen, ${availableMaterials.length} verfügbar`
+        return `${selectedMaterials.size} ausgewählt, ${availableMaterials.length} verfügbar`
       default:
         return ''
     }
@@ -186,6 +262,27 @@ export function ResourceAssignmentDialog({
   }
 
   const Icon = getIcon()
+
+  // Check if there are pending changes
+  const hasPendingChanges = useMemo(() => {
+    if (resourceType === 'crew') {
+      const currentSet = new Set(assignedPersonnel)
+      if (selectedPersonnel.size !== currentSet.size) return true
+      for (const name of selectedPersonnel) {
+        if (!currentSet.has(name)) return true
+      }
+      return false
+    }
+    if (resourceType === 'materials') {
+      const currentSet = new Set(assignedMaterials)
+      if (selectedMaterials.size !== currentSet.size) return true
+      for (const id of selectedMaterials) {
+        if (!currentSet.has(id)) return true
+      }
+      return false
+    }
+    return false
+  }, [resourceType, selectedPersonnel, selectedMaterials, assignedPersonnel, assignedMaterials])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -220,20 +317,21 @@ export function ResourceAssignmentDialog({
           <ScrollArea className="h-[400px] pr-4">
             <div className="space-y-2">
               {resourceType === 'crew' && filteredPersonnel.map((person, index) => {
-                const isAssigned = isPersonAssigned(person.name)
+                const isSelected = isPersonSelected(person.name)
                 const wasJustAssigned = justAssigned === person.id
                 return (
                   <button
                     key={person.id}
-                    onClick={() => handleTogglePerson(person)}
+                    onClick={() => handleTogglePersonSelection(person)}
                     className={cn(
                       "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
                       "animate-stagger-fade-in",
-                      `stagger-delay-${Math.min(index + 1, 5)}`
+                      `stagger-delay-${Math.min(index + 1, 5)}`,
+                      isSelected && "border-primary/30 bg-primary/5"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      {isAssigned ? (
+                      {isSelected ? (
                         <CheckCircle className={cn(
                           "h-5 w-5 text-emerald-500 flex-shrink-0",
                           wasJustAssigned && "animate-checkmark-spring"
@@ -248,8 +346,8 @@ export function ResourceAssignmentDialog({
                         )}
                       </div>
                     </div>
-                    {isAssigned && (
-                      <Badge variant="secondary" className="text-xs animate-scale-in">Zugewiesen</Badge>
+                    {isSelected && (
+                      <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
                     )}
                   </button>
                 )
@@ -290,20 +388,21 @@ export function ResourceAssignmentDialog({
               })}
 
               {resourceType === 'materials' && filteredMaterials.map((material, index) => {
-                const isAssigned = isMaterialAssigned(material.id)
+                const isSelected = isMaterialSelected(material.id)
                 const wasJustAssigned = justAssigned === material.id
                 return (
                   <button
                     key={material.id}
-                    onClick={() => handleToggleMaterial(material)}
+                    onClick={() => handleToggleMaterialSelection(material)}
                     className={cn(
                       "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
                       "animate-stagger-fade-in",
-                      `stagger-delay-${Math.min(index + 1, 5)}`
+                      `stagger-delay-${Math.min(index + 1, 5)}`,
+                      isSelected && "border-primary/30 bg-primary/5"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      {isAssigned ? (
+                      {isSelected ? (
                         <CheckCircle className={cn(
                           "h-5 w-5 text-emerald-500 flex-shrink-0",
                           wasJustAssigned && "animate-checkmark-spring"
@@ -316,8 +415,8 @@ export function ResourceAssignmentDialog({
                         <p className="text-xs text-muted-foreground">{material.category}</p>
                       </div>
                     </div>
-                    {isAssigned && (
-                      <Badge variant="secondary" className="text-xs animate-scale-in">Zugewiesen</Badge>
+                    {isSelected && (
+                      <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
                     )}
                   </button>
                 )
@@ -361,9 +460,22 @@ export function ResourceAssignmentDialog({
           </ScrollArea>
 
           {/* Footer */}
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => onOpenChange(false)} className="hover-delight">
+          <div className="flex justify-end gap-2 pt-2">
+            {(resourceType === 'crew' || resourceType === 'materials') && (
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Abbrechen
+              </Button>
+            )}
+            <Button
+              onClick={resourceType === 'vehicles' ? () => onOpenChange(false) : handleConfirm}
+              className="hover-delight"
+            >
               Fertig
+              {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
+                <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-primary-foreground/20 rounded">
+                  Änderungen
+                </span>
+              )}
             </Button>
           </div>
         </div>

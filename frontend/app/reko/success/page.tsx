@@ -1,21 +1,21 @@
 'use client'
 
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, ArrowLeft } from 'lucide-react'
 
 export default function RekoSuccessPage() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const incidentId = searchParams.get('id')
-  const token = searchParams.get('token')
 
   const handleGoBack = () => {
-    if (incidentId && token) {
-      router.push(`/reko?incident_id=${incidentId}&token=${token}`)
+    // Go back 2 steps to skip the form page and return to the dashboard
+    // If there's not enough history, the user can just close the window
+    if (window.history.length > 2) {
+      window.history.go(-2)
     } else {
-      router.back()
+      window.history.back()
     }
   }
 
@@ -33,7 +33,7 @@ export default function RekoSuccessPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center text-sm text-muted-foreground">
-            <p>Sie können dieses Fenster nun schliessen oder zum Formular zurückkehren.</p>
+            <p>Sie können dieses Fenster nun schliessen oder zur Übersicht zurückkehren.</p>
             {incidentId && (
               <p className="mt-2">
                 Einsatz-ID: <code className="text-xs">{incidentId}</code>
@@ -46,7 +46,7 @@ export default function RekoSuccessPage() {
             className="w-full"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Zurück zum Formular
+            Zurück zur Übersicht
           </Button>
         </CardContent>
       </Card>

@@ -8,13 +8,6 @@ import { useRouter } from 'next/navigation'
 export function EventSelectionEmptyState() {
   const router = useRouter()
 
-  const quickStartSteps = [
-    'Ereignis erstellen für heutigen Einsatztag',
-    'Personal über Check-In QR-Code einchecken',
-    'Fahrzeuge als einsatzbereit markieren',
-    'Ersten Einsatz anlegen und Ressourcen zuweisen',
-  ]
-
   return (
     <div className="flex h-screen items-center justify-center bg-background p-4">
       <Card className="max-w-2xl w-full animate-fade-in-up">
@@ -60,30 +53,6 @@ export function EventSelectionEmptyState() {
               Ereignisse anzeigen
               <ChevronRight className="h-5 w-5" />
             </Button>
-          </div>
-
-          {/* Quick Start Guide with animated numbers */}
-          <div className="pt-8 border-t">
-            <div className="text-left max-w-md mx-auto">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Erste Schritte
-              </h3>
-              <ul className="space-y-2">
-                {quickStartSteps.map((step, idx) => (
-                  <li
-                    key={idx}
-                    className="flex items-start gap-2 text-sm text-muted-foreground group hover:text-foreground transition-colors"
-                    style={{ animationDelay: `${idx * 100}ms` }}
-                  >
-                    <span className="text-primary font-semibold mt-0.5 min-w-[20px] animate-number-entry">
-                      {idx + 1}.
-                    </span>
-                    <span className="group-hover:translate-x-1 transition-transform">{step}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
         </CardContent>
       </Card>

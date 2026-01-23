@@ -96,11 +96,7 @@ export default function CheckInPage() {
       (p.role && p.role.toLowerCase().includes(searchTerm.toLowerCase()))
     )
     .sort((a, b) => {
-      // First sort by check-in status (not checked in first, checked in last)
-      if (a.checked_in !== b.checked_in) {
-        return a.checked_in ? 1 : -1
-      }
-      // Then sort by last name (first word in the name, format is "LAST FIRST")
+      // Always sort alphabetically by last name (first word in the name, format is "LAST FIRST")
       const lastNameA = a.name.split(' ')[0].toLowerCase()
       const lastNameB = b.name.split(' ')[0].toLowerCase()
       return lastNameA.localeCompare(lastNameB)
@@ -159,7 +155,7 @@ export default function CheckInPage() {
         </div>
 
         {/* Quick Add Personnel Component */}
-        <QuickAddPersonnel onPersonAdded={loadPersonnel} />
+        <QuickAddPersonnel onPersonAdded={loadPersonnel} checkInToken={token || undefined} />
       </div>
 
       {/* Personnel List */}

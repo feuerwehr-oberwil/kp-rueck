@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -41,11 +41,13 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   const { personnel, operations } = useOperations()
   const { selectedEvent } = useEvent()
 
-  // Get the current incident's crew
+  // Get the current incident's crew - memoize to prevent unnecessary re-renders
   const incident = operations.find(op => op.id === incidentId)
-  const incidentCrew = incident?.crew || []
+  const incidentCrewKey = useMemo(() => {
+    return incident?.crew?.join(',') || ''
+  }, [incident?.crew])
 
-  // Load reko personnel on mount
+  // Load reko personnel on mount and when crew changes
   useEffect(() => {
     async function loadRekoPersonnel() {
       if (!selectedEvent) {
@@ -82,9 +84,12 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
           return
         }
 
+        // Get current incident crew from the key
+        const currentIncidentCrew = incidentCrewKey ? incidentCrewKey.split(',') : []
+
         // Check if any reko person is already assigned to this incident
         const assignedRekoPersonnel = rekoPersonnelList.filter(rekoPerson =>
-          incidentCrew.includes(rekoPerson.name)
+          currentIncidentCrew.includes(rekoPerson.name)
         )
 
         // Prefer assigned reko personnel, otherwise show all
@@ -110,7 +115,7 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
     }
 
     loadRekoPersonnel()
-  }, [selectedEvent, personnel, incidentCrew])
+  }, [selectedEvent, personnel, incidentCrewKey])
 
   // Auto-select input text when shown
   useEffect(() => {
@@ -127,6 +132,15 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
 
     setIsCopying(true)
     try {
+      // First, ensure the reko person is assigned to this incident
+      // This creates the assignment in the database so they can see it in their dashboard
+      try {
+        await apiClient.assignRekoPersonnel(incidentId, selectedPersonnelId)
+      } catch (assignError) {
+        // Assignment might fail if already assigned - that's OK, continue with link generation
+        console.log('Reko assignment (may already exist):', assignError)
+      }
+
       const response = await apiClient.generateRekoLink(incidentId, selectedPersonnelId)
       const fullUrl = `${window.location.origin}${response.link}`
 
@@ -161,7 +175,7 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground min-h-8">
         <Loader2 className="h-4 w-4 animate-spin" />
         Lade Reko...
       </div>
@@ -171,9 +185,16 @@ export default function RekoQRCode({ incidentId }: RekoQRCodeProps) {
   // Error state - no reko personnel
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <AlertCircle className="h-4 w-4" />
-        {error}
+      <div className="flex flex-col gap-1 min-h-8 justify-center">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+        {error === 'Keine Reko-Person zugewiesen' && (
+          <p className="text-xs text-muted-foreground/70 pl-6">
+            Tipp: Rechtsklick auf Person → "Als Reko zuweisen"
+          </p>
+        )}
       </div>
     )
   }

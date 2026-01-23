@@ -308,17 +308,16 @@ export default function RekoDashboardPage() {
                 )}
               </div>
 
-              {/* Action Button */}
-              {!assignment.has_completed_reko && (
-                <Button
-                  onClick={() => handleOpenRekoForm(assignment)}
-                  className="w-full"
-                  size="lg"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Formular öffnen
-                </Button>
-              )}
+              {/* Action Button - show for both active and completed assignments */}
+              <Button
+                onClick={() => handleOpenRekoForm(assignment)}
+                variant={assignment.has_completed_reko ? "outline" : "default"}
+                className="w-full"
+                size="lg"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {assignment.has_completed_reko ? 'Ergänzung hinzufügen' : 'Formular öffnen'}
+              </Button>
             </div>
           ))
         )}

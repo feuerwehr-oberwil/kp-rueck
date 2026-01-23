@@ -115,13 +115,74 @@ function truncateDisplayName(displayName: string): string {
   return result
 }
 
+interface SearchOptions {
+  /** Home city name to prioritize results near (optional) */
+  homeCity?: string
+  /** Custom viewbox to prioritize [minLon, minLat, maxLon, maxLat] */
+  viewbox?: [number, number, number, number]
+}
+
+// Default viewbox for Basel-Landschaft region
+const DEFAULT_VIEWBOX = '7.4,47.3,7.8,47.7'
+
+// Known cities in Basel-Landschaft with approximate centers
+// Used to bias search results when home_city setting is set
+const KNOWN_CITIES: Record<string, [number, number]> = {
+  'oberwil': [7.555, 47.515],
+  'binningen': [7.570, 47.540],
+  'allschwil': [7.535, 47.550],
+  'reinach': [7.595, 47.495],
+  'muttenz': [7.645, 47.530],
+  'pratteln': [7.695, 47.520],
+  'liestal': [7.735, 47.485],
+  'birsfelden': [7.625, 47.555],
+  'therwil': [7.555, 47.495],
+  'bottmingen': [7.575, 47.520],
+  'arlesheim': [7.620, 47.495],
+  'münchenstein': [7.610, 47.515],
+  'aesch': [7.595, 47.470],
+  'ettingen': [7.545, 47.480],
+  'pfeffingen': [7.580, 47.460],
+  'basel': [7.590, 47.560],
+}
+
+/**
+ * Create a viewbox centered on a city for search prioritization
+ * Returns a string in format "minLon,minLat,maxLon,maxLat"
+ */
+function getViewboxForCity(cityName: string): string {
+  const normalizedName = cityName.toLowerCase().trim()
+
+  // Look for exact or partial match
+  for (const [city, coords] of Object.entries(KNOWN_CITIES)) {
+    if (normalizedName.includes(city) || city.includes(normalizedName)) {
+      const [lon, lat] = coords
+      // Create a ~10km viewbox around the city center
+      const delta = 0.05 // ~5km in each direction
+      return `${lon - delta},${lat - delta},${lon + delta},${lat + delta}`
+    }
+  }
+
+  // Unknown city, use default Basel region
+  return DEFAULT_VIEWBOX
+}
+
 /**
  * Search for addresses using Nominatim
  * Returns natural formatted addresses prioritizing Basel-Landschaft region
+ * Optionally prioritizes results near a home city
  */
-export async function searchAddress(query: string): Promise<SearchResult[]> {
+export async function searchAddress(query: string, options?: SearchOptions): Promise<SearchResult[]> {
   if (!query || query.trim().length < 3) {
     return []
+  }
+
+  // Determine viewbox based on options
+  let viewbox = DEFAULT_VIEWBOX
+  if (options?.viewbox) {
+    viewbox = options.viewbox.join(',')
+  } else if (options?.homeCity) {
+    viewbox = getViewboxForCity(options.homeCity)
   }
 
   try {
@@ -131,7 +192,7 @@ export async function searchAddress(query: string): Promise<SearchResult[]> {
       addressdetails: '1',
       limit: '10',
       countrycodes: 'ch', // Limit to Switzerland
-      viewbox: '7.4,47.3,7.8,47.7', // Basel region bounding box
+      viewbox,
       bounded: '0', // Don't strictly limit to viewbox, but prioritize it
     })
 

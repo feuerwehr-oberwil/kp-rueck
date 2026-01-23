@@ -147,6 +147,35 @@ export default function FireStationDashboard() {
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
   const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
   const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
+  const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
+
+  // Fetch Reko personnel names when the crew assignment dialog opens
+  // These personnel should be excluded from regular crew assignment (they're Reko only)
+  useEffect(() => {
+    async function fetchRekoPersonnel() {
+      if (!assignmentDialogOpen || assignmentResourceType !== 'crew' || !selectedEvent) {
+        setRekoPersonnelNames([])
+        return
+      }
+
+      try {
+        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+        const rekoFunctions = specialFunctions.filter(f => f.function_type === 'reko')
+        const names = rekoFunctions
+          .map(f => {
+            const person = personnel.find(p => p.id === f.personnel_id)
+            return person?.name
+          })
+          .filter((name): name is string => name !== undefined)
+        setRekoPersonnelNames(names)
+      } catch (error) {
+        console.error('Failed to fetch Reko personnel:', error)
+        setRekoPersonnelNames([])
+      }
+    }
+
+    fetchRekoPersonnel()
+  }, [assignmentDialogOpen, assignmentResourceType, selectedEvent, personnel])
 
 
   // Use ref to track drag state more reliably
@@ -958,9 +987,24 @@ export default function FireStationDashboard() {
                             includeMargin={false}
                           />
                         </div>
-                        <p className="text-xs text-muted-foreground text-center">
-                          Check-In QR-Code scannen
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground text-center">
+                            Check-In QR-Code scannen
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={copyCheckInUrlToClipboard}
+                            title="Link kopieren"
+                          >
+                            {copied ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     ) : selectedEvent ? (
                       <Button
@@ -1136,7 +1180,7 @@ export default function FireStationDashboard() {
           )}
         </div>
 
-        <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3 pb-20 md:pb-3">
+        <footer className="hidden md:block border-t border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex gap-2 flex-wrap">
               <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
@@ -1295,6 +1339,7 @@ export default function FireStationDashboard() {
         assignedPersonnel={assignedResources.assignedPersonnel}
         assignedVehicles={assignedResources.assignedVehicles}
         assignedMaterials={assignedResources.assignedMaterials}
+        rekoPersonnelNames={rekoPersonnelNames}
         onAssignPerson={assignPersonToOperation}
         onAssignVehicle={assignVehicleToOperation}
         onAssignMaterial={assignMaterialToOperation}
