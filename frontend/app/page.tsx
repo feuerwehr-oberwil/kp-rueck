@@ -916,11 +916,6 @@ export default function FireStationDashboard() {
                 currentPage="kanban"
                 vehicleTypes={vehicleTypes}
                 hasSelectedEvent={!!selectedEvent}
-                onNewIncident={() => setNewEmergencyModalOpen(true)}
-                onCheckIn={generateCheckInQR}
-                onReko={generateRekoDashboardQR}
-                onVehicleStatus={() => setVehicleStatusSheetOpen(true)}
-                onPrint={() => setPrintModalOpen(true)}
               />
             </div>
           )}
@@ -1185,6 +1180,90 @@ export default function FireStationDashboard() {
           )}
         </div>
 
+        {/* Desktop Footer */}
+        <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Neuer Einsatz
+              </Button>
+
+              {/* Event Setup Checklist Popover - only show if loaded and not all complete */}
+              {checklistLoaded && !allChecklistTasksComplete && (
+                <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-2" disabled={!selectedEvent}>
+                      <ClipboardCheck className="h-4 w-4" />
+                      Bereitschaft
+                    </Button>
+                  </PopoverTrigger>
+                  {selectedEvent && (
+                    <PopoverContent
+                      className="w-[600px] p-0"
+                      align="start"
+                      side="top"
+                      sideOffset={10}
+                    >
+                      <EventSetupChecklist
+                        eventId={selectedEvent.id}
+                        eventName={selectedEvent.name}
+                        onDismiss={() => setChecklistPopoverOpen(false)}
+                        onAllTasksComplete={() => {
+                          setAllChecklistTasksComplete(true)
+                          setChecklistPopoverOpen(false)
+                        }}
+                        onChecklistLoaded={() => setChecklistLoaded(true)}
+                      />
+                    </PopoverContent>
+                  )}
+                </Popover>
+              )}
+
+              <Button size="sm" variant="outline" className="gap-2" onClick={generateCheckInQR}>
+                <QrCode className="h-4 w-4" />
+                Check-In
+              </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={generateRekoDashboardQR}>
+                <Search className="h-4 w-4" />
+                Reko
+              </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setVehicleStatusSheetOpen(true)} disabled={!selectedEvent}>
+                <Truck className="h-4 w-4" />
+                Fahrzeugstatus
+              </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setPrintModalOpen(true)} disabled={!selectedEvent}>
+                <Printer className="h-4 w-4" />
+                Drucken
+              </Button>
+              {selectedEvent?.training_flag && (
+                <Link href="/training">
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <Sparkles className="h-4 w-4 text-orange-500" />
+                    Übungs-Steuerung
+                  </Button>
+                </Link>
+              )}
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-meldung"
+                  checked={showMeldung}
+                  onCheckedChange={setShowMeldung}
+                />
+                <Label htmlFor="show-meldung" className="text-sm cursor-pointer">
+                  Meldung
+                </Label>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Kbd className="h-4 text-[10px]">⌘K</Kbd>
+              <span>oder</span>
+              <Kbd className="h-4 text-[10px]">?</Kbd>
+              <span>Befehle & Hilfe</span>
+            </div>
+          </div>
+        </footer>
           </>
         )}
       </div>
@@ -1389,91 +1468,6 @@ export default function FireStationDashboard() {
         open={printModalOpen}
         onOpenChange={setPrintModalOpen}
       />
-
-      {/* Desktop Footer - hidden on mobile */}
-      <footer className="hidden md:block border-t border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex gap-2 flex-wrap">
-            <Button size="sm" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Neuer Einsatz
-            </Button>
-
-            {/* Event Setup Checklist Popover - only show if loaded and not all complete */}
-            {checklistLoaded && !allChecklistTasksComplete && (
-              <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button size="sm" variant="outline" className="gap-2" disabled={!selectedEvent}>
-                    <ClipboardCheck className="h-4 w-4" />
-                    Bereitschaft
-                  </Button>
-                </PopoverTrigger>
-                {selectedEvent && (
-                  <PopoverContent
-                    className="w-[600px] p-0"
-                    align="start"
-                    side="top"
-                    sideOffset={10}
-                  >
-                    <EventSetupChecklist
-                      eventId={selectedEvent.id}
-                      eventName={selectedEvent.name}
-                      onDismiss={() => setChecklistPopoverOpen(false)}
-                      onAllTasksComplete={() => {
-                        setAllChecklistTasksComplete(true)
-                        setChecklistPopoverOpen(false)
-                      }}
-                      onChecklistLoaded={() => setChecklistLoaded(true)}
-                    />
-                  </PopoverContent>
-                )}
-              </Popover>
-            )}
-
-            <Button size="sm" variant="outline" className="gap-2" onClick={generateCheckInQR}>
-              <QrCode className="h-4 w-4" />
-              Check-In
-            </Button>
-            <Button size="sm" variant="outline" className="gap-2" onClick={generateRekoDashboardQR}>
-              <Search className="h-4 w-4" />
-              Reko
-            </Button>
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => setVehicleStatusSheetOpen(true)} disabled={!selectedEvent}>
-              <Truck className="h-4 w-4" />
-              Fahrzeugstatus
-            </Button>
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => setPrintModalOpen(true)} disabled={!selectedEvent}>
-              <Printer className="h-4 w-4" />
-              Drucken
-            </Button>
-            {selectedEvent?.training_flag && (
-              <Link href="/training">
-                <Button size="sm" variant="outline" className="gap-2">
-                  <Sparkles className="h-4 w-4 text-orange-500" />
-                  Übungs-Steuerung
-                </Button>
-              </Link>
-            )}
-            <div className="flex items-center gap-2">
-              <Switch
-                id="show-meldung"
-                checked={showMeldung}
-                onCheckedChange={setShowMeldung}
-              />
-              <Label htmlFor="show-meldung" className="text-sm cursor-pointer">
-                Meldung
-              </Label>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Kbd className="h-4 text-[10px]">⌘K</Kbd>
-            <span>oder</span>
-            <Kbd className="h-4 text-[10px]">?</Kbd>
-            <span>Befehle & Hilfe</span>
-          </div>
-        </div>
-      </footer>
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNavigation currentPage="kanban" hasSelectedEvent={!!selectedEvent} onCheckIn={generateCheckInQR} />

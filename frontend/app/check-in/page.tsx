@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
@@ -17,13 +17,16 @@ export default function CheckInPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Track if we just added a person locally to skip the next WebSocket refresh
-  const [skipNextRefresh, setSkipNextRefresh] = useState(false)
+  // Track if we just made a local change to skip the next WebSocket refresh (use ref to avoid stale closures)
+  const skipNextRefreshRef = useRef(false)
 
-  const loadPersonnel = useCallback(async () => {
+  // Load personnel list - isInitialLoad=true shows loading spinner, false for background refresh
+  const loadPersonnel = useCallback(async (isInitialLoad = false) => {
     if (!token) return
 
-    setLoading(true)
+    if (isInitialLoad) {
+      setLoading(true)
+    }
     setError(null)
     try {
       const data = await apiClient.getCheckInList(token)
@@ -31,9 +34,13 @@ export default function CheckInPage() {
       setEventName(data.event_name)
     } catch (error) {
       console.error('Failed to load personnel:', error)
-      setError('Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.')
+      if (isInitialLoad) {
+        setError('Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.')
+      }
     } finally {
-      setLoading(false)
+      if (isInitialLoad) {
+        setLoading(false)
+      }
     }
   }, [token])
 
@@ -44,21 +51,21 @@ export default function CheckInPage() {
       return
     }
 
-    // Load initial data
-    loadPersonnel()
+    // Load initial data with loading spinner
+    loadPersonnel(true)
 
     // Connect to WebSocket for real-time updates
     wsClient.connect()
 
     // Listen for personnel updates
     const unsubscribePersonnel = wsClient.on('personnel_update', (update: WebSocketUpdate) => {
-      // Skip refresh if we just added someone locally (prevents scroll reset)
-      if (skipNextRefresh) {
-        setSkipNextRefresh(false)
+      // Skip refresh if we just made a local change (prevents scroll reset)
+      if (skipNextRefreshRef.current) {
+        skipNextRefreshRef.current = false
         return
       }
-      // Refresh the personnel list when someone is added, checked in, or checked out
-      loadPersonnel()
+      // Refresh the personnel list in background (no loading spinner) when someone is added, checked in, or checked out
+      loadPersonnel(false)
     })
 
     // Cleanup on unmount
@@ -77,6 +84,9 @@ export default function CheckInPage() {
       return
     }
 
+    // Skip the next WebSocket refresh since we do an optimistic update
+    skipNextRefreshRef.current = true
+
     try {
       if (person.checked_in) {
         await apiClient.checkOutPersonnel(person.id, token)
@@ -92,8 +102,9 @@ export default function CheckInPage() {
     } catch (error) {
       console.error('Check-in toggle failed:', error)
       alert('Fehler beim Ändern des Check-in Status. Bitte versuchen Sie es erneut.')
-      // Reload to get correct state
-      loadPersonnel()
+      skipNextRefreshRef.current = false // Allow refresh on error to get correct state
+      // Reload to get correct state (background refresh)
+      loadPersonnel(false)
     }
   }
 
@@ -165,7 +176,7 @@ export default function CheckInPage() {
         <QuickAddPersonnel
           onPersonAdded={async (newPerson) => {
             // Skip the next WebSocket refresh to prevent scroll reset
-            setSkipNextRefresh(true)
+            skipNextRefreshRef.current = true
             // Optimistically add new person to list without full refresh
             if (newPerson) {
               setPersonnel(prev => [...prev, {
