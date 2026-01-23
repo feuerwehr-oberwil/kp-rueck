@@ -4,13 +4,12 @@ import { useState, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, RefreshCw, Plus, QrCode, Sparkles, Truck } from "lucide-react"
+import { Search, Plus } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
 import { columns } from "@/lib/kanban-utils"
-import { cn } from "@/lib/utils"
 
 interface MobileIncidentListViewProps {
   operations: Operation[]
@@ -193,65 +192,6 @@ export function MobileIncidentListView({
             ))}
           </div>
         )}
-      </div>
-
-      {/* Fixed Footer with Actions */}
-      <div className="flex-shrink-0 border-t border-border/50 bg-card/95 backdrop-blur-sm px-4 py-3">
-        <div className="flex gap-2 overflow-x-auto">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onNewEmergency}
-            className="gap-1.5 flex-shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            Neuer Einsatz
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onCheckIn}
-            className="gap-1.5 flex-shrink-0"
-          >
-            <QrCode className="h-4 w-4" />
-            Check-In
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onVehicleStatus}
-            className="gap-1.5 flex-shrink-0"
-          >
-            <Truck className="h-4 w-4" />
-            Fahrzeuge
-          </Button>
-
-          {isTraining && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 flex-shrink-0"
-              asChild
-            >
-              <a href="/training">
-                <Sparkles className="h-4 w-4 text-orange-500" />
-                Übung
-              </a>
-            </Button>
-          )}
-
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onRefresh}
-            className="flex-shrink-0 ml-auto"
-            disabled={isLoading}
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-          </Button>
-        </div>
       </div>
 
       {/* Detail Sheet */}
