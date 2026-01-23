@@ -107,12 +107,12 @@ export function SidePanel({
   }
 
   return (
-    <aside className="w-[420px] border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
+    <aside className="w-[420px] 2xl:w-[480px] border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
       {/* Panel header with toggle tabs */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-1">
           <Button
-            variant={mode === 'detail' ? 'default' : 'ghost'}
+            variant={mode === 'detail' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => onModeChange('detail')}
             className="gap-1.5 px-3"
@@ -121,7 +121,7 @@ export function SidePanel({
             Details
           </Button>
           <Button
-            variant={mode === 'map' ? 'default' : 'ghost'}
+            variant={mode === 'map' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => onModeChange('map')}
             className="gap-1.5 px-3"
