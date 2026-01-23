@@ -4,7 +4,7 @@ import { EventsPage } from '../../pages/events.page';
 /**
  * Mobile Bottom Navigation Tests
  * Tests the mobile-only bottom tab bar with iOS/Android safe area support
- * Tests primary tabs (Kanban, Map, Combined, Events) and "More" sheet
+ * Tests primary tabs (Kanban, Map, Events) and "More" sheet
  */
 
 test.describe('Mobile Bottom Navigation - Visibility', () => {
@@ -130,19 +130,6 @@ test.describe('Mobile Bottom Navigation - Tab Navigation', () => {
 
     // Verify active state
     const isActive = await mapTab.evaluate(el => el.getAttribute('aria-current'));
-    expect(isActive).toBe('page');
-  });
-
-  test('combined tab navigates to combined view', async ({ authenticatedPage }) => {
-    // Click Combined tab
-    const combinedTab = authenticatedPage.locator('nav.fixed.bottom-0 a[href="/combined"]');
-    await combinedTab.click();
-
-    // Verify navigation
-    await expect(authenticatedPage).toHaveURL('/combined');
-
-    // Verify active state
-    const isActive = await combinedTab.evaluate(el => el.getAttribute('aria-current'));
     expect(isActive).toBe('page');
   });
 
@@ -328,10 +315,9 @@ test.describe('Mobile Bottom Navigation - Disabled States', () => {
 
     const bottomNav = authenticatedPage.locator('nav.fixed.bottom-0');
 
-    // Kanban, Map, Combined should be disabled
+    // Kanban, Map should be disabled
     const kanbanTab = bottomNav.locator('a[href="/"]');
     const mapTab = bottomNav.locator('a[href="/map"]');
-    const combinedTab = bottomNav.locator('a[href="/combined"]');
 
     // Check for disabled styling (opacity-40 and pointer-events-none)
     const kanbanDisabled = await kanbanTab.evaluate(el =>
@@ -340,13 +326,9 @@ test.describe('Mobile Bottom Navigation - Disabled States', () => {
     const mapDisabled = await mapTab.evaluate(el =>
       el.className.includes('opacity-40') && el.className.includes('pointer-events-none')
     );
-    const combinedDisabled = await combinedTab.evaluate(el =>
-      el.className.includes('opacity-40') && el.className.includes('pointer-events-none')
-    );
 
     expect(kanbanDisabled).toBeTruthy();
     expect(mapDisabled).toBeTruthy();
-    expect(combinedDisabled).toBeTruthy();
   });
 
   test('events tab is always enabled', async ({ authenticatedPage }) => {

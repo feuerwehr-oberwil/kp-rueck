@@ -22,8 +22,10 @@ interface DraggableOperationProps {
   onRemoveMaterial: (materialId: string) => void
   onRemoveVehicle: (vehicleName: string) => void
   onClick: () => void
+  onSelect?: () => void
   onHover: (opId: string | null) => void
   isHighlighted?: boolean
+  isSelected?: boolean
   isKeyboardFocused?: boolean
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
@@ -60,8 +62,10 @@ function DraggableOperationBase({
   onRemoveMaterial,
   onRemoveVehicle,
   onClick,
+  onSelect,
   onHover,
   isHighlighted,
+  isSelected,
   isKeyboardFocused,
   isDraggingRef,
   materials,
@@ -162,12 +166,20 @@ function DraggableOperationBase({
           priorityConfig?.card || 'border-border',
           isOver && 'ring-2 ring-border',
           isHighlighted && 'ring-4 ring-muted-foreground animate-pulse',
-          isKeyboardFocused && !isHighlighted && 'ring-2 ring-muted-foreground/50 shadow-xl'
+          isSelected && !isHighlighted && 'ring-2 ring-primary shadow-lg shadow-primary/20',
+          isKeyboardFocused && !isHighlighted && !isSelected && 'ring-2 ring-muted-foreground/50 shadow-xl'
         )}
         onMouseEnter={() => onHover(operation.id)}
         onMouseLeave={() => onHover(null)}
         onClick={(e) => {
           // Only trigger click if not dragging
+          if (!isDraggingRef.current) {
+            // Single click: select for side panel
+            onSelect?.()
+          }
+        }}
+        onDoubleClick={(e) => {
+          // Double click: open modal
           if (!isDraggingRef.current) {
             onClick()
           }
@@ -376,6 +388,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
     prevProps.columnColor === nextProps.columnColor &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
+    prevProps.isSelected === nextProps.isSelected &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
     prevProps.index === nextProps.index &&
     prevProps.showMeldung === nextProps.showMeldung &&

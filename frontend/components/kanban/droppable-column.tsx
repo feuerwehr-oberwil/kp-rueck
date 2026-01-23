@@ -19,8 +19,10 @@ interface DroppableColumnProps {
   onRemoveMaterial: (operationId: string, materialId: string) => void
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
   onCardClick: (operation: Operation) => void
+  onCardSelect?: (operation: Operation) => void
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
+  selectedOperationId?: string | null
   hoveredOperationId?: string | null
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
@@ -37,8 +39,10 @@ export const DroppableColumn = memo(function DroppableColumn({
   onRemoveMaterial,
   onRemoveVehicle,
   onCardClick,
+  onCardSelect,
   onCardHover,
   highlightedOperationId,
+  selectedOperationId,
   hoveredOperationId,
   isDraggingRef,
   materials,
@@ -68,7 +72,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   }, [column.id])
 
   return (
-    <div className="flex min-w-[320px] w-[320px] flex-shrink-0 flex-col transition-all">
+    <div className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
       <div className={cn(
         "mb-3 rounded-lg border border-border px-4 py-3 transition-all",
         column.color
@@ -106,8 +110,10 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
                 onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
                 onClick={() => onCardClick(operation)}
+                onSelect={() => onCardSelect?.(operation)}
                 onHover={onCardHover}
                 isHighlighted={highlightedOperationId === operation.id}
+                isSelected={selectedOperationId === operation.id}
                 isKeyboardFocused={hoveredOperationId === operation.id}
                 isDraggingRef={isDraggingRef}
                 materials={materials}

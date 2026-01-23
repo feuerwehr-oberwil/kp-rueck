@@ -32,7 +32,6 @@ import {
   Bell,
   AlertTriangle,
   BookOpen,
-  Columns,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 
@@ -106,13 +105,6 @@ export function CommandPalette() {
                 <Map className="mr-2 h-4 w-4" />
                 <span>Karten-Ansicht</span>
                 <span className="ml-auto text-xs text-muted-foreground">G M</span>
-              </CommandItem>
-              <CommandItem
-                onSelect={() => runCommand(() => router.push("/combined"))}
-              >
-                <Columns className="mr-2 h-4 w-4" />
-                <span>Kombinierte Ansicht</span>
-                <span className="ml-auto text-xs text-muted-foreground">G C</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/events"))}

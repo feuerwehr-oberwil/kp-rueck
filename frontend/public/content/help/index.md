@@ -10,8 +10,8 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in Status-Spalten (Eingega
 ### Kartenansicht (`G M`)
 Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grau/Gelb/Rot). Klick auf Marker öffnet Einsatzdetails.
 
-### Combined View
-Split-Screen: Kanban links, Karte rechts. Teiler ist verschiebbar. Ideal für Einsatzzentrale mit grossem Bildschirm.
+### Seitenpanel (Kanban)
+Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel. Wechseln Sie zwischen **Details** (Einsatzbearbeitung) und **Karte** (Mini-Übersicht). Einfach-Klick auf Einsatzkarte zeigt Details im Panel, Doppelklick öffnet Modal.
 
 ### Ereignisse (`G E`)
 Events verwalten, wechseln, archivieren, exportieren.
@@ -108,7 +108,7 @@ QR-Code scannen → Person als anwesend markieren.
 - Mit `↑`/`↓` zwischen Einsätzen wechseln
 - Prioritäten helfen beim Überblick (Rot = dringend)
 - Alters-Badges zeigen, welche Einsätze lange offen sind
-- Combined View nutzen für Karte + Kanban gleichzeitig
+- Seitenpanel für Karte + Details nutzen (auf breiten Bildschirmen)
 
 ---
 

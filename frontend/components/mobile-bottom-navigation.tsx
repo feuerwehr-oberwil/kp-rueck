@@ -19,7 +19,7 @@ import { useEvent } from '@/lib/contexts/event-context'
 import { RoleBadge } from '@/components/auth/role-badge'
 
 interface MobileBottomNavigationProps {
-  currentPage: 'kanban' | 'map' | 'combined' | 'events' | 'settings' | 'help' | string
+  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
   hasSelectedEvent?: boolean
   onCheckIn?: () => void
 }

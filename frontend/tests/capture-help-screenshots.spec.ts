@@ -146,19 +146,7 @@ test.describe('Help Documentation Screenshot Capture', () => {
     });
   });
 
-  test('08 - Combined View (Split)', async ({ page }) => {
-    // Navigate to combined view
-    await page.goto('/combined');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-
-    await page.screenshot({
-      path: path.join(screenshotDir, 'combined-view.png'),
-      fullPage: false,
-    });
-  });
-
-  test('09 - Events Selection Page', async ({ page }) => {
+  test('08 - Events Selection Page', async ({ page }) => {
     // Navigate to events page
     await page.goto('/events');
     await page.waitForLoadState('networkidle');

@@ -239,7 +239,7 @@ export class MainPage extends BasePage {
   /**
    * Click bottom navigation tab (mobile only)
    */
-  async clickBottomTab(tab: 'kanban' | 'map' | 'combined' | 'events' | 'more') {
+  async clickBottomTab(tab: 'kanban' | 'map' | 'events' | 'more') {
     const bottomNav = this.page.locator('nav.fixed.bottom-0');
 
     if (tab === 'more') {
@@ -251,7 +251,6 @@ export class MainPage extends BasePage {
       const tabMap = {
         kanban: '/',
         map: '/map',
-        combined: '/combined',
         events: '/events',
       };
       const tabLink = bottomNav.locator(`a[href="${tabMap[tab]}"]`);

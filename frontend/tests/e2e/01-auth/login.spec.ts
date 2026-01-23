@@ -88,10 +88,10 @@ test.describe('Authenticated Session', () => {
   });
 
   test('should access protected routes when authenticated', async ({ authenticatedPage }) => {
-    // Try to navigate to combined view
-    await authenticatedPage.goto('/combined');
+    // Try to navigate to map view (protected route)
+    await authenticatedPage.goto('/map');
 
     // Should successfully access the page
-    await expect(authenticatedPage).toHaveURL(/\/combined/);
+    await expect(authenticatedPage).toHaveURL(/\/map/);
   });
 });

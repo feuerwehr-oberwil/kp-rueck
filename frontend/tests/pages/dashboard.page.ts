@@ -3,7 +3,7 @@ import { BasePage } from './base.page';
 
 /**
  * Dashboard Page Object Model
- * Handles the main combined view dashboard interactions
+ * Handles the main Kanban dashboard interactions
  */
 export class DashboardPage extends BasePage {
   readonly newIncidentButton: Locator;
@@ -22,10 +22,10 @@ export class DashboardPage extends BasePage {
   }
 
   /**
-   * Navigate to combined dashboard
+   * Navigate to main Kanban dashboard
    */
   async goto() {
-    await super.goto('/combined');
+    await super.goto('/');
   }
 
   /**

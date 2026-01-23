@@ -40,6 +40,7 @@ import { KanbanLoading } from "@/components/kanban/kanban-loading"
 import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/kanban/sidebar-loading"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
+import { SidePanel } from "@/components/kanban/side-panel"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
@@ -132,6 +133,15 @@ export default function FireStationDashboard() {
   const [rekoQrDialogOpen, setRekoQrDialogOpen] = useState(false)
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [rekoCopied, setRekoCopied] = useState(false)
+
+  // Side panel state for ultrawide monitors
+  const [panelSelectedId, setPanelSelectedId] = useState<string | null>(null)
+  const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'map' | 'collapsed'>('collapsed')
+  // Derive selected operation for side panel
+  const panelSelectedOperation = useMemo(() => {
+    if (!panelSelectedId) return null
+    return operations.find(op => op.id === panelSelectedId) || null
+  }, [panelSelectedId, operations])
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -678,6 +688,16 @@ export default function FireStationDashboard() {
     setDetailModalOpen(true)
   }
 
+  const handleCardSelect = (operation: Operation) => {
+    // Select operation for side panel view
+    setPanelSelectedId(operation.id)
+    setHoveredOperationId(operation.id) // Also update hovered for keyboard shortcuts
+    // Auto-open side panel in detail mode if collapsed
+    if (sidePanelMode === 'collapsed') {
+      setSidePanelMode('detail')
+    }
+  }
+
   const generateCheckInQR = async () => {
     if (!selectedEvent) {
       toast.error('Fehler', {
@@ -990,8 +1010,10 @@ export default function FireStationDashboard() {
                       onRemoveMaterial={removeMaterial}
                       onRemoveVehicle={removeVehicle}
                       onCardClick={handleCardClick}
+                      onCardSelect={handleCardSelect}
                       onCardHover={setHoveredOperationId}
                       highlightedOperationId={highlightedOperationId}
+                      selectedOperationId={panelSelectedId}
                       hoveredOperationId={hoveredOperationId}
                       isDraggingRef={isDraggingOperationRef}
                       materials={materials}
@@ -1004,6 +1026,47 @@ export default function FireStationDashboard() {
               </div>
             )}
           </main>
+
+          {/* Side Panel for ultrawide monitors */}
+          <SidePanel
+            mode={sidePanelMode}
+            onModeChange={setSidePanelMode}
+            selectedOperation={panelSelectedOperation}
+            operations={filteredOperations}
+            materials={materials}
+            formatLocation={formatLocation}
+            onOpenModal={() => {
+              if (panelSelectedOperation) {
+                setSelectedOperationId(panelSelectedOperation.id)
+                setDetailModalOpen(true)
+              }
+            }}
+            onSelectOperation={(op) => {
+              setPanelSelectedId(op.id)
+              setHoveredOperationId(op.id)
+            }}
+            vehicleTypes={vehicleTypes}
+            onUpdate={(updates) => {
+              if (panelSelectedOperation) {
+                updateOperation(panelSelectedOperation.id, updates)
+              }
+            }}
+            onDelete={async (operationId) => {
+              try {
+                await deleteOperation(operationId)
+                setPanelSelectedId(null)
+                toast.success("Einsatz gelöscht")
+              } catch (error) {
+                console.error('Failed to delete operation:', error)
+                toast.error("Fehler beim Löschen")
+              }
+            }}
+            onAssignVehicle={assignVehicleToOperation}
+            onRemoveVehicle={removeVehicle}
+            onAssignResource={handleOpenAssignmentDialog}
+            onRemoveCrew={removeCrew}
+            onRemoveMaterial={removeMaterial}
+          />
 
           {showRightSidebar && (
             <aside className="w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
