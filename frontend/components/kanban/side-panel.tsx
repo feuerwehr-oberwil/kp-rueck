@@ -162,6 +162,10 @@ export function SidePanel({
             operations={operations}
             selectedOperation={selectedOperation}
             onSelectOperation={onSelectOperation}
+            onSwitchToDetail={(operation) => {
+              onSelectOperation(operation)
+              onModeChange('detail')
+            }}
             formatLocation={formatLocation}
           />
         )}
@@ -748,11 +752,13 @@ function SidePanelMap({
   operations,
   selectedOperation,
   onSelectOperation,
+  onSwitchToDetail,
   formatLocation,
 }: {
   operations: Operation[]
   selectedOperation: Operation | null
   onSelectOperation: (operation: Operation) => void
+  onSwitchToDetail: (operation: Operation) => void
   formatLocation: (address: string) => string
 }) {
   return (
@@ -761,6 +767,7 @@ function SidePanelMap({
         operations={operations}
         selectedOperation={selectedOperation}
         onSelectOperation={onSelectOperation}
+        onSwitchToDetail={onSwitchToDetail}
         formatLocation={formatLocation}
       />
     </div>

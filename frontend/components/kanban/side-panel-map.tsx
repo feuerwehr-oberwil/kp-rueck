@@ -94,6 +94,7 @@ interface SidePanelMapContentProps {
   operations: Operation[]
   selectedOperation: Operation | null
   onSelectOperation: (operation: Operation) => void
+  onSwitchToDetail?: (operation: Operation) => void
   formatLocation: (address: string) => string
 }
 
@@ -101,6 +102,7 @@ export default function SidePanelMapContent({
   operations,
   selectedOperation,
   onSelectOperation,
+  onSwitchToDetail,
   formatLocation,
 }: SidePanelMapContentProps) {
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
@@ -168,6 +170,7 @@ export default function SidePanelMapContent({
               icon={createOperationIcon(operation, isSelected)}
               eventHandlers={{
                 click: () => onSelectOperation(operation),
+                dblclick: () => onSwitchToDetail?.(operation),
               }}
             />
           )

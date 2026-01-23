@@ -190,6 +190,8 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 | `[` | Personal-Seitenleiste ein/aus |
 | `]` | Material-Seitenleiste ein/aus |
 | `\` | Detail-Panel ein/aus |
+| `D` | Panel: Details anzeigen |
+| `K` | Panel: Karte anzeigen |
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
 | `M` | Material suchen |

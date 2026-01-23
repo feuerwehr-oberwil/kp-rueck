@@ -534,6 +534,14 @@ export default function FireStationDashboard() {
         // Toggle side panel (detail/map view)
         e.preventDefault()
         setSidePanelMode(prev => prev === 'collapsed' ? 'detail' : 'collapsed')
+      } else if ((e.key === 'd' || e.key === 'D') && !e.metaKey && !e.ctrlKey && sidePanelMode !== 'collapsed') {
+        // Switch side panel to Detail view (only when panel is open)
+        e.preventDefault()
+        setSidePanelMode('detail')
+      } else if ((e.key === 'k' || e.key === 'K') && !e.metaKey && !e.ctrlKey && sidePanelMode !== 'collapsed') {
+        // Switch side panel to Karte (map) view (only when panel is open)
+        e.preventDefault()
+        setSidePanelMode('map')
       } else if ((e.key === 'b' || e.key === 'B') && !e.metaKey && !e.ctrlKey) {
         // Toggle notification sidebar
         e.preventDefault()
@@ -576,7 +584,7 @@ export default function FireStationDashboard() {
         clearTimeout(gPrefixTimeoutRef.current)
       }
     }
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, qrDialogOpen, deleteDialogOpen])
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, qrDialogOpen, deleteDialogOpen, sidePanelMode])
 
   // Use shared drag-and-drop hook
   useKanbanDragDrop({
