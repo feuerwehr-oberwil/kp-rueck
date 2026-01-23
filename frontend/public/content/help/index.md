@@ -189,6 +189,7 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 | `Tab` | Durch Einsätze durchlaufen |
 | `[` | Personal-Seitenleiste ein/aus |
 | `]` | Material-Seitenleiste ein/aus |
+| `\` | Detail-Panel ein/aus |
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
 | `M` | Material suchen |

@@ -530,6 +530,10 @@ export default function FireStationDashboard() {
       } else if (e.key === ']') {
         e.preventDefault()
         setShowRightSidebar(prev => !prev)
+      } else if (e.key === '\\') {
+        // Toggle side panel (detail/map view)
+        e.preventDefault()
+        setSidePanelMode(prev => prev === 'collapsed' ? 'detail' : 'collapsed')
       } else if ((e.key === 'b' || e.key === 'B') && !e.metaKey && !e.ctrlKey) {
         // Toggle notification sidebar
         e.preventDefault()
