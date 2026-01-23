@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
-import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search } from "lucide-react"
+import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Copy, Check, Link2, LayoutDashboard, Loader2 } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel, incidentTypeKeys } from "@/lib/incident-types"
@@ -215,6 +215,8 @@ function SidePanelDetail({
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [assignedRekoPersonnel, setAssignedRekoPersonnel] = useState<{ id: string; name: string } | null>(null)
+  const [isCopyingRekoLink, setIsCopyingRekoLink] = useState(false)
+  const [rekoCopied, setRekoCopied] = useState<'direct' | 'dashboard' | null>(null)
 
   // Load assigned Reko personnel when operation changes
   useEffect(() => {
@@ -277,6 +279,56 @@ function SidePanelDetail({
 
     loadVehicleDrivers()
   }, [operation, selectedEvent])
+
+  // Handler for copying direct reko form link
+  const handleCopyDirectRekoLink = async () => {
+    if (!operation || !assignedRekoPersonnel) {
+      toast.error('Keine Reko-Person zugewiesen')
+      return
+    }
+
+    setIsCopyingRekoLink(true)
+    try {
+      const response = await apiClient.generateRekoLink(operation.id, assignedRekoPersonnel.id)
+      const fullUrl = `${window.location.origin}${response.link}`
+      await navigator.clipboard.writeText(fullUrl)
+      setRekoCopied('direct')
+      toast.success('Direkt-Link kopiert', {
+        description: `Formular-Link für ${assignedRekoPersonnel.name}`
+      })
+      setTimeout(() => setRekoCopied(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy direct reko link:', error)
+      toast.error('Fehler beim Kopieren')
+    } finally {
+      setIsCopyingRekoLink(false)
+    }
+  }
+
+  // Handler for copying dashboard link
+  const handleCopyDashboardLink = async () => {
+    if (!selectedEvent) {
+      toast.error('Kein Event ausgewählt')
+      return
+    }
+
+    setIsCopyingRekoLink(true)
+    try {
+      const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
+      const fullUrl = `${window.location.origin}${response.link}`
+      await navigator.clipboard.writeText(fullUrl)
+      setRekoCopied('dashboard')
+      toast.success('Dashboard-Link kopiert', {
+        description: 'Reko-Personal kann ihre Zuweisungen sehen'
+      })
+      setTimeout(() => setRekoCopied(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy dashboard link:', error)
+      toast.error('Fehler beim Kopieren')
+    } finally {
+      setIsCopyingRekoLink(false)
+    }
+  }
 
   // Handler for copying WhatsApp message
   const handleCopyWhatsApp = async () => {
@@ -494,8 +546,8 @@ function SidePanelDetail({
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Zugewiesene Ressourcen</p>
 
         {/* Reko Personnel - separate from Mannschaft */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Search className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Reko</span>
@@ -519,16 +571,51 @@ function SidePanelDetail({
               )}
             </Button>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {assignedRekoPersonnel ? (
+
+          {assignedRekoPersonnel ? (
+            <div className="space-y-2">
               <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400">
                 <Search className="h-2.5 w-2.5 mr-1" />
                 {assignedRekoPersonnel.name}
               </Badge>
-            ) : (
-              <p className="text-xs text-muted-foreground">Keine Reko-Person zugewiesen</p>
-            )}
-          </div>
+
+              {/* Link sharing buttons */}
+              <div className="flex gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopyDirectRekoLink}
+                  disabled={isCopyingRekoLink}
+                  className="h-7 px-2 gap-1.5 text-xs flex-1"
+                >
+                  {isCopyingRekoLink ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : rekoCopied === 'direct' ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Link2 className="h-3 w-3" />
+                  )}
+                  Direkt-Link
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopyDashboardLink}
+                  disabled={isCopyingRekoLink}
+                  className="h-7 px-2 gap-1.5 text-xs flex-1"
+                >
+                  {rekoCopied === 'dashboard' ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <LayoutDashboard className="h-3 w-3" />
+                  )}
+                  Dashboard
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Keine Reko-Person zugewiesen</p>
+          )}
         </div>
 
         {/* Crew */}
@@ -708,26 +795,15 @@ function SidePanelDetail({
             Übertragen
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setRekoDialogOpen(true)}
-            className="gap-1.5 text-xs"
-          >
-            <Search className="h-3.5 w-3.5" />
-            Reko zuweisen
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="gap-1.5 text-xs text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Löschen
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowDeleteConfirm(true)}
+          className="w-full gap-1.5 text-xs text-destructive hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Löschen
+        </Button>
       </div>
 
       {/* Delete Confirmation Dialog */}

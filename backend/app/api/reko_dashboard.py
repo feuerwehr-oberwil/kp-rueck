@@ -191,3 +191,38 @@ async def assign_reko_personnel(
     )
 
     return schemas.AssignmentResponse.model_validate(db_assignment)
+
+
+@router.delete(
+    "/incidents/{incident_id}/unassign-reko/{personnel_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unassign_reko_personnel(
+    incident_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,  # Editor only
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Unassign Reko personnel from an incident.
+
+    Editor only - removes the personnel assignment for the Reko person.
+    """
+    success = await crud.unassign_reko_personnel_from_incident(db, incident_id, personnel_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    # Broadcast WebSocket update
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {
+            "incident_id": str(incident_id),
+            "resource_type": "personnel",
+            "resource_id": str(personnel_id),
+        },
+        "delete",
+    )
+
+    return None

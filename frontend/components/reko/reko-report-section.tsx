@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
-import RekoQRCode from './reko-qr-code'
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -50,9 +49,9 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
 
   if (reports.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-4 flex flex-col items-center justify-center">
-        <p className="text-sm text-muted-foreground mb-2">Keine Reko-Meldung vorhanden</p>
-        <RekoQRCode incidentId={incidentId} />
+      <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
+        <FileText className="h-4 w-4" />
+        <p className="text-sm">Noch keine Reko-Meldung</p>
       </div>
     )
   }
@@ -66,9 +65,6 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
           incidentId={incidentId}
         />
       ))}
-      <div className="pt-2">
-        <RekoQRCode incidentId={incidentId} />
-      </div>
     </div>
   )
 }

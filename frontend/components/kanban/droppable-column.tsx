@@ -18,6 +18,7 @@ interface DroppableColumnProps {
   onRemoveCrew: (operationId: string, crewName: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
+  onRemoveReko?: (operationId: string) => void
   onCardClick: (operation: Operation) => void
   onCardSelect?: (operation: Operation) => void
   onCardHover: (opId: string | null) => void
@@ -38,6 +39,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onRemoveCrew,
   onRemoveMaterial,
   onRemoveVehicle,
+  onRemoveReko,
   onCardClick,
   onCardSelect,
   onCardHover,
@@ -109,6 +111,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
                 onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
                 onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
+                onRemoveReko={onRemoveReko ? () => onRemoveReko(operation.id) : undefined}
                 onClick={() => onCardClick(operation)}
                 onSelect={() => onCardSelect?.(operation)}
                 onHover={onCardHover}

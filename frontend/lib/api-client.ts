@@ -1428,6 +1428,15 @@ class ApiClient {
       }
     )
   }
+
+  async unassignRekoPersonnel(incidentId: string, personnelId: string): Promise<void> {
+    return this.request<void>(
+      `/api/reko-dashboard/incidents/${incidentId}/unassign-reko/${personnelId}`,
+      {
+        method: 'DELETE',
+      }
+    )
+  }
 }
 
 // Create API client instance

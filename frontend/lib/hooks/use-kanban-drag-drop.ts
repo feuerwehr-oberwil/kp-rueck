@@ -9,6 +9,7 @@ interface UseKanbanDragDropProps {
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   updateOperation: (id: string, updates: Partial<Operation>) => void
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
+  assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   setDraggingItem?: (item: Person | Material | Operation | null) => void
 }
@@ -24,6 +25,7 @@ export function useKanbanDragDrop({
   setOperations,
   updateOperation,
   assignPersonToOperation,
+  assignRekoPersonToOperation,
   assignMaterialToOperation,
   setDraggingItem,
 }: UseKanbanDragDropProps) {
@@ -64,8 +66,10 @@ export function useKanbanDragDrop({
           const person = sourceData.person as Person
           const operationId = destData.operationId as string
 
-          // Allow assignment if available OR if reko (reko can be on multiple incidents)
-          if (person.status === "available" || person.isReko) {
+          // Reko personnel are assigned differently (to the reko slot, not crew)
+          if (person.isReko) {
+            assignRekoPersonToOperation(person.id, person.name, operationId)
+          } else if (person.status === "available") {
             assignPersonToOperation(person.id, person.name, operationId)
           }
         }
@@ -169,5 +173,5 @@ export function useKanbanDragDrop({
         }
       },
     })
-  }, [isMounted, operations, assignPersonToOperation, assignMaterialToOperation, setOperations, updateOperation, setDraggingItem])
+  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, setOperations, updateOperation, setDraggingItem])
 }

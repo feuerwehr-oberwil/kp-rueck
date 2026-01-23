@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2 } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -66,6 +66,38 @@ export function OperationDetailModal({
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
+  const [assignedRekoPersonnel, setAssignedRekoPersonnel] = useState<{ id: string; name: string } | null>(null)
+  const [isCopyingRekoLink, setIsCopyingRekoLink] = useState(false)
+  const [rekoCopied, setRekoCopied] = useState<'direct' | 'dashboard' | null>(null)
+
+  // Load assigned Reko personnel when modal opens
+  useEffect(() => {
+    const loadAssignedReko = async () => {
+      if (!open || !operation) {
+        setAssignedRekoPersonnel(null)
+        return
+      }
+
+      try {
+        const data = await apiClient.getAvailableRekoPersonnel(operation.id)
+        if (data.currently_assigned_id) {
+          const assigned = data.personnel.find(p => p.personnel_id === data.currently_assigned_id)
+          if (assigned) {
+            setAssignedRekoPersonnel({ id: assigned.personnel_id, name: assigned.name })
+          } else {
+            setAssignedRekoPersonnel(null)
+          }
+        } else {
+          setAssignedRekoPersonnel(null)
+        }
+      } catch (error) {
+        console.error('Failed to load assigned Reko personnel:', error)
+        setAssignedRekoPersonnel(null)
+      }
+    }
+
+    loadAssignedReko()
+  }, [open, operation])
 
   // Load vehicles and special functions when modal opens
   useEffect(() => {
@@ -148,6 +180,56 @@ export function OperationDetailModal({
       })
     } finally {
       setIsCopyingWhatsApp(false)
+    }
+  }
+
+  // Handler for copying direct reko form link
+  const handleCopyDirectRekoLink = async () => {
+    if (!operation || !assignedRekoPersonnel) {
+      toast.error('Keine Reko-Person zugewiesen')
+      return
+    }
+
+    setIsCopyingRekoLink(true)
+    try {
+      const response = await apiClient.generateRekoLink(operation.id, assignedRekoPersonnel.id)
+      const fullUrl = `${window.location.origin}${response.link}`
+      await navigator.clipboard.writeText(fullUrl)
+      setRekoCopied('direct')
+      toast.success('Direkt-Link kopiert', {
+        description: `Formular-Link für ${assignedRekoPersonnel.name}`
+      })
+      setTimeout(() => setRekoCopied(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy direct reko link:', error)
+      toast.error('Fehler beim Kopieren')
+    } finally {
+      setIsCopyingRekoLink(false)
+    }
+  }
+
+  // Handler for copying dashboard link
+  const handleCopyDashboardLink = async () => {
+    if (!selectedEvent) {
+      toast.error('Kein Event ausgewählt')
+      return
+    }
+
+    setIsCopyingRekoLink(true)
+    try {
+      const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
+      const fullUrl = `${window.location.origin}${response.link}`
+      await navigator.clipboard.writeText(fullUrl)
+      setRekoCopied('dashboard')
+      toast.success('Dashboard-Link kopiert', {
+        description: 'Reko-Personal kann ihre Zuweisungen sehen'
+      })
+      setTimeout(() => setRekoCopied(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy dashboard link:', error)
+      toast.error('Fehler beim Kopieren')
+    } finally {
+      setIsCopyingRekoLink(false)
     }
   }
 
@@ -411,8 +493,81 @@ export function OperationDetailModal({
               Zugewiesene Ressourcen
             </Label>
 
+            {/* Reko Personnel */}
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Reko</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setRekoDialogOpen(true)}
+                  className="h-7 px-2 gap-1"
+                >
+                  {assignedRekoPersonnel ? (
+                    <>
+                      <ArrowRightLeft className="h-3 w-3" />
+                      Wechseln
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3 w-3" />
+                      Zuweisen
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {assignedRekoPersonnel ? (
+                <div className="space-y-2">
+                  <Badge variant="secondary" className="text-sm bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Search className="h-3 w-3 mr-1" />
+                    {assignedRekoPersonnel.name}
+                  </Badge>
+
+                  {/* Link sharing buttons */}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopyDirectRekoLink}
+                      disabled={isCopyingRekoLink}
+                      className="h-8 px-3 gap-1.5 text-sm flex-1"
+                    >
+                      {isCopyingRekoLink ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : rekoCopied === 'direct' ? (
+                        <Check className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <Link2 className="h-3 w-3" />
+                      )}
+                      Direkt-Link
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopyDashboardLink}
+                      disabled={isCopyingRekoLink}
+                      className="h-8 px-3 gap-1.5 text-sm flex-1"
+                    >
+                      {rekoCopied === 'dashboard' ? (
+                        <Check className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <LayoutDashboard className="h-3 w-3" />
+                      )}
+                      Dashboard
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Keine Reko-Person zugewiesen</p>
+              )}
+            </div>
+
             {/* Mannschaft (Crew) */}
-            <div className="mt-3">
+            <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
@@ -631,13 +786,6 @@ export function OperationDetailModal({
             <ArrowRightLeft className="h-4 w-4" />
             Ressourcen übertragen
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => setRekoDialogOpen(true)}
-          >
-            <Search className="h-4 w-4" />
-            Reko zuweisen
-          </Button>
           <Button variant="outline" className="ml-auto" onClick={() => onOpenChange(false)}>
             Schliessen
           </Button>
@@ -684,6 +832,20 @@ export function OperationDetailModal({
         onOpenChange={setRekoDialogOpen}
         incidentId={operation.id}
         incidentTitle={operation.location}
+        onAssigned={async () => {
+          // Refresh assigned Reko personnel after assignment
+          try {
+            const data = await apiClient.getAvailableRekoPersonnel(operation.id)
+            if (data.currently_assigned_id) {
+              const assigned = data.personnel.find(p => p.personnel_id === data.currently_assigned_id)
+              if (assigned) {
+                setAssignedRekoPersonnel({ id: assigned.personnel_id, name: assigned.name })
+              }
+            }
+          } catch (error) {
+            console.error('Failed to refresh Reko personnel:', error)
+          }
+        }}
       />
     </Dialog>
   )

@@ -52,6 +52,7 @@ export interface Operation {
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoSummary: RekoSummary | null
+  assignedReko: { id: string; name: string } | null
   crewAssignments: Map<string, string>
   materialAssignments: Map<string, string>
   vehicleAssignments: Map<string, string>
@@ -78,10 +79,12 @@ interface OperationsContextType {
   removeCrew: (operationId: string, crewName: string) => void
   removeMaterial: (operationId: string, materialId: string) => void
   removeVehicle: (operationId: string, vehicleName: string) => void
+  removeReko: (operationId: string) => void
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   getNextOperationId: () => string
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
+  assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
   deleteOperation: (operationId: string) => Promise<void>
@@ -161,6 +164,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoSummary: null,
+      assignedReko: null,
       crewAssignments: new Map(),
       materialAssignments: new Map(),
       vehicleAssignments: new Map(),
@@ -190,6 +194,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Convert incidents to operations
       const ops = apiIncidents.map(apiIncidentToOperation)
 
+      // Fetch special functions first to know who is reko personnel
+      // (reko personnel should not appear in crew list - they're tracked separately)
+      const rekoPersonnelIds = new Set<string>()
+      let specialFunctions: Awaited<ReturnType<typeof apiClient.getEventSpecialFunctions>> = []
+      try {
+        specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+        specialFunctions
+          .filter(func => func.function_type === 'reko')
+          .forEach(func => rekoPersonnelIds.add(func.personnel_id))
+      } catch (error) {
+        console.error('Failed to load special functions:', error)
+      }
+
       // Fetch assignments for this event
       try {
         const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
@@ -200,6 +217,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             if (assignment.resource_type === "personnel") {
               const person = personnelList.find(p => p.id === assignment.resource_id)
               if (person) {
+                // Reko personnel are stored separately, not as crew
+                if (rekoPersonnelIds.has(person.id)) {
+                  operation.assignedReko = { id: person.id, name: person.name }
+                  continue
+                }
                 operation.crew.push(person.name)
                 operation.crewAssignments.set(person.name, assignment.id)
               }
@@ -250,19 +272,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Calculate event-scoped availability
       const assignedPersonIds = new Set<string>()
       const assignedMaterialIds = new Set<string>()
-      const rekoPersonnelIds = new Set<string>()
 
-      try {
-        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        specialFunctions
-          .filter(func => func.function_type === 'reko')
-          .forEach(func => rekoPersonnelIds.add(func.personnel_id))
-        specialFunctions
-          .filter(func => func.function_type !== 'reko')
-          .forEach(func => assignedPersonIds.add(func.personnel_id))
-      } catch (error) {
-        console.error('Failed to load special functions:', error)
-      }
+      // Add non-reko special function personnel to assigned set
+      specialFunctions
+        .filter(func => func.function_type !== 'reko')
+        .forEach(func => assignedPersonIds.add(func.personnel_id))
 
       ops.forEach(operation => {
         operation.crew.forEach(crewName => {
@@ -329,6 +343,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         const ops = apiIncidents.map(apiIncidentToOperation)
 
+        // Fetch special functions first to know who is reko personnel
+        const rekoPersonnelIdsPolling = new Set<string>()
+        try {
+          const specialFunctionsPolling = await apiClient.getEventSpecialFunctions(eventId)
+          specialFunctionsPolling
+            .filter(func => func.function_type === 'reko')
+            .forEach(func => rekoPersonnelIdsPolling.add(func.personnel_id))
+        } catch (error) {
+          console.error('Failed to load special functions:', error)
+        }
+
         // Fetch assignments
         try {
           const assignmentsByIncident = await apiClient.getAssignmentsByEvent(eventId)
@@ -338,6 +363,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               if (assignment.resource_type === "personnel") {
                 const person = personnelList.find(p => p.id === assignment.resource_id)
                 if (person) {
+                  // Reko personnel are stored separately, not as crew
+                  if (rekoPersonnelIdsPolling.has(person.id)) {
+                    operation.assignedReko = { id: person.id, name: person.name }
+                    continue
+                  }
                   operation.crew.push(person.name)
                   operation.crewAssignments.set(person.name, assignment.id)
                 }
@@ -566,6 +596,30 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const removeReko = (operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation || !operation.assignedReko) return
+
+    const rekoPersonId = operation.assignedReko.id
+
+    // Optimistically update UI
+    setOperations((ops) =>
+      ops.map((op) => (op.id === operationId ? { ...op, assignedReko: null } : op))
+    )
+
+    if (isLoaded) {
+      // Use the unassign reko API
+      apiClient.unassignRekoPersonnel(operationId, rekoPersonId).catch(err => {
+        console.error("Failed to unassign reko:", err)
+        toast.error("Fehler beim Entfernen", { description: "Die Reko-Person konnte nicht entfernt werden." })
+        // Revert on error
+        setOperations((ops) =>
+          ops.map((op) => (op.id === operationId ? { ...op, assignedReko: operation.assignedReko } : op))
+        )
+      })
+    }
+  }
+
   const removeMaterial = (operationId: string, materialId: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
@@ -731,6 +785,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
           rekoSummary: null,
+          assignedReko: null,
           crewAssignments: new Map(),
           materialAssignments: new Map(),
           vehicleAssignments: new Map(),
@@ -797,6 +852,48 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
         setPersonnel((people) =>
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
+        )
+        recentAssignmentRef.current = false
+        if (assignmentCooldownTimerRef.current) {
+          clearTimeout(assignmentCooldownTimerRef.current)
+          assignmentCooldownTimerRef.current = undefined
+        }
+      }
+    }
+  }
+
+  const assignRekoPersonToOperation = async (personId: string, personName: string, operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    const person = personnel.find(p => p.id === personId)
+
+    // Only allow reko personnel to be assigned via this function
+    if (!operation || !person || !person.isReko) {
+      return
+    }
+
+    // If same person already assigned, do nothing
+    if (operation.assignedReko?.id === personId) {
+      return
+    }
+
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+
+    // Optimistically update UI
+    setOperations((ops) =>
+      ops.map((op) => (op.id === operationId ? { ...op, assignedReko: { id: personId, name: personName } } : op))
+    )
+
+    if (isLoaded) {
+      try {
+        // Use the reko assignment API
+        await apiClient.assignRekoPersonnel(operationId, personId)
+      } catch (err) {
+        console.error("Failed to assign reko person:", err)
+        // Revert on error
+        setOperations((ops) =>
+          ops.map((op) => (op.id === operationId ? { ...op, assignedReko: null } : op))
         )
         recentAssignmentRef.current = false
         if (assignmentCooldownTimerRef.current) {
@@ -1002,10 +1099,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         removeCrew,
         removeMaterial,
         removeVehicle,
+        removeReko,
         updateOperation,
         createOperation,
         getNextOperationId,
         assignPersonToOperation,
+        assignRekoPersonToOperation,
         assignMaterialToOperation,
         assignVehicleToOperation,
         deleteOperation,

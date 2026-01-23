@@ -57,10 +57,12 @@ export default function FireStationDashboard() {
     removeCrew,
     removeMaterial,
     removeVehicle,
+    removeReko,
     updateOperation,
     createOperation,
     getNextOperationId,
     assignPersonToOperation,
+    assignRekoPersonToOperation,
     assignMaterialToOperation,
     assignVehicleToOperation,
     deleteOperation,
@@ -622,6 +624,7 @@ export default function FireStationDashboard() {
     setOperations,
     updateOperation,
     assignPersonToOperation,
+    assignRekoPersonToOperation,
     assignMaterialToOperation,
     setDraggingItem,
   })
@@ -1065,6 +1068,7 @@ export default function FireStationDashboard() {
                       onRemoveCrew={removeCrew}
                       onRemoveMaterial={removeMaterial}
                       onRemoveVehicle={removeVehicle}
+                      onRemoveReko={removeReko}
                       onCardClick={handleCardClick}
                       onCardSelect={handleCardSelect}
                       onCardHover={setHoveredOperationId}

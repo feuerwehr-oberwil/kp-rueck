@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus, CheckCircle, XCircle, Plus } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus, CheckCircle, XCircle, Plus, Search } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -21,6 +21,7 @@ interface DraggableOperationProps {
   onRemoveCrew: (crewName: string) => void
   onRemoveMaterial: (materialId: string) => void
   onRemoveVehicle: (vehicleName: string) => void
+  onRemoveReko?: () => void
   onClick: () => void
   onSelect?: () => void
   onHover: (opId: string | null) => void
@@ -61,6 +62,7 @@ function DraggableOperationBase({
   onRemoveCrew,
   onRemoveMaterial,
   onRemoveVehicle,
+  onRemoveReko,
   onClick,
   onSelect,
   onHover,
@@ -261,8 +263,32 @@ function DraggableOperationBase({
           )}
 
           {/* Resource assignments - show names with quick removal */}
-          {(operation.crew.length > 0 || operation.vehicles.length > 0 || operation.materials.length > 0) && (
+          {(operation.assignedReko || operation.crew.length > 0 || operation.vehicles.length > 0 || operation.materials.length > 0) && (
             <div className="border-t pt-3 space-y-1.5 text-xs">
+              {/* Assigned Reko Person */}
+              {operation.assignedReko && (
+                <div className="flex items-start gap-1.5">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="flex flex-wrap gap-1 min-w-0">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                    >
+                      <span>{operation.assignedReko.name}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveReko?.()
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                        title={`${operation.assignedReko.name} entfernen`}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </Badge>
+                  </div>
+                </div>
+              )}
               {operation.crew.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -377,6 +403,10 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
     (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
 
+  // Check if assigned reko has changed
+  const assignedRekoChanged =
+    prevProps.operation.assignedReko?.id !== nextProps.operation.assignedReko?.id
+
   return (
     prevProps.operation.id === nextProps.operation.id &&
     prevProps.operation.status === nextProps.operation.status &&
@@ -392,6 +422,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
     prevProps.index === nextProps.index &&
     prevProps.showMeldung === nextProps.showMeldung &&
-    !rekoSummaryChanged
+    !rekoSummaryChanged &&
+    !assignedRekoChanged
   )
 })
