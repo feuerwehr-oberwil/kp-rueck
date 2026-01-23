@@ -22,6 +22,8 @@ async def get_or_create_reko_report(
     Get existing Reko report or create draft.
 
     Allows resuming forms (loads existing draft or submitted report).
+    When creating a new draft, pre-fills with data from the latest submitted
+    report by this personnel (for "Ergänzung" workflow).
 
     Args:
         db: Database session
@@ -44,7 +46,7 @@ async def get_or_create_reko_report(
     if not result.scalar_one_or_none():
         raise ValueError("Incident not found")
 
-    # Try to find existing report
+    # Try to find existing report with this token
     result = await db.execute(
         select(RekoReport).where(RekoReport.incident_id == incident_id, RekoReport.token == token)
     )
@@ -58,13 +60,45 @@ async def get_or_create_reko_report(
             await db.refresh(report)
         return report
 
-    # Create new draft with personnel_id if provided
-    report = RekoReport(
-        incident_id=incident_id,
-        token=token,
-        is_draft=True,
-        submitted_by_personnel_id=personnel_id,
-    )
+    # Check for existing submitted report by this personnel to pre-fill from
+    previous_report = None
+    if personnel_id:
+        prev_result = await db.execute(
+            select(RekoReport)
+            .where(
+                RekoReport.incident_id == incident_id,
+                RekoReport.submitted_by_personnel_id == personnel_id,
+                RekoReport.is_draft == False,  # noqa: E712
+            )
+            .order_by(RekoReport.submitted_at.desc())
+            .limit(1)
+        )
+        previous_report = prev_result.scalar_one_or_none()
+
+    # Create new draft, pre-filled with previous submission data if available
+    if previous_report:
+        report = RekoReport(
+            incident_id=incident_id,
+            token=token,
+            is_draft=True,
+            submitted_by_personnel_id=personnel_id,
+            # Pre-fill from previous submission
+            is_relevant=previous_report.is_relevant,
+            dangers_json=previous_report.dangers_json,
+            effort_json=previous_report.effort_json,
+            power_supply=previous_report.power_supply,
+            photos_json=previous_report.photos_json,
+            summary_text=previous_report.summary_text,
+            additional_notes=previous_report.additional_notes,
+        )
+    else:
+        report = RekoReport(
+            incident_id=incident_id,
+            token=token,
+            is_draft=True,
+            submitted_by_personnel_id=personnel_id,
+        )
+
     db.add(report)
     await db.commit()
     await db.refresh(report)

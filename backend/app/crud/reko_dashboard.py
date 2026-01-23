@@ -96,10 +96,10 @@ async def get_reko_assignments_for_personnel(
     personnel_id: uuid.UUID,
 ) -> list[dict]:
     """
-    Get all active incident assignments for a Reko personnel.
+    Get all incident assignments for a Reko personnel, including previously submitted.
 
-    Returns list of incidents the personnel is assigned to, along with
-    Reko report status for each.
+    Returns list of incidents the personnel is assigned to (active) or has
+    submitted a reko report for (historical), along with Reko report status.
 
     Args:
         db: Database session
@@ -107,7 +107,7 @@ async def get_reko_assignments_for_personnel(
         personnel_id: Personnel UUID
 
     Returns:
-        List of incident dictionaries with Reko status
+        List of incident dictionaries with Reko status and active flag
     """
     # Verify personnel has reko function for this event
     reko_check = await db.execute(
@@ -121,7 +121,7 @@ async def get_reko_assignments_for_personnel(
     if not reko_check.scalar_one_or_none():
         return []
 
-    # Get all incident IDs for this event (same pattern as get_reko_personnel_for_event)
+    # Get all incident IDs for this event
     incidents_result = await db.execute(
         select(Incident.id)
         .where(
@@ -145,15 +145,30 @@ async def get_reko_assignments_for_personnel(
         )
     )
     assignments = list(assignments_result.scalars().all())
+    active_incident_ids = {a.incident_id for a in assignments}
+    assignment_map = {a.incident_id: a for a in assignments}
 
-    if not assignments:
+    # Get incidents where this personnel has submitted a reko report (including unassigned)
+    submitted_reko_result = await db.execute(
+        select(RekoReport.incident_id)
+        .where(
+            RekoReport.incident_id.in_(incident_ids),
+            RekoReport.submitted_by_personnel_id == personnel_id,
+            RekoReport.is_draft == False,  # noqa: E712 - SQLAlchemy needs == not 'is'
+        )
+        .distinct()
+    )
+    submitted_reko_incident_ids = {row[0] for row in submitted_reko_result.all()}
+
+    # Combine: active assignments + previously submitted rekos
+    all_relevant_incident_ids = active_incident_ids | submitted_reko_incident_ids
+
+    if not all_relevant_incident_ids:
         return []
 
-    assigned_incident_ids = [a.incident_id for a in assignments]
-
-    # Get incident details for assignments
+    # Get incident details
     incidents_detail_result = await db.execute(
-        select(Incident).where(Incident.id.in_(assigned_incident_ids))
+        select(Incident).where(Incident.id.in_(all_relevant_incident_ids))
     )
     incidents = {i.id: i for i in incidents_detail_result.scalars().all()}
 
@@ -161,7 +176,7 @@ async def get_reko_assignments_for_personnel(
     reko_reports_result = await db.execute(
         select(RekoReport.incident_id)
         .where(
-            RekoReport.incident_id.in_(assigned_incident_ids),
+            RekoReport.incident_id.in_(all_relevant_incident_ids),
             RekoReport.is_draft == False,  # noqa: E712 - SQLAlchemy needs == not 'is'
         )
         .distinct()
@@ -170,9 +185,11 @@ async def get_reko_assignments_for_personnel(
 
     # Build response
     result = []
-    for assignment in assignments:
-        incident = incidents.get(assignment.incident_id)
+    for incident_id in all_relevant_incident_ids:
+        incident = incidents.get(incident_id)
         if incident:
+            assignment = assignment_map.get(incident_id)
+            is_active = incident_id in active_incident_ids
             result.append({
                 "incident_id": incident.id,
                 "incident_title": incident.title or incident.location_address or "Unbekannt",
@@ -181,13 +198,18 @@ async def get_reko_assignments_for_personnel(
                 "location_address": incident.location_address,
                 "location_lat": str(incident.location_lat) if incident.location_lat else None,
                 "location_lng": str(incident.location_lng) if incident.location_lng else None,
-                "assignment_id": assignment.id,
-                "assigned_at": assignment.assigned_at,
-                "has_completed_reko": incident.id in completed_reko_incidents,
+                "assignment_id": assignment.id if assignment else None,
+                "assigned_at": assignment.assigned_at if assignment else None,
+                "has_completed_reko": incident_id in completed_reko_incidents,
+                "is_active_assignment": is_active,
             })
 
-    # Sort by assigned_at (most recent first)
-    result.sort(key=lambda x: x["assigned_at"], reverse=True)
+    # Sort: active first, then by has_completed_reko (incomplete first), then by title
+    result.sort(key=lambda x: (
+        not x["is_active_assignment"],  # Active first
+        x["has_completed_reko"],  # Incomplete first within each group
+        x["incident_title"],
+    ))
 
     return result
 

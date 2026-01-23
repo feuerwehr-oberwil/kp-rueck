@@ -1439,7 +1439,7 @@ class RekoDashboardPersonnelListResponse(BaseModel):
 
 
 class RekoDashboardAssignment(BaseModel):
-    """Active incident assignment for Reko personnel."""
+    """Incident assignment for Reko personnel (active or historical)."""
 
     incident_id: UUID
     incident_title: str
@@ -1448,9 +1448,10 @@ class RekoDashboardAssignment(BaseModel):
     location_address: str | None = None
     location_lat: str | None = None
     location_lng: str | None = None
-    assignment_id: UUID
-    assigned_at: datetime
+    assignment_id: UUID | None = None  # None for historical (submitted but unassigned)
+    assigned_at: datetime | None = None  # None for historical
     has_completed_reko: bool = False
+    is_active_assignment: bool = True  # False for previously submitted (greyed out)
 
 
 class RekoDashboardAssignmentsResponse(BaseModel):

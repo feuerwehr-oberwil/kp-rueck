@@ -244,10 +244,8 @@ export default function RekoDashboardPage() {
                 className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors text-left"
               >
                 {/* User Icon */}
-                <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-                  person.assignment_count > 0 ? 'bg-orange-500/20' : 'bg-muted'
-                }`}>
-                  <User className={`h-5 w-5 ${person.assignment_count > 0 ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-muted">
+                  <User className="h-5 w-5 text-muted-foreground" />
                 </div>
 
                 {/* Info */}
@@ -261,8 +259,8 @@ export default function RekoDashboardPage() {
                 {/* Status */}
                 <div className="flex-shrink-0">
                   {person.assignment_count > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600">
-                      <span className="h-2 w-2 rounded-full bg-orange-500" />
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                      <span className="h-2 w-2 rounded-full bg-foreground/50" />
                       {person.assignment_count}
                     </span>
                   ) : (
@@ -324,43 +322,48 @@ export default function RekoDashboardPage() {
             </p>
           </div>
         ) : (
-          assignments.map(assignment => (
-            <div
-              key={assignment.assignment_id}
-              className={`rounded-xl p-4 ${
-                assignment.has_completed_reko
-                  ? 'bg-green-500/10'
-                  : 'bg-secondary/50'
-              }`}
-            >
-              {/* Title & Location */}
-              <div className="mb-3">
-                <h3 className="font-medium">{assignment.incident_title}</h3>
-                {assignment.location_address && (
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {assignment.location_address}
-                  </p>
-                )}
-                {assignment.has_completed_reko && (
-                  <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium mt-2">
-                    <CheckCircle className="h-3 w-3" />
-                    Abgeschlossen
-                  </span>
-                )}
-              </div>
-
-              {/* Action Button - show for both active and completed assignments */}
-              <Button
-                onClick={() => handleOpenRekoForm(assignment)}
-                variant={assignment.has_completed_reko ? "outline" : "default"}
-                className="w-full"
-                size="lg"
+          assignments.map(assignment => {
+            const isHistorical = !assignment.is_active_assignment
+            return (
+              <div
+                key={assignment.assignment_id || assignment.incident_id}
+                className={`rounded-xl p-4 ${
+                  isHistorical
+                    ? 'bg-muted/30 opacity-60'
+                    : 'bg-secondary/50'
+                }`}
               >
-                <FileText className="h-4 w-4 mr-2" />
-                {assignment.has_completed_reko ? 'Ergänzung hinzufügen' : 'Formular öffnen'}
-              </Button>
-            </div>
-          ))
+                {/* Title & Location */}
+                <div className="mb-3">
+                  <h3 className={`font-medium ${isHistorical ? 'text-muted-foreground' : ''}`}>
+                    {assignment.incident_title}
+                  </h3>
+                  {assignment.location_address && (
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {assignment.location_address}
+                    </p>
+                  )}
+                  {assignment.has_completed_reko && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-medium mt-2">
+                      <CheckCircle className="h-3 w-3" />
+                      {isHistorical ? 'Früher abgeschlossen' : 'Abgeschlossen'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Button - show for all assignments */}
+                <Button
+                  onClick={() => handleOpenRekoForm(assignment)}
+                  variant={isHistorical || assignment.has_completed_reko ? "outline" : "default"}
+                  className="w-full"
+                  size="lg"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {assignment.has_completed_reko ? 'Ergänzung hinzufügen' : 'Formular öffnen'}
+                </Button>
+              </div>
+            )
+          })
         )}
       </div>
     </div>

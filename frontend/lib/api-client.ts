@@ -500,9 +500,10 @@ export interface ApiRekoDashboardAssignment {
   location_address: string | null
   location_lat: string | null
   location_lng: string | null
-  assignment_id: string
-  assigned_at: string
+  assignment_id: string | null  // null for historical (submitted but unassigned)
+  assigned_at: string | null  // null for historical
   has_completed_reko: boolean
+  is_active_assignment: boolean  // false for previously submitted (greyed out)
 }
 
 export interface ApiRekoDashboardAssignmentsResponse {

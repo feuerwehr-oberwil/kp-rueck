@@ -17,7 +17,6 @@ from ..models import Incident, RekoReport
 from ..utils.errors import ErrorMessages
 
 logger = get_logger(__name__)
-from ..crud import reko_dashboard as reko_dashboard_crud
 from ..services.audit import log_action
 from ..services.notification_service import create_reko_notification
 from ..services.photo_storage import photo_storage
@@ -124,19 +123,6 @@ async def submit_reko_report(
             is_relevant=updated.is_relevant if updated.is_relevant is not None else True,
             submitted_by_name=submitted_by_name,
         )
-
-        # Auto-unassign Reko personnel from incident after form submission
-        if updated.submitted_by_personnel_id:
-            await reko_dashboard_crud.unassign_reko_personnel_from_incident(
-                db=db,
-                incident_id=incident.id,
-                personnel_id=updated.submitted_by_personnel_id,
-            )
-            logger.info(
-                "Auto-unassigned Reko personnel %s from incident %s after form submission",
-                updated.submitted_by_personnel_id,
-                incident.id,
-            )
 
     return response_data
 
