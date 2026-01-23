@@ -17,6 +17,8 @@ export default function CheckInPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Track if we just added a person locally to skip the next WebSocket refresh
+  const [skipNextRefresh, setSkipNextRefresh] = useState(false)
 
   const loadPersonnel = useCallback(async () => {
     if (!token) return
@@ -50,6 +52,11 @@ export default function CheckInPage() {
 
     // Listen for personnel updates
     const unsubscribePersonnel = wsClient.on('personnel_update', (update: WebSocketUpdate) => {
+      // Skip refresh if we just added someone locally (prevents scroll reset)
+      if (skipNextRefresh) {
+        setSkipNextRefresh(false)
+        return
+      }
       // Refresh the personnel list when someone is added, checked in, or checked out
       loadPersonnel()
     })
@@ -157,6 +164,8 @@ export default function CheckInPage() {
         {/* Quick Add Personnel Component */}
         <QuickAddPersonnel
           onPersonAdded={async (newPerson) => {
+            // Skip the next WebSocket refresh to prevent scroll reset
+            setSkipNextRefresh(true)
             // Optimistically add new person to list without full refresh
             if (newPerson) {
               setPersonnel(prev => [...prev, {

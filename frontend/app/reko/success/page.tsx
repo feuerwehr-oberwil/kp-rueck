@@ -13,17 +13,14 @@ export default function RekoSuccessPage() {
 
   const handleGoBack = () => {
     // If we have a return URL (from reko-dashboard), use it
+    // Note: searchParams.get() already decodes the value, so don't decode again
     if (returnTo) {
-      router.push(decodeURIComponent(returnTo))
+      router.push(returnTo)
       return
     }
 
-    // Fallback: go back in history or navigate to root
-    if (window.history.length > 1) {
-      router.back()
-    } else {
-      router.push('/')
-    }
+    // Fallback: navigate to root (history navigation is unreliable)
+    router.push('/')
   }
 
   return (

@@ -214,6 +214,36 @@ function SidePanelDetail({
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
+  const [assignedRekoPersonnel, setAssignedRekoPersonnel] = useState<{ id: string; name: string } | null>(null)
+
+  // Load assigned Reko personnel when operation changes
+  useEffect(() => {
+    const loadAssignedReko = async () => {
+      if (!operation) {
+        setAssignedRekoPersonnel(null)
+        return
+      }
+
+      try {
+        const data = await apiClient.getAvailableRekoPersonnel(operation.id)
+        if (data.currently_assigned_id) {
+          const assigned = data.personnel.find(p => p.personnel_id === data.currently_assigned_id)
+          if (assigned) {
+            setAssignedRekoPersonnel({ id: assigned.personnel_id, name: assigned.name })
+          } else {
+            setAssignedRekoPersonnel(null)
+          }
+        } else {
+          setAssignedRekoPersonnel(null)
+        }
+      } catch (error) {
+        console.error('Failed to load assigned Reko personnel:', error)
+        setAssignedRekoPersonnel(null)
+      }
+    }
+
+    loadAssignedReko()
+  }, [operation])
 
   // Load vehicle drivers when operation changes
   useEffect(() => {
@@ -463,6 +493,44 @@ function SidePanelDetail({
       <div className="space-y-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Zugewiesene Ressourcen</p>
 
+        {/* Reko Personnel - separate from Mannschaft */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5">
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Reko</span>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setRekoDialogOpen(true)}
+              className="h-6 px-2 gap-1 text-xs"
+            >
+              {assignedRekoPersonnel ? (
+                <>
+                  <ArrowRightLeft className="h-3 w-3" />
+                  Wechseln
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3 w-3" />
+                  Zuweisen
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {assignedRekoPersonnel ? (
+              <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <Search className="h-2.5 w-2.5 mr-1" />
+                {assignedRekoPersonnel.name}
+              </Badge>
+            ) : (
+              <p className="text-xs text-muted-foreground">Keine Reko-Person zugewiesen</p>
+            )}
+          </div>
+        </div>
+
         {/* Crew */}
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -702,6 +770,20 @@ function SidePanelDetail({
         onOpenChange={setRekoDialogOpen}
         incidentId={operation.id}
         incidentTitle={operation.location}
+        onAssigned={async () => {
+          // Refresh assigned Reko personnel after assignment
+          try {
+            const data = await apiClient.getAvailableRekoPersonnel(operation.id)
+            if (data.currently_assigned_id) {
+              const assigned = data.personnel.find(p => p.personnel_id === data.currently_assigned_id)
+              if (assigned) {
+                setAssignedRekoPersonnel({ id: assigned.personnel_id, name: assigned.name })
+              }
+            }
+          } catch (error) {
+            console.error('Failed to refresh Reko personnel:', error)
+          }
+        }}
       />
     </div>
   )

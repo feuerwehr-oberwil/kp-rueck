@@ -315,11 +315,12 @@ export default function RekoForm() {
 
       // Redirect to success page with return URL for back button functionality
       setTimeout(() => {
-        let successUrl = `/reko/success?id=${incidentId}`
+        const params = new URLSearchParams()
+        params.set('id', incidentId!)
         if (returnTo) {
-          successUrl += `&return_to=${encodeURIComponent(returnTo)}`
+          params.set('return_to', returnTo)
         }
-        router.push(successUrl)
+        router.push(`/reko/success?${params.toString()}`)
       }, 1000)
     } catch (error) {
       console.error('Submit failed:', error)

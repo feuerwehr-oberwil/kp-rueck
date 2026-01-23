@@ -112,9 +112,33 @@ export default function RekoDashboardPage() {
       }
     }
 
+    // Also handle popstate for back button navigation
+    const handlePopState = () => {
+      if (selectedPerson && token) {
+        loadAssignments(selectedPerson.personnel_id)
+      }
+    }
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('focus', handlePopState) // Also refresh on window focus
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('focus', handlePopState)
+    }
   }, [selectedPerson, token, loadAssignments])
+
+  // Refresh assignments when returning to this page (URL contains token and we have a selected person)
+  useEffect(() => {
+    if (selectedPerson && token && viewMode === 'assignments') {
+      // Small delay to ensure we're fully mounted
+      const timer = setTimeout(() => {
+        loadAssignments(selectedPerson.personnel_id)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [token]) // Only depend on token to trigger on navigation
 
   // WebSocket subscription (separate effect to avoid re-subscribing)
   useEffect(() => {

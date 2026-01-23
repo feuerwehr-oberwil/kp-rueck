@@ -97,11 +97,11 @@ export function AssignRekoDialog({
           ) : personnel.length === 0 ? (
             <div className="text-center py-8">
               <User className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-              <p className="text-sm font-medium text-foreground mb-1">
+              <p className="text-sm font-medium text-foreground mb-2">
                 Keine Reko-Personen verfügbar
               </p>
               <p className="text-xs text-muted-foreground">
-                Es sind keine Reko-Personen für dieses Ereignis konfiguriert.
+                Tipp: Rechtsklick auf eine Person in der Seitenleiste → "Als Reko zuweisen" um jemanden als Reko-Personal zu markieren.
               </p>
             </div>
           ) : (
