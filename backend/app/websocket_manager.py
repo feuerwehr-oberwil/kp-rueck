@@ -4,13 +4,16 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, Callable
 
 import socketio
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+# Callback for handling polled alarms - set by main.py during startup
+_on_divera_poll_alarm: Callable | None = None
 
 # Session timeout constants
 STALE_SESSION_TIMEOUT_SECONDS = 300  # 5 minutes without activity
@@ -81,6 +84,7 @@ class WebSocketManager:
         }
         self.user_sessions: dict[str, dict[str, Any]] = {}  # sid -> user info
         self._cleanup_task: asyncio.Task | None = None
+        self._divera_poller = None  # Lazy import to avoid circular dependencies
 
     async def start_cleanup_task(self):
         """Start the background stale session cleanup task."""
@@ -143,6 +147,9 @@ class WebSocketManager:
         # Store basic session info with activity tracking
         self.user_sessions[sid] = {"connected_at": current_time, "last_activity": current_time, "rooms": set()}
 
+        # Start Divera polling when first user connects
+        await self._maybe_start_divera_polling()
+
     async def disconnect(self, sid: str):
         """Handle WebSocket disconnection."""
         logger.info(f"Client {sid} disconnected")
@@ -151,6 +158,39 @@ class WebSocketManager:
             sids.discard(sid)
         # Remove session info
         self.user_sessions.pop(sid, None)
+
+        # Stop Divera polling when last user disconnects
+        await self._maybe_stop_divera_polling()
+
+    async def _maybe_start_divera_polling(self):
+        """Start Divera polling if users are connected and polling is configured."""
+        if self._divera_poller is None:
+            # Lazy import to avoid circular dependencies
+            try:
+                from .services.divera_poller import divera_poller
+                self._divera_poller = divera_poller
+            except ImportError:
+                logger.debug("Divera poller not available")
+                return
+
+        if not self._divera_poller.is_configured:
+            return
+
+        if self.get_connection_count() == 1 and not self._divera_poller.is_polling:
+            # First user connected, start polling
+            if _on_divera_poll_alarm:
+                await self._divera_poller.start_polling(_on_divera_poll_alarm)
+                logger.info("Started Divera polling (user connected)")
+
+    async def _maybe_stop_divera_polling(self):
+        """Stop Divera polling if no users are connected."""
+        if self._divera_poller is None or not self._divera_poller.is_polling:
+            return
+
+        if self.get_connection_count() == 0:
+            # Last user disconnected, stop polling
+            await self._divera_poller.stop_polling()
+            logger.info("Stopped Divera polling (no users connected)")
 
     async def join_room(self, sid: str, room: str):
         """Add a client to a room for targeted updates."""
@@ -307,3 +347,31 @@ async def broadcast_message(data: dict, room: str = "operations"):
     """
     message_type = data.get("type", "update")
     await ws_manager.broadcast_update(message_type, data, room=room)
+
+
+def set_divera_poll_callback(callback: Callable):
+    """
+    Set the callback for processing polled Divera alarms.
+
+    This should be called during app startup with a callback that:
+    1. Creates a database session
+    2. Checks for duplicates via divera_id
+    3. Saves new alarms to the database
+    4. Broadcasts via WebSocket
+
+    Args:
+        callback: Async function with signature:
+                  async def callback(payload: DiveraWebhookPayload) -> bool
+    """
+    global _on_divera_poll_alarm
+    _on_divera_poll_alarm = callback
+    logger.info("Divera poll callback configured")
+
+
+def get_divera_poller_stats() -> dict | None:
+    """Get Divera poller statistics, or None if not available."""
+    try:
+        from .services.divera_poller import divera_poller
+        return divera_poller.stats
+    except ImportError:
+        return None

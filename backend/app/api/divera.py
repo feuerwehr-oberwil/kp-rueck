@@ -15,7 +15,7 @@ from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..database import get_db
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_incident_update, broadcast_message
+from ..websocket_manager import broadcast_incident_update, broadcast_message, get_divera_poller_stats
 
 logger = logging.getLogger(__name__)
 
@@ -469,3 +469,25 @@ async def archive_divera_emergency(
     except ValueError as e:
         logger.warning("Failed to archive emergency %s: %s", emergency_id, e)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.NOT_FOUND)
+
+
+@router.get("/polling/status")
+async def get_polling_status(
+    current_user: CurrentUser,
+):
+    """
+    Get Divera polling status.
+
+    Returns information about the polling fallback mechanism:
+    - Whether polling is configured (access key set)
+    - Whether polling is currently active (users connected)
+    - Last poll time
+    - Poll and error counts
+    """
+    stats = get_divera_poller_stats()
+    if stats is None:
+        return {
+            "configured": False,
+            "message": "Divera polling service not available",
+        }
+    return stats

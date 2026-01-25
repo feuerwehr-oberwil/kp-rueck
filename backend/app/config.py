@@ -131,6 +131,12 @@ class Settings(BaseSettings):
     traccar_email: str = ""  # Traccar account email for authentication
     traccar_password: str = ""  # Traccar account password for authentication
 
+    # Divera API Integration (for polling as webhook fallback)
+    divera_access_key: str = ""  # Divera247 API access key (empty = polling disabled)
+    divera_api_url: str = "https://app.divera247.com/api/v2"  # Divera API base URL
+    divera_poll_interval_seconds: int = 30  # How often to poll when users are connected
+    divera_poll_max_alarms: int = 50  # Maximum number of recent alarms to fetch per poll
+
     @property
     def is_production(self) -> bool:
         """Check if we're in production mode (Railway)."""

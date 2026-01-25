@@ -54,7 +54,67 @@ from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
 from .websocket_manager import sio as socket_server
-from .websocket_manager import ws_manager
+from .websocket_manager import ws_manager, set_divera_poll_callback, broadcast_message
+
+
+async def _setup_divera_polling():
+    """
+    Set up the Divera polling callback.
+
+    This callback is called for each alarm fetched via polling.
+    It checks for duplicates and saves new alarms to the database.
+    """
+    from . import schemas
+    from .crud import divera as divera_crud
+    from .database import async_session_maker
+
+    async def on_polled_alarm(payload: schemas.DiveraWebhookPayload) -> bool:
+        """
+        Process a polled alarm from Divera.
+
+        Returns True if the alarm was new, False if duplicate.
+        """
+        async with async_session_maker() as db:
+            try:
+                # Check for duplicate
+                existing = await divera_crud.get_divera_emergency_by_divera_id(db, payload.id)
+                if existing:
+                    return False  # Duplicate, skip
+
+                # Create new emergency
+                emergency = await divera_crud.create_divera_emergency(db, payload)
+
+                logger.info(
+                    f"Divera poll: new emergency ID {emergency.id}, "
+                    f"Divera ID {emergency.divera_id}, Title: {emergency.title}"
+                )
+
+                # Broadcast WebSocket notification
+                await broadcast_message(
+                    {
+                        "type": "divera_emergency_received",
+                        "emergency": schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
+                        "source": "poll",  # Indicate this came from polling, not webhook
+                    },
+                )
+
+                return True  # New alarm processed
+
+            except Exception as e:
+                logger.error(f"Error processing polled alarm {payload.id}: {e}")
+                return False
+
+    # Set the callback
+    set_divera_poll_callback(on_polled_alarm)
+
+    # Log configuration status
+    if settings.divera_access_key:
+        logger.info(
+            f"Divera polling configured (interval: {settings.divera_poll_interval_seconds}s, "
+            f"will start when users connect)"
+        )
+    else:
+        logger.info("Divera polling disabled (no DIVERA_ACCESS_KEY configured)")
 
 
 @asynccontextmanager
@@ -101,8 +161,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"WebSocket cleanup task failed to start: {e}")
 
+    # Configure Divera polling callback
+    logger.info("Configuring Divera polling...")
+    try:
+        await _setup_divera_polling()
+    except Exception as e:
+        logger.warning(f"Divera polling setup failed: {e}")
+
     logger.info("Application startup complete")
     yield
+
+    # Shutdown: Stop Divera polling
+    logger.info("Stopping Divera polling...")
+    try:
+        from .services.divera_poller import divera_poller
+        await divera_poller.stop_polling()
+    except Exception as e:
+        logger.debug(f"Divera polling shutdown: {e}")
 
     # Shutdown: Stop WebSocket cleanup
     logger.info("Stopping WebSocket cleanup task...")
