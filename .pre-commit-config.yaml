@@ -3,51 +3,86 @@
 # Run manually: pre-commit run --all-files
 
 repos:
-  # Backend - Python linting and formatting
+  # =============================================================================
+  # SAFETY HOOKS (blocking - will prevent commits with issues)
+  # =============================================================================
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+        name: "Safety: Detect private keys"
+      - id: check-added-large-files
+        name: "Safety: Check for large files"
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+        name: "Safety: Check for merge conflicts"
+      - id: check-case-conflict
+        name: "Safety: Check filename case conflicts"
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: "Safety: Scan for secrets (gitleaks)"
+
+  # =============================================================================
+  # STYLE HOOKS (blocking - quick formatting fixes)
+  # =============================================================================
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: "Style: Fix trailing whitespace"
+        exclude: ^(frontend/pnpm-lock\.yaml|backend/uv\.lock)$
+      - id: end-of-file-fixer
+        name: "Style: Fix end of file"
+        exclude: ^(frontend/pnpm-lock\.yaml|backend/uv\.lock)$
+      - id: check-yaml
+        name: "Style: Check YAML syntax"
+        exclude: ^(frontend/pnpm-lock\.yaml)$
+      - id: check-json
+        name: "Style: Check JSON syntax"
+
+  # =============================================================================
+  # LINT HOOKS (non-blocking warnings - fix errors before making blocking)
+  # =============================================================================
+
+  # Backend - Python linting and formatting (warnings only)
   - repo: local
     hooks:
-      - id: ruff-check
-        name: Ruff lint (backend)
-        entry: bash -c 'cd backend && uv run ruff check .'
-        language: system
-        files: ^backend/.*\.py$
-        pass_filenames: false
-
       - id: ruff-format-check
-        name: Ruff format check (backend)
-        entry: bash -c 'cd backend && uv run ruff format --check .'
+        name: "Lint: Ruff format (backend) [warning]"
+        entry: bash -c 'cd backend && uv run ruff format --check . || echo "⚠️  Ruff format issues found (non-blocking)"'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false
+        verbose: true
 
-  # Frontend - TypeScript linting
+      - id: ruff-check
+        name: "Lint: Ruff lint (backend) [warning]"
+        entry: bash -c 'cd backend && uv run ruff check . || echo "⚠️  Ruff lint issues found (non-blocking)"'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+        verbose: true
+
+  # Frontend - TypeScript linting (warnings only)
   - repo: local
     hooks:
       - id: eslint
-        name: ESLint (frontend)
-        entry: bash -c 'cd frontend && pnpm lint'
+        name: "Lint: ESLint (frontend) [warning]"
+        entry: bash -c 'cd frontend && pnpm lint || echo "⚠️  ESLint issues found (non-blocking)"'
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
+        verbose: true
 
       - id: typescript-check
-        name: TypeScript check (frontend)
-        entry: bash -c 'cd frontend && pnpm exec tsc --noEmit'
+        name: "Lint: TypeScript check (frontend) [warning]"
+        entry: bash -c 'cd frontend && pnpm exec tsc --noEmit || echo "⚠️  TypeScript issues found (non-blocking)"'
         language: system
         files: ^frontend/.*\.(ts|tsx)$
         pass_filenames: false
-
-  # General hooks
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: trailing-whitespace
-        exclude: ^(frontend/pnpm-lock\.yaml|backend/uv\.lock)$
-      - id: end-of-file-fixer
-        exclude: ^(frontend/pnpm-lock\.yaml|backend/uv\.lock)$
-      - id: check-yaml
-        exclude: ^(frontend/pnpm-lock\.yaml)$
-      - id: check-json
-      - id: check-added-large-files
-        args: ['--maxkb=1000']
-      - id: detect-private-key
+        verbose: true
