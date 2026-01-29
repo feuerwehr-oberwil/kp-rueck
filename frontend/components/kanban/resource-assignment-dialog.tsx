@@ -297,7 +297,7 @@ export function ResourceAssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md animate-modal-entrance">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon className="h-5 w-5" />
@@ -336,8 +336,6 @@ export function ResourceAssignmentDialog({
                     onClick={() => handleTogglePersonSelection(person)}
                     className={cn(
                       "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                      "animate-stagger-fade-in",
-                      `stagger-delay-${Math.min(index + 1, 5)}`,
                       isSelected && "border-primary/30 bg-primary/5"
                     )}
                   >
@@ -372,9 +370,7 @@ export function ResourceAssignmentDialog({
                     key={vehicle.id}
                     onClick={() => handleToggleVehicle(vehicle)}
                     className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                      "animate-stagger-fade-in",
-                      `stagger-delay-${Math.min(index + 1, 5)}`
+                      "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight"
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -407,8 +403,6 @@ export function ResourceAssignmentDialog({
                     onClick={() => handleToggleMaterialSelection(material)}
                     className={cn(
                       "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                      "animate-stagger-fade-in",
-                      `stagger-delay-${Math.min(index + 1, 5)}`,
                       isSelected && "border-primary/30 bg-primary/5"
                     )}
                   >
