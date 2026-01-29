@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle, Plus, QrCode, Search, Truck, Printer } from 'lucide-react';
+import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle, Plus, QrCode, Search, Truck, Printer, Calendar } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -323,6 +323,12 @@ export function UserMenu({
           <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
             Verwaltung
           </DropdownMenuLabel>
+          <DropdownMenuItem asChild>
+            <Link href="/events" className="cursor-pointer">
+              <Calendar className="mr-2 h-4 w-4" />
+              <span>Ereignisse</span>
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/settings" className="cursor-pointer">
               <Settings className="mr-2 h-4 w-4" />

@@ -17,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, ArchiveRestore, AlertCircle, Search, Calendar, CheckCircle2, Trash2, GraduationCap } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, AlertCircle, Search, CheckCircle2, Trash2, GraduationCap } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { EventExportButton } from '@/components/event-export-button'
@@ -219,21 +219,14 @@ export default function EventsPage() {
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
-          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
-            <div className="flex items-center gap-2 md:gap-3 min-w-0">
-              <div className="flex h-9 w-9 md:h-11 md:w-11 items-center justify-center rounded-xl bg-gradient-to-br from-orange-600 to-red-600 text-2xl shadow-lg flex-shrink-0">
-                <Calendar className="h-5 w-5 md:h-6 md:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg md:text-2xl font-bold tracking-tight">Ereignisse</h1>
-                {selectedEvent && (
-                  <p className="text-xs md:text-sm text-muted-foreground hidden sm:block truncate">
-                    Aktiv: {selectedEvent.name}
-                  </p>
-                )}
-              </div>
-            </div>
+        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Ereignisse</h1>
+            {selectedEvent && (
+              <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">
+                Aktiv: {selectedEvent.name}
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { BookOpen } from 'lucide-react';
 import { PageNavigation } from '@/components/page-navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -228,12 +227,9 @@ export default function HelpPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-16">
+      <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
         <div className="flex items-center gap-3">
-          <BookOpen className="w-6 h-6 text-primary flex-shrink-0" />
-          <div className="min-w-0">
-            <h1 className="text-lg md:text-xl font-bold tracking-tight">Hilfe</h1>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Hilfe</h1>
         </div>
         <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
           {!isMobile && isAuthenticated && (

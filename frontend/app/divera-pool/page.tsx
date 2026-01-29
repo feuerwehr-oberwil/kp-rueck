@@ -12,6 +12,7 @@ import { apiClient, type ApiDiveraEmergency, type ApiEvent } from '@/lib/api-cli
 import { wsClient } from '@/lib/websocket-client';
 import { PageNavigation } from '@/components/page-navigation';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -29,7 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Radio, Link2, RefreshCw, Search, Check } from 'lucide-react';
+import { Link2, RefreshCw, Search, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -176,17 +177,12 @@ export default function DiveraPoolPage() {
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between border-b px-6 py-4">
+      <header className="flex items-center justify-between border-b px-6 py-2 min-h-14">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-600">
-            <Radio className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold">Divera Notfälle</h1>
-            <p className="text-sm text-muted-foreground">
-              {emergencies.length} Einträge
-            </p>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Divera Notfälle</h1>
+          <Badge variant="secondary" className="hidden sm:inline-flex">
+            {emergencies.length} Einträge
+          </Badge>
         </div>
         <PageNavigation currentPage="divera" hasSelectedEvent={true} />
       </header>
