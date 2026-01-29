@@ -915,16 +915,9 @@ export default function FireStationDashboard() {
         <div className="flex flex-1 overflow-hidden">
           {showLeftSidebar && (
             <aside className="w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Sticky header */}
-              <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm p-4 pb-0">
-                <div className="mb-4">
-                  <h2 className="text-base font-bold text-foreground">Verfügbare Personen</h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {personnel.filter((p) => p.status === "available").length} von {personnel.length} verfügbar
-                  </p>
-                </div>
-
-                <div className="relative mb-4">
+              {/* Search header */}
+              <div className="p-3 border-b border-border">
+                <div className="relative">
                   <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="personnel-search-input"
@@ -940,10 +933,13 @@ export default function FireStationDashboard() {
                     </div>
                   )}
                 </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  {personnel.filter((p) => p.status === "available").length}/{personnel.length} verfügbar
+                </p>
               </div>
 
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto p-4 pt-0">
+              <div className="flex-1 overflow-y-auto p-4 pt-3">
                 {isLoading ? (
                   <PersonnelSidebarLoading />
                 ) : personnel.filter((p) => p.status === "available").length === 0 ? (
@@ -1103,16 +1099,9 @@ export default function FireStationDashboard() {
 
           {showRightSidebar && (
             <aside className="w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Sticky header */}
-              <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm p-4 pb-0">
-                <div className="mb-4">
-                  <h2 className="text-base font-bold text-foreground">Verfügbares Material</h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {materials.filter((m) => m.status === "available").length} von {materials.length} verfügbar
-                  </p>
-                </div>
-
-                <div className="relative mb-4">
+              {/* Search header */}
+              <div className="p-3 border-b border-border">
+                <div className="relative">
                   <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="material-search-input"
@@ -1128,10 +1117,13 @@ export default function FireStationDashboard() {
                     </div>
                   )}
                 </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  {materials.filter((m) => m.status === "available").length}/{materials.length} verfügbar
+                </p>
               </div>
 
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto p-4 pt-0">
+              <div className="flex-1 overflow-y-auto p-4 pt-3">
                 {isLoading ? (
                   <MaterialSidebarLoading />
                 ) : (
