@@ -18,13 +18,13 @@ export default function RekoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-20">
+    <div className="min-h-screen bg-background px-4 pt-6 pb-24">
       <div className="max-w-md mx-auto">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleBack}
-          className="mb-4 -ml-2"
+          className="mb-4 -ml-3"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           Zurück

@@ -121,9 +121,9 @@ export function NewEmergencyModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-5 py-4">
           {/* Location - Required field with validation */}
-          <div>
+          <div className="space-y-1.5">
             <LocationInput
               address={formData.location}
               latitude={formData.coordinates[0]}
@@ -142,93 +142,91 @@ export function NewEmergencyModal({
               error={showLocationError}
             />
             {showLocationError && (
-              <p className="text-sm text-destructive mt-1.5">
+              <p className="text-sm text-destructive">
                 Bitte geben Sie einen Einsatzort ein
               </p>
             )}
           </div>
 
-          {/* All fields */}
-              {/* Meldung */}
-              <div>
-                <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">
-                  Meldung
-                </Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Notizen, Besonderheiten, Gefahren..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="mt-1.5 min-h-[100px]"
-                />
-              </div>
+          {/* Meldung */}
+          <div className="space-y-1.5">
+            <Label htmlFor="notes" className="text-sm font-medium">
+              Meldung
+            </Label>
+            <Textarea
+              id="notes"
+              placeholder="Notizen, Besonderheiten, Gefahren..."
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="min-h-[100px]"
+            />
+          </div>
 
-              {/* Grid - 2 columns */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
-                    Einsatzart
-                  </Label>
-                  <Select
-                    value={formData.incidentType}
-                    onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
-                  >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Einsatzart auswählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {incidentTypeKeys.map((typeKey) => (
-                        <SelectItem key={typeKey} value={typeKey}>
-                          {getIncidentTypeLabel(typeKey)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Grid - 2 columns */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="incidentType" className="text-sm font-medium">
+                Einsatzart
+              </Label>
+              <Select
+                value={formData.incidentType}
+                onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Einsatzart auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {incidentTypeKeys.map((typeKey) => (
+                    <SelectItem key={typeKey} value={typeKey}>
+                      {getIncidentTypeLabel(typeKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-                <div>
-                  <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
-                    Priorität
-                  </Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
-                  >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Niedrig</SelectItem>
-                      <SelectItem value="medium">Mittel</SelectItem>
-                      <SelectItem value="high">Hoch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="priority" className="text-sm font-medium">
+                Priorität
+              </Label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Niedrig</SelectItem>
+                  <SelectItem value="medium">Mittel</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-              {/* Contact */}
-              <div>
-                <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">
-                  Kontakt / Melder
-                </Label>
-                <Input
-                  id="contact"
-                  placeholder="Name, Telefonnummer..."
-                  value={formData.contact}
-                  onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                  className="mt-1.5"
-                />
-              </div>
+          {/* Contact */}
+          <div className="space-y-1.5">
+            <Label htmlFor="contact" className="text-sm font-medium">
+              Kontakt / Melder
+            </Label>
+            <Input
+              id="contact"
+              placeholder="Name, Telefonnummer..."
+              value={formData.contact}
+              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+            />
+          </div>
 
           {/* Info */}
-          <div className="bg-secondary/30 p-3 rounded-lg">
+          <div className="bg-muted/50 p-3 rounded-lg">
             <p className="text-sm text-muted-foreground">
               Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.
             </p>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-3 pt-2 border-t">
             <Button
               onClick={handleSubmit}
               disabled={!formData.location}

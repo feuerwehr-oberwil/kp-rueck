@@ -144,10 +144,10 @@ export default function CheckInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-20">
+    <div className="min-h-screen bg-background px-4 pt-6 pb-24">
       {/* Header */}
       <div className="max-w-2xl mx-auto mb-6">
-        <h1 className="text-3xl font-bold mb-2">
+        <h1 className="text-2xl font-bold mb-2">
           Personal Check-In
         </h1>
         {eventName && (

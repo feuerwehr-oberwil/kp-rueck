@@ -5,7 +5,14 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus, CheckCircle, XCircle, Plus, Search } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus, CheckCircle, XCircle, Plus, Search, Binoculars, PenLine, Eye, Map } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -34,6 +41,7 @@ interface DraggableOperationProps {
   columnOperations: Operation[]
   formatLocation: (address: string) => string
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
+  onAssignReko?: () => void
   showMeldung?: boolean
 }
 
@@ -72,6 +80,7 @@ function DraggableOperationBase({
   columnOperations,
   formatLocation,
   onAssignResource,
+  onAssignReko,
   showMeldung,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -153,38 +162,40 @@ function DraggableOperationBase({
   }, [operation, index, isDraggingRef])
 
   return (
-    <div className="relative w-full">
-      {closestEdge === 'top' && <DropIndicator edge="top" gap="4px" />}
-      <Card
-        ref={ref}
-        style={{ opacity: isDragging ? 0.5 : 1 }}
-        data-incident-id={operation.id}
-        className={cn(
-          'operation-card border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
-          // Priority styling (when not selected/highlighted)
-          !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
-          isOver && 'bg-muted/20',
-          // Selection/highlight states - use red for high priority
-          isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400 bg-muted/30' : 'border-l-4 border-l-foreground bg-muted/30'),
-          isSelected && !isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400/80 bg-muted/20 shadow-sm' : 'border-l-4 border-l-foreground/70 bg-muted/20 shadow-sm'),
-          isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-2 border-l-red-400/50' : 'border-l-2 border-l-muted-foreground/50')
-        )}
-        onMouseEnter={() => onHover(operation.id)}
-        onMouseLeave={() => onHover(null)}
-        onClick={(e) => {
-          // Only trigger click if not dragging
-          if (!isDraggingRef.current) {
-            // Single click: select for side panel
-            onSelect?.()
-          }
-        }}
-        onDoubleClick={(e) => {
-          // Double click: open modal
-          if (!isDraggingRef.current) {
-            onClick()
-          }
-        }}
-      >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className="relative w-full">
+          {closestEdge === 'top' && <DropIndicator edge="top" gap="4px" />}
+          <Card
+            ref={ref}
+            style={{ opacity: isDragging ? 0.5 : 1 }}
+            data-incident-id={operation.id}
+            className={cn(
+              'operation-card border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
+              // Priority styling (when not selected/highlighted)
+              !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
+              isOver && 'bg-muted/20',
+              // Selection/highlight states - use red for high priority
+              isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400 bg-muted/30' : 'border-l-4 border-l-foreground bg-muted/30'),
+              isSelected && !isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400/80 bg-muted/20 shadow-sm' : 'border-l-4 border-l-foreground/70 bg-muted/20 shadow-sm'),
+              isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-2 border-l-red-400/50' : 'border-l-2 border-l-muted-foreground/50')
+            )}
+            onMouseEnter={() => onHover(operation.id)}
+            onMouseLeave={() => onHover(null)}
+            onClick={(e) => {
+              // Only trigger click if not dragging
+              if (!isDraggingRef.current) {
+                // Single click: select for side panel
+                onSelect?.()
+              }
+            }}
+            onDoubleClick={(e) => {
+              // Double click: open modal
+              if (!isDraggingRef.current) {
+                onClick()
+              }
+            }}
+          >
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-2">
             {/* Draggable area */}
@@ -380,9 +391,34 @@ function DraggableOperationBase({
             </div>
           )}
         </div>
-      </Card>
-      {closestEdge === 'bottom' && <DropIndicator edge="bottom" gap="4px" />}
-    </div>
+          </Card>
+          {closestEdge === 'bottom' && <DropIndicator edge="bottom" gap="4px" />}
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={() => onSelect?.()}>
+          <Eye className="mr-2 h-4 w-4" />
+          Details anzeigen
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onClick()}>
+          <PenLine className="mr-2 h-4 w-4" />
+          Bearbeiten
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        {!operation.assignedReko && onAssignReko && (
+          <ContextMenuItem onClick={() => onAssignReko()}>
+            <Binoculars className="mr-2 h-4 w-4" />
+            Reko zuweisen
+          </ContextMenuItem>
+        )}
+        <ContextMenuItem asChild>
+          <Link href={`/map?highlight=${operation.id}`}>
+            <Map className="mr-2 h-4 w-4" />
+            Auf Karte zeigen
+          </Link>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 

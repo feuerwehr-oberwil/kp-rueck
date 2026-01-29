@@ -3,6 +3,7 @@
 Issues identified during manual testing. This document serves as a reference for future fixes.
 
 **Last Updated:** 2026-01-29
+**Status:** All issues addressed
 
 ---
 
@@ -10,30 +11,41 @@ Issues identified during manual testing. This document serves as a reference for
 
 ### 1. "Neues Ereignis erstellen" Modal Spacing
 **Priority:** Low
-**Status:** REVIEWED - No action needed
+**Status:** FIXED
 **Location:** `frontend/components/kanban/new-emergency-modal.tsx`
 
-The modal has consistent spacing: `space-y-6` between sections, `mt-1.5` for label-to-input. This is intentional design.
+Standardized spacing throughout the modal:
+- Changed from `space-y-6` to `space-y-5` for tighter vertical rhythm
+- Consistent `space-y-1.5` for label-to-input spacing
+- Removed inconsistent `mt-1.5` classes on inputs
+- Updated info box to use `bg-muted/50` instead of `bg-secondary/30`
 
 ---
 
 ### 2. Empty State Spacing (No Emergencies)
 **Priority:** Low
-**Status:** REVIEWED - No action needed
+**Status:** FIXED
 **Location:** `frontend/components/empty-states/event-selection-empty-state.tsx`
 
-Spacing is well-structured with `space-y-6` and responsive padding.
+Improved visual balance:
+- Reduced icon size from h-16/w-16 to h-14/w-14, padding from p-6 to p-5
+- Changed heading from `text-3xl md:text-4xl` to `text-2xl md:text-3xl`
+- Reduced paragraph text from `text-lg` to `text-base`
+- Tightened section spacing from `space-y-6` to `space-y-5`
+- Removed extra `pt-2` and `pt-4` padding
 
 ---
 
 ### 3. Personal Check-In and Reko Modal Padding
 **Priority:** Low
-**Status:** REVIEWED - No action needed
+**Status:** FIXED
 **Locations:**
 - `frontend/app/check-in/page.tsx`
-- `frontend/components/reko/reko-form.tsx`
+- `frontend/app/reko/page.tsx`
 
-The `pb-20` on check-in is intentional for mobile bottom nav clearance. Different pages have valid reasons for different padding.
+Standardized padding across public pages:
+- Both pages now use `px-4 pt-6 pb-24` for consistent top/bottom padding
+- Check-in header reduced from `text-3xl` to `text-2xl`
 
 ---
 
@@ -91,17 +103,14 @@ Removed Tab key override for kanban card cycling. Tab now works naturally for ac
 
 ### 9. Reko Form Resubmissions (Ergänzungen)
 **Priority:** High
-**Status:** PENDING - Requires design decision
-**Locations:**
-- `frontend/app/reko-dashboard/page.tsx:362`
-- `frontend/components/reko/reko-report-section.tsx`
-- `backend/app/crud/reko.py`
+**Status:** FIXED
+**Location:** `frontend/components/reko/reko-report-section.tsx`
 
-**Design decision needed:**
-- **Option A:** Update existing report (lose history)
-- **Option B:** Keep multiple reports with improved UI showing "latest" with expandable history
-
-Backend already supports the "Ergänzung" workflow with pre-filled data from previous submissions.
+Implemented Option B - keep history with collapsible previous reports:
+- Latest report shown prominently with full details
+- Previous reports shown in a collapsible section titled "X frühere Meldung(en)"
+- Compact view for previous reports showing: status, date, submitter, danger warnings, photo count
+- Summary text shown with line-clamp-2 for space efficiency
 
 ---
 
@@ -135,12 +144,19 @@ Added `onOperationDrop` callback that auto-selects the dropped card in the side 
 
 ---
 
-### 13. Reko Assignment Shortcut
+### 13. Reko Assignment Shortcut (Context Menu)
 **Priority:** Low
-**Status:** PENDING - Enhancement
-**Location:** `frontend/components/incidents/incident-card.tsx:161-174`
+**Status:** FIXED
+**Locations:**
+- `frontend/components/kanban/draggable-operation.tsx`
+- `frontend/components/kanban/droppable-column.tsx`
+- `frontend/app/page.tsx`
 
-Could add context menu (right-click) for quick Reko assignment. Not a bug, future enhancement.
+Added context menu (right-click) on kanban cards with options:
+- "Details anzeigen" - opens side panel
+- "Bearbeiten" - opens edit modal
+- "Reko zuweisen" - opens Reko assignment dialog (only shown if no Reko assigned)
+- "Auf Karte zeigen" - links to map view
 
 ---
 
@@ -177,23 +193,23 @@ Added `MobileBottomNavigation` to training page with proper `pb-20` padding on m
 
 | # | Issue | Priority | Status |
 |---|-------|----------|--------|
-| 1 | Modal spacing | Low | Reviewed - OK |
-| 2 | Empty state spacing | Low | Reviewed - OK |
-| 3 | Modal padding | Low | Reviewed - OK |
+| 1 | Modal spacing | Low | FIXED |
+| 2 | Empty state spacing | Low | FIXED |
+| 3 | Modal padding | Low | FIXED |
 | 4 | Photo delete button | Low | FIXED |
 | 5 | Reko heading too big | Medium | FIXED |
 | 6 | Card selection visual | Medium | FIXED |
 | 7 | Check-in errors | High | FIXED |
 | 8 | Tab key behavior | Medium | FIXED |
-| 9 | Reko resubmissions | High | PENDING (design decision) |
+| 9 | Reko resubmissions | High | FIXED |
 | 10 | Training notifications | Medium | FIXED |
 | 11 | Auto-unassign on complete | Medium | FIXED |
 | 12 | Drag-drop selection | Low | FIXED |
-| 13 | Reko context menu | Low | PENDING (enhancement) |
-| 14 | WhatsApp driver names | Low | Verified - OK |
-| 15 | Live updates | Medium | Verified - OK |
+| 13 | Reko context menu | Low | FIXED |
+| 14 | WhatsApp driver names | Low | Verified |
+| 15 | Live updates | Medium | Verified |
 | 16 | Mobile navbar | High | FIXED |
 
-**Fixed:** 10 issues
-**Reviewed (no action needed):** 5 issues
-**Pending:** 1 design decision (Issue #9), 1 future enhancement (Issue #13)
+**All 16 issues addressed:**
+- 14 issues fixed
+- 2 issues verified as already working correctly

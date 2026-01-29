@@ -45,6 +45,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
+import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 
 export default function FireStationDashboard() {
   const {
@@ -150,6 +151,10 @@ export default function FireStationDashboard() {
   const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
   const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
   const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
+
+  // Reko assignment dialog state (context menu)
+  const [rekoAssignDialogOpen, setRekoAssignDialogOpen] = useState(false)
+  const [rekoAssignOperationId, setRekoAssignOperationId] = useState<string | null>(null)
 
   // Fetch Reko personnel names when the crew assignment dialog opens
   // These personnel should be excluded from regular crew assignment (they're Reko only)
@@ -807,6 +812,12 @@ export default function FireStationDashboard() {
     setAssignmentDialogOpen(true)
   }
 
+  // Handle Reko assignment dialog (from context menu)
+  const handleOpenRekoAssignDialog = (operationId: string) => {
+    setRekoAssignOperationId(operationId)
+    setRekoAssignDialogOpen(true)
+  }
+
   // Get assigned resources for selected operation
   const getAssignedResourcesForOperation = (operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -1067,6 +1078,7 @@ export default function FireStationDashboard() {
                       materials={materials}
                       formatLocation={formatLocation}
                       onAssignResource={handleOpenAssignmentDialog}
+                      onAssignReko={handleOpenRekoAssignDialog}
                       showMeldung={showMeldung}
                     />
                   )
@@ -1454,6 +1466,20 @@ export default function FireStationDashboard() {
         description={`Sind Sie sicher, dass Sie den Einsatz "${operationToDelete?.location}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
         onConfirm={handleDeleteOperationConfirm}
       />
+
+      {/* Reko Assignment Dialog (from context menu) */}
+      {rekoAssignOperationId && (
+        <AssignRekoDialog
+          open={rekoAssignDialogOpen}
+          onOpenChange={setRekoAssignDialogOpen}
+          incidentId={rekoAssignOperationId}
+          incidentTitle={operations.find(op => op.id === rekoAssignOperationId)?.location || ''}
+          onAssigned={() => {
+            refreshOperations()
+            setRekoAssignDialogOpen(false)
+          }}
+        />
+      )}
 
       {/* Print Options Modal */}
       <PrintOptionsModal

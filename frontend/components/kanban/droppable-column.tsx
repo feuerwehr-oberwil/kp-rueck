@@ -30,6 +30,7 @@ interface DroppableColumnProps {
   formatLocation: (address: string) => string
   setOperationRef?: (id: string, element: HTMLDivElement | null) => void
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
+  onAssignReko?: (operationId: string) => void
   showMeldung?: boolean
 }
 
@@ -51,6 +52,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   formatLocation,
   setOperationRef,
   onAssignResource,
+  onAssignReko,
   showMeldung,
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -124,6 +126,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 columnOperations={operations}
                 formatLocation={formatLocation}
                 onAssignResource={onAssignResource}
+                onAssignReko={onAssignReko ? () => onAssignReko(operation.id) : undefined}
                 showMeldung={showMeldung}
               />
             </div>

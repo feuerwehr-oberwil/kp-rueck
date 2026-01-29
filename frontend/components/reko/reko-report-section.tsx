@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText } from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
+import { cn } from '@/lib/utils'
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -16,11 +18,12 @@ const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
 export default function RekoReportSection({ incidentId }: RekoReportSectionProps) {
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const loadReports = useCallback(async () => {
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
-      // Filter out drafts, only show submitted reports
+      // Filter out drafts, only show submitted reports (newest first)
       setReports(data.filter(r => !r.is_draft))
     } catch (error) {
       console.error('Failed to load Reko reports:', error)
@@ -56,15 +59,36 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
     )
   }
 
+  const latestReport = reports[0]
+  const previousReports = reports.slice(1)
+
   return (
     <div className="space-y-2">
-      {reports.map((report) => (
-        <RekoReportCard
-          key={report.id}
-          report={report}
-          incidentId={incidentId}
-        />
-      ))}
+      {/* Latest Report - Full display */}
+      <RekoReportCard
+        report={latestReport}
+        incidentId={incidentId}
+      />
+
+      {/* Previous Reports - Collapsible */}
+      {previousReports.length > 0 && (
+        <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50">
+            <History className="h-3 w-3" />
+            <span>{previousReports.length} frühere Meldung{previousReports.length > 1 ? 'en' : ''}</span>
+            <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1 pt-1">
+            {previousReports.map((report) => (
+              <RekoReportCardCompact
+                key={report.id}
+                report={report}
+                incidentId={incidentId}
+              />
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   )
 }
@@ -229,6 +253,70 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
               <p>Aktualisiert: {new Date(report.updated_at).toLocaleString('de-CH')}</p>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Compact version for previous reports
+function RekoReportCardCompact({ report, incidentId }: RekoReportCardProps) {
+  function getPhotoUrl(filename: string): string {
+    const apiUrl = getApiUrl()
+    return `${apiUrl}/api/photos/${incidentId}/${filename}`
+  }
+
+  const hasDangers = report.dangers_json && (
+    report.dangers_json.fire ||
+    report.dangers_json.explosion ||
+    report.dangers_json.collapse ||
+    report.dangers_json.chemical ||
+    report.dangers_json.electrical
+  )
+
+  return (
+    <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm">
+      <div className="flex items-start gap-2">
+        {report.is_relevant ? (
+          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+        ) : (
+          <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+        )}
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-xs">
+              {report.is_relevant ? 'Relevant' : 'Nicht relevant'}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {new Date(report.submitted_at).toLocaleDateString('de-CH')}
+            </span>
+          </div>
+
+          {/* Compact info row */}
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {report.submitted_by_personnel_name && (
+              <span className="flex items-center gap-1">
+                <Binoculars className="h-3 w-3" />
+                {report.submitted_by_personnel_name}
+              </span>
+            )}
+            {hasDangers && (
+              <span className="flex items-center gap-1 text-destructive">
+                <AlertTriangle className="h-3 w-3" />
+                Gefahren
+              </span>
+            )}
+            {report.photos_json && report.photos_json.length > 0 && (
+              <span>{report.photos_json.length} Foto{report.photos_json.length > 1 ? 's' : ''}</span>
+            )}
+          </div>
+
+          {/* Summary if exists */}
+          {report.summary_text && (
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              {report.summary_text}
+            </p>
+          )}
         </div>
       </div>
     </div>
