@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, memo, useCallback } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, AlertCircle, ChevronUp, ChevronDown, Minus, CheckCircle, XCircle, Plus, Search, Binoculars, PenLine, Eye, Map } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -21,6 +21,9 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
+
+// Must match SIDEPANEL_BREAKPOINT in side-panel.tsx
+const SIDEPANEL_BREAKPOINT = 1536
 
 interface DraggableOperationProps {
   operation: Operation
@@ -88,6 +91,17 @@ function DraggableOperationBase({
   const [isOver, setIsOver] = useState(false)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [isLargeScreen, setIsLargeScreen] = useState(false)
+
+  // Detect screen width for sidebar vs modal behavior
+  useEffect(() => {
+    const checkWidth = () => {
+      setIsLargeScreen(window.innerWidth >= SIDEPANEL_BREAKPOINT)
+    }
+    checkWidth()
+    window.addEventListener('resize', checkWidth)
+    return () => window.removeEventListener('resize', checkWidth)
+  }, [])
 
   // Get priority styling configuration
   const priority = operation.priority || 'low'
@@ -185,14 +199,12 @@ function DraggableOperationBase({
             onClick={(e) => {
               // Only trigger click if not dragging
               if (!isDraggingRef.current) {
-                // Single click: select for side panel
-                onSelect?.()
-              }
-            }}
-            onDoubleClick={(e) => {
-              // Double click: open modal
-              if (!isDraggingRef.current) {
-                onClick()
+                // Large screen: select for sidebar, small screen: open modal
+                if (isLargeScreen) {
+                  onSelect?.()
+                } else {
+                  onClick()
+                }
               }
             }}
           >
@@ -396,11 +408,7 @@ function DraggableOperationBase({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={() => onSelect?.()}>
-          <Eye className="mr-2 h-4 w-4" />
-          Details anzeigen
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => onClick()}>
+        <ContextMenuItem onClick={() => isLargeScreen ? onSelect?.() : onClick()}>
           <PenLine className="mr-2 h-4 w-4" />
           Bearbeiten
         </ContextMenuItem>
