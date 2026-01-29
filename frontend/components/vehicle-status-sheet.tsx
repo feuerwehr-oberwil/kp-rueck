@@ -2,12 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Truck, User, MapPin, Clock, Radio, X, Search, ArrowUpDown, RefreshCw, AlertTriangle, Plus } from "lucide-react"
+import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
 import { toast } from "sonner"
@@ -255,14 +253,27 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="flex flex-col max-w-5xl mx-auto max-h-[70vh]">
-        <SheetHeader className="pr-16">
-          <div className="flex items-center justify-between gap-6">
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        hideCloseButton
+        overlayOffset="42px"
+        nonModal
+        className="flex flex-col max-w-5xl mx-auto max-h-[45vh] px-6 py-4"
+        onInteractOutside={(e) => {
+          // Prevent closing when clicking on footer buttons
+          const target = e.target as HTMLElement
+          if (target.closest('footer')) {
+            e.preventDefault()
+          }
+        }}
+      >
+        <SheetHeader className="p-0">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <SheetTitle>Fahrzeugstatus</SheetTitle>
               <SheetDescription>
-                Übersicht aller Fahrzeuge mit Fahrer und aktuellem Einsatz
+                Klicken um zu Einsatz zu navigieren • Aktualisiert alle 10 Sekunden
               </SheetDescription>
             </div>
 
@@ -273,7 +284,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto mt-3 -mx-6 px-6">
+        <div className="flex-1 overflow-y-auto mt-3 pb-10">
           {loading ? (
             <div className="space-y-1.5">
               {[...Array(5)].map((_, i) => (
@@ -411,17 +422,6 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
           )}
         </div>
 
-        <SheetFooter className="mt-3 pt-3 border-t px-6">
-          <div className="flex items-center w-full gap-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4 mr-2" />
-              Schliessen
-            </Button>
-            <div className="text-xs text-muted-foreground">
-              Aktualisiert alle 10 Sekunden • Klicken um zu Einsatz zu navigieren
-            </div>
-          </div>
-        </SheetFooter>
       </SheetContent>
 
       {/* Driver Assignment Dialog */}

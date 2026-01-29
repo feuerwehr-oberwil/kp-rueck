@@ -14,6 +14,7 @@ import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -123,17 +124,15 @@ export default function FireStationDashboard() {
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
-  const [qrDialogOpen, setQrDialogOpen] = useState(false)
+  // Single state for footer sheets - only one can be open at a time
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'vehicles' | 'print' | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const [vehicleStatusSheetOpen, setVehicleStatusSheetOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
   const [showMeldung, setShowMeldung] = useState(false)
-  const [printModalOpen, setPrintModalOpen] = useState(false)
-  const [rekoQrDialogOpen, setRekoQrDialogOpen] = useState(false)
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [rekoCopied, setRekoCopied] = useState(false)
 
@@ -222,7 +221,7 @@ export default function FireStationDashboard() {
       },
       onToggleLeftSidebar: () => setShowLeftSidebar(prev => !prev),
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
-      onToggleVehicleStatus: () => setVehicleStatusSheetOpen(prev => !prev),
+      onToggleVehicleStatus: () => setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles'),
       onToggleNotifications: toggleNotificationSidebar,
       onSearchPersonnel: () => {
         setShowLeftSidebar(true)
@@ -404,7 +403,7 @@ export default function FireStationDashboard() {
       }
 
       // Ignore ALL shortcuts when any modal is open (let dialogs handle their own focus)
-      if (detailModalOpen || newEmergencyModalOpen || assignmentDialogOpen || qrDialogOpen || deleteDialogOpen) {
+      if (detailModalOpen || newEmergencyModalOpen || assignmentDialogOpen || activeFooterSheet || deleteDialogOpen) {
         return
       }
 
@@ -509,7 +508,7 @@ export default function FireStationDashboard() {
       } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
         // Toggle vehicle status sheet
         e.preventDefault()
-        setVehicleStatusSheetOpen(prev => !prev)
+        setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles')
       } else if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
         // Only prevent default if no modifier keys (allows cmd+n/ctrl+n for new window)
         e.preventDefault()
@@ -576,7 +575,7 @@ export default function FireStationDashboard() {
         clearTimeout(gPrefixTimeoutRef.current)
       }
     }
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, qrDialogOpen, deleteDialogOpen, sidePanelMode])
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, activeFooterSheet, deleteDialogOpen, sidePanelMode])
 
   // Use shared drag-and-drop hook
   useKanbanDragDrop({
@@ -708,7 +707,19 @@ export default function FireStationDashboard() {
     }
   }
 
+  // Derived state for convenience
+  const qrDialogOpen = activeFooterSheet === 'checkin'
+  const rekoQrDialogOpen = activeFooterSheet === 'reko'
+  const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
+  const printModalOpen = activeFooterSheet === 'print'
+
   const generateCheckInQR = async () => {
+    // Toggle behavior: if already open, just close
+    if (qrDialogOpen) {
+      setActiveFooterSheet(null)
+      return
+    }
+
     if (!selectedEvent) {
       toast.error('Fehler', {
         description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
@@ -721,7 +732,7 @@ export default function FireStationDashboard() {
       // Build full URL for QR code
       const fullUrl = `${window.location.origin}${response.link}`
       setCheckInUrl(fullUrl)
-      setQrDialogOpen(true)
+      setActiveFooterSheet('checkin')
     } catch (error) {
       console.error('Failed to generate check-in link:', error)
       toast.error('Fehler', {
@@ -744,6 +755,12 @@ export default function FireStationDashboard() {
   }
 
   const generateRekoDashboardQR = async () => {
+    // Toggle behavior: if already open, just close
+    if (rekoQrDialogOpen) {
+      setActiveFooterSheet(null)
+      return
+    }
+
     if (!selectedEvent) {
       toast.error('Fehler', {
         description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
@@ -756,7 +773,7 @@ export default function FireStationDashboard() {
       // Build full URL for QR code
       const fullUrl = `${window.location.origin}${response.link}`
       setRekoDashboardUrl(fullUrl)
-      setRekoQrDialogOpen(true)
+      setActiveFooterSheet('reko')
     } catch (error) {
       console.error('Failed to generate Reko Dashboard link:', error)
       toast.error('Fehler', {
@@ -905,7 +922,7 @@ export default function FireStationDashboard() {
             onRefresh={refreshOperations}
             onNewEmergency={() => setNewEmergencyModalOpen(true)}
             onCheckIn={generateCheckInQR}
-            onVehicleStatus={() => setVehicleStatusSheetOpen(true)}
+            onVehicleStatus={() => setActiveFooterSheet('vehicles')}
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}
           />
@@ -1150,10 +1167,11 @@ export default function FireStationDashboard() {
         </div>
 
         {/* Desktop Footer */}
-        <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex gap-2 flex-wrap">
-              <Button size="sm" variant="outline" className="gap-2" onClick={() => setNewEmergencyModalOpen(true)}>
+        <footer className="relative z-[60] border-t border-border bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Primary action */}
+            <div className="flex items-center gap-3">
+              <Button size="sm" className="gap-2 shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Neuer Einsatz
               </Button>
@@ -1188,49 +1206,124 @@ export default function FireStationDashboard() {
                   )}
                 </Popover>
               )}
+            </div>
 
-              <Button size="sm" variant="outline" className="gap-2" onClick={generateCheckInQR}>
-                <QrCode className="h-4 w-4" />
-                Check-In
-              </Button>
-              <Button size="sm" variant="outline" className="gap-2" onClick={generateRekoDashboardQR}>
-                <Search className="h-4 w-4" />
-                Reko
-              </Button>
-              <Button size="sm" variant="outline" className="gap-2" onClick={() => setVehicleStatusSheetOpen(true)} disabled={!selectedEvent}>
-                <Truck className="h-4 w-4" />
-                Fahrzeugstatus
-              </Button>
-              <Button size="sm" variant="outline" className="gap-2" onClick={() => setPrintModalOpen(true)} disabled={!selectedEvent}>
-                <Printer className="h-4 w-4" />
-                Drucken
-              </Button>
-              {selectedEvent?.training_flag && (
-                <Link href="/training">
-                  <Button size="sm" variant="outline" className="gap-2">
-                    <Sparkles className="h-4 w-4 text-orange-500" />
-                    Übungs-Steuerung
-                  </Button>
-                </Link>
-              )}
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="show-meldung"
-                  checked={showMeldung}
-                  onCheckedChange={setShowMeldung}
-                />
-                <Label htmlFor="show-meldung" className="text-sm cursor-pointer">
-                  Meldung
-                </Label>
+            {/* Center: Secondary actions grouped */}
+            <div className="flex items-center gap-1">
+              {/* QR/Access group */}
+              <div className="flex items-center">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    qrDialogOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    generateCheckInQR()
+                  }}
+                >
+                  <QrCode className="h-3.5 w-3.5" />
+                  <span className="text-xs">Check-In</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    rekoQrDialogOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    generateRekoDashboardQR()
+                  }}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  <span className="text-xs">Reko</span>
+                </Button>
               </div>
+
+              <div className="h-4 w-px bg-border mx-1" />
+
+              {/* Status/Tools group */}
+              <div className="flex items-center">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    vehicleStatusSheetOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    if (!selectedEvent) return
+                    setActiveFooterSheet(vehicleStatusSheetOpen ? null : 'vehicles')
+                  }}
+                  disabled={!selectedEvent}
+                >
+                  <Truck className="h-3.5 w-3.5" />
+                  <span className="text-xs">Fahrzeuge</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    printModalOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    if (!selectedEvent) return
+                    setActiveFooterSheet(printModalOpen ? null : 'print')
+                  }}
+                  disabled={!selectedEvent}
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span className="text-xs">Drucken</span>
+                </Button>
+              </div>
+
+              {selectedEvent?.training_flag && (
+                <>
+                  <div className="h-4 w-px bg-border mx-1" />
+                  <Link href="/training">
+                    <Button size="sm" variant="ghost" className="gap-1.5 h-8 px-2.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Übungs-Steuerung</span>
+                    </Button>
+                  </Link>
+                </>
+              )}
+
+              <div className="h-4 w-px bg-border mx-1" />
+
+              {/* Toggle styled as a compact pill */}
+              <button
+                onClick={() => setShowMeldung(!showMeldung)}
+                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs transition-colors ${
+                  showMeldung
+                    ? 'bg-primary/10 text-primary border border-primary/20'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <div className={`h-1.5 w-1.5 rounded-full ${showMeldung ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
+                Meldung
+              </button>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Kbd className="h-4 text-[10px]">⌘K</Kbd>
-              <span>oder</span>
-              <Kbd className="h-4 text-[10px]">?</Kbd>
-              <span>Befehle & Hilfe</span>
-            </div>
+            {/* Right: Help hint */}
+            <button
+              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+            >
+              <Kbd className="h-5 text-[10px] px-1.5">⌘K</Kbd>
+              <span className="hidden lg:inline">Befehle</span>
+            </button>
           </div>
         </footer>
           </>
@@ -1316,110 +1409,150 @@ export default function FireStationDashboard() {
       />
 
 
-      {/* QR Code Dialog */}
-      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Personal Check-In</DialogTitle>
-            <DialogDescription>
-              QR-Code scannen oder Link teilen für mobilen Zugriff
-            </DialogDescription>
-          </DialogHeader>
-          {checkInUrl && (
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="rounded-lg border p-4 bg-white">
+      {/* Check-In QR Code Sheet */}
+      <Sheet modal={false} open={qrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'checkin' && setActiveFooterSheet(null)}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          overlayOffset="42px"
+          nonModal
+          className="max-w-3xl mx-auto px-6 py-4"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking on footer buttons
+            const target = e.target as HTMLElement
+            if (target.closest('footer')) {
+              e.preventDefault()
+            }
+          }}
+        >
+          <div className="flex items-start gap-6">
+            {/* QR Code */}
+            {checkInUrl && (
+              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
                 <QRCodeSVG
                   value={checkInUrl}
-                  size={200}
+                  size={140}
                   level="M"
-                  includeMargin
+                  includeMargin={false}
                 />
               </div>
+            )}
 
-              <div className="w-full">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={checkInUrl}
-                    readOnly
-                    className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={copyCheckInUrlToClipboard}
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <SheetHeader className="p-0 mb-3">
+                <SheetTitle>Personal Check-In</SheetTitle>
+                <SheetDescription>
+                  QR-Code scannen oder Link teilen für mobilen Zugriff
+                </SheetDescription>
+              </SheetHeader>
+
+              {checkInUrl && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={checkInUrl}
+                      readOnly
+                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyCheckInUrlToClipboard}
+                      className="flex-shrink-0"
+                    >
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Personal kann diesen QR-Code scannen um sich einzuchecken. Funktioniert ohne Anmeldung.
+                  </p>
                 </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center">
-                Dieser Link ermöglicht den Zugriff auf das Check-In ohne Anmeldung
-              </p>
+              )}
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-      {/* Reko Dashboard QR Code Dialog */}
-      <Dialog open={rekoQrDialogOpen} onOpenChange={setRekoQrDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reko</DialogTitle>
-            <DialogDescription>
-              QR-Code scannen oder Link teilen für Reko-Personal
-            </DialogDescription>
-          </DialogHeader>
-          {rekoDashboardUrl && (
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="rounded-lg border p-4 bg-white">
+      {/* Reko Dashboard QR Code Sheet */}
+      <Sheet modal={false} open={rekoQrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'reko' && setActiveFooterSheet(null)}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          overlayOffset="42px"
+          nonModal
+          className="max-w-3xl mx-auto px-6 py-4"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking on footer buttons
+            const target = e.target as HTMLElement
+            if (target.closest('footer')) {
+              e.preventDefault()
+            }
+          }}
+        >
+          <div className="flex items-start gap-6">
+            {/* QR Code */}
+            {rekoDashboardUrl && (
+              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
                 <QRCodeSVG
                   value={rekoDashboardUrl}
-                  size={200}
+                  size={140}
                   level="M"
-                  includeMargin
+                  includeMargin={false}
                 />
               </div>
+            )}
 
-              <div className="w-full">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={rekoDashboardUrl}
-                    readOnly
-                    className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={copyRekoDashboardUrlToClipboard}
-                  >
-                    {rekoCopied ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <SheetHeader className="p-0 mb-3">
+                <SheetTitle>Reko Dashboard</SheetTitle>
+                <SheetDescription>
+                  QR-Code scannen oder Link teilen für Reko-Personal
+                </SheetDescription>
+              </SheetHeader>
+
+              {rekoDashboardUrl && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={rekoDashboardUrl}
+                      readOnly
+                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyRekoDashboardUrlToClipboard}
+                      className="flex-shrink-0"
+                    >
+                      {rekoCopied ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.
+                  </p>
                 </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center">
-                Reko-Personal kann diesen Link nutzen um ihre Zuweisungen zu sehen und Formulare auszufüllen
-              </p>
+              )}
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Vehicle Status Sheet */}
       <VehicleStatusSheet
         open={vehicleStatusSheetOpen}
-        onOpenChange={setVehicleStatusSheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'vehicles' && setActiveFooterSheet(null)}
         eventId={selectedEvent?.id || null}
       />
 
@@ -1449,7 +1582,7 @@ export default function FireStationDashboard() {
       {/* Print Options Modal */}
       <PrintOptionsModal
         open={printModalOpen}
-        onOpenChange={setPrintModalOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'print' && setActiveFooterSheet(null)}
       />
 
       {/* Mobile Bottom Navigation */}

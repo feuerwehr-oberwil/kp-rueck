@@ -2,13 +2,12 @@
 
 import { useState, useRef, useEffect } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -66,95 +65,102 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="h-5 w-5" />
-              Status drucken
-            </DialogTitle>
-            <DialogDescription>
-              Wählen Sie aus, welche Informationen gedruckt werden sollen.
-            </DialogDescription>
-          </DialogHeader>
+      <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          overlayOffset="42px"
+          nonModal
+          className="max-w-3xl mx-auto px-6 py-4"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking on footer buttons
+            const target = e.target as HTMLElement
+            if (target.closest('footer')) {
+              e.preventDefault()
+            }
+          }}
+        >
+          <div className="pr-8">
+            <SheetHeader className="p-0 mb-4">
+              <SheetTitle className="flex items-center gap-2">
+                <Printer className="h-4 w-4" />
+                Status drucken
+              </SheetTitle>
+              <SheetDescription>
+                Wählen Sie aus, welche Informationen gedruckt werden sollen.
+              </SheetDescription>
+            </SheetHeader>
 
-          <div className="space-y-4 py-4">
-            {/* Include completed incidents */}
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="includeCompleted"
-                checked={options.includeCompleted}
-                onCheckedChange={(checked) =>
-                  updateOption("includeCompleted", checked === true)
-                }
-              />
-              <Label htmlFor="includeCompleted" className="cursor-pointer">
-                Abgeschlossene Einsätze einbeziehen
-              </Label>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeCompleted"
+                  checked={options.includeCompleted}
+                  onCheckedChange={(checked) =>
+                    updateOption("includeCompleted", checked === true)
+                  }
+                />
+                <Label htmlFor="includeCompleted" className="cursor-pointer text-sm">
+                  Abgeschlossene Einsätze
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includePersonnel"
+                  checked={options.includePersonnel}
+                  onCheckedChange={(checked) =>
+                    updateOption("includePersonnel", checked === true)
+                  }
+                />
+                <Label htmlFor="includePersonnel" className="cursor-pointer text-sm">
+                  Personal-Liste
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeVehicles"
+                  checked={options.includeVehicles}
+                  onCheckedChange={(checked) =>
+                    updateOption("includeVehicles", checked === true)
+                  }
+                />
+                <Label htmlFor="includeVehicles" className="cursor-pointer text-sm">
+                  Fahrzeug-Status
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeMaterials"
+                  checked={options.includeMaterials}
+                  onCheckedChange={(checked) =>
+                    updateOption("includeMaterials", checked === true)
+                  }
+                />
+                <Label htmlFor="includeMaterials" className="cursor-pointer text-sm">
+                  Material-Inventar
+                </Label>
+              </div>
             </div>
 
-            {/* Include personnel manifest */}
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="includePersonnel"
-                checked={options.includePersonnel}
-                onCheckedChange={(checked) =>
-                  updateOption("includePersonnel", checked === true)
-                }
-              />
-              <Label htmlFor="includePersonnel" className="cursor-pointer">
-                Personal-Liste einbeziehen
-              </Label>
-            </div>
-
-            {/* Include vehicle status */}
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="includeVehicles"
-                checked={options.includeVehicles}
-                onCheckedChange={(checked) =>
-                  updateOption("includeVehicles", checked === true)
-                }
-              />
-              <Label htmlFor="includeVehicles" className="cursor-pointer">
-                Fahrzeug-Status einbeziehen
-              </Label>
-            </div>
-
-            {/* Include materials */}
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="includeMaterials"
-                checked={options.includeMaterials}
-                onCheckedChange={(checked) =>
-                  updateOption("includeMaterials", checked === true)
-                }
-              />
-              <Label htmlFor="includeMaterials" className="cursor-pointer">
-                Material-Inventar einbeziehen
-              </Label>
-            </div>
-
-            {/* Summary */}
-            <div className="text-sm text-muted-foreground pt-2 border-t">
-              {operationCount} Einsätze werden gedruckt
-              {options.includePersonnel && `, ${personnel.length} Personal`}
-              {options.includeVehicles && `, ${vehicles.length} Fahrzeuge`}
-              {options.includeMaterials && `, ${materials.length} Material`}
+            {/* Summary and actions */}
+            <div className="flex items-center justify-between mt-4 pt-3 border-t">
+              <p className="text-xs text-muted-foreground">
+                {operationCount} Einsätze
+                {options.includePersonnel && `, ${personnel.length} Personal`}
+                {options.includeVehicles && `, ${vehicles.length} Fahrzeuge`}
+                {options.includeMaterials && `, ${materials.length} Material`}
+              </p>
+              <Button size="sm" onClick={handlePrint} disabled={isLoading}>
+                <Printer className="h-3.5 w-3.5 mr-1.5" />
+                Drucken
+              </Button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Abbrechen
-            </Button>
-            <Button onClick={handlePrint} disabled={isLoading}>
-              <Printer className="h-4 w-4 mr-2" />
-              Drucken
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Hidden print view - rendered in DOM but only visible when printing */}
       {open && (
