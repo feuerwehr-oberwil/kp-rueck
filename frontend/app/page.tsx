@@ -445,36 +445,6 @@ export default function FireStationDashboard() {
         return
       }
 
-      // Arrow key navigation between operations
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        const allOps = operations
-        if (allOps.length === 0) return
-
-        if (!hoveredOperationId) {
-          // No operation selected, select first
-          setHoveredOperationId(allOps[0].id)
-          return
-        }
-
-        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
-        if (currentIndex === -1) {
-          setHoveredOperationId(allOps[0].id)
-          return
-        }
-
-        if (e.key === 'ArrowUp') {
-          // Move to previous operation
-          const newIndex = currentIndex > 0 ? currentIndex - 1 : allOps.length - 1
-          setHoveredOperationId(allOps[newIndex].id)
-        } else {
-          // Move to next operation
-          const newIndex = currentIndex < allOps.length - 1 ? currentIndex + 1 : 0
-          setHoveredOperationId(allOps[newIndex].id)
-        }
-        return
-      }
-
       // Vehicle assignment shortcuts (1-5) - works on hovered operation
       // Toggle vehicle assignment: assign if not assigned, unassign if assigned
       const vehicleShortcut = vehicleTypes.find(vt => vt.key === e.key)
