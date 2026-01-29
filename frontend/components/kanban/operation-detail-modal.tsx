@@ -410,7 +410,7 @@ export function OperationDetailModal({
                 value={operation.incidentType}
                 onValueChange={(value) => onUpdate({ incidentType: value })}
               >
-                <SelectTrigger className="mt-1.5">
+                <SelectTrigger className="mt-1.5" tabIndex={0}>
                   <SelectValue placeholder="Einsatzart auswählen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -438,7 +438,7 @@ export function OperationDetailModal({
                 value={operation.priority}
                 onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
               >
-                <SelectTrigger className="mt-1.5">
+                <SelectTrigger className="mt-1.5" tabIndex={0}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -535,6 +535,7 @@ export function OperationDetailModal({
                       onClick={handleCopyDirectRekoLink}
                       disabled={isCopyingRekoLink}
                       className="h-8 px-3 gap-1.5 text-sm flex-1"
+                      tabIndex={-1}
                     >
                       {isCopyingRekoLink ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -551,6 +552,7 @@ export function OperationDetailModal({
                       onClick={handleCopyDashboardLink}
                       disabled={isCopyingRekoLink}
                       className="h-8 px-3 gap-1.5 text-sm flex-1"
+                      tabIndex={-1}
                     >
                       {rekoCopied === 'dashboard' ? (
                         <Check className="h-3 w-3 text-green-600" />
