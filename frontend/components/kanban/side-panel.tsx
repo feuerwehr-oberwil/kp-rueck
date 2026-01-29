@@ -557,6 +557,7 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => setRekoDialogOpen(true)}
               className="h-6 px-2 gap-1 text-xs"
+              tabIndex={0}
             >
               {assignedRekoPersonnel ? (
                 <>
@@ -632,6 +633,7 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => onAssignResource('crew', operation.id)}
               className="h-6 px-2 gap-1 text-xs"
+              tabIndex={0}
             >
               <Plus className="h-3 w-3" />
               Hinzufügen
@@ -671,7 +673,7 @@ function SidePanelDetail({
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs">
+                <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs" tabIndex={0}>
                   <Plus className="h-3 w-3" />
                   Hinzufügen
                 </Button>
@@ -746,6 +748,7 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => onAssignResource('materials', operation.id)}
               className="h-6 px-2 gap-1 text-xs"
+              tabIndex={0}
             >
               <Plus className="h-3 w-3" />
               Hinzufügen

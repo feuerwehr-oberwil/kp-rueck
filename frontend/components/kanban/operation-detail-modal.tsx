@@ -505,6 +505,7 @@ export function OperationDetailModal({
                   variant="ghost"
                   onClick={() => setRekoDialogOpen(true)}
                   className="h-7 px-2 gap-1"
+                  tabIndex={0}
                 >
                   {assignedRekoPersonnel ? (
                     <>
@@ -582,6 +583,7 @@ export function OperationDetailModal({
                     onClick={() => onAssignResource('crew', operation.id)}
                     className="h-7 px-2 gap-1"
                     title="Mannschaft zuweisen"
+                    tabIndex={0}
                   >
                     <Plus className="h-3 w-3" />
                     Hinzufügen
@@ -636,6 +638,7 @@ export function OperationDetailModal({
                         size="sm"
                         className="h-7 px-2 gap-1"
                         title="Fahrzeug zuweisen"
+                        tabIndex={0}
                       >
                         <Plus className="h-3 w-3" />
                         Hinzufügen
@@ -724,6 +727,7 @@ export function OperationDetailModal({
                     onClick={() => onAssignResource('materials', operation.id)}
                     className="h-7 px-2 gap-1"
                     title="Material zuweisen"
+                    tabIndex={0}
                   >
                     <Plus className="h-3 w-3" />
                     Hinzufügen
