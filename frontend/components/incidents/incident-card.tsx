@@ -40,7 +40,7 @@ function formatTime(date: Date): string {
 
 export function IncidentCard({
   incident,
-  columnColor = "bg-zinc-800/50",
+  columnColor = "bg-slate-200/80 dark:bg-zinc-800/50",
   onEdit,
   isHighlighted,
   isDraggable = true,

@@ -47,7 +47,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
 
   // Get column color for the card
   const column = columns.find(col => col.status.includes(operation.status))
-  const columnColor = column?.color || "bg-zinc-800/50"
+  const columnColor = column?.color || "bg-slate-200/80 dark:bg-zinc-800/50"
 
   // Calculate time since status change
   const timeReference = operation.statusChangedAt || operation.dispatchTime

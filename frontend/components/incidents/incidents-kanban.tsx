@@ -124,7 +124,7 @@ export function IncidentsKanban() {
       )}
 
       {/* Kanban Board */}
-      <main className="flex-1 overflow-x-auto p-4 bg-zinc-950/20">
+      <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
         <div className="flex h-full gap-4">
           {KANBAN_COLUMNS.map((column) => {
             const columnIncidents = incidents.filter((inc) =>

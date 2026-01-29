@@ -27,7 +27,7 @@ import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-zinc-900 rounded-lg">
+    <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
       <div className="text-muted-foreground">Karte wird geladen...</div>
     </div>
   ),

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
 import { PersonnelProvider } from '@/lib/contexts/personnel-context'
@@ -35,27 +36,34 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="de">
+    <html lang="de" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <EventProvider>
-            <PersonnelProvider>
-              <MaterialsProvider>
-                <OperationsProvider>
-                  <NotificationProvider>
-                    <CommandPaletteProvider>
-                      <AppShell>
-                        {children}
-                      </AppShell>
-                      <NotificationToasts />
-                      <PersistentNotificationSidebar />
-                    </CommandPaletteProvider>
-                  </NotificationProvider>
-                </OperationsProvider>
-              </MaterialsProvider>
-            </PersonnelProvider>
-          </EventProvider>
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <EventProvider>
+              <PersonnelProvider>
+                <MaterialsProvider>
+                  <OperationsProvider>
+                    <NotificationProvider>
+                      <CommandPaletteProvider>
+                        <AppShell>
+                          {children}
+                        </AppShell>
+                        <NotificationToasts />
+                        <PersistentNotificationSidebar />
+                      </CommandPaletteProvider>
+                    </NotificationProvider>
+                  </OperationsProvider>
+                </MaterialsProvider>
+              </PersonnelProvider>
+            </EventProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

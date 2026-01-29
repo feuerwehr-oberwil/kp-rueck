@@ -63,26 +63,28 @@ function getDurationColor(minutes: number | null): string {
 function getVehicleStatusBadge(status: string): { variant: "default" | "secondary" | "destructive" | "outline"; label: string; color?: string } {
   switch (status) {
     case "available":
-      return { variant: "outline", label: "Verfügbar", color: "bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" }
+      // Subtle, desaturated green - Refactoring UI: don't use bright colors for passive states
+      return { variant: "outline", label: "Verfügbar", color: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50" }
     case "unavailable":
-      return { variant: "secondary", label: "Nicht verfügbar", color: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700" }
+      return { variant: "secondary", label: "Nicht verfügbar", color: "bg-muted text-muted-foreground border-border" }
     default:
       return { variant: "outline", label: status }
   }
 }
 
 function getStatusBorderColor(status: string, hasIncident: boolean): string {
-  // If assigned to an incident, show yellow (active)
+  // Refactoring UI: Use subtle visual cues, not heavy color blocks
+  // Only highlight assigned vehicles, available is the default state
   if (hasIncident) {
-    return "border-l-yellow-500"
+    return "border-l-amber-400 dark:border-l-amber-500"
   }
   switch (status) {
     case "available":
-      return "border-l-green-500"
+      return "border-l-transparent" // No border for default state
     case "unavailable":
-      return "border-l-zinc-400 dark:border-l-zinc-600"
+      return "border-l-muted-foreground/30"
     default:
-      return "border-l-muted"
+      return "border-l-transparent"
   }
 }
 
@@ -370,32 +372,32 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         </div>
                       )}
 
-                      {/* Status Badges */}
+                      {/* Status Badges - Refactoring UI: subtle, desaturated colors */}
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         {/* Show vehicle status badge ONLY if not assigned to any incident */}
                         {!vehicle.incident_id && vehicle.status === "available" && (
-                          <Badge className={cn("text-xs", "bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800")}>
+                          <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
                             Verfügbar
                           </Badge>
                         )}
 
                         {/* Show unavailable badge if vehicle is not available */}
                         {vehicle.status === "unavailable" && (
-                          <Badge className={cn("text-xs", "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700")}>
+                          <Badge className="text-xs bg-muted text-muted-foreground border-border">
                             Nicht verfügbar
                           </Badge>
                         )}
 
                         {/* Show incident status badge ONLY if assigned to an incident */}
                         {vehicle.incident_id && vehicle.incident_status && (
-                          <Badge variant={getIncidentStatusBadgeVariant(vehicle.incident_status)} className="text-xs">
+                          <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
                             {STATUS_LABELS[vehicle.incident_status as keyof typeof STATUS_LABELS] || vehicle.incident_status}
                           </Badge>
                         )}
 
-                        {/* Duration warning for long assignments */}
+                        {/* Duration warning for long assignments - subtle warning, not alarming */}
                         {showDurationWarning && (
-                          <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700 dark:text-yellow-300">
+                          <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
                             <AlertTriangle className="h-3 w-3 mr-1" />
                             Lange
                           </Badge>

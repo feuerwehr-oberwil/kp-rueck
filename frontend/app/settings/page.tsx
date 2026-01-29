@@ -48,7 +48,11 @@ import {
   Filter,
   Calendar,
   User,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
@@ -115,6 +119,13 @@ export default function SettingsPage() {
   const router = useRouter();
   const { isEditor } = useAuth();
   const isMobile = useIsMobile();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Active section from URL or default
   const sectionParam = searchParams.get('section') as SectionId | null;
@@ -410,6 +421,51 @@ export default function SettingsPage() {
       case 'general':
         return (
           <div className="space-y-6">
+            {/* Theme Selection */}
+            <Card className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <Label className="font-medium">Erscheinungsbild</Label>
+                  <p className="text-sm text-muted-foreground">Wähle zwischen Hell, Dunkel oder System-Einstellung</p>
+                </div>
+                {mounted && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setTheme('light')}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                        theme === 'light' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <Sun className="h-6 w-6" />
+                      <span className="text-sm font-medium">Hell</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTheme('dark')}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                        theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <Moon className="h-6 w-6" />
+                      <span className="text-sm font-medium">Dunkel</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTheme('system')}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                        theme === 'system' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <Monitor className="h-6 w-6" />
+                      <span className="text-sm font-medium">System</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Other Settings */}
             {loading ? (
               <Card className="p-6">
                 <div className="space-y-4">

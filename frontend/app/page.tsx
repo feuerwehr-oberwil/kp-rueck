@@ -1025,7 +1025,7 @@ export default function FireStationDashboard() {
           )}
 
           {/* Main Kanban Board */}
-          <main className="flex-1 overflow-x-auto p-4 bg-zinc-950/20">
+          <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
             {isLoading ? (
               <KanbanLoading />
             ) : (
@@ -1271,7 +1271,7 @@ export default function FireStationDashboard() {
               </div>
             </Card>
           ) : (
-            <Card className="cursor-move border-2 border-primary p-4 shadow-2xl bg-zinc-800/90 backdrop-blur opacity-80">
+            <Card className="cursor-move border-2 border-primary p-4 shadow-2xl bg-card/90 backdrop-blur opacity-80">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-foreground">{draggingItem.location}</span>
               </div>

@@ -163,42 +163,43 @@ export const STATUS_LABELS: Record<IncidentStatus, string> = {
 
 /**
  * Kanban column configuration
+ * Colors use light mode defaults with dark: variants
  */
 export const KANBAN_COLUMNS = [
   {
     id: 'eingegangen',
     title: 'EINGEGANGEN',
     status: ['eingegangen'] as IncidentStatus[],
-    color: 'bg-zinc-800/50',
+    color: 'bg-slate-200/80 dark:bg-zinc-800/50',
   },
   {
     id: 'reko',
     title: 'REKO',
     status: ['reko'] as IncidentStatus[],
-    color: 'bg-zinc-800/50',
+    color: 'bg-emerald-100/80 dark:bg-zinc-800/50',
   },
   {
     id: 'disponiert',
     title: 'DISPONIERT',
     status: ['disponiert'] as IncidentStatus[],
-    color: 'bg-blue-900/30',
+    color: 'bg-blue-100/80 dark:bg-blue-900/30',
   },
   {
     id: 'einsatz',
     title: 'EINSATZ',
     status: ['einsatz'] as IncidentStatus[],
-    color: 'bg-orange-900/30',
+    color: 'bg-orange-100/80 dark:bg-orange-900/30',
   },
   {
     id: 'einsatz_beendet',
     title: 'EINSATZ BEENDET',
     status: ['einsatz_beendet'] as IncidentStatus[],
-    color: 'bg-blue-800/30',
+    color: 'bg-sky-100/80 dark:bg-blue-800/30',
   },
   {
     id: 'abschluss',
     title: 'ABSCHLUSS',
     status: ['abschluss'] as IncidentStatus[],
-    color: 'bg-zinc-900/50',
+    color: 'bg-gray-200/80 dark:bg-zinc-900/50',
   },
 ] as const
