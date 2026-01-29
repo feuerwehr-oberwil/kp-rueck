@@ -31,10 +31,10 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
         }
       case 'warning':
         return {
-          border: 'border-l-2 border-l-orange-400/40',
-          bg: 'bg-orange-950/10',
-          icon: <AlertTriangle className="h-5 w-5 text-orange-400/50" />,
-          badge: 'bg-orange-900/15 text-orange-400/80',
+          border: 'border-l-2 border-l-orange-500/50 dark:border-l-orange-400/40',
+          bg: 'bg-orange-100/50 dark:bg-orange-950/10',
+          icon: <AlertTriangle className="h-5 w-5 text-orange-600/70 dark:text-orange-400/50" />,
+          badge: 'bg-orange-200/50 text-orange-700 dark:bg-orange-900/15 dark:text-orange-400/80',
         }
       case 'info':
         return {
