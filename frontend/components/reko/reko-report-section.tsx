@@ -73,7 +73,7 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
       {/* Previous Reports - Collapsible */}
       {previousReports.length > 0 && (
         <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-          <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50">
+          <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50" tabIndex={-1}>
             <History className="h-3 w-3" />
             <span>{previousReports.length} frühere Meldung{previousReports.length > 1 ? 'en' : ''}</span>
             <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
@@ -216,6 +216,7 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
+                    tabIndex={-1}
                   >
                     <img
                       src={getPhotoUrl(filename)}

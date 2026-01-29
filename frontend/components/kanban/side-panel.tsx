@@ -46,8 +46,8 @@ interface SidePanelProps {
 }
 
 // Breakpoint for side panel visibility (in pixels)
-// Lowered to 1280px to appear on most desktop screens
-const SIDEPANEL_BREAKPOINT = 1280
+// Set to 1536px (2xl) - sidebar only on large external monitors, modal on laptops
+const SIDEPANEL_BREAKPOINT = 1536
 
 export function SidePanel({
   mode,
@@ -587,6 +587,7 @@ function SidePanelDetail({
                   onClick={handleCopyDirectRekoLink}
                   disabled={isCopyingRekoLink}
                   className="h-7 px-2 gap-1.5 text-xs flex-1"
+                  tabIndex={-1}
                 >
                   {isCopyingRekoLink ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -603,6 +604,7 @@ function SidePanelDetail({
                   onClick={handleCopyDashboardLink}
                   disabled={isCopyingRekoLink}
                   className="h-7 px-2 gap-1.5 text-xs flex-1"
+                  tabIndex={-1}
                 >
                   {rekoCopied === 'dashboard' ? (
                     <Check className="h-3 w-3 text-muted-foreground" />
