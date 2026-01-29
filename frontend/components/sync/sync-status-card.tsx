@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import { copyToClipboard } from '@/lib/utils'
 import type { SyncStatusResponse, SyncConfig } from '@/types/sync'
 
 interface SyncStatusCardProps {
@@ -155,7 +156,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     if (!config?.railway_database_url) return
 
     try {
-      await navigator.clipboard.writeText(config.railway_database_url)
+      await copyToClipboard(config.railway_database_url)
       setCopied(true)
       toast.success('Connection String kopiert')
       setTimeout(() => setCopied(false), 2000)

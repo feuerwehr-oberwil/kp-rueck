@@ -25,7 +25,7 @@ import {
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { cn } from "@/lib/utils"
+import { cn, copyToClipboardAsync } from "@/lib/utils"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -111,11 +111,14 @@ export function MobileIncidentDetailSheet({
   }, [open, selectedEvent])
 
   // Handler for copying WhatsApp message
-  const handleCopyWhatsApp = async () => {
+  // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
+  const handleCopyWhatsApp = () => {
     if (!operation) return
 
     setIsCopyingWhatsApp(true)
-    try {
+
+    // Create a promise that fetches data and formats the message
+    const messagePromise = (async () => {
       let rekoReport: ApiRekoReportResponse | null = null
       if (operation.hasCompletedReko) {
         try {
@@ -129,21 +132,26 @@ export function MobileIncidentDetailSheet({
         }
       }
 
-      const message = formatWhatsAppMessage({
+      return formatWhatsAppMessage({
         operation,
         materials,
         rekoReport,
         vehicleDrivers,
       })
+    })()
 
-      await navigator.clipboard.writeText(message)
-      toast.success("In Zwischenablage kopiert")
-    } catch (error) {
-      console.error("Failed to copy WhatsApp message:", error)
-      toast.error("Fehler beim Kopieren")
-    } finally {
-      setIsCopyingWhatsApp(false)
-    }
+    // Call synchronously with the promise - Safari will "reserve" clipboard access
+    copyToClipboardAsync(messagePromise)
+      .then(() => {
+        toast.success("In Zwischenablage kopiert")
+      })
+      .catch((error) => {
+        console.error("Failed to copy WhatsApp message:", error)
+        toast.error("Fehler beim Kopieren")
+      })
+      .finally(() => {
+        setIsCopyingWhatsApp(false)
+      })
   }
 
   if (!operation) return null

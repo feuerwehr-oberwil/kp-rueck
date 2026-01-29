@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
+import { cn, copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
 import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Copy, Check, Link2, LayoutDashboard, Loader2 } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -291,7 +291,7 @@ function SidePanelDetail({
     try {
       const response = await apiClient.generateRekoLink(operation.id, assignedRekoPersonnel.id)
       const fullUrl = `${window.location.origin}${response.link}`
-      await navigator.clipboard.writeText(fullUrl)
+      await copyToClipboard(fullUrl)
       setRekoCopied('direct')
       toast.success('Direkt-Link kopiert', {
         description: `Formular-Link für ${assignedRekoPersonnel.name}`
@@ -316,7 +316,7 @@ function SidePanelDetail({
     try {
       const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
       const fullUrl = `${window.location.origin}${response.link}`
-      await navigator.clipboard.writeText(fullUrl)
+      await copyToClipboard(fullUrl)
       setRekoCopied('dashboard')
       toast.success('Dashboard-Link kopiert', {
         description: 'Reko-Personal kann ihre Zuweisungen sehen'
@@ -331,11 +331,14 @@ function SidePanelDetail({
   }
 
   // Handler for copying WhatsApp message
-  const handleCopyWhatsApp = async () => {
+  // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
+  const handleCopyWhatsApp = () => {
     if (!operation) return
 
     setIsCopyingWhatsApp(true)
-    try {
+
+    // Create a promise that fetches data and formats the message
+    const messagePromise = (async () => {
       let rekoReport: ApiRekoReportResponse | null = null
       if (operation.hasCompletedReko) {
         try {
@@ -349,23 +352,28 @@ function SidePanelDetail({
         }
       }
 
-      const message = formatWhatsAppMessage({
+      return formatWhatsAppMessage({
         operation,
         materials,
         rekoReport,
         vehicleDrivers,
       })
+    })()
 
-      await navigator.clipboard.writeText(message)
-      toast.success('In Zwischenablage kopiert', {
-        description: 'Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.',
+    // Call synchronously with the promise - Safari will "reserve" clipboard access
+    copyToClipboardAsync(messagePromise)
+      .then(() => {
+        toast.success('In Zwischenablage kopiert', {
+          description: 'Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.',
+        })
       })
-    } catch (error) {
-      console.error('Failed to copy WhatsApp message:', error)
-      toast.error('Fehler beim Kopieren')
-    } finally {
-      setIsCopyingWhatsApp(false)
-    }
+      .catch((error) => {
+        console.error('Failed to copy WhatsApp message:', error)
+        toast.error('Fehler beim Kopieren')
+      })
+      .finally(() => {
+        setIsCopyingWhatsApp(false)
+      })
   }
 
   // Handler for opening transfer dialog

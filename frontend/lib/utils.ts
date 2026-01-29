@@ -131,3 +131,77 @@ export function getIncidentAge(createdAt: Date): {
     return { label: `${hours} Std`, color: 'bg-red-500', showWarning: true }
   }
 }
+
+/**
+ * Copy text to clipboard with Safari support.
+ *
+ * @param text - The text to copy to clipboard
+ * @returns Promise that resolves when copy succeeds, rejects on failure
+ */
+export async function copyToClipboard(text: string): Promise<void> {
+  // Try modern Clipboard API first (works in Chrome, Firefox, and Safari with direct user gesture)
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      // Fall through to fallback
+    }
+  }
+
+  // Fallback using textarea and execCommand
+  return new Promise((resolve, reject) => {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+
+    try {
+      const successful = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      if (successful) {
+        resolve()
+      } else {
+        reject(new Error('execCommand copy failed'))
+      }
+    } catch (err) {
+      document.body.removeChild(textArea)
+      reject(err)
+    }
+  })
+}
+
+/**
+ * Copy text to clipboard with Safari support for async content.
+ *
+ * Safari requires clipboard access to be "reserved" during the user gesture.
+ * This function uses ClipboardItem with a Promise, which Safari supports,
+ * allowing you to fetch content asynchronously while maintaining clipboard access.
+ *
+ * IMPORTANT: Call this function synchronously in your click handler, passing
+ * a Promise that resolves to the text content.
+ *
+ * @param textPromise - A Promise that resolves to the text to copy
+ * @returns Promise that resolves when copy succeeds, rejects on failure
+ *
+ * @example
+ * const handleClick = () => {
+ *   // Call synchronously - the promise can resolve later
+ *   copyToClipboardAsync(fetchData().then(data => formatMessage(data)))
+ * }
+ */
+export function copyToClipboardAsync(textPromise: Promise<string>): Promise<void> {
+  // Check if ClipboardItem is supported (Safari, Chrome, Edge)
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    // Create a ClipboardItem with a Promise - Safari will "reserve" clipboard access
+    const clipboardItem = new ClipboardItem({
+      'text/plain': textPromise.then(text => new Blob([text], { type: 'text/plain' }))
+    })
+    return navigator.clipboard.write([clipboardItem])
+  }
+
+  // Fallback: wait for the text and use regular copy
+  return textPromise.then(text => copyToClipboard(text))
+}

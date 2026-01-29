@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { Button } from './button'
 import { toast } from 'sonner'
+import { copyToClipboard } from '@/lib/utils'
 
 interface CopyButtonProps {
   text: string
@@ -22,7 +23,7 @@ export function CopyButton({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text)
+      await copyToClipboard(text)
       setCopied(true)
       toast.success('Kopiert', {
         description: 'Text wurde in die Zwischenablage kopiert.',

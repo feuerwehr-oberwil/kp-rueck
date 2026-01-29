@@ -21,6 +21,7 @@ import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { Kbd } from "@/components/ui/kbd"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
+import { copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
@@ -139,11 +140,14 @@ export function OperationDetailModal({
   }, [open, selectedEvent])
 
   // Handler for copying WhatsApp message
-  const handleCopyWhatsApp = async () => {
+  // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
+  const handleCopyWhatsApp = () => {
     if (!operation) return
 
     setIsCopyingWhatsApp(true)
-    try {
+
+    // Create a promise that fetches data and formats the message
+    const messagePromise = (async () => {
       // Fetch the latest Reko report if one exists
       let rekoReport: ApiRekoReportResponse | null = null
       if (operation.hasCompletedReko) {
@@ -160,27 +164,31 @@ export function OperationDetailModal({
         }
       }
 
-      // Format the message
-      const message = formatWhatsAppMessage({
+      // Format and return the message
+      return formatWhatsAppMessage({
         operation,
         materials,
         rekoReport,
         vehicleDrivers,
       })
+    })()
 
-      // Copy to clipboard
-      await navigator.clipboard.writeText(message)
-      toast.success('In Zwischenablage kopiert', {
-        description: 'Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.',
+    // Call synchronously with the promise - Safari will "reserve" clipboard access
+    copyToClipboardAsync(messagePromise)
+      .then(() => {
+        toast.success('In Zwischenablage kopiert', {
+          description: 'Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.',
+        })
       })
-    } catch (error) {
-      console.error('Failed to copy WhatsApp message:', error)
-      toast.error('Fehler beim Kopieren', {
-        description: 'Die Nachricht konnte nicht in die Zwischenablage kopiert werden.',
+      .catch((error) => {
+        console.error('Failed to copy WhatsApp message:', error)
+        toast.error('Fehler beim Kopieren', {
+          description: 'Die Nachricht konnte nicht in die Zwischenablage kopiert werden.',
+        })
       })
-    } finally {
-      setIsCopyingWhatsApp(false)
-    }
+      .finally(() => {
+        setIsCopyingWhatsApp(false)
+      })
   }
 
   // Handler for copying direct reko form link
@@ -194,7 +202,7 @@ export function OperationDetailModal({
     try {
       const response = await apiClient.generateRekoLink(operation.id, assignedRekoPersonnel.id)
       const fullUrl = `${window.location.origin}${response.link}`
-      await navigator.clipboard.writeText(fullUrl)
+      await copyToClipboard(fullUrl)
       setRekoCopied('direct')
       toast.success('Direkt-Link kopiert', {
         description: `Formular-Link für ${assignedRekoPersonnel.name}`
@@ -219,7 +227,7 @@ export function OperationDetailModal({
     try {
       const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
       const fullUrl = `${window.location.origin}${response.link}`
-      await navigator.clipboard.writeText(fullUrl)
+      await copyToClipboard(fullUrl)
       setRekoCopied('dashboard')
       toast.success('Dashboard-Link kopiert', {
         description: 'Reko-Personal kann ihre Zuweisungen sehen'

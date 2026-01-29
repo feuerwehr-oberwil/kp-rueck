@@ -12,7 +12,7 @@ import { apiClient } from '@/lib/api-client'
 import { generateChecklistTasks, ChecklistTaskState } from '@/lib/checklist-tasks'
 import { ChecklistTaskItem } from '@/components/checklist-task-item'
 import { QRCodeSVG } from 'qrcode.react'
-import { cn } from '@/lib/utils'
+import { cn, copyToClipboard } from '@/lib/utils'
 
 interface EventSetupChecklistProps {
   eventId: string
@@ -37,7 +37,7 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
     try {
       const response = await apiClient.generateCheckInLink(eventId)
       const fullUrl = `${window.location.origin}${response.link}`
-      await navigator.clipboard.writeText(fullUrl)
+      await copyToClipboard(fullUrl)
       toast.success('Check-In Link kopiert', {
         description: 'Der Link wurde in die Zwischenablage kopiert.'
       })
@@ -83,7 +83,7 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
       `📱 Check-In Link wird separat gesendet.`
 
     // Copy to clipboard
-    navigator.clipboard.writeText(message).then(() => {
+    copyToClipboard(message).then(() => {
       toast.success('WhatsApp-Nachricht kopiert', {
         description: 'Die Nachricht wurde in die Zwischenablage kopiert. Fügen Sie sie in WhatsApp ein.'
       })
@@ -106,7 +106,7 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
     if (!checkInUrl) return
 
     try {
-      await navigator.clipboard.writeText(checkInUrl)
+      await copyToClipboard(checkInUrl)
       setCopied(true)
       toast.success('Link kopiert')
       setTimeout(() => setCopied(false), 2000)
