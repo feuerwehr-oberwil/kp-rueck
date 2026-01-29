@@ -477,7 +477,7 @@ function SidePanelDetail({
             value={operation.incidentType}
             onValueChange={(value) => onUpdate({ incidentType: value })}
           >
-            <SelectTrigger className="mt-1 h-9 text-sm" aria-labelledby="panel-type-label">
+            <SelectTrigger className="mt-1 h-9 text-sm w-full" aria-labelledby="panel-type-label" tabIndex={0}>
               <SelectValue placeholder="Auswählen" />
             </SelectTrigger>
             <SelectContent>
@@ -496,7 +496,7 @@ function SidePanelDetail({
             value={operation.priority}
             onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
           >
-            <SelectTrigger className="mt-1 h-9 text-sm" aria-labelledby="panel-priority-label">
+            <SelectTrigger className="mt-1 h-9 text-sm w-full" aria-labelledby="panel-priority-label" tabIndex={0}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -557,7 +557,6 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => setRekoDialogOpen(true)}
               className="h-6 px-2 gap-1 text-xs"
-              tabIndex={-1}
             >
               {assignedRekoPersonnel ? (
                 <>
@@ -588,7 +587,6 @@ function SidePanelDetail({
                   onClick={handleCopyDirectRekoLink}
                   disabled={isCopyingRekoLink}
                   className="h-7 px-2 gap-1.5 text-xs flex-1"
-                  tabIndex={-1}
                 >
                   {isCopyingRekoLink ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -605,7 +603,6 @@ function SidePanelDetail({
                   onClick={handleCopyDashboardLink}
                   disabled={isCopyingRekoLink}
                   className="h-7 px-2 gap-1.5 text-xs flex-1"
-                  tabIndex={-1}
                 >
                   {rekoCopied === 'dashboard' ? (
                     <Check className="h-3 w-3 text-muted-foreground" />
@@ -633,7 +630,6 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => onAssignResource('crew', operation.id)}
               className="h-6 px-2 gap-1 text-xs"
-              tabIndex={-1}
             >
               <Plus className="h-3 w-3" />
               Hinzufügen
@@ -673,7 +669,7 @@ function SidePanelDetail({
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs" tabIndex={-1}>
+                <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs">
                   <Plus className="h-3 w-3" />
                   Hinzufügen
                 </Button>
@@ -748,7 +744,6 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => onAssignResource('materials', operation.id)}
               className="h-6 px-2 gap-1 text-xs"
-              tabIndex={-1}
             >
               <Plus className="h-3 w-3" />
               Hinzufügen
