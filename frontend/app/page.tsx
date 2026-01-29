@@ -377,46 +377,51 @@ export default function FireStationDashboard() {
       // Scroll the card into view after a short delay for DOM to be ready
       const scrollTimer = setTimeout(() => {
         const card = document.querySelector(`[data-incident-id="${highlightParam}"]`) as HTMLElement
-        if (card) {
-          // Find the main scrollable container (horizontal scroll)
-          const mainContainer = document.querySelector('main.overflow-x-auto') as HTMLElement
-          const column = card.closest('[data-column]') as HTMLElement
+        if (!card) {
+          console.warn('Card not found for highlight:', highlightParam)
+          return
+        }
 
-          if (mainContainer && column) {
-            // Calculate scroll position to center the column horizontally
-            const containerRect = mainContainer.getBoundingClientRect()
-            const columnRect = column.getBoundingClientRect()
-            const columnCenter = columnRect.left + columnRect.width / 2
-            const containerCenter = containerRect.left + containerRect.width / 2
-            const scrollLeft = mainContainer.scrollLeft + (columnCenter - containerCenter)
+        const mainContainer = document.getElementById('kanban-main')
+        const column = card.closest('[data-column]') as HTMLElement
+
+        if (mainContainer && column) {
+          // Get the inner flex container that holds all columns
+          const columnsContainer = mainContainer.querySelector('.flex.h-full') as HTMLElement
+          if (columnsContainer) {
+            // Calculate column position within the columns container
+            let columnLeft = 0
+            const columns = columnsContainer.children
+            for (let i = 0; i < columns.length; i++) {
+              if (columns[i] === column) break
+              columnLeft += (columns[i] as HTMLElement).offsetWidth + 12 // 12px = gap-3
+            }
+
+            const columnWidth = column.offsetWidth
+            const containerWidth = mainContainer.clientWidth
+
+            // Calculate scroll to center the column
+            const scrollLeft = columnLeft - (containerWidth / 2) + (columnWidth / 2)
 
             mainContainer.scrollTo({
-              left: scrollLeft,
+              left: Math.max(0, scrollLeft),
               behavior: 'smooth'
             })
           }
-
-          // Then scroll the card vertically within its column
-          setTimeout(() => {
-            const columnContent = card.closest('.overflow-y-auto') as HTMLElement
-            if (columnContent) {
-              const contentRect = columnContent.getBoundingClientRect()
-              const cardRect = card.getBoundingClientRect()
-              const cardCenter = cardRect.top + cardRect.height / 2
-              const contentCenter = contentRect.top + contentRect.height / 2
-              const scrollTop = columnContent.scrollTop + (cardCenter - contentCenter)
-
-              columnContent.scrollTo({
-                top: scrollTop,
-                behavior: 'smooth'
-              })
-            }
-          }, 350)
         }
-      }, 150)
 
-      // Clear highlight after 3 seconds
-      const timer = setTimeout(() => setHighlightedOperationId(null), 3000)
+        // After horizontal scroll completes, scroll vertically to center the card
+        setTimeout(() => {
+          card.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          })
+        }, 500)
+      }, 200)
+
+      // Clear highlight after 4 seconds (give more time for scrolling)
+      const timer = setTimeout(() => setHighlightedOperationId(null), 4000)
       return () => {
         clearTimeout(timer)
         clearTimeout(scrollTimer)
@@ -1083,7 +1088,7 @@ export default function FireStationDashboard() {
           )}
 
           {/* Main Kanban Board */}
-          <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
+          <main id="kanban-main" className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
             {isLoading ? (
               <KanbanLoading />
             ) : (
