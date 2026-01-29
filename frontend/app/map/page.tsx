@@ -241,8 +241,8 @@ export default function MapPage() {
         return
       }
 
-      // '/' key to focus search
-      if (e.key === '/') {
+      // '/' or 'S' key to focus search (S for Suche - Swiss-German keyboard friendly)
+      if (e.key === '/' || ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey)) {
         e.preventDefault()
         document.getElementById('map-search-input')?.focus()
       }

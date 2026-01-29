@@ -492,7 +492,8 @@ export default function FireStationDashboard() {
         if (hoveredOperationId) {
           moveOperationLeft(hoveredOperationId)
         }
-      } else if (e.key === '/') {
+      } else if (e.key === '/' || ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey)) {
+        // S for Suche (Swiss-German keyboard friendly alternative to /)
         e.preventDefault()
         document.getElementById('search-input')?.focus()
       } else if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey) {
@@ -513,14 +514,16 @@ export default function FireStationDashboard() {
         // Only prevent default if no modifier keys (allows cmd+n/ctrl+n for new window)
         e.preventDefault()
         setNewEmergencyModalOpen(true)
-      } else if (e.key === '[') {
+      } else if (e.key === '[' || e.key === 'q' || e.key === 'Q') {
+        // Q as Swiss-German keyboard friendly alternative to [
         e.preventDefault()
         setShowLeftSidebar(prev => !prev)
-      } else if (e.key === ']') {
+      } else if (e.key === ']' || e.key === 'w' || e.key === 'W') {
+        // W as Swiss-German keyboard friendly alternative to ]
         e.preventDefault()
         setShowRightSidebar(prev => !prev)
-      } else if (e.key === '\\') {
-        // Toggle side panel (detail/map view)
+      } else if (e.key === '\\' || e.key === 'i' || e.key === 'I') {
+        // I for Info panel - Swiss-German keyboard friendly alternative to \
         e.preventDefault()
         setSidePanelMode(prev => prev === 'collapsed' ? 'detail' : 'collapsed')
       } else if ((e.key === 'd' || e.key === 'D') && !e.metaKey && !e.ctrlKey && sidePanelMode !== 'collapsed') {
@@ -873,7 +876,7 @@ export default function FireStationDashboard() {
                   className="w-72 pl-9"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Kbd>/</Kbd>
+                  <Kbd>S</Kbd>
                 </div>
               </div>
 

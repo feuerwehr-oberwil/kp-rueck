@@ -168,7 +168,7 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 | Shortcut | Aktion |
 |----------|--------|
 | `N` | Neuer Einsatz |
-| `/` | Suche fokussieren |
+| `S` / `/` | Suche fokussieren |
 | `R` | Aktualisieren |
 | `F` | Fahrzeugstatus |
 
@@ -187,9 +187,9 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 |----------|--------|
 | `↑` / `↓` | Einsatz auswählen |
 | `Tab` | Durch Einsätze durchlaufen |
-| `[` | Personal-Seitenleiste ein/aus |
-| `]` | Material-Seitenleiste ein/aus |
-| `\` | Detail-Panel ein/aus |
+| `Q` / `[` | Personal-Seitenleiste ein/aus |
+| `W` / `]` | Material-Seitenleiste ein/aus |
+| `I` / `\` | Detail-Panel ein/aus |
 | `D` | Panel: Details anzeigen |
 | `K` | Panel: Karte anzeigen |
 | `B` | Benachrichtigungen |

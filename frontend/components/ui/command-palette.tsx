@@ -155,14 +155,14 @@ export function CommandPalette() {
                 <CommandItem onSelect={() => runCommand(onToggleLeftSidebar)}>
                   <Users className="mr-2 h-4 w-4" />
                   <span>Personal-Seitenleiste</span>
-                  <span className="ml-auto text-xs text-muted-foreground">[</span>
+                  <span className="ml-auto text-xs text-muted-foreground">Q / [</span>
                 </CommandItem>
               )}
               {onToggleRightSidebar && (
                 <CommandItem onSelect={() => runCommand(onToggleRightSidebar)}>
                   <Package className="mr-2 h-4 w-4" />
                   <span>Material-Seitenleiste</span>
-                  <span className="ml-auto text-xs text-muted-foreground">]</span>
+                  <span className="ml-auto text-xs text-muted-foreground">W / ]</span>
                 </CommandItem>
               )}
               {onToggleNotifications && (
@@ -180,7 +180,7 @@ export function CommandPalette() {
               <CommandItem onSelect={() => runCommand(() => document.getElementById('search-input')?.focus())}>
                 <Search className="mr-2 h-4 w-4" />
                 <span>Einsätze durchsuchen</span>
-                <span className="ml-auto text-xs text-muted-foreground">/</span>
+                <span className="ml-auto text-xs text-muted-foreground">S / /</span>
               </CommandItem>
               {onSearchPersonnel && (
                 <CommandItem onSelect={() => runCommand(onSearchPersonnel)}>
