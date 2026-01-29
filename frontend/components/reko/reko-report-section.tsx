@@ -85,13 +85,15 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
           {report.is_relevant ? (
-            <CheckCircle2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
           ) : (
             <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           )}
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <h4 className="font-semibold">Reko-Meldung</h4>
+              <span className="font-medium">
+                {report.is_relevant ? 'Einsatz relevant' : 'Kein Einsatz nötig'}
+              </span>
               {report.submitted_by_personnel_name && (
                 <Badge variant="secondary" className="gap-1">
                   <Binoculars className="h-3 w-3" />
@@ -99,9 +101,6 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">
-              {report.is_relevant ? 'Einsatz relevant' : 'Kein Einsatz nötig'}
-            </p>
           </div>
         </div>
 

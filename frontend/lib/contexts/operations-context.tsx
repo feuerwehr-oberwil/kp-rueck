@@ -662,9 +662,52 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const updateOperation = (operationId: string, updates: Partial<Operation>) => {
     const enhancedUpdates = updates.status ? { ...updates, statusChangedAt: new Date() } : updates
 
+    // When completing an operation, auto-release personnel and vehicles (backend does this too)
+    const isCompletingOperation = updates.status === "complete"
+
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, ...enhancedUpdates } : op))
+      ops.map((op) => {
+        if (op.id !== operationId) return op
+
+        let updatedOp = { ...op, ...enhancedUpdates }
+
+        // Clear crew and vehicles when completing (backend auto-releases these)
+        if (isCompletingOperation) {
+          updatedOp = {
+            ...updatedOp,
+            crew: [],
+            crewAssignments: new Map(),
+            vehicles: [],
+            vehicleAssignments: new Map(),
+            // Keep materials - backend keeps them assigned (may be left on site)
+          }
+        }
+
+        return updatedOp
+      })
     )
+
+    // Update personnel status to available when operation completes
+    if (isCompletingOperation) {
+      const operation = operations.find(op => op.id === operationId)
+      if (operation) {
+        const crewToRelease = operation.crew
+        setPersonnel((people) =>
+          people.map((p) => {
+            if (crewToRelease.includes(p.name)) {
+              // Check if still assigned to another operation
+              const stillAssigned = operations.some(
+                op => op.id !== operationId && op.crew.includes(p.name)
+              )
+              if (!stillAssigned) {
+                return { ...p, status: "available" as PersonStatus }
+              }
+            }
+            return p
+          })
+        )
+      }
+    }
 
     if (updates.status !== undefined) {
       recentStatusUpdateRef.current = true

@@ -12,6 +12,7 @@ interface UseKanbanDragDropProps {
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   setDraggingItem?: (item: Person | Material | Operation | null) => void
+  onOperationDrop?: (operationId: string) => void
 }
 
 /**
@@ -28,6 +29,7 @@ export function useKanbanDragDrop({
   assignRekoPersonToOperation,
   assignMaterialToOperation,
   setDraggingItem,
+  onOperationDrop,
 }: UseKanbanDragDropProps) {
 
   useEffect(() => {
@@ -159,6 +161,9 @@ export function useKanbanDragDrop({
 
               // Persist status change to backend
               updateOperation(draggedOp.id, { status: targetOp.status as OperationStatus })
+
+              // Auto-select the dropped card
+              onOperationDrop?.(draggedOp.id)
             }
           }
           // Dropped on empty column area
@@ -168,10 +173,13 @@ export function useKanbanDragDrop({
 
             if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
               updateOperation(draggedOp.id, { status: targetColumn.status[0] as OperationStatus })
+
+              // Auto-select the dropped card
+              onOperationDrop?.(draggedOp.id)
             }
           }
         }
       },
     })
-  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, setOperations, updateOperation, setDraggingItem])
+  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, setOperations, updateOperation, setDraggingItem, onOperationDrop])
 }

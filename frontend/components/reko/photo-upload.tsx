@@ -169,7 +169,7 @@ export default function PhotoUpload({
               <button
                 type="button"
                 onClick={() => handleRemovePhoto(filename)}
-                className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors"
+                className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-md"
               >
                 <X className="h-4 w-4" />
               </button>

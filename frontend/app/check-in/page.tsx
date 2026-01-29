@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { CheckCircle, Circle, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient, type WebSocketUpdate } from '@/lib/websocket-client'
 
@@ -80,7 +81,9 @@ export default function CheckInPage() {
 
     // Prevent checkout of assigned personnel
     if (person.checked_in && person.is_assigned) {
-      alert('Diese Person ist einem Einsatz zugewiesen und kann nicht abgemeldet werden.')
+      toast.error('Abmeldung nicht möglich', {
+        description: 'Diese Person ist einem Einsatz zugewiesen und kann nicht abgemeldet werden.'
+      })
       return
     }
 
@@ -101,7 +104,9 @@ export default function CheckInPage() {
       )
     } catch (error) {
       console.error('Check-in toggle failed:', error)
-      alert('Fehler beim Ändern des Check-in Status. Bitte versuchen Sie es erneut.')
+      toast.error('Fehler beim Ändern des Status', {
+        description: 'Bitte versuchen Sie es erneut.'
+      })
       skipNextRefreshRef.current = false // Allow refresh on error to get correct state
       // Reload to get correct state (background refresh)
       loadPersonnel(false)

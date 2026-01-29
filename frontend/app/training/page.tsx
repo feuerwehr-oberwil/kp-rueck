@@ -2,6 +2,7 @@
 
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
+import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { TrainingControls } from "@/components/training-controls"
 import { useEvent } from "@/lib/contexts/event-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -40,7 +41,7 @@ export default function TrainingPage() {
             />
           </header>
 
-          <main className="flex-1 flex items-center justify-center p-4">
+          <main className="flex-1 flex items-center justify-center p-4 pb-20 md:pb-4">
             <Alert variant="destructive" className="max-w-md">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -49,6 +50,8 @@ export default function TrainingPage() {
               </AlertDescription>
             </Alert>
           </main>
+
+          <MobileBottomNavigation currentPage="training" />
         </div>
       </ProtectedRoute>
     )
@@ -65,11 +68,13 @@ export default function TrainingPage() {
           />
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-20 md:pb-8">
           <div className="max-w-4xl mx-auto">
             <TrainingControls />
           </div>
         </main>
+
+        <MobileBottomNavigation currentPage="training" />
       </div>
     </ProtectedRoute>
   )

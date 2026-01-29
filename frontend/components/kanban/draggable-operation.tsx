@@ -165,8 +165,8 @@ function DraggableOperationBase({
           !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
           isOver && 'bg-muted/20',
           // Selection/highlight states - use red for high priority
-          isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400 bg-muted/20' : 'border-l-4 border-l-foreground bg-muted/20'),
-          isSelected && !isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400/80 bg-muted/10' : 'border-l-4 border-l-foreground/70 bg-muted/10'),
+          isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400 bg-muted/30' : 'border-l-4 border-l-foreground bg-muted/30'),
+          isSelected && !isHighlighted && (priority === 'high' ? 'border-l-4 border-l-red-400/80 bg-muted/20 shadow-sm' : 'border-l-4 border-l-foreground/70 bg-muted/20 shadow-sm'),
           isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-2 border-l-red-400/50' : 'border-l-2 border-l-muted-foreground/50')
         )}
         onMouseEnter={() => onHover(operation.id)}

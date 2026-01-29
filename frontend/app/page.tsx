@@ -470,23 +470,6 @@ export default function FireStationDashboard() {
         return
       }
 
-      // Tab navigation - cycle through all operations
-      if (e.key === 'Tab') {
-        e.preventDefault()
-        const allOps = operations
-        if (allOps.length === 0) return
-
-        if (!hoveredOperationId) {
-          setHoveredOperationId(allOps[0].id)
-          return
-        }
-
-        const currentIndex = allOps.findIndex(op => op.id === hoveredOperationId)
-        const newIndex = (currentIndex + 1) % allOps.length
-        setHoveredOperationId(allOps[newIndex].id)
-        return
-      }
-
       // Vehicle assignment shortcuts (1-5) - works on hovered operation
       // Toggle vehicle assignment: assign if not assigned, unassign if assigned
       const vehicleShortcut = vehicleTypes.find(vt => vt.key === e.key)
@@ -627,6 +610,11 @@ export default function FireStationDashboard() {
     assignRekoPersonToOperation,
     assignMaterialToOperation,
     setDraggingItem,
+    onOperationDrop: (operationId) => {
+      // Auto-select dropped card in side panel
+      setPanelSelectedId(operationId)
+      setHoveredOperationId(operationId)
+    },
   })
 
   // Use shared resource filtering hook

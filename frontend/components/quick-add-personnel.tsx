@@ -5,6 +5,7 @@ import { apiClient, type ApiPersonnelCreate } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface QuickAddPersonnelProps {
   /** Called after person is added - receives the new person data for optimistic update */
@@ -49,7 +50,20 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
       })
     } catch (error) {
       console.error('Failed to add person:', error)
-      alert('Fehler beim Hinzufügen der Person.')
+      // Provide specific error messages based on error type
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        toast.error('Netzwerkfehler', {
+          description: 'Bitte Internetverbindung prüfen und erneut versuchen.'
+        })
+      } else if (error instanceof Error && error.message.includes('409')) {
+        toast.error('Person existiert bereits', {
+          description: 'Eine Person mit diesem Namen ist bereits vorhanden.'
+        })
+      } else {
+        toast.error('Fehler beim Hinzufügen', {
+          description: 'Die Person konnte nicht hinzugefügt werden. Bitte erneut versuchen.'
+        })
+      }
     } finally {
       setAddingPerson(false)
     }

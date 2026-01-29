@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useEvent } from '@/lib/contexts/event-context';
-import { useNotifications } from '@/lib/contexts/notification-context';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +17,6 @@ import {
 
 export function TrainingControls() {
   const { selectedEvent } = useEvent();
-  const { refetchNotifications } = useNotifications();
   const [isGenerating, setIsGenerating] = useState(false);
 
   if (!selectedEvent?.training_flag) {
@@ -32,9 +30,6 @@ export function TrainingControls() {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'normal', count: 1 });
       const incident = incidents[0];
       console.log('✓ Normal training emergency created:', incident.title, 'at', incident.location_address);
-
-      // Refetch notifications to show the new alarm
-      await refetchNotifications();
 
       toast.success('✓ Normal-Einsatz erstellt', {
         description: (
@@ -63,9 +58,6 @@ export function TrainingControls() {
       const incident = incidents[0];
       console.log('✓ Critical training emergency created:', incident.title, 'at', incident.location_address);
 
-      // Refetch notifications to show the new alarm
-      await refetchNotifications();
-
       toast.success('✓ Kritischer Einsatz erstellt', {
         description: (
           <div className="mt-2 space-y-1">
@@ -91,9 +83,6 @@ export function TrainingControls() {
       console.log('🚀 Generating burst of 5 training emergencies...');
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: null, count: 5 });
       console.log(`✓ ${incidents.length} training emergencies created:`, incidents.map(i => i.title).join(', '));
-
-      // Refetch notifications to show the new alarms
-      await refetchNotifications();
 
       toast.success(`✓ ${incidents.length} Einsätze erstellt`, {
         description: (
