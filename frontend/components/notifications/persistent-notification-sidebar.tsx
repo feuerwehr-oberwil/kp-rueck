@@ -131,7 +131,7 @@ export function PersistentNotificationSidebar() {
       )}
     >
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-card/95 backdrop-blur-sm">
+      <header className="flex items-center justify-between px-4 py-2 min-h-14 border-b border-border/50 bg-card/95 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5 text-muted-foreground" />
           <h2 className="text-base font-semibold">Benachrichtigungen</h2>
