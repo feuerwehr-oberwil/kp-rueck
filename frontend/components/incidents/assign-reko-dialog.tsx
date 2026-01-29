@@ -82,32 +82,34 @@ export function AssignRekoDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-muted-foreground">Lädt...</span>
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <p className="text-destructive">{error}</p>
-              <Button variant="outline" onClick={loadAvailablePersonnel} className="mt-4">
-                Erneut versuchen
-              </Button>
-            </div>
-          ) : personnel.length === 0 ? (
-            <div className="text-center py-8">
-              <User className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-              <p className="text-sm font-medium text-foreground mb-2">
-                Keine Reko-Personen verfügbar
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Tipp: Rechtsklick auf eine Person in der Seitenleiste → "Als Reko zuweisen" um jemanden als Reko-Personal zu markieren.
-              </p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[300px] pr-4">
-              <div className="space-y-2">
-                {personnel.map((person) => {
+          {/* Fixed height container to prevent layout shifts */}
+          <div className="min-h-[300px]">
+            {loading ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Lädt...</span>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <p className="text-destructive">{error}</p>
+                <Button variant="outline" onClick={loadAvailablePersonnel} className="mt-4">
+                  Erneut versuchen
+                </Button>
+              </div>
+            ) : personnel.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <User className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                <p className="text-sm font-medium text-foreground mb-2">
+                  Keine Reko-Personen verfügbar
+                </p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Tipp: Rechtsklick auf eine Person in der Seitenleiste → "Als Reko zuweisen" um jemanden als Reko-Personal zu markieren.
+                </p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] pr-4">
+                <div className="space-y-2">
+                  {personnel.map((person) => {
                   const isCurrentlyAssigned = person.personnel_id === currentlyAssignedId
                   return (
                     <button
@@ -153,8 +155,9 @@ export function AssignRekoDialog({
                   )
                 })}
               </div>
-            </ScrollArea>
-          )}
+              </ScrollArea>
+            )}
+          </div>
 
           {/* Footer */}
           <div className="flex justify-end pt-2">
