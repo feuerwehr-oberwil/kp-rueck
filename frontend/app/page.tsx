@@ -376,17 +376,42 @@ export default function FireStationDashboard() {
 
       // Scroll the card into view after a short delay for DOM to be ready
       const scrollTimer = setTimeout(() => {
-        const card = document.querySelector(`[data-incident-id="${highlightParam}"]`)
+        const card = document.querySelector(`[data-incident-id="${highlightParam}"]`) as HTMLElement
         if (card) {
-          // First scroll the column horizontally into view
-          const column = card.closest('[data-column]')
-          if (column) {
-            column.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+          // Find the main scrollable container (horizontal scroll)
+          const mainContainer = document.querySelector('main.overflow-x-auto') as HTMLElement
+          const column = card.closest('[data-column]') as HTMLElement
+
+          if (mainContainer && column) {
+            // Calculate scroll position to center the column horizontally
+            const containerRect = mainContainer.getBoundingClientRect()
+            const columnRect = column.getBoundingClientRect()
+            const columnCenter = columnRect.left + columnRect.width / 2
+            const containerCenter = containerRect.left + containerRect.width / 2
+            const scrollLeft = mainContainer.scrollLeft + (columnCenter - containerCenter)
+
+            mainContainer.scrollTo({
+              left: scrollLeft,
+              behavior: 'smooth'
+            })
           }
-          // Then scroll the card vertically into view within its column
+
+          // Then scroll the card vertically within its column
           setTimeout(() => {
-            card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
-          }, 300)
+            const columnContent = card.closest('.overflow-y-auto') as HTMLElement
+            if (columnContent) {
+              const contentRect = columnContent.getBoundingClientRect()
+              const cardRect = card.getBoundingClientRect()
+              const cardCenter = cardRect.top + cardRect.height / 2
+              const contentCenter = contentRect.top + contentRect.height / 2
+              const scrollTop = columnContent.scrollTop + (cardCenter - contentCenter)
+
+              columnContent.scrollTo({
+                top: scrollTop,
+                behavior: 'smooth'
+              })
+            }
+          }, 350)
         }
       }, 150)
 
