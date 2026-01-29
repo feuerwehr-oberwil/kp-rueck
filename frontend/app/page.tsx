@@ -79,6 +79,65 @@ export default function FireStationDashboard() {
   const highlightParam = searchParams.get("highlight")
   const isMobile = useIsMobile()
 
+  // Ref for highlight timeout cleanup
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Scroll to and highlight a card by operation ID
+  const scrollToCard = useCallback((operationId: string) => {
+    // Clear any existing highlight timeout
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current)
+    }
+
+    // Set highlight immediately
+    setHighlightedOperationId(operationId)
+
+    // Clear highlight after 3 seconds
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedOperationId(null)
+    }, 3000)
+
+    // Scroll after short delay for DOM readiness
+    setTimeout(() => {
+      const card = document.querySelector(`[data-incident-id="${operationId}"]`) as HTMLElement
+      if (!card) return
+
+      const mainContainer = document.getElementById('kanban-main')
+      const column = card.closest('[data-column]') as HTMLElement
+
+      if (mainContainer && column) {
+        const columnsContainer = mainContainer.querySelector('.flex.h-full') as HTMLElement
+        if (columnsContainer) {
+          // Calculate column position
+          let columnLeft = 0
+          const columns = columnsContainer.children
+          for (let i = 0; i < columns.length; i++) {
+            if (columns[i] === column) break
+            columnLeft += (columns[i] as HTMLElement).offsetWidth + 12 // 12px = gap-3
+          }
+
+          const columnWidth = column.offsetWidth
+          const containerWidth = mainContainer.clientWidth
+          const scrollLeft = columnLeft - (containerWidth / 2) + (columnWidth / 2)
+
+          mainContainer.scrollTo({
+            left: Math.max(0, scrollLeft),
+            behavior: 'smooth'
+          })
+        }
+      }
+
+      // Vertical scroll after horizontal completes
+      setTimeout(() => {
+        card.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        })
+      }, 300)
+    }, 100)
+  }, [])
+
   // Enable reko notifications for all incidents with modal opening support
   const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
     const operation = operations.find(op => op.id === incidentId)
@@ -369,65 +428,14 @@ export default function FireStationDashboard() {
   }, [])
 
 
-  // Just highlight the operation from the map, don't auto-open modal
+  // Scroll to and highlight operation when navigating with ?highlight= param
   useEffect(() => {
     if (highlightParam) {
-      setHighlightedOperationId(highlightParam)
-
-      // Scroll the card into view after a short delay for DOM to be ready
-      const scrollTimer = setTimeout(() => {
-        const card = document.querySelector(`[data-incident-id="${highlightParam}"]`) as HTMLElement
-        if (!card) {
-          console.warn('Card not found for highlight:', highlightParam)
-          return
-        }
-
-        const mainContainer = document.getElementById('kanban-main')
-        const column = card.closest('[data-column]') as HTMLElement
-
-        if (mainContainer && column) {
-          // Get the inner flex container that holds all columns
-          const columnsContainer = mainContainer.querySelector('.flex.h-full') as HTMLElement
-          if (columnsContainer) {
-            // Calculate column position within the columns container
-            let columnLeft = 0
-            const columns = columnsContainer.children
-            for (let i = 0; i < columns.length; i++) {
-              if (columns[i] === column) break
-              columnLeft += (columns[i] as HTMLElement).offsetWidth + 12 // 12px = gap-3
-            }
-
-            const columnWidth = column.offsetWidth
-            const containerWidth = mainContainer.clientWidth
-
-            // Calculate scroll to center the column
-            const scrollLeft = columnLeft - (containerWidth / 2) + (columnWidth / 2)
-
-            mainContainer.scrollTo({
-              left: Math.max(0, scrollLeft),
-              behavior: 'smooth'
-            })
-          }
-        }
-
-        // After horizontal scroll completes, scroll vertically to center the card
-        setTimeout(() => {
-          card.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
-          })
-        }, 500)
-      }, 200)
-
-      // Clear highlight after 4 seconds (give more time for scrolling)
-      const timer = setTimeout(() => setHighlightedOperationId(null), 4000)
-      return () => {
-        clearTimeout(timer)
-        clearTimeout(scrollTimer)
-      }
+      scrollToCard(highlightParam)
+      // Clear the URL param to prevent re-scroll on refresh
+      router.replace('/', { scroll: false })
     }
-  }, [highlightParam])
+  }, [highlightParam, scrollToCard, router])
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -620,9 +628,12 @@ export default function FireStationDashboard() {
     window.addEventListener('keydown', handleKeyPress)
     return () => {
       window.removeEventListener('keydown', handleKeyPress)
-      // Clean up timeout on unmount
+      // Clean up timeouts on unmount
       if (gPrefixTimeoutRef.current) {
         clearTimeout(gPrefixTimeoutRef.current)
+      }
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current)
       }
     }
   }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, activeFooterSheet, deleteDialogOpen, sidePanelMode])
@@ -711,8 +722,7 @@ export default function FireStationDashboard() {
       }
 
       if (assignedOp) {
-        setHighlightedOperationId(assignedOp.id)
-        setTimeout(() => setHighlightedOperationId(null), 3000)
+        scrollToCard(assignedOp.id)
       }
     }
   }
@@ -722,8 +732,7 @@ export default function FireStationDashboard() {
       // Find the operation this material is assigned to
       const assignedOp = operations.find(op => op.materials.includes(material.id))
       if (assignedOp) {
-        setHighlightedOperationId(assignedOp.id)
-        setTimeout(() => setHighlightedOperationId(null), 3000)
+        scrollToCard(assignedOp.id)
       }
     }
   }
@@ -795,7 +804,8 @@ export default function FireStationDashboard() {
     if (!checkInUrl) return
 
     try {
-      await navigator.clipboard.writeText(checkInUrl)
+      const { copyToClipboard } = await import('@/lib/utils')
+      await copyToClipboard(checkInUrl)
       setCopied(true)
       toast.success('Link kopiert')
       setTimeout(() => setCopied(false), 2000)
@@ -836,7 +846,8 @@ export default function FireStationDashboard() {
     if (!rekoDashboardUrl) return
 
     try {
-      await navigator.clipboard.writeText(rekoDashboardUrl)
+      const { copyToClipboard } = await import('@/lib/utils')
+      await copyToClipboard(rekoDashboardUrl)
       setRekoCopied(true)
       toast.success('Link kopiert')
       setTimeout(() => setRekoCopied(false), 2000)
