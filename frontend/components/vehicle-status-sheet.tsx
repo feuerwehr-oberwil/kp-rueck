@@ -253,6 +253,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   }
 
   return (
+    <>
     <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -261,9 +262,9 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         nonModal
         className="flex flex-col max-w-5xl mx-auto max-h-[45vh] px-6 py-4"
         onInteractOutside={(e) => {
-          // Prevent closing when clicking on footer buttons
+          // Prevent closing when clicking on footer buttons or dialogs
           const target = e.target as HTMLElement
-          if (target.closest('footer')) {
+          if (target.closest('footer') || target.closest('[role="dialog"]') || driverDialogOpen) {
             e.preventDefault()
           }
         }}
@@ -423,22 +424,23 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         </div>
 
       </SheetContent>
-
-      {/* Driver Assignment Dialog */}
-      {selectedVehicleForDriver && eventId && (
-        <DriverAssignmentDialog
-          open={driverDialogOpen}
-          onOpenChange={setDriverDialogOpen}
-          vehicleId={selectedVehicleForDriver.id}
-          vehicleName={selectedVehicleForDriver.name}
-          eventId={eventId}
-          currentDriverId={selectedVehicleForDriver.driver_id}
-          currentDriverName={selectedVehicleForDriver.driver_name}
-          personnel={personnel}
-          specialFunctions={specialFunctions}
-          onDriverAssigned={handleDriverAssigned}
-        />
-      )}
     </Sheet>
+
+    {/* Driver Assignment Dialog - Outside Sheet to prevent closing issues */}
+    {selectedVehicleForDriver && eventId && (
+      <DriverAssignmentDialog
+        open={driverDialogOpen}
+        onOpenChange={setDriverDialogOpen}
+        vehicleId={selectedVehicleForDriver.id}
+        vehicleName={selectedVehicleForDriver.name}
+        eventId={eventId}
+        currentDriverId={selectedVehicleForDriver.driver_id}
+        currentDriverName={selectedVehicleForDriver.driver_name}
+        personnel={personnel}
+        specialFunctions={specialFunctions}
+        onDriverAssigned={handleDriverAssigned}
+      />
+    )}
+    </>
   )
 }

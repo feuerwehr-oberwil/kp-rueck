@@ -119,11 +119,15 @@ function DraggableOperationBase({
   // Scroll into view when highlighted (e.g., from vehicle status sheet)
   useEffect(() => {
     if (isHighlighted && ref.current) {
-      ref.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'nearest'
-      })
+      // Small delay to ensure DOM is fully rendered after navigation
+      const timer = setTimeout(() => {
+        ref.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        })
+      }, 100)
+      return () => clearTimeout(timer)
     }
   }, [isHighlighted])
 
