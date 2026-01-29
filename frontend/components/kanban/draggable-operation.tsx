@@ -395,7 +395,7 @@ function DraggableOperationBase({
           {closestEdge === 'bottom' && <DropIndicator edge="bottom" gap="4px" />}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
+      <ContextMenuContent className="w-52">
         <ContextMenuItem onClick={() => onSelect?.()}>
           <Eye className="mr-2 h-4 w-4" />
           Details anzeigen
@@ -405,12 +405,19 @@ function DraggableOperationBase({
           Bearbeiten
         </ContextMenuItem>
         <ContextMenuSeparator />
-        {!operation.assignedReko && onAssignReko && (
+        {onAssignReko && (
           <ContextMenuItem onClick={() => onAssignReko()}>
             <Binoculars className="mr-2 h-4 w-4" />
-            Reko zuweisen
+            {operation.assignedReko ? 'Reko ändern' : 'Reko zuweisen'}
           </ContextMenuItem>
         )}
+        {onAssignResource && (
+          <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
+            <Truck className="mr-2 h-4 w-4" />
+            Fahrzeug zuweisen
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
         <ContextMenuItem asChild>
           <Link href={`/map?highlight=${operation.id}`}>
             <Map className="mr-2 h-4 w-4" />

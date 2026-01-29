@@ -646,7 +646,7 @@ function SidePanelDetail({
                   {member}
                   <button
                     onClick={() => onRemoveCrew(operation.id, member)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -688,7 +688,7 @@ function SidePanelDetail({
                         <button
                           key={vehicle.id}
                           onClick={() => onAssignVehicle(vehicle.id, vehicle.name, operation.id)}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
+                          className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-muted focus:bg-muted focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
                         >
                           <Truck className="h-3.5 w-3.5 text-muted-foreground" />
                           <div className="text-left">
@@ -715,7 +715,7 @@ function SidePanelDetail({
                     {vehicleName}{driverName ? ` (${driverName})` : ''}
                     <button
                       onClick={() => onRemoveVehicle(operation.id, vehicleName)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -758,7 +758,7 @@ function SidePanelDetail({
                     {material?.name || materialId}
                     <button
                       onClick={() => onRemoveMaterial(operation.id, materialId)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
