@@ -472,12 +472,12 @@ function SidePanelDetail({
       {/* Type & Priority - Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Einsatzart</Label>
+          <Label id="panel-type-label" className="text-xs font-semibold text-muted-foreground">Einsatzart</Label>
           <Select
             value={operation.incidentType}
             onValueChange={(value) => onUpdate({ incidentType: value })}
           >
-            <SelectTrigger className="mt-1 h-9 text-sm">
+            <SelectTrigger className="mt-1 h-9 text-sm" aria-labelledby="panel-type-label">
               <SelectValue placeholder="Auswählen" />
             </SelectTrigger>
             <SelectContent>
@@ -491,12 +491,12 @@ function SidePanelDetail({
         </div>
 
         <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Priorität</Label>
+          <Label id="panel-priority-label" className="text-xs font-semibold text-muted-foreground">Priorität</Label>
           <Select
             value={operation.priority}
             onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
           >
-            <SelectTrigger className="mt-1 h-9 text-sm">
+            <SelectTrigger className="mt-1 h-9 text-sm" aria-labelledby="panel-priority-label">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -557,6 +557,7 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => setRekoDialogOpen(true)}
               className="h-6 px-2 gap-1 text-xs"
+              tabIndex={-1}
             >
               {assignedRekoPersonnel ? (
                 <>
@@ -587,6 +588,7 @@ function SidePanelDetail({
                   onClick={handleCopyDirectRekoLink}
                   disabled={isCopyingRekoLink}
                   className="h-7 px-2 gap-1.5 text-xs flex-1"
+                  tabIndex={-1}
                 >
                   {isCopyingRekoLink ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -603,6 +605,7 @@ function SidePanelDetail({
                   onClick={handleCopyDashboardLink}
                   disabled={isCopyingRekoLink}
                   className="h-7 px-2 gap-1.5 text-xs flex-1"
+                  tabIndex={-1}
                 >
                   {rekoCopied === 'dashboard' ? (
                     <Check className="h-3 w-3 text-muted-foreground" />
@@ -630,6 +633,7 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => onAssignResource('crew', operation.id)}
               className="h-6 px-2 gap-1 text-xs"
+              tabIndex={-1}
             >
               <Plus className="h-3 w-3" />
               Hinzufügen
@@ -647,6 +651,8 @@ function SidePanelDetail({
                   <button
                     onClick={() => onRemoveCrew(operation.id, member)}
                     className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    tabIndex={-1}
+                    aria-label={`${member} entfernen`}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -667,7 +673,7 @@ function SidePanelDetail({
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs">
+                <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs" tabIndex={-1}>
                   <Plus className="h-3 w-3" />
                   Hinzufügen
                 </Button>
@@ -716,6 +722,8 @@ function SidePanelDetail({
                     <button
                       onClick={() => onRemoveVehicle(operation.id, vehicleName)}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      tabIndex={-1}
+                      aria-label={`${vehicleName} entfernen`}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -740,6 +748,7 @@ function SidePanelDetail({
               variant="ghost"
               onClick={() => onAssignResource('materials', operation.id)}
               className="h-6 px-2 gap-1 text-xs"
+              tabIndex={-1}
             >
               <Plus className="h-3 w-3" />
               Hinzufügen
@@ -759,6 +768,8 @@ function SidePanelDetail({
                     <button
                       onClick={() => onRemoveMaterial(operation.id, materialId)}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      tabIndex={-1}
+                      aria-label={`${material?.name || materialId} entfernen`}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>

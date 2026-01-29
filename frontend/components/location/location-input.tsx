@@ -274,28 +274,10 @@ export function LocationInput({
                     value={addressSearchQuery}
                     onChange={(e) => setAddressSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
-                      // Close popover on Tab and move to next form field
-                      if (e.key === 'Tab' && !e.shiftKey) {
-                        e.preventDefault()
+                      // Close popover on Tab and let natural tab order take over
+                      if (e.key === 'Tab') {
                         setAddressSearchOpen(false)
-                        // Find and focus the next form element (skip location buttons)
-                        setTimeout(() => {
-                          // Try to find notes textarea first (common next field in forms)
-                          const notesField = document.getElementById('notes')
-                          if (notesField) {
-                            notesField.focus()
-                          } else {
-                            // Fallback: focus trigger and let natural tab order work
-                            triggerButtonRef.current?.focus()
-                          }
-                        }, 0)
-                      } else if (e.key === 'Tab' && e.shiftKey) {
-                        // Shift+Tab: close popover and stay on trigger
-                        e.preventDefault()
-                        setAddressSearchOpen(false)
-                        setTimeout(() => {
-                          triggerButtonRef.current?.focus()
-                        }, 0)
+                        // Don't prevent default - let the browser handle tab navigation naturally
                       }
                     }}
                     className="h-9"
