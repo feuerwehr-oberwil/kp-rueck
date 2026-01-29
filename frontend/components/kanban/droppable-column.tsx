@@ -78,7 +78,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   return (
     <div className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
       <div className={cn(
-        "mb-3 rounded-lg border border-border px-4 py-3 transition-all",
+        "mb-2 rounded-lg border border-border px-3 py-2 transition-all",
         column.color
       )}>
         <h2 className="text-balance text-sm font-semibold text-foreground">{column.title}</h2>

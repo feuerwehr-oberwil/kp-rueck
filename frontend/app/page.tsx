@@ -848,7 +848,7 @@ export default function FireStationDashboard() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-4 min-h-20">
+        <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {selectedEvent ? (
               <>
@@ -880,9 +880,9 @@ export default function FireStationDashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-4 py-2.5">
+              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-mono text-lg font-semibold tabular-nums">
+                <span className="font-mono text-base font-semibold tabular-nums">
                   {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
                 </span>
               </div>
@@ -1029,7 +1029,7 @@ export default function FireStationDashboard() {
             {isLoading ? (
               <KanbanLoading />
             ) : (
-              <div className="flex h-full gap-4">
+              <div className="flex h-full gap-3">
                 {columns.map((column) => {
                   const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
                   return (
