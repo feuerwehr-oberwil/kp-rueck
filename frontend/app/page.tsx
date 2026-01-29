@@ -373,9 +373,29 @@ export default function FireStationDashboard() {
   useEffect(() => {
     if (highlightParam) {
       setHighlightedOperationId(highlightParam)
+
+      // Scroll the card into view after a short delay for DOM to be ready
+      const scrollTimer = setTimeout(() => {
+        const card = document.querySelector(`[data-incident-id="${highlightParam}"]`)
+        if (card) {
+          // First scroll the column horizontally into view
+          const column = card.closest('[data-column]')
+          if (column) {
+            column.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+          }
+          // Then scroll the card vertically into view within its column
+          setTimeout(() => {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+          }, 300)
+        }
+      }, 150)
+
       // Clear highlight after 3 seconds
       const timer = setTimeout(() => setHighlightedOperationId(null), 3000)
-      return () => clearTimeout(timer)
+      return () => {
+        clearTimeout(timer)
+        clearTimeout(scrollTimer)
+      }
     }
   }, [highlightParam])
 

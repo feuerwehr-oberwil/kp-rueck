@@ -116,21 +116,6 @@ function DraggableOperationBase({
     return () => clearInterval(interval)
   }, [])
 
-  // Scroll into view when highlighted (e.g., from vehicle status sheet)
-  useEffect(() => {
-    if (isHighlighted && ref.current) {
-      // Small delay to ensure DOM is fully rendered after navigation
-      const timer = setTimeout(() => {
-        ref.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
-        })
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [isHighlighted])
-
   // Calculate time in current status (recalculates when currentTime changes)
   // Use statusChangedAt if available, otherwise fall back to dispatchTime
   const timeInStatus = operation.statusChangedAt || operation.dispatchTime
