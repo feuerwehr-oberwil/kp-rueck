@@ -346,6 +346,7 @@ export interface ApiRekoReportResponse extends ApiRekoReportBase {
   incident_location?: string | null
   incident_type?: string | null
   incident_description?: string | null
+  incident_contact?: string | null
   submitted_at: string
   updated_at: string
   photos_json: string[]

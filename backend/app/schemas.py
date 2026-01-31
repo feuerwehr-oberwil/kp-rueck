@@ -777,6 +777,7 @@ class RekoReportResponse(RekoReportBase):
     incident_location: str | None = None  # Computed from incident.location_address
     incident_type: str | None = None  # Computed from incident.type
     incident_description: str | None = None  # Computed from incident.description
+    incident_contact: str | None = None  # Computed from incident.contact (Melder/Kontakt)
     submitted_at: datetime
     updated_at: datetime
     photos_json: list[str] = []  # Array of photo filenames

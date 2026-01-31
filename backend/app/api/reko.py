@@ -58,6 +58,7 @@ async def get_reko_form(
             response_data.incident_location = incident.location_address
             response_data.incident_type = incident.type
             response_data.incident_description = incident.description
+            response_data.incident_contact = incident.contact
         # Include personnel name if available
         if report.submitted_by_personnel_id:
             # Reload with relationship to get name
@@ -105,6 +106,7 @@ async def submit_reko_report(
         response_data.incident_location = incident.location_address
         response_data.incident_type = incident.type
         response_data.incident_description = incident.description
+        response_data.incident_contact = incident.contact
 
     # Create notification when report is submitted (not draft)
     if submit and incident and incident.event_id:
@@ -149,6 +151,7 @@ async def update_report(
             response_data.incident_location = incident.location_address
             response_data.incident_type = incident.type
             response_data.incident_description = incident.description
+            response_data.incident_contact = incident.contact
 
         return response_data
     except ValueError as e:
@@ -179,6 +182,7 @@ async def get_report(
         response_data.incident_location = incident.location_address
         response_data.incident_type = incident.type
         response_data.incident_description = incident.description
+        response_data.incident_contact = incident.contact
 
     return response_data
 
@@ -205,6 +209,7 @@ async def get_incident_reports(
             response_data.incident_location = incident.location_address
             response_data.incident_type = incident.type
             response_data.incident_description = incident.description
+            response_data.incident_contact = incident.contact
         # Include personnel name if available
         if report.submitted_by_personnel:
             response_data.submitted_by_personnel_name = report.submitted_by_personnel.name

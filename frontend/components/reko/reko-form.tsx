@@ -63,6 +63,7 @@ export default function RekoForm() {
     location?: string
     type?: string
     description?: string
+    contact?: string
   }>({})
   const [assignedPersonnelName, setAssignedPersonnelName] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -204,7 +205,8 @@ export default function RekoForm() {
         setIncidentDetails({
           location: data.incident_location || undefined,
           type: data.incident_type || undefined,
-          description: data.incident_description || undefined
+          description: data.incident_description || undefined,
+          contact: data.incident_contact || undefined
         })
 
         // Set assigned personnel name if available
@@ -377,6 +379,17 @@ export default function RekoForm() {
           <p className="text-sm text-muted-foreground mt-2">
             {incidentDetails.description}
           </p>
+        )}
+        {incidentDetails.contact && (
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <span className="text-sm text-muted-foreground">Kontakt / Melder: </span>
+            <a
+              href={`tel:${incidentDetails.contact.replace(/\s/g, '')}`}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              {incidentDetails.contact}
+            </a>
+          </div>
         )}
       </div>
 
