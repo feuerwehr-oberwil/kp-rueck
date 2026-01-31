@@ -286,7 +286,7 @@ function DraggableOperationBase({
               {operation.assignedReko && (
                 <div className="flex items-start gap-1.5">
                   <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                  <div className="flex flex-wrap gap-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1 min-w-0">
                     <Badge
                       variant="secondary"
                       className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
@@ -303,6 +303,12 @@ function DraggableOperationBase({
                         <X className="h-2.5 w-2.5" />
                       </button>
                     </Badge>
+                    {/* Show arrival time if on site but report not yet submitted */}
+                    {operation.rekoArrivedAt && !operation.hasCompletedReko && (
+                      <span className="text-xs text-muted-foreground">
+                        vor Ort {operation.rekoArrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -443,6 +449,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
   // Check if REKO summary has changed
   const rekoSummaryChanged =
     prevProps.operation.hasCompletedReko !== nextProps.operation.hasCompletedReko ||
+    prevProps.operation.rekoArrivedAt?.getTime() !== nextProps.operation.rekoArrivedAt?.getTime() ||
     (prevProps.operation.rekoSummary?.hasDangers !== nextProps.operation.rekoSummary?.hasDangers) ||
     (prevProps.operation.rekoSummary?.dangerTypes.length !== nextProps.operation.rekoSummary?.dangerTypes.length) ||
     (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||

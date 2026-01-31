@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History, MapPin } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
 
 export default function RekoReportSection({ incidentId }: RekoReportSectionProps) {
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
+  const [arrivedAt, setArrivedAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
 
@@ -25,6 +26,9 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
       const data = await apiClient.getIncidentRekoReports(incidentId)
       // Filter out drafts, only show submitted reports (newest first)
       setReports(data.filter(r => !r.is_draft))
+      // Check if there's a draft with arrived_at (reko personnel is on site)
+      const draftWithArrival = data.find(r => r.is_draft && r.arrived_at)
+      setArrivedAt(draftWithArrival?.arrived_at || null)
     } catch (error) {
       console.error('Failed to load Reko reports:', error)
     } finally {
@@ -51,6 +55,18 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
   }
 
   if (reports.length === 0) {
+    // Check if REKO personnel has arrived but not yet submitted
+    if (arrivedAt) {
+      const arrivedDate = new Date(arrivedAt)
+      return (
+        <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
+          <MapPin className="h-4 w-4" />
+          <p className="text-sm">
+            vor Ort seit {arrivedDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      )
+    }
     return (
       <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
         <FileText className="h-4 w-4" />
