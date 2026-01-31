@@ -230,19 +230,19 @@ function DraggableOperationBase({
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {operation.hasCompletedReko && (
                 <div
-                  className="p-1.5 rounded-md bg-muted"
+                  className="p-1.5 rounded-md bg-muted/60"
                   title="Reko-Bericht ausgefüllt"
                 >
-                  <FileCheck className="h-4 w-4 text-muted-foreground" />
+                  <FileCheck className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               <Link
                 href={`/map?highlight=${operation.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-md hover:bg-muted transition-all hover-delight"
+                className="p-1.5 rounded-md hover:bg-muted/80 transition-colors group/mapicon"
                 title="Auf Karte anzeigen"
               >
-                <MapIcon className="h-4 w-4 text-muted-foreground" />
+                <MapIcon className="h-4 w-4 text-muted-foreground group-hover/mapicon:text-foreground transition-colors" />
               </Link>
             </div>
           </div>
