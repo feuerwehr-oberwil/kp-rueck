@@ -1229,6 +1229,10 @@ export default function FireStationDashboard() {
 
         {/* Desktop Footer */}
         <footer className="relative z-[60] border-t border-border bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
+          {/* Modal overlay for footer - covers footer when modals are open */}
+          {(detailModalOpen || newEmergencyModalOpen) && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 pointer-events-none" />
+          )}
           <div className="flex items-center justify-between gap-4">
             {/* Left: Primary action */}
             <div className="flex items-center gap-3">
