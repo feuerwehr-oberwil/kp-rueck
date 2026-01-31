@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useEvent } from '@/lib/contexts/event-context';
 import { apiClient, type ApiExcelImportPreview, type ApiExcelImportResult, type ApiAuditLog } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
 import { Card } from '@/components/ui/card';
@@ -51,6 +52,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  ClipboardList,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -118,6 +120,7 @@ export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isEditor } = useAuth();
+  const { events, isLoading: eventsLoading } = useEvent();
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -156,6 +159,10 @@ export default function SettingsPage() {
 
   // Mobile sidebar state
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Audit export state
+  const [auditExportEventId, setAuditExportEventId] = useState<string>('');
+  const [auditExportLoading, setAuditExportLoading] = useState(false);
 
   // Audit log state
   const [auditEntries, setAuditEntries] = useState<ApiAuditLog[]>([]);
@@ -333,6 +340,35 @@ export default function SettingsPage() {
     setImportError(null);
     setImportSuccess(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleAuditExport = async () => {
+    if (!auditExportEventId) {
+      toast.error('Bitte wählen Sie ein Ereignis aus');
+      return;
+    }
+    setAuditExportLoading(true);
+    setImportError(null);
+    try {
+      const blob = await apiClient.exportEventAudit(auditExportEventId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const selectedEvent = events.find(e => e.id === auditExportEventId);
+      const eventName = selectedEvent?.name || 'event';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const sanitizedName = eventName.replace(/[^a-zA-Z0-9_-]/g, '_');
+      a.download = `audit_${sanitizedName}_${timestamp}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Audit-Export erfolgreich');
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Audit-Export fehlgeschlagen');
+    } finally {
+      setAuditExportLoading(false);
+    }
   };
 
   // Audit log helpers
@@ -572,6 +608,86 @@ export default function SettingsPage() {
                   <Download className="h-4 w-4 mr-2" />
                   Exportieren
                 </Button>
+              </div>
+            </Card>
+
+            {/* Audit Export - For payment processing */}
+            <Card className="p-5">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <ClipboardList className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium">Audit-Export für Abrechnung</p>
+                    <p className="text-sm text-muted-foreground">
+                      Vollständige Zuweisungshistorie mit Zeitstempeln für Abrechnungszwecke.
+                      Enthält alle Personal-, Fahrzeug- und Materialzuweisungen inkl. Freigabezeiten.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex-1 w-full sm:w-auto">
+                    <Select
+                      value={auditExportEventId}
+                      onValueChange={setAuditExportEventId}
+                      disabled={eventsLoading || auditExportLoading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Ereignis auswählen..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {events
+                          .filter(e => !e.archived_at)
+                          .map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                              {event.name}
+                              {event.training_flag && (
+                                <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        {events.filter(e => e.archived_at).length > 0 && (
+                          <>
+                            <SelectItem value="_divider" disabled>
+                              — Archiviert —
+                            </SelectItem>
+                            {events
+                              .filter(e => e.archived_at)
+                              .map((event) => (
+                                <SelectItem key={event.id} value={event.id}>
+                                  {event.name}
+                                  {event.training_flag && (
+                                    <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
+                                  )}
+                                </SelectItem>
+                              ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={handleAuditExport}
+                    disabled={!auditExportEventId || auditExportLoading || eventsLoading}
+                    className="w-full sm:w-auto"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {auditExportLoading ? 'Exportiere...' : 'Audit exportieren'}
+                  </Button>
+                </div>
+
+                <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                  <p className="font-medium mb-1">Export enthält:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Ereignis-Übersicht mit Zusammenfassung</li>
+                    <li>Alle Einsätze mit Zeitstempeln (ISO 8601)</li>
+                    <li>Personal-Zuweisungen (aktuell + historisch)</li>
+                    <li>Fahrzeug-Zuweisungen (aktuell + historisch)</li>
+                    <li>Material-Zuweisungen (aktuell + historisch)</li>
+                    <li>Status-Verlauf aller Einsätze</li>
+                    <li>Reko-Berichte</li>
+                  </ul>
+                </div>
               </div>
             </Card>
 

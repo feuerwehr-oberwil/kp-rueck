@@ -1256,16 +1256,16 @@ class ApiClient {
     return response.blob()
   }
 
-  // Event Export
-  async exportEvent(eventId: string): Promise<Blob> {
-    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}`
+  // Event Audit Export (for payment processing)
+  async exportEventAudit(eventId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/audit`
     const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
     })
 
     if (!response.ok) {
-      throw new Error(`Event export failed: ${response.statusText}`)
+      throw new Error(`Audit export failed: ${response.statusText}`)
     }
 
     return response.blob()

@@ -23,26 +23,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Development mode with hot reload
-make dev
+just dev
 
 # Initialize and seed database
-make init-db
-make seed-db
+just init-db
+just seed-db
+
+# Run database migrations
+just migrate
 
 # Offline map tiles (optional)
-make tiles-setup    # Download and install tiles (~1-2 GB)
-make tiles-status   # Check tile server status
-make tiles-help     # Show offline maps help
-
-# View logs
-make logs
-make logs-backend  # Backend only
+just tiles-download  # Download and install tiles (~12 MB)
+just tiles-status    # Check tile server status
+just tiles-help      # Show offline maps help
 
 # Stop everything
-make stop
+just stop
 
 # Clean up (removes volumes)
-make clean
+just clean
 ```
 
 ### Local Development (Without Docker)
@@ -72,28 +71,34 @@ pnpm test:ui                         # Playwright UI mode
 ```bash
 # Access PostgreSQL shell
 docker-compose exec postgres psql -U kprueck -d kprueck
-# OR via Makefile
-make shell-db
+# OR via justfile
+just shell-db
+
+# Run migrations
+just migrate           # Upgrade to latest
+just migrate-current   # Show current revision
+just migrate-history   # Show migration history
+just migrate-new "message"  # Create new migration
 ```
 
 ### Testing
 
-**Quick Start (Makefile):**
+**Quick Start (justfile):**
 ```bash
 # Run all E2E tests (ensure services are running first)
-make test
+just test
 
 # Run authentication tests only (7 tests)
-make test-auth
+just test-auth
 
 # Run tests in interactive UI mode
-make test-ui
+just test-ui
 
 # Run tests in headed mode (visible browser)
-make test-headed
+just test-headed
 
 # Show last test report
-make test-report
+just test-report
 ```
 
 **Direct Commands:**
@@ -167,7 +172,7 @@ kp-rueck/
 │       └── api/routes.py            # API endpoints
 ├── docker-compose.yml               # Production setup
 ├── docker-compose.dev.yml           # Development with hot reload
-└── Makefile                         # Common development tasks
+└── justfile                         # Common development tasks (use `just` command)
 ```
 
 ## Key Architectural Patterns
@@ -255,11 +260,11 @@ The system includes optional offline map tile support for Basel-Landschaft regio
 
 **Setup:**
 ```bash
-# Download and install tiles (~1-2 GB, takes 5-15 minutes)
-make tiles-setup
+# Download and install tiles (~12 MB, takes 5-15 minutes)
+just tiles-download
 
 # Check status
-make tiles-status
+just tiles-status
 
 # View tile server UI
 open http://localhost:8080
@@ -395,8 +400,8 @@ Reset and re-seed the database to use correct enum values.
 
 **Local Development**:
 ```bash
-make clean  # Remove containers and volumes
-make dev    # Restart with fresh database (auto-seeds)
+just clean  # Remove containers and volumes
+just dev    # Restart with fresh database (auto-seeds)
 ```
 
 **Railway Production**:
@@ -430,7 +435,7 @@ def upgrade():
 - `RAILWAY.md` - Railway deployment guide
 - `CONFIGURATION_SETTINGS.md` - System configuration and settings management
 - `OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
-- `Makefile` - Quick reference for common commands
+- `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs
 - `frontend/package.json` - Frontend scripts and dependencies
 - Ensure commits are always! pushed to the main branch otherwise other worktrees don't have access

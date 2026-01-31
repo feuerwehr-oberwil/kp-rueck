@@ -17,10 +17,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, ArchiveRestore, AlertCircle, Search, CheckCircle2, Trash2, GraduationCap } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
-import { EventExportButton } from '@/components/event-export-button'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
 
@@ -309,7 +308,6 @@ export default function EventsPage() {
                                 >
                                   Auswählen
                                 </Button>
-                                <EventExportButton eventId={event.id} eventName={event.name} />
                                 <Button
                                   variant="outline"
                                   size="icon"
@@ -364,7 +362,6 @@ export default function EventsPage() {
                                   <ArchiveRestore className="mr-2 h-4 w-4" />
                                   Wiederherstellen
                                 </Button>
-                                <EventExportButton eventId={event.id} eventName={event.name} />
                                 <Button
                                   variant="destructive"
                                   size="icon"

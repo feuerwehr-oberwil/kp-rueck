@@ -1,10 +1,7 @@
-"""Export API endpoints for legal compliance and archival."""
+"""Export API endpoints for audit and payment processing."""
 
-import re
 import uuid
-import zipfile
-from datetime import datetime
-from io import BytesIO
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -17,11 +14,7 @@ from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import AuditLog, Event
-from ..services.export_service import (
-    export_event_excel,
-    export_event_pdf,
-    export_event_photos,
-)
+from ..services.audit_export_service import export_event_audit_excel, get_safe_filename
 from ..utils.errors import ErrorMessages
 
 logger = get_logger(__name__)
@@ -29,27 +22,37 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/exports", tags=["exports"])
 
 
-@router.post("/events/{event_id}")
+@router.post("/events/{event_id}/audit")
 @limiter.limit(RateLimits.EXPORT)
-async def export_event(
+async def export_event_audit(
     request: Request,
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,  # Only editors can export
 ):
     """
-    Export complete event as PDF + Excel + Photos ZIP.
+    Export complete event audit data for payment processing.
 
-    Returns a single ZIP file containing:
-    - bericht.pdf: Complete event report in PDF/A format
-    - daten.xlsx: Event data in Excel format
-    - fotos.zip: All photos from Reko reports (if any exist)
+    Returns an Excel workbook with comprehensive audit data including:
+    - Sheet 1: Event overview with summary counts
+    - Sheet 2: All incidents with timestamps
+    - Sheet 3: Personnel assignments (current + historical)
+    - Sheet 4: Vehicle assignments (current + historical)
+    - Sheet 5: Material assignments (current + historical)
+    - Sheet 6: Status transition history
+    - Sheet 7: Reko reports
+
+    Unlike a simple export which only shows currently-assigned resources,
+    this export includes the full assignment history with timestamps showing
+    when each resource was assigned and released.
+
+    All timestamps are in ISO 8601 format with timezone.
 
     Args:
         event_id: UUID of the event to export
 
     Returns:
-        StreamingResponse with ZIP file containing all exports
+        StreamingResponse with Excel file
 
     Raises:
         404: Event not found
@@ -63,54 +66,37 @@ async def export_event(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Event {event_id} not found")
 
     try:
-        # Generate exports
-        pdf_buffer = await export_event_pdf(db, event_id, current_user)
-        excel_buffer = await export_event_excel(db, event_id)
-        photos_buffer = await export_event_photos(db, event_id)
-
-        # Combine into single ZIP
-        combined_buffer = BytesIO()
-        with zipfile.ZipFile(combined_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("bericht.pdf", pdf_buffer.getvalue())
-            zf.writestr("daten.xlsx", excel_buffer.getvalue())
-
-            # Only include photos ZIP if photos exist
-            if photos_buffer:
-                zf.writestr("fotos.zip", photos_buffer.getvalue())
-
-        combined_buffer.seek(0)
+        # Generate audit export
+        excel_buffer, metadata = await export_event_audit_excel(db, event_id, current_user)
 
         # Create audit log entry
         audit_entry = AuditLog(
             user_id=current_user.id,
-            action_type="export",
+            action_type="audit_export",
             resource_type="event",
             resource_id=event_id,
-            changes_json={"exported_at": datetime.utcnow().isoformat()},
-            timestamp=datetime.utcnow(),
+            changes_json=metadata,
+            timestamp=datetime.now(UTC),
         )
         db.add(audit_entry)
         await db.commit()
 
-        # Generate filename - only ASCII alphanumeric characters allowed in HTTP headers
-        # Non-ASCII characters (like Japanese, umlauts) are replaced with underscores
-        event_name_safe = "".join(
-            c if c.isascii() and (c.isalnum() or c in (" ", "-", "_")) else "_" for c in event.name
-        )
-        # Collapse multiple underscores and strip trailing underscores
-        event_name_safe = re.sub(r"_+", "_", event_name_safe).strip("_")
-        filename = f"export_{event_name_safe}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.zip"
+        # Generate filename
+        event_name_safe = get_safe_filename(event.name)
+        filename = f"audit_{event_name_safe}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.xlsx"
 
         return StreamingResponse(
-            combined_buffer,
-            media_type="application/zip",
+            excel_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
+    except ValueError as e:
+        # Event not found (raised by service)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
     except Exception as e:
         # Log error with full details
-        logger.error("Export generation failed for event %s: %s", event_id, e, exc_info=True)
+        logger.error("Audit export generation failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED)
