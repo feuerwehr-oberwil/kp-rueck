@@ -254,20 +254,24 @@ export function OperationDetailModal({
       // Fetch all incidents for the current event
       const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
       // Convert ApiIncident to Incident type (string coords/dates -> number/Date)
-      const incidents: Incident[] = apiIncidents.map(inc => ({
-        ...inc,
-        location_lat: inc.location_lat !== null ? parseFloat(inc.location_lat) : null,
-        location_lng: inc.location_lng !== null ? parseFloat(inc.location_lng) : null,
-        created_at: new Date(inc.created_at),
-        updated_at: new Date(inc.updated_at),
-        status_changed_at: inc.status_changed_at ? new Date(inc.status_changed_at) : null,
-        completed_at: inc.completed_at ? new Date(inc.completed_at) : null,
-        reko_arrived_at: inc.reko_arrived_at ? new Date(inc.reko_arrived_at) : null,
-        assigned_vehicles: inc.assigned_vehicles.map(v => ({
-          ...v,
-          assigned_at: new Date(v.assigned_at),
-        })),
-      }))
+      const incidents: Incident[] = apiIncidents.map(inc => {
+        // Destructure to omit fields we need to transform
+        const { location_lat, location_lng, created_at, updated_at, status_changed_at, completed_at, reko_arrived_at, assigned_vehicles, ...rest } = inc
+        return {
+          ...rest,
+          location_lat: location_lat !== null ? parseFloat(location_lat) : null,
+          location_lng: location_lng !== null ? parseFloat(location_lng) : null,
+          created_at: new Date(created_at),
+          updated_at: new Date(updated_at),
+          status_changed_at: status_changed_at ? new Date(status_changed_at) : null,
+          completed_at: completed_at ? new Date(completed_at) : null,
+          reko_arrived_at: reko_arrived_at ? new Date(reko_arrived_at) : null,
+          assigned_vehicles: assigned_vehicles.map(v => ({
+            ...v,
+            assigned_at: new Date(v.assigned_at),
+          })),
+        }
+      })
       setAvailableIncidents(incidents)
       setTransferDialogOpen(true)
     } catch (error) {

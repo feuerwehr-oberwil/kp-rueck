@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -184,7 +184,7 @@ export default function FireStationDashboard() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'vehicles' | 'print' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'vehicles' | 'print' | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [gPrefixActive, setGPrefixActive] = useState(false)
@@ -194,6 +194,8 @@ export default function FireStationDashboard() {
   const [showMeldung, setShowMeldung] = useState(false)
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [rekoCopied, setRekoCopied] = useState(false)
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null)
+  const [viewerCopied, setViewerCopied] = useState(false)
 
   // Side panel state for ultrawide monitors
   const [panelSelectedId, setPanelSelectedId] = useState<string | null>(null)
@@ -769,6 +771,7 @@ export default function FireStationDashboard() {
   // Derived state for convenience
   const qrDialogOpen = activeFooterSheet === 'checkin'
   const rekoQrDialogOpen = activeFooterSheet === 'reko'
+  const viewerQrDialogOpen = activeFooterSheet === 'viewer'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
 
@@ -851,6 +854,48 @@ export default function FireStationDashboard() {
       setRekoCopied(true)
       toast.success('Link kopiert')
       setTimeout(() => setRekoCopied(false), 2000)
+    } catch (error) {
+      toast.error('Fehler beim Kopieren')
+    }
+  }
+
+  const generateViewerQR = async () => {
+    // Toggle behavior: if already open, just close
+    if (viewerQrDialogOpen) {
+      setActiveFooterSheet(null)
+      return
+    }
+
+    if (!selectedEvent) {
+      toast.error('Fehler', {
+        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      })
+      return
+    }
+
+    try {
+      const response = await apiClient.generateViewerLink(selectedEvent.id)
+      // Build full URL for QR code
+      const fullUrl = `${window.location.origin}${response.link}`
+      setViewerUrl(fullUrl)
+      setActiveFooterSheet('viewer')
+    } catch (error) {
+      console.error('Failed to generate viewer link:', error)
+      toast.error('Fehler', {
+        description: 'Viewer-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      })
+    }
+  }
+
+  const copyViewerUrlToClipboard = async () => {
+    if (!viewerUrl) return
+
+    try {
+      const { copyToClipboard } = await import('@/lib/utils')
+      await copyToClipboard(viewerUrl)
+      setViewerCopied(true)
+      toast.success('Link kopiert')
+      setTimeout(() => setViewerCopied(false), 2000)
     } catch (error) {
       toast.error('Fehler beim Kopieren')
     }
@@ -1305,6 +1350,22 @@ export default function FireStationDashboard() {
                   <Search className="h-3.5 w-3.5" />
                   <span className="text-xs">Reko</span>
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    viewerQrDialogOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    generateViewerQR()
+                  }}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span className="text-xs">Viewer</span>
+                </Button>
               </div>
 
               <div className="h-4 w-px bg-border mx-1" />
@@ -1602,6 +1663,76 @@ export default function FireStationDashboard() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Viewer QR Code Sheet */}
+      <Sheet modal={false} open={viewerQrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'viewer' && setActiveFooterSheet(null)}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          overlayOffset="42px"
+          nonModal
+          className="max-w-3xl mx-auto px-6 py-4"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking on footer buttons
+            const target = e.target as HTMLElement
+            if (target.closest('footer')) {
+              e.preventDefault()
+            }
+          }}
+        >
+          <div className="flex items-start gap-6">
+            {/* QR Code */}
+            {viewerUrl && (
+              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
+                <QRCodeSVG
+                  value={viewerUrl}
+                  size={140}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <SheetHeader className="p-0 mb-3">
+                <SheetTitle>Viewer-Link</SheetTitle>
+                <SheetDescription>
+                  QR-Code scannen oder Link teilen für Nur-Lesen-Ansicht
+                </SheetDescription>
+              </SheetHeader>
+
+              {viewerUrl && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={viewerUrl}
+                      readOnly
+                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyViewerUrlToClipboard}
+                      className="flex-shrink-0"
+                    >
+                      {viewerCopied ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Jeder mit diesem Link kann die aktuelle Einsatzübersicht sehen. Funktioniert ohne Anmeldung, nur Lesen.
                   </p>
                 </div>
               )}

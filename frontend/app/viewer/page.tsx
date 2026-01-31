@@ -2,15 +2,28 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { apiClient, type ApiIncident, type ApiEvent } from '@/lib/api-client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, Minus, Binoculars, MapIcon, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone } from 'lucide-react'
 import { columns, getTimeSince } from '@/lib/kanban-utils'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
 import { type OperationStatus } from '@/lib/contexts/operations-context'
+
+// Dynamically import map to avoid SSR issues with Leaflet
+const ViewerMapView = dynamic(() => import('./viewer-map'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  ),
+})
+
+type ViewMode = 'kanban' | 'map'
 
 // Map API status to internal status
 function mapApiStatus(apiStatus: string): OperationStatus {
@@ -51,10 +64,11 @@ const priorityStyles = {
 
 interface ViewerIncidentCardProps {
   incident: ApiIncident
-  columnColor: string
+  isExpanded?: boolean
+  onClick?: () => void
 }
 
-function ViewerIncidentCard({ incident, columnColor }: ViewerIncidentCardProps) {
+function ViewerIncidentCard({ incident, isExpanded = false, onClick }: ViewerIncidentCardProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Auto-update time every minute
@@ -77,10 +91,15 @@ function ViewerIncidentCard({ incident, columnColor }: ViewerIncidentCardProps) 
   const isOverOneHour = minutesInStatus >= 60
 
   return (
-    <Card className={cn(
-      'border border-border/50 bg-card/80 backdrop-blur-sm p-4',
-      priorityConfig?.card
-    )}>
+    <Card
+      className={cn(
+        'border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all',
+        priorityConfig?.card,
+        onClick && 'cursor-pointer hover:bg-muted/30',
+        isExpanded && 'ring-2 ring-primary/20 border-primary'
+      )}
+      onClick={onClick}
+    >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 min-w-0 flex-1">
@@ -97,6 +116,11 @@ function ViewerIncidentCard({ incident, columnColor }: ViewerIncidentCardProps) 
               <h3 className="font-bold text-base text-foreground leading-tight break-words">
                 {formatLocation(incident.location_address || incident.title)}
               </h3>
+              {incident.title && incident.location_address && incident.title !== incident.location_address && (
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {incident.title}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -122,16 +146,6 @@ function ViewerIncidentCard({ incident, columnColor }: ViewerIncidentCardProps) 
                   }`}
                 />
               </div>
-            )}
-            {incident.location_lat && incident.location_lng && (
-              <Link
-                href={`/map?lat=${incident.location_lat}&lng=${incident.location_lng}`}
-                target="_blank"
-                className="p-1.5 rounded-md hover:bg-muted transition-all"
-                title="Auf Karte anzeigen"
-              >
-                <MapIcon className="h-4 w-4 text-muted-foreground" />
-              </Link>
             )}
           </div>
         </div>
@@ -160,6 +174,23 @@ function ViewerIncidentCard({ incident, columnColor }: ViewerIncidentCardProps) 
             {getTimeSince(statusChangedAt)}
           </span>
         </div>
+
+        {/* Description - always show if present */}
+        {incident.description && (
+          <div className="border-t pt-3">
+            <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+              {incident.description}
+            </p>
+          </div>
+        )}
+
+        {/* Contact info */}
+        {incident.contact && (
+          <div className="flex items-start gap-2 text-xs">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <span className="text-muted-foreground">{incident.contact}</span>
+          </div>
+        )}
 
         {/* Vehicle assignments */}
         {incident.assigned_vehicles && incident.assigned_vehicles.length > 0 && (
@@ -207,7 +238,6 @@ function ViewerColumn({ column, incidents }: ViewerColumnProps) {
           <ViewerIncidentCard
             key={incident.id}
             incident={incident}
-            columnColor={column.color}
           />
         ))}
       </div>
@@ -224,6 +254,15 @@ export default function ViewerPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const loadData = useCallback(async () => {
     if (!token) return
@@ -280,6 +319,11 @@ export default function ViewerPage() {
     return grouped
   }, [incidents])
 
+  // Get active incidents for map (exclude completed)
+  const activeIncidents = useMemo(() => {
+    return incidents.filter(inc => inc.status !== 'abschluss')
+  }, [incidents])
+
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -315,19 +359,41 @@ export default function ViewerPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* View Toggle */}
+          <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
+            <Button
+              variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode('kanban')}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-xs">Kanban</span>
+            </Button>
+            <Button
+              variant={viewMode === 'map' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode('map')}
+            >
+              <MapIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-xs">Karte</span>
+            </Button>
+          </div>
+
           {/* Viewer banner */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
             <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Nur-Lesen</span>
           </div>
 
           {/* Refresh indicator */}
           {lastRefresh && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
               <RefreshCw className="h-3 w-3" />
-              <span className="hidden sm:inline">
-                Aktualisiert: {lastRefresh.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              <span>
+                {lastRefresh.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
             </div>
           )}
@@ -336,31 +402,73 @@ export default function ViewerPage() {
           <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="font-mono text-base font-semibold tabular-nums">
-              {new Date().toLocaleTimeString('de-DE')}
+              {currentTime.toLocaleTimeString('de-DE')}
             </span>
           </div>
         </div>
       </header>
 
-      {/* Kanban Board */}
-      <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
-        <div className="flex h-full gap-3">
-          {columns.map((column) => (
-            <ViewerColumn
-              key={column.id}
-              column={column}
-              incidents={incidentsByColumn[column.id] || []}
+      {/* Main Content */}
+      {viewMode === 'kanban' ? (
+        <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
+          <div className="flex h-full gap-3">
+            {columns.map((column) => (
+              <ViewerColumn
+                key={column.id}
+                column={column}
+                incidents={incidentsByColumn[column.id] || []}
+              />
+            ))}
+          </div>
+        </main>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Map */}
+          <main className="flex-1 p-4">
+            <ViewerMapView
+              incidents={activeIncidents}
+              selectedIncidentId={selectedIncidentId}
+              onMarkerClick={setSelectedIncidentId}
             />
-          ))}
+          </main>
+
+          {/* Incident Sidebar */}
+          <aside className="w-80 border-l border-border bg-card/30 backdrop-blur-sm overflow-y-auto flex-shrink-0 hidden md:block">
+            <div className="p-4">
+              <h2 className="text-lg font-bold mb-3">
+                Einsätze ({activeIncidents.length})
+              </h2>
+
+              <div className="space-y-3">
+                {activeIncidents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Keine aktiven Einsätze
+                  </p>
+                ) : (
+                  activeIncidents.map((incident) => (
+                    <ViewerIncidentCard
+                      key={incident.id}
+                      incident={incident}
+                      isExpanded={selectedIncidentId === incident.id}
+                      onClick={() => setSelectedIncidentId(
+                        selectedIncidentId === incident.id ? null : incident.id
+                      )}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </aside>
         </div>
-      </main>
+      )}
 
       {/* Footer */}
       <footer className="bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 border-t border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Eye className="h-4 w-4" />
-            <span>Nur-Lesen-Ansicht - Automatische Aktualisierung alle 5 Sekunden</span>
+            <span className="hidden sm:inline">Nur-Lesen-Ansicht - Automatische Aktualisierung alle 5 Sekunden</span>
+            <span className="sm:hidden">Nur-Lesen</span>
           </div>
           <div className="text-xs text-muted-foreground">
             {incidents.length} Einsätze
