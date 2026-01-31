@@ -262,6 +262,7 @@ export function OperationDetailModal({
         updated_at: new Date(inc.updated_at),
         status_changed_at: inc.status_changed_at ? new Date(inc.status_changed_at) : null,
         completed_at: inc.completed_at ? new Date(inc.completed_at) : null,
+        reko_arrived_at: inc.reko_arrived_at ? new Date(inc.reko_arrived_at) : null,
         assigned_vehicles: inc.assigned_vehicles.map(v => ({
           ...v,
           assigned_at: new Date(v.assigned_at),

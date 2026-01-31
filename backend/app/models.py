@@ -375,6 +375,7 @@ class RekoReport(Base):
         PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
     )
     token: Mapped[str] = mapped_column(String(500), nullable=False)
+    arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -542,7 +543,7 @@ class Notification(Base):
         CheckConstraint(
             "type IN ("
             "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
-            "'missing_location', 'event_size_limit', 'reko_submitted', 'training_emergency'"
+            "'missing_location', 'event_size_limit', 'reko_submitted', 'reko_arrived', 'training_emergency'"
             ")",
             name="valid_notification_type",
         ),

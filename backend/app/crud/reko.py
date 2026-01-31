@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -169,6 +169,67 @@ async def get_incident_reko_reports(db: AsyncSession, incident_id: uuid.UUID) ->
     return list(result.scalars().all())
 
 
+async def mark_reko_arrived(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    token: str,
+) -> RekoReport:
+    """
+    Mark reko personnel as arrived on site.
+
+    Sets the arrived_at timestamp on the reko report.
+
+    Args:
+        db: Database session
+        incident_id: Incident UUID
+        token: Form access token
+
+    Returns:
+        Updated RekoReport instance
+
+    Raises:
+        ValueError: If token is invalid or incident not found
+    """
+    # Validate token
+    if not validate_form_token(token, str(incident_id)):
+        raise ValueError("Invalid token")
+
+    # Check if incident exists
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    if not incident_result.scalar_one_or_none():
+        raise ValueError("Incident not found")
+
+    # Try to find existing report with this token
+    result = await db.execute(
+        select(RekoReport).where(
+            and_(
+                RekoReport.incident_id == incident_id,
+                RekoReport.token == token,
+            )
+        )
+    )
+    report = result.scalar_one_or_none()
+
+    if not report:
+        # Create new draft report with arrived_at
+        report = RekoReport(
+            incident_id=incident_id,
+            token=token,
+            is_draft=True,
+            arrived_at=datetime.now(UTC),
+        )
+        db.add(report)
+    else:
+        # Update existing report with arrived_at if not already set
+        if not report.arrived_at:
+            report.arrived_at = datetime.now(UTC)
+
+    await db.commit()
+    await db.refresh(report)
+
+    return report
+
+
 async def get_reko_summaries_by_event(
     db: AsyncSession, event_id: uuid.UUID
 ) -> dict[uuid.UUID, dict]:
@@ -188,7 +249,6 @@ async def get_reko_summaries_by_event(
         Dictionary mapping incident_id to reko summary dict
     """
     from sqlalchemy import and_, func
-    from sqlalchemy.orm import aliased
 
     # Subquery to get the latest submitted report per incident
     # We want only non-draft reports, ordered by submission time
@@ -207,6 +267,7 @@ async def get_reko_summaries_by_event(
         select(
             Incident.id.label("incident_id"),
             RekoReport.id.label("report_id"),
+            RekoReport.arrived_at,
             RekoReport.is_relevant,
             RekoReport.dangers_json,
             RekoReport.effort_json,
@@ -253,6 +314,7 @@ async def get_reko_summaries_by_event(
         summaries[row.incident_id] = {
             "incident_id": row.incident_id,
             "has_completed_reko": row.report_id is not None,
+            "arrived_at": row.arrived_at,
             "is_relevant": row.is_relevant,
             "dangers_json": row.dangers_json,
             "effort_json": row.effort_json,

@@ -586,6 +586,7 @@ class IncidentResponse(IncidentBase):
     status_changed_at: datetime | None = None  # Timestamp of last status transition
     assigned_vehicles: list[AssignedVehicle] = []  # List of assigned vehicles with details
     has_completed_reko: bool = False  # Whether a non-draft reko report has been submitted
+    reko_arrived_at: datetime | None = None  # When reko personnel arrived on site (before submitting)
 
     @field_serializer("location_lat", "location_lng")
     def serialize_decimal(self, value):
@@ -778,6 +779,7 @@ class RekoReportResponse(RekoReportBase):
     incident_type: str | None = None  # Computed from incident.type
     incident_description: str | None = None  # Computed from incident.description
     incident_contact: str | None = None  # Computed from incident.contact (Melder/Kontakt)
+    arrived_at: datetime | None = None  # When reko personnel arrived on site
     submitted_at: datetime
     updated_at: datetime
     photos_json: list[str] = []  # Array of photo filenames
@@ -800,6 +802,7 @@ class RekoSummary(BaseModel):
 
     incident_id: UUID
     has_completed_reko: bool  # Whether there's a submitted (non-draft) report
+    arrived_at: datetime | None = None  # When reko personnel arrived on site
     is_relevant: bool | None = None
     dangers_json: DangersAssessment | None = None
     effort_json: EffortEstimation | None = None
@@ -891,6 +894,7 @@ class NotificationType(str, Enum):
     MISSING_LOCATION = "missing_location"
     EVENT_SIZE_LIMIT = "event_size_limit"
     REKO_SUBMITTED = "reko_submitted"
+    REKO_ARRIVED = "reko_arrived"
     TRAINING_EMERGENCY = "training_emergency"
 
 

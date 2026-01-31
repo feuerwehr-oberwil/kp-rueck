@@ -18,7 +18,7 @@ from ..utils.errors import ErrorMessages
 
 logger = get_logger(__name__)
 from ..services.audit import log_action
-from ..services.notification_service import create_reko_notification
+from ..services.notification_service import create_reko_arrived_notification, create_reko_notification
 from ..services.photo_storage import photo_storage
 from ..services.tokens import generate_form_token, validate_form_token
 
@@ -216,6 +216,61 @@ async def get_incident_reports(
         response_list.append(response_data)
 
     return response_list
+
+
+@router.post("/{incident_id}/arrived", response_model=schemas.RekoReportResponse)
+async def mark_reko_arrived(
+    incident_id: uuid.UUID,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Mark Reko personnel as arrived on site.
+
+    This creates a "ping" notification for the command post without
+    requiring the full form to be filled out first.
+
+    Query params:
+        token: Form access token
+
+    Returns the updated reko report with arrived_at timestamp.
+    """
+    try:
+        report = await crud.mark_reko_arrived(db, incident_id, token)
+
+        # Fetch incident for notification
+        incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+        incident = incident_result.scalar_one_or_none()
+
+        if incident and incident.event_id:
+            # Get personnel name if available
+            arrived_by_name = None
+            if report.submitted_by_personnel_id:
+                await db.refresh(report, ["submitted_by_personnel"])
+                if report.submitted_by_personnel:
+                    arrived_by_name = report.submitted_by_personnel.name
+
+            await create_reko_arrived_notification(
+                db=db,
+                incident_id=incident.id,
+                event_id=incident.event_id,
+                incident_title=incident.title or incident.location_address or "Unbekannt",
+                arrived_by_name=arrived_by_name,
+            )
+
+        # Convert to response schema with incident details
+        response_data = schemas.RekoReportResponse.model_validate(report)
+        if incident:
+            response_data.incident_title = incident.title
+            response_data.incident_location = incident.location_address
+            response_data.incident_type = incident.type
+            response_data.incident_description = incident.description
+            response_data.incident_contact = incident.contact
+
+        return response_data
+    except ValueError as e:
+        logger.warning("Mark reko arrived failed: %s", e)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
 
 
 @router.post("/generate-link")

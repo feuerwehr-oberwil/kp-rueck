@@ -51,6 +51,7 @@ export interface Operation {
   internalNotes: string
   statusChangedAt: Date | null
   hasCompletedReko: boolean
+  rekoArrivedAt: Date | null
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
   crewAssignments: Map<string, string>
@@ -163,6 +164,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       internalNotes: incident.internal_notes || "",
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
+      rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
       rekoSummary: null,
       assignedReko: null,
       crewAssignments: new Map(),
@@ -827,6 +829,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           internalNotes: apiIncident.internal_notes || "",
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
+          rekoArrivedAt: null,
           rekoSummary: null,
           assignedReko: null,
           crewAssignments: new Map(),
@@ -844,6 +847,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         dispatchTime: new Date(),
         statusChangedAt: null,
         hasCompletedReko: false,
+        rekoArrivedAt: null,
         rekoSummary: null,
         crewAssignments: new Map(),
         materialAssignments: new Map(),
@@ -1202,6 +1206,8 @@ export function useIncidents() {
     created_by: null,
     completed_at: op.status === "complete" ? new Date() : null,
     status_changed_at: op.statusChangedAt,
+    has_completed_reko: op.hasCompletedReko || false,
+    reko_arrived_at: op.rekoArrivedAt ?? null,
     assigned_vehicles: op.vehicles.map((name) => ({
       assignment_id: "",
       vehicle_id: "",

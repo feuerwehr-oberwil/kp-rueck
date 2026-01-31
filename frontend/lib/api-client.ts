@@ -268,6 +268,7 @@ export interface ApiIncident {
   status_changed_at: string | null // Timestamp of last status transition
   assigned_vehicles: ApiAssignedVehicle[]
   has_completed_reko: boolean // Whether a non-draft reko report exists
+  reko_arrived_at: string | null // When reko personnel arrived on site (before submitting)
 }
 
 export interface ApiIncidentCreate {
@@ -347,6 +348,7 @@ export interface ApiRekoReportResponse extends ApiRekoReportBase {
   incident_type?: string | null
   incident_description?: string | null
   incident_contact?: string | null
+  arrived_at?: string | null  // When reko personnel arrived on site
   submitted_at: string
   updated_at: string
   photos_json: string[]
@@ -363,6 +365,7 @@ export interface ApiRekoFormResponse extends ApiRekoReportResponse {
 export interface ApiRekoSummary {
   incident_id: string
   has_completed_reko: boolean
+  arrived_at: string | null  // When reko personnel arrived on site
   is_relevant: boolean | null
   dangers_json: ApiDangersAssessment | null
   effort_json: ApiEffortEstimation | null
@@ -1170,6 +1173,15 @@ class ApiClient {
     return this.request<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
   }
 
+  async markRekoArrived(incidentId: string, token: string): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(
+      `/api/reko/${incidentId}/arrived?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
   /**
    * Get reko summaries for all incidents in an event (bulk load).
    * This eliminates N+1 queries when loading the kanban board.
@@ -1437,6 +1449,28 @@ class ApiClient {
       {
         method: 'DELETE',
       }
+    )
+  }
+
+  // Viewer (read-only access)
+  async generateViewerLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
+    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+      `/api/viewer/generate-link?event_id=${encodeURIComponent(eventId)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getViewerData(token: string): Promise<{
+    event: ApiEvent
+    incidents: ApiIncident[]
+  }> {
+    return this.request<{
+      event: ApiEvent
+      incidents: ApiIncident[]
+    }>(
+      `/api/viewer/data?token=${encodeURIComponent(token)}`
     )
   }
 }

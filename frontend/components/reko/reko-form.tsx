@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Send, Loader2, Binoculars } from 'lucide-react'
+import { AlertCircle, Send, Loader2, Binoculars, MapPin, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
@@ -69,6 +69,8 @@ export default function RekoForm() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isMarkingArrived, setIsMarkingArrived] = useState(false)
+  const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [isTraining, setIsTraining] = useState(false)
@@ -159,6 +161,24 @@ export default function RekoForm() {
     return summaries[Math.floor(Math.random() * summaries.length)];
   };
 
+  const handleMarkArrived = async () => {
+    if (!incidentId || !token || arrivedAt) return
+
+    setIsMarkingArrived(true)
+    try {
+      const response = await apiClient.markRekoArrived(incidentId, token)
+      if (response.arrived_at) {
+        setArrivedAt(new Date(response.arrived_at))
+        toast.success('Ankunft gemeldet')
+      }
+    } catch (error) {
+      console.error('Failed to mark arrived:', error)
+      toast.error('Fehler beim Melden der Ankunft')
+    } finally {
+      setIsMarkingArrived(false)
+    }
+  }
+
   const handleGenerateDummyData = () => {
     const dummyData: RekoFormData = {
       is_relevant: Math.random() > 0.2, // 80% relevant
@@ -217,6 +237,11 @@ export default function RekoForm() {
         // For now, this will be false (production mode)
         // Backend should add: event_training_flag: boolean to ApiRekoFormResponse
         // setIsTraining(data.event_training_flag || false)
+
+        // Set arrivedAt if already marked
+        if (data.arrived_at) {
+          setArrivedAt(new Date(data.arrived_at))
+        }
 
         // Load existing report/draft - prefer localStorage for offline resilience
         const localData = loadFromLocalStorage()
@@ -392,6 +417,32 @@ export default function RekoForm() {
           </div>
         )}
       </div>
+
+      {/* Arrival Ping Button */}
+      <Button
+        type="button"
+        onClick={handleMarkArrived}
+        disabled={isMarkingArrived || !!arrivedAt}
+        variant={arrivedAt ? "secondary" : "default"}
+        className={`w-full h-12 ${arrivedAt ? 'bg-muted text-muted-foreground' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+      >
+        {isMarkingArrived ? (
+          <>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Melde Ankunft...
+          </>
+        ) : arrivedAt ? (
+          <>
+            <Check className="mr-2 h-5 w-5" />
+            Ankunft gemeldet ({arrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })})
+          </>
+        ) : (
+          <>
+            <MapPin className="mr-2 h-5 w-5" />
+            Ich bin vor Ort
+          </>
+        )}
+      </Button>
 
       {/* Section 1: Basic Confirmation */}
       <div className="space-y-3">

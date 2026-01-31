@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Map, Truck, Siren, ArrowRightLeft, Search } from 'lucide-react'
+import { MapPin, Clock, Map, Truck, Siren, ArrowRightLeft, Search, Binoculars } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
@@ -96,6 +96,29 @@ export function IncidentCard({
 
           {/* Action buttons */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* REKO Status Icon */}
+            {(incident.has_completed_reko || incident.reko_arrived_at) && (
+              <div
+                className={`p-1.5 rounded-md ${
+                  incident.has_completed_reko
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                    : ''
+                }`}
+                title={
+                  incident.has_completed_reko
+                    ? 'Reko-Bericht ausgefüllt'
+                    : 'Reko vor Ort'
+                }
+              >
+                <Binoculars
+                  className={`h-4 w-4 ${
+                    incident.has_completed_reko
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-muted-foreground'
+                  }`}
+                />
+              </div>
+            )}
             {incident.location_lat && incident.location_lng && (
               <Link
                 href={`/map?highlight=${incident.id}`}

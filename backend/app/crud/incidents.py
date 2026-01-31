@@ -110,16 +110,23 @@ async def get_incidents(
                 )
             )
 
-    # Batch load reko completion status for all incidents
+    # Batch load reko completion status and arrived_at for all incidents
     reko_query = (
-        select(RekoReport.incident_id)
-        .where(and_(RekoReport.incident_id.in_(incident_ids), RekoReport.is_draft == False))  # noqa: E712
-        .distinct()
+        select(RekoReport.incident_id, RekoReport.is_draft, RekoReport.arrived_at)
+        .where(RekoReport.incident_id.in_(incident_ids))
     )
     reko_result = await db.execute(reko_query)
-    incidents_with_completed_reko = {row.incident_id for row in reko_result}
+    incidents_with_completed_reko = set()
+    reko_arrived_at_map = {}
+    for row in reko_result:
+        if not row.is_draft:
+            incidents_with_completed_reko.add(row.incident_id)
+        # Keep the earliest arrived_at for each incident
+        if row.arrived_at:
+            if row.incident_id not in reko_arrived_at_map or row.arrived_at < reko_arrived_at_map[row.incident_id]:
+                reko_arrived_at_map[row.incident_id] = row.arrived_at
 
-    # Populate status_changed_at, assigned_vehicles, and has_completed_reko for each incident
+    # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:
         # Set status_changed_at from batch-loaded map
         incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
@@ -129,6 +136,9 @@ async def get_incidents(
 
         # Set has_completed_reko flag
         incident.has_completed_reko = incident.id in incidents_with_completed_reko
+
+        # Set reko_arrived_at timestamp
+        incident.reko_arrived_at = reko_arrived_at_map.get(incident.id)
 
     return incidents
 
@@ -164,11 +174,16 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         # Load assigned vehicles (reuse helper function - acceptable for single incident)
         incident.assigned_vehicles = await _get_assigned_vehicles(db, incident.id)
 
-        # Check for completed reko report
+        # Check for completed reko report and arrived_at
         reko_check = await db.execute(
-            select(RekoReport.id).where(and_(RekoReport.incident_id == incident.id, RekoReport.is_draft == False)).limit(1)  # noqa: E712
+            select(RekoReport.id, RekoReport.is_draft, RekoReport.arrived_at)
+            .where(RekoReport.incident_id == incident.id)
+            .order_by(RekoReport.arrived_at.asc().nullslast())
         )
-        incident.has_completed_reko = reko_check.scalar_one_or_none() is not None
+        reko_rows = reko_check.all()
+        incident.has_completed_reko = any(not row.is_draft for row in reko_rows)
+        # Get the earliest arrived_at timestamp
+        incident.reko_arrived_at = next((row.arrived_at for row in reko_rows if row.arrived_at), None)
 
     return incident
 

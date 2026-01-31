@@ -602,3 +602,44 @@ async def create_reko_notification(
     await db.refresh(notification)
 
     return notification
+
+
+async def create_reko_arrived_notification(
+    db: AsyncSession,
+    incident_id: UUID,
+    event_id: UUID,
+    incident_title: str,
+    arrived_by_name: str | None = None,
+) -> Notification:
+    """
+    Create a notification when Reko personnel arrives on site.
+
+    Args:
+        db: Database session
+        incident_id: ID of the incident the reko is for
+        event_id: ID of the event
+        incident_title: Title of the incident for the message
+        arrived_by_name: Optional name of personnel who arrived
+
+    Returns:
+        Created notification
+    """
+    # Build message
+    if arrived_by_name:
+        message = f"REKO vor Ort: {arrived_by_name} bei {incident_title}"
+    else:
+        message = f"REKO vor Ort: {incident_title}"
+
+    notification = Notification(
+        type="reko_arrived",
+        severity="info",
+        message=message,
+        incident_id=incident_id,
+        event_id=event_id,
+    )
+
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
+
+    return notification
