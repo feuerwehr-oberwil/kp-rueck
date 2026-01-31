@@ -960,9 +960,14 @@
 
 /* Emergency Print Styles */
 
-/* Hide print-only content on screen */
+/* Hide print-only content on screen - use positioning instead of display:none
+   so Leaflet maps can calculate their dimensions properly */
 .print-only {
-  display: none !important;
+  position: fixed !important;
+  left: -9999px !important;
+  top: 0 !important;
+  width: 210mm !important; /* A4 width */
+  visibility: hidden !important;
 }
 
 @media print {
@@ -979,7 +984,10 @@
 
   /* Override the screen-only hiding */
   .print-only {
-    display: block !important;
+    position: static !important;
+    left: auto !important;
+    visibility: visible !important;
+    width: 100% !important;
   }
 
   /* Position print view - use absolute to allow multi-page flow */
@@ -1049,5 +1057,29 @@
   /* Show A4-only elements */
   .print-a4-only {
     display: table-header-group !important;
+  }
+
+  /* Print map styles */
+  .print-map-container {
+    height: 250px !important;
+    width: 100% !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-map-container .leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    background: white !important;
+  }
+
+  .print-map-container .leaflet-tile-pane {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-marker {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

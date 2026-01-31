@@ -32,6 +32,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
     includePersonnel: true,
     includeVehicles: true,
     includeMaterials: false,
+    includeMap: false,
   })
 
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
@@ -141,6 +142,19 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                 />
                 <Label htmlFor="includeMaterials" className="cursor-pointer text-sm">
                   Material-Inventar
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeMap"
+                  checked={options.includeMap}
+                  onCheckedChange={(checked) =>
+                    updateOption("includeMap", checked === true)
+                  }
+                />
+                <Label htmlFor="includeMap" className="cursor-pointer text-sm">
+                  Karten-Übersicht
                 </Label>
               </div>
             </div>

@@ -3,12 +3,20 @@
 import { forwardRef } from "react"
 import type { Operation, Person, Material } from "@/lib/contexts/operations-context"
 import type { ApiVehicle } from "@/lib/api-client"
+import dynamic from "next/dynamic"
+
+// Dynamically import Leaflet components (no SSR)
+const PrintableMapInner = dynamic(() => import("./printable-map"), {
+  ssr: false,
+  loading: () => <div className="h-[300px] bg-gray-100 flex items-center justify-center text-gray-500">Karte wird geladen...</div>,
+})
 
 export interface PrintOptions {
   includeCompleted: boolean
   includePersonnel: boolean
   includeVehicles: boolean
   includeMaterials: boolean
+  includeMap: boolean
 }
 
 interface PrintViewProps {
@@ -111,6 +119,16 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             <span>Gedruckt: {formatDateTime(new Date())}</span>
           </div>
         </div>
+
+        {/* Map Overview */}
+        {options.includeMap && filteredOperations.length > 0 && (
+          <div className="mb-4 page-break-inside-avoid">
+            <h2 className="font-bold border-b border-black mb-2 text-sm">
+              EINSATZÜBERSICHT KARTE
+            </h2>
+            <PrintableMapInner operations={filteredOperations} />
+          </div>
+        )}
 
         {/* Incidents by Status */}
         {sortedStatuses.map((status) => {
