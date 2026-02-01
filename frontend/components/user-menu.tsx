@@ -50,6 +50,7 @@ export function UserMenu({
   const [apiUrl] = useState(getApiUrl());
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>('disconnected');
+  const [printerStatus, setPrinterStatus] = useState<{ enabled: boolean; ip: string; last_error: string | null } | null>(null);
 
   // Sync status
   const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
@@ -75,6 +76,25 @@ export function UserMenu({
     const unsubscribe = wsClient.onStatusChange(setWsStatus);
     return unsubscribe;
   }, []);
+
+  // Fetch printer status
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchPrinterStatus = async () => {
+      try {
+        const status = await apiClient.getPrinterStatus();
+        setPrinterStatus(status);
+      } catch {
+        // Printer API might not be available (e.g., Railway deployment)
+        setPrinterStatus(null);
+      }
+    };
+    fetchPrinterStatus();
+    // Refresh printer status every 30 seconds
+    const interval = setInterval(fetchPrinterStatus, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   const checkConnection = async () => {
     try {
@@ -224,6 +244,20 @@ export function UserMenu({
     }
   };
 
+  const getPrinterStatusColor = () => {
+    if (!printerStatus) return "bg-gray-400";
+    if (!printerStatus.enabled) return "bg-gray-400";
+    if (printerStatus.last_error) return "bg-red-500";
+    return "bg-green-500";
+  };
+
+  const getPrinterStatusText = () => {
+    if (!printerStatus) return "Nicht verfügbar";
+    if (!printerStatus.enabled) return "Deaktiviert";
+    if (printerStatus.last_error) return "Fehler";
+    return "Bereit";
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -312,6 +346,17 @@ export function UserMenu({
                   <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
                   {getSyncDirectionIcon()}
                   <span className="text-xs">{syncConfig?.is_production ? "Deaktiviert" : getSyncStatusText()}</span>
+                </div>
+              </div>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings?section=printer" className="cursor-pointer">
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs text-muted-foreground">Drucker</span>
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
+                  <span className="text-xs">{getPrinterStatusText()}</span>
                 </div>
               </div>
             </Link>

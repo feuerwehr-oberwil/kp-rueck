@@ -8,10 +8,19 @@ Digitaler Ersatz für die Magnettafel im Kommandoposten. Verwalten Sie Einsätze
 Hauptansicht beim Laden der App. Zeigt alle Einsätze in Status-Spalten (Eingegangen → Archiv). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
 
 ### Kartenansicht (`G M`)
-Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grau/Gelb/Rot). Klick auf Marker öffnet Einsatzdetails.
+Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot). Klick auf Marker öffnet Einsatzdetails.
+
+**Kartenlegende:**
+- **Priorität (Füllung):** Grün=Niedrig, Gelb=Mittel, Rot=Hoch
+- **Status (Rahmen):** Gestrichelt=Offen/Neu, Durchgezogen=Aktiv, Gepunktet+Verblasst=Abgeschlossen
+- **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
 
 ### Seitenpanel (Kanban)
-Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel. Wechseln Sie zwischen **Details** (Einsatzbearbeitung) und **Karte** (Mini-Übersicht). Einfach-Klick auf Einsatzkarte zeigt Details im Panel, Doppelklick öffnet Modal.
+Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel. Wechseln Sie zwischen **Details** (Einsatzbearbeitung) und **Karte** (Mini-Übersicht).
+
+**Klick-Verhalten:**
+- **Einfach-Klick**: Zeigt Einsatz-Details im Seitenpanel
+- **Doppelklick**: Öffnet den vollständigen Detail-Dialog (Modal)
 
 ### Ereignisse (`G E`)
 Events verwalten, wechseln, archivieren, exportieren.
@@ -19,6 +28,11 @@ Events verwalten, wechseln, archivieren, exportieren.
 **Echt vs. Training:** Events können als "Training" markiert werden. Badge "Übung" erscheint, Daten werden separat geführt. Echte Events kommen von Divera.
 
 **Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung.
+
+**Drucken (PDF):** Footer → "Drucken" öffnet Druckvorschau mit Optionen:
+- Einsätze nach Status filtern
+- Karten-Übersicht (zeigt alle Einsatzorte auf einer Karte)
+- Fahrzeugstatus einblenden
 
 ---
 
@@ -54,11 +68,11 @@ Jede Karte zeigt: Adresse, Typ, zugewiesene Ressourcen, Priorität und Alter.
 
 ### Prioritäten
 
-| Stufe | Farbe | Shortcut |
-|-------|-------|----------|
-| Niedrig | Grau | `Shift+1` |
-| Mittel | Gelb | `Shift+2` |
-| Hoch | Rot | `Shift+3` |
+| Stufe | Badge (Karte) | Marker (Karte) | Shortcut |
+|-------|---------------|----------------|----------|
+| Niedrig | Grau | Grün | `Shift+1` |
+| Mittel | Orange | Gelb | `Shift+2` |
+| Hoch | Rot | Rot | `Shift+3` |
 
 ### Alters-Indikatoren
 
@@ -77,6 +91,23 @@ Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" akt
 
 Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständigen Meldungstext direkt auf jeder Einsatzkarte an - praktisch für schnellen Überblick ohne jeden Einsatz zu öffnen.
 
+### Karten-Icon
+
+Einsätze mit Koordinaten zeigen ein kleines Karten-Icon oben rechts. Klick darauf öffnet die Kartenansicht mit dem Einsatz hervorgehoben.
+
+### Rechtsklick-Menü (Kontextmenü)
+
+Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
+
+| Aktion | Beschreibung |
+|--------|-------------|
+| Bearbeiten | Öffnet den Detail-Dialog |
+| Reko zuweisen | Offizier für Vorerkundung auswählen |
+| Fahrzeug zuweisen | Fahrzeug direkt zuweisen |
+| Nachbarhilfe | Markiert Einsatz mit Nachbarfeuerwehr-Beteiligung |
+| Auf Karte zeigen | Springt zur Kartenansicht |
+| Einsatzzettel drucken | Druckt auf Thermodrucker (nur wenn aktiviert) |
+
 ---
 
 ## So funktioniert's: Typische Abläufe
@@ -94,13 +125,13 @@ Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständige
 1. Einsatz in "Reko" verschieben (ziehen oder `>`)
 2. Offizier per Rechtsklick als "Reko" markieren
 3. Link kopieren und via WhatsApp senden → Offizier öffnet vor Ort
-4. Offizier klickt "Ich bin vor Ort" → Kommandoposten sieht Ankunft
+4. Offizier klickt "Ich bin vor Ort" → Kommandoposten sieht Ankunft mit Zeitstempel
 5. Reko-Formular ausfüllen, Fotos hochladen
 6. Basierend auf Bericht: Disponieren oder Abschliessen
 
 **Reko-Status auf Karten:**
 - Kein Icon: Keine Reko-Aktivität
-- Fernglas (grau): Offizier vor Ort, prüft Lage
+- Fernglas (grau): Offizier vor Ort, prüft Lage ("vor Ort HH:MM" neben Name)
 - Fernglas (grün mit Hintergrund): Reko-Bericht eingereicht
 
 ### Ressourcen zuweisen und losschicken
@@ -237,6 +268,19 @@ Die lokale Instanz synchronisiert automatisch mit Railway. Der Sync-Status wird 
 **Lokal → Railway:** Wenn Railway wieder online ist, erscheint eine Benachrichtigung mit "Jetzt synchronisieren" Button.
 
 Sync-Einstellungen unter Einstellungen → Sync Tab.
+
+### Verbindungsstatus (Benutzermenü)
+
+Im Benutzermenü (oben rechts) zeigt der Bereich "Verbindung" den Status aller Systeme:
+
+| System | Bedeutung |
+|--------|-----------|
+| **Backend** | API-Server Verbindung |
+| **WebSocket** | Echtzeit-Updates (Polling-Fallback wenn offline) |
+| **Sync** | Railway ↔ Lokal Synchronisation |
+| **Drucker** | Thermodrucker-Status: Deaktiviert / Bereit / Fehler |
+
+Klick auf einen Eintrag öffnet die entsprechenden Einstellungen.
 
 ---
 
