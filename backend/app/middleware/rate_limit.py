@@ -9,13 +9,22 @@ Configuration:
 - Auth endpoints: Stricter limits (5/minute for login)
 - General API: Moderate limits (100/minute)
 - Health checks: No limits
+
+Features:
+- X-RateLimit-* headers on all responses
+- Retry-After header on 429 responses
 """
+
+import re
+import time
+from collections.abc import Callable
 
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 
 def get_client_identifier(request: Request) -> str:
@@ -36,8 +45,11 @@ def get_client_identifier(request: Request) -> str:
     return get_remote_address(request)
 
 
-# Create limiter instance with custom key function
-limiter = Limiter(key_func=get_client_identifier)
+# Create limiter instance with custom key function and header injection
+limiter = Limiter(
+    key_func=get_client_identifier,
+    headers_enabled=True,  # Enable X-RateLimit headers
+)
 
 
 # Rate limit constants - centralized for easy adjustment
@@ -64,16 +76,57 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
     """
     Custom handler for rate limit exceeded errors.
 
-    Returns a user-friendly error message in German.
+    Returns a user-friendly error message in German with rate limit headers.
     """
+    # Parse the limit from exception detail (e.g., "5 per 1 minute")
+    retry_after = 60  # Default to 60 seconds
+    limit_value = "unknown"
+    limit_match = re.search(r"(\d+)\s+per\s+(\d+)\s+(\w+)", str(exc.detail))
+    if limit_match:
+        limit_value = limit_match.group(1)
+        window = int(limit_match.group(2))
+        unit = limit_match.group(3)
+
+        # Convert to seconds
+        if "minute" in unit:
+            retry_after = window * 60
+        elif "hour" in unit:
+            retry_after = window * 3600
+        elif "second" in unit:
+            retry_after = window
+
+    reset_time = int(time.time()) + retry_after
+
     return JSONResponse(
         status_code=429,
         content={
             "detail": "Zu viele Anfragen. Bitte warten Sie einen Moment.",
             "error": "rate_limit_exceeded",
-            "retry_after": exc.detail,
+            "retry_after": retry_after,
         },
         headers={
-            "Retry-After": str(exc.detail),
+            "Retry-After": str(retry_after),
+            "X-RateLimit-Limit": limit_value,
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": str(reset_time),
         },
     )
+
+
+class RateLimitHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to add rate limit headers to responses.
+
+    Adds X-RateLimit-* headers to help clients implement backoff.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+
+        # Add rate limit headers if not already present (slowapi adds them for limited routes)
+        # These are informational headers for routes without explicit limits
+        if "X-RateLimit-Limit" not in response.headers and request.url.path.startswith("/api"):
+            # Default API limit info
+            response.headers["X-RateLimit-Policy"] = "100/minute"
+
+        return response

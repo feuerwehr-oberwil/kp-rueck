@@ -14,6 +14,7 @@ from ..database import get_db
 from ..models import User
 from .config import auth_settings
 from .security import decode_token
+from .token_blocklist import token_blocklist
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,12 @@ async def get_current_user(
 
         # Verify token type
         if payload.get("type") != "access":
+            raise credentials_exception
+
+        # Check if token has been revoked (logout)
+        jti = payload.get("jti")
+        if jti and await token_blocklist.is_revoked(jti):
+            logger.debug("Token has been revoked")
             raise credentials_exception
 
         # Extract user ID

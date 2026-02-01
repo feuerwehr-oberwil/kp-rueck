@@ -19,6 +19,7 @@ from ..auth.security import (
     decode_token,
     verify_password,
 )
+from ..auth.token_blocklist import token_blocklist
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import User
@@ -135,6 +136,11 @@ async def refresh_token(
         if payload.get("type") != "refresh":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Token-Typ")
 
+        # Check if refresh token has been revoked (logout)
+        jti = payload.get("jti")
+        if jti and await token_blocklist.is_revoked(jti):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token wurde widerrufen")
+
         user_id = uuid.UUID(payload.get("sub"))
 
     except JWTError:
@@ -181,13 +187,14 @@ async def logout(
     request: Request,
     response: Response,
     access_token: Annotated[str | None, Cookie()] = None,
+    refresh_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Logout by clearing cookies.
+    Logout by revoking tokens and clearing cookies.
 
-    Note: JWT tokens are stateless, so we can't "revoke" them.
-    We rely on reasonable expiration times (8 hours).
+    Adds token JTIs to the blocklist so they cannot be reused,
+    even if someone intercepts them before expiry.
     Works whether authenticated or not - just clears cookies.
     """
     # Try to get current user for logging purposes (but don't require it)
@@ -197,6 +204,33 @@ async def logout(
             current_user = await get_current_user(request=request, access_token=access_token, db=db)
         except HTTPException:
             # If token is invalid/expired, that's fine - just clear cookies
+            pass
+
+    # Revoke access token by adding JTI to blocklist
+    if access_token:
+        try:
+            payload = decode_token(access_token)
+            jti = payload.get("jti")
+            exp = payload.get("exp")
+            if jti and exp:
+                # Convert exp timestamp to datetime
+                expires_at = datetime.fromtimestamp(exp, tz=UTC)
+                await token_blocklist.revoke(jti, expires_at)
+        except JWTError:
+            # Token already invalid, no need to revoke
+            pass
+
+    # Revoke refresh token by adding JTI to blocklist
+    if refresh_token:
+        try:
+            payload = decode_token(refresh_token)
+            jti = payload.get("jti")
+            exp = payload.get("exp")
+            if jti and exp:
+                expires_at = datetime.fromtimestamp(exp, tz=UTC)
+                await token_blocklist.revoke(jti, expires_at)
+        except JWTError:
+            # Token already invalid, no need to revoke
             pass
 
     # Log logout event if we have a user

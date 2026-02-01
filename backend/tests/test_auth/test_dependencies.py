@@ -352,3 +352,46 @@ async def test_empty_string_token(db_session: AsyncSession, mock_request):
         await get_current_user(request=mock_request, access_token="", db=db_session)
 
     assert exc_info.value.status_code == 401
+
+
+# ============================================
+# Token Revocation Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_revoked_token_is_rejected(db_session: AsyncSession, mock_request):
+    """Test that revoked tokens are rejected."""
+    from datetime import datetime, timedelta
+
+    from jose import jwt
+
+    from app.auth.config import auth_settings
+    from app.auth.token_blocklist import token_blocklist
+
+    # Create test user
+    user = User(id=uuid4(), username="testuser", password_hash="hashed", role="editor")
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    # Create a valid token with known jti
+    jti = "test-revoked-token-jti"
+    expires_at = datetime.now(UTC) + timedelta(hours=1)
+    token_data = {
+        "sub": str(user.id),
+        "exp": expires_at,
+        "iat": datetime.now(UTC),
+        "jti": jti,
+        "type": "access",
+    }
+    access_token = jwt.encode(token_data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
+
+    # Revoke the token
+    await token_blocklist.revoke(jti, expires_at)
+
+    # Attempt to use revoked token
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(request=mock_request, access_token=access_token, db=db_session)
+
+    assert exc_info.value.status_code == 401

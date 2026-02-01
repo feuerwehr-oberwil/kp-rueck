@@ -47,16 +47,17 @@ from .api.traccar import router as traccar_router
 from .api.training import router as training_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
+from .auth.token_blocklist import token_blocklist
 from .background import start_sync_scheduler, stop_sync_scheduler
 from .config import settings
 from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
-from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
+from .middleware.rate_limit import RateLimitHeadersMiddleware, limiter, rate_limit_exceeded_handler
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
+from .websocket_manager import broadcast_message, set_divera_poll_callback, ws_manager
 from .websocket_manager import sio as socket_server
-from .websocket_manager import ws_manager, set_divera_poll_callback, broadcast_message
 
 
 async def _setup_divera_polling():
@@ -170,8 +171,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Divera polling setup failed: {e}")
 
+    # Start token blocklist cleanup task
+    logger.info("Starting token blocklist cleanup...")
+    try:
+        await token_blocklist.start_cleanup_task()
+    except Exception as e:
+        logger.warning(f"Token blocklist cleanup task failed to start: {e}")
+
     logger.info("Application startup complete")
     yield
+
+    # Shutdown: Stop token blocklist cleanup
+    logger.info("Stopping token blocklist cleanup...")
+    try:
+        await token_blocklist.stop_cleanup_task()
+    except Exception as e:
+        logger.warning(f"Token blocklist cleanup shutdown failed: {e}")
 
     # Shutdown: Stop Divera polling
     logger.info("Stopping Divera polling...")
@@ -270,6 +285,9 @@ app.add_middleware(AuditMiddleware)
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Add rate limit headers middleware
+app.add_middleware(RateLimitHeadersMiddleware)
 
 # Include routers
 app.include_router(health_router)  # No prefix - available at /health
