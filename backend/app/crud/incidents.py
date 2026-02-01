@@ -394,6 +394,25 @@ async def update_incident_status(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
+    # Auto-print assignment slip when status changes to "einsatz" (Anfahrt)
+    if new_status == "einsatz" and old_status != "einsatz":
+        from ..services import settings as settings_service
+        from . import print_jobs as print_crud
+
+        # Check if auto-print is enabled
+        printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
+        auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
+
+        if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
+            try:
+                await print_crud.queue_assignment_print(db, incident_id)
+            except Exception as e:
+                # Log error but don't fail the status change
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
+
     await db.commit()
     await db.refresh(incident)
 

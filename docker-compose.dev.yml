@@ -115,6 +115,33 @@ services:
         limits:
           memory: 512M
 
+  # Thermal printer agent (optional - for local command post installations)
+  # Start with: docker compose -f docker-compose.dev.yml --profile printing up -d
+  # Or: just print-agent
+  print-agent:
+    build:
+      context: ./print-agent
+      dockerfile: Dockerfile
+    container_name: kprueck-print-agent-dev
+    restart: unless-stopped
+    # Use host network to access printer on local LAN
+    network_mode: "host"
+    environment:
+      # Backend URL (use localhost since we're on host network)
+      BACKEND_URL: http://localhost:8000
+      # Printer config is fetched from backend settings
+      POLL_INTERVAL: ${POLL_INTERVAL:-2}
+      DRY_RUN: ${DRY_RUN:-false}
+      LOG_LEVEL: INFO
+    profiles:
+      - printing
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
 networks:
   kprueck-network:
     driver: bridge

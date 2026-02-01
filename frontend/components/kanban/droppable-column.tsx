@@ -33,6 +33,7 @@ interface DroppableColumnProps {
   onAssignReko?: (operationId: string) => void
   onToggleNachbarhilfe?: (operationId: string) => void
   showMeldung?: boolean
+  printerEnabled?: boolean
 }
 
 export const DroppableColumn = memo(function DroppableColumn({
@@ -56,6 +57,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onAssignReko,
   onToggleNachbarhilfe,
   showMeldung,
+  printerEnabled,
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -131,6 +133,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onAssignReko={onAssignReko ? () => onAssignReko(operation.id) : undefined}
                 onToggleNachbarhilfe={onToggleNachbarhilfe ? () => onToggleNachbarhilfe(operation.id) : undefined}
                 showMeldung={showMeldung}
+                printerEnabled={printerEnabled}
               />
             </div>
           ))}

@@ -53,6 +53,7 @@ import {
   Moon,
   Monitor,
   ClipboardList,
+  Printer,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -65,6 +66,7 @@ import { SyncHistoryCard } from '@/components/sync/sync-history-card';
 import { PersonnelSettings } from '@/components/settings/personnel-settings';
 import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
+import { PrinterSettings } from '@/components/settings/printer-settings';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { useIsMobile } from '@/components/ui/use-mobile';
@@ -74,6 +76,7 @@ const SECTIONS = [
   { id: 'general', label: 'Allgemein', icon: Settings2, group: 'config', editorOnly: false },
   { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false },
   { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false },
+  { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true },
   { id: 'personnel', label: 'Personal', icon: Users, group: 'resources', editorOnly: true },
   { id: 'vehicles', label: 'Fahrzeuge', icon: Truck, group: 'resources', editorOnly: true },
   { id: 'materials', label: 'Material', icon: Package, group: 'resources', editorOnly: true },
@@ -555,6 +558,9 @@ export default function SettingsPage() {
             <SyncHistoryCard refreshTrigger={historyRefreshTrigger} />
           </div>
         );
+
+      case 'printer':
+        return <PrinterSettings />;
 
       case 'personnel':
         return <PersonnelSettings />;

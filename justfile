@@ -163,6 +163,50 @@ restart-tileserver:
     fi
 
 # ============================================
+# Thermal Printer
+# ============================================
+
+# Start print agent (requires backend running)
+print-agent:
+    @echo "\033[1;34m→ Starting thermal print agent...\033[0m"
+    @echo "\033[1;34m→ Printer config is fetched from backend settings\033[0m"
+    @echo "\033[1;34m→ Use 'just print-agent-dry' for testing without a printer\033[0m"
+    docker compose -f docker-compose.dev.yml --profile printing up print-agent
+
+# Start print agent in dry-run mode (no printer needed)
+print-agent-dry:
+    @echo "\033[1;34m→ Starting print agent in DRY RUN mode (no printer needed)...\033[0m"
+    cd print-agent && DRY_RUN=true uv run python agent.py
+
+# Start print agent in background
+print-agent-bg:
+    @echo "\033[1;34m→ Starting thermal print agent in background...\033[0m"
+    docker compose -f docker-compose.dev.yml --profile printing up -d print-agent
+
+# Stop print agent
+print-agent-stop:
+    @echo "\033[1;34m→ Stopping print agent...\033[0m"
+    docker compose -f docker-compose.dev.yml --profile printing down print-agent
+
+# Show print agent logs
+print-agent-logs:
+    docker compose -f docker-compose.dev.yml --profile printing logs -f print-agent
+
+# Check print agent status
+print-agent-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FMT='{{ "{{" }}.Names{{ "}}" }}'
+    echo -e "\033[1;34m→ Checking print agent status...\033[0m"
+    if docker ps --format "$FMT" | grep -q "kprueck-print-agent"; then
+        echo -e "\033[1;32m✓ Print agent is running\033[0m"
+        docker logs --tail 5 kprueck-print-agent-dev 2>&1 || true
+    else
+        echo -e "\033[1;33m⚠️  Print agent is not running\033[0m"
+        echo "Start with: just print-agent"
+    fi
+
+# ============================================
 # Testing
 # ============================================
 

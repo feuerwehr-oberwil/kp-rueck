@@ -1,0 +1,10 @@
+[project]
+name = "print-agent"
+version = "0.1.0"
+description = "Thermal printer agent for KP Rueck"
+requires-python = ">=3.11"
+dependencies = [
+    "python-escpos>=3.1",
+    "httpx>=0.27.0",
+    "pillow>=10.0.0",
+]

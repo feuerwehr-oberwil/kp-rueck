@@ -216,6 +216,10 @@ export default function FireStationDashboard() {
   const [rekoAssignDialogOpen, setRekoAssignDialogOpen] = useState(false)
   const [rekoAssignOperationId, setRekoAssignOperationId] = useState<string | null>(null)
 
+  // Thermal printer state
+  const [printerEnabled, setPrinterEnabled] = useState(false)
+  const [isPrintingBoard, setIsPrintingBoard] = useState(false)
+
   // Fetch Reko personnel names when the crew assignment dialog opens
   // These personnel should be excluded from regular crew assignment (they're Reko only)
   useEffect(() => {
@@ -244,6 +248,33 @@ export default function FireStationDashboard() {
     fetchRekoPersonnel()
   }, [assignmentDialogOpen, assignmentResourceType, selectedEvent, personnel])
 
+  // Fetch printer status on mount
+  useEffect(() => {
+    async function fetchPrinterStatus() {
+      try {
+        const status = await apiClient.getPrinterStatus()
+        setPrinterEnabled(status.enabled)
+      } catch {
+        // Printer API might not be available (e.g., Railway deployment)
+        setPrinterEnabled(false)
+      }
+    }
+    fetchPrinterStatus()
+  }, [])
+
+  // Handle thermal board print
+  const handlePrintBoard = useCallback(async () => {
+    if (!selectedEvent || isPrintingBoard) return
+    setIsPrintingBoard(true)
+    try {
+      await apiClient.queueBoardPrint(selectedEvent.id)
+      toast.success('Board-Druckauftrag gesendet')
+    } catch {
+      toast.error('Drucken fehlgeschlagen')
+    } finally {
+      setIsPrintingBoard(false)
+    }
+  }, [selectedEvent, isPrintingBoard])
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -1181,6 +1212,7 @@ export default function FireStationDashboard() {
                       onAssignReko={handleOpenRekoAssignDialog}
                       onToggleNachbarhilfe={handleToggleNachbarhilfe}
                       showMeldung={showMeldung}
+                      printerEnabled={printerEnabled}
                     />
                   )
                 })}
@@ -1417,6 +1449,19 @@ export default function FireStationDashboard() {
                   <Printer className="h-3.5 w-3.5" />
                   <span className="text-xs">Drucken</span>
                 </Button>
+                {printerEnabled && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5 h-8 px-2.5 transition-colors text-muted-foreground hover:text-foreground"
+                    onClick={handlePrintBoard}
+                    disabled={!selectedEvent || isPrintingBoard}
+                    title="Board auf Thermodrucker drucken"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span className="text-xs">{isPrintingBoard ? '...' : 'Thermo'}</span>
+                  </Button>
+                )}
               </div>
 
               {selectedEvent?.training_flag && (

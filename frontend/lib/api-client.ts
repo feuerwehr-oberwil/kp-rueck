@@ -1476,6 +1476,59 @@ class ApiClient {
       `/api/viewer/data?token=${encodeURIComponent(token)}`
     )
   }
+
+  // Print Jobs (Thermal Printer)
+  async getPrinterStatus(): Promise<ApiPrinterStatus> {
+    return this.request<ApiPrinterStatus>('/api/print/status/')
+  }
+
+  async queueAssignmentPrint(incidentId: string): Promise<ApiPrintJob> {
+    return this.request<ApiPrintJob>(`/api/print/assignment/${incidentId}/`, {
+      method: 'POST',
+    })
+  }
+
+  async queueBoardPrint(eventId: string): Promise<ApiPrintJob> {
+    return this.request<ApiPrintJob>('/api/print/board/', {
+      method: 'POST',
+      body: JSON.stringify({ event_id: eventId }),
+    })
+  }
+
+  async getPendingPrintJobs(): Promise<ApiPrintJob[]> {
+    return this.request<ApiPrintJob[]>('/api/print/jobs/pending/')
+  }
+
+  async deletePrintJob(jobId: string): Promise<void> {
+    return this.request<void>(`/api/print/jobs/${jobId}/`, {
+      method: 'DELETE',
+    })
+  }
+}
+
+// Print Job Types
+export interface ApiPrinterStatus {
+  enabled: boolean
+  ip: string
+  port: number
+  auto_anfahrt: boolean
+  pending_jobs: number
+  last_job_at: string | null
+  last_error: string | null
+}
+
+export interface ApiPrintJob {
+  id: string
+  job_type: 'assignment' | 'board'
+  status: 'pending' | 'printing' | 'completed' | 'failed'
+  payload: Record<string, unknown>
+  incident_id?: string
+  event_id?: string
+  created_at: string
+  claimed_at?: string
+  completed_at?: string
+  error_message?: string
+  retry_count: number
 }
 
 // Create API client instance

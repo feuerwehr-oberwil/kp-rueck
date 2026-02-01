@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2 } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -21,6 +21,8 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
 // Must match SIDEPANEL_BREAKPOINT in side-panel.tsx
 const SIDEPANEL_BREAKPOINT = 1536
@@ -47,6 +49,7 @@ interface DraggableOperationProps {
   onAssignReko?: () => void
   onToggleNachbarhilfe?: () => void
   showMeldung?: boolean
+  printerEnabled?: boolean
 }
 
 // Priority visual configuration - subtle color for high priority only
@@ -87,6 +90,7 @@ function DraggableOperationBase({
   onAssignReko,
   onToggleNachbarhilfe,
   showMeldung,
+  printerEnabled,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -94,6 +98,22 @@ function DraggableOperationBase({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isLargeScreen, setIsLargeScreen] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  // Handle thermal print
+  const handlePrint = async () => {
+    if (isPrinting) return
+    setIsPrinting(true)
+    try {
+      await apiClient.queueAssignmentPrint(operation.id)
+      toast.success('Druckauftrag gesendet')
+    } catch (error) {
+      console.error('Print failed:', error)
+      toast.error('Drucken fehlgeschlagen')
+    } finally {
+      setIsPrinting(false)
+    }
+  }
 
   // Detect screen width for sidebar vs modal behavior
   useEffect(() => {
@@ -454,6 +474,15 @@ function DraggableOperationBase({
             Auf Karte zeigen
           </Link>
         </ContextMenuItem>
+        {printerEnabled && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
+              <Printer className="mr-2 h-4 w-4" />
+              {isPrinting ? 'Drucke...' : 'Einsatzzettel drucken'}
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )
