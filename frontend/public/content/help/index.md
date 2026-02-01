@@ -18,6 +18,8 @@ Events verwalten, wechseln, archivieren, exportieren.
 
 **Echt vs. Training:** Events können als "Training" markiert werden. Badge "Übung" erscheint, Daten werden separat geführt. Echte Events kommen von Divera.
 
+**Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung.
+
 ---
 
 ## Suche
@@ -67,6 +69,10 @@ Zeigen, wie lange ein Einsatz bereits offen ist:
 - **Orange** = Länger offen (1-2 Std)
 - **Rot** = Lange offen (> 2 Std) - Aufmerksamkeit nötig
 
+### Nachbarhilfe
+
+Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" aktiviert werden. Rechtsklick auf Karte → "Nachbarhilfe" oder im Detail-Dialog. Markierte Einsätze zeigen ein Gebäude-Icon.
+
 ### Meldung anzeigen
 
 Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständigen Meldungstext direkt auf jeder Einsatzkarte an - praktisch für schnellen Überblick ohne jeden Einsatz zu öffnen.
@@ -88,8 +94,14 @@ Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständige
 1. Einsatz in "Reko" verschieben (ziehen oder `>`)
 2. Offizier per Rechtsklick als "Reko" markieren
 3. Link kopieren und via WhatsApp senden → Offizier öffnet vor Ort
-4. Reko-Formular ausfüllen, Fotos hochladen
-5. Basierend auf Bericht: Disponieren oder Abschliessen
+4. Offizier klickt "Ich bin vor Ort" → Kommandoposten sieht Ankunft
+5. Reko-Formular ausfüllen, Fotos hochladen
+6. Basierend auf Bericht: Disponieren oder Abschliessen
+
+**Reko-Status auf Karten:**
+- Kein Icon: Keine Reko-Aktivität
+- Fernglas (Umriss): Offizier vor Ort, prüft Lage
+- Fernglas (grün): Reko-Bericht eingereicht
 
 ### Ressourcen zuweisen und losschicken
 
@@ -205,6 +217,10 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 - Automatische Synchronisation aller Geräte
 - Mobile Zugriffe von überall
 
+### Viewer-Link (Nur-Lesen)
+
+Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gültigkeit. Zeigt Kanban-Board und Karte ohne Bearbeitungsmöglichkeit. Aktualisiert automatisch alle 5 Sekunden.
+
 ### Offline (Localhost/Docker)
 - Vollständiges Kanban-Board verfügbar
 - QR-Codes funktionieren nur im lokalen Netzwerk
@@ -235,9 +251,9 @@ Für den Einsatz ohne Internetverbindung kann KP Rück lokal auf einem Kommandop
 ### Starten
 ```bash
 just dev        # Startet alle Services
-just init-db    # Datenbank initialisieren (nur beim ersten Mal)
-just seed-db    # Testdaten laden (optional)
 ```
+
+Daten werden automatisch von Railway synchronisiert (siehe Sync-Einstellungen).
 
 ### Stoppen
 ```bash
