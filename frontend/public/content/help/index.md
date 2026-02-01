@@ -100,8 +100,8 @@ Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständige
 
 **Reko-Status auf Karten:**
 - Kein Icon: Keine Reko-Aktivität
-- Fernglas (Umriss): Offizier vor Ort, prüft Lage
-- Fernglas (grün): Reko-Bericht eingereicht
+- Fernglas (grau): Offizier vor Ort, prüft Lage
+- Fernglas (grün mit Hintergrund): Reko-Bericht eingereicht
 
 ### Ressourcen zuweisen und losschicken
 
