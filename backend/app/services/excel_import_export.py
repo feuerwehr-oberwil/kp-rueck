@@ -68,8 +68,8 @@ def generate_empty_template() -> BytesIO:
     for cell in ws_vehicles[1]:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    ws_vehicles.append(["TLF 1", "TLF", "1", "available", "Florian Oberwil 1"])
-    ws_vehicles.append(["DLK 1", "DLK", "2", "available", "Florian Oberwil 2"])
+    ws_vehicles.append(["TLF 1", "TLF", "1", "available", "Florian 1"])
+    ws_vehicles.append(["DLK 1", "DLK", "2", "available", "Florian 2"])
 
     # Materials sheet
     ws_materials = wb.create_sheet("Materials")

@@ -1,6 +1,9 @@
 """Database seed script.
 
 Run with: uv run python -m app.seed
+
+For Oberwil production deployment, set OBERWIL_PRODUCTION=true to use
+real personnel and location data instead of generic demo data.
 """
 
 import asyncio
@@ -15,6 +18,11 @@ from sqlalchemy import select
 from . import models
 from .database import async_session_maker
 from .seed_training import seed_training_data
+
+
+def is_oberwil_production() -> bool:
+    """Check if this is an Oberwil production deployment."""
+    return os.getenv("OBERWIL_PRODUCTION", "").lower() in ("true", "1", "yes")
 
 
 def get_admin_password() -> str:
@@ -89,18 +97,31 @@ async def seed_database() -> None:
             # 2. SEED DEFAULT SETTINGS
             # ============================================
             print("Creating default settings...")
+
+            # Base settings (same for all deployments)
             default_settings_data = [
                 ("polling_interval_ms", "5000"),
                 ("training_mode", "false"),
                 ("auto_archive_timeout_hours", "24"),
                 ("notification_enabled", "false"),
                 ("alarm_webhook_secret", "CHANGE_ME_IN_PRODUCTION"),
-                ("firestation_name", "Demo Fire Department"),
-                ("firestation_latitude", "47.51637699933488"),
-                ("firestation_longitude", "7.561800450458299"),
-                ("home_city", "Oberwil, 4104, Switzerland"),
                 ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
             ]
+
+            # Add location-specific settings
+            if is_oberwil_production():
+                from .seed_oberwil import OBERWIL_SETTINGS
+
+                print("  Using Oberwil production settings...")
+                default_settings_data.extend(OBERWIL_SETTINGS)
+            else:
+                # Generic demo settings
+                default_settings_data.extend([
+                    ("firestation_name", "Demo Fire Department"),
+                    ("firestation_latitude", "47.5596"),  # Generic Swiss location
+                    ("firestation_longitude", "7.5886"),
+                    ("home_city", "Demo City, Switzerland"),
+                ])
 
             settings_created = 0
             for key, value in default_settings_data:
@@ -173,71 +194,79 @@ async def seed_database() -> None:
             # 4. SEED PERSONNEL
             # ============================================
             print("Creating personnel...")
-            personnel_data = [
-                # Offiziere (Hptm, Oblt, Fw, Four, Lt, Adj)
-                {"name": "Imhof Sebastiaan", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-                {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Kaiser Sandra", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-                {"name": "Baumann Michael", "role": "Offiziere", "availability": "available", "tags": []},
-                {"name": "Leuenberger Luca", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-                {"name": "Steiner Lukas", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Hofer Max", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-                # Wachtmeister
-                {"name": "Lehmann Bastian", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Wagner Klaus", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
-                {"name": "Meyer Stefan", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Hess Silvan", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Roth Til", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Arnold Samuel", "role": "Wachtmeister", "availability": "available", "tags": []},
-                {"name": "Kaufmann Alain", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Wyss Fabio", "role": "Wachtmeister", "availability": "available", "tags": []},
-                # Korporal
-                {"name": "Vogel Simon", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                {"name": "Kessler Paolo", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
-                {"name": "Huber Stefan", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Bachmann Simon", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Künzli Klara", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                {"name": "Bühler Rico", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
-                {"name": "Jost Melissa", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Hoffmann Lisa", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Schwarz Jan", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                # Mannschaft (Rf, Sdt, Rekr)
-                {"name": "Koch René", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Aebischer Yannick", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Kunz Gabor", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Buri Marysol", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Burri Alessandro", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
-                {"name": "Fischer Thomas", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Lang Dimitri", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
-                {"name": "Schmid Tizian", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Schneider Peter", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Aebi Lionel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Moser Florian", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Bühlmann Carina", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "König Sina", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Iten Alexandre", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Wenger Luzia", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Christen Sandro", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Keller Marco", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Egger Olivier", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Frei Dominik", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Suter Raoul", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Ammann Manuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Becker Andreas", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Gasser Julia", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Käser Koray", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Berger Maja", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Müller Hans", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Widmer Nico", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Gerber Sandro", "role": "Mannschaft", "availability": "available", "tags": []},
-            ]
+
+            if is_oberwil_production():
+                from .seed_oberwil import OBERWIL_PERSONNEL
+
+                print("  Using Oberwil personnel roster...")
+                personnel_data = OBERWIL_PERSONNEL
+            else:
+                # Generic demo personnel (common Swiss surnames)
+                personnel_data = [
+                    # Offiziere (Officers)
+                    {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
+                    {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
+                    {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
+                    {"name": "Fischer Thomas", "role": "Offiziere", "availability": "available", "tags": []},
+                    {"name": "Meyer Stefan", "role": "Offiziere", "availability": "available", "tags": ["F"]},
+                    {"name": "Wagner Klaus", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
+                    {"name": "Becker Andreas", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
+                    # Wachtmeister (Sergeants)
+                    {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                    {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                    {"name": "Koch René", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                    {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
+                    {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                    {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
+                    {"name": "Gerber Sandro", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                    {"name": "Frei Dominik", "role": "Wachtmeister", "availability": "available", "tags": []},
+                    {"name": "Huber Stefan", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                    {"name": "Schmid Tizian", "role": "Wachtmeister", "availability": "available", "tags": []},
+                    # Korporal (Corporals)
+                    {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
+                    {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
+                    {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
+                    {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
+                    {"name": "Lang Dimitri", "role": "Korporal", "availability": "available", "tags": []},
+                    {"name": "Kaufmann Alain", "role": "Korporal", "availability": "available", "tags": ["F"]},
+                    {"name": "Moser Florian", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
+                    {"name": "Berger Maja", "role": "Korporal", "availability": "available", "tags": []},
+                    {"name": "Widmer Nico", "role": "Korporal", "availability": "available", "tags": []},
+                    {"name": "Vogel Simon", "role": "Korporal", "availability": "available", "tags": []},
+                    {"name": "Egger Olivier", "role": "Korporal", "availability": "available", "tags": ["F"]},
+                    # Mannschaft (Firefighters)
+                    {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Künzli Klara", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+                    {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Christen Sandro", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+                    {"name": "Leuenberger Luca", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Suter Raoul", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Kunz Gabor", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Ammann Manuel", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Burri Alessandro", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Wenger Luzia", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Bühler Rico", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Aebischer Yannick", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Arnold Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Aebi Lionel", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Bachmann Simon", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Bühlmann Carina", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Buri Marysol", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Gasser Julia", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Hofer Max", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Hess Silvan", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Imhof Sebastiaan", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Iten Alexandre", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Jost Melissa", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Kaiser Sandra", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Käser Koray", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Kessler Paolo", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "König Sina", "role": "Mannschaft", "availability": "available", "tags": []},
+                    {"name": "Lehmann Bastian", "role": "Mannschaft", "availability": "available", "tags": []},
+                ]
 
             personnel = []
             for person_data in personnel_data:
@@ -346,9 +375,9 @@ async def seed_database() -> None:
                     "title": "Wasser im Keller Einfamilienhaus",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Mühleweg 23, 4104 Oberwil",
-                    "location_lat": 47.5152,
-                    "location_lng": 7.5598,
+                    "location_address": "Mühleweg 23, Demo City",
+                    "location_lat": 47.5596,
+                    "location_lng": 7.5886,
                     "status": "einsatz",
                     "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
                     "created_by": admin_user.id,
@@ -358,9 +387,9 @@ async def seed_database() -> None:
                     "title": "Überflutung Tiefgarage",
                     "type": "elementarereignis",
                     "priority": "high",
-                    "location_address": "Hauptstrasse 95, 4104 Oberwil",
-                    "location_lat": 47.5164,
-                    "location_lng": 7.5618,
+                    "location_address": "Hauptstrasse 95, Demo City",
+                    "location_lat": 47.5610,
+                    "location_lng": 7.5900,
                     "status": "disponiert",
                     "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
                     "created_by": admin_user.id,
@@ -370,9 +399,9 @@ async def seed_database() -> None:
                     "title": "Wasserschaden Mehrfamilienhaus",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Bottmingerstrasse 45, 4104 Oberwil",
-                    "location_lat": 47.5178,
-                    "location_lng": 7.5582,
+                    "location_address": "Bahnhofstrasse 45, Demo City",
+                    "location_lat": 47.5580,
+                    "location_lng": 7.5870,
                     "status": "eingegangen",
                     "description": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. 3 Stockwerke betroffen.",
                     "created_by": admin_user.id,
@@ -382,9 +411,9 @@ async def seed_database() -> None:
                     "title": "Keller auspumpen Gewerbebetrieb",
                     "type": "elementarereignis",
                     "priority": "high",
-                    "location_address": "Gewerbestrasse 12, 4104 Oberwil",
-                    "location_lat": 47.5189,
-                    "location_lng": 7.5632,
+                    "location_address": "Gewerbestrasse 12, Demo City",
+                    "location_lat": 47.5620,
+                    "location_lng": 7.5920,
                     "status": "reko",
                     "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
                     "created_by": admin_user.id,
@@ -395,9 +424,9 @@ async def seed_database() -> None:
                     "title": "Baum auf Strasse",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Bruderholzstrasse 78, 4104 Oberwil",
-                    "location_lat": 47.5195,
-                    "location_lng": 7.5545,
+                    "location_address": "Waldstrasse 78, Demo City",
+                    "location_lat": 47.5630,
+                    "location_lng": 7.5850,
                     "status": "einsatz",
                     "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
                     "created_by": admin_user.id,
@@ -407,9 +436,9 @@ async def seed_database() -> None:
                     "title": "Ölspur Industriegebiet",
                     "type": "oelwehr",
                     "priority": "low",
-                    "location_address": "Industriestrasse 8, 4104 Oberwil",
-                    "location_lat": 47.5142,
-                    "location_lng": 7.5612,
+                    "location_address": "Industriestrasse 8, Demo City",
+                    "location_lat": 47.5570,
+                    "location_lng": 7.5910,
                     "status": "abschluss",
                     "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
                     "created_by": admin_user.id,
@@ -420,9 +449,9 @@ async def seed_database() -> None:
                     "title": "Dachziegel lose nach Sturm",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Kirchgasse 5, 4104 Oberwil",
-                    "location_lat": 47.5168,
-                    "location_lng": 7.5605,
+                    "location_address": "Kirchgasse 5, Demo City",
+                    "location_lat": 47.5600,
+                    "location_lng": 7.5895,
                     "status": "abschluss",
                     "description": "Mehrere Dachziegel durch Sturmböen gelöst. Absturzgefahr auf Gehweg. Bereich abgesperrt.",
                     "created_by": admin_user.id,
@@ -435,8 +464,8 @@ async def seed_database() -> None:
                     "type": "elementarereignis",
                     "priority": "medium",
                     "location_address": "Übungsgelände Feuerwehr",
-                    "location_lat": 47.5160,
-                    "location_lng": 7.5620,
+                    "location_lat": 47.5605,
+                    "location_lng": 7.5890,
                     "status": "reko",
                     "description": "Übung Wasserschadeneinsatz mit Tauchpumpen und Wassersaugern.",
                     "created_by": admin_user.id,

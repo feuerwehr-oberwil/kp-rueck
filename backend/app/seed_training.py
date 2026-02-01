@@ -368,28 +368,55 @@ EMERGENCY_TEMPLATES = [
 print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 
-# Oberwil BL bounding box (approximate area)
-# These coordinates define the rectangle that contains Oberwil
-OBERWIL_BOUNDS = {
-    "min_lat": 47.508,  # Southern boundary
-    "max_lat": 47.522,  # Northern boundary
-    "min_lon": 7.552,  # Western boundary
-    "max_lon": 7.568,  # Eastern boundary
-}
+import os
+
+
+def get_training_area_bounds() -> dict:
+    """Get the training area bounds based on deployment mode."""
+    if os.getenv("OBERWIL_PRODUCTION", "").lower() in ("true", "1", "yes"):
+        # Oberwil BL production bounds
+        return {
+            "min_lat": 47.508,
+            "max_lat": 47.522,
+            "min_lon": 7.552,
+            "max_lon": 7.568,
+        }
+    else:
+        # Generic demo area (same coordinates, but documented as demo)
+        return {
+            "min_lat": 47.508,
+            "max_lat": 47.522,
+            "min_lon": 7.552,
+            "max_lon": 7.568,
+        }
+
+
+def get_training_city_info() -> tuple[str, str]:
+    """Get city and postal code for training locations."""
+    if os.getenv("OBERWIL_PRODUCTION", "").lower() in ("true", "1", "yes"):
+        return ("Oberwil", "4104")
+    else:
+        return ("Demo City", "0000")
+
+
+# Geographic bounding box for training location generation
+# CUSTOMIZE: Replace with coordinates for your geographic area
+# Use https://boundingbox.klokantech.com/ to find bounds for your area
+TRAINING_AREA_BOUNDS = get_training_area_bounds()
 
 
 async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None:
     """
-    Generate a random coordinate within Oberwil and find the real address at that location
-    using Nominatim reverse geocoding.
+    Generate a random coordinate within the training area and find the real address
+    at that location using Nominatim reverse geocoding.
 
     Returns:
         Dict with street, house_number, building_type, latitude, longitude if successful
         None if no valid address found
     """
-    # Generate random coordinate within Oberwil bounds
-    lat = random.uniform(OBERWIL_BOUNDS["min_lat"], OBERWIL_BOUNDS["max_lat"])
-    lon = random.uniform(OBERWIL_BOUNDS["min_lon"], OBERWIL_BOUNDS["max_lon"])
+    # Generate random coordinate within training area bounds
+    lat = random.uniform(TRAINING_AREA_BOUNDS["min_lat"], TRAINING_AREA_BOUNDS["max_lat"])
+    lon = random.uniform(TRAINING_AREA_BOUNDS["min_lon"], TRAINING_AREA_BOUNDS["max_lon"])
 
     try:
         # Use Nominatim reverse geocoding to find address at this coordinate
@@ -416,8 +443,8 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
             postcode = address.get("postcode")
             city = address.get("city") or address.get("town") or address.get("village")
 
-            # Verify this is actually in Oberwil with a house number
-            if street and house_number and postcode == "4104" and city and city.lower() == "oberwil":
+            # Verify we got a valid address with street and house number
+            if street and house_number:
                 # Use the actual coordinates returned by Nominatim (more accurate)
                 actual_lat = float(data["lat"])
                 actual_lon = float(data["lon"])
@@ -426,7 +453,7 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
                 building_type = "residential"
                 if "amenity" in address or "shop" in address or "office" in address:
                     building_type = "commercial"
-                elif any(word in street.lower() for word in ["haupt", "bahn", "schul"]):
+                elif any(word in street.lower() for word in ["haupt", "bahn", "schul", "main", "station"]):
                     building_type = "mixed"
 
                 return {
@@ -444,7 +471,7 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
 
 async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[tuple[str, str, str, float, float]]:
     """
-    Generate real addresses by randomly sampling coordinates within Oberwil
+    Generate real addresses by randomly sampling coordinates within the training area
     and using reverse geocoding to find actual addresses.
 
     This approach guarantees real addresses because we're asking "what address is here"
@@ -454,7 +481,7 @@ async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[t
         List of tuples: (street_name, house_number, building_type, latitude, longitude)
     """
     print("\n🗺️  Generating real addresses via reverse geocoding...")
-    print(f"   Randomly sampling {target_count} points within Oberwil boundaries")
+    print(f"   Randomly sampling {target_count} points within training area boundaries")
 
     addresses = []
     seen = set()
@@ -536,26 +563,27 @@ async def seed_training_data(skip_geocoding: bool = False):
         addresses = []
 
         if skip_geocoding:
-            print("\n⚠️  Skip geocoding enabled - using fallback to Oberwil center")
-            # Fallback: use Oberwil center
-            addresses = [("Hauptstrasse", "95", "commercial", 47.5164, 7.5618)]
+            print("\n⚠️  Skip geocoding enabled - using demo fallback location")
+            # Fallback: use generic demo location (configure for your area)
+            addresses = [("Hauptstrasse", "1", "commercial", 47.5596, 7.5886)]
         else:
             # Use reverse geocoding to find real addresses
             addresses = await fetch_real_addresses_reverse_geocode(target_count)
 
             if not addresses:
-                print("\n⚠️  Reverse geocoding failed - using fallback to Oberwil center")
-                addresses = [("Hauptstrasse", "95", "commercial", 47.5164, 7.5618)]
+                print("\n⚠️  Reverse geocoding failed - using demo fallback location")
+                addresses = [("Hauptstrasse", "1", "commercial", 47.5596, 7.5886)]
 
         print(f"\n📍 Seeding {len(addresses)} real addresses...")
 
+        city, postal_code = get_training_city_info()
         for street, house_number, building_type, lat, lon in addresses:
             location = TrainingLocation(
                 id=uuid4(),
                 street=street,
                 house_number=house_number,
-                postal_code="4104",
-                city="Oberwil",
+                postal_code=postal_code,
+                city=city,
                 building_type=building_type,
                 latitude=lat,
                 longitude=lon,

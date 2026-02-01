@@ -171,7 +171,7 @@ async def seed_training_templates(
     Use this endpoint if automatic seeding failed during deployment.
 
     Args:
-        skip_geocoding: Skip geocoding and use Oberwil center coordinates (faster)
+        skip_geocoding: Skip geocoding and use demo fallback coordinates (faster)
         force_reseed: Delete existing data and reseed (useful for updating addresses)
     """
     try:
