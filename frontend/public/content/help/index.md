@@ -221,3 +221,46 @@ Die lokale Instanz synchronisiert automatisch mit Railway. Der Sync-Status wird 
 **Lokal → Railway:** Wenn Railway wieder online ist, erscheint eine Benachrichtigung mit "Jetzt synchronisieren" Button.
 
 Sync-Einstellungen unter Einstellungen → Sync Tab.
+
+---
+
+## Lokale Installation
+
+Für den Einsatz ohne Internetverbindung kann KP Rück lokal auf einem Kommandoposten-Rechner betrieben werden.
+
+### Voraussetzungen
+- Docker Desktop installiert
+- Git Repository geklont
+
+### Starten
+```bash
+just dev        # Startet alle Services
+just init-db    # Datenbank initialisieren (nur beim ersten Mal)
+just seed-db    # Testdaten laden (optional)
+```
+
+### Stoppen
+```bash
+just stop       # Services stoppen
+just clean      # Alles zurücksetzen (löscht Daten)
+```
+
+Die lokale Instanz läuft unter `http://localhost:3000`.
+
+---
+
+## Thermodrucker
+
+**Nur für lokale Installationen (Docker)**
+
+Druckt automatisch Einsatzzettel auf einem Epson TM-T20II/III Thermodrucker.
+
+### Einrichtung
+1. Drucker per Ethernet ans lokale Netzwerk anschliessen
+2. Einstellungen → Drucker → IP-Adresse und Port eingeben
+3. Print-Agent starten: `just print-agent`
+
+### Funktionen
+- **Auto-Druck**: Einsatzzettel druckt automatisch bei Status "Einsatz"
+- **Manuell**: Rechtsklick auf Einsatz → "Drucken"
+- **Board-Snapshot**: "Thermo" Button im Footer
