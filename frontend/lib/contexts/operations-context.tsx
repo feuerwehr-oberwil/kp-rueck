@@ -49,6 +49,7 @@ export interface Operation {
   notes: string
   contact: string
   internalNotes: string
+  nachbarhilfe: boolean
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -162,6 +163,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       notes: incident.description || "",
       contact: incident.contact || "",
       internalNotes: incident.internal_notes || "",
+      nachbarhilfe: incident.nachbarhilfe || false,
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
@@ -746,6 +748,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.notes !== undefined) apiUpdates.description = batchedUpdates.notes
         if (batchedUpdates.contact !== undefined) apiUpdates.contact = batchedUpdates.contact
         if (batchedUpdates.internalNotes !== undefined) apiUpdates.internal_notes = batchedUpdates.internalNotes
+        if (batchedUpdates.nachbarhilfe !== undefined) apiUpdates.nachbarhilfe = batchedUpdates.nachbarhilfe
 
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
@@ -827,6 +830,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           notes: apiIncident.description || "",
           contact: apiIncident.contact || "",
           internalNotes: apiIncident.internal_notes || "",
+          nachbarhilfe: apiIncident.nachbarhilfe || false,
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
           rekoArrivedAt: null,
@@ -845,6 +849,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         ...operation,
         id: getNextOperationId(),
         dispatchTime: new Date(),
+        nachbarhilfe: operation.nachbarhilfe || false,
         statusChangedAt: null,
         hasCompletedReko: false,
         rekoArrivedAt: null,
@@ -1201,6 +1206,7 @@ export function useIncidents() {
     location_lng: op.coordinates?.[1] ?? null,
     status: operationToIncidentStatus[op.status] as any,
     description: op.notes,
+    nachbarhilfe: op.nachbarhilfe || false,
     created_at: op.dispatchTime,
     updated_at: op.dispatchTime,
     created_by: null,

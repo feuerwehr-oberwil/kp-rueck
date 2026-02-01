@@ -266,6 +266,7 @@ class Incident(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # Internal notes
+    nachbarhilfe: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Neighboring station assistance
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

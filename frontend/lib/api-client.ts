@@ -261,6 +261,7 @@ export interface ApiIncident {
   description: string | null
   contact: string | null
   internal_notes: string | null
+  nachbarhilfe: boolean // Neighboring station assistance flag
   created_at: string
   updated_at: string
   created_by: string | null // UUID
@@ -283,6 +284,7 @@ export interface ApiIncidentCreate {
   description?: string | null
   contact?: string | null
   internal_notes?: string | null
+  nachbarhilfe?: boolean
 }
 
 export interface ApiIncidentUpdate {
@@ -296,6 +298,7 @@ export interface ApiIncidentUpdate {
   description?: string | null
   contact?: string | null
   internal_notes?: string | null
+  nachbarhilfe?: boolean
 }
 
 export interface ApiStatusTransition {

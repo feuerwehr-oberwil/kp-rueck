@@ -71,6 +71,7 @@ export interface Incident {
   location_lng: number | null
   status: IncidentStatus
   description: string | null
+  nachbarhilfe: boolean // Neighboring station assistance flag
   created_at: Date
   updated_at: Date
   created_by: string | null // UUID
@@ -94,6 +95,7 @@ export interface IncidentCreate {
   location_lng?: number | null
   status?: IncidentStatus
   description?: string | null
+  nachbarhilfe?: boolean
 }
 
 /**
@@ -108,6 +110,7 @@ export interface IncidentUpdate {
   location_lng?: number | null
   status?: IncidentStatus
   description?: string | null
+  nachbarhilfe?: boolean
 }
 
 /**
@@ -205,3 +208,40 @@ export const KANBAN_COLUMNS = [
     color: 'bg-gray-200/80 dark:bg-zinc-900/50',
   },
 ] as const
+
+/**
+ * Status groups for map filtering
+ * Groups incident statuses by workflow stage
+ */
+export type StatusGroup = 'open' | 'active' | 'completed'
+
+/**
+ * Map individual statuses to their group
+ */
+export const STATUS_TO_GROUP: Record<IncidentStatus, StatusGroup> = {
+  eingegangen: 'open',
+  reko: 'open',
+  disponiert: 'active',
+  einsatz: 'active',
+  einsatz_beendet: 'completed',
+  abschluss: 'completed',
+}
+
+/**
+ * Human-readable labels for status groups
+ */
+export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
+  open: 'Offen/Neu',
+  active: 'Aktiv',
+  completed: 'Abgeschlossen',
+}
+
+/**
+ * Border style for status groups on map markers
+ * Uses stroke-dasharray values for SVG
+ */
+export const STATUS_GROUP_BORDER_STYLE: Record<StatusGroup, { dasharray: string; opacity: number }> = {
+  open: { dasharray: '4,3', opacity: 1 },      // Dashed border - needs attention
+  active: { dasharray: 'none', opacity: 1 },   // Solid border - in progress
+  completed: { dasharray: '2,2', opacity: 0.6 }, // Dotted border with reduced opacity - done
+}

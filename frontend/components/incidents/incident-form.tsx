@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Separator } from "@/components/ui/separator"
-import { Plus, Save, MapPin, Check, ChevronsUpDown } from 'lucide-react'
+import { Switch } from "@/components/ui/switch"
+import { Plus, Save, MapPin, Check, ChevronsUpDown, Building2 } from 'lucide-react'
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { useIncidents } from "@/lib/contexts/operations-context"
@@ -42,6 +43,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
     location_lng: incident?.location_lng || null,
     description: incident?.description || null,
     status: incident?.status || 'eingegangen',
+    nachbarhilfe: incident?.nachbarhilfe || false,
   })
 
   // Keyboard shortcuts for priority (Shift+1-3)
@@ -92,6 +94,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
           location_lat: formData.location_lat,
           location_lng: formData.location_lng,
           description: formData.description,
+          nachbarhilfe: formData.nachbarhilfe,
         }
         await updateIncident(incident.id, updateData)
       }
@@ -107,6 +110,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         location_lng: null,
         description: null,
         status: 'eingegangen',
+        nachbarhilfe: false,
       })
       onOpenChange(false)
     } catch (error) {
@@ -132,6 +136,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         location_lng: incident.location_lng,
         description: incident.description,
         status: incident.status,
+        nachbarhilfe: incident.nachbarhilfe || false,
       })
     } else if (mode === 'create') {
       // Reset to defaults for create mode
@@ -145,6 +150,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         location_lng: null,
         description: null,
         status: 'eingegangen',
+        nachbarhilfe: false,
       })
     }
     // Only run when dialog opens or incident/mode changes, NOT when selectedEvent updates
@@ -293,6 +299,24 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
               onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
               placeholder="Zusätzliche Informationen, Besonderheiten, Gefahren..."
               className="mt-2 min-h-[100px]"
+            />
+          </div>
+
+          {/* Nachbarhilfe Toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-5 w-5 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="nachbarhilfe" className="text-sm font-semibold">Nachbarhilfe</Label>
+                <p className="text-xs text-muted-foreground">
+                  Einsatz mit Nachbarfeuerwehr-Beteiligung
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="nachbarhilfe"
+              checked={formData.nachbarhilfe || false}
+              onCheckedChange={(checked) => setFormData({ ...formData, nachbarhilfe: checked })}
             />
           </div>
 

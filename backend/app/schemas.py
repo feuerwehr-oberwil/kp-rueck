@@ -488,6 +488,7 @@ class IncidentBase(BaseModel):
     description: str | None = None
     contact: str | None = None
     internal_notes: str | None = None
+    nachbarhilfe: bool = False
 
     @field_validator("title")
     @classmethod
@@ -557,6 +558,7 @@ class IncidentUpdate(BaseModel):
     description: str | None = None
     contact: str | None = None
     internal_notes: str | None = None
+    nachbarhilfe: bool | None = None
     # training_flag intentionally excluded (use separate endpoint)
 
 

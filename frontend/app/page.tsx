@@ -914,6 +914,14 @@ export default function FireStationDashboard() {
     setRekoAssignDialogOpen(true)
   }
 
+  // Handle toggling Nachbarhilfe status (from context menu)
+  const handleToggleNachbarhilfe = (operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (operation) {
+      updateOperation(operationId, { nachbarhilfe: !operation.nachbarhilfe })
+    }
+  }
+
   // Get assigned resources for selected operation
   const getAssignedResourcesForOperation = (operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -1171,6 +1179,7 @@ export default function FireStationDashboard() {
                       formatLocation={formatLocation}
                       onAssignResource={handleOpenAssignmentDialog}
                       onAssignReko={handleOpenRekoAssignDialog}
+                      onToggleNachbarhilfe={handleToggleNachbarhilfe}
                       showMeldung={showMeldung}
                     />
                   )

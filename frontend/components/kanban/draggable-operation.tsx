@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2 } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -45,6 +45,7 @@ interface DraggableOperationProps {
   formatLocation: (address: string) => string
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onAssignReko?: () => void
+  onToggleNachbarhilfe?: () => void
   showMeldung?: boolean
 }
 
@@ -84,6 +85,7 @@ function DraggableOperationBase({
   formatLocation,
   onAssignResource,
   onAssignReko,
+  onToggleNachbarhilfe,
   showMeldung,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -228,6 +230,14 @@ function DraggableOperationBase({
             </div>
             {/* Non-draggable icons area */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {operation.nachbarhilfe && (
+                <div
+                  className="p-1.5 rounded-md bg-muted/60"
+                  title="Nachbarhilfe"
+                >
+                  <Building2 className="h-4 w-4 text-muted-foreground/80" />
+                </div>
+              )}
               {operation.hasCompletedReko && (
                 <div
                   className="p-1.5 rounded-md bg-muted/60"
@@ -431,6 +441,12 @@ function DraggableOperationBase({
             Fahrzeug zuweisen
           </ContextMenuItem>
         )}
+        {onToggleNachbarhilfe && (
+          <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
+            <Building2 className="mr-2 h-4 w-4" />
+            {operation.nachbarhilfe ? 'Nachbarhilfe entfernen' : 'Als Nachbarhilfe markieren'}
+          </ContextMenuItem>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem asChild>
           <Link href={`/map?highlight=${operation.id}`}>
@@ -465,6 +481,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.priority === nextProps.operation.priority &&
     prevProps.operation.location === nextProps.operation.location &&
     prevProps.operation.notes === nextProps.operation.notes &&
+    prevProps.operation.nachbarhilfe === nextProps.operation.nachbarhilfe &&
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
     prevProps.operation.materials.length === nextProps.operation.materials.length &&
     prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&

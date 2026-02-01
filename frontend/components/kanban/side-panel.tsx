@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { cn, copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
-import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Copy, Check, Link2, LayoutDashboard, Loader2 } from "lucide-react"
+import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2 } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel, incidentTypeKeys } from "@/lib/incident-types"
@@ -542,6 +543,22 @@ function SidePanelDetail({
           value={operation.internalNotes}
           onChange={(e) => onUpdate({ internalNotes: e.target.value })}
           className="mt-1 min-h-[60px] text-sm"
+        />
+      </div>
+
+      {/* Nachbarhilfe Toggle */}
+      <div className="flex items-center justify-between rounded-lg border p-3">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <div>
+            <Label htmlFor="panel-nachbarhilfe" className="text-xs font-semibold">Nachbarhilfe</Label>
+            <p className="text-xs text-muted-foreground">Nachbarfeuerwehr-Beteiligung</p>
+          </div>
+        </div>
+        <Switch
+          id="panel-nachbarhilfe"
+          checked={operation.nachbarhilfe || false}
+          onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
         />
       </div>
 

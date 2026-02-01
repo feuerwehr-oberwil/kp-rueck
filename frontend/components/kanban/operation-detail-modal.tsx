@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2 } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2 } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -484,6 +485,22 @@ export function OperationDetailModal({
               value={operation.internalNotes}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
               className="mt-1.5 min-h-[80px]"
+            />
+          </div>
+
+          {/* Nachbarhilfe Toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <Label htmlFor="modal-nachbarhilfe" className="text-sm font-semibold">Nachbarhilfe</Label>
+                <p className="text-xs text-muted-foreground">Einsatz mit Nachbarfeuerwehr-Beteiligung</p>
+              </div>
+            </div>
+            <Switch
+              id="modal-nachbarhilfe"
+              checked={operation.nachbarhilfe || false}
+              onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
             />
           </div>
           </div>

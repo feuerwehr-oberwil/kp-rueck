@@ -237,6 +237,7 @@ def _add_incidents_sheet(ws, incidents: list[Incident], user_map: dict[uuid.UUID
         "Typ",
         "Priorität",
         "Status",
+        "Nachbarhilfe",
         "Adresse",
         "Lat",
         "Lng",
@@ -260,21 +261,22 @@ def _add_incidents_sheet(ws, incidents: list[Incident], user_map: dict[uuid.UUID
         ws.cell(row=row_num, column=4, value=incident.type)
         ws.cell(row=row_num, column=5, value=incident.priority)
         ws.cell(row=row_num, column=6, value=incident.status)
-        ws.cell(row=row_num, column=7, value=incident.location_address or "")
-        ws.cell(row=row_num, column=8, value=str(incident.location_lat) if incident.location_lat else "")
-        ws.cell(row=row_num, column=9, value=str(incident.location_lng) if incident.location_lng else "")
-        ws.cell(row=row_num, column=10, value=incident.description or "")
-        ws.cell(row=row_num, column=11, value=incident.contact or "")
-        ws.cell(row=row_num, column=12, value=format_timestamp(incident.created_at))
+        ws.cell(row=row_num, column=7, value="Ja" if incident.nachbarhilfe else "Nein")
+        ws.cell(row=row_num, column=8, value=incident.location_address or "")
+        ws.cell(row=row_num, column=9, value=str(incident.location_lat) if incident.location_lat else "")
+        ws.cell(row=row_num, column=10, value=str(incident.location_lng) if incident.location_lng else "")
+        ws.cell(row=row_num, column=11, value=incident.description or "")
+        ws.cell(row=row_num, column=12, value=incident.contact or "")
+        ws.cell(row=row_num, column=13, value=format_timestamp(incident.created_at))
 
         # Get creator username
         creator_name = ""
         if incident.created_by and incident.created_by in user_map:
             creator_name = user_map[incident.created_by].username
-        ws.cell(row=row_num, column=13, value=creator_name)
+        ws.cell(row=row_num, column=14, value=creator_name)
 
-        ws.cell(row=row_num, column=14, value=format_timestamp(incident.updated_at))
-        ws.cell(row=row_num, column=15, value=format_timestamp(incident.completed_at))
+        ws.cell(row=row_num, column=15, value=format_timestamp(incident.updated_at))
+        ws.cell(row=row_num, column=16, value=format_timestamp(incident.completed_at))
 
 
 def _add_personnel_assignments_sheet(
