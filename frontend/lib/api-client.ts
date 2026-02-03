@@ -1537,8 +1537,9 @@ class ApiClient {
     })
   }
 
-  async deleteUser(userId: string): Promise<void> {
-    return this.request<void>(`/api/users/${userId}`, {
+  async deleteUser(userId: string, permanent: boolean = false): Promise<void> {
+    const url = permanent ? `/api/users/${userId}?permanent=true` : `/api/users/${userId}`
+    return this.request<void>(url, {
       method: 'DELETE',
     })
   }

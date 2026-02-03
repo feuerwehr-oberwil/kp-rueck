@@ -210,12 +210,13 @@ async def delete_user(
     current_user: CurrentAdmin,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    permanent: bool = False,
 ):
     """
-    Deactivate a user (admin only).
+    Deactivate or permanently delete a user (admin only).
 
-    Soft-deletes by setting is_active=False.
-    Does not actually delete the user to preserve audit trails.
+    By default, soft-deletes by setting is_active=False.
+    With permanent=true, permanently removes the user from the database.
     """
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -223,21 +224,40 @@ async def delete_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
 
-    # Prevent admin from deactivating themselves
+    # Prevent admin from deleting themselves
     if user.id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sie können sich nicht selbst deaktivieren")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sie können sich nicht selbst löschen",
+        )
 
-    user.is_active = False
+    username = user.username  # Store for logging before potential delete
 
-    await log_action(
-        db=db,
-        action_type="deactivate",
-        resource_type="user",
-        resource_id=user.id,
-        user=current_user,
-        changes={"username": user.username, "action": "deactivated"},
-        request=request,
-    )
-    await db.commit()
-
-    logger.info("User %s deactivated by admin %s", user.username, current_user.username)
+    if permanent:
+        # Permanent delete
+        await db.delete(user)
+        await log_action(
+            db=db,
+            action_type="delete",
+            resource_type="user",
+            resource_id=user_id,
+            user=current_user,
+            changes={"username": username, "action": "permanently_deleted"},
+            request=request,
+        )
+        await db.commit()
+        logger.info("User %s permanently deleted by admin %s", username, current_user.username)
+    else:
+        # Soft delete (deactivate)
+        user.is_active = False
+        await log_action(
+            db=db,
+            action_type="deactivate",
+            resource_type="user",
+            resource_id=user.id,
+            user=current_user,
+            changes={"username": username, "action": "deactivated"},
+            request=request,
+        )
+        await db.commit()
+        logger.info("User %s deactivated by admin %s", username, current_user.username)

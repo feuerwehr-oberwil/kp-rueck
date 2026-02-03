@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Key, UserX, UserCheck, Shield, User } from 'lucide-react';
+import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 
@@ -52,6 +52,7 @@ export function UserSettings() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
 
   // Form states
@@ -175,6 +176,23 @@ export function UserSettings() {
     }
   };
 
+  const handlePermanentDelete = async () => {
+    if (!selectedUser) return;
+    setSubmitting(true);
+    try {
+      await apiClient.deleteUser(selectedUser.id, true);
+      toast.success('Benutzer endgültig gelöscht');
+      setPermanentDeleteDialogOpen(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to permanently delete user:', err);
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Löschen');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const openEditDialog = (user: ApiUser) => {
     setSelectedUser(user);
     setFormData({
@@ -195,6 +213,11 @@ export function UserSettings() {
   const openDeleteDialog = (user: ApiUser) => {
     setSelectedUser(user);
     setDeleteDialogOpen(true);
+  };
+
+  const openPermanentDeleteDialog = (user: ApiUser) => {
+    setSelectedUser(user);
+    setPermanentDeleteDialogOpen(true);
   };
 
   const formatLastLogin = (lastLogin: string | null) => {
@@ -312,16 +335,27 @@ export function UserSettings() {
                   </Button>
                 )}
                 {!user.is_active && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleReactivate(user)}
-                    title="Reaktivieren"
-                    className="text-green-600 hover:text-green-600"
-                    disabled={submitting}
-                  >
-                    <UserCheck className="h-4 w-4" />
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleReactivate(user)}
+                      title="Reaktivieren"
+                      className="text-green-600 hover:text-green-600"
+                      disabled={submitting}
+                    >
+                      <UserCheck className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openPermanentDeleteDialog(user)}
+                      title="Endgültig löschen"
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -504,6 +538,28 @@ export function UserSettings() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {submitting ? 'Deaktiviere...' : 'Deaktivieren'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={permanentDeleteDialogOpen} onOpenChange={setPermanentDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Benutzer endgültig löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Der Benutzer {selectedUser?.display_name || selectedUser?.username} wird unwiderruflich
+              gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePermanentDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {submitting ? 'Lösche...' : 'Endgültig löschen'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
