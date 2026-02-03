@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Key, UserX, Shield, User, Check, X } from 'lucide-react';
+import { Plus, Pencil, Key, UserX, UserCheck, Shield, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 
@@ -156,6 +156,20 @@ export function UserSettings() {
     } catch (err) {
       console.error('Failed to delete user:', err);
       toast.error(err instanceof Error ? err.message : 'Fehler beim Deaktivieren');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReactivate = async (user: ApiUser) => {
+    setSubmitting(true);
+    try {
+      await apiClient.updateUser(user.id, { is_active: true });
+      toast.success('Benutzer reaktiviert');
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to reactivate user:', err);
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Reaktivieren');
     } finally {
       setSubmitting(false);
     }
@@ -295,6 +309,18 @@ export function UserSettings() {
                     className="text-destructive hover:text-destructive"
                   >
                     <UserX className="h-4 w-4" />
+                  </Button>
+                )}
+                {!user.is_active && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleReactivate(user)}
+                    title="Reaktivieren"
+                    className="text-green-600 hover:text-green-600"
+                    disabled={submitting}
+                  >
+                    <UserCheck className="h-4 w-4" />
                   </Button>
                 )}
               </div>
