@@ -29,7 +29,14 @@ from .database import Base
 
 
 class User(Base):
-    """User model for authentication and authorization."""
+    """User model for authentication and authorization.
+
+    Roles:
+        - admin: Full access including user management
+        - editor: Full operational access (incidents, events, resources)
+
+    Note: Viewer access is token-based only (no DB user required).
+    """
 
     __tablename__ = "users"
 
@@ -37,6 +44,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -49,7 +58,7 @@ class User(Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
     setting_updates: Mapped[list["Setting"]] = relationship("Setting", back_populates="updater")
 
-    __table_args__ = (CheckConstraint("role IN ('editor', 'viewer')", name="valid_user_role"),)
+    __table_args__ = (CheckConstraint("role IN ('admin', 'editor')", name="valid_user_role"),)
 
 
 # ============================================

@@ -42,7 +42,9 @@ async def get_current_user(
             id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
             username="dev-user",
             password_hash="",  # Not used in bypass mode
-            role="editor",
+            role="admin",  # Admin role for full access in dev mode
+            display_name="Development User",
+            is_active=True,
             created_at=datetime.now(UTC),  # Required field
             last_login=None,
         )
@@ -96,6 +98,11 @@ async def get_current_user(
         logger.debug("User from token not found in database")
         raise credentials_exception
 
+    # Check if user is active
+    if not user.is_active:
+        logger.debug("User %s is deactivated", user.username)
+        raise credentials_exception
+
     logger.debug("User authenticated: %s", user.username)
 
     # Set user on request state for middleware access
@@ -106,19 +113,35 @@ async def get_current_user(
 
 async def get_current_editor(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     """
-    Verify current user has 'editor' role.
+    Verify current user has 'editor' or 'admin' role.
 
     Dependency injection:
         current_user: User = Depends(get_current_editor)
 
     Raises:
-        HTTPException 403: If user is not an editor
+        HTTPException 403: If user is not an editor or admin
     """
-    if current_user.role != "editor":
+    if current_user.role not in ("editor", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
+    return current_user
+
+
+async def get_current_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    """
+    Verify current user has 'admin' role.
+
+    Dependency injection:
+        current_user: User = Depends(get_current_admin)
+
+    Raises:
+        HTTPException 403: If user is not an admin
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin-Berechtigung erforderlich")
     return current_user
 
 
 # Convenience type aliases
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentEditor = Annotated[User, Depends(get_current_editor)]
+CurrentAdmin = Annotated[User, Depends(get_current_admin)]

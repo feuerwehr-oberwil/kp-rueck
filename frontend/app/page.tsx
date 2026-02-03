@@ -448,8 +448,8 @@ export default function FireStationDashboard() {
           type: vehicle.type
         }))
         setVehicleTypes(typesWithKeys)
-      } catch (error) {
-        console.error('Failed to load vehicles:', error)
+      } catch {
+        // Silently fail - vehicles will load when backend is ready
       }
     }
     loadVehicles()

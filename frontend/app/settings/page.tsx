@@ -54,6 +54,7 @@ import {
   Monitor,
   ClipboardList,
   Printer,
+  Shield,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -67,21 +68,23 @@ import { PersonnelSettings } from '@/components/settings/personnel-settings';
 import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
+import { UserSettings } from '@/components/settings/user-settings';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { useIsMobile } from '@/components/ui/use-mobile';
 
 // Sidebar sections configuration
 const SECTIONS = [
-  { id: 'general', label: 'Allgemein', icon: Settings2, group: 'config', editorOnly: false },
-  { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false },
-  { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false },
-  { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true },
-  { id: 'personnel', label: 'Personal', icon: Users, group: 'resources', editorOnly: true },
-  { id: 'vehicles', label: 'Fahrzeuge', icon: Truck, group: 'resources', editorOnly: true },
-  { id: 'materials', label: 'Material', icon: Package, group: 'resources', editorOnly: true },
-  { id: 'import', label: 'Import/Export', icon: FileSpreadsheet, group: 'data', editorOnly: true },
-  { id: 'audit', label: 'Audit-Protokoll', icon: FileText, group: 'data', editorOnly: true },
+  { id: 'general', label: 'Allgemein', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
+  { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
+  { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: false },
+  { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'users', label: 'Benutzer', icon: Shield, group: 'admin', editorOnly: false, adminOnly: true },
+  { id: 'personnel', label: 'Personal', icon: Users, group: 'resources', editorOnly: true, adminOnly: false },
+  { id: 'vehicles', label: 'Fahrzeuge', icon: Truck, group: 'resources', editorOnly: true, adminOnly: false },
+  { id: 'materials', label: 'Material', icon: Package, group: 'resources', editorOnly: true, adminOnly: false },
+  { id: 'import', label: 'Import/Export', icon: FileSpreadsheet, group: 'data', editorOnly: true, adminOnly: false },
+  { id: 'audit', label: 'Audit-Protokoll', icon: FileText, group: 'data', editorOnly: true, adminOnly: false },
 ] as const;
 
 // Audit log constants
@@ -122,7 +125,7 @@ const SETTING_CONFIGS: SettingConfig[] = [
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isEditor } = useAuth();
+  const { isEditor, isAdmin } = useAuth();
   const { events, isLoading: eventsLoading } = useEvent();
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
@@ -452,7 +455,9 @@ export default function SettingsPage() {
   };
 
   // Filter sections based on editor role
-  const visibleSections = SECTIONS.filter(s => !s.editorOnly || isEditor);
+  const visibleSections = SECTIONS.filter(s =>
+    (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin)
+  );
 
   // Render content based on active section
   const renderContent = () => {
@@ -561,6 +566,9 @@ export default function SettingsPage() {
 
       case 'printer':
         return <PrinterSettings />;
+
+      case 'users':
+        return <UserSettings />;
 
       case 'personnel':
         return <PersonnelSettings />;
@@ -1122,6 +1130,33 @@ export default function SettingsPage() {
                       Daten
                     </p>
                     {visibleSections.filter(s => s.group === 'data').map((section) => {
+                      const Icon = section.icon;
+                      const isActive = activeSection === section.id;
+                      return (
+                        <button
+                          key={section.id}
+                          onClick={() => navigateToSection(section.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                            isActive
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {section.label}
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Admin group */}
+                {isAdmin && (
+                  <>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">
+                      Administration
+                    </p>
+                    {visibleSections.filter(s => s.group === 'admin').map((section) => {
                       const Icon = section.icon;
                       const isActive = activeSection === section.id;
                       return (

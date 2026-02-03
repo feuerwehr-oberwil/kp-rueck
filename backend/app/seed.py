@@ -76,7 +76,9 @@ async def seed_database() -> None:
                 id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
                 username="dev-user",
                 password_hash="",  # Not used in bypass mode
-                role="editor",
+                role="admin",  # Admin role for dev bypass
+                display_name="Development User",
+                is_active=True,
             )
             db.add(dev_user)
 
@@ -88,9 +90,25 @@ async def seed_database() -> None:
                 id=uuid4(),
                 username="admin",
                 password_hash=password_hash,
-                role="editor",
+                role="admin",
+                display_name="Administrator",
+                is_active=True,
             )
             db.add(admin_user)
+
+            # Create shared editor account for teams
+            editor_password = os.getenv("EDITOR_PASSWORD", "editor")  # Default for dev, override in prod
+            editor_password_hash = bcrypt.hashpw(editor_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+            editor_user = models.User(
+                id=uuid4(),
+                username="editor",
+                password_hash=editor_password_hash,
+                role="editor",
+                display_name="Bearbeiter",
+                is_active=True,
+            )
+            db.add(editor_user)
             await db.flush()  # Get the ID for foreign key references
 
             # ============================================

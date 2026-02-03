@@ -595,7 +595,8 @@ class ApiClient {
           // Don't log 401 errors for sync config - expected when not authenticated
           const shouldLog = !(response.status === 401 && endpoint === '/api/sync/config')
           if (shouldLog) {
-            console.error(`[API Error] ${method} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+            // Use console.warn to avoid triggering Next.js error overlay
+            console.warn(`[API Error] ${method} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
           }
 
           // Don't throw error for 401 on sync config - it's handled gracefully by the component
@@ -662,7 +663,7 @@ class ApiClient {
             continue // Retry
           }
 
-          // Final network error - show toast
+          // Final network error
           if (!skipToast) {
             toast({
               variant: "destructive",
@@ -670,7 +671,8 @@ class ApiClient {
               description: "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
             })
           }
-          throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie, ob der Server läuft.')
+          // Return undefined instead of throwing to avoid Next.js error overlay
+          return undefined as T
         }
 
         // Re-throw other errors (like our API errors)
@@ -1504,6 +1506,67 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // User Management (Admin only)
+  async getUsers(): Promise<ApiUser[]> {
+    return this.request<ApiUser[]>('/api/users/')
+  }
+
+  async getUser(userId: string): Promise<ApiUser> {
+    return this.request<ApiUser>(`/api/users/${userId}`)
+  }
+
+  async createUser(user: ApiUserCreate): Promise<ApiUser> {
+    return this.request<ApiUser>('/api/users/', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    })
+  }
+
+  async updateUser(userId: string, user: ApiUserUpdate): Promise<ApiUser> {
+    return this.request<ApiUser>(`/api/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(user),
+    })
+  }
+
+  async resetUserPassword(userId: string, newPassword: string): Promise<void> {
+    return this.request<void>(`/api/users/${userId}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ new_password: newPassword }),
+    })
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    return this.request<void>(`/api/users/${userId}`, {
+      method: 'DELETE',
+    })
+  }
+}
+
+// User Management Types
+export interface ApiUser {
+  id: string
+  username: string
+  role: 'admin' | 'editor'
+  display_name: string
+  is_active: boolean
+  created_at: string
+  last_login: string | null
+}
+
+export interface ApiUserCreate {
+  username: string
+  password: string
+  role: 'admin' | 'editor'
+  display_name?: string
+}
+
+export interface ApiUserUpdate {
+  username?: string
+  role?: 'admin' | 'editor'
+  display_name?: string
+  is_active?: boolean
 }
 
 // Print Job Types

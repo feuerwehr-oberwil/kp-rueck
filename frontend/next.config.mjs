@@ -44,8 +44,8 @@ const nextConfig = {
       "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org http://localhost:8080",
       // Fonts: self + data URIs
       "font-src 'self' data:",
-      // Connect: self + map tiles + local tile server + WebSocket
-      "connect-src 'self' https://*.tile.openstreetmap.org http://localhost:8080 ws://localhost:* wss://*.fwo.li wss://*.railway.app",
+      // Connect: self + API + map tiles + local tile server + WebSocket
+      "connect-src 'self' http://localhost:8000 https://*.tile.openstreetmap.org http://localhost:8080 ws://localhost:* wss://*.fwo.li wss://*.railway.app",
       // Frame ancestors: prevent clickjacking
       "frame-ancestors 'none'",
       // Form actions: only to self

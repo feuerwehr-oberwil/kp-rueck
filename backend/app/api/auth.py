@@ -66,6 +66,16 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Check if user is active
+    if not user.is_active:
+        await log_login(db=db, user=user, request=request, success=False)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Benutzerkonto ist deaktiviert",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # Create tokens
     access_token = create_access_token(
         data={

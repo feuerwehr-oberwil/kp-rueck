@@ -13,7 +13,8 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  isEditor: boolean;
+  isAdmin: boolean;
+  isEditor: boolean;  // true for both editor and admin roles
   isAuthenticated: boolean;
 }
 
@@ -92,7 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login,
       logout,
-      isEditor: user?.role === 'editor',
+      isAdmin: user?.role === 'admin',
+      isEditor: user?.role === 'editor' || user?.role === 'admin',  // admin has editor privileges
       isAuthenticated: !!user,
     }}>
       {children}

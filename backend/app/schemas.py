@@ -669,13 +669,29 @@ class UserBase(BaseModel):
     """Base user schema."""
 
     username: str
-    role: str  # 'editor', 'viewer'
+    role: str  # 'admin' or 'editor' (viewer is token-only, no DB user)
+    display_name: str = ""
 
 
 class UserCreate(UserBase):
-    """Schema for creating user."""
+    """Schema for creating user (admin only)."""
 
     password: str
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating user (admin only)."""
+
+    username: str | None = None
+    role: str | None = None
+    display_name: str | None = None
+    is_active: bool | None = None
+
+
+class UserPasswordReset(BaseModel):
+    """Schema for resetting user password (admin only)."""
+
+    new_password: str
 
 
 class User(UserBase):
@@ -684,6 +700,7 @@ class User(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    is_active: bool = True
     created_at: datetime
     last_login: datetime | None = None
 

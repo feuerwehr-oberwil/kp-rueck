@@ -8,7 +8,9 @@ import { getApiUrl } from './env';
 export interface User {
   id: string;
   username: string;
-  role: 'editor' | 'viewer';
+  role: 'admin' | 'editor';
+  display_name: string;
+  is_active: boolean;
   created_at: string;
   last_login: string | null;
 }
@@ -61,7 +63,11 @@ async function fetchWithTimeout(
         AuthErrorType.TIMEOUT
       );
     }
-    throw error;
+    // Wrap network errors in AuthError for consistent handling
+    throw new AuthError(
+      'Verbindung zum Server fehlgeschlagen',
+      AuthErrorType.NETWORK_ERROR
+    );
   }
 }
 
@@ -72,8 +78,8 @@ export async function checkBackendHealth(): Promise<boolean> {
   try {
     const response = await fetchWithTimeout(`${getApiUrl()}/health`, {}, 5000);
     return response.ok;
-  } catch (error) {
-    console.error('[Auth] Backend health check failed:', error);
+  } catch {
+    // Silently fail - this is expected when backend is unavailable
     return false;
   }
 }
@@ -145,14 +151,18 @@ export async function getCurrentUser(): Promise<User | null> {
     const user = await response.json();
     return user;
   } catch (error) {
+    // Silently handle expected network errors during development
+    // (backend not running, network unavailable, etc.)
     if (error instanceof AuthError) {
-      if (error.type === AuthErrorType.TIMEOUT) {
-        console.error('[Auth] getCurrentUser timeout - backend möglicherweise nicht verfügbar');
-      } else {
-        console.error('[Auth] getCurrentUser network error:', error.message);
+      if (error.type === AuthErrorType.NETWORK_ERROR) {
+        // Don't spam console for network errors - common during dev
+        console.debug('[Auth] Backend not reachable');
+      } else if (error.type === AuthErrorType.TIMEOUT) {
+        console.warn('[Auth] Request timeout - backend may be slow');
       }
     } else {
-      console.error('[Auth] getCurrentUser error:', error);
+      // Only log unexpected errors
+      console.error('[Auth] Unexpected error:', error);
     }
     return null;
   }
@@ -167,9 +177,8 @@ export async function logout(): Promise<void> {
       method: 'POST',
       credentials: 'include',
     }, 5000);
-  } catch (error) {
-    // Logout failed, but we'll clear local state anyway
-    console.error('[Auth] Logout request failed (clearing state anyway):', error);
+  } catch {
+    // Logout failed, but we'll clear local state anyway - no need to log
   }
 }
 
@@ -192,8 +201,8 @@ export async function refreshToken(): Promise<User | null> {
 
     const user = await response.json();
     return user;
-  } catch (error) {
-    console.error('[Auth] Token refresh error:', error);
+  } catch {
+    // Token refresh failed - user will need to log in again
     return null;
   }
 }
