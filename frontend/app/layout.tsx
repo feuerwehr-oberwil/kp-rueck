@@ -28,6 +28,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'KP Rück Dashboard',
   description: 'Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr.',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/apple-icon.svg',
+  },
 }
 
 export default function RootLayout({
