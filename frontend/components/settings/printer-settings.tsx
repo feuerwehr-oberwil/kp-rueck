@@ -125,7 +125,7 @@ export function PrinterSettings() {
         <div className="flex gap-2">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            Funktioniert nur mit lokaler Docker-Installation. Print-Agent muss auf dem Kommandoposten laufen.
+            Der Print-Agent muss auf dem Kommandoposten-Netzwerk laufen und Zugriff auf den Drucker haben.
           </p>
         </div>
       </Card>

@@ -5,11 +5,12 @@ import uuid
 from datetime import UTC
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings as app_settings
 from ..database import get_db
 from ..models import User
 from .config import auth_settings
@@ -20,7 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
-    request: Request, access_token: Annotated[str | None, Cookie()] = None, db: AsyncSession = Depends(get_db)
+    request: Request,
+    access_token: Annotated[str | None, Cookie()] = None,
+    authorization: Annotated[str | None, Header()] = None,
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Get the currently authenticated user from JWT cookie.
@@ -51,6 +55,26 @@ async def get_current_user(
         # Set on request state for logging/audit
         request.state.user = mock_user
         return mock_user
+
+    # Master token bypass - simple env var auth for CLI/remote config
+    if authorization and app_settings.master_token:
+        token = authorization.removeprefix("Bearer ").strip()
+        if token == app_settings.master_token:
+            from datetime import datetime
+
+            mock_user = User(
+                id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                username="master-token",
+                password_hash="",
+                role="admin",
+                display_name="Master Token",
+                is_active=True,
+                created_at=datetime.now(UTC),
+                last_login=None,
+            )
+            request.state.user = mock_user
+            logger.info("Authenticated via master token")
+            return mock_user
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

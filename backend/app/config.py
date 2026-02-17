@@ -131,6 +131,9 @@ class Settings(BaseSettings):
     traccar_email: str = ""  # Traccar account email for authentication
     traccar_password: str = ""  # Traccar account password for authentication
 
+    # Master token for API access without login (e.g. configuring settings on Railway)
+    master_token: str = ""  # Set MASTER_TOKEN env var; empty = disabled
+
     # Divera API Integration (for polling as webhook fallback)
     divera_access_key: str = ""  # Divera247 API access key (empty = polling disabled)
     divera_api_url: str = "https://app.divera247.com/api/v2"  # Divera API base URL
