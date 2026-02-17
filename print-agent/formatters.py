@@ -1,7 +1,8 @@
 """Formatters for print jobs.
 
 Formats assignment slips and board snapshots for the Epson thermal printer
-(58mm paper). Font A (~22 chars) for titles, Font B (~32 chars) for everything else.
+(58mm paper). Font A (~22 chars) for headers, Font B (~32 chars) for body text.
+Separators use Font B for full paper width.
 """
 
 import logging
@@ -64,8 +65,8 @@ def _font_b(p: Network, bold: bool = False, align: str = "left") -> None:
           double_height=False, double_width=False)
 
 
-def _sep(p: Network, char: str = "-") -> None:
-    """Print a full-width separator in Font B."""
+def _sep(p: Network, char: str = "=") -> None:
+    """Print a full-width separator in Font B (spans full paper width)."""
     _font_b(p)
     p.text(char * WIDTH_B + "\n")
 
@@ -78,14 +79,14 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     location = payload.get("location", "")
 
     # --- Location title (Font A bold, centered) ---
-    _sep(p, "=")
+    _sep(p)
     _font_a(p, bold=True, align="center")
     if location:
         for line in _wrap_text(location, WIDTH_A):
             p.text(f"{line}\n")
     else:
         p.text("KEIN STANDORT\n")
-    _sep(p, "=")
+    _sep(p)
 
     # --- Incident type ---
     inc_type = payload.get("type", "")
@@ -96,8 +97,8 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     if payload.get("nachbarhilfe"):
         type_label = f"{type_label} [NH]"
 
-    _font_b(p, bold=True)
-    for line in _wrap_text(type_label, WIDTH_B):
+    _font_a(p, bold=True)
+    for line in _wrap_text(type_label, WIDTH_A):
         p.text(f"{line}\n")
 
     # --- Description ---
@@ -115,14 +116,14 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
 
     # --- Vehicles ---
     if vehicles:
-        _sep(p)
-        _font_b(p, bold=True)
+        p.text("\n")
+        _font_a(p, bold=True)
         p.text("FAHRZEUGE\n")
         _font_b(p)
         for v in vehicles:
             name = v.get("name", "")
             vtype = v.get("type", "")
-            line = f"  {name}"
+            line = f" {name}"
             if vtype:
                 line += f" ({vtype})"
             for wrapped in _wrap_text(line, WIDTH_B):
@@ -131,35 +132,35 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     # --- Crew ---
     crew = payload.get("crew", [])
     if crew:
-        _sep(p)
-        _font_b(p, bold=True)
+        p.text("\n")
+        _font_a(p, bold=True)
         p.text("BESATZUNG\n")
         _font_b(p)
         for person in crew:
             name = person.get("name", "")
             role = person.get("role", "")
             if role:
-                line = f"  {name} ({role})"
+                line = f" {name} ({role})"
             else:
-                line = f"  {name}"
+                line = f" {name}"
             for wrapped in _wrap_text(line, WIDTH_B):
                 p.text(f"{wrapped}\n")
 
     # --- Materials ---
     materials = payload.get("materials", [])
     if materials:
-        _sep(p)
-        _font_b(p, bold=True)
+        p.text("\n")
+        _font_a(p, bold=True)
         p.text("MATERIAL\n")
         _font_b(p)
         for mat in materials:
-            p.text(f"  {mat.get('name', '')}\n")
+            for wrapped in _wrap_text(f" {mat.get('name', '')}", WIDTH_B):
+                p.text(f"{wrapped}\n")
 
     # --- Footer ---
-    _sep(p)
+    p.text("\n")
     _font_b(p, align="center")
     p.text(f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
-    p.text("\n")
     p.cut()
 
 
@@ -174,7 +175,7 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
     personnel = payload.get("personnel_summary", {})
 
     # --- Header (Font A bold, centered) ---
-    _sep(p, "=")
+    _sep(p)
     _font_a(p, bold=True, align="center")
     if training:
         p.text("ÜBUNG\n")
@@ -186,12 +187,12 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
     p.text(f"{event_name}\n")
     _font_b(p)
     p.text(f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
-    _sep(p, "=")
+    _sep(p)
 
     # --- Active incidents ---
     active_incidents = [i for i in incidents if i.get("status") != "abschluss"]
 
-    _font_b(p, bold=True)
+    _font_a(p, bold=True)
     if active_incidents:
         p.text(f"EINSÄTZE ({len(active_incidents)})\n")
     else:
@@ -206,20 +207,20 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
             inc_vehicles = inc.get("vehicles", [])
             marker = PRIORITY_MARKERS.get(priority, "")
 
-            _font_b(p, bold=True)
+            _font_a(p, bold=True)
             title_line = f"{idx}. {marker}{title}"
-            for line in _wrap_text(title_line, WIDTH_B):
+            for line in _wrap_text(title_line, WIDTH_A):
                 p.text(f"{line}\n")
 
             _font_b(p)
             status_label = STATUS_LABELS.get(status, status)
-            detail = f"  [{status_label}]"
+            detail = f" [{status_label}]"
             if loc:
                 detail += f" {loc}"
             for line in _wrap_text(detail, WIDTH_B):
                 p.text(f"{line}\n")
             if inc_vehicles:
-                veh_line = f"  Fz: {', '.join(inc_vehicles)}"
+                veh_line = f" Fz: {', '.join(inc_vehicles)}"
                 for line in _wrap_text(veh_line, WIDTH_B):
                     p.text(f"{line}\n")
     else:
@@ -227,31 +228,27 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
         p.text("Keine aktiven Einsätze.\n")
 
     # --- Vehicle status ---
-    _sep(p)
-    _font_b(p, bold=True)
+    p.text("\n")
+    _font_a(p, bold=True)
     p.text("FAHRZEUGE\n")
     _font_b(p)
     for v in vehicle_status:
         name = v.get("name", "")
-        vtype = v.get("type", "")
         available = v.get("available", False)
-        check = "[X]" if available else "[ ]"
+        check = "X" if available else " "
         status_text = "Frei" if available else "Belegt"
-        line = f" {check} {name}"
-        if vtype:
-            line += f" ({vtype})"
-        line += f" - {status_text}"
+        line = f"[{check}] {name} {status_text}"
         for wrapped in _wrap_text(line, WIDTH_B):
             p.text(f"{wrapped}\n")
 
     # --- Personnel ---
-    _sep(p)
-    present = personnel.get("present", 0)
-    total = personnel.get("total", 0)
-    _font_b(p, bold=True)
-    p.text(f"PERSONAL: {present}/{total}\n")
+    p.text("\n")
+    _font_a(p, bold=True)
+    p.text(f"PERSONAL: {personnel.get('present', 0)}/{personnel.get('total', 0)}\n")
 
     p.text("\n")
+    _font_b(p, align="center")
+    p.text(f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
     p.cut()
 
 
