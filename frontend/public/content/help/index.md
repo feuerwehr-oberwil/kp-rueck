@@ -311,16 +311,37 @@ Die lokale Instanz läuft unter `http://localhost:3000`.
 
 ## Thermodrucker
 
-**Nur für lokale Installationen (Docker)**
+Druckt Einsatzzettel und Board-Snapshots auf einem 58mm ESC/POS Thermodrucker (z.B. Epson TM-T20).
 
-Druckt automatisch Einsatzzettel auf einem Epson TM-T20II/III Thermodrucker.
+### Aufbau
+
+Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er fragt das Backend regelmässig nach neuen Druckaufträgen ab und sendet diese über das lokale Netzwerk an den Drucker. Keine Portfreigaben nötig — nur ausgehende Verbindungen.
 
 ### Einrichtung
 1. Drucker per Ethernet ans lokale Netzwerk anschliessen
-2. Einstellungen → Drucker → IP-Adresse und Port eingeben
-3. Print-Agent starten: `just print-agent`
+2. Raspberry Pi einrichten (siehe `PRINT_AGENT.md` im Repository)
+3. Einstellungen → Drucker → IP-Adresse und Port konfigurieren, Drucker aktivieren
 
-### Funktionen
-- **Auto-Druck**: Einsatzzettel druckt automatisch bei Status "Einsatz"
-- **Manuell**: Rechtsklick auf Einsatz → "Drucken"
-- **Board-Snapshot**: "Thermo" Button im Footer
+### Druckaufträge
+
+| Auftrag | Auslöser | Inhalt |
+|---------|----------|--------|
+| **Einsatzzettel** | Automatisch bei Status "Disponiert"/"Einsatz", oder Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
+| **Board-Snapshot** | "Thermo"-Button im Footer → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
+
+### Board-Snapshot Optionen
+
+Beim Klick auf "Thermo" öffnet sich ein Auswahldialog:
+
+- **Abgeschlossene Einsätze** — auch archivierte Einsätze einbeziehen (Standard: aus)
+- **Fahrzeug-Status** — Verfügbarkeit aller Fahrzeuge anzeigen (Standard: ein)
+- **Personal-Übersicht** — Liste aller anwesenden Personen mit Zuteilungsstatus (Standard: ein)
+
+### Polling-Verhalten
+
+Um unnötige Abfragen zu vermeiden, verwendet der Agent **adaptives Polling**:
+
+- **Ruhezustand**: Abfrage alle **60 Sekunden**
+- **Nach einem Druckauftrag**: Wechsel auf **5 Sekunden** für **15 Minuten**, danach zurück auf 60s
+
+So werden im Normalbetrieb nur ca. 60 Anfragen pro Stunde gesendet, während bei aktiven Einsätzen Folgeaufträge fast sofort verarbeitet werden.
