@@ -16,7 +16,7 @@ import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import type { Incident } from "@/lib/types/incidents"
-import { STATUS_LABELS, INCIDENT_TYPE_LABELS } from "@/lib/types/incidents"
+import { STATUS_LABELS, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, STATUS_GROUP_LABELS, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -76,6 +76,11 @@ export default function MapPage() {
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
   const [panTrigger, setPanTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilters, setStatusFilters] = useState<Record<StatusGroup, boolean>>({
+    open: true,
+    active: true,
+    completed: false, // Hidden by default (matches current behavior)
+  })
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -116,24 +121,43 @@ export default function MapPage() {
     deleteOperation,
   })
 
-  // Filter out completed incidents for the active list
+  // Count incidents by status group (before filtering)
+  const statusGroupCounts = useMemo(() => {
+    const counts: Record<StatusGroup, number> = { open: 0, active: 0, completed: 0 }
+    incidents.forEach((inc) => {
+      const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+      if (group) counts[group]++
+    })
+    return counts
+  }, [incidents])
+
+  // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(
     () => {
-      const active = incidents.filter((inc) => inc.status !== "abschluss")
+      // Filter by status group
+      const filtered = incidents.filter((inc) => {
+        const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+        return group && statusFilters[group]
+      })
 
       // Filter by search query
-      if (!searchQuery) return active
+      if (!searchQuery) return filtered
 
       const lowerQuery = searchQuery.toLowerCase()
-      return active.filter((inc) =>
+      return filtered.filter((inc) =>
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
         (INCIDENT_TYPE_LABELS[inc.type as keyof typeof INCIDENT_TYPE_LABELS]?.toLowerCase().includes(lowerQuery)) ||
         (STATUS_LABELS[inc.status as keyof typeof STATUS_LABELS]?.toLowerCase().includes(lowerQuery))
       )
     },
-    [incidents, searchQuery]
+    [incidents, searchQuery, statusFilters]
   )
+
+  // Toggle status filter
+  const toggleStatusFilter = (group: StatusGroup) => {
+    setStatusFilters(prev => ({ ...prev, [group]: !prev[group] }))
+  }
 
   // Load vehicles from API
   useEffect(() => {
@@ -320,6 +344,7 @@ export default function MapPage() {
               onDetailsClick={handleDetailsClick}
               resetZoomTrigger={resetZoomTrigger}
               panTrigger={panTrigger}
+              statusFilters={statusFilters}
             />
           </main>
 
@@ -331,8 +356,25 @@ export default function MapPage() {
           }`}>
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">
-                Aktive Einsätze ({activeIncidents.length})
+                Einsätze ({activeIncidents.length})
               </h2>
+
+              {/* Status filter toggles */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => (
+                  <button
+                    key={group}
+                    onClick={() => toggleStatusFilter(group)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                      statusFilters[group]
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                    }`}
+                  >
+                    {STATUS_GROUP_LABELS[group]} ({statusGroupCounts[group]})
+                  </button>
+                ))}
+              </div>
 
               {/* Search bar */}
               <div className="relative mb-4">

@@ -2,28 +2,91 @@
 
 import { Truck } from "lucide-react"
 
+// Status border color (matches map-view.tsx)
+const STATUS_BORDER_COLOR = "#374151" // gray-700
+
+// SVG marker with status border for legend
+function LegendMarker({
+  fillColor,
+  dasharray,
+  opacity = 1,
+}: {
+  fillColor: string
+  dasharray: string
+  opacity?: number
+}) {
+  const size = 24
+  const borderRadius = size / 2
+  const innerRadius = borderRadius - 3
+  const strokeWidth = 2.5
+  const borderOffset = strokeWidth / 2
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity }} className="flex-shrink-0">
+      <circle
+        cx={borderRadius}
+        cy={borderRadius}
+        r={innerRadius}
+        fill={fillColor}
+        stroke="white"
+        strokeWidth="3"
+      />
+      <circle
+        cx={borderRadius}
+        cy={borderRadius}
+        r={borderRadius - borderOffset}
+        fill="none"
+        stroke={STATUS_BORDER_COLOR}
+        strokeWidth={strokeWidth}
+        strokeDasharray={dasharray}
+      />
+    </svg>
+  )
+}
+
 export function MapLegend() {
   return (
     <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-30">
       <h3 className="font-bold mb-3 text-sm">Legende</h3>
 
-      {/* Priority Legend - simple single-color markers */}
+      {/* Priority Legend */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Einsätze
+          Priorität
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-red-500 border-[3px] border-white shadow-md flex-shrink-0" />
+            <LegendMarker fillColor="#ef4444" dasharray="none" />
             <span className="text-xs">Hohe Priorität</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-yellow-500 border-[3px] border-white shadow-md flex-shrink-0" />
+            <LegendMarker fillColor="#eab308" dasharray="none" />
             <span className="text-xs">Mittlere Priorität</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-green-500 border-[3px] border-white shadow-md flex-shrink-0" />
+            <LegendMarker fillColor="#22c55e" dasharray="none" />
             <span className="text-xs">Niedrige Priorität</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Legend */}
+      <div className="space-y-2 mt-4 pt-3 border-t border-border">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Status (Rahmen)
+        </p>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <LegendMarker fillColor="#9ca3af" dasharray="4,3" />
+            <span className="text-xs">Offen/Neu</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <LegendMarker fillColor="#9ca3af" dasharray="none" />
+            <span className="text-xs">Aktiv</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <LegendMarker fillColor="#9ca3af" dasharray="2,2" opacity={0.6} />
+            <span className="text-xs">Abgeschlossen</span>
           </div>
         </div>
       </div>

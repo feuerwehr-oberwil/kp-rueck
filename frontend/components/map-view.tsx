@@ -5,7 +5,8 @@ import { MapContainer, TileLayer, Marker, useMap, Tooltip } from "react-leaflet"
 import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { useIncidents } from "@/lib/contexts/operations-context"
-import type { Incident } from "@/lib/types/incidents"
+import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incidents"
+import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
@@ -31,11 +32,24 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "#22c55e", // green-500
 }
 
-// Create simple priority-based marker icon with optional highlighting
+// Status border color (dark gray for all statuses)
+const STATUS_BORDER_COLOR = "#374151" // gray-700
+
+// Create priority-based marker icon with status-based border styling
 function createIncidentIcon(incident: Incident, isHighlighted: boolean = false): L.DivIcon {
   const priorityColor = PRIORITY_COLORS[incident.priority] || "#6b7280"
   const size = isHighlighted ? 32 : 24
   const pulse = isHighlighted ? 'animation: pulse 0.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
+
+  // Get status group styling
+  const statusGroup = STATUS_TO_GROUP[incident.status as IncidentStatus] || 'open'
+  const borderStyle = STATUS_GROUP_BORDER_STYLE[statusGroup]
+
+  // SVG-based marker with status border ring
+  const borderRadius = size / 2
+  const innerRadius = borderRadius - 3 // Leave space for border
+  const strokeWidth = 2.5
+  const borderOffset = strokeWidth / 2
 
   const html = `
     <style>
@@ -44,16 +58,36 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
         50% { opacity: 0.5; }
       }
     </style>
-    <div style="
-      width: ${size}px;
-      height: ${size}px;
-      background-color: ${priorityColor};
-      border: 3px solid ${isHighlighted ? '#3b82f6' : 'white'};
-      border-radius: 50%;
-      box-shadow: 0 ${isHighlighted ? 4 : 2}px ${isHighlighted ? 8 : 4}px rgba(0, 0, 0, ${isHighlighted ? 0.5 : 0.3});
-      ${pulse}
-      transition: all 0.2s ease;
-    "></div>
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="${pulse} transition: all 0.2s ease; opacity: ${borderStyle.opacity};">
+      <!-- Drop shadow filter -->
+      <defs>
+        <filter id="shadow-${incident.id}" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="${isHighlighted ? 2 : 1}" stdDeviation="${isHighlighted ? 2 : 1}" flood-opacity="${isHighlighted ? 0.4 : 0.25}"/>
+        </filter>
+      </defs>
+
+      <!-- Priority fill circle with white border -->
+      <circle
+        cx="${borderRadius}"
+        cy="${borderRadius}"
+        r="${innerRadius}"
+        fill="${priorityColor}"
+        stroke="${isHighlighted ? '#3b82f6' : 'white'}"
+        stroke-width="3"
+        filter="url(#shadow-${incident.id})"
+      />
+
+      <!-- Status border ring (outer) -->
+      <circle
+        cx="${borderRadius}"
+        cy="${borderRadius}"
+        r="${borderRadius - borderOffset}"
+        fill="none"
+        stroke="${STATUS_BORDER_COLOR}"
+        stroke-width="${strokeWidth}"
+        stroke-dasharray="${borderStyle.dasharray}"
+      />
+    </svg>
   `
 
   return L.divIcon({
@@ -294,6 +328,7 @@ interface MapViewProps {
   onDetailsClick?: (incident: Incident) => void
   resetZoomTrigger?: number // Counter to trigger zoom reset
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
+  statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
 }
 
 export default function MapView({
@@ -302,6 +337,7 @@ export default function MapView({
   onDetailsClick,
   resetZoomTrigger = 0,
   panTrigger = 0,
+  statusFilters = { open: true, active: true, completed: false },
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -388,22 +424,26 @@ export default function MapView({
     }
   }, [fetchVehiclePositions])
 
-  // Filter incidents with valid coordinates and exclude completed incidents
+  // Filter incidents with valid coordinates and based on status filters
   const mappableIncidents = useMemo(
     () =>
-      incidents.filter(
-        (inc) => inc.location_lat !== null && inc.location_lng !== null && inc.status !== "abschluss"
-      ),
-    [incidents]
+      incidents.filter((inc) => {
+        if (inc.location_lat === null || inc.location_lng === null) return false
+        const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+        return group && statusFilters[group]
+      }),
+    [incidents, statusFilters]
   )
 
-  // Find incidents without valid coordinates (excluding completed)
+  // Find incidents without valid coordinates (based on same status filters)
   const incidentsWithoutLocation = useMemo(
     () =>
-      incidents.filter(
-        (inc) => (inc.location_lat === null || inc.location_lng === null) && inc.status !== "abschluss"
-      ),
-    [incidents]
+      incidents.filter((inc) => {
+        if (inc.location_lat !== null && inc.location_lng !== null) return false
+        const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+        return group && statusFilters[group]
+      }),
+    [incidents, statusFilters]
   )
 
   // Calculate center point (average of all incidents or firestation)
