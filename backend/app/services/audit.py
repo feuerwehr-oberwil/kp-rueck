@@ -123,8 +123,9 @@ async def log_action(
     # Skip user_id if it's the auth bypass mock user (doesn't exist in DB)
     user_id = None
     if user:
-        # Check if this is the mock bypass user (00000000-0000-0000-0000-000000000000)
-        if str(user.id) != "00000000-0000-0000-0000-000000000000":
+        # Skip mock users (dev bypass / master token) that don't exist in DB
+        mock_ids = {"00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001"}
+        if str(user.id) not in mock_ids:
             user_id = user.id
 
     # Sanitize changes to remove sensitive data before storing

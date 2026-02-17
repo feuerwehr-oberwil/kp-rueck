@@ -44,8 +44,9 @@ async def update_setting(
     # Get old value for audit logging
     old_value = await settings_service.get_setting(db, key)
 
-    # Update setting
-    setting = await settings_service.update_setting(db, key, update.value, current_user.id)
+    # Update setting (use None for non-DB users like master token)
+    user_id = current_user.id if current_user.username != "master-token" else None
+    setting = await settings_service.update_setting(db, key, update.value, user_id)
 
     # Log the change
     await log_action(
