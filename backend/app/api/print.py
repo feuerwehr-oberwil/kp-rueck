@@ -88,7 +88,13 @@ async def _build_assignment_payload(db: AsyncSession, incident_id: uuid.UUID) ->
     return payload
 
 
-async def _build_board_payload(db: AsyncSession, event_id: uuid.UUID) -> dict:
+async def _build_board_payload(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    include_completed: bool = False,
+    include_vehicles: bool = True,
+    include_personnel: bool = True,
+) -> dict:
     """Build the payload for a board snapshot print job."""
     # Get event
     result = await db.execute(select(Event).where(Event.id == event_id))
@@ -111,17 +117,33 @@ async def _build_board_payload(db: AsyncSession, event_id: uuid.UUID) -> dict:
     )
     incidents = result.scalars().all()
 
-    # Build incidents list
+    # Build incidents list with full details
     incidents_data = []
     for inc in incidents:
         active_assignments = [a for a in inc.assignments if a.unassigned_at is None]
+        personnel_ids = [a.resource_id for a in active_assignments if a.resource_type == "personnel"]
         vehicle_ids = [a.resource_id for a in active_assignments if a.resource_type == "vehicle"]
+        material_ids = [a.resource_id for a in active_assignments if a.resource_type == "material"]
 
         # Get vehicle names
         vehicle_names = []
         if vehicle_ids:
             veh_result = await db.execute(select(Vehicle.name).where(Vehicle.id.in_(vehicle_ids)))
             vehicle_names = [name for (name,) in veh_result.all()]
+
+        # Get crew details
+        crew = []
+        if personnel_ids:
+            pers_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
+            for p in pers_result.scalars().all():
+                crew.append({"name": p.name, "role": p.role})
+
+        # Get material details
+        materials_list = []
+        if material_ids:
+            mat_result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
+            for m in mat_result.scalars().all():
+                materials_list.append({"name": m.name, "type": m.type})
 
         incidents_data.append(
             {
@@ -130,7 +152,12 @@ async def _build_board_payload(db: AsyncSession, event_id: uuid.UUID) -> dict:
                 "location": inc.location_address or "",
                 "type": inc.type,
                 "priority": inc.priority,
+                "nachbarhilfe": inc.nachbarhilfe,
+                "description": inc.description or "",
+                "contact": inc.contact or "",
                 "vehicles": vehicle_names,
+                "crew": crew,
+                "materials": materials_list,
             }
         )
 
@@ -172,6 +199,39 @@ async def _build_board_payload(db: AsyncSession, event_id: uuid.UUID) -> dict:
     result = await db.execute(select(func.count(Personnel.id)))
     total_personnel = result.scalar() or 0
 
+    # Get individual checked-in personnel for detailed listing
+    personnel_list = []
+    if include_personnel:
+        result = await db.execute(
+            select(Personnel)
+            .join(EventAttendance, Personnel.id == EventAttendance.personnel_id)
+            .where(
+                and_(
+                    EventAttendance.event_id == event_id,
+                    EventAttendance.checked_in.is_(True),
+                )
+            )
+            .order_by(Personnel.role_sort_order, Personnel.name)
+        )
+        for p in result.scalars().all():
+            # Determine if this person is assigned to any active incident
+            is_assigned = False
+            for inc in incidents:
+                if inc.status in ("abschluss",):
+                    continue
+                for a in inc.assignments:
+                    if a.resource_type == "personnel" and a.resource_id == p.id and a.unassigned_at is None:
+                        is_assigned = True
+                        break
+                if is_assigned:
+                    break
+
+            personnel_list.append({
+                "name": p.name,
+                "role": p.role,
+                "assigned": is_assigned,
+            })
+
     payload = {
         "event_id": str(event.id),
         "event_name": event.name,
@@ -182,6 +242,10 @@ async def _build_board_payload(db: AsyncSession, event_id: uuid.UUID) -> dict:
             "total": total_personnel,
             "present": checked_in_count,
         },
+        "personnel_list": personnel_list,
+        "include_completed": include_completed,
+        "include_vehicles": include_vehicles,
+        "include_personnel": include_personnel,
         "printed_at": datetime.now(UTC).isoformat(),
     }
 
@@ -292,7 +356,13 @@ async def queue_board_print(
         raise HTTPException(status_code=400, detail="Printer is not enabled")
 
     # Build payload
-    payload = await _build_board_payload(db, request.event_id)
+    payload = await _build_board_payload(
+        db,
+        request.event_id,
+        include_completed=request.include_completed,
+        include_vehicles=request.include_vehicles,
+        include_personnel=request.include_personnel,
+    )
 
     # Create print job
     job = PrintJob(

@@ -189,22 +189,38 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
     p.text(f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
     _sep(p)
 
-    # --- Active incidents ---
-    active_incidents = [i for i in incidents if i.get("status") != "abschluss"]
+    # --- Filter incidents based on options ---
+    include_completed = payload.get("include_completed", False)
+    include_vehicles_section = payload.get("include_vehicles", True)
+    include_personnel_section = payload.get("include_personnel", True)
+
+    if include_completed:
+        filtered_incidents = incidents
+    else:
+        filtered_incidents = [i for i in incidents if i.get("status") != "abschluss"]
 
     _font_a(p, bold=True)
-    if active_incidents:
-        p.text(f"EINSÄTZE ({len(active_incidents)})\n")
+    if filtered_incidents:
+        p.text(f"EINSÄTZE ({len(filtered_incidents)})\n")
     else:
         p.text("EINSÄTZE\n")
 
-    if active_incidents:
-        for idx, inc in enumerate(active_incidents, 1):
+    if filtered_incidents:
+        for idx, inc in enumerate(filtered_incidents, 1):
+            if idx > 1:
+                p.text("\n")
+
             title = inc.get("title", "")
             status = inc.get("status", "")
             loc = inc.get("location", "")
             priority = inc.get("priority", "medium")
+            inc_type = inc.get("type", "")
             inc_vehicles = inc.get("vehicles", [])
+            inc_crew = inc.get("crew", [])
+            inc_materials = inc.get("materials", [])
+            description = inc.get("description", "")
+            contact = inc.get("contact", "")
+            nachbarhilfe = inc.get("nachbarhilfe", False)
             marker = PRIORITY_MARKERS.get(priority, "")
 
             _font_a(p, bold=True)
@@ -214,37 +230,71 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
 
             _font_b(p)
             status_label = STATUS_LABELS.get(status, status)
-            detail = f" [{status_label}]"
-            if loc:
-                detail += f" {loc}"
+            type_label = TYPE_LABELS.get(inc_type, inc_type.upper())
+            detail = f" [{status_label}] {type_label}"
+            if nachbarhilfe:
+                detail += " [NH]"
             for line in _wrap_text(detail, WIDTH_B):
                 p.text(f"{line}\n")
+            if loc:
+                for line in _wrap_text(f" {loc}", WIDTH_B):
+                    p.text(f"{line}\n")
+            if description:
+                for line in _wrap_text(f" {description}", WIDTH_B):
+                    p.text(f"{line}\n")
+            if contact:
+                p.text(f" Tel: {contact}\n")
             if inc_vehicles:
                 veh_line = f" Fz: {', '.join(inc_vehicles)}"
                 for line in _wrap_text(veh_line, WIDTH_B):
+                    p.text(f"{line}\n")
+            if inc_crew:
+                names = [c.get("name", "") for c in inc_crew]
+                crew_line = f" Pers: {', '.join(names)}"
+                for line in _wrap_text(crew_line, WIDTH_B):
+                    p.text(f"{line}\n")
+            if inc_materials:
+                mat_names = [m.get("name", "") for m in inc_materials]
+                mat_line = f" Mat: {', '.join(mat_names)}"
+                for line in _wrap_text(mat_line, WIDTH_B):
                     p.text(f"{line}\n")
     else:
         _font_b(p)
         p.text("Keine aktiven Einsätze.\n")
 
     # --- Vehicle status ---
-    p.text("\n")
-    _font_a(p, bold=True)
-    p.text("FAHRZEUGE\n")
-    _font_b(p)
-    for v in vehicle_status:
-        name = v.get("name", "")
-        available = v.get("available", False)
-        check = "X" if available else " "
-        status_text = "Frei" if available else "Belegt"
-        line = f"[{check}] {name} {status_text}"
-        for wrapped in _wrap_text(line, WIDTH_B):
-            p.text(f"{wrapped}\n")
+    if include_vehicles_section:
+        p.text("\n")
+        _font_a(p, bold=True)
+        p.text("FAHRZEUGE\n")
+        _font_b(p)
+        for v in vehicle_status:
+            name = v.get("name", "")
+            available = v.get("available", False)
+            check = "X" if available else " "
+            status_text = "Frei" if available else "Belegt"
+            line = f"[{check}] {name} {status_text}"
+            for wrapped in _wrap_text(line, WIDTH_B):
+                p.text(f"{wrapped}\n")
 
     # --- Personnel ---
-    p.text("\n")
-    _font_a(p, bold=True)
-    p.text(f"PERSONAL: {personnel.get('present', 0)}/{personnel.get('total', 0)}\n")
+    if include_personnel_section:
+        p.text("\n")
+        _font_a(p, bold=True)
+        p.text(f"PERSONAL: {personnel.get('present', 0)}/{personnel.get('total', 0)}\n")
+        personnel_list = payload.get("personnel_list", [])
+        if personnel_list:
+            _font_b(p)
+            for person in personnel_list:
+                name = person.get("name", "")
+                role = person.get("role", "")
+                assigned = person.get("assigned", False)
+                check = " " if assigned else "X"
+                line = f"[{check}] {name}"
+                if role:
+                    line += f" ({role})"
+                for wrapped in _wrap_text(line, WIDTH_B):
+                    p.text(f"{wrapped}\n")
 
     p.text("\n")
     _font_b(p, align="center")

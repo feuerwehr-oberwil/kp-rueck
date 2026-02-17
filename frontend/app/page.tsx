@@ -46,6 +46,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
+import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 
 export default function FireStationDashboard() {
@@ -184,7 +185,7 @@ export default function FireStationDashboard() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'vehicles' | 'print' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'vehicles' | 'print' | 'thermo' | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [gPrefixActive, setGPrefixActive] = useState(false)
@@ -263,12 +264,17 @@ export default function FireStationDashboard() {
   }, [])
 
   // Handle thermal board print
-  const handlePrintBoard = useCallback(async () => {
+  const handlePrintBoard = useCallback(async (options?: ThermoPrintOptions) => {
     if (!selectedEvent || isPrintingBoard) return
     setIsPrintingBoard(true)
     try {
-      await apiClient.queueBoardPrint(selectedEvent.id)
+      await apiClient.queueBoardPrint(selectedEvent.id, options ? {
+        include_completed: options.includeCompleted,
+        include_vehicles: options.includeVehicles,
+        include_personnel: options.includePersonnel,
+      } : undefined)
       toast.success('Board-Druckauftrag gesendet')
+      setActiveFooterSheet(null)
     } catch {
       toast.error('Drucken fehlgeschlagen')
     } finally {
@@ -805,6 +811,7 @@ export default function FireStationDashboard() {
   const viewerQrDialogOpen = activeFooterSheet === 'viewer'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
+  const thermoSheetOpen = activeFooterSheet === 'thermo'
 
   const generateCheckInQR = async () => {
     // Toggle behavior: if already open, just close
@@ -1453,13 +1460,21 @@ export default function FireStationDashboard() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="gap-1.5 h-8 px-2.5 transition-colors text-muted-foreground hover:text-foreground"
-                    onClick={handlePrintBoard}
-                    disabled={!selectedEvent || isPrintingBoard}
+                    className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                      thermoSheetOpen
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation()
+                      if (!selectedEvent) return
+                      setActiveFooterSheet(thermoSheetOpen ? null : 'thermo')
+                    }}
+                    disabled={!selectedEvent}
                     title="Board auf Thermodrucker drucken"
                   >
                     <Printer className="h-3.5 w-3.5" />
-                    <span className="text-xs">{isPrintingBoard ? '...' : 'Thermo'}</span>
+                    <span className="text-xs">Thermo</span>
                   </Button>
                 )}
               </div>
@@ -1829,6 +1844,14 @@ export default function FireStationDashboard() {
       <PrintOptionsModal
         open={printModalOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'print' && setActiveFooterSheet(null)}
+      />
+
+      {/* Thermo Print Options Sheet */}
+      <ThermoOptionsSheet
+        open={thermoSheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'thermo' && setActiveFooterSheet(null)}
+        onPrint={handlePrintBoard}
+        isPrinting={isPrintingBoard}
       />
 
       {/* Mobile Bottom Navigation */}

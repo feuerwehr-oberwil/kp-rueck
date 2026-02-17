@@ -1490,10 +1490,14 @@ class ApiClient {
     })
   }
 
-  async queueBoardPrint(eventId: string): Promise<ApiPrintJob> {
+  async queueBoardPrint(eventId: string, options?: {
+    include_completed?: boolean
+    include_vehicles?: boolean
+    include_personnel?: boolean
+  }): Promise<ApiPrintJob> {
     return this.request<ApiPrintJob>('/api/print/board/', {
       method: 'POST',
-      body: JSON.stringify({ event_id: eventId }),
+      body: JSON.stringify({ event_id: eventId, ...options }),
     })
   }
 

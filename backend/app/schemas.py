@@ -1573,6 +1573,9 @@ class PrintBoardRequest(BaseModel):
     """Request to print board snapshot."""
 
     event_id: UUID
+    include_completed: bool = False
+    include_vehicles: bool = True
+    include_personnel: bool = True
 
 
 class PrinterConfigResponse(BaseModel):
