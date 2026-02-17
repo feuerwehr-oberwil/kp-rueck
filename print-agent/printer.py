@@ -1,7 +1,7 @@
-"""ESC/POS thermal printer wrapper for Epson TM-T20II/III.
+"""ESC/POS thermal printer wrapper for Epson thermal printer.
 
 This module provides a simple interface to the thermal printer
-using python-escpos over network connection.
+using python-escpos over network connection (58mm paper, Font B, WPC1252).
 """
 
 import logging
@@ -25,6 +25,9 @@ class ThermalPrinter:
         """Connect to the printer."""
         if self._printer is None:
             self._printer = Network(self.ip, port=self.port)
+            # Set WPC1252 codepage for German umlauts and Font B for 58mm paper
+            self._printer._raw(bytes([0x1B, 0x74, 16]))
+            self._printer.set(font="b")
         return self._printer
 
     def disconnect(self):
@@ -64,14 +67,14 @@ class ThermalPrinter:
     def print_centered_header(self, text: str, double_size: bool = True):
         """Print centered header text."""
         with self as p:
-            p.set(align="center", bold=True, double_height=double_size, double_width=double_size)
+            p.set(font="b", align="center", bold=True, double_height=double_size, double_width=double_size)
             p.text(f"{text}\n")
-            p.set(align="left", bold=False, double_height=False, double_width=False)
+            p.set(font="b", align="left", bold=False, double_height=False, double_width=False)
 
     def print_separator(self, char: str = "-"):
-        """Print a separator line (42 chars for 80mm paper with Font A)."""
+        """Print a separator line (32 chars for 58mm paper with Font B)."""
         with self as p:
-            p.text(char * 42 + "\n")
+            p.text(char * 32 + "\n")
 
     def feed_and_cut(self):
         """Feed paper and cut."""

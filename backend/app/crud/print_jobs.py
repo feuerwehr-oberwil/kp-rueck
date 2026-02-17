@@ -2,8 +2,9 @@
 
 import logging
 import uuid
+from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,16 +12,41 @@ from ..models import Incident, Material, Personnel, PrintJob, Vehicle
 
 logger = logging.getLogger(__name__)
 
+# Don't re-print the same incident within this window
+DEDUP_WINDOW_SECONDS = 30
+
 
 async def queue_assignment_print(
     db: AsyncSession,
     incident_id: uuid.UUID,
-) -> PrintJob:
+) -> PrintJob | None:
     """
     Queue an assignment slip print job for an incident.
 
-    Builds the payload from incident data and creates a pending print job.
+    Deduplicates: skips if a job for this incident is already pending/printing,
+    or was completed within the last 30 seconds.
     """
+    # Dedup: check for existing recent job for this incident
+    cutoff = datetime.utcnow() - timedelta(seconds=DEDUP_WINDOW_SECONDS)
+    result = await db.execute(
+        select(PrintJob).where(
+            and_(
+                PrintJob.incident_id == incident_id,
+                PrintJob.job_type == "assignment",
+                # Pending/printing, or recently completed
+                (PrintJob.status.in_(["pending", "printing"]))
+                | (and_(PrintJob.status == "completed", PrintJob.completed_at > cutoff)),
+            )
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        logger.info(
+            f"Skipping duplicate print for incident {incident_id} "
+            f"(existing job {existing.id}, status={existing.status})"
+        )
+        return None
+
     # Get incident with assignments
     result = await db.execute(
         select(Incident).options(selectinload(Incident.assignments)).where(Incident.id == incident_id)

@@ -166,12 +166,12 @@ restart-tileserver:
 # Thermal Printer
 # ============================================
 
-# Start print agent (requires backend running)
+# Start print agent locally (requires backend running)
 print-agent:
     @echo "\033[1;34m→ Starting thermal print agent...\033[0m"
     @echo "\033[1;34m→ Printer config is fetched from backend settings\033[0m"
     @echo "\033[1;34m→ Use 'just print-agent-dry' for testing without a printer\033[0m"
-    docker compose -f docker-compose.dev.yml --profile printing up print-agent
+    cd print-agent && uv run python agent.py
 
 # Start print agent in dry-run mode (no printer needed)
 print-agent-dry:
@@ -181,26 +181,27 @@ print-agent-dry:
 # Start print agent in background
 print-agent-bg:
     @echo "\033[1;34m→ Starting thermal print agent in background...\033[0m"
-    docker compose -f docker-compose.dev.yml --profile printing up -d print-agent
+    cd print-agent && nohup uv run python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
+    @echo "\033[1;32m✓ Print agent started (PID $$!)\033[0m"
+    @echo "\033[1;34m→ Logs: /tmp/kprueck-print-agent.log\033[0m"
 
 # Stop print agent
 print-agent-stop:
     @echo "\033[1;34m→ Stopping print agent...\033[0m"
-    docker compose -f docker-compose.dev.yml --profile printing down print-agent
+    -pkill -f "python agent.py" || echo "Print agent not running"
 
 # Show print agent logs
 print-agent-logs:
-    docker compose -f docker-compose.dev.yml --profile printing logs -f print-agent
+    tail -f /tmp/kprueck-print-agent.log
 
 # Check print agent status
 print-agent-status:
     #!/usr/bin/env bash
     set -euo pipefail
-    FMT='{{ "{{" }}.Names{{ "}}" }}'
     echo -e "\033[1;34m→ Checking print agent status...\033[0m"
-    if docker ps --format "$FMT" | grep -q "kprueck-print-agent"; then
-        echo -e "\033[1;32m✓ Print agent is running\033[0m"
-        docker logs --tail 5 kprueck-print-agent-dev 2>&1 || true
+    if pgrep -f "python agent.py" > /dev/null 2>&1; then
+        echo -e "\033[1;32m✓ Print agent is running (PID $(pgrep -f 'python agent.py'))\033[0m"
+        tail -5 /tmp/kprueck-print-agent.log 2>/dev/null || true
     else
         echo -e "\033[1;33m⚠️  Print agent is not running\033[0m"
         echo "Start with: just print-agent"
