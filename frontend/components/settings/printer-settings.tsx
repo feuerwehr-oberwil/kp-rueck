@@ -262,23 +262,43 @@ export function PrinterSettings() {
         </CardContent>
       </Card>
 
-      {/* Print Agent Instructions */}
+      {/* Print Agent Info */}
       <Card className="p-4">
         <details className="group">
           <summary className="flex items-center gap-2 cursor-pointer font-medium text-sm">
             <Printer className="h-4 w-4" />
-            Print-Agent starten
+            So funktioniert der Thermodruck
           </summary>
-          <div className="mt-3 space-y-2 text-sm">
-            <div className="bg-muted p-3 rounded-lg font-mono text-xs">
-              <p># Mit Docker Compose:</p>
-              <p>just print-agent</p>
-              <p className="mt-2"># Im Hintergrund:</p>
-              <p>just print-agent-bg</p>
+          <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+            <div className="space-y-1.5">
+              <p className="font-medium text-foreground">Aufbau</p>
+              <p>
+                Ein Print-Agent (Raspberry Pi) im Kommandoposten-Netzwerk fragt das Backend
+                regelmässig nach neuen Druckaufträgen ab und sendet diese an den Thermodrucker.
+              </p>
             </div>
-            <p className="text-muted-foreground text-xs">
-              Der Agent verbindet sich automatisch mit dem Backend.
-            </p>
+            <div className="space-y-1.5">
+              <p className="font-medium text-foreground">Druckaufträge</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li><strong>Einsatzzettel</strong> — wird automatisch gedruckt wenn ein Einsatz auf &quot;Disponiert&quot; oder &quot;Einsatz&quot; gesetzt wird, oder manuell über das Kontextmenü</li>
+                <li><strong>Board-Snapshot</strong> — über den &quot;Thermo&quot;-Button in der Fussleiste, mit Optionen für abgeschlossene Einsätze, Fahrzeuge und Personal</li>
+              </ul>
+            </div>
+            <div className="space-y-1.5">
+              <p className="font-medium text-foreground">Polling-Verhalten</p>
+              <p>
+                Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag
+                wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit Folgeaufträge
+                schneller verarbeitet werden.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <p className="font-medium text-foreground">Netzwerk</p>
+              <p>
+                Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker.
+                Nur ausgehende Verbindungen — keine Portfreigaben nötig.
+              </p>
+            </div>
           </div>
         </details>
       </Card>
