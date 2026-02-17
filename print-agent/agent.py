@@ -10,7 +10,9 @@ This agent runs on the command post computer and:
 
 Environment Variables:
     BACKEND_URL: Backend API URL (default: http://localhost:8000)
-    POLL_INTERVAL: Seconds between polls (default: 2)
+    POLL_INTERVAL_IDLE: Seconds between polls when idle (default: 60)
+    POLL_INTERVAL_ACTIVE: Seconds between polls after recent activity (default: 5)
+    ACTIVE_DURATION: Seconds to stay in active mode after last job (default: 300)
     DRY_RUN: Set to "true" to simulate printing without a real printer
     LOG_LEVEL: Logging level (default: INFO)
 
@@ -29,13 +31,16 @@ import logging
 import os
 import signal
 import sys
+import time
 from datetime import datetime
 
 import httpx
 
 # Configuration from environment
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
-POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "2"))
+POLL_INTERVAL_IDLE = int(os.getenv("POLL_INTERVAL_IDLE", "60"))
+POLL_INTERVAL_ACTIVE = int(os.getenv("POLL_INTERVAL_ACTIVE", "5"))
+ACTIVE_DURATION = int(os.getenv("ACTIVE_DURATION", "900"))
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
@@ -69,6 +74,14 @@ class PrintAgent:
         self.printer_enabled = False
         self.jobs_processed = 0
         self.errors = 0
+        self.last_job_time = 0.0  # timestamp of last processed job
+
+    @property
+    def poll_interval(self) -> int:
+        """Return current poll interval based on recent activity."""
+        if self.last_job_time and (time.monotonic() - self.last_job_time) < ACTIVE_DURATION:
+            return POLL_INTERVAL_ACTIVE
+        return POLL_INTERVAL_IDLE
 
     async def close(self):
         """Close HTTP client."""
@@ -260,6 +273,7 @@ class PrintAgent:
 
         if success:
             self.jobs_processed += 1
+            self.last_job_time = time.monotonic()
         else:
             self.errors += 1
 
@@ -271,7 +285,7 @@ class PrintAgent:
         logger.info(f"Backend URL: {self.backend_url}")
         if self.dry_run:
             logger.info("Mode: DRY RUN (no actual printing)")
-        logger.info(f"Poll interval: {POLL_INTERVAL}s")
+        logger.info(f"Poll interval: {POLL_INTERVAL_IDLE}s idle / {POLL_INTERVAL_ACTIVE}s active (active for {ACTIVE_DURATION}s after job)")
         logger.info("=" * 50)
 
         # Fetch printer config from backend
@@ -300,17 +314,20 @@ class PrintAgent:
         logger.info("Starting poll loop...")
 
         poll_count = 0
-        config_refresh_interval = 30  # Refresh config every 30 polls (~1 minute)
+        last_config_refresh = time.monotonic()
+        config_refresh_seconds = 120  # Refresh config every 2 minutes
 
         while not shutdown_event.is_set():
             try:
                 # Periodically refresh printer config
-                if poll_count > 0 and poll_count % config_refresh_interval == 0:
+                now = time.monotonic()
+                if now - last_config_refresh >= config_refresh_seconds:
                     await self.fetch_printer_config()
+                    last_config_refresh = now
 
                 # Skip polling if printer is disabled (unless dry run)
                 if not self.printer_enabled and not self.dry_run:
-                    if poll_count % 30 == 0:  # Log every minute
+                    if poll_count % max(1, 300 // self.poll_interval) == 0:
                         logger.info("Printer disabled - waiting for it to be enabled in settings...")
                 else:
                     # Fetch pending jobs
@@ -323,21 +340,23 @@ class PrintAgent:
                                 break
                             await self.process_job(job)
 
-                # Wait for next poll interval
+                # Wait for next poll interval (adaptive)
+                interval = self.poll_interval
                 try:
                     await asyncio.wait_for(
                         shutdown_event.wait(),
-                        timeout=POLL_INTERVAL
+                        timeout=interval
                     )
                 except asyncio.TimeoutError:
                     pass
 
                 poll_count += 1
-                # Log stats periodically (every 30 polls = ~1 minute at 2s interval)
-                if poll_count % 30 == 0 and (self.printer_enabled or self.dry_run):
+                # Log stats every ~5 minutes
+                if poll_count % max(1, 300 // interval) == 0 and (self.printer_enabled or self.dry_run):
+                    mode = "active" if interval == POLL_INTERVAL_ACTIVE else "idle"
                     logger.info(
                         f"Stats: {self.jobs_processed} jobs printed, "
-                        f"{self.errors} errors"
+                        f"{self.errors} errors (polling: {mode}/{interval}s)"
                     )
 
             except Exception as e:
