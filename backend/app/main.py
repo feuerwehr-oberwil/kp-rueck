@@ -221,6 +221,9 @@ app = FastAPI(
     description=settings.description,
     version=settings.version,
     lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 # Add rate limiter state and exception handler

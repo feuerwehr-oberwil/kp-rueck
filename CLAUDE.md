@@ -237,7 +237,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 **Railway (Production):**
 - Three services: PostgreSQL, Backend, Frontend
-- See `RAILWAY.md` for deployment guide
+- See `docs/RAILWAY.md` for deployment guide
 - Backend uses `start.sh` script for initialization
 - Frontend uses production Next.js build
 
@@ -282,7 +282,7 @@ open http://localhost:8080
 - UI: `http://localhost:8080`
 
 **Documentation:**
-- Setup guide: `OFFLINE_MAPS.md`
+- Setup guide: `docs/OFFLINE_MAPS.md`
 - Configuration: `tileserver-config.json`
 - Download script: `scripts/download-tiles.sh`
 
@@ -405,7 +405,7 @@ just dev    # Restart with fresh database (auto-seeds)
 ```
 
 **Railway Production**:
-See `RAILWAY.md` → "Database Reset (If Needed)" section for instructions on resetting Railway database.
+See `docs/RAILWAY.md` → "Database Reset (If Needed)" section for instructions on resetting Railway database.
 
 **Prevention**:
 - When changing enum values in models, create an Alembic migration to update existing data
@@ -432,9 +432,9 @@ def upgrade():
 
 - `ARCHITECTURE.md` - System architecture and technical design
 - `README.md` - Setup instructions and feature overview
-- `RAILWAY.md` - Railway deployment guide
+- `docs/RAILWAY.md` - Railway deployment guide
 - `CONFIGURATION_SETTINGS.md` - System configuration and settings management
-- `OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
+- `docs/OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
 - `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs
 - `frontend/package.json` - Frontend scripts and dependencies

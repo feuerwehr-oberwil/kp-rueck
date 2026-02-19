@@ -320,7 +320,7 @@ All common tasks are available via [just](https://github.com/casey/just). Run `j
 
 KP Ruck runs on any platform that supports Docker. The repository includes configuration for [Railway](https://railway.app/), but you can deploy to any Docker host, VPS, or cloud provider.
 
-See **[RAILWAY.md](RAILWAY.md)** for step-by-step Railway deployment instructions.
+See **[docs/RAILWAY.md](docs/RAILWAY.md)** for step-by-step Railway deployment instructions.
 
 ### Production Checklist
 
@@ -337,7 +337,7 @@ See **[RAILWAY.md](RAILWAY.md)** for step-by-step Railway deployment instruction
 - [ ] Connect **Divera 24/7** for automatic alarm import (`DIVERA_ACCESS_KEY`)
 - [ ] Connect **Traccar** for GPS vehicle tracking (`TRACCAR_URL`)
 - [ ] Set up **thermal printer** for dispatch slips (via print agent or settings page)
-- [ ] Enable **offline map tiles** for field reliability (see [OFFLINE_MAPS.md](OFFLINE_MAPS.md))
+- [ ] Enable **offline map tiles** for field reliability (see [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md))
 - [ ] Configure **training mode** templates for your geographic area
 
 ---
@@ -373,7 +373,7 @@ For operations in areas with unreliable internet, KP Ruck includes a self-hosted
 - Easily adaptable to any region using [Geofabrik](https://download.geofabrik.de/) OSM extracts
 - Three modes: **Auto** (online with offline fallback), **Online**, **Offline**
 
-See **[OFFLINE_MAPS.md](OFFLINE_MAPS.md)** for the full setup guide including custom regions.
+See **[docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md)** for the full setup guide including custom regions.
 
 ---
 
@@ -381,8 +381,10 @@ See **[OFFLINE_MAPS.md](OFFLINE_MAPS.md)** for the full setup guide including cu
 
 | Document | Description |
 |----------|-------------|
-| [RAILWAY.md](RAILWAY.md) | Railway deployment guide |
-| [OFFLINE_MAPS.md](OFFLINE_MAPS.md) | Offline map tiles setup |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, components, and deployment diagrams |
+| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide |
+| [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup |
+| [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) | Thermal printer & print agent setup |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | [backend/README.md](backend/README.md) | Backend API documentation |
 

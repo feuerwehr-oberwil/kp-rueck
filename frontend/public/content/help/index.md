@@ -319,7 +319,7 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 
 ### Einrichtung
 1. Drucker per Ethernet ans lokale Netzwerk anschliessen
-2. Raspberry Pi einrichten (siehe `PRINT_AGENT.md` im Repository)
+2. Raspberry Pi einrichten (siehe `docs/PRINT_AGENT.md` im Repository)
 3. Einstellungen → Drucker → IP-Adresse und Port konfigurieren, Drucker aktivieren
 
 ### Druckaufträge

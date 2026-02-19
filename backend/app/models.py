@@ -84,6 +84,8 @@ class Vehicle(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('available', 'unavailable')", name="valid_vehicle_status"),
+        Index("idx_vehicles_status", "status"),
+        Index("idx_vehicles_display_order", "display_order"),
     )
 
 
@@ -120,6 +122,8 @@ class Personnel(Base):
             name="valid_checkin_availability",
         ),
         Index("idx_personnel_checked_in", "checked_in"),
+        Index("idx_personnel_availability", "availability"),
+        Index("idx_personnel_role_sort_order", "role_sort_order"),
     )
 
 
@@ -142,6 +146,8 @@ class Material(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('available', 'unavailable')", name="valid_material_status"),
+        Index("idx_materials_status", "status"),
+        Index("idx_materials_location_sort_order", "location_sort_order"),
     )
 
 

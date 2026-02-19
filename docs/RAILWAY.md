@@ -330,7 +330,7 @@ Storage needs:
 - Review backend error logs
 
 **Detailed Documentation:**
-See `backend/PHOTO_STORAGE.md` for comprehensive photo storage documentation, including:
+See `docs/PHOTO_STORAGE.md` for comprehensive photo storage documentation, including:
 - API endpoints
 - Testing procedures
 - Security considerations
