@@ -124,7 +124,7 @@ This starts **four services** automatically:
 You still need PostgreSQL running. The easiest way is to start just the database via Docker:
 
 ```bash
-just db-only    # starts PostgreSQL on port 5433
+just db         # starts PostgreSQL on port 5433
 ```
 
 Then, in **two separate terminals**:
@@ -301,13 +301,11 @@ All common tasks are available via [just](https://github.com/casey/just). Run `j
 | `just dev` | Start all services with Docker (hot reload) |
 | `just be` | Run backend locally (database in Docker) |
 | `just fe` | Run frontend locally |
-| `just db-only` | Start only PostgreSQL |
+| `just db` | Database management (`shell`, `seed`, `migrate`, `status`, ...) |
 | `just test` | Run E2E tests (Playwright) |
 | `just test-ui` | Playwright interactive UI mode |
 | `just lint` | Lint frontend + backend |
 | `just fmt` | Format backend code (ruff) |
-| `just migrate` | Run database migrations |
-| `just migrate-new "message"` | Create new migration |
 | `just tiles-download` | Download full offline map tiles |
 | `just tiles-status` | Check tile server status |
 | `just printer` | Start thermal print agent (also: `dry`, `stop`, `status`, `logs`) |

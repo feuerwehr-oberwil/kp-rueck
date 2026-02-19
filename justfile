@@ -12,12 +12,9 @@ default:
 dev:
     docker-compose -f docker-compose.dev.yml up --build
 
-# Start only PostgreSQL database (for local backend/frontend testing)
-db-only:
-    docker-compose -f docker-compose.dev.yml up -d postgres
-
 # Run backend locally (requires uv). Database starts in Docker.
-be: db-only
+be:
+    @docker-compose -f docker-compose.dev.yml up -d postgres
     @echo "\033[1;34m→ Starting backend on http://localhost:8000\033[0m"
     @echo "\033[1;34m→ Database running in Docker on port 5433\033[0m"
     @echo "\033[1;34m→ Press Ctrl+C to stop backend (database will keep running)\033[0m"
@@ -44,43 +41,65 @@ clean:
 # Database
 # ============================================
 
-# Seed database with initial data
-seed-db:
-    docker-compose exec backend uv run python -m app.seed
-
-# Run alembic migrations (upgrade to latest)
-migrate:
-    @echo "\033[1;34m→ Running database migrations...\033[0m"
-    cd backend && uv run alembic upgrade head
-
-# Run alembic upgrade to a specific revision
-migrate-to revision:
-    @echo "\033[1;34m→ Running database migration to {{revision}}...\033[0m"
-    cd backend && uv run alembic upgrade {{revision}}
-
-# Show current alembic revision
-migrate-current:
-    @echo "\033[1;34m→ Checking current database revision...\033[0m"
-    cd backend && uv run alembic current
-
-# Show alembic migration history
-migrate-history:
-    @echo "\033[1;34m→ Showing migration history...\033[0m"
-    cd backend && uv run alembic history
-
-# Create a new alembic migration
-migrate-new message:
-    @echo "\033[1;34m→ Creating new migration: {{message}}\033[0m"
-    cd backend && uv run alembic revision --autogenerate -m "{{message}}"
-
-# Downgrade database by one revision
-migrate-down:
-    @echo "\033[1;34m→ Downgrading database by one revision...\033[0m"
-    cd backend && uv run alembic downgrade -1
-
-# Access PostgreSQL shell
-shell-db:
-    docker-compose -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
+# Database management: just db [start|shell|seed|migrate|status|history|new|down|up]
+db cmd="start" *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{cmd}}" in
+        start)
+            echo -e "\033[1;34m→ Starting PostgreSQL...\033[0m"
+            docker-compose -f docker-compose.dev.yml up -d postgres
+            ;;
+        shell)
+            docker-compose -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
+            ;;
+        seed)
+            docker-compose exec backend uv run python -m app.seed
+            ;;
+        migrate)
+            echo -e "\033[1;34m→ Running database migrations...\033[0m"
+            cd backend && uv run alembic upgrade head
+            ;;
+        up)
+            if [ -z "{{args}}" ]; then
+                echo "Usage: just db up <revision>"
+                exit 1
+            fi
+            echo -e "\033[1;34m→ Migrating to {{args}}...\033[0m"
+            cd backend && uv run alembic upgrade {{args}}
+            ;;
+        down)
+            echo -e "\033[1;34m→ Downgrading by one revision...\033[0m"
+            cd backend && uv run alembic downgrade -1
+            ;;
+        status)
+            cd backend && uv run alembic current
+            ;;
+        history)
+            cd backend && uv run alembic history
+            ;;
+        new)
+            if [ -z "{{args}}" ]; then
+                echo "Usage: just db new \"migration message\""
+                exit 1
+            fi
+            echo -e "\033[1;34m→ Creating migration: {{args}}\033[0m"
+            cd backend && uv run alembic revision --autogenerate -m "{{args}}"
+            ;;
+        *)
+            echo "Usage: just db [start|shell|seed|migrate|status|history|new|down|up]"
+            echo ""
+            echo "  start    Start PostgreSQL in Docker (default)"
+            echo "  shell    Open psql shell"
+            echo "  seed     Seed database with initial data"
+            echo "  migrate  Run all pending migrations"
+            echo "  status   Show current migration revision"
+            echo "  history  Show migration history"
+            echo "  new MSG  Create new migration: just db new \"add users table\""
+            echo "  up REV   Migrate to specific revision: just db up abc123"
+            echo "  down     Downgrade by one revision"
+            ;;
+    esac
 
 # ============================================
 # Offline Maps

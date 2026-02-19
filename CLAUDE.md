@@ -25,11 +25,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Development mode with hot reload
 just dev
 
-# Seed database with initial data
-just seed-db
-
-# Run database migrations
-just migrate
+# Database management
+just db seed       # Seed with initial data
+just db migrate    # Run pending migrations
 
 # Offline map tiles (optional)
 just tiles-download  # Download and install tiles (~12 MB)
@@ -67,16 +65,12 @@ pnpm test:ui                         # Playwright UI mode
 
 **Database:**
 ```bash
-# Access PostgreSQL shell
-docker-compose exec postgres psql -U kprueck -d kprueck
-# OR via justfile
-just shell-db
-
-# Run migrations
-just migrate           # Upgrade to latest
-just migrate-current   # Show current revision
-just migrate-history   # Show migration history
-just migrate-new "message"  # Create new migration
+# Database commands (just db help for all options)
+just db shell                  # PostgreSQL shell
+just db migrate                # Upgrade to latest
+just db status                 # Show current revision
+just db history                # Show migration history
+just db new "message"          # Create new migration
 ```
 
 ### Testing
