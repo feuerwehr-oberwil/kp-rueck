@@ -310,8 +310,7 @@ All common tasks are available via [just](https://github.com/casey/just). Run `j
 | `just migrate-new "message"` | Create new migration |
 | `just tiles-download` | Download full offline map tiles |
 | `just tiles-status` | Check tile server status |
-| `just print-agent` | Start thermal print agent locally |
-| `just print-agent-dry` | Print agent in dry-run mode (no printer needed) |
+| `just printer` | Start thermal print agent (also: `dry`, `stop`, `status`, `logs`) |
 | `just clean` | Stop services and remove volumes |
 
 ---
@@ -354,10 +353,10 @@ KP Ruck supports ESC/POS thermal printers for printing dispatch slips and board 
 
 ```bash
 # Test locally without a real printer
-just print-agent-dry
+just printer dry
 
 # Run with a real printer
-just print-agent
+just printer
 ```
 
 See the `print-agent/` directory for configuration details.

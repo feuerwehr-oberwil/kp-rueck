@@ -103,7 +103,6 @@ Or via just:
 ```bash
 just test            # Run all E2E tests
 just test-ui         # Interactive UI mode
-just test-auth       # Run auth tests only
 ```
 
 ## Project Architecture

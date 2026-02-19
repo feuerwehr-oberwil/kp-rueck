@@ -25,8 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Development mode with hot reload
 just dev
 
-# Initialize and seed database
-just init-db
+# Seed database with initial data
 just seed-db
 
 # Run database migrations
@@ -35,7 +34,6 @@ just migrate
 # Offline map tiles (optional)
 just tiles-download  # Download and install tiles (~12 MB)
 just tiles-status    # Check tile server status
-just tiles-help      # Show offline maps help
 
 # Stop everything
 just stop
@@ -88,14 +86,8 @@ just migrate-new "message"  # Create new migration
 # Run all E2E tests (ensure services are running first)
 just test
 
-# Run authentication tests only (7 tests)
-just test-auth
-
 # Run tests in interactive UI mode
 just test-ui
-
-# Run tests in headed mode (visible browser)
-just test-headed
 
 # Show last test report
 just test-report

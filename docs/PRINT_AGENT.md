@@ -69,17 +69,18 @@ These endpoints are used by the print agent and don't require authentication:
 
 ```bash
 # Start print agent (requires backend running)
-just print-agent
+just printer
 
 # Dry-run mode (no printer needed, logs what would print)
-just print-agent-dry
+just printer dry
 
 # Background mode
-just print-agent-bg
+just printer bg
 
-# Check status / stop
-just print-agent-status
-just print-agent-stop
+# Check status / stop / logs
+just printer status
+just printer stop
+just printer logs
 ```
 
 Environment variables:

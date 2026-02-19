@@ -5,16 +5,12 @@ default:
     @just --list --unsorted
 
 # ============================================
-# Full Stack Development
+# Development
 # ============================================
 
 # Start all services in development mode with hot reload
 dev:
     docker-compose -f docker-compose.dev.yml up --build
-
-# ============================================
-# Quick Local Testing
-# ============================================
 
 # Start only PostgreSQL database (for local backend/frontend testing)
 db-only:
@@ -34,13 +30,19 @@ fe:
     @echo "\033[1;34m→ Press Ctrl+C to stop\033[0m"
     cd frontend && pnpm dev
 
-# ============================================
-# Database Management
-# ============================================
+# Stop all services
+stop:
+    docker-compose down
+    docker-compose -f docker-compose.dev.yml down
 
-# Initialize database (create tables)
-init-db:
-    docker-compose exec backend uv run python -m app.init_db
+# Stop all services and remove volumes
+clean:
+    docker-compose down -v
+    docker-compose -f docker-compose.dev.yml down -v
+
+# ============================================
+# Database
+# ============================================
 
 # Seed database with initial data
 seed-db:
@@ -115,42 +117,15 @@ tiles-status:
             fi
         else
             echo -e "\033[1;31m✗ Tile server is not responding\033[0m"
-            echo "Try: just restart-tileserver"
+            echo "Try: just tiles-restart"
         fi
     else
         echo -e "\033[1;31m✗ Tile server container is not running\033[0m"
         echo "Run 'just dev' to start all services"
     fi
 
-# Show offline maps documentation
-tiles-help:
-    @echo "\033[1mOffline Maps Setup Guide\033[0m"
-    @echo ""
-    @echo "\033[1;32m✓ Automatic Setup (Local Dev):\033[0m"
-    @echo "  - Minimal tiles auto-created on 'just dev'"
-    @echo "  - TileServer GL starts automatically"
-    @echo "  - Map uses online OSM by default with offline fallback"
-    @echo ""
-    @echo "\033[1;33m⚡ Optional Full Offline (Local Dev):\033[0m"
-    @echo "  1. Run: just tiles-download (downloads ~500 MB, generates ~12 MB)"
-    @echo "  2. Uses planetiler in Docker (no local tools needed)"
-    @echo "  3. Takes 5-15 minutes to complete"
-    @echo "  4. Tile server auto-restarts with new tiles"
-    @echo "  5. Set map mode to 'Offline' in settings"
-    @echo ""
-    @echo "\033[1;36mℹ Production/Railway:\033[0m"
-    @echo "  - No tile server (uses online OSM only)"
-    @echo "  - Map mode automatically set to 'online'"
-    @echo ""
-    @echo "Commands:"
-    @echo "  just tiles-download  - Generate full offline tiles"
-    @echo "  just tiles-status    - Check tile server status"
-    @echo "  just tiles-help      - Show this help"
-    @echo ""
-    @echo "For detailed instructions, see: OFFLINE_MAPS.md"
-
 # Restart tile server container
-restart-tileserver:
+tiles-restart:
     #!/usr/bin/env bash
     set -euo pipefail
     FMT='{{ "{{" }}.Names{{ "}}" }}'
@@ -166,46 +141,56 @@ restart-tileserver:
 # Thermal Printer
 # ============================================
 
-# Start print agent locally (requires backend running)
-print-agent:
-    @echo "\033[1;34m→ Starting thermal print agent...\033[0m"
-    @echo "\033[1;34m→ Printer config is fetched from backend settings\033[0m"
-    @echo "\033[1;34m→ Use 'just print-agent-dry' for testing without a printer\033[0m"
-    cd print-agent && uv run python agent.py
-
-# Start print agent in dry-run mode (no printer needed)
-print-agent-dry:
-    @echo "\033[1;34m→ Starting print agent in DRY RUN mode (no printer needed)...\033[0m"
-    cd print-agent && DRY_RUN=true uv run python agent.py
-
-# Start print agent in background
-print-agent-bg:
-    @echo "\033[1;34m→ Starting thermal print agent in background...\033[0m"
-    cd print-agent && nohup uv run python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
-    @echo "\033[1;32m✓ Print agent started (PID $$!)\033[0m"
-    @echo "\033[1;34m→ Logs: /tmp/kprueck-print-agent.log\033[0m"
-
-# Stop print agent
-print-agent-stop:
-    @echo "\033[1;34m→ Stopping print agent...\033[0m"
-    -pkill -f "python agent.py" || echo "Print agent not running"
-
-# Show print agent logs
-print-agent-logs:
-    tail -f /tmp/kprueck-print-agent.log
-
-# Check print agent status
-print-agent-status:
+# Print agent management: just printer [start|dry|stop|status|logs]
+printer cmd="start":
     #!/usr/bin/env bash
     set -euo pipefail
-    echo -e "\033[1;34m→ Checking print agent status...\033[0m"
-    if pgrep -f "python agent.py" > /dev/null 2>&1; then
-        echo -e "\033[1;32m✓ Print agent is running (PID $(pgrep -f 'python agent.py'))\033[0m"
-        tail -5 /tmp/kprueck-print-agent.log 2>/dev/null || true
-    else
-        echo -e "\033[1;33m⚠️  Print agent is not running\033[0m"
-        echo "Start with: just print-agent"
-    fi
+    case "{{cmd}}" in
+        start)
+            echo -e "\033[1;34m→ Starting thermal print agent...\033[0m"
+            echo -e "\033[1;34m→ Printer config is fetched from backend settings\033[0m"
+            echo -e "\033[1;34m→ Use 'just printer dry' for testing without a printer\033[0m"
+            cd print-agent && uv run python agent.py
+            ;;
+        dry)
+            echo -e "\033[1;34m→ Starting print agent in DRY RUN mode (no printer needed)...\033[0m"
+            cd print-agent && DRY_RUN=true uv run python agent.py
+            ;;
+        bg)
+            echo -e "\033[1;34m→ Starting thermal print agent in background...\033[0m"
+            cd print-agent && nohup uv run python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
+            echo -e "\033[1;32m✓ Print agent started in background\033[0m"
+            echo -e "\033[1;34m→ Logs: just printer logs\033[0m"
+            ;;
+        stop)
+            echo -e "\033[1;34m→ Stopping print agent...\033[0m"
+            pkill -f "python agent.py" 2>/dev/null && echo -e "\033[1;32m✓ Print agent stopped\033[0m" || echo -e "\033[1;33m⚠️  Print agent not running\033[0m"
+            ;;
+        status)
+            echo -e "\033[1;34m→ Checking print agent status...\033[0m"
+            if pgrep -f "python agent.py" > /dev/null 2>&1; then
+                echo -e "\033[1;32m✓ Print agent is running (PID $(pgrep -f 'python agent.py'))\033[0m"
+                tail -5 /tmp/kprueck-print-agent.log 2>/dev/null || true
+            else
+                echo -e "\033[1;33m⚠️  Print agent is not running\033[0m"
+                echo "Start with: just printer"
+            fi
+            ;;
+        logs)
+            tail -f /tmp/kprueck-print-agent.log
+            ;;
+        *)
+            echo "Usage: just printer [start|dry|bg|stop|status|logs]"
+            echo ""
+            echo "  start   Start print agent (foreground, default)"
+            echo "  dry     Start in dry-run mode (no printer needed)"
+            echo "  bg      Start in background"
+            echo "  stop    Stop background agent"
+            echo "  status  Check if agent is running"
+            echo "  logs    Tail agent logs"
+            exit 1
+            ;;
+    esac
 
 # ============================================
 # Testing
@@ -222,34 +207,10 @@ test-ui:
     @echo "\033[1;34m→ Starting Playwright UI mode...\033[0m"
     cd frontend && pnpm test:ui
 
-# Run tests in headed mode (visible browser)
-test-headed:
-    @echo "\033[1;34m→ Running tests with visible browser...\033[0m"
-    cd frontend && pnpm exec playwright test --headed
-
 # Show last test report
 test-report:
     @echo "\033[1;34m→ Opening last test report...\033[0m"
     cd frontend && pnpm exec playwright show-report
-
-# Run authentication tests only
-test-auth:
-    @echo "\033[1;34m→ Running authentication tests (7 tests)...\033[0m"
-    cd frontend && pnpm test tests/e2e/01-auth/login.spec.ts
-
-# ============================================
-# Cleanup
-# ============================================
-
-# Stop all services
-stop:
-    docker-compose down
-    docker-compose -f docker-compose.dev.yml down
-
-# Stop all services and remove volumes
-clean:
-    docker-compose down -v
-    docker-compose -f docker-compose.dev.yml down -v
 
 # ============================================
 # Code Quality
