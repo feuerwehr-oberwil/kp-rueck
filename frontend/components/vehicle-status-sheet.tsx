@@ -256,14 +256,15 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
   return (
     <>
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={isMobile} open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        hideCloseButton
-        overlayOffset="42px"
-        nonModal
+        hideCloseButton={!isMobile}
+        overlayOffset={isMobile ? undefined : "42px"}
+        nonModal={!isMobile}
         className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4", isMobile ? "max-h-[70vh]" : "max-h-[45vh]")}
-        onInteractOutside={(e) => {
+        style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
+        onInteractOutside={isMobile ? undefined : (e) => {
           // Prevent closing when clicking on footer buttons or dialogs
           const target = e.target as HTMLElement
           if (target.closest('footer') || target.closest('[role="dialog"]') || driverDialogOpen) {

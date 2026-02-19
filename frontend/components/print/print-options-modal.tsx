@@ -15,6 +15,7 @@ import { Printer } from "lucide-react"
 import { PrintView, type PrintOptions } from "./print-view"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { apiClient, type ApiVehicle } from "@/lib/api-client"
 
 interface PrintOptionsModalProps {
@@ -25,6 +26,7 @@ interface PrintOptionsModalProps {
 export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps) {
   const { operations, personnel, materials } = useOperations()
   const { selectedEvent } = useEvent()
+  const isMobile = useIsMobile()
   const printRef = useRef<HTMLDivElement>(null)
 
   const [options, setOptions] = useState<PrintOptions>({
@@ -66,14 +68,14 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
 
   return (
     <>
-      <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
+      <Sheet modal={isMobile} open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          hideCloseButton
-          overlayOffset="42px"
-          nonModal
+          hideCloseButton={!isMobile}
+          overlayOffset={isMobile ? undefined : "42px"}
+          nonModal={!isMobile}
           className="max-w-3xl mx-auto px-6 py-4"
-          onInteractOutside={(e) => {
+          onInteractOutside={isMobile ? undefined : (e) => {
             // Prevent closing when clicking on footer buttons
             const target = e.target as HTMLElement
             if (target.closest('footer')) {

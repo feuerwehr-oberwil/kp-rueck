@@ -174,8 +174,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       onClick={() => {
+                        onPersonnel()
                         setSheetOpen(false)
-                        setTimeout(() => onPersonnel(), 250)
                       }}
                     >
                       <Users className="h-5 w-5" />
@@ -189,8 +189,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
                       onClick={() => {
+                        onVehicleStatus()
                         setSheetOpen(false)
-                        setTimeout(() => onVehicleStatus(), 250)
                       }}
                     >
                       <Truck className="h-5 w-5" />
@@ -204,8 +204,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
                       onClick={() => {
+                        onPrint()
                         setSheetOpen(false)
-                        setTimeout(() => onPrint(), 250)
                       }}
                     >
                       <Printer className="h-5 w-5" />
@@ -219,8 +219,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
                       onClick={() => {
+                        onThermo()
                         setSheetOpen(false)
-                        setTimeout(() => onThermo(), 250)
                       }}
                     >
                       <Printer className="h-5 w-5" />

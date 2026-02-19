@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Printer } from "lucide-react"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 export interface ThermoPrintOptions {
   includeCompleted: boolean
@@ -27,6 +28,7 @@ interface ThermoOptionsSheetProps {
 }
 
 export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: ThermoOptionsSheetProps) {
+  const isMobile = useIsMobile()
   const [options, setOptions] = useState<ThermoPrintOptions>({
     includeCompleted: false,
     includeVehicles: true,
@@ -42,14 +44,14 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
   }
 
   return (
-    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
+    <Sheet modal={isMobile} open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        hideCloseButton
-        overlayOffset="42px"
-        nonModal
+        hideCloseButton={!isMobile}
+        overlayOffset={isMobile ? undefined : "42px"}
+        nonModal={!isMobile}
         className="max-w-3xl mx-auto px-6 py-4"
-        onInteractOutside={(e) => {
+        onInteractOutside={isMobile ? undefined : (e) => {
           const target = e.target as HTMLElement
           if (target.closest('footer')) {
             e.preventDefault()
