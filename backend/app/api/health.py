@@ -1,9 +1,12 @@
-"""Health check endpoint."""
+"""Health check and demo status endpoints."""
+
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..database import audit_engine, engine, get_db
 from ..websocket_manager import ws_manager
 
@@ -114,3 +117,28 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
         }
 
     return health_status
+
+
+@router.get("/api/demo/status")
+async def demo_status():
+    """
+    Get demo mode status and next reset time.
+
+    Returns 404 if not in demo mode — frontend uses this to detect demo.
+    """
+    if not settings.demo_mode:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from ..background.demo_reset import get_next_reset_time
+
+    next_reset = get_next_reset_time()
+    now = datetime.now()
+
+    seconds_until_reset = max(0, int((next_reset - now).total_seconds())) if next_reset else 0
+
+    return {
+        "demo": True,
+        "next_reset": next_reset.isoformat() if next_reset else None,
+        "seconds_until_reset": seconds_until_reset,
+        "reset_interval_hours": settings.demo_reset_hours,
+    }

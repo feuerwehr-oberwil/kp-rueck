@@ -2,13 +2,15 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentUser
+from ..config import settings
 from ..crud import reko as crud
 from ..database import get_db
 from ..logging_config import get_logger
@@ -363,6 +365,29 @@ async def upload_photo(
     # Validate token
     if not validate_form_token(x_reko_token, str(incident_id)):
         raise HTTPException(status_code=400, detail="Invalid token")
+
+    # Demo mode: limit file size to 1MB and total photos to 15
+    if settings.demo_mode:
+        # Check file size (read first chunk to estimate)
+        contents = await file.read()
+        if len(contents) > 1 * 1024 * 1024:  # 1MB
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Demo-Modus: Maximale Dateigrösse 1MB.",
+            )
+        # Reset file position for photo_storage
+        await file.seek(0)
+
+        # Count total photos across all reports
+        total_photos_result = await db.execute(
+            select(sa_func.coalesce(sa_func.array_length(RekoReport.photos_json, 1), 0))
+        )
+        total_photos = sum(r[0] for r in total_photos_result)
+        if total_photos >= 15:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Demo-Modus: Maximale Anzahl Fotos (15) erreicht.",
+            )
 
     # Get or create report
     report = await crud.get_or_create_reko_report(db, incident_id, x_reko_token)

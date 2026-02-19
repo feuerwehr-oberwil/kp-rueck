@@ -49,7 +49,7 @@ from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
 from .auth.token_blocklist import token_blocklist
-from .background import start_sync_scheduler, stop_sync_scheduler
+from .background import start_demo_reset_scheduler, start_sync_scheduler, stop_demo_reset_scheduler, stop_sync_scheduler
 from .config import settings
 from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
@@ -179,8 +179,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Token blocklist cleanup task failed to start: {e}")
 
+    # Start demo reset scheduler if in demo mode
+    if settings.demo_mode:
+        logger.info("Starting demo reset scheduler...")
+        try:
+            start_demo_reset_scheduler()
+        except Exception as e:
+            logger.warning(f"Demo reset scheduler failed to start: {e}")
+
     logger.info("Application startup complete")
     yield
+
+    # Shutdown: Stop demo reset scheduler
+    if settings.demo_mode:
+        logger.info("Stopping demo reset scheduler...")
+        try:
+            stop_demo_reset_scheduler()
+        except Exception as e:
+            logger.warning(f"Demo reset scheduler shutdown failed: {e}")
 
     # Shutdown: Stop token blocklist cleanup
     logger.info("Stopping token blocklist cleanup...")
@@ -193,6 +209,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Stopping Divera polling...")
     try:
         from .services.divera_poller import divera_poller
+
         await divera_poller.stop_polling()
     except Exception as e:
         logger.debug(f"Divera polling shutdown: {e}")

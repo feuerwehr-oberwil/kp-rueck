@@ -2,12 +2,14 @@
 
 /**
  * Login page
- * Allows users to authenticate with username and password
+ * Allows users to authenticate with username and password.
+ * In demo mode, shows quick-login buttons for demo accounts.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -18,8 +20,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    apiClient.getDemoStatus().then((status) => {
+      if (status?.demo) setIsDemo(true);
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +45,21 @@ export default function LoginPage() {
     }
   };
 
+  const handleDemoLogin = async (role: 'editor' | 'viewer') => {
+    setError('');
+    setLoading(true);
+    const demoUsername = role === 'editor' ? 'demo-editor' : 'demo-viewer';
+
+    try {
+      await login(demoUsername, 'demo123');
+      router.push('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Demo-Anmeldung fehlgeschlagen.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-md border border-border/50 bg-card/80 backdrop-blur-sm p-8 shadow-lg">
@@ -46,10 +70,45 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             KP Rück
           </h1>
+          {isDemo && (
+            <span className="mt-2 inline-block rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-500 border border-amber-500/30">
+              Demo-Modus
+            </span>
+          )}
           <p className="mt-2 text-sm text-muted-foreground">
             Anmelden für Zugriff auf das Einsatz-Dashboard
           </p>
         </div>
+
+        {isDemo && (
+          <div className="mb-6 space-y-3">
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => handleDemoLogin('editor')}
+              disabled={loading}
+            >
+              Als Editor einloggen
+            </Button>
+            <Button
+              className="w-full"
+              size="lg"
+              variant="outline"
+              onClick={() => handleDemoLogin('viewer')}
+              disabled={loading}
+            >
+              Als Betrachter einloggen
+            </Button>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">oder manuell anmelden</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
@@ -71,7 +130,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                autoFocus
+                autoFocus={!isDemo}
                 className="mt-2"
               />
             </div>

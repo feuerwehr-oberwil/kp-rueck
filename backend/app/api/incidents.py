@@ -6,11 +6,13 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import schemas
+from .. import models, schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..config import settings
 from ..crud import events as events_crud
 from ..crud import incidents as crud
 from ..database import get_db
@@ -122,6 +124,16 @@ async def create_incident(
     event = await events_crud.get_event_by_id(db, incident.event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+
+    # Demo mode: cap total incidents at 30
+    if settings.demo_mode:
+        count_result = await db.execute(select(sa_func.count()).select_from(models.Incident))
+        total_incidents = count_result.scalar() or 0
+        if total_incidents >= 30:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Demo-Modus: Maximale Anzahl Einsätze (30) erreicht. Die Demo wird regelmässig zurückgesetzt.",
+            )
 
     # Create incident
     new_incident = await crud.create_incident(

@@ -116,6 +116,7 @@ class Settings(BaseSettings):
 
     # Demo Mode
     demo_mode: bool = False  # Set DEMO_MODE=true for public demo deployment
+    demo_reset_hours: int = 2  # How often to reset demo data (hours)
 
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)

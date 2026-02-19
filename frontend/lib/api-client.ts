@@ -459,6 +459,36 @@ export interface ApiDiveraEmergencyListResponse {
   unattached_count: number // Count of unattached, non-archived emergencies
 }
 
+// Divera Personnel Sync Types
+export interface ApiDiveraMemberPreview {
+  divera_id: number
+  name: string
+  role: string | null
+  availability: string
+  tags: string[]
+}
+
+export interface ApiDiveraSyncPreviewItem {
+  member: ApiDiveraMemberPreview
+  status: 'new' | 'updated' | 'unchanged' | 'not_in_divera'
+  existing_id: string | null
+  changes: Record<string, [string | string[] | null, string | string[] | null]> | null
+}
+
+export interface ApiDiveraSyncPreview {
+  new: ApiDiveraSyncPreviewItem[]
+  updated: ApiDiveraSyncPreviewItem[]
+  unchanged: ApiDiveraSyncPreviewItem[]
+  not_in_divera: ApiDiveraSyncPreviewItem[]
+}
+
+export interface ApiDiveraSyncResult {
+  created: number
+  updated: number
+  deleted: number
+  unchanged: number
+}
+
 // Transfer Assignments Types
 export interface ApiTransferAssignmentsResponse {
   transferred_count: number
@@ -1360,6 +1390,17 @@ class ApiClient {
     })
   }
 
+  async getDiveraSyncPreview(): Promise<ApiDiveraSyncPreview> {
+    return this.request<ApiDiveraSyncPreview>('/api/divera/personnel-sync/preview')
+  }
+
+  async executeDiveraSync(options: { remove_stale: boolean }): Promise<ApiDiveraSyncResult> {
+    return this.request<ApiDiveraSyncResult>('/api/divera/personnel-sync/execute', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    })
+  }
+
   // Sync endpoints
   async getSyncStatus(): Promise<SyncStatusResponse> {
     return this.request<SyncStatusResponse>('/api/sync/status')
@@ -1547,6 +1588,15 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // Demo Mode
+  async getDemoStatus(): Promise<DemoStatus | null> {
+    try {
+      return await this.request<DemoStatus>('/api/demo/status', { skipToast: true })
+    } catch {
+      return null // Not in demo mode (404)
+    }
+  }
 }
 
 // User Management Types
@@ -1597,6 +1647,14 @@ export interface ApiPrintJob {
   completed_at?: string
   error_message?: string
   retry_count: number
+}
+
+// Demo Mode Types
+export interface DemoStatus {
+  demo: boolean
+  next_reset: string | null
+  seconds_until_reset: number
+  reset_interval_hours: number
 }
 
 // Create API client instance

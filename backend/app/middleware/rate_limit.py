@@ -64,6 +64,9 @@ class RateLimits:
     # General API - moderate limits
     DEFAULT = "100/minute"
 
+    # Demo mode - tighter limits
+    DEMO_DEFAULT = "60/minute"
+
     # Resource-intensive endpoints
     EXPORT = "10/minute"
     BULK_OPERATIONS = "20/minute"

@@ -45,7 +45,19 @@ def get_admin_password() -> str:
 
 
 async def seed_database() -> None:
-    """Seed the database with initial data."""
+    """Seed the database with initial data.
+
+    In demo mode (DEMO_MODE=true), delegates to seed_demo_database() instead.
+    """
+    from .config import settings as app_settings
+
+    if app_settings.demo_mode:
+        from .seed_demo import seed_demo_database
+
+        print("Demo mode detected — using demo seed data")
+        await seed_demo_database()
+        return
+
     async with async_session_maker() as db:
         try:
             # Check if data already exists
@@ -118,12 +130,14 @@ async def seed_database() -> None:
                 ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
             ]
 
-            default_settings_data.extend([
-                ("firestation_name", "Demo Fire Department"),
-                ("firestation_latitude", "47.5596"),  # Generic Swiss location
-                ("firestation_longitude", "7.5886"),
-                ("home_city", "Demo City, Switzerland"),
-            ])
+            default_settings_data.extend(
+                [
+                    ("firestation_name", "Demo Fire Department"),
+                    ("firestation_latitude", "47.5596"),  # Generic Swiss location
+                    ("firestation_longitude", "7.5886"),
+                    ("home_city", "Demo City, Switzerland"),
+                ]
+            )
 
             settings_created = 0
             for key, value in default_settings_data:
@@ -199,70 +213,70 @@ async def seed_database() -> None:
 
             # Generic personnel (common Swiss surnames)
             personnel_data = [
-                    # Offiziere (Officers)
-                    {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-                    {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-                    {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-                    {"name": "Fischer Thomas", "role": "Offiziere", "availability": "available", "tags": []},
-                    {"name": "Meyer Stefan", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-                    {"name": "Wagner Klaus", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-                    {"name": "Becker Andreas", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-                    # Wachtmeister (Sergeants)
-                    {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                    {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                    {"name": "Koch René", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                    {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
-                    {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                    {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
-                    {"name": "Gerber Sandro", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                    {"name": "Frei Dominik", "role": "Wachtmeister", "availability": "available", "tags": []},
-                    {"name": "Huber Stefan", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                    {"name": "Schmid Tizian", "role": "Wachtmeister", "availability": "available", "tags": []},
-                    # Korporal (Corporals)
-                    {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
-                    {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                    {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
-                    {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
-                    {"name": "Lang Dimitri", "role": "Korporal", "availability": "available", "tags": []},
-                    {"name": "Kaufmann Alain", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                    {"name": "Moser Florian", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
-                    {"name": "Berger Maja", "role": "Korporal", "availability": "available", "tags": []},
-                    {"name": "Widmer Nico", "role": "Korporal", "availability": "available", "tags": []},
-                    {"name": "Vogel Simon", "role": "Korporal", "availability": "available", "tags": []},
-                    {"name": "Egger Olivier", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                    # Mannschaft (Firefighters)
-                    {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Künzli Klara", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
-                    {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Christen Sandro", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
-                    {"name": "Leuenberger Luca", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Suter Raoul", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Kunz Gabor", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Ammann Manuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Burri Alessandro", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Wenger Luzia", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Bühler Rico", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Aebischer Yannick", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Arnold Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Aebi Lionel", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Bachmann Simon", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Bühlmann Carina", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Buri Marysol", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Gasser Julia", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Hofer Max", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Hess Silvan", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Imhof Sebastiaan", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Iten Alexandre", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Jost Melissa", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Kaiser Sandra", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Käser Koray", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Kessler Paolo", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "König Sina", "role": "Mannschaft", "availability": "available", "tags": []},
-                    {"name": "Lehmann Bastian", "role": "Mannschaft", "availability": "available", "tags": []},
-                ]
+                # Offiziere (Officers)
+                {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
+                {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
+                {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
+                {"name": "Fischer Thomas", "role": "Offiziere", "availability": "available", "tags": []},
+                {"name": "Meyer Stefan", "role": "Offiziere", "availability": "available", "tags": ["F"]},
+                {"name": "Wagner Klaus", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
+                {"name": "Becker Andreas", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
+                # Wachtmeister (Sergeants)
+                {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                {"name": "Koch René", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
+                {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
+                {"name": "Gerber Sandro", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                {"name": "Frei Dominik", "role": "Wachtmeister", "availability": "available", "tags": []},
+                {"name": "Huber Stefan", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+                {"name": "Schmid Tizian", "role": "Wachtmeister", "availability": "available", "tags": []},
+                # Korporal (Corporals)
+                {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
+                {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
+                {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
+                {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
+                {"name": "Lang Dimitri", "role": "Korporal", "availability": "available", "tags": []},
+                {"name": "Kaufmann Alain", "role": "Korporal", "availability": "available", "tags": ["F"]},
+                {"name": "Moser Florian", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
+                {"name": "Berger Maja", "role": "Korporal", "availability": "available", "tags": []},
+                {"name": "Widmer Nico", "role": "Korporal", "availability": "available", "tags": []},
+                {"name": "Vogel Simon", "role": "Korporal", "availability": "available", "tags": []},
+                {"name": "Egger Olivier", "role": "Korporal", "availability": "available", "tags": ["F"]},
+                # Mannschaft (Firefighters)
+                {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Künzli Klara", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+                {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Christen Sandro", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+                {"name": "Leuenberger Luca", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Suter Raoul", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Kunz Gabor", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Ammann Manuel", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Burri Alessandro", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Wenger Luzia", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Bühler Rico", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Aebischer Yannick", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Arnold Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Aebi Lionel", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Bachmann Simon", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Bühlmann Carina", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Buri Marysol", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Gasser Julia", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Hofer Max", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Hess Silvan", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Imhof Sebastiaan", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Iten Alexandre", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Jost Melissa", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Kaiser Sandra", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Käser Koray", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Kessler Paolo", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "König Sina", "role": "Mannschaft", "availability": "available", "tags": []},
+                {"name": "Lehmann Bastian", "role": "Mannschaft", "availability": "available", "tags": []},
+            ]
 
             personnel = []
             for person_data in personnel_data:
