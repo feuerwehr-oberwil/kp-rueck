@@ -142,3 +142,15 @@ async def demo_status():
         "seconds_until_reset": seconds_until_reset,
         "reset_interval_hours": settings.demo_reset_hours,
     }
+
+
+@router.post("/api/demo/reset")
+async def demo_reset():
+    """Manually trigger a demo reset. Only available in demo mode."""
+    if not settings.demo_mode:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from ..background.demo_reset import scheduled_demo_reset
+
+    await scheduled_demo_reset()
+    return {"status": "reset_complete"}
