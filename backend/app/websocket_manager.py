@@ -34,15 +34,7 @@ def get_websocket_cors_origins() -> list[str]:
     """
     origins = list(settings.cors_origins)
 
-    # Add production domains
-    origins.extend(
-        [
-            "https://kp.fwo.li",
-            "https://kp-api.fwo.li",
-        ]
-    )
-
-    # Add Railway domains only in production (more restrictive than wildcard)
+    # Add Railway domains from environment (more restrictive than wildcard)
     railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
     railway_backend = os.getenv("RAILWAY_STATIC_URL", "")
 

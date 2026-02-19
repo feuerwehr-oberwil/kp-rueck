@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..config import settings
 from ..database import get_db
 from ..models import EmergencyTemplate, Event, TrainingLocation
 from ..schemas import (
@@ -35,6 +36,12 @@ async def generate_emergencies(
     - **category**: 'normal', 'critical', or null for random
     - **count**: Number to generate (1-10, for burst mode)
     """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Übungsmodus ist im Demo-Modus nicht verfügbar",
+        )
+
     # Verify event exists and is training
     event = await db.get(Event, event_id)
     if not event:

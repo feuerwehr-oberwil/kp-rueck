@@ -331,12 +331,12 @@ class TestBroadcastFunctions:
 class TestCORSConfiguration:
     """Test suite for WebSocket CORS configuration."""
 
-    def test_cors_origins_includes_production_domains(self):
-        """Test that production domains are included in CORS origins."""
+    def test_cors_origins_includes_configured_domains(self):
+        """Test that configured CORS origins are included."""
         origins = get_websocket_cors_origins()
 
-        assert "https://kp.fwo.li" in origins
-        assert "https://kp-api.fwo.li" in origins
+        # Should include default localhost origins from settings
+        assert any("localhost" in o for o in origins)
 
     def test_cors_origins_no_duplicates(self):
         """Test that CORS origins list has no duplicates."""

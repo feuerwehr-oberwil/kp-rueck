@@ -45,8 +45,8 @@ class AuthSettings(BaseSettings):
     # Cookie Security
     COOKIE_SECURE: bool = False  # Will be overridden by property in production
     COOKIE_HTTPONLY: bool = True  # Prevent XSS attacks
-    COOKIE_SAMESITE: str = "none"  # Required for cross-site cookies (different domains)
-    COOKIE_DOMAIN: str = ""  # Empty = use request host. Set to ".fwo.li" for subdomain sharing
+    COOKIE_SAMESITE: str = "lax"  # Use "none" for cross-origin setups (requires COOKIE_SECURE=true)
+    COOKIE_DOMAIN: str = ""  # Empty = use request host. Set to ".example.com" for subdomain sharing
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "AuthSettings":
@@ -118,45 +118,37 @@ class AuthSettings(BaseSettings):
         """
         Force secure cookies in production (HTTPS only).
 
-        In production (Railway), cookies MUST be sent over HTTPS only.
-        In development, we allow HTTP for local testing.
+        Always forced True in production (Railway). Configure via AUTH_COOKIE_SECURE.
         """
-        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
-        if is_production:
-            return True  # Force HTTPS in production
-        return self.COOKIE_SECURE  # Use configured value in development
+        if _is_production_environment():
+            return True
+        return self.COOKIE_SECURE
 
     @property
     def cookie_samesite(self) -> str:
         """
         Return appropriate SameSite value based on environment.
 
-        In production (Railway), we use cross-site cookies (different domains)
-        so SameSite=None is required. This also requires Secure=True.
+        Cross-origin setups (frontend/backend on different domains) need "none" + Secure=True.
+        Same-origin setups use "lax" (the default) for better security.
 
-        In development (localhost), we use SameSite=Lax for better security
-        since frontend and backend are on the same site (localhost).
+        Configure via AUTH_COOKIE_SAMESITE env var.
         """
-        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
-        if is_production:
-            return "none"  # Required for cross-site cookies (kp.fwo.li ↔ fwo-kp-api.up.railway.app)
-        return "lax"  # Same-site in development (localhost:3000 ↔ localhost:8000)
+        return self.COOKIE_SAMESITE
 
     @property
     def cookie_domain(self) -> str | None:
         """
         Return cookie domain for production (enables subdomain sharing).
 
-        In production, returns ".fwo.li" so cookies work across:
-        - kp.fwo.li (frontend)
-        - kp-api.fwo.li (backend)
+        Set AUTH_COOKIE_DOMAIN env var to share cookies across subdomains,
+        e.g. ".example.com" for app.example.com + api.example.com.
 
-        In development, returns None (cookie bound to exact host).
+        Returns None in development (cookie bound to exact host).
         """
-        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
-        if is_production:
-            return ".fwo.li"  # Share cookies across all fwo.li subdomains
-        return None  # Don't set domain in development
+        if self.COOKIE_DOMAIN:
+            return self.COOKIE_DOMAIN
+        return None
 
     @property
     def is_auth_bypassed(self) -> bool:

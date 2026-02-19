@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentAdmin
 from ..auth.security import hash_password
+from ..config import settings
 from ..database import get_db
 from ..models import User
 from ..services.audit import log_action
@@ -65,6 +66,12 @@ async def create_user(
     Args:
         user_data: User creation data including username, password, role, display_name
     """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
+        )
+
     # Check if username already exists
     existing = await db.execute(select(User).where(User.username == user_data.username))
     if existing.scalar_one_or_none():
@@ -116,6 +123,12 @@ async def update_user(
     Can update username, role, display_name, is_active.
     Cannot update password here - use reset-password endpoint.
     """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
+        )
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -181,6 +194,12 @@ async def reset_user_password(
 
     Admin sets the new password directly.
     """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
+        )
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -218,6 +237,12 @@ async def delete_user(
     By default, soft-deletes by setting is_active=False.
     With permanent=true, permanently removes the user from the database.
     """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
+        )
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 

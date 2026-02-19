@@ -114,6 +114,9 @@ class Settings(BaseSettings):
 
         return v
 
+    # Demo Mode
+    demo_mode: bool = False  # Set DEMO_MODE=true for public demo deployment
+
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)
     max_photo_size_mb: int = 10  # Maximum file size in megabytes
@@ -127,7 +130,7 @@ class Settings(BaseSettings):
     sync_timeout_seconds: int = 30  # HTTP timeout for sync requests
 
     # Traccar GPS Integration
-    traccar_url: str = ""  # Traccar server URL (e.g., https://gps.fwo.li)
+    traccar_url: str = ""  # Traccar server URL (e.g., https://gps.example.com)
     traccar_email: str = ""  # Traccar account email for authentication
     traccar_password: str = ""  # Traccar account password for authentication
 

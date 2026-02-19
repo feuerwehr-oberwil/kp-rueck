@@ -17,7 +17,7 @@ class ThermalPrinter:
 
     def __init__(self, ip: str = None, port: int = None):
         """Initialize printer connection settings."""
-        self.ip = ip or os.getenv("PRINTER_IP", "10.10.10.230")
+        self.ip = ip or os.getenv("PRINTER_IP", "")
         self.port = port or int(os.getenv("PRINTER_PORT", "9100"))
         self._printer = None
 

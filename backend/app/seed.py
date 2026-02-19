@@ -1,9 +1,6 @@
 """Database seed script.
 
 Run with: uv run python -m app.seed
-
-For Oberwil production deployment, set OBERWIL_PRODUCTION=true to use
-real personnel and location data instead of generic demo data.
 """
 
 import asyncio
@@ -18,11 +15,6 @@ from sqlalchemy import select
 from . import models
 from .database import async_session_maker
 from .seed_training import seed_training_data
-
-
-def is_oberwil_production() -> bool:
-    """Check if this is an Oberwil production deployment."""
-    return os.getenv("OBERWIL_PRODUCTION", "").lower() in ("true", "1", "yes")
 
 
 def get_admin_password() -> str:
@@ -126,20 +118,12 @@ async def seed_database() -> None:
                 ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
             ]
 
-            # Add location-specific settings
-            if is_oberwil_production():
-                from .seed_oberwil import OBERWIL_SETTINGS
-
-                print("  Using Oberwil production settings...")
-                default_settings_data.extend(OBERWIL_SETTINGS)
-            else:
-                # Generic demo settings
-                default_settings_data.extend([
-                    ("firestation_name", "Demo Fire Department"),
-                    ("firestation_latitude", "47.5596"),  # Generic Swiss location
-                    ("firestation_longitude", "7.5886"),
-                    ("home_city", "Demo City, Switzerland"),
-                ])
+            default_settings_data.extend([
+                ("firestation_name", "Demo Fire Department"),
+                ("firestation_latitude", "47.5596"),  # Generic Swiss location
+                ("firestation_longitude", "7.5886"),
+                ("home_city", "Demo City, Switzerland"),
+            ])
 
             settings_created = 0
             for key, value in default_settings_data:
@@ -213,14 +197,8 @@ async def seed_database() -> None:
             # ============================================
             print("Creating personnel...")
 
-            if is_oberwil_production():
-                from .seed_oberwil import OBERWIL_PERSONNEL
-
-                print("  Using Oberwil personnel roster...")
-                personnel_data = OBERWIL_PERSONNEL
-            else:
-                # Generic demo personnel (common Swiss surnames)
-                personnel_data = [
+            # Generic personnel (common Swiss surnames)
+            personnel_data = [
                     # Offiziere (Officers)
                     {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
                     {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},

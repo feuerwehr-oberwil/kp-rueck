@@ -88,7 +88,7 @@ async def login(
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     # Set httpOnly cookies - explicitly set path="/" to ensure cookies are sent on all paths
-    # In production, domain=".fwo.li" allows cookies to be shared across subdomains
+    # In production, set AUTH_COOKIE_DOMAIN to share cookies across subdomains
     cookie_kwargs = {
         "path": "/",
         "httponly": auth_settings.COOKIE_HTTPONLY,

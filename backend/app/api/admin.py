@@ -3,12 +3,13 @@
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
+from ..config import settings
 from ..database import get_db
 from ..seed_training import seed_training_data
 from ..services.audit import log_action
@@ -88,6 +89,12 @@ async def execute_excel_import(
     - merge: Update existing by name, add new (treated as replace for now)
     - append: Keep existing, add new
     """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Datenimport ist im Demo-Modus nicht verfügbar",
+        )
+
     if mode not in ["replace", "merge", "append"]:
         raise HTTPException(status_code=400, detail="Invalid mode. Must be replace, merge, or append")
 
@@ -174,6 +181,12 @@ async def seed_training_templates(
         skip_geocoding: Skip geocoding and use demo fallback coordinates (faster)
         force_reseed: Delete existing data and reseed (useful for updating addresses)
     """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seeding ist im Demo-Modus nicht verfügbar",
+        )
+
     try:
         # If force_reseed, delete existing training data first
         if force_reseed:

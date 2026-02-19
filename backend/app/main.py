@@ -241,14 +241,6 @@ def get_cors_origins() -> list[str]:
     """
     origins = list(settings.cors_origins)
 
-    # Add production domains
-    origins.extend(
-        [
-            "https://kp.fwo.li",
-            "https://kp-api.fwo.li",
-        ]
-    )
-
     # Add Railway-specific domains from environment variables
     # This allows automatic configuration without wildcards
     railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")

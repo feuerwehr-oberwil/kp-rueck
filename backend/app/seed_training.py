@@ -368,35 +368,23 @@ EMERGENCY_TEMPLATES = [
 print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 
-import os
-
-
 def get_training_area_bounds() -> dict:
-    """Get the training area bounds based on deployment mode."""
-    if os.getenv("OBERWIL_PRODUCTION", "").lower() in ("true", "1", "yes"):
-        # Oberwil BL production bounds
-        return {
-            "min_lat": 47.508,
-            "max_lat": 47.522,
-            "min_lon": 7.552,
-            "max_lon": 7.568,
-        }
-    else:
-        # Generic demo area (same coordinates, but documented as demo)
-        return {
-            "min_lat": 47.508,
-            "max_lat": 47.522,
-            "min_lon": 7.552,
-            "max_lon": 7.568,
-        }
+    """Get the training area bounds.
+
+    CUSTOMIZE: Replace with coordinates for your geographic area.
+    Use https://boundingbox.klokantech.com/ to find bounds for your area.
+    """
+    return {
+        "min_lat": 47.508,
+        "max_lat": 47.522,
+        "min_lon": 7.552,
+        "max_lon": 7.568,
+    }
 
 
 def get_training_city_info() -> tuple[str, str]:
     """Get city and postal code for training locations."""
-    if os.getenv("OBERWIL_PRODUCTION", "").lower() in ("true", "1", "yes"):
-        return ("Oberwil", "4104")
-    else:
-        return ("Demo City", "0000")
+    return ("Demo City", "0000")
 
 
 # Geographic bounding box for training location generation

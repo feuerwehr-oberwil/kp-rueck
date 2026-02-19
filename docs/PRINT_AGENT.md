@@ -93,14 +93,14 @@ Environment variables:
 
 ## Raspberry Pi Deployment
 
-### Current Setup
+### Example Setup
 
-- **Host**: `beichenberger@10.10.10.210` (Raspbian Bullseye, armv7l)
-- **Python**: 3.12 via uv (system has 3.9)
+- **Host**: Raspberry Pi (Raspbian Bullseye, armv7l)
+- **Python**: 3.12 via uv
 - **Agent location**: `~/print-agent/` (files copied via scp, not git clone)
 - **Service**: `kp-print-agent.service` (systemd, enabled, auto-restart)
-- **Backend**: `https://kp-api.fwo.li` (Railway)
-- **Printer**: `10.10.10.230:9100` (Epson thermal, 58mm paper)
+- **Backend**: Your Railway or local backend URL
+- **Printer**: Network thermal printer on TCP port 9100
 
 ### 1. Flash OS
 
@@ -134,7 +134,7 @@ scp print-agent/*.py print-agent/pyproject.toml <user>@<raspberry-ip>:~/print-ag
 cd ~/print-agent
 uv python install 3.12   # if system Python is too old
 uv sync --python 3.12
-BACKEND_URL=https://kp-api.fwo.li DRY_RUN=true uv run python agent.py
+BACKEND_URL=https://your-backend.example.com DRY_RUN=true uv run python agent.py
 ```
 
 ### 5. Create systemd service
@@ -150,7 +150,7 @@ Wants=network-online.target
 Type=simple
 User=<user>
 WorkingDirectory=/home/<user>/print-agent
-Environment=BACKEND_URL=https://kp-api.fwo.li
+Environment=BACKEND_URL=https://your-backend.example.com
 Environment=PATH=/home/<user>/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/home/<user>/.local/bin/uv run python agent.py
 Restart=always
@@ -178,8 +178,8 @@ sudo systemctl restart kp-print-agent   # restart after updates
 ### Network Requirements
 
 The Raspberry Pi needs:
-- **Internet access** to reach the backend (e.g. `https://kp-api.fwo.li`)
-- **LAN access** to reach the printer (e.g. `10.10.10.230:9100`)
+- **Internet access** to reach the backend (e.g. `https://your-backend.example.com`)
+- **LAN access** to reach the printer (e.g. `PRINTER_IP:9100`)
 
 Both are outbound connections only. No port forwarding or firewall changes needed.
 
@@ -233,7 +233,7 @@ Settings can also be configured via API using a master token (set `MASTER_TOKEN`
 
 ```bash
 TOKEN="<your-master-token>"
-curl -X PATCH https://kp-api.fwo.li/api/settings/printer.enabled \
+curl -X PATCH https://your-backend.example.com/api/settings/printer.enabled \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"value": "true"}'

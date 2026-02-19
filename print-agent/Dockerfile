@@ -19,7 +19,7 @@ COPY *.py .
 
 # Environment defaults (can be overridden)
 ENV BACKEND_URL=http://backend:8000
-ENV PRINTER_IP=10.10.10.230
+ENV PRINTER_IP=
 ENV PRINTER_PORT=9100
 ENV POLL_INTERVAL=2
 ENV LOG_LEVEL=INFO

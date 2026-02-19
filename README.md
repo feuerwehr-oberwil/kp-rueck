@@ -192,7 +192,7 @@ For automated deployments or CI, you can create a custom seed file:
 cp backend/app/seed.py backend/app/seed_yourdepartment.py
 ```
 
-Edit the file with your personnel, vehicles, materials, and geographic coordinates. See `backend/app/seed_oberwil.py` for a real-world example.
+Edit the file with your personnel, vehicles, materials, and geographic coordinates.
 
 ### 4. Training Mode Configuration
 
@@ -232,7 +232,7 @@ All configuration is done via environment variables. Copy the `.env.example` fil
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OBERWIL_PRODUCTION` | `false` | Load Demo Fire Department production data (only relevant for their deployment) |
+| `DEMO_MODE` | `false` | Enable demo mode (disables user management, training, bulk import) |
 | `RAILWAY_URL` | *(empty)* | Enable local-to-cloud sync mode |
 | `AUTH_BYPASS_DEV` | `false` | Skip authentication in development |
 | `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | JWT token lifetime |
@@ -277,8 +277,7 @@ kp-rueck/
 │   │   ├── services/          # Business logic (Divera, Traccar, sync)
 │   │   ├── models.py          # SQLAlchemy database models
 │   │   ├── schemas.py         # Pydantic request/response schemas
-│   │   ├── seed.py            # Demo data seeder
-│   │   └── seed_oberwil.py    # Example: real department data
+│   │   └── seed.py            # Demo data seeder
 │   └── alembic/               # Database migrations
 ├── print-agent/               # Thermal printer agent (standalone)
 │   ├── agent.py               # Polling loop

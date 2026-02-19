@@ -58,8 +58,10 @@ async def get_current_user(
 
     # Master token bypass - simple env var auth for CLI/remote config
     if authorization and app_settings.master_token:
+        import secrets as _secrets
+
         token = authorization.removeprefix("Bearer ").strip()
-        if token == app_settings.master_token:
+        if _secrets.compare_digest(token, app_settings.master_token):
             from datetime import datetime
 
             mock_user = User(
