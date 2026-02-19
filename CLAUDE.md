@@ -83,14 +83,11 @@ just migrate-new "message"  # Create new migration
 
 **Quick Start (justfile):**
 ```bash
-# Run all E2E tests (ensure services are running first)
+# Run all tests (backend + E2E, ensure services are running first)
 just test
 
-# Run tests in interactive UI mode
+# Run E2E tests in interactive UI mode
 just test-ui
-
-# Show last test report
-just test-report
 ```
 
 **Direct Commands:**

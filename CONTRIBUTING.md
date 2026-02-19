@@ -25,14 +25,14 @@ just lint      # Lint frontend + backend
 ## Code Style
 
 ### Backend (Python)
-- **Formatter**: `ruff format .` (run via `just fmt-be`)
-- **Linter**: `ruff check .` (run via `just lint-be`)
+- **Formatter**: `ruff format .` (run via `just fmt`)
+- **Linter**: `ruff check .` (run via `just lint`)
 - Use type hints on all function signatures
 - All database operations must be `async/await`
 - Follow existing patterns in the codebase
 
 ### Frontend (TypeScript)
-- **Linter**: ESLint (`pnpm lint` or `just lint-fe`)
+- **Linter**: ESLint (`pnpm lint` or `just lint`)
 - Use TypeScript strictly -- avoid `any`
 - Follow Next.js 15 App Router conventions
 - Use `"use client"` only when the component needs interactivity

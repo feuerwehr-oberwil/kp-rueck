@@ -188,51 +188,39 @@ printer cmd="start":
             echo "  stop    Stop background agent"
             echo "  status  Check if agent is running"
             echo "  logs    Tail agent logs"
-            exit 1
             ;;
     esac
 
 # ============================================
-# Testing
+# Testing & Code Quality
 # ============================================
 
-# Run all E2E tests (requires frontend and backend running)
+# Run all tests (backend + E2E)
 test:
-    @echo "\033[1;34m→ Running all E2E tests...\033[0m"
+    @echo "\033[1;34m→ Running backend tests...\033[0m"
+    cd backend && uv run pytest
+    @echo ""
+    @echo "\033[1;34m→ Running E2E tests...\033[0m"
     @echo "\033[1;34m→ Ensure services are running: just dev\033[0m"
     cd frontend && pnpm test
 
-# Run tests in interactive UI mode
+# Run E2E tests in interactive UI mode
 test-ui:
     @echo "\033[1;34m→ Starting Playwright UI mode...\033[0m"
     cd frontend && pnpm test:ui
 
-# Show last test report
-test-report:
-    @echo "\033[1;34m→ Opening last test report...\033[0m"
-    cd frontend && pnpm exec playwright show-report
-
-# ============================================
-# Code Quality
-# ============================================
-
-# Run backend linting
-lint-be:
-    @echo "\033[1;34m→ Running backend linting...\033[0m"
+# Lint all code (backend + frontend)
+lint:
+    @echo "\033[1;34m→ Linting backend...\033[0m"
     cd backend && uv run ruff check .
-
-# Run backend formatting
-fmt-be:
-    @echo "\033[1;34m→ Formatting backend code...\033[0m"
-    cd backend && uv run ruff format .
-
-# Run frontend linting
-lint-fe:
-    @echo "\033[1;34m→ Running frontend linting...\033[0m"
+    @echo ""
+    @echo "\033[1;34m→ Linting frontend...\033[0m"
     cd frontend && pnpm lint
 
-# Run all linting
-lint: lint-be lint-fe
-
-# Format all code
-fmt: fmt-be
+# Format all code (backend + frontend)
+fmt:
+    @echo "\033[1;34m→ Formatting backend...\033[0m"
+    cd backend && uv run ruff format .
+    @echo ""
+    @echo "\033[1;34m→ Formatting frontend...\033[0m"
+    cd frontend && pnpm lint --fix
