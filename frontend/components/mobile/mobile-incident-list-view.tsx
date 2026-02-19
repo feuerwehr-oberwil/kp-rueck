@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus } from "lucide-react"
+import { Search } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { MobileIncidentCard } from "./mobile-incident-card"
@@ -16,9 +16,10 @@ interface MobileIncidentListViewProps {
   materials: Material[]
   formatLocation: (address: string) => string
   onRefresh: () => void
-  onNewEmergency: () => void
   onCheckIn: () => void
   onVehicleStatus: () => void
+  onUpdateOperation?: (id: string, updates: Partial<Operation>) => void
+  isEditor?: boolean
   isTraining?: boolean
   isLoading?: boolean
 }
@@ -46,9 +47,10 @@ export function MobileIncidentListView({
   materials,
   formatLocation,
   onRefresh,
-  onNewEmergency,
   onCheckIn,
   onVehicleStatus,
+  onUpdateOperation,
+  isEditor = false,
   isTraining = false,
   isLoading = false,
 }: MobileIncidentListViewProps) {
@@ -168,17 +170,6 @@ export function MobileIncidentListView({
                 ? "Keine Einsätze gefunden"
                 : "Keine aktiven Einsätze"}
             </p>
-            {!searchQuery && !activeFilter && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onNewEmergency}
-                className="mt-4 gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Neuer Einsatz
-              </Button>
-            )}
           </div>
         ) : (
           <div className="space-y-3 mt-4">
@@ -201,6 +192,8 @@ export function MobileIncidentListView({
         onOpenChange={setDetailSheetOpen}
         materials={materials}
         formatLocation={formatLocation}
+        onUpdateOperation={onUpdateOperation}
+        isEditor={isEditor}
       />
     </div>
   )

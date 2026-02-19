@@ -1,11 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   MapPin,
   Clock,
@@ -21,8 +30,9 @@ import {
   ChevronUp,
   ChevronDown,
   Minus,
+  Pencil,
 } from "lucide-react"
-import { type Operation, type Material } from "@/lib/contexts/operations-context"
+import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
@@ -30,6 +40,7 @@ import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useEvent } from "@/lib/contexts/event-context"
+import RekoReportSection from "@/components/reko/reko-report-section"
 
 interface MobileIncidentDetailSheetProps {
   operation: Operation | null
@@ -37,6 +48,8 @@ interface MobileIncidentDetailSheetProps {
   onOpenChange: (open: boolean) => void
   materials: Material[]
   formatLocation: (address: string) => string
+  onUpdateOperation?: (id: string, updates: Partial<Operation>) => void
+  isEditor?: boolean
 }
 
 // Priority visual configuration
@@ -68,16 +81,42 @@ const statusLabels: Record<string, string> = {
   complete: "Abgeschlossen",
 }
 
+const statusKeys: OperationStatus[] = ["incoming", "ready", "enroute", "active", "returning", "complete"]
+
 export function MobileIncidentDetailSheet({
   operation,
   open,
   onOpenChange,
   materials,
   formatLocation,
+  onUpdateOperation,
+  isEditor = false,
 }: MobileIncidentDetailSheetProps) {
   const { selectedEvent } = useEvent()
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [editingContact, setEditingContact] = useState(false)
+  const [notesValue, setNotesValue] = useState("")
+  const [contactValue, setContactValue] = useState("")
+  const notesRef = useRef<HTMLTextAreaElement>(null)
+  const contactRef = useRef<HTMLInputElement>(null)
+
+  // Reset editing state when operation changes or sheet closes
+  useEffect(() => {
+    if (!open) {
+      setEditingNotes(false)
+      setEditingContact(false)
+    }
+  }, [open, operation?.id])
+
+  // Sync local values when operation changes
+  useEffect(() => {
+    if (operation) {
+      setNotesValue(operation.notes || "")
+      setContactValue(operation.contact || "")
+    }
+  }, [operation?.id, operation?.notes, operation?.contact])
 
   // Load vehicle drivers when sheet opens
   useEffect(() => {
@@ -109,6 +148,39 @@ export function MobileIncidentDetailSheet({
 
     loadDrivers()
   }, [open, selectedEvent])
+
+  const handleStatusChange = (newStatus: string) => {
+    if (!operation || !onUpdateOperation) return
+    onUpdateOperation(operation.id, { status: newStatus as OperationStatus })
+  }
+
+  const handleNotesSave = () => {
+    if (!operation || !onUpdateOperation) return
+    if (notesValue !== operation.notes) {
+      onUpdateOperation(operation.id, { notes: notesValue })
+    }
+    setEditingNotes(false)
+  }
+
+  const handleContactSave = () => {
+    if (!operation || !onUpdateOperation) return
+    if (contactValue !== operation.contact) {
+      onUpdateOperation(operation.id, { contact: contactValue })
+    }
+    setEditingContact(false)
+  }
+
+  const startEditingNotes = () => {
+    if (!isEditor || !onUpdateOperation) return
+    setEditingNotes(true)
+    setTimeout(() => notesRef.current?.focus(), 50)
+  }
+
+  const startEditingContact = () => {
+    if (!isEditor || !onUpdateOperation) return
+    setEditingContact(true)
+    setTimeout(() => contactRef.current?.focus(), 50)
+  }
 
   // Handler for copying WhatsApp message
   // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
@@ -159,6 +231,7 @@ export function MobileIncidentDetailSheet({
   const priority = operation.priority || "low"
   const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
   const timeReference = operation.statusChangedAt || operation.dispatchTime
+  const canEdit = isEditor && !!onUpdateOperation
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -199,9 +272,24 @@ export function MobileIncidentDetailSheet({
         <div className="space-y-5">
           {/* Status & Time Row */}
           <div className="flex items-center gap-3 flex-wrap">
-            <Badge variant="secondary" className="text-sm">
-              {statusLabels[operation.status] || operation.status}
-            </Badge>
+            {canEdit ? (
+              <Select value={operation.status} onValueChange={handleStatusChange}>
+                <SelectTrigger size="sm" className="w-auto h-7 text-sm gap-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusKeys.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {statusLabels[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge variant="secondary" className="text-sm">
+                {statusLabels[operation.status] || operation.status}
+              </Badge>
+            )}
             <Badge variant="outline" className="text-sm">
               {getIncidentTypeLabel(operation.incidentType)}
             </Badge>
@@ -218,13 +306,37 @@ export function MobileIncidentDetailSheet({
           </div>
 
           {/* Notes/Meldung */}
-          {operation.notes && (
-            <div className="bg-muted/50 rounded-lg p-3">
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {operation.notes}
-              </p>
-            </div>
-          )}
+          <div>
+            {editingNotes ? (
+              <Textarea
+                ref={notesRef}
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+                onBlur={handleNotesSave}
+                placeholder="Notiz hinzufügen..."
+                className="min-h-[80px] text-sm"
+              />
+            ) : (
+              <div
+                onClick={startEditingNotes}
+                className={cn(
+                  "bg-muted/50 rounded-lg p-3",
+                  canEdit && "cursor-pointer hover:bg-muted/70 transition-colors"
+                )}
+              >
+                {operation.notes ? (
+                  <p className="text-sm text-foreground whitespace-pre-wrap">
+                    {operation.notes}
+                  </p>
+                ) : canEdit ? (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Pencil className="h-3.5 w-3.5" />
+                    Notiz hinzufügen...
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </div>
 
           {/* Danger warnings from Reko */}
           {operation.rekoSummary?.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
@@ -322,14 +434,48 @@ export function MobileIncidentDetailSheet({
           <Separator />
 
           {/* Contact */}
-          {operation.contact && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Kontakt / Melder</span>
-              </div>
-              <p className="text-sm text-foreground">{operation.contact}</p>
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Kontakt / Melder</span>
             </div>
+            {editingContact ? (
+              <Input
+                ref={contactRef}
+                value={contactValue}
+                onChange={(e) => setContactValue(e.target.value)}
+                onBlur={handleContactSave}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleContactSave() }}
+                placeholder="Kontakt hinzufügen..."
+                className="text-sm"
+              />
+            ) : (
+              <div
+                onClick={startEditingContact}
+                className={cn(
+                  canEdit && "cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
+                )}
+              >
+                {operation.contact ? (
+                  <p className="text-sm text-foreground">{operation.contact}</p>
+                ) : canEdit ? (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Pencil className="h-3.5 w-3.5" />
+                    Kontakt hinzufügen...
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Kein Kontakt</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Reko Report Section */}
+          {operation.hasCompletedReko && (
+            <>
+              <Separator />
+              <RekoReportSection incidentId={operation.id} />
+            </>
           )}
 
           {/* Action buttons */}

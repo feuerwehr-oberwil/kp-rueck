@@ -67,7 +67,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
             </SheetDescription>
           </SheetHeader>
 
-          <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="thermoIncludeCompleted"

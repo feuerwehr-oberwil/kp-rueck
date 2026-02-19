@@ -25,6 +25,7 @@ import { useNotifications } from "@/lib/contexts/notification-context"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
+import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
@@ -45,6 +46,7 @@ import { SidePanel } from "@/components/kanban/side-panel"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
+import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
 import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
@@ -73,6 +75,7 @@ export default function FireStationDashboard() {
   } = useOperations()
 
   const { selectedEvent, isEventLoaded } = useEvent()
+  const { isEditor } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar } = useNotifications()
   const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
@@ -197,6 +200,7 @@ export default function FireStationDashboard() {
   const [rekoCopied, setRekoCopied] = useState(false)
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [viewerCopied, setViewerCopied] = useState(false)
+  const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
 
   // Side panel state for ultrawide monitors
   const [panelSelectedId, setPanelSelectedId] = useState<string | null>(null)
@@ -1072,9 +1076,10 @@ export default function FireStationDashboard() {
             materials={materials}
             formatLocation={formatLocation}
             onRefresh={refreshOperations}
-            onNewEmergency={() => setNewEmergencyModalOpen(true)}
             onCheckIn={generateCheckInQR}
             onVehicleStatus={() => setActiveFooterSheet('vehicles')}
+            onUpdateOperation={updateOperation}
+            isEditor={isEditor}
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}
           />
@@ -1854,8 +1859,25 @@ export default function FireStationDashboard() {
         isPrinting={isPrintingBoard}
       />
 
+      {/* Mobile Personnel Sheet */}
+      <MobilePersonnelSheet
+        open={mobilePersonnelSheetOpen}
+        onOpenChange={setMobilePersonnelSheetOpen}
+        personnel={personnel}
+        operations={operations}
+      />
+
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNavigation currentPage="kanban" hasSelectedEvent={!!selectedEvent} onCheckIn={generateCheckInQR} />
+      <MobileBottomNavigation
+        currentPage="kanban"
+        hasSelectedEvent={!!selectedEvent}
+        onCheckIn={generateCheckInQR}
+        onPersonnel={() => setMobilePersonnelSheetOpen(true)}
+        onVehicleStatus={() => setActiveFooterSheet('vehicles')}
+        onPrint={() => setActiveFooterSheet(printModalOpen ? null : 'print')}
+        onThermo={() => setActiveFooterSheet(thermoSheetOpen ? null : 'thermo')}
+        printerEnabled={printerEnabled}
+      />
     </ProtectedRoute>
   )
 }

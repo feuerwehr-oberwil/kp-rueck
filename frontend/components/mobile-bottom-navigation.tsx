@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut } from 'lucide-react'
+import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -22,12 +22,22 @@ interface MobileBottomNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
   hasSelectedEvent?: boolean
   onCheckIn?: () => void
+  onPersonnel?: () => void
+  onVehicleStatus?: () => void
+  onPrint?: () => void
+  onThermo?: () => void
+  printerEnabled?: boolean
 }
 
 export function MobileBottomNavigation({
   currentPage,
   hasSelectedEvent = true,
-  onCheckIn
+  onCheckIn,
+  onPersonnel,
+  onVehicleStatus,
+  onPrint,
+  onThermo,
+  printerEnabled = false,
 }: MobileBottomNavigationProps) {
   const { isEditor, logout } = useAuth()
   const { selectedEvent } = useEvent()
@@ -155,6 +165,66 @@ export function MobileBottomNavigation({
                     >
                       <QrCode className="h-5 w-5" />
                       <span>Check-In QR-Code</span>
+                    </Button>
+                  )}
+
+                  {/* Personnel */}
+                  {onPersonnel && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                      onClick={() => {
+                        onPersonnel()
+                        setSheetOpen(false)
+                      }}
+                    >
+                      <Users className="h-5 w-5" />
+                      <span>Personal</span>
+                    </Button>
+                  )}
+
+                  {/* Vehicle Status */}
+                  {onVehicleStatus && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
+                      onClick={() => {
+                        onVehicleStatus()
+                        setSheetOpen(false)
+                      }}
+                    >
+                      <Truck className="h-5 w-5" />
+                      <span>Fahrzeuge</span>
+                    </Button>
+                  )}
+
+                  {/* Print */}
+                  {onPrint && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
+                      onClick={() => {
+                        onPrint()
+                        setSheetOpen(false)
+                      }}
+                    >
+                      <Printer className="h-5 w-5" />
+                      <span>Drucken</span>
+                    </Button>
+                  )}
+
+                  {/* Thermo Print */}
+                  {onThermo && printerEnabled && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
+                      onClick={() => {
+                        onThermo()
+                        setSheetOpen(false)
+                      }}
+                    >
+                      <Printer className="h-5 w-5" />
+                      <span>Thermodruck</span>
                     </Button>
                   )}
 

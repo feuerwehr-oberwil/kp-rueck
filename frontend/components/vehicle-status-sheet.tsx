@@ -11,6 +11,7 @@ import { STATUS_LABELS } from "@/lib/types/incidents"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
 interface VehicleStatus {
@@ -95,6 +96,7 @@ function getIncidentStatusBadgeVariant(incidentStatus: string | null): "default"
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const { personnel } = useOperations()
   const [vehicles, setVehicles] = useState<VehicleStatus[]>([])
   const [loading, setLoading] = useState(false)
@@ -260,7 +262,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         hideCloseButton
         overlayOffset="42px"
         nonModal
-        className="flex flex-col max-w-5xl mx-auto max-h-[45vh] px-6 py-4"
+        className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4", isMobile ? "max-h-[70vh]" : "max-h-[45vh]")}
         onInteractOutside={(e) => {
           // Prevent closing when clicking on footer buttons or dialogs
           const target = e.target as HTMLElement
@@ -333,89 +335,144 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       }
                     }}
                   >
-                    <div className="flex items-center gap-3">
-                      {/* Vehicle Icon and Name */}
-                      <div className="flex items-center gap-2 min-w-[140px]">
-                        <Truck className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-bold text-sm">{vehicle.name}</span>
+                    {isMobile ? (
+                      /* Mobile: Card-based vertical layout */
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="font-bold text-sm">{vehicle.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {!vehicle.incident_id && vehicle.status === "available" && (
+                              <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
+                                Verfügbar
+                              </Badge>
+                            )}
+                            {vehicle.status === "unavailable" && (
+                              <Badge className="text-xs bg-muted text-muted-foreground border-border">
+                                Nicht verfügbar
+                              </Badge>
+                            )}
+                            {vehicle.incident_id && vehicle.incident_status && (
+                              <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
+                                {STATUS_LABELS[vehicle.incident_status as keyof typeof STATUS_LABELS] || vehicle.incident_status}
+                              </Badge>
+                            )}
+                            {showDurationWarning && (
+                              <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Lange
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <Radio className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="text-muted-foreground truncate">{vehicle.radio_call_sign}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className={cn("truncate", vehicle.driver_name ? "" : "text-muted-foreground")}>
+                              {vehicle.driver_name || "Kein Fahrer"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 col-span-2">
+                            <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">
+                              {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? "Nicht verfügbar" : "Bereit für Einsatz")}
+                            </span>
+                          </div>
+                          {vehicle.assignment_duration_minutes !== null && (
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="h-3 w-3 flex-shrink-0" />
+                              <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
+                                {formatDuration(vehicle.assignment_duration_minutes)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    ) : (
+                      /* Desktop: Horizontal row layout */
+                      <div className="flex items-center gap-3">
+                        {/* Vehicle Icon and Name */}
+                        <div className="flex items-center gap-2 min-w-[140px]">
+                          <Truck className="h-4 w-4 text-primary flex-shrink-0" />
+                          <span className="font-bold text-sm">{vehicle.name}</span>
+                        </div>
 
-                      {/* Radio Call Sign */}
-                      <div className="flex items-center gap-2 min-w-[100px]">
-                        <Radio className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                        <span className="text-muted-foreground text-sm truncate">
-                          {vehicle.radio_call_sign}
-                        </span>
-                      </div>
-
-                      {/* Driver - Clickable to assign */}
-                      <button
-                        onClick={(e) => handleOpenDriverDialog(vehicle, e)}
-                        className={cn(
-                          "flex items-center gap-2 min-w-[120px] rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
-                          "hover:bg-muted/80 cursor-pointer group"
-                        )}
-                        title={vehicle.driver_name ? "Fahrer ändern" : "Fahrer zuweisen"}
-                      >
-                        <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                        <span className={cn("text-sm truncate", vehicle.driver_name ? "" : "text-muted-foreground")}>
-                          {vehicle.driver_name || "Kein Fahrer"}
-                        </span>
-                        {!vehicle.driver_name && (
-                          <Plus className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                        )}
-                      </button>
-
-                      {/* Current Incident Location */}
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                        <span className="text-sm truncate">
-                          {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? "Nicht verfügbar" : "Bereit für Einsatz")}
-                        </span>
-                      </div>
-
-                      {/* Duration */}
-                      {vehicle.assignment_duration_minutes !== null && (
-                        <div className="flex items-center gap-2 min-w-[70px]">
-                          <Clock className="h-3 w-3 flex-shrink-0" />
-                          <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
-                            {formatDuration(vehicle.assignment_duration_minutes)}
+                        {/* Radio Call Sign */}
+                        <div className="flex items-center gap-2 min-w-[100px]">
+                          <Radio className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground text-sm truncate">
+                            {vehicle.radio_call_sign}
                           </span>
                         </div>
-                      )}
 
-                      {/* Status Badges - Refactoring UI: subtle, desaturated colors */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {/* Show vehicle status badge ONLY if not assigned to any incident */}
-                        {!vehicle.incident_id && vehicle.status === "available" && (
-                          <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
-                            Verfügbar
-                          </Badge>
+                        {/* Driver - Clickable to assign */}
+                        <button
+                          onClick={(e) => handleOpenDriverDialog(vehicle, e)}
+                          className={cn(
+                            "flex items-center gap-2 min-w-[120px] rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
+                            "hover:bg-muted/80 cursor-pointer group"
+                          )}
+                          title={vehicle.driver_name ? "Fahrer ändern" : "Fahrer zuweisen"}
+                        >
+                          <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className={cn("text-sm truncate", vehicle.driver_name ? "" : "text-muted-foreground")}>
+                            {vehicle.driver_name || "Kein Fahrer"}
+                          </span>
+                          {!vehicle.driver_name && (
+                            <Plus className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                          )}
+                        </button>
+
+                        {/* Current Incident Location */}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm truncate">
+                            {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? "Nicht verfügbar" : "Bereit für Einsatz")}
+                          </span>
+                        </div>
+
+                        {/* Duration */}
+                        {vehicle.assignment_duration_minutes !== null && (
+                          <div className="flex items-center gap-2 min-w-[70px]">
+                            <Clock className="h-3 w-3 flex-shrink-0" />
+                            <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
+                              {formatDuration(vehicle.assignment_duration_minutes)}
+                            </span>
+                          </div>
                         )}
 
-                        {/* Show unavailable badge if vehicle is not available */}
-                        {vehicle.status === "unavailable" && (
-                          <Badge className="text-xs bg-muted text-muted-foreground border-border">
-                            Nicht verfügbar
-                          </Badge>
-                        )}
-
-                        {/* Show incident status badge ONLY if assigned to an incident */}
-                        {vehicle.incident_id && vehicle.incident_status && (
-                          <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
-                            {STATUS_LABELS[vehicle.incident_status as keyof typeof STATUS_LABELS] || vehicle.incident_status}
-                          </Badge>
-                        )}
-
-                        {/* Duration warning for long assignments - subtle warning, not alarming */}
-                        {showDurationWarning && (
-                          <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            Lange
-                          </Badge>
-                        )}
+                        {/* Status Badges */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {!vehicle.incident_id && vehicle.status === "available" && (
+                            <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
+                              Verfügbar
+                            </Badge>
+                          )}
+                          {vehicle.status === "unavailable" && (
+                            <Badge className="text-xs bg-muted text-muted-foreground border-border">
+                              Nicht verfügbar
+                            </Badge>
+                          )}
+                          {vehicle.incident_id && vehicle.incident_status && (
+                            <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
+                              {STATUS_LABELS[vehicle.incident_status as keyof typeof STATUS_LABELS] || vehicle.incident_status}
+                            </Badge>
+                          )}
+                          {showDurationWarning && (
+                            <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Lange
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )
               })}
