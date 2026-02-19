@@ -24,6 +24,9 @@ RUN mkdir -p /home/appuser/.cache/uv && \
 # Copy application code
 COPY . .
 
+# Create photo storage mount point with correct ownership (for Railway volumes)
+RUN mkdir -p /mnt/data/photos && chown -R appuser:appuser /mnt/data
+
 # Make start scripts executable and set ownership
 RUN chmod +x start.sh start-dev.sh && \
     chown -R appuser:appuser /app
