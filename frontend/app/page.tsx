@@ -75,7 +75,7 @@ export default function FireStationDashboard() {
   } = useOperations()
 
   const { selectedEvent, isEventLoaded } = useEvent()
-  const { isEditor } = useAuth()
+  const { isEditor, isAuthenticated } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar } = useNotifications()
   const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
@@ -253,8 +253,9 @@ export default function FireStationDashboard() {
     fetchRekoPersonnel()
   }, [assignmentDialogOpen, assignmentResourceType, selectedEvent, personnel])
 
-  // Fetch printer status on mount
+  // Fetch printer status once authenticated
   useEffect(() => {
+    if (!isAuthenticated) return
     async function fetchPrinterStatus() {
       try {
         const status = await apiClient.getPrinterStatus()
@@ -265,7 +266,7 @@ export default function FireStationDashboard() {
       }
     }
     fetchPrinterStatus()
-  }, [])
+  }, [isAuthenticated])
 
   // Handle thermal board print
   const handlePrintBoard = useCallback(async (options?: ThermoPrintOptions) => {

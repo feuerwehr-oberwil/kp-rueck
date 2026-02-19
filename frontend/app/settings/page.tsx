@@ -125,7 +125,7 @@ const SETTING_CONFIGS: SettingConfig[] = [
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isEditor, isAdmin } = useAuth();
+  const { isEditor, isAdmin, isAuthenticated } = useAuth();
   const { events, isLoading: eventsLoading } = useEvent();
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
@@ -231,8 +231,10 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (isAuthenticated) {
+      fetchSettings();
+    }
+  }, [isAuthenticated]);
 
   const updateSetting = async (key: string, value: string) => {
     if (!isEditor) {

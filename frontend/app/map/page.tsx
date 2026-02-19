@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { FileText, Clock, Users, Package, Truck, Search, Siren } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
+import { useAuth } from "@/lib/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -59,6 +60,7 @@ export default function MapPage() {
     deleteOperation
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
+  const { isAuthenticated } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -159,8 +161,9 @@ export default function MapPage() {
     setStatusFilters(prev => ({ ...prev, [group]: !prev[group] }))
   }
 
-  // Load vehicles from API
+  // Load vehicles from API once authenticated
   useEffect(() => {
+    if (!isAuthenticated) return
     const loadVehicles = async () => {
       try {
         const vehicles = await apiClient.getVehicles()
@@ -176,7 +179,7 @@ export default function MapPage() {
       }
     }
     loadVehicles()
-  }, [])
+  }, [isAuthenticated])
 
   // Refresh incidents immediately when map page loads
   useEffect(() => {
