@@ -9,7 +9,7 @@
 
 A tactical operations dashboard for firefighting command posts. Digital replacement for the physical magnet board system used to track personnel, vehicles, materials, and incidents during emergency operations.
 
-Originally developed by [Demo Fire Department BL](https://www.feuerwehroberwil.ch/) (a volunteer fire department in Basel-Landschaft, Switzerland) and designed to be fully adaptable for any fire department.
+Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/) (a volunteer fire department in Basel-Landschaft, Switzerland) and designed to be fully adaptable for any fire department.
 
 | Operations Board | Interactive Map |
 |:---:|:---:|
@@ -428,11 +428,13 @@ See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 
 ## License
 
-MIT License -- see [LICENSE](LICENSE) for details.
+AGPL-3.0 -- see [LICENSE](LICENSE) for details.
+
+You're free to use, modify, and deploy this software. If you deploy a modified version (including as a web service), you must make your source code available under the same license.
 
 ## Acknowledgments
 
-- **[Demo Fire Department BL](https://www.feuerwehroberwil.ch/)** -- Original development and real-world testing
+- **[Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)** -- Original development and real-world testing
 - UI components from [shadcn/ui](https://ui.shadcn.com/)
 - Maps powered by [OpenStreetMap](https://www.openstreetmap.org/)
 - Offline tiles via [TileServer GL](https://github.com/maptiler/tileserver-gl) and [Planetiler](https://github.com/onthegomap/planetiler)
