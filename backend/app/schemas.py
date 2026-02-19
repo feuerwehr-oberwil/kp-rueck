@@ -1422,6 +1422,48 @@ class AutoAttachSettingRequest(BaseModel):
 
 
 # ============================================
+# Divera Personnel Sync Schemas
+# ============================================
+
+
+class DiveraMemberPreview(BaseModel):
+    """Preview of a single Divera member."""
+
+    divera_id: int
+    name: str
+
+
+class DiveraSyncPreviewItem(BaseModel):
+    """A single item in the sync preview."""
+
+    member: DiveraMemberPreview
+    status: str  # "new" | "unchanged" | "not_in_divera"
+    existing_id: UUID | None = None
+
+
+class DiveraSyncPreview(BaseModel):
+    """Full sync preview with categorized items."""
+
+    new: list[DiveraSyncPreviewItem]
+    unchanged: list[DiveraSyncPreviewItem]
+    not_in_divera: list[DiveraSyncPreviewItem]
+
+
+class DiveraSyncExecute(BaseModel):
+    """Request to execute Divera sync."""
+
+    remove_stale: bool = False
+
+
+class DiveraSyncResult(BaseModel):
+    """Result of sync execution."""
+
+    created: int
+    deleted: int
+    unchanged: int
+
+
+# ============================================
 # Transfer Assignments Schemas
 # ============================================
 

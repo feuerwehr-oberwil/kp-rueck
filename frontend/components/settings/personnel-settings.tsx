@@ -27,8 +27,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
-import { apiClient, ApiPersonnel } from '@/lib/api-client';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { toast } from 'sonner';
@@ -47,6 +50,14 @@ export function PersonnelSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'availability'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Divera sync state
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const [syncPreview, setSyncPreview] = useState<ApiDiveraSyncPreview | null>(null);
+  const [isSyncLoading, setIsSyncLoading] = useState(false);
+  const [isSyncExecuting, setIsSyncExecuting] = useState(false);
+  const [removeStale, setRemoveStale] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPersonnel();
@@ -202,6 +213,44 @@ export function PersonnelSettings() {
     await loadPersonnel();
   };
 
+  // Divera sync handlers
+  const handleOpenSyncDialog = async () => {
+    setIsSyncDialogOpen(true);
+    setIsSyncLoading(true);
+    setSyncPreview(null);
+    setSyncError(null);
+    setRemoveStale(false);
+
+    try {
+      const preview = await apiClient.getDiveraSyncPreview();
+      setSyncPreview(preview);
+    } catch (error) {
+      console.error('Failed to fetch sync preview:', error);
+      setSyncError(error instanceof Error ? error.message : 'Fehler beim Laden der Vorschau');
+    } finally {
+      setIsSyncLoading(false);
+    }
+  };
+
+  const handleExecuteSync = async () => {
+    setIsSyncExecuting(true);
+    try {
+      const result = await apiClient.executeDiveraSync({ remove_stale: removeStale });
+      const parts = [];
+      if (result.created > 0) parts.push(`${result.created} erstellt`);
+      if (result.deleted > 0) parts.push(`${result.deleted} gelöscht`);
+      if (result.unchanged > 0) parts.push(`${result.unchanged} unverändert`);
+      toast.success(`Synchronisation abgeschlossen: ${parts.join(', ')}`);
+      setIsSyncDialogOpen(false);
+      await loadPersonnel();
+    } catch (error) {
+      console.error('Failed to execute sync:', error);
+      toast.error('Fehler bei der Synchronisation');
+    } finally {
+      setIsSyncExecuting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Tabs defaultValue="list" className="w-full">
@@ -211,7 +260,11 @@ export function PersonnelSettings() {
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={handleOpenSyncDialog}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Von Divera synchronisieren
+        </Button>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditingPersonnel(null)}>
@@ -353,6 +406,118 @@ export function PersonnelSettings() {
         description={`Sind Sie sicher, dass Sie "${personnelToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
         onConfirm={handleDeleteConfirm}
       />
+
+      {/* Divera Sync Dialog */}
+      <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Divera Personal synchronisieren</DialogTitle>
+          </DialogHeader>
+
+          {isSyncLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-3 text-muted-foreground">Lade Vorschau von Divera...</span>
+            </div>
+          )}
+
+          {syncError && (
+            <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm">
+              {syncError}
+            </div>
+          )}
+
+          {syncPreview && !isSyncLoading && (
+            <div className="flex flex-col gap-3 min-h-0">
+              <div className="overflow-y-auto min-h-0 flex-1 pr-2">
+                <div className="space-y-2">
+                  <SyncSection
+                    title="Neu"
+                    items={syncPreview.new}
+                    badgeVariant="default"
+                    defaultOpen={syncPreview.new.length > 0}
+                  />
+                  <SyncSection
+                    title="Unverändert"
+                    items={syncPreview.unchanged}
+                    badgeVariant="outline"
+                    defaultOpen={false}
+                  />
+                  <SyncSection
+                    title="Nicht in Divera"
+                    items={syncPreview.not_in_divera}
+                    badgeVariant="destructive"
+                    defaultOpen={syncPreview.not_in_divera.length > 0}
+                  />
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 space-y-3 border-t pt-3">
+                {syncPreview.not_in_divera.length > 0 && (
+                  <div className="flex items-center space-x-2 rounded-md border p-3">
+                    <Checkbox
+                      id="remove-stale"
+                      checked={removeStale}
+                      onCheckedChange={(checked) => setRemoveStale(checked === true)}
+                    />
+                    <label htmlFor="remove-stale" className="text-sm cursor-pointer">
+                      {syncPreview.not_in_divera.length} Person(en) entfernen, die nicht in Divera vorhanden sind
+                    </label>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsSyncDialogOpen(false)} disabled={isSyncExecuting}>
+                    Abbrechen
+                  </Button>
+                  <Button
+                    onClick={handleExecuteSync}
+                    disabled={isSyncExecuting || (syncPreview.new.length === 0 && !removeStale)}
+                  >
+                    {isSyncExecuting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Synchronisieren
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function SyncSection({
+  title,
+  items,
+  badgeVariant,
+  defaultOpen,
+}: {
+  title: string;
+  items: { member: { divera_id: number; name: string }; status: string; existing_id: string | null }[];
+  badgeVariant: 'default' | 'secondary' | 'outline' | 'destructive';
+  defaultOpen: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  if (items.length === 0) return null;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-muted/50 text-sm font-medium">
+        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        {title}
+        <Badge variant={badgeVariant} className="ml-auto">{items.length}</Badge>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="pl-6 py-1 space-y-0.5">
+          {items.map((item, idx) => (
+            <div key={`${item.member.divera_id}-${idx}`} className="text-sm py-0.5">
+              {item.member.name}
+            </div>
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

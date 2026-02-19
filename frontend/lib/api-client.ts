@@ -463,28 +463,22 @@ export interface ApiDiveraEmergencyListResponse {
 export interface ApiDiveraMemberPreview {
   divera_id: number
   name: string
-  role: string | null
-  availability: string
-  tags: string[]
 }
 
 export interface ApiDiveraSyncPreviewItem {
   member: ApiDiveraMemberPreview
-  status: 'new' | 'updated' | 'unchanged' | 'not_in_divera'
+  status: 'new' | 'unchanged' | 'not_in_divera'
   existing_id: string | null
-  changes: Record<string, [string | string[] | null, string | string[] | null]> | null
 }
 
 export interface ApiDiveraSyncPreview {
   new: ApiDiveraSyncPreviewItem[]
-  updated: ApiDiveraSyncPreviewItem[]
   unchanged: ApiDiveraSyncPreviewItem[]
   not_in_divera: ApiDiveraSyncPreviewItem[]
 }
 
 export interface ApiDiveraSyncResult {
   created: number
-  updated: number
   deleted: number
   unchanged: number
 }

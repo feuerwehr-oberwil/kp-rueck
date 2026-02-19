@@ -10,10 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..config import settings
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
+from ..crud import personnel as personnel_crud
 from ..database import get_db
+from ..services.divera_members import build_sync_preview, execute_sync, fetch_divera_members
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update, broadcast_message, get_divera_poller_stats
 
@@ -469,6 +472,106 @@ async def archive_divera_emergency(
     except ValueError as e:
         logger.warning("Failed to archive emergency %s: %s", emergency_id, e)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.NOT_FOUND)
+
+
+@router.get("/personnel-sync/preview", response_model=schemas.DiveraSyncPreview)
+async def get_personnel_sync_preview(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """
+    Preview personnel sync from Divera.
+
+    Fetches current members from Divera API, compares with existing personnel,
+    and returns a categorized diff (new, updated, unchanged, not_in_divera).
+
+    Editor role required. Divera access key must be configured.
+    """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Personnel sync is disabled in demo mode",
+        )
+
+    if not settings.divera_access_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Divera access key not configured. Set DIVERA_ACCESS_KEY in settings.",
+        )
+
+    try:
+        divera_members = await fetch_divera_members()
+    except Exception as e:
+        logger.error(f"Failed to fetch Divera members: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch members from Divera: {e}",
+        )
+
+    existing = await personnel_crud.get_all_personnel(db)
+    preview = build_sync_preview(divera_members, existing)
+
+    return schemas.DiveraSyncPreview(
+        new=[schemas.DiveraSyncPreviewItem(**item) for item in preview["new"]],
+        unchanged=[schemas.DiveraSyncPreviewItem(**item) for item in preview["unchanged"]],
+        not_in_divera=[schemas.DiveraSyncPreviewItem(**item) for item in preview["not_in_divera"]],
+    )
+
+
+@router.post("/personnel-sync/execute", response_model=schemas.DiveraSyncResult)
+async def execute_personnel_sync(
+    request_data: schemas.DiveraSyncExecute,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """
+    Execute personnel sync from Divera.
+
+    Fetches current members from Divera, compares with DB, and applies changes.
+    Optionally removes personnel not found in Divera.
+
+    Editor role required. Divera access key must be configured.
+    """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Personnel sync is disabled in demo mode",
+        )
+
+    if not settings.divera_access_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Divera access key not configured. Set DIVERA_ACCESS_KEY in settings.",
+        )
+
+    try:
+        divera_members = await fetch_divera_members()
+    except Exception as e:
+        logger.error(f"Failed to fetch Divera members: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch members from Divera: {e}",
+        )
+
+    existing = await personnel_crud.get_all_personnel(db)
+    preview = build_sync_preview(divera_members, existing)
+
+    result = await execute_sync(
+        db=db,
+        preview=preview,
+        remove_stale=request_data.remove_stale,
+        current_user=current_user,
+        request=request,
+    )
+
+    logger.info(
+        f"Divera personnel sync completed: "
+        f"{result['created']} created, {result['deleted']} deleted, "
+        f"{result['unchanged']} unchanged"
+    )
+
+    return schemas.DiveraSyncResult(**result)
 
 
 @router.get("/polling/status")
