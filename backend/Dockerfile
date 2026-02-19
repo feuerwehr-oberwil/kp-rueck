@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     bash \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files
@@ -27,18 +28,18 @@ COPY . .
 # Create photo storage mount point with correct ownership (for Railway volumes)
 RUN mkdir -p /mnt/data/photos && chown -R appuser:appuser /mnt/data
 
-# Make start scripts executable and set ownership
-RUN chmod +x start.sh start-dev.sh && \
+# Make scripts executable and set ownership
+RUN chmod +x start.sh start-dev.sh entrypoint.sh && \
     chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
 
 # Set environment variable for uv cache
 ENV UV_CACHE_DIR=/home/appuser/.cache/uv
 
 # Expose port (Railway will set PORT env var)
 EXPOSE ${PORT:-8000}
+
+# Entrypoint fixes volume permissions then drops to appuser via gosu
+ENTRYPOINT ["./entrypoint.sh"]
 
 # Run the startup script
 CMD ["./start.sh"]
