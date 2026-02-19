@@ -1,6 +1,6 @@
 # Railway Deployment Guide
 
-Deploy KP Rück Dashboard to Railway with separate services for database, backend, and frontend.
+Deploy KP Ruck to [Railway](https://railway.app/) with separate services for database, backend, and frontend. This guide also applies broadly to other Docker-compatible PaaS providers.
 
 ## Prerequisites
 

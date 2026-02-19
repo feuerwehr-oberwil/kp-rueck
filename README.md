@@ -1,241 +1,444 @@
-# KP Rück
+# KP Ruck
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.12+-blue)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)](https://docs.docker.com/compose/)
 
-A tactical operations dashboard for firefighting command posts. Digital replacement for the physical magnet board system used to track personnel, vehicles, and incidents during emergency operations.
+A tactical operations dashboard for firefighting command posts. Digital replacement for the physical magnet board system used to track personnel, vehicles, materials, and incidents during emergency operations.
 
-**Developed by Demo Fire Department BL** - A volunteer fire department in Switzerland.
+Originally developed by [Demo Fire Department BL](https://www.feuerwehroberwil.ch/) (a volunteer fire department in Basel-Landschaft, Switzerland) and designed to be fully adaptable for any fire department.
 
-## Screenshots
-
-| Operations Dashboard | Interactive Map |
-|---------------------|-----------------|
+| Operations Board | Interactive Map |
+|:---:|:---:|
 | ![Dashboard](docs/images/dashboard.png) | ![Map View](docs/images/map-view.png) |
 
-## Why KP Rück?
+---
 
-Fire departments often manage operations using physical magnet boards - moving magnetic tokens to track which personnel and vehicles are assigned to which incidents. This works, but:
+## Why KP Ruck?
 
-- Only visible at the command post
+Many fire departments manage operations using physical magnet boards -- moving tokens around to track which personnel and vehicles are assigned to which incidents. This works, but it has real limitations:
+
+- Only visible to whoever is standing at the board
 - No history or audit trail
-- Easy to lose track during busy multi-incident scenarios
-- Can't be updated remotely
+- Easy to lose track during multi-incident scenarios
+- Cannot be updated remotely from the field
 
-**KP Rück** digitizes this workflow while keeping the familiar Kanban-style interface that commanders are used to.
+**KP Ruck** digitizes this workflow while keeping the familiar Kanban-style interface that commanders already know. It runs on any device with a browser, syncs in real time, and adds features like maps, training mode, and thermal printer support on top.
+
+> **What does "KP Ruck" mean?**
+> KP = *Kommandoposten* (Command Post), Ruck = *Ruckwartiger Dienst* (Rear Services).
+> In Swiss firefighting, the KP Ruck is the coordination hub behind the front lines -- exactly what this software is.
+
+---
 
 ## Features
 
-**Operations Board**
-- Kanban-style drag-and-drop incident management
-- Real-time sync across multiple devices
-- Visual status columns: Incoming → Reko → Dispatched → Completed
+### Operations Board
+- **Kanban-style drag-and-drop** incident management with status columns
+- **Real-time sync** across multiple devices (configurable polling interval)
+- **Workflow stages**: Incoming -> Reconnaissance -> Dispatched -> Completed -> Archived
+- **Resource conflict warnings** when personnel or vehicles are double-assigned
 
-**Resource Management**
-- Track personnel with roles and certifications (Offiziere, Wachtmeister, Korporal, Mannschaft)
-- Manage vehicles and equipment assignments
-- Visual warnings for resource conflicts
+### Resource Management
+- Track **personnel** with configurable ranks and role tags (e.g. driver, heights specialist)
+- Manage **vehicles** and **materials/equipment** with assignment tracking
+- Drag resources from sidebars directly onto incident cards
+- **Excel import/export** for bulk data management
 
-**Interactive Map**
-- Leaflet-based map with incident markers
-- GPS vehicle tracking (via Traccar integration)
-- Offline map tile support for areas without internet
+### Interactive Map
+- Leaflet-based map with incident markers and live status
+- Optional **GPS vehicle tracking** via [Traccar](https://www.traccar.org/) integration
+- **Offline map tiles** for areas without reliable internet (self-hosted TileServer GL)
 
-**Field Operations**
-- Reconnaissance (Reko) forms with photo upload
-- Mobile-friendly interface for field teams
-- QR code quick access
+### Field Operations
+- **Reconnaissance (Reko) forms** with photo upload from mobile devices
+- Mobile-friendly responsive interface for field teams
+- QR code for quick access to the viewer mode
 
-**Training Mode**
-- Separate training scenarios from live operations
-- Auto-generate realistic training incidents from templates
-- Same interface, isolated data
+### Training Mode
+- Completely **separate training scenarios** from live operations
+- Auto-generate realistic training incidents from configurable templates
+- Same interface, isolated data -- train without affecting real operations
 
-**Integrations**
-- Divera247 alarm webhook support
-- Traccar GPS vehicle tracking
-- Thermal printer support for dispatch slips
+### Integrations
+- **[Divera 24/7](https://www.divera247.com/)** alarm webhook + polling support
+- **[Traccar](https://www.traccar.org/)** GPS vehicle tracking
+- **Thermal printer** support for dispatch slips (ESC/POS over network)
+
+### Other
+- **Dark mode** with system/manual toggle
+- **Audit log** for all changes with search and export
+- **Role-based access**: Editor (full CRUD) and Viewer (read-only)
+- **Keyboard shortcuts** for power users (60+ shortcuts)
+- Built-in **help page** with full documentation
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS 4 |
-| Backend | FastAPI (Python), SQLAlchemy 2.0 (async) |
-| Database | PostgreSQL 16 |
-| Maps | Leaflet + OpenStreetMap |
-| Deployment | Docker Compose, Railway |
+| **Frontend** | Next.js 15, React 19, TypeScript, Tailwind CSS 4, shadcn/ui |
+| **Backend** | FastAPI (Python 3.12+), SQLAlchemy 2.0 (fully async) |
+| **Database** | PostgreSQL 16 |
+| **Maps** | Leaflet + OpenStreetMap (+ optional offline TileServer GL) |
+| **Deployment** | Docker Compose (local), Railway / any Docker host (production) |
+| **Package Managers** | pnpm (frontend), uv (backend) |
+
+---
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### Prerequisites
+
+- **Docker** and **Docker Compose** (recommended)
+- Or for local development: Node.js 20+, [pnpm](https://pnpm.io/), Python 3.12+, [uv](https://docs.astral.sh/uv/), PostgreSQL 16
+- Optional: [just](https://github.com/casey/just) command runner
+
+### Option A: Docker (recommended)
 
 ```bash
-# Clone the repository
-git clone https://github.com/feuerwehr-oberwil/kp-rueck.git
+git clone https://github.com/YOUR_ORG/kp-rueck.git
 cd kp-rueck
 
-# Start development environment
-docker-compose -f docker-compose.dev.yml up
-
-# Or use just (if installed)
+# Start all services with hot reload
 just dev
+# or without just:
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-The application will be available at:
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+This starts **four services** automatically:
 
-### Local Development
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Frontend | http://localhost:3000 | Next.js application |
+| Backend | http://localhost:8000 | FastAPI + auto-seeded database |
+| API Docs | http://localhost:8000/docs | Interactive Swagger UI |
+| Tile Server | http://localhost:8080 | Offline map tiles (optional) |
 
-**Prerequisites**: Node.js 20+, pnpm, Python 3.12+, uv
+### Option B: Local Development (no Docker for app)
 
-**Backend:**
+You still need PostgreSQL running. The easiest way is to start just the database via Docker:
+
+```bash
+just db-only    # starts PostgreSQL on port 5433
+```
+
+Then, in **two separate terminals**:
+
+**Terminal 1 -- Backend:**
 ```bash
 cd backend
-uv sync
-cp .env.example .env
-uv run python -m app.seed     # Create tables + seed data
-uv run uvicorn app.main:app --reload
+uv sync                              # install dependencies
+cp .env.example .env                 # configure (defaults work for local dev)
+uv run alembic upgrade head          # run database migrations
+uv run python -m app.seed            # seed demo data
+uv run uvicorn app.main:app --reload # start on port 8000
 ```
 
-**Frontend:**
+**Terminal 2 -- Frontend:**
 ```bash
 cd frontend
-pnpm install
-cp .env.local.example .env.local
-pnpm dev
+pnpm install                         # install dependencies
+cp .env.local.example .env.local     # configure API URL
+pnpm dev                             # start on port 3000
 ```
 
-### Default Login
+### First Login
 
-After seeding, use the admin credentials shown in the terminal output. In development mode, a random secure password is generated.
+After seeding, the admin credentials are printed to the terminal. In development mode, a random password is generated on first run. Look for output like:
 
-## Configuration
+```
+Admin user created: admin / <generated-password>
+```
+
+---
+
+## Customizing for Your Department
+
+KP Ruck is designed to work for **any fire department** out of the box. Here's how to make it yours:
+
+### 1. Quick Setup (via UI)
+
+After starting the application, go to **Settings** and configure:
+
+| Setting | What it does |
+|---------|-------------|
+| Station Name | Your department's display name |
+| Location | Firestation coordinates (used as map center) |
+| Home City | Default city for new incidents |
+| Map Mode | Online, offline, or auto-fallback |
+| Printer | IP/port for thermal ESC/POS printer |
+
+### 2. Import Your Data
+
+Use the **Settings > Import/Export** page to bulk-import via Excel:
+
+- **Personnel** -- names, ranks, role tags (driver, specialist, etc.)
+- **Vehicles** -- designation, type, status
+- **Materials** -- name, quantity, storage location
+
+Download the Excel templates from the import page, fill them in, and upload.
+
+### 3. Custom Seed Data (optional)
+
+For automated deployments or CI, you can create a custom seed file:
+
+```bash
+# Copy the demo seed as a starting point
+cp backend/app/seed.py backend/app/seed_yourdepartment.py
+```
+
+Edit the file with your personnel, vehicles, materials, and geographic coordinates. See `backend/app/seed_oberwil.py` for a real-world example.
+
+### 4. Training Mode Configuration
+
+Training mode generates realistic practice incidents within a geographic area. Configure the bounding box in your seed file or via the training settings to match your department's coverage area.
+
+---
+
+## Configuration Reference
 
 ### Environment Variables
 
-**Backend** (`.env`):
-```env
-DATABASE_URL=postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
-CORS_ORIGINS=http://localhost:3000
-SECRET_KEY=your-secret-key-here  # Auto-generated in dev
-```
+All configuration is done via environment variables. Copy the `.env.example` files to get started.
 
-**Frontend** (`.env.local`):
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+#### Backend (`backend/.env`)
 
-See the `.env.example` files in each directory for all options.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `postgresql+asyncpg://...` | PostgreSQL connection string |
+| `CORS_ORIGINS` | `http://localhost:3000` | Allowed frontend origins (comma-separated) |
+| `SECRET_KEY` | *(auto-generated)* | JWT signing key. **Set explicitly in production.** |
+| `ADMIN_SEED_PASSWORD` | *(auto-generated)* | Initial admin password. Set for reproducible deployments. |
+| `PHOTOS_DIR` | `data/photos` | Directory for Reko photo uploads |
+| `MAX_PHOTO_SIZE_MB` | `10` | Maximum photo upload size |
 
-### Production Deployment (Oberwil)
+**Optional integrations:**
 
-For Demo Fire Department's production deployment on Railway, set:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DIVERA_ACCESS_KEY` | *(empty)* | Divera 24/7 API key. Empty = disabled. |
+| `DIVERA_POLL_INTERVAL_SECONDS` | `30` | Divera polling frequency |
+| `TRACCAR_URL` | *(empty)* | Traccar GPS server URL. Empty = disabled. |
+| `TRACCAR_EMAIL` | | Traccar login credentials |
+| `TRACCAR_PASSWORD` | | |
+| `MASTER_TOKEN` | *(empty)* | API token for remote config (e.g. print agent). Empty = disabled. |
 
-```env
-OBERWIL_PRODUCTION=true
-```
+**Advanced:**
 
-This enables:
-- Real personnel roster
-- Oberwil-specific training locations and coordinates
-- Proper firestation settings
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OBERWIL_PRODUCTION` | `false` | Load Demo Fire Department production data (only relevant for their deployment) |
+| `RAILWAY_URL` | *(empty)* | Enable local-to-cloud sync mode |
+| `AUTH_BYPASS_DEV` | `false` | Skip authentication in development |
+| `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | JWT token lifetime |
 
-### Customization for Other Departments
+#### Frontend (`frontend/.env.local`)
 
-To customize for your organization:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Backend API URL |
 
-1. Modify `backend/app/seed.py` with your personnel, vehicles, and materials
-2. Update `backend/app/seed_training.py` with your geographic area bounds
-3. Configure your firestation location via the Settings page
-4. Or create your own `seed_yourdepartment.py` following the pattern in `seed_oberwil.py`
+### Database Settings (via UI)
+
+These settings are stored in the database and configurable through the Settings page:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `firestation_name` | Demo Fire Department | Organization display name |
+| `firestation_latitude` / `longitude` | 47.56 / 7.59 | Map center coordinates |
+| `home_city` | Demo City, Switzerland | Default location for incidents |
+| `polling_interval_ms` | 5000 | Frontend sync interval (milliseconds) |
+| `training_mode` | false | Enable training mode |
+| `auto_archive_timeout_hours` | 24 | Auto-archive completed incidents after N hours |
+| `map_mode` | online | Map tile source: `auto`, `online`, or `offline` |
+| `printer_enabled` | false | Enable thermal printer integration |
+| `printer_ip` / `printer_port` | | Network printer address |
+| `alarm_webhook_secret` | | Secret for Divera webhook authentication |
+
+---
 
 ## Project Structure
 
 ```
 kp-rueck/
-├── frontend/           # Next.js 15 application
-│   ├── app/           # App Router pages
-│   ├── components/    # React components + shadcn/ui
-│   └── lib/           # Utilities, contexts, API client
-├── backend/           # FastAPI application
-│   ├── app/           # Main application
-│   │   ├── api/       # API routes
-│   │   ├── services/  # Business logic
-│   │   ├── seed.py    # Database seeding (demo data)
-│   │   ├── seed_oberwil.py  # Oberwil production data
-│   │   └── models.py  # SQLAlchemy models
-│   └── alembic/       # Database migrations
-├── docker-compose.yml     # Production setup
-├── docker-compose.dev.yml # Development with hot reload
-└── justfile              # Common dev commands
+├── frontend/                  # Next.js 15 application
+│   ├── app/                   # App Router pages (dashboard, map, settings, help)
+│   ├── components/            # React components + shadcn/ui
+│   ├── lib/                   # API client, contexts, utilities
+│   └── public/content/        # Help page content (Markdown)
+├── backend/                   # FastAPI application
+│   ├── app/
+│   │   ├── api/               # API route handlers
+│   │   ├── services/          # Business logic (Divera, Traccar, sync)
+│   │   ├── models.py          # SQLAlchemy database models
+│   │   ├── schemas.py         # Pydantic request/response schemas
+│   │   ├── seed.py            # Demo data seeder
+│   │   └── seed_oberwil.py    # Example: real department data
+│   └── alembic/               # Database migrations
+├── print-agent/               # Thermal printer agent (standalone)
+│   ├── agent.py               # Polling loop
+│   ├── printer.py             # ESC/POS network printer driver
+│   └── formatters.py          # Print layout formatters
+├── tileserver/                # Offline map tile server (Dockerfile)
+├── docker-compose.yml         # Production setup
+├── docker-compose.dev.yml     # Development with hot reload
+└── justfile                   # Task runner commands (run `just` to see all)
 ```
-
-## Deployment
-
-KP Rück is designed to run on any Docker-compatible platform. See [RAILWAY.md](RAILWAY.md) for deployment instructions on Railway.
-
-**Production checklist:**
-- Set strong `SECRET_KEY` and `ADMIN_SEED_PASSWORD`
-- Configure `DATABASE_URL` for production database
-- Set `CORS_ORIGINS` to your frontend domain
-- Set `OBERWIL_PRODUCTION=true` for Demo Fire Department deployment
-- Consider enabling offline map tiles for field reliability
-
-## Documentation
-
-- [RAILWAY.md](RAILWAY.md) - Deployment guide
-- [OFFLINE_MAPS.md](OFFLINE_MAPS.md) - Offline map tiles setup
-- [CONFIGURATION_SETTINGS.md](CONFIGURATION_SETTINGS.md) - System settings reference
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- [backend/README.md](backend/README.md) - Backend API documentation
-
-## Contributing
-
-Contributions are welcome! This project was originally developed for Demo Fire Department but is designed to be adaptable for fire departments worldwide.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-**Ways to contribute:**
-- Report bugs or suggest features via [Issues](https://github.com/feuerwehr-oberwil/kp-rueck/issues)
-- Improve documentation or add translations
-- Add integrations (CAD systems, alerting platforms)
-- Submit pull requests
-
-## Terminology
-
-This project uses Swiss German firefighting terminology:
-
-| Term | English |
-|------|---------|
-| Einsatz | Operation/Deployment |
-| Reko | Reconnaissance |
-| Disponiert | Dispatched |
-| Eingegangen | Incoming |
-| Abschluss | Completed |
-| Magazin | Equipment storage |
-| KP Rück | Command Post (Rückwärtiger Dienst - rear services) |
-| Offiziere | Officers |
-| Wachtmeister | Sergeants |
-| Korporal | Corporals |
-| Mannschaft | Firefighters |
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Acknowledgments
-
-- **Demo Fire Department BL** - Original development and real-world testing
-- Built with assistance from Claude (Anthropic)
-- UI components from [shadcn/ui](https://ui.shadcn.com/)
-- Maps powered by [OpenStreetMap](https://www.openstreetmap.org/)
 
 ---
 
-**Questions?** Open an [issue](https://github.com/feuerwehr-oberwil/kp-rueck/issues)
+## Development Commands
+
+All common tasks are available via [just](https://github.com/casey/just). Run `just` to see the full list.
+
+| Command | Description |
+|---------|-------------|
+| `just dev` | Start all services with Docker (hot reload) |
+| `just be` | Run backend locally (database in Docker) |
+| `just fe` | Run frontend locally |
+| `just db-only` | Start only PostgreSQL |
+| `just test` | Run E2E tests (Playwright) |
+| `just test-ui` | Playwright interactive UI mode |
+| `just lint` | Lint frontend + backend |
+| `just fmt` | Format backend code (ruff) |
+| `just migrate` | Run database migrations |
+| `just migrate-new "message"` | Create new migration |
+| `just tiles-download` | Download full offline map tiles |
+| `just tiles-status` | Check tile server status |
+| `just print-agent` | Start thermal print agent locally |
+| `just print-agent-dry` | Print agent in dry-run mode (no printer needed) |
+| `just clean` | Stop services and remove volumes |
+
+---
+
+## Deployment
+
+KP Ruck runs on any platform that supports Docker. The repository includes configuration for [Railway](https://railway.app/), but you can deploy to any Docker host, VPS, or cloud provider.
+
+See **[RAILWAY.md](RAILWAY.md)** for step-by-step Railway deployment instructions.
+
+### Production Checklist
+
+- [ ] Set a strong `SECRET_KEY` (generate with `openssl rand -hex 32`)
+- [ ] Set `ADMIN_SEED_PASSWORD` for the initial admin account
+- [ ] Configure `DATABASE_URL` for your production database
+- [ ] Set `CORS_ORIGINS` to your frontend domain
+- [ ] Configure photo storage with persistent volume (`PHOTOS_DIR`)
+- [ ] Set up custom domain with SSL
+- [ ] Enable monitoring and alerts
+
+### Optional Production Features
+
+- [ ] Connect **Divera 24/7** for automatic alarm import (`DIVERA_ACCESS_KEY`)
+- [ ] Connect **Traccar** for GPS vehicle tracking (`TRACCAR_URL`)
+- [ ] Set up **thermal printer** for dispatch slips (via print agent or settings page)
+- [ ] Enable **offline map tiles** for field reliability (see [OFFLINE_MAPS.md](OFFLINE_MAPS.md))
+- [ ] Configure **training mode** templates for your geographic area
+
+---
+
+## Thermal Printer (Optional)
+
+KP Ruck supports ESC/POS thermal printers for printing dispatch slips and board snapshots. This is useful for command posts that need physical records.
+
+**Supported printers:** Any ESC/POS compatible network printer (tested with Epson TM-T20, 58mm paper width).
+
+**Setup options:**
+1. **Print agent** -- standalone Python service that polls the backend for print jobs. Designed to run on a Raspberry Pi or similar device near the printer.
+2. **Direct from UI** -- configure printer IP/port in Settings and trigger prints from the dashboard.
+
+```bash
+# Test locally without a real printer
+just print-agent-dry
+
+# Run with a real printer
+just print-agent
+```
+
+See the `print-agent/` directory for configuration details.
+
+---
+
+## Offline Maps (Optional)
+
+For operations in areas with unreliable internet, KP Ruck includes a self-hosted tile server that provides offline map capability.
+
+- Auto-starts with `just dev` (minimal bootstrap tiles)
+- Download full offline tiles with `just tiles-download` (~12 MB for Basel-Landschaft)
+- Easily adaptable to any region using [Geofabrik](https://download.geofabrik.de/) OSM extracts
+- Three modes: **Auto** (online with offline fallback), **Online**, **Offline**
+
+See **[OFFLINE_MAPS.md](OFFLINE_MAPS.md)** for the full setup guide including custom regions.
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [RAILWAY.md](RAILWAY.md) | Railway deployment guide |
+| [OFFLINE_MAPS.md](OFFLINE_MAPS.md) | Offline map tiles setup |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+| [backend/README.md](backend/README.md) | Backend API documentation |
+
+---
+
+## Terminology
+
+The UI uses Swiss-German firefighting terminology. Here's a quick reference:
+
+| German | English | Context |
+|--------|---------|---------|
+| Einsatz | Incident / Operation | A single event being managed |
+| Eingegangen | Incoming | New incident, not yet assessed |
+| Reko | Reconnaissance | Field assessment in progress |
+| Disponiert | Dispatched | Resources assigned and en route |
+| Abschluss | Completed | Incident resolved |
+| Archiv | Archive | Historical record |
+| Offiziere | Officers | Highest rank group |
+| Wachtmeister | Sergeants | Second rank group |
+| Korporal | Corporals | Third rank group |
+| Mannschaft | Firefighters | General personnel |
+| Magazin | Equipment storage | Where materials are kept |
+| Fahrzeuge | Vehicles | Apparatus / trucks |
+| Einsatzzettel | Dispatch slip | Printed incident summary |
+
+> **Note:** The interface is currently in German. Translations/i18n support is a welcome contribution!
+
+---
+
+## Contributing
+
+Contributions are welcome! Whether it's a bug fix, a new integration, or a translation -- we'd love your help.
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
+
+**Ideas for contributions:**
+- Translations / i18n support
+- Integrations with other alerting platforms (Alamos, BORS, etc.)
+- CAD system connectors
+- PDF report generation
+- WebSocket support for real-time updates
+- Mobile app (React Native / PWA)
+
+---
+
+## License
+
+MIT License -- see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- **[Demo Fire Department BL](https://www.feuerwehroberwil.ch/)** -- Original development and real-world testing
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- Maps powered by [OpenStreetMap](https://www.openstreetmap.org/)
+- Offline tiles via [TileServer GL](https://github.com/maptiler/tileserver-gl) and [Planetiler](https://github.com/onthegomap/planetiler)
+
+---
+
+**Questions or issues?** Open an [issue](https://github.com/YOUR_ORG/kp-rueck/issues) on GitHub.
