@@ -185,8 +185,6 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
     if len(event_name) > WIDTH_B:
         event_name = event_name[:WIDTH_B - 3] + "..."
     p.text(f"{event_name}\n")
-    _font_b(p)
-    p.text(f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
     _sep(p)
 
     # --- Filter incidents based on options ---
