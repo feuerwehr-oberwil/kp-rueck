@@ -132,10 +132,10 @@ async def seed_database() -> None:
 
             default_settings_data.extend(
                 [
-                    ("firestation_name", "Demo Fire Department"),
+                    ("firestation_name", "Feuerwehr Musterstadt"),
                     ("firestation_latitude", "47.5596"),  # Generic Swiss location
                     ("firestation_longitude", "7.5886"),
-                    ("home_city", "Demo City, Switzerland"),
+                    ("home_city", "Musterstadt, BL"),
                 ]
             )
 
@@ -385,7 +385,7 @@ async def seed_database() -> None:
                     "title": "Wasser im Keller Einfamilienhaus",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Mühleweg 23, Demo City",
+                    "location_address": "Mühleweg 23, Musterstadt",
                     "location_lat": 47.5596,
                     "location_lng": 7.5886,
                     "status": "einsatz",
@@ -397,7 +397,7 @@ async def seed_database() -> None:
                     "title": "Überflutung Tiefgarage",
                     "type": "elementarereignis",
                     "priority": "high",
-                    "location_address": "Hauptstrasse 95, Demo City",
+                    "location_address": "Hauptstrasse 95, Musterstadt",
                     "location_lat": 47.5610,
                     "location_lng": 7.5900,
                     "status": "disponiert",
@@ -409,7 +409,7 @@ async def seed_database() -> None:
                     "title": "Wasserschaden Mehrfamilienhaus",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Bahnhofstrasse 45, Demo City",
+                    "location_address": "Bahnhofstrasse 45, Musterstadt",
                     "location_lat": 47.5580,
                     "location_lng": 7.5870,
                     "status": "eingegangen",
@@ -421,7 +421,7 @@ async def seed_database() -> None:
                     "title": "Keller auspumpen Gewerbebetrieb",
                     "type": "elementarereignis",
                     "priority": "high",
-                    "location_address": "Gewerbestrasse 12, Demo City",
+                    "location_address": "Gewerbestrasse 12, Musterstadt",
                     "location_lat": 47.5620,
                     "location_lng": 7.5920,
                     "status": "reko",
@@ -434,7 +434,7 @@ async def seed_database() -> None:
                     "title": "Baum auf Strasse",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Waldstrasse 78, Demo City",
+                    "location_address": "Waldstrasse 78, Musterstadt",
                     "location_lat": 47.5630,
                     "location_lng": 7.5850,
                     "status": "einsatz",
@@ -446,7 +446,7 @@ async def seed_database() -> None:
                     "title": "Ölspur Industriegebiet",
                     "type": "oelwehr",
                     "priority": "low",
-                    "location_address": "Industriestrasse 8, Demo City",
+                    "location_address": "Industriestrasse 8, Musterstadt",
                     "location_lat": 47.5570,
                     "location_lng": 7.5910,
                     "status": "abschluss",
@@ -459,7 +459,7 @@ async def seed_database() -> None:
                     "title": "Dachziegel lose nach Sturm",
                     "type": "elementarereignis",
                     "priority": "medium",
-                    "location_address": "Kirchgasse 5, Demo City",
+                    "location_address": "Kirchgasse 5, Musterstadt",
                     "location_lat": 47.5600,
                     "location_lng": 7.5895,
                     "status": "abschluss",

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 import bcrypt
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from . import models
 from .database import async_session_maker
@@ -23,6 +23,10 @@ async def seed_demo_database() -> None:
             if result.scalars().first():
                 print("Demo database already seeded. Skipping...")
                 return
+
+            # Clean up migration artifacts (e.g. "Migrated Incidents" default event)
+            await db.execute(delete(models.Event))
+            await db.flush()
 
             print("Seeding demo database...")
 
@@ -48,7 +52,7 @@ async def seed_demo_database() -> None:
                 id=uuid4(),
                 username="demo-viewer",
                 password_hash=viewer_hash,
-                role="editor",  # viewer role uses editor with read-only UI
+                role="viewer",
                 display_name="Demo Betrachter",
                 is_active=True,
             )

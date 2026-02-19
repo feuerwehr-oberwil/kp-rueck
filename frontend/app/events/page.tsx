@@ -17,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2 } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -387,53 +387,55 @@ export default function EventsPage() {
 
         {/* Create Event Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Neues Ereignis erstellen</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="event-name">Name</Label>
-              <Input
-                id="event-name"
-                value={newEventName}
-                onChange={(e) => setNewEventName(e.target.value)}
-                placeholder="z.B. Sturm 2024-10-25"
-              />
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Neues Ereignis erstellen</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="event-name">Name</Label>
+                <Input
+                  id="event-name"
+                  value={newEventName}
+                  onChange={(e) => setNewEventName(e.target.value)}
+                  placeholder="z.B. Hochwasser 2026-02-19"
+                  autoFocus
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <Label htmlFor="training-mode" className="cursor-pointer">Übungsmodus</Label>
+                <Switch
+                  id="training-mode"
+                  checked={newEventTraining}
+                  onCheckedChange={(checked) => {
+                    setNewEventTraining(checked)
+                    if (checked) setNewEventAutoAttachDivera(false)
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <Label htmlFor="auto-attach-divera" className="cursor-pointer">Divera-Notfälle automatisch anhängen</Label>
+                <Switch
+                  id="auto-attach-divera"
+                  checked={newEventAutoAttachDivera}
+                  onCheckedChange={(checked) => {
+                    setNewEventAutoAttachDivera(checked)
+                    if (checked) setNewEventTraining(false)
+                  }}
+                />
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="training-mode"
-                checked={newEventTraining}
-                onCheckedChange={(checked) => {
-                  setNewEventTraining(checked)
-                  if (checked) setNewEventAutoAttachDivera(false)
-                }}
-              />
-              <Label htmlFor="training-mode">Übungsmodus</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="auto-attach-divera"
-                checked={newEventAutoAttachDivera}
-                onCheckedChange={(checked) => {
-                  setNewEventAutoAttachDivera(checked)
-                  if (checked) setNewEventTraining(false)
-                }}
-              />
-              <Label htmlFor="auto-attach-divera">Divera-Notfälle automatisch anhängen</Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleCreateEvent} disabled={isCreating || !newEventName.trim()}>
-              Erstellen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
+                Abbrechen
+              </Button>
+              <Button onClick={handleCreateEvent} disabled={isCreating || !newEventName.trim()}>
+                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isCreating ? 'Erstellen...' : 'Erstellen'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
       {/* Archive Confirmation Dialog */}
       <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
