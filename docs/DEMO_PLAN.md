@@ -1,7 +1,7 @@
 # Online Demo Release Plan
 
-**Status**: Planned (next after cleanup)
-**Last updated**: 2026-02-19
+**Status**: Live at [demo.kp-rueck.app](https://demo.kp-rueck.app)
+**Last updated**: 2026-02-20
 
 ## Overview
 
@@ -237,19 +237,19 @@ Use real Oberwil addresses (public data) with fake names and contact info.
 
 ## Implementation Checklist
 
-- [ ] Add `demo_mode` to `Settings` class
-- [ ] Create `seed_demo.py` with realistic scenario data
-- [ ] Implement reset scheduler (truncate + re-seed every 2h)
-- [ ] Add `GET /api/demo/status` endpoint
-- [ ] Add abuse limits (incident/photo caps in demo mode)
-- [ ] Block user management endpoints in demo mode
-- [ ] Create `DemoBanner` frontend component
-- [ ] Modify login page for demo mode (pre-filled credentials)
-- [ ] Add auto-refresh after reset
-- [ ] Create Railway demo project and deploy
-- [ ] Set up `demo.kp-rueck.app` domain
-- [ ] Update README with demo link
-- [ ] Test full reset cycle end-to-end
+- [x] Add `demo_mode` to `Settings` class
+- [x] Create `seed_demo.py` with realistic scenario data
+- [x] Implement reset scheduler (truncate + re-seed every 2h)
+- [x] Add `GET /api/demo/status` endpoint
+- [x] Add abuse limits (incident/photo caps in demo mode)
+- [x] Block user management endpoints in demo mode
+- [x] Create `DemoBanner` frontend component
+- [x] Modify login page for demo mode (pre-filled credentials)
+- [x] Add auto-refresh after reset
+- [x] Create Railway demo project and deploy
+- [x] Set up `demo.kp-rueck.app` domain
+- [x] Update README with demo link
+- [x] Test full reset cycle end-to-end
 
 ---
 
