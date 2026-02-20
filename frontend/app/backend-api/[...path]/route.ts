@@ -22,7 +22,11 @@ async function proxyRequest(request: NextRequest) {
 
   // Get the path after /backend-api/
   const url = new URL(request.url)
-  const targetPath = url.pathname.replace('/backend-api', '')
+  let targetPath = url.pathname.replace('/backend-api', '')
+  // Ensure trailing slash for FastAPI (Next.js strips it via 308, causing redirect chains)
+  if (targetPath && !targetPath.endsWith('/') && !targetPath.includes('.')) {
+    targetPath += '/'
+  }
   const targetUrl = `${backendUrl}${targetPath}${url.search}`
 
   // Get cookies from the request
@@ -66,7 +70,7 @@ async function proxyRequest(request: NextRequest) {
       body = await request.text()
     }
 
-    // Disable automatic redirect following to preserve method and cookies
+    // Follow redirects manually to preserve method, cookies, and enforce HTTPS
     let response = await fetch(targetUrl, {
       method: request.method,
       headers,
@@ -74,18 +78,21 @@ async function proxyRequest(request: NextRequest) {
       redirect: 'manual',
     })
 
-    // Handle 307/308 redirects manually to preserve method and cookies
-    if (response.status === 307 || response.status === 308) {
-      const location = response.headers.get('location')
-      if (location) {
-        console.log(`[API Proxy] Following ${response.status} redirect to: ${location}`)
-        response = await fetch(location, {
-          method: request.method,
-          headers,
-          body,
-          redirect: 'manual',
-        })
-      }
+    // Follow up to 3 redirects (handles FastAPI trailing-slash + HTTP→HTTPS chains)
+    let redirectCount = 0
+    while ([301, 302, 307, 308].includes(response.status) && redirectCount < 3) {
+      let location = response.headers.get('location')
+      if (!location) break
+      // Ensure HTTPS (backend behind Railway proxy may emit http:// URLs)
+      location = location.replace(/^http:\/\//, 'https://')
+      console.log(`[API Proxy] Following ${response.status} redirect to: ${location}`)
+      response = await fetch(location, {
+        method: request.method,
+        headers,
+        body,
+        redirect: 'manual',
+      })
+      redirectCount++
     }
 
     // Debug: Log backend response status
