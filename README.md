@@ -11,15 +11,13 @@ Tactical operations dashboard for firefighting command posts. Replaces the physi
 
 Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/) and designed to be adaptable for any fire department.
 
-> **Note:** This entire project was vibe coded -- an experiment in how far you can take AI-assisted development and how much you can trust the result in a real-world operational setting.
+> **Note:** This entire project was vibe coded — an experiment in how far you can take AI-assisted development and how much you can trust the result in a real-world operational setting.
 
 | Operations Board | Interactive Map |
 |:---:|:---:|
 | ![Dashboard](docs/images/dashboard.png) | ![Map View](docs/images/map-view.png) |
 
-**Try it now: [demo.kp-rueck.app](https://demo.kp-rueck.app)** -- log in as `demo-editor` / `demo123`
-
----
+**Try it now: [demo.kp-rueck.app](https://demo.kp-rueck.app)** · log in as `demo-editor` / `demo123`
 
 ## Table of Contents
 
@@ -32,8 +30,6 @@ Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)
 - [Contributing](#contributing)
 - [License](#license)
 
----
-
 ## Features
 
 - **Kanban board** with drag-and-drop incident management and real-time sync
@@ -44,10 +40,8 @@ Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)
 - **Alarm integration** with [Divera 24/7](https://www.divera247.com/) webhook and polling
 - **Thermal printer** support for dispatch slips (ESC/POS over network)
 - **Excel import/export** for bulk data management
-- **Role-based access** -- Editor (full CRUD) and Viewer (read-only)
+- **Role-based access** with Editor (full CRUD) and Viewer (read-only) roles
 - **Dark mode**, 60+ keyboard shortcuts, audit log, and a built-in help page
-
----
 
 ## Quick Start
 
@@ -57,11 +51,9 @@ cd kp-rueck
 just dev    # or: docker compose -f docker-compose.dev.yml up --build
 ```
 
-This starts the frontend (`:3000`), backend (`:8000`), database, and tile server. The database is auto-seeded on first run -- admin credentials are printed to the terminal.
+This starts the frontend (`:3000`), backend (`:8000`), database, and tile server. The database is auto-seeded on first run; admin credentials are printed to the terminal.
 
 > **Prerequisites:** Docker and Docker Compose. Optionally [just](https://github.com/casey/just) for the shorthand commands. For local development without Docker, see [backend/README.md](backend/README.md).
-
----
 
 ## Tech Stack
 
@@ -72,8 +64,6 @@ This starts the frontend (`:3000`), backend (`:8000`), database, and tile server
 | Database | PostgreSQL 16 |
 | Maps | Leaflet + OpenStreetMap, optional offline TileServer GL |
 | Infrastructure | Docker Compose, pnpm, uv |
-
----
 
 ## Project Structure
 
@@ -94,8 +84,6 @@ kp-rueck/
 └── justfile                  # Task runner (run `just` for all commands)
 ```
 
----
-
 ## Deployment
 
 Runs on any Docker host. The repo includes configuration for [Railway](https://railway.app/), but works on any platform.
@@ -108,8 +96,6 @@ Runs on any Docker host. The repo includes configuration for [Railway](https://r
 
 See **[docs/RAILWAY.md](docs/RAILWAY.md)** for a step-by-step guide.
 
----
-
 ## Documentation
 
 | Document | Description |
@@ -121,21 +107,17 @@ See **[docs/RAILWAY.md](docs/RAILWAY.md)** for a step-by-step guide.
 | [backend/README.md](backend/README.md) | Backend API and configuration reference |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 
-> **Note:** The UI is in German (Swiss firefighting terminology). Translations and i18n support are a welcome contribution.
-
----
+> The UI is in German (Swiss firefighting terminology). Translations and i18n support are a welcome contribution.
 
 ## Contributing
 
-Contributions are welcome -- bug fixes, integrations, translations, or ideas. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
-
----
+Contributions are welcome: bug fixes, integrations, translations, or ideas. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 
 ## License
 
-[AGPL-3.0](LICENSE) -- free to use, modify, and deploy. Modified versions served over a network must share their source under the same license.
+[AGPL-3.0](LICENSE) — free to use, modify, and deploy. Modified versions served over a network must share their source under the same license.
 
 ## Acknowledgments
 
-- **[Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)** -- original development and real-world testing
+- **[Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)** — original development and real-world testing
 - [shadcn/ui](https://ui.shadcn.com/), [OpenStreetMap](https://www.openstreetmap.org/), [TileServer GL](https://github.com/maptiler/tileserver-gl), [Planetiler](https://github.com/onthegomap/planetiler)

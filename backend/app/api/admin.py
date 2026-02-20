@@ -59,8 +59,8 @@ async def preview_excel_import(
 
     try:
         parsed_data = validate_and_parse_excel(file_bytes)
-    except ExcelImportError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ExcelImportError:
+        raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden")
 
     # Return preview (first 10 rows of each type)
     return {
@@ -105,8 +105,8 @@ async def execute_excel_import(
 
     try:
         parsed_data = validate_and_parse_excel(file_bytes)
-    except ExcelImportError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ExcelImportError:
+        raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden")
 
     # Execute import
     counts = await import_data(db, parsed_data, mode, str(current_user.id))

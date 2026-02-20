@@ -12,6 +12,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
 from ..crud import divera as divera_crud
+from ..middleware.rate_limit import RateLimits, limiter
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
@@ -155,23 +156,42 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
+@limiter.limit(RateLimits.WEBHOOK)
 async def receive_divera_webhook(
     payload: schemas.DiveraWebhookPayload,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request = None,
 ):
     """
     Receive Divera 24/7 webhook and store emergency.
 
     This endpoint receives webhooks from Divera and:
-    1. Stores the emergency in divera_emergencies table
-    2. Does NOT auto-attach to any Event (manual attachment via UI)
-    3. Broadcasts WebSocket notification to frontend
-    4. Returns 200 OK to Divera
-
-    Note: No authentication required - Divera webhooks don't support auth headers.
-    Consider IP whitelisting or webhook secret in production.
+    1. Validates webhook secret (query param or X-Webhook-Secret header)
+    2. Stores the emergency in divera_emergencies table
+    3. Does NOT auto-attach to any Event (manual attachment via UI)
+    4. Broadcasts WebSocket notification to frontend
+    5. Returns 200 OK to Divera
     """
+    # Validate webhook secret
+    from ..services.settings import get_setting
+
+    webhook_secret = await get_setting(db, "alarm_webhook_secret")
+    if webhook_secret and webhook_secret != "CHANGE_ME_IN_PRODUCTION":
+        import secrets as _secrets
+
+        provided_secret = (
+            request.query_params.get("secret", "")
+            if request
+            else ""
+        ) or (
+            request.headers.get("X-Webhook-Secret", "")
+            if request
+            else ""
+        )
+        if not provided_secret or not _secrets.compare_digest(provided_secret, webhook_secret):
+            logger.warning("Divera webhook rejected: invalid or missing secret")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     try:
         # Check if emergency already exists (deduplication)
         existing = await divera_crud.get_divera_emergency_by_divera_id(db, payload.id)

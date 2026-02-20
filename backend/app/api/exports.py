@@ -91,9 +91,8 @@ async def export_event_audit(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    except ValueError as e:
-        # Event not found (raised by service)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
 
     except Exception as e:
         # Log error with full details

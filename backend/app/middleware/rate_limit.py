@@ -57,7 +57,7 @@ class RateLimits:
     """Rate limit configurations."""
 
     # Authentication - strict to prevent brute force
-    LOGIN = "5/minute"
+    LOGIN = "3/minute"
     REGISTER = "3/minute"
     PASSWORD_RESET = "3/minute"
 
@@ -73,6 +73,9 @@ class RateLimits:
 
     # File uploads
     PHOTO_UPLOAD = "30/minute"
+
+    # Webhooks - prevent flooding
+    WEBHOOK = "10/minute"
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:

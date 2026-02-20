@@ -33,7 +33,7 @@ just lint      # Lint frontend + backend
 
 ### Frontend (TypeScript)
 - **Linter**: ESLint (`pnpm lint` or `just lint`)
-- Use TypeScript strictly -- avoid `any`
+- Use TypeScript strictly, avoid `any`
 - Follow Next.js 15 App Router conventions
 - Use `"use client"` only when the component needs interactivity
 - Use shadcn/ui components from `components/ui/` where applicable
@@ -52,20 +52,20 @@ chore: update dependencies
 
 ## Pull Request Guidelines
 
-1. **Keep PRs focused** -- one feature or fix per PR
-2. **Update documentation** -- if you change behavior, update relevant docs
-3. **Add tests** -- for new features, add appropriate test coverage
-4. **Test manually** -- verify the feature works in the browser
-5. **Describe your changes** -- explain what and why in the PR description
-6. **Run linting** -- ensure `just lint` passes before submitting
+1. **Keep PRs focused:** one feature or fix per PR
+2. **Update documentation** if you change behavior
+3. **Add tests** for new features
+4. **Test manually** in the browser
+5. **Describe your changes:** explain what and why in the PR description
+6. **Run linting:** ensure `just lint` passes before submitting
 
 ## Areas for Contribution
 
 ### High Impact
-- **Translations / i18n** -- the UI is currently German-only
-- **Alerting integrations** -- connect to platforms like Alamos, BORS, or other regional systems
-- **CAD integration** -- connect to Computer-Aided Dispatch systems
-- **PDF report generation** -- export incidents, board snapshots, or statistics as PDF
+- **Translations / i18n** — the UI is currently German-only
+- **Alerting integrations** — connect to platforms like Alamos, BORS, or other regional systems
+- **CAD integration** — connect to Computer-Aided Dispatch systems
+- **PDF report generation** — export incidents, board snapshots, or statistics as PDF
 
 ### Good First Issues
 - UI improvements and accessibility

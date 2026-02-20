@@ -1,5 +1,6 @@
 """Health check and demo status endpoints."""
 
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import audit_engine, engine, get_db
 from ..websocket_manager import ws_manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
 
@@ -55,7 +58,10 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     Detailed health check with component status.
 
     Returns comprehensive health information for monitoring.
+    Only available in non-production environments.
     """
+    if settings.is_production:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     health_status = {
         "status": "healthy",
         "components": {},
@@ -162,4 +168,5 @@ async def demo_reset():
 
         return {"status": "reset_complete"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Demo reset failed: {e}")
+        raise HTTPException(status_code=500, detail="Reset failed")
