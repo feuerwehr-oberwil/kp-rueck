@@ -9,7 +9,7 @@ set -e
 
 # Determine backend URL
 if [ "$1" = "production" ]; then
-    BASE_URL="https://fwo-kp-api.up.railway.app"
+    BASE_URL="${PRODUCTION_URL:?Set PRODUCTION_URL environment variable}"
 elif [ -n "$1" ]; then
     BASE_URL="$1"
 else

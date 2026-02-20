@@ -12,6 +12,8 @@ A tactical operations dashboard for firefighting command posts. Digital replacem
 
 Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/) (a volunteer fire department in Basel-Landschaft, Switzerland) and designed to be fully adaptable for any fire department.
 
+> **Note:** This entire project was vibe coded -- an experiment in how far you can take AI-assisted development and how much you can trust the result in a real-world operational setting.
+
 | Operations Board | Interactive Map |
 |:---:|:---:|
 | ![Dashboard](docs/images/dashboard.png) | ![Map View](docs/images/map-view.png) |
@@ -118,7 +120,7 @@ Many fire departments manage operations using physical magnet boards -- moving t
 ### Option A: Docker (recommended)
 
 ```bash
-git clone https://github.com/YOUR_ORG/kp-rueck.git
+git clone https://github.com/feuerwehr-oberwil/kp-rueck.git
 cd kp-rueck
 
 # Start all services with hot reload
@@ -458,4 +460,4 @@ You're free to use, modify, and deploy this software. If you deploy a modified v
 
 ---
 
-**Questions or issues?** Open an [issue](https://github.com/YOUR_ORG/kp-rueck/issues) on GitHub.
+**Questions or issues?** Open an [issue](https://github.com/feuerwehr-oberwil/kp-rueck/issues) on GitHub.

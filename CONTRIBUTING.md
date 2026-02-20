@@ -117,9 +117,9 @@ See the [README](README.md#project-structure) for the full project structure.
 
 ## Questions?
 
-- Open a [GitHub Issue](https://github.com/YOUR_ORG/kp-rueck/issues) for bugs or feature requests
-- Start a [Discussion](https://github.com/YOUR_ORG/kp-rueck/discussions) for questions
+- Open a [GitHub Issue](https://github.com/feuerwehr-oberwil/kp-rueck/issues) for bugs or feature requests
+- Start a [Discussion](https://github.com/feuerwehr-oberwil/kp-rueck/discussions) for questions
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the [AGPL-3.0 License](LICENSE).

@@ -22,6 +22,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 
@@ -191,7 +192,7 @@ Examples:
     parser.add_argument(
         "--production",
         action="store_true",
-        help="Use Railway production URL (https://fwo-kp-api.up.railway.app)",
+        help="Use production URL from PRODUCTION_URL env var",
     )
     parser.add_argument(
         "--count",
@@ -215,7 +216,10 @@ Examples:
 
     # Determine backend URL
     if args.production:
-        base_url = "https://fwo-kp-api.up.railway.app"
+        base_url = os.environ.get("PRODUCTION_URL", "").rstrip("/")
+        if not base_url:
+            print("Error: Set PRODUCTION_URL environment variable for --production mode")
+            sys.exit(1)
     elif args.url:
         base_url = args.url.rstrip("/")
     else:

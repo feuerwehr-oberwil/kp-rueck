@@ -2,6 +2,7 @@
 name = "kprueck-backend"
 version = "1.0.0"
 description = "FastAPI backend for KP Rück firefighting operations dashboard"
+license = "AGPL-3.0"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

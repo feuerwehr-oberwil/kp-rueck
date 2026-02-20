@@ -191,7 +191,7 @@ export function PrinterSettings() {
             <Input
               id="printer-ip"
               type="text"
-              placeholder="10.10.10.230"
+              placeholder="192.168.1.100"
               value={printerIp}
               onChange={(e) =>
                 setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
@@ -203,7 +203,7 @@ export function PrinterSettings() {
               }}
               disabled={saving === 'printer.ip'}
             />
-            <p className="text-sm text-muted-foreground">Netzwerk-IP des Thermodruckers (z.B. 10.10.10.230)</p>
+            <p className="text-sm text-muted-foreground">Netzwerk-IP des Thermodruckers (z.B. 192.168.1.100)</p>
           </div>
 
           {/* Port */}

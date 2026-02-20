@@ -21,7 +21,7 @@ DEFAULT_SETTINGS = {
     "sync_conflict_buffer_seconds": "5",  # Timestamp buffer for conflict resolution (Local wins if within buffer)
     # Thermal printer settings (local installations only)
     "printer.enabled": "false",  # Master toggle for printer functionality
-    "printer.ip": "",  # Printer IP address (e.g., "10.10.10.230")
+    "printer.ip": "",  # Printer IP address (e.g., "192.168.1.100")
     "printer.port": "9100",  # Printer port (default ESC/POS port)
     "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "einsatz"
 }
