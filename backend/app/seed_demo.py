@@ -361,7 +361,8 @@ async def seed_demo_database() -> None:
                 ]
             )
 
-            # Incident 5 (einsatz_beendet) - had vehicle+personnel
+            # Incident 5 (einsatz_beendet) - had vehicle+personnel, now unassigned
+            completed_at = now - timedelta(minutes=45)
             assignments.extend(
                 [
                     models.IncidentAssignment(
@@ -370,6 +371,7 @@ async def seed_demo_database() -> None:
                         resource_type="vehicle",
                         resource_id=vehicles[2].id,  # Mowa
                         assigned_by=editor_user.id,
+                        unassigned_at=completed_at,
                     ),
                     models.IncidentAssignment(
                         id=uuid4(),
@@ -377,6 +379,7 @@ async def seed_demo_database() -> None:
                         resource_type="personnel",
                         resource_id=personnel[5].id,  # Schmidt Daniel
                         assigned_by=editor_user.id,
+                        unassigned_at=completed_at,
                     ),
                     models.IncidentAssignment(
                         id=uuid4(),
@@ -384,6 +387,7 @@ async def seed_demo_database() -> None:
                         resource_type="material",
                         resource_id=materials[12].id,  # Motorsäge Gr.
                         assigned_by=editor_user.id,
+                        unassigned_at=completed_at,
                     ),
                 ]
             )
