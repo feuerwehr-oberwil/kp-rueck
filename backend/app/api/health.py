@@ -150,7 +150,16 @@ async def demo_reset():
     if not settings.demo_mode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    from ..background.demo_reset import scheduled_demo_reset
+    from ..background.demo_reset import _clear_photos, _truncate_all_tables
 
-    await scheduled_demo_reset()
-    return {"status": "reset_complete"}
+    try:
+        await _truncate_all_tables()
+        _clear_photos()
+
+        from ..seed_demo import seed_demo_database
+
+        await seed_demo_database()
+
+        return {"status": "reset_complete"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
