@@ -1,6 +1,6 @@
 # Offline Map Tiles Setup Guide
 
-This guide explains the offline map tiles functionality in KP Ruck. The system provides **automatic offline map capability** for emergency operations when internet connectivity is unavailable.
+This guide explains the offline map tiles functionality in KP Rück. The system provides **automatic offline map capability** for emergency operations when internet connectivity is unavailable.
 
 ## Overview
 

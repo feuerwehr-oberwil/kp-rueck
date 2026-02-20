@@ -6,7 +6,7 @@
 ## Overview
 
 Hosted online demo at `demo.kp-rueck.app` for:
-- **Other fire departments** evaluating KP Ruck for their own command posts
+- **Other fire departments** evaluating KP Rück for their own command posts
 - **General public** exploring the system via GitHub or a landing page
 
 The demo is self-service with a pre-loaded realistic scenario so visitors immediately see a populated Kanban board, but can also create/modify their own data.

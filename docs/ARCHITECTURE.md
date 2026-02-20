@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document describes the components that make up KP Ruck, how they communicate, and the different ways the system can be deployed.
+This document describes the components that make up KP Rück, how they communicate, and the different ways the system can be deployed.
 
 ---
 
@@ -173,7 +173,7 @@ erDiagram
 
 ## Deployment Architectures
 
-KP Ruck supports three deployment modes depending on the use case.
+KP Rück supports three deployment modes depending on the use case.
 
 ### Local Development (Docker Compose)
 

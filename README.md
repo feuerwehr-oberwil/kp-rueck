@@ -1,4 +1,4 @@
-# KP Ruck
+# KP Rück
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-rueck.app)
@@ -22,7 +22,7 @@ Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)
 
 ## Live Demo
 
-Try KP Ruck without installing anything: **[demo.kp-rueck.app](https://demo.kp-rueck.app)**
+Try KP Rück without installing anything: **[demo.kp-rueck.app](https://demo.kp-rueck.app)**
 
 The demo comes pre-loaded with a realistic flood scenario ("Hochwasser Oberwil") including ~20 personnel, 5 vehicles, 15+ materials, and 6 incidents across all workflow stages. Log in with one click and explore the full interface.
 
@@ -36,7 +36,7 @@ The demo comes pre-loaded with a realistic flood scenario ("Hochwasser Oberwil")
 
 ---
 
-## Why KP Ruck?
+## Why KP Rück?
 
 Many fire departments manage operations using physical magnet boards -- moving tokens around to track which personnel and vehicles are assigned to which incidents. This works, but it has real limitations:
 
@@ -45,11 +45,11 @@ Many fire departments manage operations using physical magnet boards -- moving t
 - Easy to lose track during multi-incident scenarios
 - Cannot be updated remotely from the field
 
-**KP Ruck** digitizes this workflow while keeping the familiar Kanban-style interface that commanders already know. It runs on any device with a browser, syncs in real time, and adds features like maps, training mode, and thermal printer support on top.
+**KP Rück** digitizes this workflow while keeping the familiar Kanban-style interface that commanders already know. It runs on any device with a browser, syncs in real time, and adds features like maps, training mode, and thermal printer support on top.
 
-> **What does "KP Ruck" mean?**
-> KP = *Kommandoposten* (Command Post), Ruck = *Ruckwartiger Dienst* (Rear Services).
-> In Swiss firefighting, the KP Ruck is the coordination hub behind the front lines -- exactly what this software is.
+> **What does "KP Rück" mean?**
+> KP = *Kommandoposten* (Command Post), Rück = *Rückwärtiger Dienst* (Rear Services).
+> In Swiss firefighting, the KP Rück is the coordination hub behind the front lines -- exactly what this software is.
 
 ---
 
@@ -178,7 +178,7 @@ Admin user created: admin / <generated-password>
 
 ## Customizing for Your Department
 
-KP Ruck is designed to work for **any fire department** out of the box. Here's how to make it yours:
+KP Rück is designed to work for **any fire department** out of the box. Here's how to make it yours:
 
 ### 1. Quick Setup (via UI)
 
@@ -333,7 +333,7 @@ All common tasks are available via [just](https://github.com/casey/just). Run `j
 
 ## Deployment
 
-KP Ruck runs on any platform that supports Docker. The repository includes configuration for [Railway](https://railway.app/), but you can deploy to any Docker host, VPS, or cloud provider.
+KP Rück runs on any platform that supports Docker. The repository includes configuration for [Railway](https://railway.app/), but you can deploy to any Docker host, VPS, or cloud provider.
 
 See **[docs/RAILWAY.md](docs/RAILWAY.md)** for step-by-step Railway deployment instructions.
 
@@ -359,7 +359,7 @@ See **[docs/RAILWAY.md](docs/RAILWAY.md)** for step-by-step Railway deployment i
 
 ## Thermal Printer (Optional)
 
-KP Ruck supports ESC/POS thermal printers for printing dispatch slips and board snapshots. This is useful for command posts that need physical records.
+KP Rück supports ESC/POS thermal printers for printing dispatch slips and board snapshots. This is useful for command posts that need physical records.
 
 **Supported printers:** Any ESC/POS compatible network printer (tested with Epson TM-T20, 58mm paper width).
 
@@ -381,7 +381,7 @@ See the `print-agent/` directory for configuration details.
 
 ## Offline Maps (Optional)
 
-For operations in areas with unreliable internet, KP Ruck includes a self-hosted tile server that provides offline map capability.
+For operations in areas with unreliable internet, KP Rück includes a self-hosted tile server that provides offline map capability.
 
 - Auto-starts with `just dev` (minimal bootstrap tiles)
 - Download full offline tiles with `just tiles-download` (~12 MB for Basel-Landschaft)

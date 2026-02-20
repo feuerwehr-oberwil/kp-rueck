@@ -1,4 +1,4 @@
-# Contributing to KP Ruck
+# Contributing to KP Rück
 
 Thank you for your interest in contributing! This project started as a tool for a Swiss fire department but is designed to be adaptable for fire departments and emergency services worldwide.
 
