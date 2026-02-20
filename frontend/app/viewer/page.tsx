@@ -326,7 +326,7 @@ export default function ViewerPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-full bg-background flex items-center justify-center p-4">
         <div className="max-w-md text-center">
           <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <div className="text-destructive text-xl font-semibold mb-2">
@@ -340,14 +340,14 @@ export default function ViewerPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-full bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
+    <div className="flex h-full flex-col bg-background text-foreground">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
         <div className="flex items-center gap-3 min-w-0 flex-1">

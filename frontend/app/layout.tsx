@@ -57,10 +57,12 @@ export default function RootLayout({
                   <OperationsProvider>
                     <NotificationProvider>
                       <CommandPaletteProvider>
-                        <DemoBanner />
-                        <AppShell>
-                          {children}
-                        </AppShell>
+                        <div className="flex flex-col h-dvh overflow-hidden">
+                          <DemoBanner />
+                          <AppShell>
+                            {children}
+                          </AppShell>
+                        </div>
                         <NotificationToasts />
                         <PersistentNotificationSidebar />
                       </CommandPaletteProvider>

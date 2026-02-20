@@ -215,7 +215,7 @@ export default function EventsPage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen flex-col bg-background text-foreground">
+      <div className="flex h-full flex-col bg-background text-foreground">
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">

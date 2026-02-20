@@ -23,7 +23,7 @@ export default function TrainingPage() {
 
   if (!selectedEvent) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground">
+      <div className="flex h-full items-center justify-center bg-background text-foreground">
         <div className="text-muted-foreground">Laden...</div>
       </div>
     )
@@ -32,7 +32,7 @@ export default function TrainingPage() {
   if (!selectedEvent.training_flag) {
     return (
       <ProtectedRoute>
-        <div className="flex h-screen flex-col bg-background text-foreground">
+        <div className="flex h-full flex-col bg-background text-foreground">
           <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-2 min-h-14">
             <h1 className="text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
             <PageNavigation
@@ -59,7 +59,7 @@ export default function TrainingPage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen flex-col bg-background text-foreground">
+      <div className="flex h-full flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sm:px-6 py-2 min-h-14">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
           <PageNavigation

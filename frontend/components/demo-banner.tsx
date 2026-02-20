@@ -109,7 +109,7 @@ export function DemoBanner() {
   }
 
   return (
-    <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500/90 px-4 py-1.5 text-sm font-medium text-amber-950 backdrop-blur-sm">
+    <div className="flex-shrink-0 z-50 flex items-center justify-center gap-2 bg-amber-500/90 px-4 py-1.5 text-sm font-medium text-amber-950 backdrop-blur-sm">
       <span>
         Demo-Modus — wird in {timeText} zurückgesetzt
       </span>

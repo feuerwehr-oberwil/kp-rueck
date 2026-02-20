@@ -25,7 +25,7 @@ export function AppShell({ children }: AppShellProps) {
     <>
       <div
         className={cn(
-          'min-h-screen transition-[margin] duration-300 ease-in-out',
+          'flex-1 min-h-0 overflow-auto transition-[margin] duration-300 ease-in-out',
           !isMobile && isSidebarOpen && 'mr-80' // 320px = w-80
         )}
       >
