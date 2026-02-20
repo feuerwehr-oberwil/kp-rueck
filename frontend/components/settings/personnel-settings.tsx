@@ -17,7 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -72,22 +72,42 @@ export function PersonnelSettings() {
     }
   };
 
+  // Extract unique roles for the role selector
+  const existingRoles = useMemo(() => {
+    const roles = new Set<string>();
+    personnel.forEach((p) => {
+      if (p.role) roles.add(p.role);
+    });
+    return Array.from(roles).sort();
+  }, [personnel]);
+
+  const handleOpenCreate = () => {
+    setEditingPersonnel(null);
+    setFormData({ name: '', role: '', availability: 'available' });
+    setIsDialogOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
       if (editingPersonnel) {
-        await apiClient.updatePersonnel(editingPersonnel.id, formData);
-        toast.success(`Person "${formData.name}" aktualisiert`);
+        const updated = await apiClient.updatePersonnel(editingPersonnel.id, formData);
+        // Optimistic update: replace the edited person in-place
+        setPersonnel((prev) =>
+          prev.map((p) => (p.id === editingPersonnel.id ? updated : p))
+        );
+        toast.success(`"${formData.name}" aktualisiert`);
       } else {
-        await apiClient.createPersonnel(formData);
-        toast.success(`Person "${formData.name}" erstellt`);
+        const created = await apiClient.createPersonnel(formData);
+        // Optimistic update: append new person
+        setPersonnel((prev) => [...prev, created]);
+        toast.success(`"${formData.name}" erstellt`);
       }
-      await loadPersonnel();
       handleCloseDialog();
     } catch (error) {
       console.error('Failed to save personnel:', error);
-      toast.error('Fehler beim Speichern der Person');
+      toast.error('Fehler beim Speichern');
     } finally {
       setIsSaving(false);
     }
@@ -112,11 +132,12 @@ export function PersonnelSettings() {
     if (!personnelToDelete) return;
     try {
       await apiClient.deletePersonnel(personnelToDelete.id);
-      await loadPersonnel();
-      toast.success(`Person "${personnelToDelete.name}" gelöscht`);
+      // Optimistic update: remove the deleted person
+      setPersonnel((prev) => prev.filter((p) => p.id !== personnelToDelete.id));
+      toast.success(`"${personnelToDelete.name}" gelöscht`);
     } catch (error) {
       console.error('Failed to delete personnel:', error);
-      toast.error('Fehler beim Löschen der Person');
+      toast.error('Fehler beim Löschen');
     } finally {
       setPersonnelToDelete(null);
     }
@@ -261,132 +282,76 @@ export function PersonnelSettings() {
 
         <TabsContent value="list" className="space-y-4">
           <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={handleOpenSyncDialog}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Von Divera synchronisieren
-        </Button>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingPersonnel(null)}>
+            <Button variant="outline" onClick={handleOpenSyncDialog}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Von Divera synchronisieren
+            </Button>
+            <Button onClick={handleOpenCreate}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Personal hinzufügen
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingPersonnel ? 'Personal bearbeiten' : 'Neues Personal hinzufügen'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="role">Rolle</Label>
-                <Input
-                  id="role"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="z.B. Feuerwehrmann, Sanitäter, Fahrer"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="availability">Verfügbarkeit</Label>
-                <Select
-                  value={formData.availability}
-                  onValueChange={(value) => setFormData({ ...formData, availability: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Verfügbar</SelectItem>
-                    <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
-                  Abbrechen
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingPersonnel ? 'Aktualisieren' : 'Erstellen'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50 select-none"
-              onClick={() => handleSort('name')}
-            >
-              Name<SortIndicator column="name" />
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50 select-none"
-              onClick={() => handleSort('role')}
-            >
-              Rolle<SortIndicator column="role" />
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50 select-none"
-              onClick={() => handleSort('availability')}
-            >
-              Verfügbarkeit<SortIndicator column="availability" />
-            </TableHead>
-            <TableHead className="text-right">Aktionen</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedPersonnel.map((person) => (
-            <TableRow key={person.id}>
-              <TableCell className="font-medium">{person.name}</TableCell>
-              <TableCell>{person.role || '-'}</TableCell>
-              <TableCell>
-                <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    person.availability === 'available'
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-                  }`}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('name')}
                 >
-                  {person.availability === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
-                </span>
-              </TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEdit(person)}
+                  Name<SortIndicator column="name" />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('role')}
                 >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteClick(person)}
+                  Rolle<SortIndicator column="role" />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('availability')}
                 >
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                  Verfügbarkeit<SortIndicator column="availability" />
+                </TableHead>
+                <TableHead className="text-right">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedPersonnel.map((person) => (
+                <TableRow key={person.id}>
+                  <TableCell className="font-medium">{person.name}</TableCell>
+                  <TableCell>{person.role || '-'}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        person.availability === 'available'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      }`}
+                    >
+                      {person.availability === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(person)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteClick(person)}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </TabsContent>
 
         <TabsContent value="sort">
@@ -398,6 +363,101 @@ export function PersonnelSettings() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Edit / Create Personnel Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPersonnel ? 'Personal bearbeiten' : 'Neue Person hinzufügen'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Nachname Vorname"
+                autoFocus
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="role">Rolle / Grad</Label>
+              {existingRoles.length > 0 ? (
+                <Select
+                  value={existingRoles.includes(formData.role) ? formData.role : '__custom__'}
+                  onValueChange={(value) => {
+                    if (value === '__custom__') {
+                      setFormData({ ...formData, role: '' });
+                    } else {
+                      setFormData({ ...formData, role: value });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Rolle auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingRoles.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__custom__">Andere...</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="role"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  placeholder="z.B. Offiziere, Wachtmeister"
+                  required
+                />
+              )}
+              {existingRoles.length > 0 && (!existingRoles.includes(formData.role) || formData.role === '') && (
+                <Input
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  placeholder="Neue Rolle eingeben"
+                  className="mt-1.5"
+                  required
+                />
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="availability">Verfügbarkeit</Label>
+              <Select
+                value={formData.availability}
+                onValueChange={(value) => setFormData({ ...formData, availability: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Verfügbar</SelectItem>
+                  <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
+                Abbrechen
+              </Button>
+              <Button type="submit" disabled={isSaving || !formData.name.trim() || !formData.role.trim()}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingPersonnel ? 'Speichern' : 'Erstellen'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}
