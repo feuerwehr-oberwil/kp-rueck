@@ -568,7 +568,9 @@ export default function SettingsPage() {
         return <NotificationSettingsCard />;
 
       case 'sync':
-        return (
+        return demoMode ? (
+          <DemoHint text="Synchronisation ist im Demo-Modus nicht verfügbar." />
+        ) : (
           <div className="space-y-6">
             <SyncStatusCard
               status={syncStatus}
