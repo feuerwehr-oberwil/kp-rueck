@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Link2, RefreshCw, Search, Check } from 'lucide-react';
+import { Link2, RefreshCw, Search, Check, Info } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -45,6 +45,7 @@ export default function DiveraPoolPage() {
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [attaching, setAttaching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [demoMode, setDemoMode] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const playAlertSound = () => {
@@ -83,6 +84,7 @@ export default function DiveraPoolPage() {
     if (isAuthenticated) {
       loadData();
     }
+    apiClient.getDemoStatus().then((status) => setDemoMode(status?.demo === true));
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -244,14 +246,27 @@ export default function DiveraPoolPage() {
           </div>
         ) : filteredEmergencies.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <p>{searchQuery ? 'Keine Treffer' : 'Keine Notfälle vorhanden'}</p>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="mt-2 text-sm text-primary hover:underline"
-              >
-                Suche zurücksetzen
-              </button>
+            {demoMode && !searchQuery ? (
+              <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+                <Info className="h-8 w-8 text-amber-500" />
+                <p className="font-medium text-foreground">Divera ist im Demo-Modus nicht verfügbar</p>
+                <p className="text-sm">
+                  Diese Seite zeigt eingehende Alarme von <span className="font-medium">Divera 24/7</span> an.
+                  Im Demo-Modus ist keine Divera-Verbindung konfiguriert.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p>{searchQuery ? 'Keine Treffer' : 'Keine Notfälle vorhanden'}</p>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="mt-2 text-sm text-primary hover:underline"
+                  >
+                    Suche zurücksetzen
+                  </button>
+                )}
+              </>
             )}
           </div>
         ) : (
