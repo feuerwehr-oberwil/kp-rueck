@@ -55,6 +55,7 @@ import {
   ClipboardList,
   Printer,
   Shield,
+  Info,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -169,6 +170,12 @@ export default function SettingsPage() {
   // Audit export state
   const [auditExportEventId, setAuditExportEventId] = useState<string>('');
   const [auditExportLoading, setAuditExportLoading] = useState(false);
+
+  // Demo mode detection
+  const [demoMode, setDemoMode] = useState(false);
+  useEffect(() => {
+    apiClient.getDemoStatus().then((status) => setDemoMode(status?.demo === true));
+  }, []);
 
   // Audit log state
   const [auditEntries, setAuditEntries] = useState<ApiAuditLog[]>([]);
@@ -461,6 +468,15 @@ export default function SettingsPage() {
     (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin)
   );
 
+  const DemoHint = ({ text }: { text: string }) => (
+    demoMode ? (
+      <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+        <Info className="h-4 w-4 flex-shrink-0" />
+        {text}
+      </div>
+    ) : null
+  );
+
   // Render content based on active section
   const renderContent = () => {
     switch (activeSection) {
@@ -567,13 +583,23 @@ export default function SettingsPage() {
         );
 
       case 'printer':
-        return <PrinterSettings />;
+        return (
+          <div className="space-y-4">
+            <DemoHint text="Druckereinstellungen sind im Demo-Modus nicht verfügbar. Es ist kein physischer Drucker angeschlossen." />
+            <PrinterSettings />
+          </div>
+        );
 
       case 'users':
-        return <UserSettings />;
+        return (
+          <div className="space-y-4">
+            <DemoHint text="Benutzerverwaltung ist im Demo-Modus nicht verfügbar." />
+            <UserSettings />
+          </div>
+        );
 
       case 'personnel':
-        return <PersonnelSettings />;
+        return <PersonnelSettings demoMode={demoMode} />;
 
       case 'vehicles':
         return <VehicleSettings />;
@@ -584,6 +610,7 @@ export default function SettingsPage() {
       case 'import':
         return (
           <div className="space-y-6">
+            <DemoHint text="Datenimport ist im Demo-Modus nicht verfügbar. Export und Vorlagen-Download funktionieren normal." />
             {/* Notifications */}
             {importError && (
               <Card className="p-4 border-destructive bg-destructive/10">

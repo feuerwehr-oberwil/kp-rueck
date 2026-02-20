@@ -36,7 +36,7 @@ import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { toast } from 'sonner';
 
-export function PersonnelSettings() {
+export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) {
   const [personnel, setPersonnel] = useState<ApiPersonnel[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPersonnel, setEditingPersonnel] = useState<ApiPersonnel | null>(null);
@@ -314,10 +314,12 @@ export function PersonnelSettings() {
 
         <TabsContent value="list" className="space-y-4">
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleOpenSyncDialog}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Von Divera synchronisieren
-            </Button>
+            {!demoMode && (
+              <Button variant="outline" onClick={handleOpenSyncDialog}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Von Divera synchronisieren
+              </Button>
+            )}
             <Button onClick={handleOpenCreate}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Personal hinzufügen
