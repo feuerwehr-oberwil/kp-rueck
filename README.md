@@ -1,6 +1,7 @@
 # KP Ruck
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-rueck.app)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
@@ -14,6 +15,22 @@ Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)
 | Operations Board | Interactive Map |
 |:---:|:---:|
 | ![Dashboard](docs/images/dashboard.png) | ![Map View](docs/images/map-view.png) |
+
+---
+
+## Live Demo
+
+Try KP Ruck without installing anything: **[demo.kp-rueck.app](https://demo.kp-rueck.app)**
+
+The demo comes pre-loaded with a realistic flood scenario ("Hochwasser Oberwil") including ~20 personnel, 5 vehicles, 15+ materials, and 6 incidents across all workflow stages. Log in with one click and explore the full interface.
+
+| | |
+|---|---|
+| **Editor login** | `demo-editor` / `demo123` -- full CRUD, drag-and-drop, create incidents |
+| **Viewer login** | `demo-viewer` / `demo123` -- read-only view, same as field tablets |
+| **Resets** | Every 2 hours all data returns to the seed state |
+
+> Hardware integrations (thermal printer, GPS tracking, Divera alerting) are not available in the demo since they require physical devices or external services.
 
 ---
 
