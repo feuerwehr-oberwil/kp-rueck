@@ -16,8 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2 } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2, Siren } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -387,7 +386,7 @@ export default function EventsPage() {
 
         {/* Create Event Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Neues Ereignis erstellen</DialogTitle>
             </DialogHeader>
@@ -400,29 +399,47 @@ export default function EventsPage() {
                   onChange={(e) => setNewEventName(e.target.value)}
                   placeholder="z.B. Hochwasser 2026-02-19"
                   autoFocus
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <Label htmlFor="training-mode" className="cursor-pointer">Übungsmodus</Label>
-                <Switch
-                  id="training-mode"
-                  checked={newEventTraining}
-                  onCheckedChange={(checked) => {
-                    setNewEventTraining(checked)
-                    if (checked) setNewEventAutoAttachDivera(false)
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newEventName.trim() && !isCreating) {
+                      handleCreateEvent()
+                    }
                   }}
                 />
               </div>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <Label htmlFor="auto-attach-divera" className="cursor-pointer">Divera-Notfälle automatisch anhängen</Label>
-                <Switch
-                  id="auto-attach-divera"
-                  checked={newEventAutoAttachDivera}
-                  onCheckedChange={(checked) => {
-                    setNewEventAutoAttachDivera(checked)
-                    if (checked) setNewEventTraining(false)
-                  }}
-                />
+              <div className="space-y-2">
+                <Label>Modus</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewEventTraining(false)
+                      setNewEventAutoAttachDivera(true)
+                    }}
+                    className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left text-sm font-medium transition-colors ${
+                      !newEventTraining
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-muted hover:border-muted-foreground/25'
+                    }`}
+                  >
+                    <Siren className="h-4 w-4 shrink-0" />
+                    Einsatz
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewEventTraining(true)
+                      setNewEventAutoAttachDivera(false)
+                    }}
+                    className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left text-sm font-medium transition-colors ${
+                      newEventTraining
+                        ? 'border-orange-500 bg-orange-500/5 text-orange-600 dark:text-orange-400'
+                        : 'border-muted hover:border-muted-foreground/25'
+                    }`}
+                  >
+                    <GraduationCap className="h-4 w-4 shrink-0" />
+                    Übung
+                  </button>
+                </div>
               </div>
             </div>
             <DialogFooter>

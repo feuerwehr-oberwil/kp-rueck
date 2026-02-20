@@ -52,7 +52,7 @@ async def seed_demo_database() -> None:
                 id=uuid4(),
                 username="demo-viewer",
                 password_hash=viewer_hash,
-                role="viewer",
+                role="editor",
                 display_name="Demo Betrachter",
                 is_active=True,
             )
