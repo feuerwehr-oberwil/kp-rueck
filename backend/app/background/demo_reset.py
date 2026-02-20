@@ -42,13 +42,17 @@ async def _truncate_all_tables():
 
 
 def _clear_photos():
-    """Clear the photos directory."""
+    """Clear the photos directory contents (keep the directory itself for volume mounts)."""
     import os
 
     photos_dir = settings.photos_dir
     if os.path.exists(photos_dir):
-        shutil.rmtree(photos_dir)
-        os.makedirs(photos_dir, exist_ok=True)
+        for entry in os.listdir(photos_dir):
+            entry_path = os.path.join(photos_dir, entry)
+            if os.path.isdir(entry_path):
+                shutil.rmtree(entry_path)
+            else:
+                os.remove(entry_path)
         logger.info(f"Cleared photos directory: {photos_dir}")
 
 
