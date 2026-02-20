@@ -30,7 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
@@ -44,7 +44,9 @@ export function PersonnelSettings() {
     name: '',
     role: '',
     availability: 'available',
+    tags: [] as string[],
   });
+  const [newTag, setNewTag] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personnelToDelete, setPersonnelToDelete] = useState<ApiPersonnel | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -81,9 +83,19 @@ export function PersonnelSettings() {
     return Array.from(roles).sort();
   }, [personnel]);
 
+  // Extract unique tags across all personnel for quick-toggle
+  const existingTags = useMemo(() => {
+    const tags = new Set<string>();
+    personnel.forEach((p) => {
+      p.tags?.forEach((t) => tags.add(t));
+    });
+    return Array.from(tags).sort();
+  }, [personnel]);
+
   const handleOpenCreate = () => {
     setEditingPersonnel(null);
-    setFormData({ name: '', role: '', availability: 'available' });
+    setFormData({ name: '', role: '', availability: 'available', tags: [] });
+    setNewTag('');
     setIsDialogOpen(true);
   };
 
@@ -119,7 +131,9 @@ export function PersonnelSettings() {
       name: person.name,
       role: person.role || '',
       availability: person.availability,
+      tags: person.tags || [],
     });
+    setNewTag('');
     setIsDialogOpen(true);
   };
 
@@ -146,7 +160,25 @@ export function PersonnelSettings() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingPersonnel(null);
-    setFormData({ name: '', role: '', availability: 'available' });
+    setFormData({ name: '', role: '', availability: 'available', tags: [] });
+    setNewTag('');
+  };
+
+  const toggleTag = (tag: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: prev.tags.includes(tag)
+        ? prev.tags.filter((t) => t !== tag)
+        : [...prev.tags, tag],
+    }));
+  };
+
+  const addCustomTag = () => {
+    const trimmed = newTag.trim();
+    if (trimmed && !formData.tags.includes(trimmed)) {
+      setFormData((prev) => ({ ...prev, tags: [...prev.tags, trimmed] }));
+    }
+    setNewTag('');
   };
 
   // Handle column header click for sorting
@@ -307,6 +339,7 @@ export function PersonnelSettings() {
                 >
                   Rolle<SortIndicator column="role" />
                 </TableHead>
+                <TableHead>Tags</TableHead>
                 <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('availability')}
@@ -321,6 +354,17 @@ export function PersonnelSettings() {
                 <TableRow key={person.id}>
                   <TableCell className="font-medium">{person.name}</TableCell>
                   <TableCell>{person.role || '-'}</TableCell>
+                  <TableCell>
+                    {person.tags && person.tags.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {person.tags.map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-xs font-normal px-1.5 py-0">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
@@ -444,6 +488,68 @@ export function PersonnelSettings() {
                   <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Tags</Label>
+              {/* Currently assigned tags */}
+              {formData.tags.length > 0 && (
+                <div className="flex gap-1.5 flex-wrap">
+                  {formData.tags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="default"
+                      className="text-xs px-2 py-0.5 cursor-pointer gap-1"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                      <X className="h-3 w-3" />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {/* Quick-toggle existing tags not yet assigned */}
+              {existingTags.filter((t) => !formData.tags.includes(t)).length > 0 && (
+                <div className="flex gap-1.5 flex-wrap">
+                  {existingTags
+                    .filter((t) => !formData.tags.includes(t))
+                    .map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="outline"
+                        className="text-xs px-2 py-0.5 cursor-pointer text-muted-foreground"
+                        onClick={() => toggleTag(tag)}
+                      >
+                        + {tag}
+                      </Badge>
+                    ))}
+                </div>
+              )}
+              {/* Add custom tag */}
+              <div className="flex gap-1.5">
+                <Input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomTag();
+                    }
+                  }}
+                  placeholder="Neuer Tag"
+                  className="h-8 text-sm"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addCustomTag}
+                  disabled={!newTag.trim()}
+                  className="h-8 px-3"
+                >
+                  Hinzufügen
+                </Button>
+              </div>
             </div>
 
             <DialogFooter>
