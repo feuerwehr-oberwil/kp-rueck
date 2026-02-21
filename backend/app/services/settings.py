@@ -1,5 +1,6 @@
 """Settings management service."""
 
+import secrets
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -8,12 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Setting
 
+
+def _generate_webhook_secret() -> str:
+    """Generate a secure random webhook secret."""
+    return secrets.token_urlsafe(32)
+
+
 DEFAULT_SETTINGS = {
     "polling_interval_ms": "5000",
     "training_mode": "false",
     "auto_archive_timeout_hours": "24",
     "notification_enabled": "false",
-    "alarm_webhook_secret": "CHANGE_ME_IN_PRODUCTION",
+    "alarm_webhook_secret": "",  # Auto-generated on first init
     "training_autogen_max_emergencies": "50",
     "sync_interval_minutes": "2",
     "auto_sync_on_create": "true",
@@ -69,8 +76,16 @@ async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID) 
 
 async def initialize_default_settings(db: AsyncSession):
     """Create default settings if they don't exist."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     for key, value in DEFAULT_SETTINGS.items():
         existing = await get_setting(db, key)
         if existing is None:
+            # Auto-generate webhook secret on first init
+            if key == "alarm_webhook_secret" and not value:
+                value = _generate_webhook_secret()
+                logger.info("Generated alarm_webhook_secret: %s", value)
             db.add(Setting(key=key, value=value))
     await db.commit()

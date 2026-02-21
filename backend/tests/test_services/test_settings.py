@@ -105,7 +105,8 @@ class TestInitializeDefaultSettings:
         assert all_settings["training_mode"] == "false"
         assert all_settings["auto_archive_timeout_hours"] == "24"
         assert all_settings["notification_enabled"] == "false"
-        assert all_settings["alarm_webhook_secret"] == "CHANGE_ME_IN_PRODUCTION"
+        # alarm_webhook_secret is auto-generated, just verify it exists and is non-empty
+        assert len(all_settings["alarm_webhook_secret"]) > 0
 
     @pytest.mark.asyncio
     async def test_initialize_default_settings_skips_existing(self, db_session: AsyncSession, test_user: User):

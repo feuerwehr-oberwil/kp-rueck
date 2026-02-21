@@ -177,7 +177,7 @@ async def receive_divera_webhook(
     from ..services.settings import get_setting
 
     webhook_secret = await get_setting(db, "alarm_webhook_secret")
-    if webhook_secret and webhook_secret != "CHANGE_ME_IN_PRODUCTION":
+    if webhook_secret:
         import secrets as _secrets
 
         provided_secret = (

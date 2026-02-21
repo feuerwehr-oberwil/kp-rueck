@@ -104,7 +104,7 @@ class TestSettingModel:
             ("training_mode", "false"),
             ("auto_archive_timeout_hours", "24"),
             ("notification_enabled", "false"),
-            ("alarm_webhook_secret", "CHANGE_ME_IN_PRODUCTION"),
+            ("alarm_webhook_secret", "test_webhook_secret"),
         ]
 
         for key, value in default_settings:

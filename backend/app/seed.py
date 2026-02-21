@@ -126,7 +126,7 @@ async def seed_database() -> None:
                 ("training_mode", "false"),
                 ("auto_archive_timeout_hours", "24"),
                 ("notification_enabled", "false"),
-                ("alarm_webhook_secret", "CHANGE_ME_IN_PRODUCTION"),
+                ("alarm_webhook_secret", secrets.token_urlsafe(32)),
                 ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
             ]
 
