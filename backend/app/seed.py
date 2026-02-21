@@ -58,6 +58,13 @@ async def seed_database() -> None:
         await seed_demo_database()
         return
 
+    # Ensure all tables exist (idempotent - safe to run multiple times)
+    from .database import Base, engine
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("✅ Database tables verified")
+
     async with async_session_maker() as db:
         try:
             # Check if data already exists
