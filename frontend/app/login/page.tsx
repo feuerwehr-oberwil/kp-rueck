@@ -20,13 +20,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isDemo, setIsDemo] = useState(false);
+  const [isDemo, setIsDemo] = useState<boolean | null>(null);
   const { login } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     apiClient.getDemoStatus().then((status) => {
-      if (status?.demo) setIsDemo(true);
+      setIsDemo(status?.demo ?? false);
+    }).catch(() => {
+      setIsDemo(false);
     });
   }, []);
 
@@ -80,7 +82,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {isDemo && (
+        {isDemo === true && (
           <div className="mb-6 space-y-3">
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -107,7 +109,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {!isDemo && (
+        {isDemo === false && (
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
