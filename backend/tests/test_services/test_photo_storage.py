@@ -382,6 +382,7 @@ class TestPhotoStorageConfiguration:
     def test_production_detection(self, monkeypatch):
         """Test production mode detection on Railway."""
         monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+        monkeypatch.setenv("SECRET_KEY", "x" * 64)
         settings = Settings()
         assert settings.is_production is True
 
