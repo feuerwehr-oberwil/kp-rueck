@@ -6,8 +6,10 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
+
+from app.middleware.rate_limit import limiter
 
 from app.database import Base
 from app.models import (
@@ -23,6 +25,18 @@ from app.models import (
 # Test database URL - use a separate test database
 TEST_DATABASE_URL = "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test"
 
+# Shared engine across all tests to avoid connection exhaustion
+_shared_engine = None
+_tables_created = False
+
+
+@pytest.fixture(autouse=True)
+def disable_rate_limiting():
+    """Disable rate limiting for all tests to prevent 429 errors."""
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -34,30 +48,54 @@ def event_loop():
 
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
-    """Create a test database engine with all tables."""
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        poolclass=NullPool,
-    )
+    """Provide a test database engine with clean tables.
 
-    # Create all tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    Uses a shared engine to avoid exhausting PostgreSQL connections,
+    and TRUNCATE (not DROP/CREATE) to avoid type system race conditions.
+    """
+    global _shared_engine, _tables_created
 
-    yield engine
+    if _shared_engine is None:
+        _shared_engine = create_async_engine(
+            TEST_DATABASE_URL,
+            echo=False,
+            pool_size=5,
+            max_overflow=5,
+            pool_recycle=120,
+            pool_pre_ping=True,
+        )
 
-    # Drop all tables after test
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    if not _tables_created:
+        # First run: clean schema and create all tables
+        async with _shared_engine.begin() as conn:
+            await conn.execute(text("DROP SCHEMA public CASCADE"))
+            await conn.execute(text("CREATE SCHEMA public"))
+            await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+            await conn.run_sync(Base.metadata.create_all)
+        _tables_created = True
 
-    await engine.dispose()
+    yield _shared_engine
+
+
+# Build TRUNCATE statement once (all tables in a single statement)
+_truncate_sql: str | None = None
+
+
+def _get_truncate_sql() -> str:
+    global _truncate_sql
+    if _truncate_sql is None:
+        table_names = ", ".join(f'"{t.name}"' for t in reversed(Base.metadata.sorted_tables))
+        _truncate_sql = f"TRUNCATE {table_names} CASCADE" if table_names else ""
+    return _truncate_sql
 
 
 @pytest_asyncio.fixture
 async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Create a database session for testing."""
+    """Create a database session for testing.
+
+    Truncates all tables at the start of each test to ensure isolation.
+    Uses the same connection as the test session to avoid connection exhaustion.
+    """
     async_session = async_sessionmaker(
         test_engine,
         class_=AsyncSession,
@@ -67,6 +105,11 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     )
 
     async with async_session() as session:
+        # Truncate at the start of each test using the same session connection
+        truncate = _get_truncate_sql()
+        if truncate:
+            await session.execute(text(truncate))
+            await session.commit()
         yield session
         await session.rollback()
 
@@ -93,12 +136,16 @@ async def test_user(db_session: AsyncSession) -> User:
 
 @pytest_asyncio.fixture
 async def test_viewer(db_session: AsyncSession) -> User:
-    """Create a test user (viewer role)."""
+    """Create a second test user (editor role).
+
+    Note: Viewer access is token-based (no DB user). This fixture creates
+    a second editor user for tests that need multiple users.
+    """
     user = User(
         id=uuid4(),
         username="test_viewer",
         password_hash="hashed_password",
-        role="viewer",
+        role="editor",
     )
     db_session.add(user)
     await db_session.commit()
@@ -157,15 +204,15 @@ async def test_material(db_session: AsyncSession) -> Material:
 @pytest_asyncio.fixture
 async def test_event(db_session: AsyncSession) -> Event:
     """Create a test event."""
-    event = Event(
+    event_obj = Event(
         id=uuid4(),
         name="Test Event",
         training_flag=False,
     )
-    db_session.add(event)
+    db_session.add(event_obj)
     await db_session.commit()
-    await db_session.refresh(event)
-    return event
+    await db_session.refresh(event_obj)
+    return event_obj
 
 
 @pytest_asyncio.fixture

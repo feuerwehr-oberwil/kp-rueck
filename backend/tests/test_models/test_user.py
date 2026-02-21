@@ -31,19 +31,19 @@ class TestUserModel:
         assert user.created_at is not None
         assert user.last_login is None
 
-    async def test_create_user_viewer(self, db_session: AsyncSession):
-        """Test creating a user with viewer role."""
+    async def test_create_user_admin(self, db_session: AsyncSession):
+        """Test creating a user with admin role."""
         user = User(
             id=uuid4(),
-            username="viewer_user",
+            username="admin_user",
             password_hash="hashed_password",
-            role="viewer",
+            role="admin",
         )
         db_session.add(user)
         await db_session.commit()
         await db_session.refresh(user)
 
-        assert user.role == "viewer"
+        assert user.role == "admin"
 
     async def test_username_unique_constraint(self, db_session: AsyncSession):
         """Test that username must be unique."""
@@ -61,7 +61,7 @@ class TestUserModel:
             id=uuid4(),
             username="duplicate_user",
             password_hash="password2",
-            role="viewer",
+            role="editor",
         )
         db_session.add(user2)
 
@@ -74,7 +74,7 @@ class TestUserModel:
             id=uuid4(),
             username="invalid_role_user",
             password_hash="password",
-            role="admin",  # Invalid role
+            role="viewer",  # Invalid role (only admin, editor allowed)
         )
         db_session.add(user)
 

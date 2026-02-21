@@ -58,7 +58,7 @@ async def sample_personnel(db_session: AsyncSession) -> list[Personnel]:
     personnel_list = [
         Personnel(id=uuid4(), name="Alice Test", role="Fahrer", availability="available"),
         Personnel(id=uuid4(), name="Bob Test", role="Atemschutz", availability="unavailable"),
-        Personnel(id=uuid4(), name="Charlie Test", availability="assigned"),
+        Personnel(id=uuid4(), name="Charlie Test", availability="available"),
     ]
     for p in personnel_list:
         db_session.add(p)
@@ -85,7 +85,7 @@ async def sample_vehicles(db_session: AsyncSession) -> list[Vehicle]:
             name="Test DLK",
             type="DLK",
             display_order=2,
-            status="maintenance",
+            status="unavailable",
             radio_call_sign="Test 2",
         ),
     ]

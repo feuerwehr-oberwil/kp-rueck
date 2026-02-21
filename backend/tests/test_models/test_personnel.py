@@ -60,7 +60,7 @@ class TestPersonnelModel:
 
     async def test_personnel_all_valid_availabilities(self, db_session: AsyncSession):
         """Test all valid availability statuses."""
-        valid_availabilities = ["available", "assigned", "unavailable"]
+        valid_availabilities = ["available", "unavailable"]
 
         for availability in valid_availabilities:
             person = Personnel(

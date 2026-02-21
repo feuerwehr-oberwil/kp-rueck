@@ -32,18 +32,17 @@ class TestMaterialModel:
         assert material.updated_at is not None
 
     async def test_material_optional_fields(self, db_session: AsyncSession):
-        """Test creating material without optional fields."""
+        """Test creating material without optional description."""
         material = Material(
             id=uuid4(),
             name="Test Material",
             status="available",
-            location=None,
         )
         db_session.add(material)
         await db_session.commit()
         await db_session.refresh(material)
 
-        assert material.location is None
+        assert material.description is None
 
     async def test_material_status_constraint(self, db_session: AsyncSession):
         """Test that invalid material status is rejected."""
@@ -51,7 +50,6 @@ class TestMaterialModel:
             id=uuid4(),
             name="Test Material",
             status="invalid_status",  # Invalid
-            location=None,
         )
         db_session.add(material)
 
@@ -60,7 +58,7 @@ class TestMaterialModel:
 
     async def test_material_all_valid_statuses(self, db_session: AsyncSession):
         """Test all valid material statuses."""
-        valid_statuses = ["available", "assigned", "maintenance"]
+        valid_statuses = ["available", "unavailable"]
 
         for status in valid_statuses:
             material = Material(
@@ -79,7 +77,7 @@ class TestMaterialModel:
         material = Material(
             id=uuid4(),
             name="Test Equipment",
-            status="assigned",
+            status="available",
             location="TLF 1",
         )
         db_session.add(material)

@@ -46,7 +46,7 @@ class TestVehicleModel:
 
     async def test_vehicle_all_valid_statuses(self, db_session: AsyncSession):
         """Test all valid vehicle statuses."""
-        valid_statuses = ["available", "assigned", "maintenance"]
+        valid_statuses = ["available", "unavailable"]
 
         for status in valid_statuses:
             vehicle = Vehicle(

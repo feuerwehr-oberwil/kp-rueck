@@ -47,7 +47,7 @@ class TestRateLimits:
 
     def test_login_limit_is_strict(self):
         """Login should have strict limits to prevent brute force."""
-        assert "5/minute" == RateLimits.LOGIN
+        assert "3/minute" == RateLimits.LOGIN
 
     def test_export_limit_is_moderate(self):
         """Export should have moderate limits due to resource intensity."""
