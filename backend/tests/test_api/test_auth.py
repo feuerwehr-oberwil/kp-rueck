@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.security import create_access_token, hash_password
 from app.database import get_db
 from app.main import app
-from app.models import User
+from app.models import Event, User
 
 
 @pytest_asyncio.fixture
@@ -45,39 +45,12 @@ async def test_editor_user(db_session: AsyncSession) -> User:
 
 
 @pytest_asyncio.fixture
-async def test_viewer_user(db_session: AsyncSession) -> User:
-    """Create a test viewer user with hashed password."""
-    user = User(
-        id=uuid4(),
-        username="viewer",
-        password_hash=hash_password("viewerpass123"),
-        role="viewer",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
 async def authenticated_editor_client(client: AsyncClient, test_editor_user: User) -> AsyncClient:
     """Create an authenticated client with editor privileges."""
     # Login to get cookies
     response = await client.post(
         "/api/auth/login",
         data={"username": "editor", "password": "editorpass123"},
-    )
-    assert response.status_code == 200
-    return client
-
-
-@pytest_asyncio.fixture
-async def authenticated_viewer_client(client: AsyncClient, test_viewer_user: User) -> AsyncClient:
-    """Create an authenticated client with viewer privileges."""
-    # Login to get cookies
-    response = await client.post(
-        "/api/auth/login",
-        data={"username": "viewer", "password": "viewerpass123"},
     )
     assert response.status_code == 200
     return client
@@ -160,20 +133,20 @@ async def test_protected_route_with_auth(authenticated_editor_client: AsyncClien
 
 
 @pytest.mark.asyncio
-async def test_viewer_can_read(authenticated_viewer_client: AsyncClient):
+async def test_viewer_can_read(viewer_client: AsyncClient):
     """Test viewers can read data."""
-    response = await authenticated_viewer_client.get("/api/incidents")
+    response = await viewer_client.get("/api/incidents")
     assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_viewer_cannot_create(authenticated_viewer_client: AsyncClient):
+async def test_viewer_cannot_create(viewer_client: AsyncClient):
     """Test viewers cannot create incidents."""
-    response = await authenticated_viewer_client.post(
-        "/api/incidents",
+    response = await viewer_client.post(
+        "/api/incidents/",
         json={
             "title": "Test Incident",
-            "type": "fire",
+            "type": "brandbekaempfung",
             "priority": "high",
             "status": "eingegangen",
         },
@@ -183,15 +156,16 @@ async def test_viewer_cannot_create(authenticated_viewer_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_editor_can_create(authenticated_editor_client: AsyncClient):
+async def test_editor_can_create(authenticated_editor_client: AsyncClient, test_event: Event):
     """Test editors can create incidents."""
     response = await authenticated_editor_client.post(
-        "/api/incidents",
+        "/api/incidents/",
         json={
             "title": "Test Incident",
-            "type": "fire",
+            "type": "brandbekaempfung",
             "priority": "high",
             "status": "eingegangen",
+            "event_id": str(test_event.id),
         },
     )
     assert response.status_code == 201
@@ -277,7 +251,7 @@ async def test_get_current_user_unauthorized(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_password_hashing():
     """Verify passwords are hashed, not stored plain."""
-    password = "secret123"
+    password = "secretpassword123"
     hashed = hash_password(password)
 
     # Password hash should not match plain password

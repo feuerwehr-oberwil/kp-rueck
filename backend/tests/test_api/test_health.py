@@ -11,32 +11,10 @@ Tests cover:
 from unittest.mock import AsyncMock
 
 import pytest
-import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.main import app
-
-# ============================================
-# Fixtures
-# ============================================
-
-
-@pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
-    """Create an async test client with test database override."""
-
-    async def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-
 
 # ============================================
 # Simple Health Check Tests

@@ -14,47 +14,15 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import hash_password
-from app.database import get_db
-from app.main import app
 from app.models import Event, EventAttendance, Personnel, User
 
 # ============================================
 # Fixtures
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
-    """Create an async test client with test database override."""
-
-    async def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-
-
-@pytest_asyncio.fixture
-async def test_editor(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="checkin_editor",
-        password_hash=hash_password("editorpass123"),
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
 
 
 @pytest_asyncio.fixture
@@ -93,17 +61,6 @@ async def test_personnel(db_session: AsyncSession) -> list[Personnel]:
 
 
 @pytest_asyncio.fixture
-async def editor_client(client: AsyncClient, test_editor: User) -> AsyncClient:
-    """Create an authenticated client with editor privileges."""
-    response = await client.post(
-        "/api/auth/login",
-        data={"username": "checkin_editor", "password": "editorpass123"},
-    )
-    assert response.status_code == 200
-    return client
-
-
-@pytest_asyncio.fixture
 def valid_token(test_event: Event) -> str:
     """Generate a valid check-in token for the test event."""
     from app.services.tokens import generate_checkin_token
@@ -126,21 +83,9 @@ async def test_generate_link_requires_auth(client: AsyncClient, test_event: Even
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_link_requires_editor(client: AsyncClient, db_session: AsyncSession, test_event: Event):
+async def test_generate_link_requires_editor(viewer_client: AsyncClient, test_event: Event):
     """Test that viewers cannot generate check-in links."""
-    # Create viewer
-    viewer = User(
-        id=uuid4(),
-        username="checkin_viewer",
-        password_hash=hash_password("viewerpass123"),
-        role="viewer",
-    )
-    db_session.add(viewer)
-    await db_session.commit()
-
-    await client.post("/api/auth/login", data={"username": "checkin_viewer", "password": "viewerpass123"})
-
-    response = await client.post(f"/api/personnel/check-in/generate-link?event_id={test_event.id}")
+    response = await viewer_client.post(f"/api/personnel/check-in/generate-link?event_id={test_event.id}")
     assert response.status_code == 403
 
 

@@ -13,47 +13,10 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.security import hash_password
-from app.database import get_db
-from app.main import app
 from app.models import Event, Incident, Personnel, User, Vehicle
-
-# ============================================
-# Fixtures
-# ============================================
-
-
-@pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
-    """Create an async test client with test database override."""
-
-    async def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-
-
-@pytest_asyncio.fixture
-async def test_editor(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="error_editor",
-        password_hash=hash_password("editorpass123"),
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
 
 
 @pytest_asyncio.fixture
@@ -119,17 +82,6 @@ async def test_vehicle(db_session: AsyncSession) -> Vehicle:
     await db_session.commit()
     await db_session.refresh(vehicle)
     return vehicle
-
-
-@pytest_asyncio.fixture
-async def editor_client(client: AsyncClient, test_editor: User) -> AsyncClient:
-    """Create an authenticated client with editor privileges."""
-    response = await client.post(
-        "/api/auth/login",
-        data={"username": "error_editor", "password": "editorpass123"},
-    )
-    assert response.status_code == 200
-    return client
 
 
 # ============================================
@@ -470,58 +422,24 @@ async def test_update_without_optimistic_lock(editor_client: AsyncClient, test_i
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_viewer_cannot_create_incident(client: AsyncClient, test_event: Event, db_session: AsyncSession):
+async def test_viewer_cannot_create_incident(viewer_client: AsyncClient, test_event: Event):
     """Test that viewers cannot create incidents."""
-    # Create viewer user
-    viewer = User(
-        id=uuid4(),
-        username="error_viewer",
-        password_hash=hash_password("viewerpass123"),
-        role="viewer",
-    )
-    db_session.add(viewer)
-    await db_session.commit()
-
-    # Login as viewer
-    await client.post(
-        "/api/auth/login",
-        data={"username": "error_viewer", "password": "viewerpass123"},
-    )
-
-    # Try to create incident
     incident_data = {
         "event_id": str(test_event.id),
         "title": "Viewer Created Incident",
         "type": "brandbekaempfung",
         "priority": "high",
     }
-    response = await client.post("/api/incidents/", json=incident_data)
+    response = await viewer_client.post("/api/incidents/", json=incident_data)
     assert response.status_code == 403
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_viewer_cannot_update_incident(client: AsyncClient, test_incident: Incident, db_session: AsyncSession):
+async def test_viewer_cannot_update_incident(viewer_client: AsyncClient, test_incident: Incident):
     """Test that viewers cannot update incidents."""
-    # Create viewer user
-    viewer = User(
-        id=uuid4(),
-        username="error_viewer2",
-        password_hash=hash_password("viewerpass123"),
-        role="viewer",
-    )
-    db_session.add(viewer)
-    await db_session.commit()
-
-    # Login as viewer
-    await client.post(
-        "/api/auth/login",
-        data={"username": "error_viewer2", "password": "viewerpass123"},
-    )
-
-    # Try to update incident
     update_data = {"title": "Viewer Updated Title"}
-    response = await client.patch(f"/api/incidents/{test_incident.id}", json=update_data)
+    response = await viewer_client.patch(f"/api/incidents/{test_incident.id}", json=update_data)
     assert response.status_code == 403
 
 

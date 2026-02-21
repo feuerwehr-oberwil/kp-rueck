@@ -13,32 +13,11 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import hash_password
-from app.database import get_db
-from app.main import app
 from app.models import User
-
-# ============================================
-# Fixtures
-# ============================================
-
-
-@pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
-    """Create an async test client with test database override."""
-
-    async def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture
@@ -48,7 +27,7 @@ async def test_user(db_session: AsyncSession) -> User:
         id=uuid4(),
         username="help_user",
         password_hash=hash_password("userpass123abc"),
-        role="viewer",
+        role="editor",
     )
     db_session.add(user)
     await db_session.commit()
@@ -223,49 +202,17 @@ async def test_export_pdf_content_type(authenticated_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_viewer_can_access_topics(client: AsyncClient, db_session: AsyncSession):
+async def test_viewer_can_access_topics(viewer_client: AsyncClient):
     """Test that viewers can access help topics."""
-    # Create a viewer
-    viewer = User(
-        id=uuid4(),
-        username="help_viewer",
-        password_hash=hash_password("viewerpass123abc"),
-        role="viewer",
-    )
-    db_session.add(viewer)
-    await db_session.commit()
-
-    # Login as viewer
-    await client.post(
-        "/api/auth/login",
-        data={"username": "help_viewer", "password": "viewerpass123abc"},
-    )
-
-    response = await client.get("/api/help/topics")
+    response = await viewer_client.get("/api/help/topics")
     assert response.status_code == 200
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_viewer_can_export_pdf(client: AsyncClient, db_session: AsyncSession):
+async def test_viewer_can_export_pdf(viewer_client: AsyncClient):
     """Test that viewers can export PDF."""
-    # Create a viewer
-    viewer = User(
-        id=uuid4(),
-        username="help_viewer2",
-        password_hash=hash_password("viewerpass123abc"),
-        role="viewer",
-    )
-    db_session.add(viewer)
-    await db_session.commit()
-
-    # Login as viewer
-    await client.post(
-        "/api/auth/login",
-        data={"username": "help_viewer2", "password": "viewerpass123abc"},
-    )
-
-    response = await client.post("/api/help/export-pdf")
+    response = await viewer_client.post("/api/help/export-pdf")
     # Should not be 403 (forbidden)
     assert response.status_code != 403
 

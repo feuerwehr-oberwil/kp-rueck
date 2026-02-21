@@ -53,7 +53,7 @@ async def test_get_current_user_no_token(db_session: AsyncSession, mock_request)
         await get_current_user(request=mock_request, access_token=None, db=db_session)
 
     assert exc_info.value.status_code == 401
-    assert "Anmeldedaten konnten nicht validiert werden" in exc_info.value.detail
+    assert exc_info.value.detail == "Unauthorized"
 
 
 @pytest.mark.asyncio
@@ -191,11 +191,10 @@ async def test_get_current_editor_with_editor_role(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_get_current_editor_with_viewer_role(db_session: AsyncSession):
+async def test_get_current_editor_with_viewer_role():
     """Test get_current_editor raises 403 for viewer role."""
+    # User object not stored in DB - viewer is not a valid DB role
     viewer = User(id=uuid4(), username="viewer", password_hash="hashed", role="viewer")
-    db_session.add(viewer)
-    await db_session.commit()
 
     with pytest.raises(HTTPException) as exc_info:
         await get_current_editor(current_user=viewer)
@@ -239,12 +238,12 @@ async def test_editor_role_exact_match():
 
 @pytest.mark.asyncio
 async def test_invalid_role_rejected():
-    """Test invalid role is rejected."""
+    """Test invalid role is rejected by get_current_editor."""
     user_invalid = User(
         id=uuid4(),
         username="test",
         password_hash="hashed",
-        role="admin",  # Not a valid role
+        role="readonly",  # Not editor or admin
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -282,19 +281,22 @@ async def test_full_dependency_chain_editor(db_session: AsyncSession, mock_reque
 
 @pytest.mark.asyncio
 async def test_full_dependency_chain_viewer(db_session: AsyncSession, mock_request):
-    """Test dependency chain rejects viewer at editor check."""
-    # Create viewer user
-    viewer = User(id=uuid4(), username="viewer", password_hash="hashed", role="viewer")
-    db_session.add(viewer)
+    """Test dependency chain rejects non-editor at editor check."""
+    # Create user as editor (valid DB role), then simulate non-editor role
+    user = User(id=uuid4(), username="chain_viewer", password_hash="hashed", role="editor")
+    db_session.add(user)
     await db_session.commit()
-    await db_session.refresh(viewer)
+    await db_session.refresh(user)
 
     # Create token
-    access_token = create_access_token(data={"sub": str(viewer.id)})
+    access_token = create_access_token(data={"sub": str(user.id)})
 
     # First dependency: get_current_user - should succeed
     current_user = await get_current_user(request=mock_request, access_token=access_token, db=db_session)
-    assert current_user.id == viewer.id
+    assert current_user.id == user.id
+
+    # Simulate a non-editor role (viewer is not a DB role, so test the check directly)
+    current_user.role = "viewer"
 
     # Second dependency: get_current_editor - should fail
     with pytest.raises(HTTPException) as exc_info:

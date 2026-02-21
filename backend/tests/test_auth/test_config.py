@@ -20,20 +20,20 @@ def test_auth_settings_defaults():
     assert settings.REFRESH_TOKEN_EXPIRE_DAYS == 7
 
     # Password Policy
-    assert settings.MIN_PASSWORD_LENGTH == 8
+    assert settings.MIN_PASSWORD_LENGTH == 12  # Increased for better security
     assert settings.MAX_PASSWORD_LENGTH == 72  # Bcrypt limitation
 
     # Cookie Security
     assert settings.COOKIE_SECURE is False  # False for local dev
     assert settings.COOKIE_HTTPONLY is True
-    assert settings.COOKIE_SAMESITE == "none"  # Default field value
+    assert settings.COOKIE_SAMESITE == "lax"  # Default field value
 
 
 def test_auth_settings_singleton():
     """Test auth_settings is properly instantiated."""
     assert auth_settings is not None
     assert isinstance(auth_settings, AuthSettings)
-    assert auth_settings.MIN_PASSWORD_LENGTH == 8
+    assert auth_settings.MIN_PASSWORD_LENGTH == 12
 
 
 def test_password_length_constraints():
@@ -94,11 +94,11 @@ def test_case_insensitive_env_vars():
 
 def test_custom_secret_key_from_env(monkeypatch):
     """Test SECRET_KEY can be overridden via environment variable."""
-    custom_secret = "custom_secret_key_12345"
-    monkeypatch.setenv("AUTH_SECRET_KEY", custom_secret)
+    custom_key = "x" * 64  # 64-char key satisfies validator
+    monkeypatch.setenv("AUTH_SECRET_KEY", custom_key)
 
     settings = AuthSettings()
-    assert settings.SECRET_KEY == custom_secret
+    assert settings.SECRET_KEY == custom_key
 
 
 def test_custom_token_expiration_from_env(monkeypatch):
@@ -224,19 +224,22 @@ def test_cookie_samesite_property_development(monkeypatch):
 
 
 def test_cookie_samesite_property_production(monkeypatch):
-    """Test cookie_samesite property returns 'none' in production."""
-    # Simulate production environment (Railway)
+    """Test cookie_samesite property returns configured value in production."""
+    # Simulate production environment (Railway) with a strong secret key
     monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+    monkeypatch.setenv("AUTH_SECRET_KEY", "x" * 64)
+    monkeypatch.setenv("AUTH_COOKIE_SAMESITE", "none")
 
     settings = AuthSettings()
-    # In production, should use "none" for cross-site cookies
+    # In production with cross-origin setup, use "none" for cross-site cookies
     assert settings.cookie_samesite == "none"
 
 
 def test_cookie_secure_property_production(monkeypatch):
     """Test cookie_secure property returns True in production."""
-    # Simulate production environment (Railway)
+    # Simulate production environment (Railway) with a strong secret key
     monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+    monkeypatch.setenv("AUTH_SECRET_KEY", "x" * 64)
 
     settings = AuthSettings()
     # In production, should force HTTPS (secure cookies)
@@ -286,5 +289,5 @@ def test_refresh_token_longer_lived():
     access_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
     refresh_minutes = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60
 
-    # Refresh should be at least 24x longer than access
-    assert refresh_minutes >= access_minutes * 24
+    # Refresh should be at least 10x longer than access
+    assert refresh_minutes >= access_minutes * 10

@@ -1,17 +1,20 @@
 """Pytest configuration and fixtures for testing."""
 
-import asyncio
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from app.auth.dependencies import get_current_user
+from app.auth.security import hash_password
+from app.database import Base, get_db
+from app.main import app
 from app.middleware.rate_limit import limiter
-
-from app.database import Base
 from app.models import (
     Event,
     Incident,
@@ -25,9 +28,8 @@ from app.models import (
 # Test database URL - use a separate test database
 TEST_DATABASE_URL = "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test"
 
-# Shared engine across all tests to avoid connection exhaustion
-_shared_engine = None
-_tables_created = False
+# Standard test password (>= 12 chars to satisfy MIN_PASSWORD_LENGTH)
+TEST_PASSWORD = "testpassword1234"
 
 
 @pytest.fixture(autouse=True)
@@ -38,80 +40,128 @@ def disable_rate_limiting():
     limiter.enabled = True
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def test_engine():
-    """Provide a test database engine with clean tables.
+    """Provide a test database engine, created once per session.
 
-    Uses a shared engine to avoid exhausting PostgreSQL connections,
-    and TRUNCATE (not DROP/CREATE) to avoid type system race conditions.
+    Drops and recreates all tables once at the start of the test session.
     """
-    global _shared_engine, _tables_created
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        pool_size=5,
+        max_overflow=5,
+        pool_recycle=120,
+        pool_pre_ping=True,
+    )
 
-    if _shared_engine is None:
-        _shared_engine = create_async_engine(
-            TEST_DATABASE_URL,
-            echo=False,
-            pool_size=5,
-            max_overflow=5,
-            pool_recycle=120,
-            pool_pre_ping=True,
-        )
+    # Create all tables once
+    async with engine.begin() as conn:
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+        await conn.run_sync(Base.metadata.create_all)
 
-    if not _tables_created:
-        # First run: clean schema and create all tables
-        async with _shared_engine.begin() as conn:
-            await conn.execute(text("DROP SCHEMA public CASCADE"))
-            await conn.execute(text("CREATE SCHEMA public"))
-            await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
-            await conn.run_sync(Base.metadata.create_all)
-        _tables_created = True
+    yield engine
 
-    yield _shared_engine
-
-
-# Build TRUNCATE statement once (all tables in a single statement)
-_truncate_sql: str | None = None
-
-
-def _get_truncate_sql() -> str:
-    global _truncate_sql
-    if _truncate_sql is None:
-        table_names = ", ".join(f'"{t.name}"' for t in reversed(Base.metadata.sorted_tables))
-        _truncate_sql = f"TRUNCATE {table_names} CASCADE" if table_names else ""
-    return _truncate_sql
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture
 async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     """Create a database session for testing.
 
-    Truncates all tables at the start of each test to ensure isolation.
-    Uses the same connection as the test session to avoid connection exhaustion.
+    Uses transaction rollback for fast test isolation:
+    - Opens a real transaction on the connection
+    - Session commits become savepoints (via join_transaction_mode)
+    - After the test, the outer transaction rolls back everything
     """
-    async_session = async_sessionmaker(
-        test_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
+    async with test_engine.connect() as connection:
+        transaction = await connection.begin()
+
+        session = AsyncSession(
+            bind=connection,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+
+        yield session
+
+        await session.close()
+        await transaction.rollback()
+
+
+# ============================================
+# HTTP Client Fixtures
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    """Create an async test client with test database override."""
+
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    # Inject session into app state so audit middleware uses same transaction
+    app.state.test_db_session = db_session
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+    app.state.test_db_session = None
+
+
+@pytest_asyncio.fixture
+async def test_editor(db_session: AsyncSession) -> User:
+    """Create an editor user with a known password for login tests."""
+    user = User(
+        id=uuid4(),
+        username="fixture_editor",
+        password_hash=hash_password(TEST_PASSWORD),
+        role="editor",
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def editor_client(client: AsyncClient, test_editor: User) -> AsyncClient:
+    """Create an authenticated client with editor privileges."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "fixture_editor", "password": TEST_PASSWORD},
+    )
+    assert response.status_code == 200, f"Editor login failed: {response.text}"
+    return client
+
+
+@pytest_asyncio.fixture
+async def viewer_client(client: AsyncClient) -> AsyncClient:
+    """Create an authenticated client with viewer privileges.
+
+    Uses dependency override since viewer role is not a DB role.
+    The get_current_editor dependency will reject this user with 403.
+    """
+    viewer_user = User(
+        id=uuid4(),
+        username="fixture_viewer",
+        password_hash="",
+        role="viewer",
+        display_name="Test Viewer",
+        is_active=True,
+        created_at=datetime.now(UTC),
     )
 
-    async with async_session() as session:
-        # Truncate at the start of each test using the same session connection
-        truncate = _get_truncate_sql()
-        if truncate:
-            await session.execute(text(truncate))
-            await session.commit()
-        yield session
-        await session.rollback()
+    async def override_get_current_user():
+        return viewer_user
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    return client
 
 
 # ============================================
@@ -121,7 +171,7 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> User:
-    """Create a test user (editor role)."""
+    """Create a test user (editor role) for model/relationship tests."""
     user = User(
         id=uuid4(),
         username="test_editor",

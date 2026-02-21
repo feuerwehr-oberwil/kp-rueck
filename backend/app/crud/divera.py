@@ -99,7 +99,7 @@ async def get_divera_emergencies(
 
     # Filter archived
     if not include_archived:
-        query = query.where(not models.DiveraEmergency.is_archived)
+        query = query.where(models.DiveraEmergency.is_archived.is_(False))
 
     # Order by received time (newest first)
     query = query.order_by(models.DiveraEmergency.received_at.desc())
@@ -130,7 +130,7 @@ async def count_divera_emergencies(
         query = query.where(models.DiveraEmergency.attached_to_event_id == event_id)
 
     if not include_archived:
-        query = query.where(not models.DiveraEmergency.is_archived)
+        query = query.where(models.DiveraEmergency.is_archived.is_(False))
 
     result = await db.execute(query)
     return result.scalar_one()

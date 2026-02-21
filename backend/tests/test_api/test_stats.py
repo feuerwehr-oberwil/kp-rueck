@@ -14,32 +14,15 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import hash_password
-from app.database import get_db
-from app.main import app
 from app.models import Event, EventAttendance, Incident, IncidentAssignment, Personnel, User
 
 # ============================================
 # Fixtures
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
-    """Create an async test client with test database override."""
-
-    async def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture
@@ -49,7 +32,7 @@ async def test_user(db_session: AsyncSession) -> User:
         id=uuid4(),
         username="stats_user",
         password_hash=hash_password("userpass123abc"),
-        role="viewer",
+        role="editor",
     )
     db_session.add(user)
     await db_session.commit()

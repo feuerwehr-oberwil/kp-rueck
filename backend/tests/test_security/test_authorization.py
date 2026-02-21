@@ -14,9 +14,6 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.security import hash_password
-from app.database import get_db
-from app.main import app
 from app.models import (
     Event,
     Incident,
@@ -25,56 +22,6 @@ from app.models import (
     User,
     Vehicle,
 )
-
-
-# ============================================
-# Fixtures
-# ============================================
-
-
-@pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
-    """Create an async test client with test database override."""
-
-    async def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-
-
-@pytest_asyncio.fixture
-async def test_editor(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="auth_test_editor",
-        password_hash=hash_password("editorpass123"),
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def test_viewer(db_session: AsyncSession) -> User:
-    """Create a test viewer user."""
-    user = User(
-        id=uuid4(),
-        username="auth_test_viewer",
-        password_hash=hash_password("viewerpass123"),
-        role="viewer",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
 
 
 @pytest_asyncio.fixture
@@ -157,28 +104,6 @@ async def test_material(db_session: AsyncSession) -> Material:
     await db_session.commit()
     await db_session.refresh(material)
     return material
-
-
-@pytest_asyncio.fixture
-async def editor_client(client: AsyncClient, test_editor: User) -> AsyncClient:
-    """Create an authenticated client with editor privileges."""
-    response = await client.post(
-        "/api/auth/login",
-        data={"username": "auth_test_editor", "password": "editorpass123"},
-    )
-    assert response.status_code == 200
-    return client
-
-
-@pytest_asyncio.fixture
-async def viewer_client(client: AsyncClient, test_viewer: User) -> AsyncClient:
-    """Create an authenticated client with viewer privileges."""
-    response = await client.post(
-        "/api/auth/login",
-        data={"username": "auth_test_viewer", "password": "viewerpass123"},
-    )
-    assert response.status_code == 200
-    return client
 
 
 # ============================================

@@ -117,11 +117,11 @@ def test_verify_password_incorrect():
 
 def test_verify_password_case_sensitive():
     """Test password verification is case-sensitive."""
-    password = "Password123"
+    password = "Password1234!"
     hashed = hash_password(password)
 
-    assert verify_password("password123", hashed) is False
-    assert verify_password("PASSWORD123", hashed) is False
+    assert verify_password("password1234!", hashed) is False
+    assert verify_password("PASSWORD1234!", hashed) is False
 
 
 def test_hash_password_different_salts():

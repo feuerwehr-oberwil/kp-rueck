@@ -14,14 +14,10 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.security import hash_password
-from app.database import get_db
-from app.main import app
-from app.models import Event, User
-
+from app.models import Event
 
 # XSS payloads to test - reduced set to avoid overwhelming test database
 XSS_PAYLOADS = [
@@ -31,41 +27,6 @@ XSS_PAYLOADS = [
     "${alert(1)}",  # ES6 template injection
     "{{constructor.constructor('alert(1)')()}}",  # Template injection
 ]
-
-
-# ============================================
-# Fixtures
-# ============================================
-
-
-@pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
-    """Create an async test client with test database override."""
-
-    async def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-
-
-@pytest_asyncio.fixture
-async def test_editor(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="xss_test_editor",
-        password_hash=hash_password("editorpass123"),
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
 
 
 @pytest_asyncio.fixture
@@ -81,17 +42,6 @@ async def test_event(db_session: AsyncSession) -> Event:
     await db_session.commit()
     await db_session.refresh(event)
     return event
-
-
-@pytest_asyncio.fixture
-async def editor_client(client: AsyncClient, test_editor: User) -> AsyncClient:
-    """Create an authenticated client with editor privileges."""
-    response = await client.post(
-        "/api/auth/login",
-        data={"username": "xss_test_editor", "password": "editorpass123"},
-    )
-    assert response.status_code == 200
-    return client
 
 
 # ============================================

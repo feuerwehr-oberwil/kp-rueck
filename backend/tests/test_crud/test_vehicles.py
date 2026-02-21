@@ -266,7 +266,7 @@ class TestUpdateVehicle:
         mock_request,
     ):
         """Test updating vehicle status."""
-        update_data = schemas.VehicleUpdate(status="maintenance")
+        update_data = schemas.VehicleUpdate(status="unavailable")
 
         updated = await vehicle_crud.update_vehicle(
             db=db_session,
@@ -277,7 +277,7 @@ class TestUpdateVehicle:
         )
 
         assert updated is not None
-        assert updated.status == "maintenance"
+        assert updated.status == "unavailable"
 
     async def test_updates_multiple_fields(
         self,
@@ -290,7 +290,7 @@ class TestUpdateVehicle:
         update_data = schemas.VehicleUpdate(
             name="Renamed TLF",
             type="DLK",
-            status="assigned",
+            status="unavailable",
         )
 
         updated = await vehicle_crud.update_vehicle(
@@ -304,7 +304,7 @@ class TestUpdateVehicle:
         assert updated is not None
         assert updated.name == "Renamed TLF"
         assert updated.type == "DLK"
-        assert updated.status == "assigned"
+        assert updated.status == "unavailable"
 
     async def test_returns_none_for_nonexistent(
         self,
@@ -361,7 +361,7 @@ class TestDeleteVehicle:
         test_user: User,
         mock_request,
     ):
-        """Test soft deleting a vehicle sets status to maintenance."""
+        """Test soft deleting a vehicle sets status to unavailable."""
         result = await vehicle_crud.delete_vehicle(
             db=db_session,
             vehicle_id=test_vehicle.id,
@@ -371,9 +371,9 @@ class TestDeleteVehicle:
 
         assert result is True
 
-        # Verify status changed to maintenance (soft delete)
+        # Verify status changed to unavailable (soft delete)
         await db_session.refresh(test_vehicle)
-        assert test_vehicle.status == "maintenance"
+        assert test_vehicle.status == "unavailable"
 
     async def test_returns_false_for_nonexistent(
         self,

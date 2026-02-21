@@ -108,17 +108,27 @@ class TestPhotoStorageService:
 
     def test_validate_file_extension_valid(self, photo_service):
         """Test validation of valid file extensions."""
+        # _validate_file_type takes (content, filename); use minimal valid content
+        dummy_content = b"\x00"
         for ext in [".jpg", ".jpeg", ".png", ".webp"]:
-            photo_service._validate_file_extension(f"test{ext}")
-            photo_service._validate_file_extension(f"TEST{ext.upper()}")  # Case insensitive
+            # Should not raise for valid extensions (PIL verify may fail, but extension check passes first)
+            try:
+                photo_service._validate_file_type(dummy_content, f"test{ext}")
+            except HTTPException as e:
+                # Only acceptable error is image validation, NOT extension validation
+                assert "extension" not in e.detail.lower()
+            try:
+                photo_service._validate_file_type(dummy_content, f"TEST{ext.upper()}")
+            except HTTPException as e:
+                assert "extension" not in e.detail.lower()
 
     def test_validate_file_extension_invalid(self, photo_service):
         """Test validation of invalid file extensions."""
         with pytest.raises(HTTPException) as exc_info:
-            photo_service._validate_file_extension("test.gif")
+            photo_service._validate_file_type(b"\x00", "test.gif")
 
         assert exc_info.value.status_code == 400
-        assert "Invalid file type" in exc_info.value.detail
+        assert "Invalid file extension" in exc_info.value.detail
 
     def test_compress_image_rgb(self, photo_service):
         """Test image compression for RGB images."""
@@ -227,7 +237,7 @@ class TestPhotoStorageService:
             await photo_service.save_photo(incident_id, MockUploadFile(), [])
 
         assert exc_info.value.status_code == 400
-        assert "Invalid file type" in exc_info.value.detail
+        assert "Invalid file extension" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_save_photo_file_too_large(self, photo_service):
@@ -264,12 +274,13 @@ class TestPhotoStorageService:
             await photo_service.save_photo(incident_id, MockUploadFile(), [])
 
         assert exc_info.value.status_code == 400
-        assert "Invalid image" in exc_info.value.detail
+        assert "Invalid or corrupted image file" in exc_info.value.detail or "Ungültige Datei" in exc_info.value.detail
 
     def test_get_photo_path_exists(self, photo_service, temp_photos_dir):
         """Test getting path to existing photo."""
         incident_id = uuid.uuid4()
-        filename = "test.jpg"
+        photo_uuid = uuid.uuid4()
+        filename = f"{photo_uuid}.jpg"
 
         # Create photo file
         incident_dir = temp_photos_dir / str(incident_id)
@@ -285,7 +296,8 @@ class TestPhotoStorageService:
     def test_get_photo_path_not_exists(self, photo_service):
         """Test getting path to non-existent photo."""
         incident_id = uuid.uuid4()
-        filename = "nonexistent.jpg"
+        photo_uuid = uuid.uuid4()
+        filename = f"{photo_uuid}.jpg"
 
         result = photo_service.get_photo_path(incident_id, filename)
         assert result is None

@@ -40,7 +40,7 @@ async def test_editor_user(db_session: AsyncSession) -> User:
     user = User(
         id=uuid4(),
         username="middleware_editor",
-        password_hash=hash_password("editorpass"),
+        password_hash=hash_password("editorpass1234"),
         role="editor",
     )
     db_session.add(user)
@@ -54,7 +54,7 @@ async def authenticated_client(client: AsyncClient, test_editor_user: User) -> A
     """Create authenticated client."""
     response = await client.post(
         "/api/auth/login",
-        data={"username": "middleware_editor", "password": "editorpass"},
+        data={"username": "middleware_editor", "password": "editorpass1234"},
     )
     assert response.status_code == 200
     return client

@@ -193,7 +193,9 @@ class TestIncidentCRUD:
         test_user: User,
     ):
         """Test that assigned vehicles are ordered by assignment time."""
-        import asyncio
+        from datetime import UTC, datetime, timedelta
+
+        now = datetime.now(UTC)
 
         # Create second vehicle
         vehicle2 = Vehicle(
@@ -205,27 +207,26 @@ class TestIncidentCRUD:
         db_session.add(vehicle2)
         await db_session.commit()
 
-        # Create first assignment
+        # Create first assignment with explicit earlier timestamp
         assignment1 = IncidentAssignment(
             id=uuid4(),
             incident_id=test_incident.id,
             resource_type="vehicle",
             resource_id=test_vehicle.id,
             assigned_by=test_user.id,
+            assigned_at=now - timedelta(minutes=5),
         )
         db_session.add(assignment1)
         await db_session.commit()
 
-        # Wait a tiny bit to ensure different timestamps
-        await asyncio.sleep(0.01)
-
-        # Create second assignment
+        # Create second assignment with explicit later timestamp
         assignment2 = IncidentAssignment(
             id=uuid4(),
             incident_id=test_incident.id,
             resource_type="vehicle",
             resource_id=vehicle2.id,
             assigned_by=test_user.id,
+            assigned_at=now,
         )
         db_session.add(assignment2)
         await db_session.commit()

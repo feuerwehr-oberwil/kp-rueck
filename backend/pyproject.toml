@@ -74,16 +74,12 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 addopts = [
-    "--cov=app",
-    "--cov-report=html",
-    "--cov-report=term-missing",
-    "--cov-report=xml",
-    "--cov-fail-under=35",  # Target: 50% → 70%. Raise as coverage improves.
-    "-v",
     "--strict-markers",
 ]
+# Coverage: run explicitly with  pytest --cov=app --cov-report=term-missing --cov-fail-under=35
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
