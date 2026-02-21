@@ -82,6 +82,11 @@ export default function LoginPage() {
 
         {isDemo && (
           <div className="mb-6 space-y-3">
+            {error && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
             <Button
               className="w-full"
               size="lg"
@@ -99,67 +104,61 @@ export default function LoginPage() {
             >
               Als Betrachter einloggen
             </Button>
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">oder manuell anmelden</span>
-              </div>
-            </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
+        {!isDemo && (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="username" className="text-sm font-semibold text-muted-foreground">
-                Benutzername
-              </Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="Benutzername eingeben"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                autoComplete="username"
-                autoFocus={!isDemo}
-                className="mt-2"
-              />
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="username" className="text-sm font-semibold text-muted-foreground">
+                  Benutzername
+                </Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Benutzername eingeben"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoComplete="username"
+                  autoFocus
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="password" className="text-sm font-semibold text-muted-foreground">
+                  Passwort
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Passwort eingeben"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="mt-2"
+                />
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="password" className="text-sm font-semibold text-muted-foreground">
-                Passwort
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Passwort eingeben"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="mt-2"
-              />
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? 'Wird angemeldet...' : 'Anmelden'}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? 'Wird angemeldet...' : 'Anmelden'}
+            </Button>
+          </form>
+        )}
       </Card>
     </div>
   );
