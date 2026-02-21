@@ -148,6 +148,7 @@ jobs:
         run: uv run pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=35 -v
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-1234567890
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
