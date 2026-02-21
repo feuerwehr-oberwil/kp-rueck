@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     reload: bool = False  # Set to False in production
 
     # Security - MUST be set via environment variable
-    secret_key: str  # No default - requires SECRET_KEY env var
+    secret_key: str = ""  # Auto-generated in dev, required via env var in production
 
     @field_validator("secret_key", mode="before")
     @classmethod
