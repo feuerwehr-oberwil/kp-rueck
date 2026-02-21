@@ -17,7 +17,7 @@ Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)
 |:---:|:---:|
 | ![Dashboard](docs/images/dashboard.png) | ![Map View](docs/images/map-view.png) |
 
-**Try it now: [demo.kp-rueck.app](https://kp-rueck-demo.up.railway.app/)** · log in as `demo-editor` / `demo123`
+**[Try the live demo](https://kp-rueck-demo.up.railway.app/)** — no account needed, just pick a role and go
 
 ## Table of Contents
 
