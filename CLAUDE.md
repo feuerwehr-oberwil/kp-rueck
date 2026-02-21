@@ -2,21 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Worktree & Git Workflow
-
-**IMPORTANT**: This repository is a git worktree. When making commits:
-1. Always check that everything is up to date first: `git pull --rebase`
-2. **Test thoroughly before committing**: Run builds, tests, and verify functionality works as expected
-3. Once everything is tested and you're confident it works, create a commit and push to main
-4. After committing, push changes to main: `git push origin main`
-5. Never leave commits unpushed - the worktree setup requires pushing to main immediately
-
-**Testing Checklist Before Commit:**
-- Frontend: `cd frontend && pnpm build` (verify no compilation errors)
-- Backend: `cd backend && uv run uvicorn app.main:app` (verify server starts)
-- Run any relevant tests: `pnpm test` or `uv run pytest`
-- Manually test the feature in the browser/application if applicable
-
 ## Common Development Commands
 
 ### Quick Start (Docker - Recommended)
@@ -86,7 +71,7 @@ just test-ui
 
 **Direct Commands:**
 ```bash
-# Backend (when implemented)
+# Backend
 cd backend && uv run pytest
 
 # Frontend E2E tests
@@ -101,7 +86,6 @@ cd frontend && pnpm exec playwright test --headed  # Visible browser
 - Architecture: Page Object Model + Custom Fixtures
 - Test Data: Factory pattern + API helpers
 - Location: `frontend/tests/`
-- See: `E2E_TESTING_PLAN.md` for comprehensive test strategy
 
 ## Architecture Overview
 
@@ -281,136 +265,6 @@ open http://localhost:8080
 - **Training vs Live**: Same database, filtered by `training_flag` on incidents
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 
-## Common Pitfalls & Lessons Learned
-
-### Database Schema Changes Require Multi-Layer Updates
-
-**Issue**: When refactoring database models (e.g., renaming `Operation` → `Incident`, changing `int` IDs → `UUID`), it's easy to forget that changes must propagate through ALL application layers.
-
-**What Happened (2025-10-23)**:
-- Updated `models.py` with new schema (Operation → Incident, int → UUID)
-- Created Alembic migrations successfully
-- **Forgot to update** `schemas.py`, `crud.py`, and `routes.py`
-- Railway deployment failed with: `AttributeError: module 'app.models' has no attribute 'Operation'`
-
-**Root Cause**:
-The API layer (routes.py, crud.py) was still importing and referencing the old `Operation` model that no longer existed in models.py.
-
-**Required Changes Checklist**:
-When changing database models, update ALL of these layers in order:
-1. ✅ `models.py` - Database models (SQLAlchemy)
-2. ✅ `alembic/versions/*.py` - Database migrations
-3. ✅ `schemas.py` - Pydantic request/response schemas
-4. ✅ `crud.py` - CRUD operations using the models
-5. ✅ `api/routes.py` - API endpoints using schemas and CRUD
-6. ⚠️ `tests/` - Update test fixtures and test data
-7. ⚠️ Frontend - Update API client and TypeScript types
-
-**Prevention**:
-- Before pushing schema changes, search codebase for references to old model names
-- Run tests locally before deploying (`uv run pytest`)
-- Test the server locally (`uv run uvicorn app.main:app`)
-- Consider using IDE find/replace to catch all references
-
-**Example Commands**:
-```bash
-# Search for stale references before committing
-grep -r "Operation" backend/app/  # Should only find in comments/docs
-grep -r "operation_id" backend/app/  # Check for old parameter names
-
-# Test locally before deploying
-cd backend
-uv run pytest  # Run all tests
-uv run uvicorn app.main:app  # Start server and check logs
-```
-
-### FastAPI Trailing Slash 307 Redirects
-
-**Issue**: Frontend API calls fail with "Load failed" and backend logs show `307 Temporary Redirect` errors.
-
-**What Happened (2025-10-24)**:
-- Backend FastAPI route defined with trailing slash: `@router.get("/", ...)` on `APIRouter(prefix="/settings")`
-- This creates endpoint: `/api/settings/` (with trailing slash)
-- Frontend API client called: `/api/settings` (without trailing slash)
-- FastAPI automatically redirects `/api/settings` → `/api/settings/` with HTTP 307
-- Frontend fetch fails because it doesn't follow the redirect properly
-
-**Root Cause**:
-FastAPI enforces strict trailing slash matching. When a route is defined with a trailing slash, requests without the trailing slash will receive a 307 redirect to add it. This causes issues with authenticated requests because cookies may not be forwarded correctly on redirect.
-
-**Solution**:
-Always match trailing slashes between frontend API calls and backend route definitions:
-- **Option 1** (Recommended): Add trailing slash to frontend calls: `/api/settings/`
-- **Option 2**: Remove trailing slash from backend routes (change `@router.get("/")` to `@router.get("")`)
-
-**Prevention**:
-- When adding new API endpoints, verify trailing slash consistency
-- Test API calls in browser DevTools Network tab to catch 307 redirects
-- Check backend logs for 307 responses - they indicate trailing slash mismatches
-
-**Example**:
-```typescript
-// ❌ Wrong - missing trailing slash
-async getAllSettings() {
-  return this.request('/api/settings')  // Returns 307 redirect
-}
-
-// ✅ Correct - includes trailing slash
-async getAllSettings() {
-  return this.request('/api/settings/')  // Works correctly
-}
-```
-
-**Related Files**:
-- Frontend API calls: `frontend/lib/api-client.ts`
-- Backend routes: `backend/app/api/*.py` (router definitions)
-
-### Database Enum Values Must Match Schema Definitions
-
-**Issue**: Backend fails with `ResponseValidationError` when returning data that doesn't match Pydantic enum definitions.
-
-**What Happened (2025-10-24)**:
-- Database contained old seed data with English enum values (`'fire'`, `'other'`, `'technical'`)
-- Pydantic schemas expected German enum values (`'brandbekaempfung'`, `'strassenrettung'`, etc.)
-- FastAPI validation failed when trying to serialize incidents with old values
-- Error: `ResponseValidationError: Input should be 'brandbekaempfung', 'elementarereignis', ...`
-
-**Root Cause**:
-Database data was seeded with old enum values that no longer match the current schema definitions. When enum values change in `models.py` and `schemas.py`, existing database records must be migrated or reset.
-
-**Solution**:
-Reset and re-seed the database to use correct enum values.
-
-**Local Development**:
-```bash
-just clean  # Remove containers and volumes
-just dev    # Restart with fresh database (auto-seeds)
-```
-
-**Railway Production**:
-See `docs/RAILWAY.md` → "Database Reset (If Needed)" section for instructions on resetting Railway database.
-
-**Prevention**:
-- When changing enum values in models, create an Alembic migration to update existing data
-- Alternatively, document that database reset is required after enum changes
-- Ensure seed script (`app/seed.py`) always uses values that match schema enums
-- Test API endpoints after schema changes to catch validation errors early
-
-**Example Migration for Enum Changes**:
-```python
-# alembic/versions/xxx_update_incident_types.py
-def upgrade():
-    # Update existing values to new enum values
-    op.execute("UPDATE incidents SET type = 'brandbekaempfung' WHERE type = 'fire'")
-    op.execute("UPDATE incidents SET type = 'strassenrettung' WHERE type = 'technical'")
-    # ... etc
-```
-
-**Related Files**:
-- Schema definitions: `backend/app/schemas.py` (Pydantic enums)
-- Model constraints: `backend/app/models.py` (database CHECK constraints)
-- Seed script: `backend/app/seed.py` (must use matching values)
-
 ## Important Files & Documentation
 
 - `ARCHITECTURE.md` - System architecture and technical design
@@ -421,6 +275,3 @@ def upgrade():
 - `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs
 - `frontend/package.json` - Frontend scripts and dependencies
-- Ensure commits are always! pushed to the main branch otherwise other worktrees don't have access
-- Always commit to origin main
-- I'm visually testing the frontend by having pnpm dev running in a separate tab. You therefore can't constantly rebuild npm which makes me have to restart the dev server. Use alternative ways of testing / verifying

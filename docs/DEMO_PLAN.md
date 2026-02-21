@@ -1,11 +1,11 @@
 # Online Demo Release Plan
 
-**Status**: Live at [demo.kp-rueck.app](https://demo.kp-rueck.app)
+**Status**: Live at [kp-rueck-demo.up.railway.app](https://kp-rueck-demo.up.railway.app)
 **Last updated**: 2026-02-20
 
 ## Overview
 
-Hosted online demo at `demo.kp-rueck.app` for:
+Hosted online demo at `kp-rueck-demo.up.railway.app` for:
 - **Other fire departments** evaluating KP Rück for their own command posts
 - **General public** exploring the system via GitHub or a landing page
 
@@ -85,7 +85,7 @@ This ensures first-time visitors see a **populated, realistic board** immediatel
 
 ```
                     ┌─────────────────────────────────────────┐
-                    │           demo.kp-rueck.app             │
+                    │           kp-rueck-demo.up.railway.app             │
                     └────────────────┬────────────────────────┘
                                      │
               ┌──────────────────────┴───────────────────────┐
@@ -193,17 +193,17 @@ Use real Oberwil addresses (public data) with fake names and contact info.
    SECRET_KEY=<generated>
    ADMIN_SEED_PASSWORD=<generated>
    DATABASE_URL=<railway-postgres>
-   CORS_ORIGINS=https://demo.kp-rueck.app
+   CORS_ORIGINS=https://kp-rueck-demo.up.railway.app
    SEED_DATABASE=true
    ```
-4. Custom domain: `demo.kp-rueck.app` (Cloudflare DNS)
+4. Custom domain: `kp-rueck-demo.up.railway.app` (Cloudflare DNS)
 5. Cloudflare proxy for DDoS protection
 
 ### Phase 5: Documentation & Landing
 
 1. Update `README.md` with "Try the Demo" section and link
 2. Add demo link to GitHub repo description
-3. Optional: Simple landing page at `demo.kp-rueck.app` before login
+3. Optional: Simple landing page at `kp-rueck-demo.up.railway.app` before login
 
 ---
 
@@ -247,7 +247,7 @@ Use real Oberwil addresses (public data) with fake names and contact info.
 - [x] Modify login page for demo mode (pre-filled credentials)
 - [x] Add auto-refresh after reset
 - [x] Create Railway demo project and deploy
-- [x] Set up `demo.kp-rueck.app` domain
+- [x] Set up `kp-rueck-demo.up.railway.app` domain
 - [x] Update README with demo link
 - [x] Test full reset cycle end-to-end
 

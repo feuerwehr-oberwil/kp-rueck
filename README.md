@@ -1,7 +1,7 @@
 # KP Rück
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-rueck.app)
+[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://kp-rueck-demo.up.railway.app/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
@@ -17,7 +17,7 @@ Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)
 |:---:|:---:|
 | ![Dashboard](docs/images/dashboard.png) | ![Map View](docs/images/map-view.png) |
 
-**Try it now: [demo.kp-rueck.app](https://demo.kp-rueck.app)** · log in as `demo-editor` / `demo123`
+**Try it now: [demo.kp-rueck.app](https://kp-rueck-demo.up.railway.app/)** · log in as `demo-editor` / `demo123`
 
 ## Table of Contents
 
