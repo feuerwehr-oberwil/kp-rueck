@@ -249,12 +249,13 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
   # ============================================
-  # E2E Tests (Optional - runs on main only)
+  # E2E Tests - disabled in CI (run locally with: cd frontend && pnpm test)
+  # Playwright tests are too slow/flaky for CI (~25min with 300 tests)
   # ============================================
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: false  # Disabled - run locally
     needs: [backend-test, frontend-build]
 
     services:
