@@ -290,8 +290,27 @@ export function LocationInput({
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length >= 3 && (
-                    <div className="p-4 text-sm text-muted-foreground text-center">
-                      Keine Adressen gefunden.
+                    <div className="py-1">
+                      <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                        Keine Adressen gefunden.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onAddressChange(addressSearchQuery.trim())
+                          setAddressSearchOpen(false)
+                          setAddressSearchQuery("")
+                        }}
+                        className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-muted transition-colors cursor-pointer border-t"
+                      >
+                        <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">&laquo;{addressSearchQuery.trim()}&raquo; übernehmen</div>
+                          <div className="text-xs text-muted-foreground">
+                            Als Freitext ohne Koordinaten
+                          </div>
+                        </div>
+                      </button>
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length < 3 && (

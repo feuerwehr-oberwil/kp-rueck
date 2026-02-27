@@ -140,7 +140,9 @@ export function MapPickerModal({
 
   const handleConfirm = () => {
     if (selectedLat !== null && selectedLon !== null) {
-      onLocationSelect(selectedLat, selectedLon, geocodedAddress)
+      // Use geocoded address, or fall back to coordinate string if Nominatim is down
+      const address = geocodedAddress || `${selectedLat.toFixed(6)}, ${selectedLon.toFixed(6)}`
+      onLocationSelect(selectedLat, selectedLon, address)
       onOpenChange(false)
     }
   }
