@@ -79,10 +79,12 @@ class PhotoStorageService:
                 # Fall back to PIL validation if magic fails
                 pass
 
-        # Always validate with PIL as final check
+        # Validate PIL can open the file (don't use verify() — it's overly strict
+        # and rejects images that PIL can otherwise process fine, e.g. some HEIC
+        # conversions). The actual processing in save_photo() catches truly broken files.
         try:
             img = Image.open(io.BytesIO(content))
-            img.verify()  # Verify it's a valid image
+            img.load()  # Force decode to confirm it's a real image
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
 
