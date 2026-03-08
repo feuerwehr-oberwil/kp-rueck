@@ -68,38 +68,11 @@ export function OperationDetailModal({
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
-  const [assignedRekoPersonnel, setAssignedRekoPersonnel] = useState<{ id: string; name: string } | null>(null)
   const [isCopyingRekoLink, setIsCopyingRekoLink] = useState(false)
   const [rekoCopied, setRekoCopied] = useState<'direct' | 'dashboard' | null>(null)
 
-  // Load assigned Reko personnel when modal opens
-  useEffect(() => {
-    const loadAssignedReko = async () => {
-      if (!open || !operation) {
-        setAssignedRekoPersonnel(null)
-        return
-      }
-
-      try {
-        const data = await apiClient.getAvailableRekoPersonnel(operation.id)
-        if (data.currently_assigned_id) {
-          const assigned = data.personnel.find(p => p.personnel_id === data.currently_assigned_id)
-          if (assigned) {
-            setAssignedRekoPersonnel({ id: assigned.personnel_id, name: assigned.name })
-          } else {
-            setAssignedRekoPersonnel(null)
-          }
-        } else {
-          setAssignedRekoPersonnel(null)
-        }
-      } catch (error) {
-        console.error('Failed to load assigned Reko personnel:', error)
-        setAssignedRekoPersonnel(null)
-      }
-    }
-
-    loadAssignedReko()
-  }, [open, operation])
+  // Use assignedReko directly from the operation (kept in sync by operations context)
+  const assignedRekoPersonnel = operation?.assignedReko ?? null
 
   // Load vehicles and special functions when modal opens
   useEffect(() => {
@@ -622,9 +595,9 @@ export function OperationDetailModal({
               </div>
               <div className="flex flex-wrap gap-2">
                 {operation.crew.length > 0 ? (
-                  operation.crew.map((member, idx) => (
+                  operation.crew.map((member) => (
                     <Badge
-                      key={idx}
+                      key={member}
                       variant="secondary"
                       className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
                     >
@@ -714,11 +687,11 @@ export function OperationDetailModal({
               </div>
               <div className="flex flex-wrap gap-2">
                 {operation.vehicles.length > 0 ? (
-                  operation.vehicles.map((vehicleName, idx) => {
+                  operation.vehicles.map((vehicleName) => {
                     const driverName = vehicleDrivers.get(vehicleName)
                     return (
                       <Badge
-                        key={idx}
+                        key={vehicleName}
                         variant="default"
                         className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
                       >
@@ -766,9 +739,9 @@ export function OperationDetailModal({
               </div>
               <div className="flex flex-wrap gap-2">
                 {operation.materials.length > 0 ? (
-                  operation.materials.map((matId, idx) => (
+                  operation.materials.map((matId) => (
                     <Badge
-                      key={idx}
+                      key={matId}
                       variant="outline"
                       className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
                     >
@@ -868,19 +841,8 @@ export function OperationDetailModal({
         onOpenChange={setRekoDialogOpen}
         incidentId={operation.id}
         incidentTitle={operation.location}
-        onAssigned={async () => {
-          // Refresh assigned Reko personnel after assignment
-          try {
-            const data = await apiClient.getAvailableRekoPersonnel(operation.id)
-            if (data.currently_assigned_id) {
-              const assigned = data.personnel.find(p => p.personnel_id === data.currently_assigned_id)
-              if (assigned) {
-                setAssignedRekoPersonnel({ id: assigned.personnel_id, name: assigned.name })
-              }
-            }
-          } catch (error) {
-            console.error('Failed to refresh Reko personnel:', error)
-          }
+        onAssigned={() => {
+          // Assignment is handled by context via optimistic update + WebSocket/polling
         }}
       />
     </Dialog>

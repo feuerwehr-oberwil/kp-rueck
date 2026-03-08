@@ -377,10 +377,10 @@ export function MobileIncidentDetailSheet({
               </div>
               {operation.vehicles.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {operation.vehicles.map((vehicleName, idx) => {
+                  {operation.vehicles.map((vehicleName) => {
                     const driverName = vehicleDrivers.get(vehicleName)
                     return (
-                      <Badge key={idx} variant="default" className="text-sm">
+                      <Badge key={vehicleName} variant="default" className="text-sm">
                         {vehicleName}
                         {driverName && (
                           <span className="ml-1 opacity-70">({driverName})</span>
@@ -402,8 +402,8 @@ export function MobileIncidentDetailSheet({
               </div>
               {operation.crew.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {operation.crew.map((member, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-sm">
+                  {operation.crew.map((member) => (
+                    <Badge key={member} variant="secondary" className="text-sm">
                       {member}
                     </Badge>
                   ))}
@@ -421,8 +421,8 @@ export function MobileIncidentDetailSheet({
                   <span className="text-sm font-medium">Material ({operation.materials.length})</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {operation.materials.map((matId, idx) => (
-                    <Badge key={idx} variant="outline" className="text-sm">
+                  {operation.materials.map((matId) => (
+                    <Badge key={matId} variant="outline" className="text-sm">
                       {materials.find(m => m.id === matId)?.name || matId}
                     </Badge>
                   ))}
