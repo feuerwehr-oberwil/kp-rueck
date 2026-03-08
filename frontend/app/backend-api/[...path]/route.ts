@@ -66,12 +66,10 @@ async function proxyRequest(request: NextRequest) {
 
   try {
     // Get request body for non-GET requests
-    // Use arrayBuffer → Uint8Array to preserve binary data (text() corrupts file uploads)
-    // Don't use Blob - it can override content-type and lose multipart boundary
-    let body: Uint8Array | undefined
+    // Use arrayBuffer() to preserve binary data (text() corrupts file uploads)
+    let body: ArrayBuffer | undefined
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      const buf = await request.arrayBuffer()
-      body = new Uint8Array(buf)
+      body = await request.arrayBuffer()
     }
 
     // Follow redirects manually to preserve method, cookies, and enforce HTTPS
