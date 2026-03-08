@@ -1,5 +1,6 @@
 """Middleware to automatically log API requests."""
 
+import asyncio
 import logging
 import time
 from collections.abc import Callable
@@ -102,21 +103,18 @@ class AuditMiddleware(BaseHTTPMiddleware):
                     test_db_session=test_db_session,
                 )
             else:
-                # Production: Use background tasks with separate connection pool
-                if not hasattr(response, "background") or response.background is None:
-                    background_tasks = BackgroundTasks()
-                else:
-                    background_tasks = response.background
-
-                background_tasks.add_task(
-                    _log_api_request,
-                    user=user,
-                    path=request.url.path,
-                    method=request.method,
-                    duration_ms=duration_ms,
-                    test_db_session=None,
+                # Production: fire-and-forget via asyncio.create_task
+                # Using response.background with BaseHTTPMiddleware causes
+                # "ExceptionGroup: unhandled errors in a TaskGroup" when
+                # multiple BaseHTTPMiddleware instances are stacked.
+                asyncio.create_task(
+                    _log_api_request(
+                        user=user,
+                        path=request.url.path,
+                        method=request.method,
+                        duration_ms=duration_ms,
+                        test_db_session=None,
+                    )
                 )
-
-                response.background = background_tasks
 
         return response

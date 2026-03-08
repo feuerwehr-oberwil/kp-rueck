@@ -56,8 +56,8 @@ async function proxyRequest(request: NextRequest) {
   }
 
   // Forward other headers (excluding problematic ones)
-  // Keep content-length so multipart uploads work correctly
-  const skipHeaders = ['host', 'cookie', 'connection']
+  // Skip content-length: fetch auto-sets it from the body (Blob)
+  const skipHeaders = ['host', 'cookie', 'connection', 'content-length']
   request.headers.forEach((value, key) => {
     if (!skipHeaders.includes(key.toLowerCase())) {
       headers.set(key, value)
@@ -66,10 +66,12 @@ async function proxyRequest(request: NextRequest) {
 
   try {
     // Get request body for non-GET requests
-    // Use arrayBuffer() to preserve binary data (text() corrupts file uploads)
-    let body: Blob | undefined
+    // Use arrayBuffer → Uint8Array to preserve binary data (text() corrupts file uploads)
+    // Don't use Blob - it can override content-type and lose multipart boundary
+    let body: Uint8Array | undefined
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      body = await request.blob()
+      const buf = await request.arrayBuffer()
+      body = new Uint8Array(buf)
     }
 
     // Follow redirects manually to preserve method, cookies, and enforce HTTPS
