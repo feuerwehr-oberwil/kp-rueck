@@ -65,16 +65,22 @@ async function proxyRequest(request: NextRequest) {
 
   try {
     // Get request body for non-GET requests
-    let body: string | undefined
+    // Use arrayBuffer() to preserve binary data (text() corrupts file uploads)
+    let body: ArrayBuffer | undefined
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      body = await request.text()
+      body = await request.arrayBuffer()
+    }
+
+    // Forward content-length for binary bodies
+    if (body !== undefined) {
+      headers.set('content-length', body.byteLength.toString())
     }
 
     // Follow redirects manually to preserve method, cookies, and enforce HTTPS
     let response = await fetch(targetUrl, {
       method: request.method,
       headers,
-      body,
+      body: body ? Buffer.from(body) : undefined,
       redirect: 'manual',
     })
 
@@ -89,7 +95,7 @@ async function proxyRequest(request: NextRequest) {
       response = await fetch(location, {
         method: request.method,
         headers,
-        body,
+        body: body ? Buffer.from(body) : undefined,
         redirect: 'manual',
       })
       redirectCount++
