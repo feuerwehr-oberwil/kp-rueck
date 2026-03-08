@@ -130,10 +130,10 @@ async def demo_status():
     """
     Get demo mode status and next reset time.
 
-    Returns 404 if not in demo mode — frontend uses this to detect demo.
+    Returns demo: false if not in demo mode.
     """
     if not settings.demo_mode:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        return {"demo": False}
 
     from ..background.demo_reset import get_next_reset_time
 

@@ -1208,6 +1208,13 @@ class ApiClient {
     }
   }
 
+  async deleteRekoPhoto(incidentId: string, token: string, filename: string): Promise<void> {
+    await this.request(`/api/reko/${incidentId}/photos/${filename}`, {
+      method: 'DELETE',
+      headers: { 'X-Reko-Token': token },
+    })
+  }
+
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
     return this.request<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
   }
@@ -1596,9 +1603,10 @@ class ApiClient {
   // Demo Mode
   async getDemoStatus(): Promise<DemoStatus | null> {
     try {
-      return await this.request<DemoStatus>('/api/demo/status', { skipToast: true })
+      const result = await this.request<DemoStatus>('/api/demo/status', { skipToast: true })
+      return result.demo ? result : null
     } catch {
-      return null // Not in demo mode (404)
+      return null
     }
   }
 }

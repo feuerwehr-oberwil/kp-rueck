@@ -155,20 +155,28 @@ export default function PhotoUpload({
     }
   }
 
-  function handleRemovePhoto(filename: string) {
-    // Revoke local blob URL to free memory
-    const localUrl = localPreviews.get(filename)
-    if (localUrl) {
-      URL.revokeObjectURL(localUrl)
-      setLocalPreviews(prev => {
-        const next = new Map(prev)
-        next.delete(filename)
-        return next
-      })
-    }
+  async function handleRemovePhoto(filename: string) {
+    try {
+      // Delete from backend first
+      await apiClient.deleteRekoPhoto(incidentId, token, filename)
 
-    onPhotosChange(photos.filter(f => f !== filename))
-    toast.success('Foto entfernt')
+      // Revoke local blob URL to free memory
+      const localUrl = localPreviews.get(filename)
+      if (localUrl) {
+        URL.revokeObjectURL(localUrl)
+        setLocalPreviews(prev => {
+          const next = new Map(prev)
+          next.delete(filename)
+          return next
+        })
+      }
+
+      onPhotosChange(photos.filter(f => f !== filename))
+      toast.success('Foto entfernt')
+    } catch (error) {
+      console.error('Delete failed:', error)
+      toast.error('Foto konnte nicht gelöscht werden')
+    }
   }
 
   // Get photo URL - prefer local blob URL for preview, fall back to server URL
