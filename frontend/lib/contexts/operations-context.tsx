@@ -872,7 +872,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     recentAssignmentRef.current = true
     if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
-    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
 
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, crew: [...op.crew, personName] } : op))
@@ -905,12 +904,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setPersonnel((people) =>
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
-        recentAssignmentRef.current = false
-        if (assignmentCooldownTimerRef.current) {
-          clearTimeout(assignmentCooldownTimerRef.current)
-          assignmentCooldownTimerRef.current = undefined
-        }
+      } finally {
+        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
       }
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -930,29 +928,46 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     recentAssignmentRef.current = true
     if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
-    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
 
-    // Optimistically update UI
+    // Optimistically update UI - also move to "reko" status if currently "eingegangen"
+    const currentOp = operations.find(op => op.id === operationId)
+    const shouldAutoMoveToReko = currentOp?.status === "incoming"
+
     setOperations((ops) =>
-      ops.map((op) => (op.id === operationId ? { ...op, assignedReko: { id: personId, name: personName } } : op))
+      ops.map((op) => {
+        if (op.id !== operationId) return op
+        const updated = { ...op, assignedReko: { id: personId, name: personName } }
+        if (shouldAutoMoveToReko) {
+          updated.status = "ready" as OperationStatus // "ready" maps to "reko" backend status
+          updated.statusChangedAt = new Date()
+        }
+        return updated
+      })
     )
 
     if (isLoaded) {
       try {
-        // Use the reko assignment API
+        // Use the reko assignment API (backend auto-moves status to "reko" if eingegangen)
         await apiClient.assignRekoPersonnel(operationId, personId)
       } catch (err) {
         console.error("Failed to assign reko person:", err)
         // Revert on error
         setOperations((ops) =>
-          ops.map((op) => (op.id === operationId ? { ...op, assignedReko: null } : op))
+          ops.map((op) => {
+            if (op.id !== operationId) return op
+            const reverted = { ...op, assignedReko: null }
+            if (shouldAutoMoveToReko) {
+              reverted.status = "incoming" as OperationStatus
+              reverted.statusChangedAt = currentOp?.statusChangedAt ?? null
+            }
+            return reverted
+          })
         )
-        recentAssignmentRef.current = false
-        if (assignmentCooldownTimerRef.current) {
-          clearTimeout(assignmentCooldownTimerRef.current)
-          assignmentCooldownTimerRef.current = undefined
-        }
+      } finally {
+        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
       }
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -966,7 +981,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     recentAssignmentRef.current = true
     if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
-    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
 
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, materials: [...op.materials, materialId] } : op))
@@ -999,12 +1013,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials((mats) =>
           mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
         )
-        recentAssignmentRef.current = false
-        if (assignmentCooldownTimerRef.current) {
-          clearTimeout(assignmentCooldownTimerRef.current)
-          assignmentCooldownTimerRef.current = undefined
-        }
+      } finally {
+        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
       }
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -1023,7 +1036,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     recentAssignmentRef.current = true
     if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
-    assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
 
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
@@ -1050,12 +1062,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
         )
-        recentAssignmentRef.current = false
-        if (assignmentCooldownTimerRef.current) {
-          clearTimeout(assignmentCooldownTimerRef.current)
-          assignmentCooldownTimerRef.current = undefined
-        }
+      } finally {
+        // Clear cooldown after API response, with a small grace period
+        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
       }
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 

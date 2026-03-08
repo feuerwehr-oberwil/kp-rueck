@@ -346,9 +346,9 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
-                    {operation.crew.map((crewName, idx) => (
+                    {operation.crew.map((crewName) => (
                       <Badge
-                        key={idx}
+                        key={crewName}
                         variant="secondary"
                         className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
                       >
@@ -372,8 +372,8 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5">
                   <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
-                    {operation.vehicles.map((vehicleName, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0.5 font-normal cursor-default">
+                    {operation.vehicles.map((vehicleName) => (
+                      <Badge key={vehicleName} variant="secondary" className="text-xs px-1.5 py-0.5 font-normal cursor-default">
                         {vehicleName}
                       </Badge>
                     ))}
@@ -512,8 +512,11 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.notes === nextProps.operation.notes &&
     prevProps.operation.nachbarhilfe === nextProps.operation.nachbarhilfe &&
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
+    prevProps.operation.crew.every((c, i) => c === nextProps.operation.crew[i]) &&
     prevProps.operation.materials.length === nextProps.operation.materials.length &&
+    prevProps.operation.materials.every((m, i) => m === nextProps.operation.materials[i]) &&
     prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
+    prevProps.operation.vehicles.every((v, i) => v === nextProps.operation.vehicles[i]) &&
     prevProps.columnColor === nextProps.columnColor &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&

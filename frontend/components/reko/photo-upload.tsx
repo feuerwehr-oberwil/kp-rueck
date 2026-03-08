@@ -72,7 +72,8 @@ export default function PhotoUpload({
       }
     } catch (error) {
       console.error('Upload failed:', error)
-      toast.error('Fehler beim Hochladen. Bitte erneut versuchen.')
+      const message = error instanceof Error ? error.message : 'Fehler beim Hochladen'
+      toast.error(message)
     } finally {
       setIsUploading(false)
       // Reset file inputs

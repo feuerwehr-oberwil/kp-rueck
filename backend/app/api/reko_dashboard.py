@@ -10,11 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..crud import events as events_crud
+from ..crud import incidents as incidents_crud
 from ..crud import reko_dashboard as crud
 from ..database import get_db
 from ..models import IncidentAssignment, Personnel
 from ..services.tokens import generate_reko_dashboard_token, validate_reko_dashboard_token
-from ..websocket_manager import broadcast_assignment_update
+from ..websocket_manager import broadcast_assignment_update, broadcast_incident_update
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +177,29 @@ async def assign_reko_personnel(
     db.add(db_assignment)
     await db.commit()
     await db.refresh(db_assignment)
+
+    # Auto-move incident from "eingegangen" to "reko" when reko personnel is assigned
+    incident = await incidents_crud.get_incident(db, incident_id)
+    if incident and incident.status == "eingegangen":
+        await incidents_crud.update_incident_status(
+            db=db,
+            incident_id=incident_id,
+            new_status="reko",
+            current_user=current_user,
+            request=request,
+            notes="Automatisch verschoben: Reko-Person zugewiesen",
+        )
+        await db.commit()
+        logger.info(
+            "Auto-moved incident %s from eingegangen to reko after reko assignment",
+            incident_id,
+        )
+        # Broadcast incident update for the status change
+        background_tasks.add_task(
+            broadcast_incident_update,
+            {"id": str(incident_id), "status": "reko"},
+            "update",
+        )
 
     # Broadcast WebSocket update
     background_tasks.add_task(

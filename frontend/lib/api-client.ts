@@ -1185,7 +1185,17 @@ class ApiClient {
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw new Error('Photo upload failed')
+        // Parse backend error message for specific errors (file size, quota, invalid type)
+        let errorMessage = 'Foto-Upload fehlgeschlagen'
+        try {
+          const errorData = await response.json()
+          if (errorData.detail) {
+            errorMessage = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail)
+          }
+        } catch {
+          // Ignore JSON parse errors
+        }
+        throw new Error(errorMessage)
       }
 
       return response.json()
