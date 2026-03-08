@@ -53,7 +53,9 @@ from .background import start_demo_reset_scheduler, start_sync_scheduler, stop_d
 from .config import settings
 from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
-from .middleware.rate_limit import RateLimitHeadersMiddleware, limiter, rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+
+from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
@@ -299,8 +301,9 @@ app.add_middleware(AuditMiddleware)
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Add rate limit headers middleware
-app.add_middleware(RateLimitHeadersMiddleware)
+# Add slowapi rate limit middleware (must be BaseHTTPMiddleware for slowapi compatibility,
+# but it's the only one now — audit and security_headers are pure ASGI)
+app.add_middleware(SlowAPIMiddleware)
 
 # Include routers
 app.include_router(health_router)  # No prefix - available at /health
