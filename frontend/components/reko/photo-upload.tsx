@@ -7,50 +7,73 @@ import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 
-// Convert image file to JPEG blob via canvas (handles HEIC, WebP, etc.)
+// Always convert image file to JPEG via canvas before upload.
+// This handles HEIC (iPhone), WebP, and also normalizes JPEG/PNG files
+// that iOS may misreport as image/jpeg when they're actually HEIC.
 async function convertToJpeg(file: File): Promise<File> {
-  // If already JPEG/PNG, skip conversion (these are universally supported by PIL)
-  if (file.type === 'image/jpeg' || file.type === 'image/png') {
-    return file
+  // Try createImageBitmap first (more reliable for HEIC on iOS)
+  // Falls back to <img> element if not available
+  let bitmap: ImageBitmap | null = null
+  let imgWidth: number
+  let imgHeight: number
+
+  try {
+    bitmap = await createImageBitmap(file)
+    imgWidth = bitmap.width
+    imgHeight = bitmap.height
+  } catch {
+    // Fallback: load via <img> element
+    const result = await new Promise<{ width: number; height: number; img: HTMLImageElement }>((resolve, reject) => {
+      const img = new window.Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        resolve({ width: img.naturalWidth, height: img.naturalHeight, img })
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error('Bild konnte nicht geladen werden'))
+      }
+      img.src = url
+    })
+    imgWidth = result.width
+    imgHeight = result.height
+    // Store img for drawing later
+    bitmap = null
+    // We need to draw using the img element below
+    var imgElement = result.img
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = imgWidth
+  canvas.height = imgHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Canvas nicht verfügbar')
+  }
+
+  if (bitmap) {
+    ctx.drawImage(bitmap, 0, 0)
+    bitmap.close()
+  } else {
+    ctx.drawImage(imgElement!, 0, 0)
   }
 
   return new Promise((resolve, reject) => {
-    const img = new window.Image()
-    const url = URL.createObjectURL(file)
-
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth
-      canvas.height = img.naturalHeight
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        reject(new Error('Canvas nicht verfügbar'))
-        return
-      }
-      ctx.drawImage(img, 0, 0)
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('Konvertierung fehlgeschlagen'))
-            return
-          }
-          const converted = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
-            type: 'image/jpeg',
-          })
-          resolve(converted)
-        },
-        'image/jpeg',
-        0.92
-      )
-    }
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error('Bild konnte nicht geladen werden'))
-    }
-
-    img.src = url
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Konvertierung fehlgeschlagen'))
+          return
+        }
+        const converted = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+          type: 'image/jpeg',
+        })
+        resolve(converted)
+      },
+      'image/jpeg',
+      0.92
+    )
   })
 }
 
@@ -93,13 +116,8 @@ export default function PhotoUpload({
           return null
         }
 
-        // Convert to JPEG if needed (handles HEIC from iPhones, etc.)
-        let uploadFile = file
-        try {
-          uploadFile = await convertToJpeg(file)
-        } catch (err) {
-          console.warn('Image conversion failed, uploading original:', err)
-        }
+        // Convert to JPEG via canvas (handles HEIC from iPhones, etc.)
+        const uploadFile = await convertToJpeg(file)
 
         // Create local blob URL for immediate preview (works better on mobile)
         const localUrl = URL.createObjectURL(uploadFile)
