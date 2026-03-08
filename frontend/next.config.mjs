@@ -72,7 +72,7 @@ const nextConfig = {
           // Permissions policy - restrict sensitive APIs
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(self), payment=()',
+            value: 'camera=(self), microphone=(), geolocation=(self), payment=()',
           },
           // Content Security Policy
           { key: 'Content-Security-Policy', value: cspDirectives },
