@@ -47,10 +47,14 @@ def get_client_identifier(request: Request) -> str:
     return get_remote_address(request)
 
 
-# Create limiter instance with custom key function and header injection
+# Create limiter instance with custom key function
+# headers_enabled=False: _inject_headers requires Response objects but FastAPI
+# endpoints return dicts. Header injection crashes with "parameter `response`
+# must be an instance of starlette.responses.Response". Rate limit enforcement
+# still works — 429 responses are handled by rate_limit_exceeded_handler.
 limiter = Limiter(
     key_func=get_client_identifier,
-    headers_enabled=True,  # Enable X-RateLimit headers
+    headers_enabled=False,
 )
 
 
