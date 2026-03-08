@@ -1,10 +1,12 @@
-"""Security headers middleware for HTTP response hardening."""
+"""Security headers middleware for HTTP response hardening.
+
+Uses pure ASGI middleware (not BaseHTTPMiddleware) to avoid
+TaskGroup/ExceptionGroup crashes when stacked with other middlewares.
+"""
 
 import os
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 def _is_production() -> bool:
@@ -17,9 +19,9 @@ def _is_production() -> bool:
     return any(os.getenv(indicator) is not None for indicator in railway_indicators)
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """
-    Add security headers to all HTTP responses.
+    Add security headers to all HTTP responses (pure ASGI middleware).
 
     Headers added:
     - X-Content-Type-Options: Prevents MIME type sniffing
@@ -30,19 +32,33 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Strict-Transport-Security: Forces HTTPS (production only)
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        """Add security headers to response."""
-        response = await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+        self.is_production = _is_production()
 
-        # Always add these headers
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(self), camera=(), microphone=()"
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # Add HSTS only in production (requires HTTPS)
-        if _is_production():
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        async def send_wrapper(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = dict(message.get("headers", []))
+                extra_headers = [
+                    (b"x-content-type-options", b"nosniff"),
+                    (b"x-frame-options", b"DENY"),
+                    (b"x-xss-protection", b"1; mode=block"),
+                    (b"referrer-policy", b"strict-origin-when-cross-origin"),
+                    (b"permissions-policy", b"geolocation=(self), camera=(), microphone=()"),
+                ]
+                if self.is_production:
+                    extra_headers.append(
+                        (b"strict-transport-security", b"max-age=31536000; includeSubDomains")
+                    )
+                message = {
+                    **message,
+                    "headers": list(message.get("headers", [])) + extra_headers,
+                }
+            await send(message)
 
-        return response
+        await self.app(scope, receive, send_wrapper)

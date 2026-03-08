@@ -1,12 +1,15 @@
-"""Middleware to automatically log API requests."""
+"""Middleware to automatically log API requests.
+
+Uses pure ASGI middleware (not BaseHTTPMiddleware) to avoid
+TaskGroup/ExceptionGroup crashes when stacked with other middlewares.
+"""
 
 import asyncio
 import logging
 import time
-from collections.abc import Callable
 
-from fastapi import BackgroundTasks, Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..database import audit_session_maker
 from ..services.audit import log_action
@@ -69,32 +72,44 @@ async def _log_api_request(
             logger.error("Audit session error: %s", e)
 
 
-class AuditMiddleware(BaseHTTPMiddleware):
+class AuditMiddleware:
     """
-    Log all API requests to audit log.
+    Log all API requests to audit log (pure ASGI middleware).
 
     Note: Only logs successful requests (2xx status codes).
     Failed requests are logged by exception handlers.
     """
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Process request and log if appropriate."""
-        start_time = time.time()
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        # Call next middleware/route
-        response = await call_next(request)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        start_time = time.time()
+        status_code = 0
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
         # Only log successful API requests (skip health checks, static files)
-        if response.status_code < 300 and request.url.path.startswith("/api/") and request.url.path != "/api/health":
+        request = Request(scope)
+        if status_code < 300 and request.url.path.startswith("/api/") and request.url.path != "/api/health":
             duration_ms = round((time.time() - start_time) * 1000, 2)
             user = getattr(request.state, "user", None)
 
             # Check if test session is injected
             test_db_session = getattr(request.app.state, "test_db_session", None)
 
-            # In test mode, log synchronously to ensure tests can verify immediately
             if test_db_session is not None:
-                # Test mode: use injected session synchronously
+                # Test mode: log synchronously to ensure tests can verify immediately
                 await _log_api_request(
                     user=user,
                     path=request.url.path,
@@ -103,10 +118,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
                     test_db_session=test_db_session,
                 )
             else:
-                # Production: fire-and-forget via asyncio.create_task
-                # Using response.background with BaseHTTPMiddleware causes
-                # "ExceptionGroup: unhandled errors in a TaskGroup" when
-                # multiple BaseHTTPMiddleware instances are stacked.
+                # Production: fire-and-forget
                 asyncio.create_task(
                     _log_api_request(
                         user=user,
@@ -116,5 +128,3 @@ class AuditMiddleware(BaseHTTPMiddleware):
                         test_db_session=None,
                     )
                 )
-
-        return response

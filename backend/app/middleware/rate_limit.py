@@ -1,5 +1,8 @@
 """Rate limiting middleware using slowapi.
 
+Uses pure ASGI middleware (not BaseHTTPMiddleware) to avoid
+TaskGroup/ExceptionGroup crashes when stacked with other middlewares.
+
 Provides protection against:
 - Brute force attacks on authentication endpoints
 - DoS attacks through resource-heavy endpoints
@@ -17,14 +20,13 @@ Features:
 
 import re
 import time
-from collections.abc import Callable
 
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 def get_client_identifier(request: Request) -> str:
@@ -119,20 +121,35 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
     )
 
 
-class RateLimitHeadersMiddleware(BaseHTTPMiddleware):
+class RateLimitHeadersMiddleware:
     """
-    Middleware to add rate limit headers to responses.
+    Middleware to add rate limit headers to responses (pure ASGI middleware).
 
     Adds X-RateLimit-* headers to help clients implement backoff.
     """
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        response = await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        # Add rate limit headers if not already present (slowapi adds them for limited routes)
-        # These are informational headers for routes without explicit limits
-        if "X-RateLimit-Limit" not in response.headers and request.url.path.startswith("/api"):
-            # Default API limit info
-            response.headers["X-RateLimit-Policy"] = "100/minute"
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        return response
+        request = Request(scope)
+
+        async def send_wrapper(message: Message) -> None:
+            if message["type"] == "http.response.start" and request.url.path.startswith("/api"):
+                # Check if X-RateLimit-Limit is already present (slowapi sets it for limited routes)
+                existing_headers = dict(message.get("headers", []))
+                has_rate_limit = any(k == b"x-ratelimit-limit" for k, _ in message.get("headers", []))
+                if not has_rate_limit:
+                    message = {
+                        **message,
+                        "headers": list(message.get("headers", [])) + [
+                            (b"x-ratelimit-policy", b"100/minute"),
+                        ],
+                    }
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
