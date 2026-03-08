@@ -7,6 +7,53 @@ import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 
+// Convert image file to JPEG blob via canvas (handles HEIC, WebP, etc.)
+async function convertToJpeg(file: File): Promise<File> {
+  // If already JPEG/PNG, skip conversion (these are universally supported by PIL)
+  if (file.type === 'image/jpeg' || file.type === 'image/png') {
+    return file
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    const url = URL.createObjectURL(file)
+
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Canvas nicht verfügbar'))
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Konvertierung fehlgeschlagen'))
+            return
+          }
+          const converted = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: 'image/jpeg',
+          })
+          resolve(converted)
+        },
+        'image/jpeg',
+        0.92
+      )
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Bild konnte nicht geladen werden'))
+    }
+
+    img.src = url
+  })
+}
+
 interface PhotoUploadProps {
   photos: string[]
   incidentId: string
@@ -40,17 +87,25 @@ export default function PhotoUpload({
           return null
         }
 
-        // Validate file size (max 10MB)
+        // Validate file size (max 10MB, before conversion)
         if (file.size > 10 * 1024 * 1024) {
           toast.error(`${file.name} ist zu gross (max 10MB)`)
           return null
         }
 
+        // Convert to JPEG if needed (handles HEIC from iPhones, etc.)
+        let uploadFile = file
+        try {
+          uploadFile = await convertToJpeg(file)
+        } catch (err) {
+          console.warn('Image conversion failed, uploading original:', err)
+        }
+
         // Create local blob URL for immediate preview (works better on mobile)
-        const localUrl = URL.createObjectURL(file)
+        const localUrl = URL.createObjectURL(uploadFile)
 
         // Upload photo
-        const response = await apiClient.uploadRekoPhoto(incidentId, token, file)
+        const response = await apiClient.uploadRekoPhoto(incidentId, token, uploadFile)
 
         // Store local preview URL mapped to the server filename
         setLocalPreviews(prev => {
@@ -161,7 +216,7 @@ export default function PhotoUpload({
       {photos.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
           {photos.map((filename, index) => (
-            <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+            <div key={filename} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
               <img
                 src={getPhotoUrl(filename)}
                 alt={`Photo ${index + 1}`}
