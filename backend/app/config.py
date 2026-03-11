@@ -138,6 +138,17 @@ class Settings(BaseSettings):
     # Master token for API access without login (e.g. configuring settings on Railway)
     master_token: str = ""  # Set MASTER_TOKEN env var; empty = disabled
 
+    # Microsoft Entra ID (optional - if set, enables "Login with Microsoft")
+    microsoft_client_id: str = ""  # Azure App Registration client ID
+    microsoft_tenant_id: str = ""  # Azure Directory (tenant) ID
+    microsoft_client_secret: str = ""  # Azure client secret VALUE (not the secret ID!)
+    microsoft_redirect_uri: str = ""  # Must match Azure redirect URI exactly
+
+    @property
+    def microsoft_auth_enabled(self) -> bool:
+        """Check if Microsoft Entra ID auth is configured."""
+        return bool(self.microsoft_client_id and self.microsoft_tenant_id and self.microsoft_client_secret and self.microsoft_redirect_uri)
+
     # Divera API Integration (for polling as webhook fallback)
     divera_access_key: str = ""  # Divera247 API access key (empty = polling disabled)
     divera_api_url: str = "https://app.divera247.com/api/v2"  # Divera API base URL

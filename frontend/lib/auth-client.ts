@@ -183,6 +183,71 @@ export async function logout(): Promise<void> {
 }
 
 /**
+ * Microsoft auth configuration from backend
+ */
+export interface MicrosoftAuthConfig {
+  enabled: boolean;
+  client_id: string;
+  tenant_id: string;
+  redirect_uri: string;
+}
+
+/**
+ * Get Microsoft auth configuration from backend
+ * Returns null if not configured or on error
+ */
+export async function getMicrosoftAuthConfig(): Promise<MicrosoftAuthConfig | null> {
+  try {
+    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/microsoft-config`, {
+      credentials: 'include',
+    }, 5000);
+
+    if (!response.ok) return null;
+
+    const config = await response.json();
+    return config.enabled ? config : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Login with Microsoft authorization code
+ * Exchanges the code with the backend, which handles token exchange with Microsoft
+ */
+export async function microsoftLogin(code: string): Promise<User> {
+  try {
+    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/microsoft-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      let detail = 'Microsoft-Anmeldung fehlgeschlagen';
+      try {
+        const errorData = await response.json();
+        detail = errorData.detail || detail;
+      } catch { /* not JSON */ }
+      throw new AuthError(
+        detail,
+        response.status === 401 ? AuthErrorType.UNAUTHORIZED : AuthErrorType.SERVER_ERROR,
+        response.status
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError(
+      'Verbindung zum Server fehlgeschlagen',
+      AuthErrorType.NETWORK_ERROR
+    );
+  }
+}
+
+/**
  * Refresh access token using refresh token
  * Called automatically when access token expires
  *

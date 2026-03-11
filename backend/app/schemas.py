@@ -665,6 +665,21 @@ class StatusTransitionResponse(BaseModel):
 # ============================================
 
 
+class MicrosoftLoginRequest(BaseModel):
+    """Schema for Microsoft login callback."""
+
+    code: str
+
+
+class MicrosoftAuthConfig(BaseModel):
+    """Schema for exposing Microsoft auth config to frontend."""
+
+    enabled: bool
+    client_id: str = ""
+    tenant_id: str = ""
+    redirect_uri: str = ""
+
+
 class UserBase(BaseModel):
     """Base user schema."""
 

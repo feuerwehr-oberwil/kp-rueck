@@ -6,12 +6,13 @@
  */
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { getCurrentUser, login as apiLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
+import { getCurrentUser, login as apiLogin, microsoftLogin as apiMicrosoftLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
+  microsoftLogin: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
   isEditor: boolean;  // true for both editor and admin roles
@@ -82,6 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(loggedInUser);
   };
 
+  const microsoftLogin = async (code: string) => {
+    const loggedInUser = await apiMicrosoftLogin(code);
+    setUser(loggedInUser);
+  };
+
   const logout = async () => {
     await apiLogout();
     setUser(null);
@@ -92,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       login,
+      microsoftLogin,
       logout,
       isAdmin: user?.role === 'admin',
       isEditor: user?.role === 'editor' || user?.role === 'admin',  // admin has editor privileges
