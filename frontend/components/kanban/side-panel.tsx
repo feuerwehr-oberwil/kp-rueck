@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { cn, copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
 import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2 } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel, incidentTypeKeys } from "@/lib/incident-types"
@@ -95,15 +96,19 @@ export function SidePanel({
   // Collapsed state - floating button that overlays content
   if (mode === 'collapsed') {
     return (
-      <Button
-        variant="secondary"
-        size="icon"
-        onClick={() => onModeChange('detail')}
-        title="Seitenpanel öffnen"
-        className="fixed right-4 top-24 z-40 shadow-lg border border-border h-10 w-10 rounded-full"
-      >
-        <PanelRight className="h-5 w-5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => onModeChange('detail')}
+            className="fixed right-4 top-24 z-40 shadow-lg border border-border h-10 w-10 rounded-full"
+          >
+            <PanelRight className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Panel ein-/ausblenden</TooltipContent>
+      </Tooltip>
     )
   }
 
@@ -131,14 +136,18 @@ export function SidePanel({
             Karte
           </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onModeChange('collapsed')}
-          title="Seitenpanel schliessen"
-        >
-          <PanelRightClose className="h-5 w-5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onModeChange('collapsed')}
+            >
+              <PanelRightClose className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Schliessen</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Panel content */}

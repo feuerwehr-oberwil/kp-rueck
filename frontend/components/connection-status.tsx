@@ -56,6 +56,17 @@ export function ConnectionStatus() {
     }
   }
 
+  const getStatusLabel = () => {
+    switch (status) {
+      case "connected":
+        return "Backend verbunden"
+      case "disconnected":
+        return "Backend nicht erreichbar"
+      case "checking":
+        return "Verbindung wird geprüft"
+    }
+  }
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
@@ -65,7 +76,8 @@ export function ConnectionStatus() {
       <PopoverTrigger asChild>
         <button
           className={`h-3 w-3 rounded-full ${getStatusColor()} ${status === "connected" ? "animate-pulse" : ""} cursor-pointer transition-all hover:scale-110`}
-          aria-label="Backend connection status"
+          aria-label={getStatusLabel()}
+          title={getStatusLabel()}
         />
       </PopoverTrigger>
       <PopoverContent className="w-64" align="end">
@@ -73,7 +85,7 @@ export function ConnectionStatus() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Backend Status</span>
             <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
+              <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} aria-hidden="true" />
               <span className="text-sm">{getStatusText()}</span>
             </div>
           </div>

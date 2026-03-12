@@ -76,7 +76,7 @@ export function MaterialSettings() {
       handleCloseDialog();
     } catch (error) {
       console.error('Failed to save material:', error);
-      toast.error('Fehler beim Speichern des Materials');
+      toast.error('Fehler beim Speichern des Materials', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
     } finally {
       setIsSaving(false);
     }
@@ -105,7 +105,7 @@ export function MaterialSettings() {
       toast.success(`Material "${materialToDelete.name}" gelöscht`);
     } catch (error) {
       console.error('Failed to delete material:', error);
-      toast.error('Fehler beim Löschen des Materials');
+      toast.error('Fehler beim Löschen des Materials', { description: 'Das Material konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
     } finally {
       setMaterialToDelete(null);
     }
@@ -325,8 +325,8 @@ export function MaterialSettings() {
                 <span
                   className={`px-2 py-1 rounded text-xs font-medium ${
                     material.status === 'available'
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      ? 'bg-success/10 text-success'
+                      : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {material.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}

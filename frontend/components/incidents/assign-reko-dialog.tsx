@@ -62,7 +62,7 @@ export function AssignRekoDialog({
       onOpenChange(false)
     } catch (err) {
       console.error('Failed to assign Reko personnel:', err)
-      toast.error('Fehler bei der Zuweisung')
+      toast.error('Fehler bei der Zuweisung', { description: 'Die Person konnte nicht zugewiesen werden. Versuchen Sie es erneut.' })
     } finally {
       setAssigning(null)
     }
@@ -119,7 +119,7 @@ export function AssignRekoDialog({
                       className={cn(
                         "w-full flex items-center justify-between p-3 rounded-lg border transition-all text-left",
                         isCurrentlyAssigned
-                          ? "border-green-500 bg-green-500/10 cursor-default"
+                          ? "border-success bg-success/10 cursor-default"
                           : "border-border/50 hover:border-primary/50 hover:bg-secondary/30",
                         assigning === person.personnel_id && "opacity-50 cursor-not-allowed"
                       )}
@@ -127,7 +127,7 @@ export function AssignRekoDialog({
                       <div className="flex items-center gap-3">
                         <User className={cn(
                           "h-5 w-5 flex-shrink-0",
-                          isCurrentlyAssigned ? "text-green-500" :
+                          isCurrentlyAssigned ? "text-success" :
                           person.assignment_count > 0 ? "text-orange-500" : "text-muted-foreground"
                         )} />
                         <div>
@@ -139,7 +139,7 @@ export function AssignRekoDialog({
                       </div>
                       <div className="flex items-center gap-2">
                         {isCurrentlyAssigned ? (
-                          <Badge variant="default" className="text-xs bg-green-600">
+                          <Badge variant="default" className="text-xs bg-success">
                             Zugewiesen
                           </Badge>
                         ) : person.assignment_count > 0 ? (

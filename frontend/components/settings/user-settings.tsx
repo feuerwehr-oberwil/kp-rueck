@@ -100,7 +100,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to create user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Erstellen');
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Erstellen', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
     } finally {
       setSubmitting(false);
     }
@@ -122,7 +122,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to update user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Aktualisieren');
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Aktualisieren', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
     } finally {
       setSubmitting(false);
     }
@@ -139,7 +139,7 @@ export function UserSettings() {
       setNewPassword('');
     } catch (err) {
       console.error('Failed to reset password:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Zurücksetzen');
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Zurücksetzen', { description: 'Das Passwort konnte nicht zurückgesetzt werden. Versuchen Sie es erneut.' });
     } finally {
       setSubmitting(false);
     }
@@ -156,7 +156,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to delete user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Deaktivieren');
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Deaktivieren', { description: 'Der Benutzer konnte nicht deaktiviert werden. Versuchen Sie es erneut.' });
     } finally {
       setSubmitting(false);
     }
@@ -170,7 +170,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to reactivate user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Reaktivieren');
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Reaktivieren', { description: 'Der Benutzer konnte nicht reaktiviert werden. Versuchen Sie es erneut.' });
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +187,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to permanently delete user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Löschen');
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Löschen', { description: 'Der Benutzer konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
     } finally {
       setSubmitting(false);
     }
@@ -281,7 +281,7 @@ export function UserSettings() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                  user.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                  user.role === 'admin' ? 'bg-warning/10 text-warning' : 'bg-info/10 text-info'
                 }`}>
                   {user.role === 'admin' ? (
                     <Shield className="h-5 w-5" />
@@ -341,7 +341,7 @@ export function UserSettings() {
                       size="icon"
                       onClick={() => handleReactivate(user)}
                       title="Reaktivieren"
-                      className="text-green-600 hover:text-green-600"
+                      className="text-success hover:text-success"
                       disabled={submitting}
                     >
                       <UserCheck className="h-4 w-4" />

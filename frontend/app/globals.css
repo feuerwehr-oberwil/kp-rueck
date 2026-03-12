@@ -268,9 +268,9 @@
   }
 }
 
-/* Delightful micro-interactions for KP Rück */
+/* Micro-interactions for KP Rück */
 @layer utilities {
-  /* Sprint 3: Drag-and-Drop Visual Affordances */
+  /* Drag-and-Drop Visual Affordances */
 
   /* Draggable item base state */
   .draggable {
@@ -289,17 +289,6 @@
   .drop-zone-active {
     @apply ring-2 ring-muted-foreground ring-offset-2 bg-muted/10;
     @apply border-dashed border-2 border-muted-foreground;
-  }
-
-  /* Invalid drop shake animation */
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-4px); }
-    75% { transform: translateX(4px); }
-  }
-
-  .animate-shake {
-    animation: shake 0.3s ease-in-out;
   }
 
   /* Gentle pulse animation for empty states */
@@ -334,26 +323,6 @@
     animation: fade-in-up 0.5s ease-out forwards;
   }
 
-  /* Success checkmark animation */
-  @keyframes success-check {
-    0% {
-      transform: scale(0) rotate(-45deg);
-      opacity: 0;
-    }
-    50% {
-      transform: scale(1.2) rotate(-45deg);
-      opacity: 1;
-    }
-    100% {
-      transform: scale(1) rotate(0deg);
-      opacity: 1;
-    }
-  }
-
-  .animate-success-check {
-    animation: success-check 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
-  }
-
   /* Wiggle animation for locked buttons */
   @keyframes wiggle {
     0%, 100% {
@@ -371,22 +340,6 @@
     animation: wiggle 0.3s ease-in-out;
   }
 
-  /* Gentle glow effect for role badges */
-  @keyframes gentle-glow {
-    0%, 100% {
-      box-shadow: 0 0 0 0 currentColor;
-      opacity: 1;
-    }
-    50% {
-      box-shadow: 0 0 8px 2px currentColor;
-      opacity: 0.9;
-    }
-  }
-
-  .animate-gentle-glow {
-    animation: gentle-glow 2s ease-in-out infinite;
-  }
-
   /* Quick scale-in for badges */
   @keyframes scale-in {
     from {
@@ -400,12 +353,12 @@
   }
 
   .animate-scale-in {
-    animation: scale-in 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+    animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   /* Button hover delight */
   .hover-delight {
-    transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .hover-delight:hover:not(:disabled) {
@@ -417,40 +370,6 @@
     transform: translateY(0);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
-
-  /* Sparkle effect for success states */
-  @keyframes sparkle {
-    0%, 100% {
-      opacity: 0;
-      transform: scale(0) rotate(0deg);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1) rotate(180deg);
-    }
-  }
-
-  .animate-sparkle {
-    animation: sparkle 0.6s ease-in-out;
-  }
-
-  /* Subtle number animation entry */
-  @keyframes number-entry {
-    from {
-      opacity: 0;
-      transform: translateY(-5px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-number-entry {
-    animation: number-entry 0.3s ease-out forwards;
-  }
-
-  /* Sprint 2 Delightful Micro-Interactions */
 
   /* Tab switch animation for mobile bottom navigation */
   @keyframes tab-switch {
@@ -468,7 +387,7 @@
   }
 
   .animate-tab-switch {
-    animation: tab-switch 0.25s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    animation: tab-switch 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   /* Haptic-like bounce tap feedback */
@@ -486,22 +405,6 @@
 
   .animate-bounce-tap {
     animation: bounce-tap 0.2s ease-out;
-  }
-
-  /* Badge pulse for notifications */
-  @keyframes badge-pulse {
-    0%, 100% {
-      opacity: 1;
-      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-    }
-    50% {
-      opacity: 0.9;
-      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
-    }
-  }
-
-  .animate-badge-pulse {
-    animation: badge-pulse 2s ease-in-out infinite;
   }
 
   /* Checkmark spring animation for resource assignment */
@@ -524,27 +427,7 @@
   }
 
   .animate-checkmark-spring {
-    animation: checkmark-spring 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-
-  /* Count change animation (number roll) */
-  @keyframes count-change {
-    0% {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    50% {
-      opacity: 0.5;
-      transform: translateY(0);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-count-change {
-    animation: count-change 0.3s ease-out;
+    animation: checkmark-spring 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   /* Staggered fade-in for list items */
@@ -598,22 +481,6 @@
     animation: search-focus 0.3s ease-out;
   }
 
-  /* Modal entrance animation */
-  @keyframes modal-entrance {
-    0% {
-      opacity: 0;
-      transform: scale(0.95) translateY(10px);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  .animate-modal-entrance {
-    animation: modal-entrance 0.25s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-
   /* Category header fade-in */
   @keyframes category-fade {
     from {
@@ -630,69 +497,6 @@
     animation: category-fade 0.4s ease-out forwards;
   }
 
-  /* Keyboard key hover lift */
-  @keyframes key-lift {
-    0% {
-      transform: translateY(0);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-    100% {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    }
-  }
-
-  .hover-key-lift:hover {
-    animation: key-lift 0.2s ease-out forwards;
-  }
-
-  /* Resource status transition */
-  @keyframes resource-status-change {
-    0% {
-      opacity: 0;
-      transform: scale(0.8);
-    }
-    60% {
-      transform: scale(1.1);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .animate-resource-status {
-    animation: resource-status-change 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-
-  /* Check-in widget pulse (subtle) */
-  @keyframes widget-pulse {
-    0%, 100% {
-      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2);
-    }
-    50% {
-      box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
-    }
-  }
-
-  .animate-widget-pulse {
-    animation: widget-pulse 3s ease-in-out infinite;
-  }
-
-  /* Pro tip callout pulse */
-  @keyframes tip-pulse {
-    0%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.02);
-    }
-  }
-
-  .animate-tip-pulse {
-    animation: tip-pulse 4s ease-in-out infinite;
-  }
-
   /* Bottom sheet slide up */
   @keyframes sheet-slide-up {
     from {
@@ -707,247 +511,25 @@
     animation: sheet-slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  /* Icon glow on high check-in count */
-  @keyframes icon-glow {
-    0%, 100% {
-      filter: drop-shadow(0 0 0 transparent);
-    }
-    50% {
-      filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6));
-    }
-  }
-
-  .animate-icon-glow {
-    animation: icon-glow 2s ease-in-out infinite;
-  }
-
-
-  /* Sprint 3: Priority Visual Hierarchy */
-
-  /* Priority pulse animation for high-priority incidents */
-  @keyframes priority-pulse {
-    0%, 100% {
-      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
-    }
-  }
-
-  .animate-priority-pulse {
-    animation: priority-pulse 2s ease-in-out infinite;
-  }
-  /* Sprint 3: Priority & Time-Based Indicator Animations */
-
-  /* Drag success bounce - satisfying snap when item lands in column */
-  @keyframes drag-success-bounce {
-    0% { transform: scale(1); }
-    40% { transform: scale(1.08); }
-    60% { transform: scale(0.98); }
-    80% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-  }
-
-  .animate-drag-success {
-    animation: drag-success-bounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-
-  /* Grab handle wiggle - delightful hint on first hover */
-  @keyframes grab-handle-wiggle {
-    0%, 100% { transform: rotate(0deg); }
-    20% { transform: rotate(-3deg); }
-    40% { transform: rotate(3deg); }
-    60% { transform: rotate(-3deg); }
-    80% { transform: rotate(3deg); }
-  }
-
-  .animate-grab-wiggle {
-    animation: grab-handle-wiggle 0.6s ease-in-out;
-  }
-
-  /* Priority change pop - badge animation when priority updates */
-  @keyframes priority-change-pop {
-    0% { transform: scale(0.7); opacity: 0; }
-    50% { transform: scale(1.15); opacity: 1; }
-    70% { transform: scale(0.95); }
-    100% { transform: scale(1); opacity: 1; }
-  }
-
-  .animate-priority-pop {
-    animation: priority-change-pop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-
-  /* Priority pulse for high-priority cards */
-  @keyframes priority-pulse {
-    0%, 100% {
-      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
-    }
-  }
-
-  .animate-priority-pulse {
-    animation: priority-pulse 2s ease-in-out infinite;
-  }
-
-  /* Critical incident pulse - gentle pulsing glow for high priority incidents */
-  @keyframes critical-pulse {
-    0%, 100% {
-      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-    }
-  }
-
-  .animate-critical-pulse {
-    animation: critical-pulse 2s ease-in-out infinite;
-  }
-
-  /* Age warning pulse - subtle opacity pulse for old incidents (>2 hours) */
-  @keyframes age-warning-pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.8;
-    }
-  }
-
-  .animate-age-warning-pulse {
-    animation: age-warning-pulse 3s ease-in-out infinite;
-  }
-
-  /* Age badge shine - shimmer for new incidents */
-  @keyframes age-badge-shine {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-  }
-
-  .animate-age-shine {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(16, 185, 129, 0.4) 50%,
-      transparent 100%
-    );
-    background-size: 200% 100%;
-    animation: age-badge-shine 3s linear infinite;
-  }
-
-  /* Old incident shake - gentle attention grabber for stale incidents */
-  @keyframes old-incident-shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-    20%, 40%, 60%, 80% { transform: translateX(2px); }
-  }
-
-  .animate-old-shake {
-    animation: old-incident-shake 0.6s ease-in-out;
-  }
-
-  /* Time counter update - smooth number transitions */
-  @keyframes time-update {
-    0% {
-      opacity: 0.7;
-      transform: translateY(-3px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-time-update {
-    animation: time-update 0.3s ease-out;
-  }
-
-  /* Drag trail effect - ghost following dragged item */
-  @keyframes drag-trail {
-    0% {
-      opacity: 0.6;
-      transform: scale(0.95);
-    }
-    100% {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-  }
-
-  .animate-drag-trail {
-    animation: drag-trail 0.4s ease-out;
-  }
-
-  /* Drop zone pulse - welcoming pulse when dragging over valid target */
-  @keyframes drop-zone-pulse {
-    0%, 100% {
-      border-color: currentColor;
-      opacity: 1;
-    }
-    50% {
-      border-color: currentColor;
-      opacity: 0.6;
-    }
-  }
-
-  .animate-drop-pulse {
-    animation: drop-zone-pulse 1.5s ease-in-out infinite;
-  }
-
-  /* Priority scale up on hover - high priority incidents get bigger */
-  .hover-priority-grow {
-    transition: transform 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-
-  .hover-priority-grow:hover {
-    transform: scale(1.05);
-  }
-
-  /* Reduce motion for accessibility - Sprint 2 & 3 additions */
+  /* Reduce motion for accessibility */
   @media (prefers-reduced-motion: reduce) {
     .animate-gentle-pulse,
     .animate-fade-in-up,
-    .animate-success-check,
     .animate-wiggle,
-    .animate-gentle-glow,
     .animate-scale-in,
-    .animate-sparkle,
-    .animate-number-entry,
     .animate-tab-switch,
     .animate-bounce-tap,
-    .animate-badge-pulse,
     .animate-checkmark-spring,
-    .animate-count-change,
     .animate-stagger-fade-in,
     .animate-search-focus,
-    .animate-modal-entrance,
     .animate-category-fade,
-    .animate-resource-status,
-    .animate-widget-pulse,
-    .animate-tip-pulse,
     .animate-sheet-slide-up,
-    .animate-icon-glow,
-    .animate-shake,
-    .animate-drag-success,
-    .animate-grab-wiggle,
-    .animate-priority-pop,
-    .animate-priority-pulse,
-    .animate-critical-pulse,
-    .animate-age-warning-pulse,
-    .animate-age-shine,
-    .animate-old-shake,
-    .animate-time-update,
-    .animate-drag-trail,
-    .animate-drop-pulse,
     .dragging,
     .drop-zone-active {
       animation: none !important;
     }
 
-    .hover-delight:hover:not(:disabled),
-    .hover-key-lift:hover,
-    .hover-priority-grow:hover {
+    .hover-delight:hover:not(:disabled) {
       transform: none;
     }
 

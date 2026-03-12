@@ -196,28 +196,28 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
 
         {/* Error display */}
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
-            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+            <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
 
         {/* Last error display */}
         {status?.last_error && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5" />
+          <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-red-800 dark:text-red-200">Letzter Fehler:</p>
-              <p className="text-sm text-red-700 dark:text-red-300 mt-1">{status.last_error}</p>
+              <p className="text-sm font-medium text-destructive">Letzter Fehler:</p>
+              <p className="text-sm text-destructive mt-1">{status.last_error}</p>
             </div>
           </div>
         )}
 
         {/* Pending records */}
         {status && status.records_pending > 0 && (
-          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
-            <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <p className="text-sm text-blue-800 dark:text-blue-200">
+          <div className="flex items-center gap-2 p-3 bg-info/10 border border-info/30 rounded-md">
+            <AlertTriangle className="h-4 w-4 text-info" />
+            <p className="text-sm text-info">
               {status.records_pending} Datensätze warten auf Synchronisation
             </p>
           </div>
@@ -238,7 +238,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
                 className="flex-shrink-0"
               >
                 {copied ? (
-                  <Check className="h-4 w-4 text-green-500" />
+                  <Check className="h-4 w-4 text-success" />
                 ) : (
                   <Copy className="h-4 w-4" />
                 )}

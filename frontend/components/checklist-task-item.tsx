@@ -15,7 +15,7 @@ interface ChecklistTaskItemProps {
 const priorityConfig = {
   critical: {
     badge: <Badge variant="destructive" className="text-xs">Erforderlich</Badge>,
-    borderClass: 'border-red-200 dark:border-red-800'
+    borderClass: 'border-destructive/30'
   },
   recommended: {
     badge: <Badge variant="secondary" className="text-xs">Empfohlen</Badge>,
@@ -34,14 +34,14 @@ export function ChecklistTaskItem({ task, onComplete }: ChecklistTaskItemProps) 
     <div
       className={cn(
         "flex items-start gap-3 p-4 rounded-lg border transition-all",
-        task.completed && "bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-800",
+        task.completed && "bg-success/10 border-success/30",
         !task.completed && config.borderClass
       )}
     >
       {/* Checkbox icon */}
       <div className="flex-shrink-0 mt-0.5">
         {task.completed ? (
-          <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-500" />
+          <CheckCircle className="h-5 w-5 text-success" />
         ) : (
           <Circle className="h-5 w-5 text-muted-foreground" />
         )}

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Clock, Map, Truck, Siren, ArrowRightLeft, Search, Binoculars } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
@@ -77,7 +78,9 @@ export function IncidentCard({
       onClick={onEdit}
       className={`w-full ${columnColor} border border-border/50 backdrop-blur-sm p-4 transition-all hover:border-border hover:shadow-lg ${
         isHighlighted ? "ring-4 ring-muted-foreground animate-pulse" : ""
-      } ${isDraggable ? "cursor-move" : onEdit ? "cursor-pointer" : "cursor-default"}`}
+      } ${isDraggable ? "cursor-move" : onEdit ? "cursor-pointer" : "cursor-default"} ${
+        incident.priority === "high" ? "border-l-4 border-l-destructive" : incident.priority === "medium" ? "border-l-4 border-l-warning" : ""
+      }`}
     >
       <div className="space-y-2.5">
         {/* Header with title and actions */}
@@ -101,7 +104,7 @@ export function IncidentCard({
               <div
                 className={`p-1.5 rounded-md ${
                   incident.has_completed_reko
-                    ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                    ? 'bg-success/10'
                     : ''
                 }`}
                 title={
@@ -113,21 +116,25 @@ export function IncidentCard({
                 <Binoculars
                   className={`h-4 w-4 ${
                     incident.has_completed_reko
-                      ? 'text-emerald-600 dark:text-emerald-400'
+                      ? 'text-success'
                       : 'text-muted-foreground'
                   }`}
                 />
               </div>
             )}
             {incident.location_lat && incident.location_lng && (
-              <Link
-                href={`/map?highlight=${incident.id}`}
-                onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                title="Auf Karte anzeigen"
-              >
-                <Map className="h-4 w-4 text-muted-foreground" />
-              </Link>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/map?highlight=${incident.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                  >
+                    <Map className="h-4 w-4 text-muted-foreground" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Auf Karte anzeigen</TooltipContent>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -147,7 +154,7 @@ export function IncidentCard({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="font-mono">
-                {formatTime(incident.created_at)} • <span className={timeSince.isOverOneHour ? "text-red-500" : ""}>{timeSince.text}</span>
+                {formatTime(incident.created_at)} • <span className={timeSince.isOverOneHour ? "text-destructive" : ""}>{timeSince.text}</span>
               </span>
             </div>
           )

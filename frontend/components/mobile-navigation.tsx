@@ -99,7 +99,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
         {/* Header */}
         <SheetHeader className="border-b px-6 py-5">
           <SheetTitle className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-orange-600 text-xl shadow-md">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-xl shadow-md">
               🚒
             </div>
             <span className="text-base font-semibold">KP Rück</span>

@@ -498,7 +498,11 @@ export default function MapView({
               eventHandlers={{
                 click: () => onMarkerClick?.(incident.id),
               }}
-            />
+            >
+              <Tooltip direction="top" offset={[0, -12]}>
+                <span>{incident.title}</span>
+              </Tooltip>
+            </Marker>
           )
         })}
 

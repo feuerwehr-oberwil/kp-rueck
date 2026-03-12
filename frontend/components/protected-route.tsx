@@ -56,7 +56,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         <div className="text-center max-w-md mx-auto p-6">
           <div className="mb-4">
             <svg
-              className="mx-auto h-12 w-12 text-red-500"
+              className="mx-auto h-12 w-12 text-destructive"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

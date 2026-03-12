@@ -275,3 +275,29 @@ open http://localhost:8080
 - `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs
 - `frontend/package.json` - Frontend scripts and dependencies
+
+## Design Context
+
+### Users
+Firefighting command post operators (KP Rück) managing active incidents in high-stress environments. They coordinate personnel, vehicles, and materials in real-time from a command post — often on tablets or large screens. Speed, clarity, and zero-confusion are critical. This tool replaces a physical magnet board, so spatial familiarity and at-a-glance readability matter.
+
+### Brand Personality
+**Reliable, Clear, Calm.** The interface should feel like a trusted instrument — professional, dependable, and composed under pressure. It communicates competence without being flashy. Swiss precision meets emergency readiness.
+
+### Emotional Goals
+- **Calm confidence** — Users feel in control and assured; reduce stress, not add to it
+- **Structured clarity** — Everything has a place; operators should feel organized and never lost
+- **Empowered efficiency** — Every interaction should feel productive; minimize friction
+
+### Aesthetic Direction
+- **Visual tone**: Clean, information-dense, dark-mode-first. Inspired by Linear and Trello — minimal chrome, excellent information hierarchy, smooth interactions. Borrows density and seriousness from military C2 and dispatch systems but wrapped in modern, approachable UI patterns.
+- **Typography**: Geist (sans) — clean, professional, highly legible at small sizes
+- **Color**: Warm red primary (fire service identity), blue accent, warm grays. Status colors carry meaning and must be consistent.
+- **Anti-references**: Avoid playful/consumer aesthetics (Slack, Figma), gamification, decorative illustrations, or anything that undermines the seriousness of the operational context.
+
+### Design Principles
+1. **Clarity over decoration** — Every pixel should serve a purpose. Prioritize legibility, hierarchy, and scannability. No ornamental elements.
+2. **Calm under pressure** — The UI must remain composed during high-stress moments. Avoid visual noise, unnecessary motion, or attention-competing elements. Reserve animation for meaningful state changes.
+3. **Density with order** — Pack information tightly but with clear structure. Use consistent spacing, alignment, and grouping so operators can scan fast without feeling overwhelmed.
+4. **Instant comprehension** — Status, priority, and assignments must be understood at a glance. Use color, position, and iconography systematically — never rely on color alone.
+5. **Touch-ready, keyboard-fast** — Work equally well on a command-post tablet and a desktop with keyboard shortcuts. Generous touch targets on mobile, power-user shortcuts on desktop.

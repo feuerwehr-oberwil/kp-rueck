@@ -9,7 +9,7 @@
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationBellTrigger } from '@/components/notifications/notification-bell-trigger';
-import { Map as MapIcon, List } from 'lucide-react';
+import { Map as MapIcon, List, CircleHelp } from 'lucide-react';
 import Link from 'next/link';
 
 interface PageNavigationProps {
@@ -35,7 +35,7 @@ export function PageNavigation({
   onPrint,
 }: PageNavigationProps) {
   return (
-    <div className="flex items-center gap-1 md:gap-2">
+    <nav aria-label="Hauptnavigation" className="flex items-center gap-1 md:gap-2">
         {/* Kanban Icon */}
         <Link href="/" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
@@ -62,6 +62,19 @@ export function PageNavigation({
           </Button>
         </Link>
 
+        {/* Help Icon */}
+        <Link href="/help" prefetch={true}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'help' ? 'opacity-40 cursor-default' : ''}`}
+            disabled={currentPage === 'help'}
+            title="Hilfe & Tastenkürzel"
+          >
+            <CircleHelp className="h-4 w-4 md:h-5 md:w-5" />
+          </Button>
+        </Link>
+
         {/* User Menu (Cog Dropdown) - now contains all secondary navigation */}
         <UserMenu
           onNewIncident={onNewIncident}
@@ -73,6 +86,6 @@ export function PageNavigation({
 
         {/* Notification Bell Trigger - rightmost to align with fixed sidebar */}
         <NotificationBellTrigger />
-    </div>
+    </nav>
   );
 }

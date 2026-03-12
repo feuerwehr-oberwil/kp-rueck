@@ -77,7 +77,7 @@ export function IncidentsKanban() {
       {/* Header */}
       <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-orange-600 text-2xl shadow-lg">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-2xl shadow-lg">
             🚒
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Einsatzübersicht (Incidents)</h1>

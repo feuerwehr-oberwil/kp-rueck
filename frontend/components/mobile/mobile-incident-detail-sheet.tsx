@@ -55,8 +55,8 @@ interface MobileIncidentDetailSheetProps {
 // Priority visual configuration
 const priorityStyles = {
   high: {
-    dot: "bg-red-500",
-    chevron: "text-red-600 dark:text-red-400",
+    dot: "bg-destructive",
+    chevron: "text-destructive",
     label: "Hoch",
   },
   medium: {
@@ -66,7 +66,7 @@ const priorityStyles = {
   },
   low: {
     dot: "bg-green-500",
-    chevron: "text-green-600 dark:text-green-400",
+    chevron: "text-success",
     label: "Niedrig",
   },
 } as const
@@ -298,7 +298,7 @@ export function MobileIncidentDetailSheet({
               <span className="font-mono">{getTimeSince(timeReference)}</span>
             </div>
             {operation.hasCompletedReko && (
-              <Badge variant="outline" className="gap-1 text-green-600 border-green-600/30">
+              <Badge variant="outline" className="gap-1 text-success border-success/30">
                 <FileCheck className="h-3 w-3" />
                 Reko
               </Badge>
@@ -340,10 +340,10 @@ export function MobileIncidentDetailSheet({
 
           {/* Danger warnings from Reko */}
           {operation.rekoSummary?.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <span className="font-semibold text-amber-600 text-sm">Gefahren</span>
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <span className="font-semibold text-warning text-sm">Gefahren</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {operation.rekoSummary.dangerTypes.map((danger, idx) => (

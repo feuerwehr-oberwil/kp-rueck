@@ -139,10 +139,10 @@ export function NotificationToasts() {
           actionButton: 'bg-black/10 hover:bg-black/20 dark:bg-white/20 dark:hover:bg-white/30 font-medium',
           cancelButton: 'bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20',
           closeButton: 'bg-black/5 border-0 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20',
-          success: '!bg-green-50 !text-green-900 !border-green-300 dark:!bg-zinc-900 dark:!text-green-100 dark:!border-green-600/50',
-          error: '!bg-red-50 !text-red-900 !border-red-300 dark:!bg-zinc-900 dark:!text-red-100 dark:!border-red-600/50',
-          warning: '!bg-orange-50 !text-orange-900 !border-orange-300 dark:!bg-zinc-900 dark:!text-orange-100 dark:!border-orange-600/50',
-          info: '!bg-blue-50 !text-blue-900 !border-blue-300 dark:!bg-zinc-900 dark:!text-blue-100 dark:!border-blue-600/50',
+          success: 'bg-success/10 text-success border-success/30',
+          error: 'bg-destructive/10 text-destructive border-destructive/30',
+          warning: 'bg-warning/10 text-warning border-warning/30',
+          info: 'bg-info/10 text-info border-info/30',
         },
       }}
     />

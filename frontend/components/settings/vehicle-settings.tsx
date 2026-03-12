@@ -123,7 +123,7 @@ export function VehicleSettings() {
       handleCloseDialog();
     } catch (error) {
       console.error('Failed to save vehicle:', error);
-      toast.error('Fehler beim Speichern des Fahrzeugs');
+      toast.error('Fehler beim Speichern des Fahrzeugs', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
     } finally {
       setIsSaving(false);
     }
@@ -154,7 +154,7 @@ export function VehicleSettings() {
       toast.success(`Fahrzeug "${vehicleToDelete.name}" gelöscht`);
     } catch (error) {
       console.error('Failed to delete vehicle:', error);
-      toast.error('Fehler beim Löschen des Fahrzeugs');
+      toast.error('Fehler beim Löschen des Fahrzeugs', { description: 'Das Fahrzeug konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
     } finally {
       setVehicleToDelete(null);
     }
@@ -312,8 +312,8 @@ export function VehicleSettings() {
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium ${
                       vehicle.status === 'available'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                        ? 'bg-success/10 text-success'
+                        : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {vehicle.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}

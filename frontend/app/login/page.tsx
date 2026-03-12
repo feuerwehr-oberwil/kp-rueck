@@ -47,7 +47,7 @@ export default function LoginPage() {
       await login(username, password);
       router.push('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Anmeldedaten.');
+      setError(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Benutzername und Passwort.');
     } finally {
       setLoading(false);
     }
@@ -86,14 +86,14 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-md border border-border/50 bg-card/80 backdrop-blur-sm p-8 shadow-lg">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-orange-600 text-4xl shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-4xl shadow-lg">
             🚒
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             KP Rück
           </h1>
           {isDemo && (
-            <span className="mt-2 inline-block rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-500 border border-amber-500/30">
+            <span className="mt-2 inline-block rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning border border-warning/30">
               Demo-Modus
             </span>
           )}

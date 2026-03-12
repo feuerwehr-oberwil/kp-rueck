@@ -119,7 +119,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       handleCloseDialog();
     } catch (error) {
       console.error('Failed to save personnel:', error);
-      toast.error('Fehler beim Speichern');
+      toast.error('Fehler beim Speichern', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
     } finally {
       setIsSaving(false);
     }
@@ -151,7 +151,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       toast.success(`"${personnelToDelete.name}" gelöscht`);
     } catch (error) {
       console.error('Failed to delete personnel:', error);
-      toast.error('Fehler beim Löschen');
+      toast.error('Fehler beim Löschen', { description: 'Die Person konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
     } finally {
       setPersonnelToDelete(null);
     }
@@ -298,7 +298,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       await loadPersonnel();
     } catch (error) {
       console.error('Failed to execute sync:', error);
-      toast.error('Fehler bei der Synchronisation');
+      toast.error('Fehler bei der Synchronisation', { description: 'Die Verbindung zu Divera konnte nicht hergestellt werden. Versuchen Sie es erneut.' });
     } finally {
       setIsSyncExecuting(false);
     }
@@ -371,8 +371,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
                         person.availability === 'available'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                          ? 'bg-success/10 text-success'
+                          : 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {person.availability === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}

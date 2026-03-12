@@ -22,7 +22,7 @@ function LegendMarker({
   const borderOffset = strokeWidth / 2
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity }} className="flex-shrink-0">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity }} className="flex-shrink-0" aria-hidden="true">
       <circle
         cx={borderRadius}
         cy={borderRadius}
@@ -98,14 +98,14 @@ export function MapLegend() {
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-blue-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center">
-              <Truck className="w-4 h-4 text-white" />
+            <div className="w-6 h-6 rounded bg-blue-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label="Fahrzeug online">
+              <Truck className="w-4 h-4 text-white" aria-hidden="true" />
             </div>
             <span className="text-xs">Online</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gray-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center">
-              <Truck className="w-4 h-4 text-white" />
+            <div className="w-6 h-6 rounded bg-gray-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label="Fahrzeug offline">
+              <Truck className="w-4 h-4 text-white" aria-hidden="true" />
             </div>
             <span className="text-xs">Offline</span>
           </div>

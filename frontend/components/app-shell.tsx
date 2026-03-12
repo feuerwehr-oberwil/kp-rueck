@@ -23,14 +23,14 @@ export function AppShell({ children }: AppShellProps) {
   // On desktop, add margin-right when sidebar is open
   return (
     <>
-      <div
+      <main
         className={cn(
           'flex-1 min-h-0 overflow-auto transition-[margin] duration-300 ease-in-out',
           !isMobile && isSidebarOpen && 'mr-80' // 320px = w-80
         )}
       >
         {children}
-      </div>
+      </main>
       <CommandPalette />
     </>
   )

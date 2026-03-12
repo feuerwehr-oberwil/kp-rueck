@@ -19,6 +19,7 @@ import { OperationDetailModal } from "@/components/kanban/operation-detail-modal
 import type { Incident } from "@/lib/types/incidents"
 import { STATUS_LABELS, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, STATUS_GROUP_LABELS, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -436,16 +437,20 @@ export default function MapPage() {
                                 )}
                               </div>
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDetailsClick(incident)
-                              }}
-                              className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
-                              title="Details anzeigen"
-                            >
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                            </button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDetailsClick(incident)
+                                  }}
+                                  className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
+                                >
+                                  <FileText className="h-4 w-4 text-muted-foreground" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Details anzeigen</TooltipContent>
+                            </Tooltip>
                           </div>
 
                           {/* Incident Type */}
