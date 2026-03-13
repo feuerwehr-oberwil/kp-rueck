@@ -82,7 +82,8 @@ export function OperationDetailModal({
       setIsLoadingVehicles(true)
       try {
         const vehicles = await apiClient.getVehicles()
-        setAvailableVehicles(vehicles.map((v) => ({ id: v.id, name: v.name, type: v.type })))
+        const sorted = [...vehicles].sort((a, b) => a.display_order - b.display_order)
+        setAvailableVehicles(sorted.map((v) => ({ id: v.id, name: v.name, type: v.type })))
 
         // Load special functions to get driver information
         const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
@@ -347,19 +348,21 @@ export function OperationDetailModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!w-[90vw] !h-[85vh] !max-w-6xl !pb-2 flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-2xl flex items-center gap-3">
-            <MapPin className="h-6 w-6 text-primary" />
+          <DialogTitle className="text-xl flex items-center gap-2.5">
+            <MapPin className="h-5 w-5 text-muted-foreground" />
             {operation.location ? formatLocation(operation.location) : "Einsatz-Details"}
           </DialogTitle>
-          <DialogDescription className="text-sm">
-            Einsatz-ID: {operation.id} • {getTimeSince(operation.dispatchTime)} seit Alarmierung
+          <DialogDescription className="text-sm flex items-center gap-2">
+            <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span>{getTimeSince(operation.dispatchTime)} seit Alarmierung</span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="grid grid-cols-2 gap-6 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 py-4">
           {/* Left Column - Entry Fields */}
-          <div className="space-y-6">
+          <div className="space-y-5">
           {/* Location - Smart Input with Geocoding */}
           <LocationInput
             address={operation.location}
@@ -380,7 +383,7 @@ export function OperationDetailModal({
             <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">Meldung</Label>
             <Textarea
               id="notes"
-              placeholder="Notizen, Besonderheiten, Gefahren..."
+              placeholder="Eingegangene Meldung, Schadensbild..."
               value={operation.notes}
               onChange={(e) => onUpdate({ notes: e.target.value })}
               className="mt-1.5 min-h-[100px]"
@@ -462,7 +465,7 @@ export function OperationDetailModal({
           </div>
 
           {/* Nachbarhilfe Toggle */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div className="flex items-center gap-3">
               <Building2 className="h-5 w-5 text-muted-foreground" />
               <div>
@@ -479,7 +482,7 @@ export function OperationDetailModal({
           </div>
 
           {/* Right Column - External Info */}
-          <div className="space-y-6">
+          <div className="space-y-5 lg:border-l lg:border-border lg:pl-8">
           {/* Reko Reports */}
           <div>
             <Label className="text-sm font-semibold text-muted-foreground">
@@ -497,7 +500,7 @@ export function OperationDetailModal({
             </Label>
 
             {/* Reko Personnel */}
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Search className="h-4 w-4 text-muted-foreground" />
@@ -526,7 +529,7 @@ export function OperationDetailModal({
 
               {assignedRekoPersonnel ? (
                 <div className="space-y-2">
-                  <Badge variant="secondary" className="text-sm bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Badge variant="secondary" className="text-sm bg-info/10 text-info">
                     <Search className="h-3 w-3 mr-1" />
                     {assignedRekoPersonnel.name}
                   </Badge>
@@ -539,12 +542,11 @@ export function OperationDetailModal({
                       onClick={handleCopyDirectRekoLink}
                       disabled={isCopyingRekoLink}
                       className="h-8 px-3 gap-1.5 text-sm flex-1"
-                      tabIndex={-1}
                     >
                       {isCopyingRekoLink ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : rekoCopied === 'direct' ? (
-                        <Check className="h-3 w-3 text-green-600" />
+                        <Check className="h-3 w-3 text-success" />
                       ) : (
                         <Link2 className="h-3 w-3" />
                       )}
@@ -556,10 +558,9 @@ export function OperationDetailModal({
                       onClick={handleCopyDashboardLink}
                       disabled={isCopyingRekoLink}
                       className="h-8 px-3 gap-1.5 text-sm flex-1"
-                      tabIndex={-1}
                     >
                       {rekoCopied === 'dashboard' ? (
-                        <Check className="h-3 w-3 text-green-600" />
+                        <Check className="h-3 w-3 text-success" />
                       ) : (
                         <LayoutDashboard className="h-3 w-3" />
                       )}
@@ -568,7 +569,7 @@ export function OperationDetailModal({
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Keine Reko-Person zugewiesen</p>
+                <p className="text-sm text-muted-foreground/60 italic">Keine Reko-Person zugewiesen</p>
               )}
             </div>
 
@@ -618,7 +619,7 @@ export function OperationDetailModal({
                     </Badge>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">Keine Mannschaft zugewiesen</p>
+                  <p className="text-sm text-muted-foreground/60 italic">Keine Mannschaft zugewiesen</p>
                 )}
               </div>
             </div>
@@ -631,9 +632,6 @@ export function OperationDetailModal({
                   <span className="text-sm font-medium">Fahrzeuge ({operation.vehicles.length})</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
-                    <Kbd className="h-4 text-[10px]">1-5</Kbd>
-                  </div>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -663,22 +661,27 @@ export function OperationDetailModal({
                         ) : (
                           availableVehicles
                             .filter(v => !operation.vehicles.includes(v.name))
-                            .map((vehicle) => (
-                              <button
-                                key={vehicle.id}
-                                onClick={() => {
-                                  onAssignVehicle(vehicle.id, vehicle.name, operation.id)
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
-                                tabIndex={-1}
-                              >
-                                <Truck className="h-4 w-4 text-muted-foreground" />
-                                <div className="text-left">
-                                  <div className="font-medium">{vehicle.name}</div>
-                                  <div className="text-xs text-muted-foreground">{vehicle.type}</div>
-                                </div>
-                              </button>
-                            ))
+                            .map((vehicle) => {
+                              const shortcutIndex = availableVehicles.indexOf(vehicle)
+                              return (
+                                <button
+                                  key={vehicle.id}
+                                  onClick={() => {
+                                    onAssignVehicle(vehicle.id, vehicle.name, operation.id)
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
+                                >
+                                  <Truck className="h-4 w-4 text-muted-foreground" />
+                                  <div className="text-left flex-1">
+                                    <div className="font-medium">{vehicle.name}</div>
+                                    <div className="text-xs text-muted-foreground">{vehicle.type}</div>
+                                  </div>
+                                  {shortcutIndex < 5 && (
+                                    <Kbd className="h-5 text-xs">{shortcutIndex + 1}</Kbd>
+                                  )}
+                                </button>
+                              )
+                            })
                         )}
                       </div>
                     </PopoverContent>
@@ -711,7 +714,7 @@ export function OperationDetailModal({
                     )
                   })
                 ) : (
-                  <p className="text-sm text-muted-foreground">Keine Fahrzeuge zugewiesen</p>
+                  <p className="text-sm text-muted-foreground/60 italic">Keine Fahrzeuge zugewiesen</p>
                 )}
               </div>
             </div>
@@ -762,7 +765,7 @@ export function OperationDetailModal({
                     </Badge>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">Kein Material zugewiesen</p>
+                  <p className="text-sm text-muted-foreground/60 italic">Kein Material zugewiesen</p>
                 )}
               </div>
             </div>
@@ -772,16 +775,10 @@ export function OperationDetailModal({
         </div>
 
         {/* Actions - Fixed Footer */}
-        <div className="flex-shrink-0 flex items-center gap-3 pt-4 mt-4 border-t">
+        <div className="flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t">
           <Button
             variant="outline"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <Trash2 className="h-4 w-4 text-muted-foreground" />
-            Löschen
-          </Button>
-          <Button
-            variant="outline"
+            size="sm"
             onClick={handleCopyWhatsApp}
             disabled={isCopyingWhatsApp}
           >
@@ -790,14 +787,26 @@ export function OperationDetailModal({
           </Button>
           <Button
             variant="outline"
+            size="sm"
             onClick={handleOpenTransfer}
           >
             <ArrowRightLeft className="h-4 w-4" />
             Ressourcen übertragen
           </Button>
-          <Button variant="outline" className="ml-auto" onClick={() => onOpenChange(false)}>
-            Schliessen
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
+              Löschen
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              Schliessen
+            </Button>
+          </div>
         </div>
       </DialogContent>
 

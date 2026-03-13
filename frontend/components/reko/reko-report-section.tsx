@@ -125,7 +125,7 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
           {report.is_relevant ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
           ) : (
             <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           )}
@@ -224,7 +224,7 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
           {report.photos_json && report.photos_json.length > 0 && (
             <div>
               <h5 className="font-medium text-sm mb-2">Fotos ({report.photos_json.length})</h5>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {report.photos_json.map((filename, index) => (
                   <a
                     key={index}
@@ -236,7 +236,7 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
                   >
                     <img
                       src={getPhotoUrl(filename)}
-                      alt={`Reko photo ${index + 1}`}
+                      alt={`Reko-Foto ${index + 1}${report.submitted_by_personnel_name ? ` von ${report.submitted_by_personnel_name}` : ''}`}
                       className="w-full h-full object-cover"
                     />
                   </a>
@@ -295,7 +295,7 @@ function RekoReportCardCompact({ report, incidentId }: RekoReportCardProps) {
     <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm">
       <div className="flex items-start gap-2">
         {report.is_relevant ? (
-          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
         ) : (
           <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
         )}

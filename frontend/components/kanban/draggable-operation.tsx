@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, MapIcon, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -272,7 +272,7 @@ function DraggableOperationBase({
                 className="p-1.5 rounded-md hover:bg-muted/80 transition-colors group/mapicon"
                 title="Auf Karte anzeigen"
               >
-                <MapIcon className="h-4 w-4 text-muted-foreground group-hover/mapicon:text-foreground transition-colors" />
+                <Map className="h-4 w-4 text-muted-foreground group-hover/mapicon:text-foreground transition-colors" />
               </Link>
             </div>
           </div>
@@ -373,8 +373,22 @@ function DraggableOperationBase({
                   <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {operation.vehicles.map((vehicleName) => (
-                      <Badge key={vehicleName} variant="secondary" className="text-xs px-1.5 py-0.5 font-normal cursor-default">
-                        {vehicleName}
+                      <Badge
+                        key={vehicleName}
+                        variant="secondary"
+                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                      >
+                        <span>{vehicleName}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRemoveVehicle(vehicleName)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                          title={`${vehicleName} entfernen`}
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
                       </Badge>
                     ))}
                   </div>
