@@ -328,13 +328,11 @@ export default function FireStationDashboard() {
       onToggleNotifications: toggleNotificationSidebar,
       onSearchPersonnel: () => {
         setShowLeftSidebar(true)
-        // Focus after sidebar opens
-        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 100)
+        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 50)
       },
       onSearchMaterial: () => {
         setShowRightSidebar(true)
-        // Focus after sidebar opens
-        setTimeout(() => document.getElementById('material-search-input')?.focus(), 100)
+        setTimeout(() => document.getElementById('material-search-input')?.focus(), 50)
       },
       hasSelectedIncident: !!hoveredOperationId,
       onEditIncident: () => {
@@ -601,12 +599,12 @@ export default function FireStationDashboard() {
         // Only prevent default if no modifier keys (allows cmd+p/ctrl+p for print)
         e.preventDefault()
         setShowLeftSidebar(true)
-        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 100)
+        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 50)
       } else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey) {
         // Only prevent default if no modifier keys (allows cmd+m for minimize on Mac)
         e.preventDefault()
         setShowRightSidebar(true)
-        setTimeout(() => document.getElementById('material-search-input')?.focus(), 100)
+        setTimeout(() => document.getElementById('material-search-input')?.focus(), 50)
       } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
         // Toggle vehicle status sheet
         e.preventDefault()
@@ -699,12 +697,14 @@ export default function FireStationDashboard() {
     },
   })
 
-  // Use shared resource filtering hook
+  // Use shared resource filtering hook — sidebar search takes priority, top search also filters
+  const effectivePersonnelQuery = personnelSearchQuery || searchQuery
+  const effectiveMaterialQuery = materialSearchQuery || searchQuery
   const { filteredPersonnel, filteredMaterials, groupedPersonnel, groupedMaterials } = useResourceFiltering(
     personnel,
     materials,
-    personnelSearchQuery,
-    materialSearchQuery
+    effectivePersonnelQuery,
+    effectiveMaterialQuery
   )
 
   // Memoize filtered operations to avoid unnecessary recalculations on every render
@@ -740,7 +740,11 @@ export default function FireStationDashboard() {
         // Contact
         op.contact.toLowerCase().includes(query) ||
         // Status
-        op.status.toLowerCase().includes(query)
+        op.status.toLowerCase().includes(query) ||
+        // Reko personnel
+        (op.assignedReko && op.assignedReko.name.toLowerCase().includes(query)) ||
+        // Reko status
+        (op.hasCompletedReko && 'reko'.includes(query))
       )
     })
   }, [operations, searchQuery, materials])
@@ -1049,7 +1053,7 @@ export default function FireStationDashboard() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-72 pl-9"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
                   <Kbd>S</Kbd>
                 </div>
               </div>
@@ -1090,31 +1094,26 @@ export default function FireStationDashboard() {
         <div className="flex flex-1 overflow-hidden">
           {showLeftSidebar && (
             <aside className="w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Search header */}
-              <div className="p-3 border-b border-border">
+              {/* Search */}
+              <div className="px-3 pt-3 pb-2">
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     id="personnel-search-input"
-                    type="text"
-                    placeholder="Suchen..."
+                    placeholder="Personal suchen..."
                     value={personnelSearchQuery}
                     onChange={(e) => setPersonnelSearchQuery(e.target.value)}
-                    className="h-8 pl-7 pr-8 text-xs"
+                    className="h-8 pl-8 pr-8 text-sm"
                   />
                   {!isMobile && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <div className="absolute right-2 top-0 bottom-0 flex items-center pointer-events-none">
                       <Kbd className="h-5 text-xs">P</Kbd>
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  {personnel.filter((p) => p.status === "available").length}/{personnel.length} verfügbar
-                </p>
               </div>
-
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto p-4 pt-3">
+              <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
                 {isLoading ? (
                   <PersonnelSidebarLoading />
                 ) : personnel.filter((p) => p.status === "available").length === 0 ? (
@@ -1191,6 +1190,12 @@ export default function FireStationDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+              {/* Fixed availability counter at bottom */}
+              <div className="border-t border-border px-4 py-2 bg-card/50 backdrop-blur-sm">
+                <p className="text-xs text-muted-foreground text-center">
+                  {personnel.filter((p) => p.status === "available").length}/{personnel.length} verfügbar
+                </p>
               </div>
             </aside>
           )}
@@ -1276,31 +1281,26 @@ export default function FireStationDashboard() {
 
           {showRightSidebar && (
             <aside className="w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Search header */}
-              <div className="p-3 border-b border-border">
+              {/* Search */}
+              <div className="px-3 pt-3 pb-2">
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     id="material-search-input"
-                    type="text"
-                    placeholder="Suchen..."
+                    placeholder="Material suchen..."
                     value={materialSearchQuery}
                     onChange={(e) => setMaterialSearchQuery(e.target.value)}
-                    className="h-8 pl-7 pr-8 text-xs"
+                    className="h-8 pl-8 pr-8 text-sm"
                   />
                   {!isMobile && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <div className="absolute right-2 top-0 bottom-0 flex items-center pointer-events-none">
                       <Kbd className="h-5 text-xs">M</Kbd>
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  {materials.filter((m) => m.status === "available").length}/{materials.length} verfügbar
-                </p>
               </div>
-
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto p-4 pt-3">
+              <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
                 {isLoading ? (
                   <MaterialSidebarLoading />
                 ) : (
@@ -1321,6 +1321,12 @@ export default function FireStationDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+              {/* Fixed availability counter at bottom */}
+              <div className="border-t border-border px-4 py-2 bg-card/50 backdrop-blur-sm">
+                <p className="text-xs text-muted-foreground text-center">
+                  {materials.filter((m) => m.status === "available").length}/{materials.length} verfügbar
+                </p>
               </div>
             </aside>
           )}

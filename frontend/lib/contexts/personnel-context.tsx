@@ -23,6 +23,9 @@ export interface Person {
   status: PersonStatus
   tags?: string[]
   isReko?: boolean
+  isDriver?: boolean
+  driverVehicleName?: string
+  isMagazin?: boolean
 }
 
 interface PersonnelContextType {

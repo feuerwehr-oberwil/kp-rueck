@@ -8,23 +8,38 @@ import type { Person, Material, PersonRole } from '@/lib/contexts/operations-con
 export function useResourceFiltering(
   personnel: Person[],
   materials: Material[],
-  personnelSearchQuery: string,
-  materialSearchQuery: string
+  personnelQuery: string,
+  materialQuery?: string
 ) {
+  const effectiveMaterialQuery = materialQuery ?? personnelQuery
+
   const filteredPersonnel = useMemo(
-    () => personnel.filter((p) =>
-      p.name.toLowerCase().includes(personnelSearchQuery.toLowerCase()) ||
-      p.role.toLowerCase().includes(personnelSearchQuery.toLowerCase())
-    ),
-    [personnel, personnelSearchQuery]
+    () => {
+      if (!personnelQuery) return personnel
+      const q = personnelQuery.toLowerCase()
+      return personnel.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.role.toLowerCase().includes(q) ||
+        (p.isReko && 'reko'.includes(q)) ||
+        (p.isDriver && ('fahrer'.includes(q) || 'driver'.includes(q))) ||
+        (p.driverVehicleName && p.driverVehicleName.toLowerCase().includes(q)) ||
+        (p.isMagazin && 'magazin'.includes(q)) ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes(q)))
+      )
+    },
+    [personnel, personnelQuery]
   )
 
   const filteredMaterials = useMemo(
-    () => materials.filter((m) =>
-      m.name.toLowerCase().includes(materialSearchQuery.toLowerCase()) ||
-      m.category.toLowerCase().includes(materialSearchQuery.toLowerCase())
-    ),
-    [materials, materialSearchQuery]
+    () => {
+      if (!effectiveMaterialQuery) return materials
+      const q = effectiveMaterialQuery.toLowerCase()
+      return materials.filter((m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.category.toLowerCase().includes(q)
+      )
+    },
+    [materials, effectiveMaterialQuery]
   )
 
   const groupedPersonnel = useMemo(

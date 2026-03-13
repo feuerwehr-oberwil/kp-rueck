@@ -61,6 +61,15 @@ export const DroppableColumn = memo(function DroppableColumn({
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
+  const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
+
+  const isEmpty = operations.length === 0
+  const isCollapsed = isEmpty && !isOver && !isManuallyExpanded
+
+  // Reset manual expand when column gets operations
+  useEffect(() => {
+    if (!isEmpty) setIsManuallyExpanded(false)
+  }, [isEmpty])
 
   useEffect(() => {
     const element = ref.current
@@ -69,7 +78,6 @@ export const DroppableColumn = memo(function DroppableColumn({
     return dropTargetForElements({
       element,
       canDrop: ({ source }) => {
-        // Only allow operations to be dropped on empty columns
         return source.data.type === "operation"
       },
       getData: () => ({ type: "column", columnId: column.id }),
@@ -77,7 +85,32 @@ export const DroppableColumn = memo(function DroppableColumn({
       onDragLeave: () => setIsOver(false),
       onDrop: () => setIsOver(false),
     })
-  }, [column.id])
+  }, [column.id, isCollapsed])
+
+  // Collapsed view — narrow strip with vertical title
+  if (isCollapsed) {
+    return (
+      <div
+        ref={ref}
+        data-column={column.id}
+        className={cn(
+          "flex w-12 flex-shrink-0 flex-col items-center rounded-lg border border-border cursor-pointer transition-all hover:w-16 hover:bg-muted/30",
+          column.color,
+          isOver && "drop-zone-active w-16"
+        )}
+        onClick={() => setIsManuallyExpanded(true)}
+        role="region"
+        aria-label={`${column.title} column (leer)`}
+      >
+        <div className="flex flex-col items-center gap-2 py-3">
+          <span className="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
+            {column.title}
+          </span>
+          <span className="text-xs text-muted-foreground/60 font-mono">0</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
@@ -102,6 +135,18 @@ export const DroppableColumn = memo(function DroppableColumn({
         {isOver && operations.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <p className="text-sm text-foreground/70 font-medium">Einsatz hier ablegen</p>
+          </div>
+        )}
+
+        {/* Empty state with collapse hint */}
+        {isEmpty && !isOver && (
+          <div className="flex items-center justify-center h-32">
+            <button
+              onClick={() => setIsManuallyExpanded(false)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Keine Einsätze
+            </button>
           </div>
         )}
 
