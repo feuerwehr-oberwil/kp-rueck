@@ -127,11 +127,11 @@ export function UserMenu({
   const getStatusColor = () => {
     switch (status) {
       case "connected":
-        return "bg-green-500";
+        return "bg-success";
       case "disconnected":
-        return "bg-red-500";
+        return "bg-destructive";
       case "checking":
-        return "bg-yellow-500";
+        return "bg-warning";
     }
   };
 
@@ -148,26 +148,26 @@ export function UserMenu({
 
   const getSyncStatusColor = () => {
     if (syncLoading) {
-      return "bg-gray-400";
+      return "bg-muted-foreground";
     }
 
     if (syncError || !syncStatus) {
-      return "bg-red-500";
+      return "bg-destructive";
     }
 
     if (syncStatus.is_syncing) {
-      return "bg-yellow-500";
+      return "bg-warning";
     }
 
     if (!syncStatus.railway_healthy) {
-      return "bg-red-500";
+      return "bg-destructive";
     }
 
     if (isStale) {
-      return "bg-orange-500";
+      return "bg-warning";
     }
 
-    return "bg-green-500";
+    return "bg-success";
   };
 
   const getSyncStatusText = () => {
@@ -209,13 +209,13 @@ export function UserMenu({
   const getWsStatusColor = () => {
     switch (wsStatus) {
       case 'connecting':
-        return 'bg-yellow-500';
+        return 'bg-warning';
       case 'connected':
-        return 'bg-green-500';
+        return 'bg-success';
       case 'disconnected':
-        return 'bg-gray-500';
+        return 'bg-muted-foreground';
       case 'error':
-        return 'bg-red-500';
+        return 'bg-destructive';
     }
   };
 
@@ -245,10 +245,10 @@ export function UserMenu({
   };
 
   const getPrinterStatusColor = () => {
-    if (!printerStatus) return "bg-gray-400";
-    if (!printerStatus.enabled) return "bg-gray-400";
-    if (printerStatus.last_error) return "bg-red-500";
-    return "bg-green-500";
+    if (!printerStatus) return "bg-muted-foreground";
+    if (!printerStatus.enabled) return "bg-muted-foreground";
+    if (printerStatus.last_error) return "bg-destructive";
+    return "bg-success";
   };
 
   const getPrinterStatusText = () => {

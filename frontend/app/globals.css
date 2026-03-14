@@ -206,11 +206,7 @@
   /* Custom scrollbar styling */
   * {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.7 0 0) transparent;
-  }
-
-  .dark * {
-    scrollbar-color: oklch(0.3 0 0) transparent;
+    scrollbar-color: var(--muted-foreground) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -222,23 +218,15 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background: oklch(0.7 0 0);
+    background: var(--muted-foreground);
     border-radius: 6px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.6 0 0);
+    background: var(--foreground);
     background-clip: padding-box;
-  }
-
-  .dark *::-webkit-scrollbar-thumb {
-    background: oklch(0.3 0 0);
-  }
-
-  .dark *::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.4 0 0);
   }
 
   /* Mobile-first responsive utilities */
@@ -363,12 +351,12 @@
 
   .hover-delight:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px oklch(from var(--foreground) l c h / 0.3);
   }
 
   .hover-delight:active:not(:disabled) {
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px oklch(from var(--foreground) l c h / 0.2);
   }
 
   /* Tab switch animation for mobile bottom navigation */
@@ -470,10 +458,10 @@
   /* Search input focus glow */
   @keyframes search-focus {
     0% {
-      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+      box-shadow: 0 0 0 0 oklch(from var(--primary) l c h / 0.4);
     }
     100% {
-      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+      box-shadow: 0 0 0 4px oklch(from var(--primary) l c h / 0);
     }
   }
 

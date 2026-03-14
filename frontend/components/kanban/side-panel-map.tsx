@@ -18,26 +18,44 @@ const PRIORITY_COLORS: Record<string, string> = {
 function createOperationIcon(operation: Operation, isSelected: boolean = false): L.DivIcon {
   const priorityColor = PRIORITY_COLORS[operation.priority] || "#6b7280"
   const size = isSelected ? 28 : 20
-  const pulse = isSelected ? 'animation: pulse 0.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
+  const ringSize = size + 10
+  const ringOffset = (ringSize - size) / 2
+
+  const selectedRing = isSelected
+    ? `<div style="
+        position: absolute;
+        top: -${ringOffset}px;
+        left: -${ringOffset}px;
+        width: ${ringSize}px;
+        height: ${ringSize}px;
+        border: 2px solid #3b82f6;
+        border-radius: 50%;
+        opacity: 0;
+        animation: marker-highlight 1s ease-out forwards;
+        pointer-events: none;
+      "></div>`
+    : ''
 
   const html = `
     <style>
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+      @keyframes marker-highlight {
+        0% { opacity: 0.8; transform: scale(1.3); }
+        100% { opacity: 0; transform: scale(1); }
       }
     </style>
-    <div style="
-      width: ${size}px;
-      height: ${size}px;
-      background-color: ${priorityColor};
-      border: 2px solid ${isSelected ? '#3b82f6' : 'white'};
-      border-radius: 50%;
-      box-shadow: 0 ${isSelected ? 3 : 1}px ${isSelected ? 6 : 3}px rgba(0, 0, 0, ${isSelected ? 0.4 : 0.25});
-      ${pulse}
-      transition: all 0.2s ease;
-      cursor: pointer;
-    "></div>
+    <div style="position: relative;">
+      ${selectedRing}
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background-color: ${priorityColor};
+        border: ${isSelected ? '3px' : '2px'} solid ${isSelected ? '#3b82f6' : 'white'};
+        border-radius: 50%;
+        box-shadow: 0 ${isSelected ? 3 : 1}px ${isSelected ? 6 : 3}px oklch(0.18 0.01 60 / ${isSelected ? 0.4 : 0.25});
+        transition: all 0.2s ease;
+        cursor: pointer;
+      "></div>
+    </div>
   `
 
   return L.divIcon({
