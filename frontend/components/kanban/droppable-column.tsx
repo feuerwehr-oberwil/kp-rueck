@@ -1,11 +1,25 @@
 "use client"
 
-import { useEffect, useRef, useState, memo } from "react"
+import { useEffect, useRef, useState, memo, useSyncExternalStore } from "react"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { columns } from "@/lib/kanban-utils"
 import { DraggableOperation } from "./draggable-operation"
 import { cn } from "@/lib/utils"
+
+// On large screens (2xl+), columns stay expanded — collapsing only helps on smaller screens
+const largeScreenQuery = "(min-width: 1536px)"
+const subscribeLargeScreen = (cb: () => void) => {
+  const mql = window.matchMedia(largeScreenQuery)
+  mql.addEventListener("change", cb)
+  return () => mql.removeEventListener("change", cb)
+}
+const getIsLargeScreen = () => window.matchMedia(largeScreenQuery).matches
+const getIsLargeScreenServer = () => false
+
+function useIsLargeScreen() {
+  return useSyncExternalStore(subscribeLargeScreen, getIsLargeScreen, getIsLargeScreenServer)
+}
 
 interface DroppableColumnProps {
   column: {
@@ -62,9 +76,10 @@ export const DroppableColumn = memo(function DroppableColumn({
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
+  const isLargeScreen = useIsLargeScreen()
 
   const isEmpty = operations.length === 0
-  const isCollapsed = isEmpty && !isOver && !isManuallyExpanded
+  const isCollapsed = isEmpty && !isOver && !isManuallyExpanded && !isLargeScreen
 
   // Reset manual expand when column gets operations
   useEffect(() => {
