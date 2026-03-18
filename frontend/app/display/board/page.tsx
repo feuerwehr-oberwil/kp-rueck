@@ -58,11 +58,11 @@ function BoardDisplay() {
   }, [operations])
 
   return (
-    <div className="flex h-full gap-2 p-3 overflow-x-auto">
+    <div className="grid h-full grid-cols-6 gap-2 p-3">
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
         return (
-          <div key={column.id} className="flex min-w-[280px] flex-1 flex-col">
+          <div key={column.id} className="flex flex-col min-w-0 overflow-hidden">
             {/* Column header */}
             <div className={cn("mb-2 rounded-lg border border-border px-3 py-2", column.color)}>
               <h2 className="text-sm font-semibold text-foreground">{column.title}</h2>
