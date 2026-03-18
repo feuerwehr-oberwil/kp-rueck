@@ -1,9 +1,9 @@
 """Traccar GPS tracking API endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.config import settings
@@ -72,9 +72,76 @@ async def get_vehicle_positions() -> list[VehiclePositionResponse]:
             for p in positions
         ]
     except Exception as e:
-        # Log detailed error server-side, return generic message to client
         logger.error("Failed to fetch positions from Traccar: %s", e)
         raise HTTPException(
             status_code=502,
             detail="GPS-Tracking-Service momentan nicht erreichbar",
         )
+
+
+class TrailPointResponse(BaseModel):
+    """A single point in a vehicle's breadcrumb trail."""
+
+    latitude: float
+    longitude: float
+    speed: float | None = None
+    timestamp: datetime
+
+
+class VehicleTrailResponse(BaseModel):
+    """Breadcrumb trail for a vehicle."""
+
+    device_id: int
+    device_name: str
+    points: list[TrailPointResponse]
+
+
+@router.get("/trails", response_model=list[VehicleTrailResponse])
+async def get_vehicle_trails(
+    minutes: int = Query(default=30, ge=5, le=120, description="Trail duration in minutes"),
+) -> list[VehicleTrailResponse]:
+    """Get recent position history (breadcrumb trails) for all tracked vehicles."""
+    if not traccar_client.is_configured:
+        raise HTTPException(status_code=503, detail="Traccar is not configured")
+
+    try:
+        now = datetime.now(UTC)
+        from_time = now - timedelta(minutes=minutes)
+
+        devices = await traccar_client.get_devices()
+
+        # Get history for each device
+        trails: list[VehicleTrailResponse] = []
+        for device in devices:
+            try:
+                positions = await traccar_client.get_position_history(
+                    device.id, from_time, now
+                )
+                if not positions:
+                    continue
+
+                points = [
+                    TrailPointResponse(
+                        latitude=p.latitude,
+                        longitude=p.longitude,
+                        speed=p.speed * 1.852 if p.speed is not None else None,
+                        timestamp=p.deviceTime,
+                    )
+                    for p in positions
+                ]
+
+                trails.append(
+                    VehicleTrailResponse(
+                        device_id=device.id,
+                        device_name=device.name,
+                        points=points,
+                    )
+                )
+            except Exception as e:
+                logger.debug("Failed to get trail for device %s: %s", device.name, e)
+                continue
+
+        return trails
+    except Exception as e:
+        logger.error("Failed to fetch vehicle trails: %s", e)
+        raise HTTPException(status_code=502, detail="GPS-Tracking-Service momentan nicht erreichbar")

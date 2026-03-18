@@ -509,6 +509,19 @@ export interface ApiVehiclePosition {
   address: string | null
 }
 
+export interface ApiTrailPoint {
+  latitude: number
+  longitude: number
+  speed: number | null
+  timestamp: string
+}
+
+export interface ApiVehicleTrail {
+  device_id: number
+  device_name: string
+  points: ApiTrailPoint[]
+}
+
 // Reko Dashboard Types
 export interface ApiRekoDashboardPersonnel {
   personnel_id: string
@@ -1458,7 +1471,13 @@ class ApiClient {
 
   async getVehiclePositions(): Promise<ApiVehiclePosition[]> {
     return this.request<ApiVehiclePosition[]>('/api/traccar/positions', {
-      skipToast: true,  // Don't show toast for polling errors
+      skipToast: true,
+    })
+  }
+
+  async getVehicleTrails(minutes: number = 30): Promise<ApiVehicleTrail[]> {
+    return this.request<ApiVehicleTrail[]>(`/api/traccar/trails?minutes=${minutes}`, {
+      skipToast: true,
     })
   }
 

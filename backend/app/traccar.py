@@ -106,6 +106,28 @@ class TraccarClient:
             response.raise_for_status()
             return [TraccarPosition(**p) for p in response.json()]
 
+    async def get_position_history(
+        self, device_id: int, from_time: datetime, to_time: datetime
+    ) -> list[TraccarPosition]:
+        """Get historical positions for a device within a time range."""
+        if not self.is_configured:
+            return []
+
+        async with httpx.AsyncClient() as client:
+            cookies = await self._create_session(client)
+            response = await client.get(
+                f"{self.base_url}/api/positions",
+                params={
+                    "deviceId": device_id,
+                    "from": from_time.isoformat() + "Z",
+                    "to": to_time.isoformat() + "Z",
+                },
+                cookies=cookies,
+                timeout=15.0,
+            )
+            response.raise_for_status()
+            return [TraccarPosition(**p) for p in response.json()]
+
     async def get_vehicle_positions(self) -> list[VehiclePosition]:
         """Get combined device and position data for all vehicles."""
         if not self.is_configured:

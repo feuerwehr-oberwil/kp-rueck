@@ -10,6 +10,7 @@ import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incident
 import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
 import { AssignmentLines } from "./map/assignment-lines"
+import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
 
@@ -539,6 +540,9 @@ export default function MapView({
           vehiclePositions={vehiclePositions}
           visible={showAssignmentLines && traccarConfigured}
         />
+
+        {/* Vehicle breadcrumb trails */}
+        <VehicleTrails enabled={traccarConfigured} />
 
         {/* Auto-fit bounds to show all incidents */}
         <FitBounds incidents={mappableIncidents} />

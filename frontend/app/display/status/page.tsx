@@ -21,11 +21,11 @@ const STATUS_BORDER: Record<string, string> = {
 }
 
 const STATUS_BG: Record<string, string> = {
-  incoming: "bg-slate-500/5 dark:bg-slate-500/10",
-  ready: "bg-emerald-500/5 dark:bg-emerald-500/10",
-  enroute: "bg-blue-500/5 dark:bg-blue-500/10",
-  active: "bg-orange-500/5 dark:bg-orange-500/10",
-  returning: "bg-sky-500/5 dark:bg-sky-500/10",
+  incoming: "bg-muted/30",
+  ready: "bg-muted/30",
+  enroute: "bg-muted/30",
+  active: "bg-muted/30",
+  returning: "bg-muted/30",
 }
 
 export default function DisplayStatusPage() {
