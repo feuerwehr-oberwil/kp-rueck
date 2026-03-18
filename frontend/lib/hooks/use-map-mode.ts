@@ -2,11 +2,18 @@
  * useMapMode Hook
  *
  * Manages map tile source mode (auto/online/offline) with automatic fallback.
+ * Also manages tile style selection (OSM, topo, satellite).
  *
  * Modes:
- * - auto: Try online OSM tiles first, fall back to offline on error
- * - online: Always use online OSM tiles
+ * - auto: Try online tiles first, fall back to offline on error
+ * - online: Always use online tiles
  * - offline: Always use offline tiles (localhost:8080)
+ *
+ * Styles (online only):
+ * - osm: OpenStreetMap standard
+ * - topo: OpenTopoMap (topographic)
+ * - carto-light: CartoDB Positron (light/minimal)
+ * - carto-dark: CartoDB Dark Matter (dark theme)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,15 +21,42 @@ import { apiClient } from '@/lib/api-client';
 
 export type MapMode = 'auto' | 'online' | 'offline';
 export type EffectiveMode = 'online' | 'offline';
+export type MapStyle = 'osm' | 'topo' | 'carto-light' | 'carto-dark';
+
+interface TileConfig {
+  url: string;
+  attribution: string;
+}
+
+const TILE_STYLES: Record<MapStyle, TileConfig> = {
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  topo: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '© <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+  },
+  'carto-light': {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+  },
+  'carto-dark': {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+  },
+};
+
+const OFFLINE_TILE: TileConfig = {
+  url: 'http://localhost:8080/styles/basic-preview/512/{z}/{x}/{y}.png',
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (Offline)',
+};
 
 interface MapModeState {
-  // User preference from settings
   preferredMode: MapMode;
-  // Current effective mode (what's actually being used)
   effectiveMode: EffectiveMode;
-  // Loading state
+  mapStyle: MapStyle;
   loading: boolean;
-  // Error state
   error: string | null;
 }
 
@@ -30,11 +64,12 @@ export function useMapMode() {
   const [state, setState] = useState<MapModeState>({
     preferredMode: 'auto',
     effectiveMode: 'online',
+    mapStyle: 'osm',
     loading: true,
     error: null,
   });
 
-  // Fetch map mode preference from settings
+  // Fetch map mode and style preferences from settings
   useEffect(() => {
     let mounted = true;
 
@@ -42,12 +77,14 @@ export function useMapMode() {
       try {
         const settings = await apiClient.getAllSettings();
         const mode = (settings.map_mode || 'auto') as MapMode;
+        const style = (settings.map_style || 'osm') as MapStyle;
 
         if (mounted) {
           setState((prev) => ({
             ...prev,
             preferredMode: mode,
             effectiveMode: mode === 'offline' ? 'offline' : 'online',
+            mapStyle: TILE_STYLES[style] ? style : 'osm',
             loading: false,
           }));
         }
@@ -70,13 +107,8 @@ export function useMapMode() {
     };
   }, []);
 
-  /**
-   * Handle tile load error (for auto mode)
-   * Switches to offline when online tiles fail
-   */
   const handleTileError = useCallback(() => {
     setState((prev) => {
-      // Only switch to offline if in auto mode and currently online
       if (prev.preferredMode === 'auto' && prev.effectiveMode === 'online') {
         console.warn('Map tiles failed to load, switching to offline mode');
         return { ...prev, effectiveMode: 'offline' };
@@ -85,10 +117,6 @@ export function useMapMode() {
     });
   }, []);
 
-  /**
-   * Reset effective mode to match preference
-   * Used when user changes settings or to retry online
-   */
   const resetEffectiveMode = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -96,45 +124,31 @@ export function useMapMode() {
     }));
   }, []);
 
-  /**
-   * Get tile layer URL based on current effective mode
-   */
   const getTileUrl = useCallback((): string => {
     if (state.effectiveMode === 'offline') {
-      // Use local tile server (basic-preview style with 512px tiles)
-      return 'http://localhost:8080/styles/basic-preview/512/{z}/{x}/{y}.png';
-    } else {
-      // Use online OpenStreetMap
-      return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      return OFFLINE_TILE.url;
     }
-  }, [state.effectiveMode]);
+    return TILE_STYLES[state.mapStyle]?.url || TILE_STYLES.osm.url;
+  }, [state.effectiveMode, state.mapStyle]);
 
-  /**
-   * Get attribution text based on current effective mode
-   */
   const getAttribution = useCallback((): string => {
-    const baseAttribution = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
     if (state.effectiveMode === 'offline') {
-      return `${baseAttribution} (Offline)`;
-    } else {
-      return baseAttribution;
+      return OFFLINE_TILE.attribution;
     }
-  }, [state.effectiveMode]);
+    return TILE_STYLES[state.mapStyle]?.attribution || TILE_STYLES.osm.attribution;
+  }, [state.effectiveMode, state.mapStyle]);
 
   return {
-    // Current state
     preferredMode: state.preferredMode,
     effectiveMode: state.effectiveMode,
+    mapStyle: state.mapStyle,
     loading: state.loading,
     error: state.error,
 
-    // Helpers
     isOnline: state.effectiveMode === 'online',
     isOffline: state.effectiveMode === 'offline',
     isAuto: state.preferredMode === 'auto',
 
-    // Functions
     handleTileError,
     resetEffectiveMode,
     getTileUrl,

@@ -555,14 +555,6 @@ export default function MapView({
         onIncidentClick={onMarkerClick}
       />
 
-      {/* Map mode indicator */}
-      <MapModeIndicator
-        preferredMode={preferredMode}
-        effectiveMode={effectiveMode}
-        isAuto={isAuto}
-        onReset={resetEffectiveMode}
-      />
-
       {/* Map Legend */}
       <MapLegend />
     </div>

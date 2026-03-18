@@ -122,6 +122,18 @@ const SETTING_CONFIGS: SettingConfig[] = [
     ],
   },
   {
+    key: 'map_style',
+    label: 'Kartenstil',
+    description: 'Visueller Stil der Karte (nur im Online-Modus)',
+    type: 'select',
+    options: [
+      { value: 'osm', label: 'OpenStreetMap (Standard)' },
+      { value: 'topo', label: 'Topografisch (OpenTopoMap)' },
+      { value: 'carto-light', label: 'Hell / Minimal (CartoDB)' },
+      { value: 'carto-dark', label: 'Dunkel (CartoDB)' },
+    ],
+  },
+  {
     key: 'show_assignment_lines',
     label: 'Fahrzeug-Zuweisungslinien',
     description: 'Animierte Linien von GPS-Fahrzeugen zu zugewiesenen Einsätzen auf der Karte anzeigen',
