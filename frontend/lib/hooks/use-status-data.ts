@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
+import { useMaterials, type Material } from "@/lib/contexts/materials-context"
 import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
 
@@ -30,6 +31,7 @@ export interface StatusStats {
 export function useStatusData() {
   const { operations } = useOperations()
   const { personnel } = usePersonnel()
+  const { materials } = useMaterials()
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [vehicles, setVehicles] = useState<Array<{ id: string; name: string; type: string; status: string }>>([])
 
@@ -113,5 +115,5 @@ export function useStatusData() {
       .slice(0, 12)
   }, [operations])
 
-  return { operations, personnel, stats, vehicleStatus, recentActivity }
+  return { operations, personnel, materials, stats, vehicleStatus, recentActivity }
 }

@@ -1,366 +1,292 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
-import { Badge } from "@/components/ui/badge"
-import { useOperations, type Operation } from "@/lib/contexts/operations-context"
-import { usePersonnel } from "@/lib/contexts/personnel-context"
+/**
+ * /display/status — "Situation Board"
+ *
+ * 4-panel display: Vehicles | Incidents | Personnel | Materials
+ * Each is a self-contained panel readable from across the room.
+ * Based on military C2 / fire service wallboard design.
+ */
+
 import { useAuth } from "@/lib/contexts/auth-context"
-import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
+import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { Truck, Users, Siren, AlertTriangle, CheckCircle } from "lucide-react"
+import { type Operation } from "@/lib/contexts/operations-context"
+import { type Person } from "@/lib/contexts/personnel-context"
+import { type Material } from "@/lib/contexts/materials-context"
 import { cn } from "@/lib/utils"
 
 export default function DisplayStatusPage() {
   const { isAuthenticated } = useAuth()
-
   if (!isAuthenticated) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Bitte melden Sie sich an für die Status-Anzeige.
-      </div>
-    )
+    return <div className="flex h-full items-center justify-center text-muted-foreground">Zugang erforderlich</div>
   }
-
-  return <StatusDashboard />
+  return <SituationBoard />
 }
 
-function StatusDashboard() {
-  const { operations } = useOperations()
-  const { personnel } = usePersonnel()
-  const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
-  const [vehicles, setVehicles] = useState<Array<{ id: string; name: string; type: string; status: string }>>([])
+function SituationBoard() {
+  const { stats, vehicleStatus, operations, personnel, materials } = useStatusData()
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const v = await apiClient.getVehicles()
-        setVehicles(v.map((veh) => ({ id: veh.id, name: veh.name, type: veh.type, status: veh.status })))
-      } catch { /* silent */ }
+  const activeOps = operations.filter((op) => op.status !== "complete")
+
+  const assignedPersonnel = personnel.filter((p) => p.status === "assigned")
+  const availablePersonnel = personnel.filter((p) => p.status === "available")
+
+  // Group materials by category, with assigned/available counts
+  const materialsByCategory = (() => {
+    const groups: Record<string, { assigned: Material[]; available: Material[] }> = {}
+    for (const m of materials) {
+      if (!groups[m.category]) groups[m.category] = { assigned: [], available: [] }
+      if (m.status === "assigned") groups[m.category].assigned.push(m)
+      else groups[m.category].available.push(m)
     }
-    load()
-  }, [])
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b, "de"))
+  })()
 
-  const fetchPositions = useCallback(async () => {
-    try {
-      const positions = await apiClient.getVehiclePositions()
-      setVehiclePositions(positions)
-    } catch { /* silent */ }
-  }, [])
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const status = await apiClient.getTraccarStatus()
-        if (status.configured) {
-          fetchPositions()
-          const interval = setInterval(fetchPositions, 10000)
-          return () => clearInterval(interval)
-        }
-      } catch { /* silent */ }
-    }
-    const cleanup = init()
-    return () => { cleanup.then((fn) => fn?.()) }
-  }, [fetchPositions])
-
-  const stats = useMemo(() => {
-    const byStatus: Record<string, Operation[]> = {}
-    columns.forEach((col) => { byStatus[col.id] = [] })
-    operations.forEach((op) => {
-      const col = columns.find((c) => c.status.includes(op.status))
-      if (col) byStatus[col.id].push(op)
-    })
-
-    const assigned = personnel.filter((p) => p.status === "assigned")
-    const available = personnel.filter((p) => p.status === "available")
-    const activeOps = operations.filter((op) => op.status !== "complete")
-
-    return {
-      byStatus,
-      totalOperations: operations.length,
-      activeOperations: activeOps.length,
-      incomingCount: byStatus["incoming"]?.length || 0,
-      completedCount: byStatus["complete"]?.length || 0,
-      personnelTotal: personnel.length,
-      personnelAssigned: assigned.length,
-      personnelAvailable: available.length,
-    }
-  }, [operations, personnel])
-
-  const vehicleStatus = useMemo(() => {
-    return vehicles.map((v) => {
-      const assignedOp = operations.find((op) =>
-        op.vehicles.some((vName) => vName.toLowerCase() === v.name.toLowerCase())
-      )
-      const gps = vehiclePositions.find(
-        (vp) => vp.device_name.toLowerCase() === v.name.toLowerCase()
-      )
-      const driver = personnel.find((p) => p.isDriver && p.driverVehicleName?.toLowerCase() === v.name.toLowerCase())
-
-      return { ...v, assignedOperation: assignedOp, gps, driverName: driver?.name || null }
-    })
-  }, [vehicles, operations, vehiclePositions, personnel])
-
-  const recentActivity = useMemo(() => {
-    return [...operations]
-      .sort((a, b) => {
-        const aTime = a.statusChangedAt?.getTime() || a.dispatchTime.getTime() || 0
-        const bTime = b.statusChangedAt?.getTime() || b.dispatchTime.getTime() || 0
-        return bTime - aTime
-      })
-      .slice(0, 10)
-  }, [operations])
+  const assignedMaterialCount = materials.filter((m) => m.status === "assigned").length
+  const availableMaterialCount = materials.filter((m) => m.status === "available").length
 
   return (
-    <div className="h-full grid grid-rows-[auto_1fr] gap-0 bg-muted/30 dark:bg-zinc-950/30">
-      {/* ── KPI strip ─────────────────────────────────────── */}
-      <div className="grid grid-cols-4 border-b border-border">
-        <KpiCell
-          value={stats.activeOperations}
-          label="Aktiv"
-          icon={<Siren className="h-4 w-4" />}
-          urgent={stats.activeOperations > 0}
-          color="text-orange-500 dark:text-orange-400"
-          bgColor="bg-orange-500/8 dark:bg-orange-500/10"
+    <div className="h-full grid grid-cols-4 bg-background overflow-hidden">
+      {/* ── Column 1: Vehicles ── */}
+      <div className="flex flex-col border-r border-border overflow-hidden">
+        <PanelHeader
+          title="Fahrzeuge"
+          count={vehicleStatus.length}
+          accent="bg-blue-500"
         />
-        <KpiCell
-          value={stats.incomingCount}
-          label="Eingegangen"
-          icon={<AlertTriangle className="h-4 w-4" />}
-          urgent={stats.incomingCount > 0}
-          color="text-red-500 dark:text-red-400"
-          bgColor="bg-red-500/8 dark:bg-red-500/10"
-          borderLeft
-        />
-        <KpiCell
-          value={`${stats.personnelAvailable}`}
-          label={`von ${stats.personnelTotal} verfügbar`}
-          icon={<Users className="h-4 w-4" />}
-          urgent={stats.personnelAvailable === 0 && stats.personnelTotal > 0}
-          color="text-blue-500 dark:text-blue-400"
-          bgColor="bg-blue-500/8 dark:bg-blue-500/10"
-          borderLeft
-        />
-        <KpiCell
-          value={stats.completedCount}
-          label="Abgeschlossen"
-          icon={<CheckCircle className="h-4 w-4" />}
-          color="text-emerald-500 dark:text-emerald-400"
-          bgColor="bg-emerald-500/8 dark:bg-emerald-500/10"
-          borderLeft
-        />
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+          {vehicleStatus.map((v) => (
+            <VehicleRow key={v.id} vehicle={v} />
+          ))}
+        </div>
       </div>
 
-      {/* ── Main content ──────────────────────────────────── */}
-      <div className="grid grid-cols-[1fr_340px] overflow-hidden">
-        {/* Left: Vehicle roster */}
-        <div className="overflow-y-auto p-4">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
-            <Truck className="h-3.5 w-3.5" />
-            Fahrzeuge
-          </h2>
-
-          <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
-            {vehicleStatus.map((v) => {
-              const isDeployed = !!v.assignedOperation
-              return (
-                <div
-                  key={v.id}
-                  className={cn(
-                    "rounded-md border p-3 transition-all relative",
-                    isDeployed
-                      ? "border-orange-500/40 bg-orange-500/5 dark:bg-orange-950/30"
-                      : "border-border/60 bg-card/60 dark:bg-zinc-900/40"
-                  )}
-                >
-                  {/* Status bar on left edge */}
-                  <div
-                    className={cn(
-                      "absolute left-0 top-2 bottom-2 w-1 rounded-r-full",
-                      isDeployed ? "bg-orange-500" : "bg-emerald-500/60"
-                    )}
-                  />
-
-                  <div className="pl-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-sm tracking-tight">{v.name}</span>
-                      <div className="flex items-center gap-1.5">
-                        {v.gps && (
-                          <div
-                            className={cn(
-                              "h-1.5 w-1.5 rounded-full",
-                              v.gps.status === "online" ? "bg-emerald-500" : "bg-gray-400"
-                            )}
-                            title={v.gps.status === "online" ? "GPS online" : "GPS offline"}
-                          />
-                        )}
-                        {v.gps && v.gps.speed !== null && v.gps.speed > 1 && (
-                          <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
-                            {Math.round(v.gps.speed)}km/h
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {v.driverName && (
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {v.driverName}
-                      </p>
-                    )}
-
-                    {isDeployed ? (
-                      <div className="mt-1.5">
-                        <p className="text-xs font-medium text-orange-600 dark:text-orange-400 truncate leading-tight">
-                          {v.assignedOperation!.location}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-mono tabular-nums mt-0.5">
-                          {getTimeSince(v.assignedOperation!.statusChangedAt || v.assignedOperation!.dispatchTime)}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1.5">
-                        Bereit
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+      {/* ── Column 2: Active Incidents ── */}
+      <div className="flex flex-col border-r border-border overflow-hidden">
+        <PanelHeader
+          title="Einsätze"
+          count={activeOps.length}
+          accent="bg-orange-500"
+        />
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+          {activeOps.length === 0 ? (
+            <div className="text-center text-muted-foreground py-12 text-sm">Keine aktiven Einsätze</div>
+          ) : (
+            activeOps.map((op) => <IncidentRow key={op.id} operation={op} />)
+          )}
         </div>
+      </div>
 
-        {/* Right: Activity timeline */}
-        <div className="border-l border-border overflow-y-auto">
-          <div className="px-4 pt-4 pb-2 sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-              <Siren className="h-3.5 w-3.5" />
-              Einsätze
-            </h2>
-          </div>
-
-          <div className="px-4 py-2">
-            {recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-12">
-                Keine Einsätze
-              </p>
-            ) : (
-              <div className="space-y-0">
-                {recentActivity.map((op, idx) => {
-                  const colDef = columns.find((c) => c.status.includes(op.status))
-                  const isActive = op.status !== "complete"
-                  return (
-                    <div
-                      key={op.id}
-                      className={cn(
-                        "relative pl-5 py-2.5",
-                        idx < recentActivity.length - 1 && "border-b border-border/30"
-                      )}
-                    >
-                      {/* Timeline dot */}
-                      <div
-                        className={cn(
-                          "absolute left-0 top-3.5 h-2.5 w-2.5 rounded-full ring-2 ring-background",
-                          op.priority === "high"
-                            ? "bg-red-500"
-                            : op.priority === "medium"
-                              ? "bg-yellow-500"
-                              : "bg-emerald-500",
-                          !isActive && "opacity-40"
-                        )}
-                      />
-                      {/* Connector line */}
-                      {idx < recentActivity.length - 1 && (
-                        <div className="absolute left-[4.5px] top-7 bottom-0 w-px bg-border/50" />
-                      )}
-
-                      <div className={cn(!isActive && "opacity-50")}>
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-sm font-medium truncate leading-tight">
-                            {op.location}
-                          </p>
-                          <span className="text-[10px] text-muted-foreground font-mono tabular-nums flex-shrink-0">
-                            {getTimeSince(op.statusChangedAt || op.dispatchTime)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[10px] text-muted-foreground">
-                            {getIncidentTypeLabel(op.incidentType)}
-                          </span>
-                          <span className="text-border">·</span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[9px] px-1 py-0 h-4 font-medium border-0",
-                              colDef?.color
-                            )}
-                          >
-                            {colDef?.title || op.status}
-                          </Badge>
-                        </div>
-
-                        {op.vehicles.length > 0 && (
-                          <div className="flex gap-1 mt-1.5">
-                            {op.vehicles.map((v, i) => (
-                              <span
-                                key={i}
-                                className="text-[10px] font-medium text-foreground/70 bg-muted/80 px-1.5 py-0.5 rounded"
-                              >
-                                {v}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+      {/* ── Column 3: Personnel ── */}
+      <div className="flex flex-col border-r border-border overflow-hidden">
+        <PanelHeader
+          title="Personal"
+          count={personnel.length}
+          accent="bg-emerald-500"
+          subtitle={`${stats.personnelAvailable} verfügbar`}
+        />
+        <div className="flex-1 overflow-y-auto">
+          {assignedPersonnel.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 bg-orange-500/10 border-b border-border">
+                <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
+                  Im Einsatz ({assignedPersonnel.length})
+                </span>
               </div>
-            )}
-          </div>
+              <div className="p-2 space-y-0.5">
+                {assignedPersonnel.map((p) => (
+                  <PersonRow key={p.id} person={p} />
+                ))}
+              </div>
+            </div>
+          )}
+          {availablePersonnel.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 bg-emerald-500/10 border-y border-border">
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                  Verfügbar ({availablePersonnel.length})
+                </span>
+              </div>
+              <div className="p-2 space-y-0.5">
+                {availablePersonnel.map((p) => (
+                  <PersonRow key={p.id} person={p} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Column 4: Materials ── */}
+      <div className="flex flex-col overflow-hidden">
+        <PanelHeader
+          title="Material"
+          count={materials.length}
+          accent="bg-violet-500"
+          subtitle={`${availableMaterialCount} verfügbar`}
+        />
+        <div className="flex-1 overflow-y-auto">
+          {materialsByCategory.map(([category, group]) => (
+            <div key={category}>
+              <div className="px-3 py-1.5 bg-muted/40 border-b border-border flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  {category}
+                </span>
+                <span className="text-[10px] text-muted-foreground tabular-nums">
+                  {group.available.length}/{group.available.length + group.assigned.length}
+                </span>
+              </div>
+
+              {/* Assigned items in this category */}
+              {group.assigned.length > 0 && (
+                <div className="px-2 py-1 space-y-0.5">
+                  {group.assigned.map((m) => (
+                    <MaterialRow key={m.id} material={m} />
+                  ))}
+                </div>
+              )}
+
+              {/* Available items in this category */}
+              {group.available.length > 0 && (
+                <div className="px-2 py-1 space-y-0.5">
+                  {group.available.map((m) => (
+                    <MaterialRow key={m.id} material={m} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {materials.length === 0 && (
+            <div className="text-center text-muted-foreground py-12 text-sm">Kein Material erfasst</div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-function KpiCell({
-  value,
-  label,
-  icon,
-  urgent,
-  color,
-  bgColor,
-  borderLeft,
-}: {
-  value: number | string
-  label: string
-  icon: React.ReactNode
-  urgent?: boolean
-  color: string
-  bgColor: string
-  borderLeft?: boolean
+function PanelHeader({ title, count, accent, subtitle }: {
+  title: string; count: number; accent: string; subtitle?: string
 }) {
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-5 py-3",
-        bgColor,
-        borderLeft && "border-l border-border"
-      )}
-    >
-      <div className={cn("flex-shrink-0", color)}>{icon}</div>
-      <div className="min-w-0">
-        <p
-          className={cn(
-            "text-2xl font-bold tabular-nums leading-none",
-            urgent && color
-          )}
-        >
-          {value}
-        </p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{label}</p>
+    <div className="flex items-center gap-3 px-3 py-2.5 border-b border-border bg-muted/40 shrink-0">
+      <div className={cn("w-1 h-8 rounded-full", accent)} />
+      <div className="flex-1">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-sm font-bold tracking-tight">{title}</h2>
+          <span className="text-xl font-bold tabular-nums text-foreground/80">{count}</span>
+        </div>
+        {subtitle && (
+          <p className="text-[10px] text-muted-foreground">{subtitle}</p>
+        )}
       </div>
+    </div>
+  )
+}
+
+function VehicleRow({ vehicle: v }: { vehicle: VehicleWithStatus }) {
+  const isDeployed = !!v.assignedOperation
+  return (
+    <div className={cn(
+      "flex items-center gap-3 px-3 py-2 rounded-md",
+      isDeployed ? "bg-orange-500/8 dark:bg-orange-950/30" : "bg-muted/30"
+    )}>
+      <div className={cn(
+        "w-3 h-3 rounded-sm shrink-0",
+        isDeployed ? "bg-orange-500" : "bg-emerald-500"
+      )} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className="font-bold text-sm">{v.name}</span>
+          {v.driverName && (
+            <span className="text-[11px] text-muted-foreground truncate">{v.driverName}</span>
+          )}
+        </div>
+        {isDeployed && (
+          <p className="text-xs text-orange-600 dark:text-orange-400 truncate mt-0.5">
+            → {v.assignedOperation!.location}
+          </p>
+        )}
+      </div>
+      {isDeployed && (
+        <span className="text-[11px] font-mono tabular-nums text-muted-foreground shrink-0">
+          {getTimeSince(v.assignedOperation!.statusChangedAt || v.assignedOperation!.dispatchTime)}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function IncidentRow({ operation: op }: { operation: Operation }) {
+  const colDef = columns.find((c) => c.status.includes(op.status))
+  return (
+    <div className="px-3 py-2.5 rounded-md bg-muted/30">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 min-w-0">
+          <div className={cn(
+            "w-2.5 h-2.5 rounded-full mt-1 shrink-0",
+            op.priority === "high" ? "bg-red-500" : op.priority === "medium" ? "bg-amber-500" : "bg-emerald-500"
+          )} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight truncate">{op.location}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
+          </div>
+        </div>
+        <span className="text-[11px] font-mono tabular-nums text-muted-foreground shrink-0">
+          {getTimeSince(op.statusChangedAt || op.dispatchTime)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 mt-2 pl-4">
+        <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-sm", colDef?.color)}>
+          {colDef?.title}
+        </span>
+        {op.vehicles.length > 0 && (
+          <div className="flex gap-1">
+            {op.vehicles.map((v, i) => (
+              <span key={i} className="text-[10px] font-medium text-foreground/70 bg-muted px-1.5 py-0.5 rounded-sm">{v}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PersonRow({ person: p }: { person: Person }) {
+  const isAssigned = p.status === "assigned"
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm hover:bg-muted/30 transition-colors">
+      <span className={cn(
+        "h-1.5 w-1.5 rounded-full shrink-0",
+        isAssigned ? "bg-orange-500" : "bg-emerald-500"
+      )} />
+      <span className="text-xs truncate flex-1">{p.name}</span>
+      {p.role && <span className="text-[10px] text-muted-foreground shrink-0">{p.role}</span>}
+      {p.isDriver && p.driverVehicleName && (
+        <span className="text-[10px] text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
+      )}
+    </div>
+  )
+}
+
+function MaterialRow({ material: m }: { material: Material }) {
+  const isAssigned = m.status === "assigned"
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm hover:bg-muted/30 transition-colors">
+      <span className={cn(
+        "h-1.5 w-1.5 rounded-full shrink-0",
+        isAssigned ? "bg-orange-500" : "bg-emerald-500"
+      )} />
+      <span className="text-xs truncate flex-1">{m.name}</span>
+      <span className={cn(
+        "text-[10px] shrink-0",
+        isAssigned ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"
+      )}>
+        {isAssigned ? "zugewiesen" : "verfügbar"}
+      </span>
     </div>
   )
 }

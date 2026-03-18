@@ -128,9 +128,9 @@ const SETTING_CONFIGS: SettingConfig[] = [
     type: 'select',
     options: [
       { value: 'osm', label: 'OpenStreetMap (Standard)' },
-      { value: 'topo', label: 'Topografisch (OpenTopoMap)' },
-      { value: 'carto-light', label: 'Hell / Minimal (CartoDB)' },
-      { value: 'carto-dark', label: 'Dunkel (CartoDB)' },
+      { value: 'topo', label: 'Topografisch (Esri)' },
+      { value: 'carto-light', label: 'Voyager / Hell (CARTO)' },
+      { value: 'carto-dark', label: 'Dunkel (CARTO)' },
     ],
   },
   {

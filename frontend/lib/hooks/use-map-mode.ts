@@ -11,9 +11,9 @@
  *
  * Styles (online only):
  * - osm: OpenStreetMap standard
- * - topo: OpenTopoMap (topographic)
- * - carto-light: CartoDB Positron (light/minimal)
- * - carto-dark: CartoDB Dark Matter (dark theme)
+ * - topo: Esri World Topo Map
+ * - carto-light: CARTO Voyager (light, clean labels)
+ * - carto-dark: CARTO Dark Matter (dark theme)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -34,15 +34,15 @@ const TILE_STYLES: Record<MapStyle, TileConfig> = {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   },
   topo: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: '© <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '© Esri, HERE, Garmin, OpenStreetMap contributors',
   },
   'carto-light': {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   },
   'carto-dark': {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   },
 };
