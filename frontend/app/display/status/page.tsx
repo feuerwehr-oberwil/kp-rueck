@@ -10,10 +10,8 @@ import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { cn } from "@/lib/utils"
 
-// Status group ordering for incidents (workflow order)
 const STATUS_ORDER = ["incoming", "ready", "enroute", "active", "returning"]
 
-// Left border color per status for instant visual scanning
 const STATUS_BORDER: Record<string, string> = {
   incoming: "border-l-slate-500",
   ready: "border-l-emerald-500",
@@ -41,7 +39,6 @@ export default function DisplayStatusPage() {
 function SituationBoard() {
   const { stats, vehicleStatus, operations, personnel, materials } = useStatusData()
 
-  // Group active incidents by status (workflow order)
   const incidentsByStatus = useMemo(() => {
     const groups: { colDef: typeof columns[number]; ops: Operation[] }[] = []
     for (const statusId of STATUS_ORDER) {
@@ -55,7 +52,6 @@ function SituationBoard() {
 
   const totalActiveOps = operations.filter((op) => op.status !== "complete").length
 
-  // Build lookups for assignments
   const personAssignment = useMemo(() => {
     const map = new Map<string, string>()
     for (const op of operations) {
@@ -72,7 +68,6 @@ function SituationBoard() {
     return map
   }, [operations])
 
-  // Personnel grouped by role, assigned first within each
   const groupedPersonnel = useMemo(() => {
     const sorted = [...personnel].sort((a, b) => {
       if (a.role !== b.role) return a.role.localeCompare(b.role, "de")
@@ -93,7 +88,6 @@ function SituationBoard() {
     return groups
   }, [personnel])
 
-  // Materials grouped by category, assigned first
   const groupedMaterials = useMemo(() => {
     const sorted = [...materials].sort((a, b) => {
       if (a.category !== b.category) return a.category.localeCompare(b.category, "de")
@@ -127,14 +121,14 @@ function SituationBoard() {
           accent="bg-blue-500"
           subtitle={`${vehicleStatus.length - deployed} verfügbar · ${deployed} im Einsatz`}
         />
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        <div className="flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2">
           {vehicleStatus.map((v) => (
             <VehicleRow key={v.id} vehicle={v} />
           ))}
         </div>
       </div>
 
-      {/* ── Column 2: Active Incidents (grouped by status) ── */}
+      {/* ── Column 2: Active Incidents ── */}
       <div className="flex flex-col border-r border-border overflow-hidden">
         <PanelHeader
           title="Einsätze"
@@ -144,16 +138,16 @@ function SituationBoard() {
         />
         <div className="flex-1 overflow-y-auto">
           {incidentsByStatus.length === 0 ? (
-            <div className="text-center text-muted-foreground py-12 text-sm">Keine aktiven Einsätze</div>
+            <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">Keine aktiven Einsätze</div>
           ) : (
             incidentsByStatus.map(({ colDef, ops }) => (
               <div key={colDef.id}>
-                <div className={cn("px-3 py-1.5 border-b border-border", colDef.color)}>
-                  <span className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider">
+                <div className={cn("px-3 xl:px-4 py-1.5 xl:py-2 border-b border-border", colDef.color)}>
+                  <span className="text-[10px] xl:text-xs font-semibold text-foreground/70 uppercase tracking-wider">
                     {colDef.title} ({ops.length})
                   </span>
                 </div>
-                <div className="p-2 space-y-1.5">
+                <div className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
                   {ops.map((op) => (
                     <IncidentRow key={op.id} operation={op} />
                   ))}
@@ -175,12 +169,12 @@ function SituationBoard() {
         <div className="flex-1 overflow-y-auto">
           {groupedPersonnel.map(({ role, people }) => (
             <div key={role}>
-              <div className="px-3 py-1.5 bg-muted/40 border-b border-border">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="px-3 xl:px-4 py-1.5 xl:py-2 bg-muted/40 border-b border-border">
+                <span className="text-[10px] xl:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {role} ({people.length})
                 </span>
               </div>
-              <div className="px-2 py-1 space-y-0.5">
+              <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                 {people.map((p) => (
                   <PersonRow key={p.id} person={p} assignedLocation={personAssignment.get(p.name)} />
                 ))}
@@ -203,11 +197,11 @@ function SituationBoard() {
             const catAssigned = items.filter((m) => m.status === "assigned").length
             return (
               <div key={category}>
-                <div className="px-3 py-1.5 bg-muted/40 border-b border-border flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{category}</span>
-                  <span className="text-[10px] text-muted-foreground tabular-nums">{items.length - catAssigned}/{items.length}</span>
+                <div className="px-3 xl:px-4 py-1.5 xl:py-2 bg-muted/40 border-b border-border flex items-center justify-between">
+                  <span className="text-[10px] xl:text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</span>
+                  <span className="text-[10px] xl:text-xs text-muted-foreground tabular-nums">{items.length - catAssigned}/{items.length}</span>
                 </div>
-                <div className="px-2 py-1 space-y-0.5">
+                <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                   {items.map((m) => (
                     <MaterialRow key={m.id} material={m} assignedLocation={materialAssignment.get(m.id)} />
                   ))}
@@ -216,7 +210,7 @@ function SituationBoard() {
             )
           })}
           {materials.length === 0 && (
-            <div className="text-center text-muted-foreground py-12 text-sm">Kein Material erfasst</div>
+            <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">Kein Material erfasst</div>
           )}
         </div>
       </div>
@@ -228,14 +222,14 @@ function PanelHeader({ title, count, accent, subtitle }: {
   title: string; count: number; accent: string; subtitle?: string
 }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 border-b border-border bg-muted/40 shrink-0 min-h-[60px]">
+    <div className="flex items-center gap-3 px-3 xl:px-4 py-2.5 xl:py-3 border-b border-border bg-muted/40 shrink-0 min-h-[60px]">
       <div className={cn("w-1 self-stretch rounded-full", accent)} />
       <div className="flex-1">
         <div className="flex items-baseline gap-2">
-          <h2 className="text-sm font-bold tracking-tight">{title}</h2>
-          <span className="text-xl font-bold tabular-nums text-foreground/80">{count}</span>
+          <h2 className="text-sm xl:text-base font-bold tracking-tight">{title}</h2>
+          <span className="text-xl xl:text-2xl font-bold tabular-nums text-foreground/80">{count}</span>
         </div>
-        {subtitle && <p className="text-[10px] text-muted-foreground">{subtitle}</p>}
+        {subtitle && <p className="text-[10px] xl:text-xs text-muted-foreground">{subtitle}</p>}
       </div>
     </div>
   )
@@ -245,21 +239,21 @@ function VehicleRow({ vehicle: v }: { vehicle: VehicleWithStatus }) {
   const isDeployed = !!v.assignedOperation
   return (
     <div className={cn(
-      "flex items-center gap-3 px-3 py-2 rounded-md",
+      "flex items-center gap-3 px-3 xl:px-4 py-2 xl:py-2.5 rounded-md",
       isDeployed ? "bg-orange-500/8 dark:bg-orange-950/30" : "bg-muted/30"
     )}>
-      <div className={cn("w-3 h-3 rounded-sm shrink-0", isDeployed ? "bg-orange-500" : "bg-emerald-500")} />
+      <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", isDeployed ? "bg-orange-500" : "bg-emerald-500")} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="font-bold text-sm">{v.name}</span>
-          {v.driverName && <span className="text-[11px] text-muted-foreground truncate">{v.driverName}</span>}
+          <span className="font-bold text-sm xl:text-base">{v.name}</span>
+          {v.driverName && <span className="text-[11px] xl:text-xs text-muted-foreground truncate">{v.driverName}</span>}
         </div>
         {isDeployed && (
-          <p className="text-xs text-orange-600 dark:text-orange-400 truncate mt-0.5">→ {v.assignedOperation!.location}</p>
+          <p className="text-xs xl:text-sm text-orange-600 dark:text-orange-400 truncate mt-0.5">→ {v.assignedOperation!.location}</p>
         )}
       </div>
       {isDeployed && (
-        <span className="text-[11px] font-mono tabular-nums text-muted-foreground shrink-0">
+        <span className="text-[11px] xl:text-xs font-mono tabular-nums text-muted-foreground shrink-0">
           {getTimeSince(v.assignedOperation!.statusChangedAt || v.assignedOperation!.dispatchTime)}
         </span>
       )}
@@ -271,29 +265,29 @@ function IncidentRow({ operation: op }: { operation: Operation }) {
   const statusId = columns.find((c) => c.status.includes(op.status))?.id || "incoming"
   return (
     <div className={cn(
-      "px-3 py-2.5 rounded-md border-l-3",
+      "px-3 xl:px-4 py-2.5 xl:py-3 rounded-md border-l-3",
       STATUS_BORDER[statusId],
       STATUS_BG[statusId],
     )}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
           <div className={cn(
-            "w-2.5 h-2.5 rounded-full mt-1 shrink-0",
+            "w-2.5 h-2.5 xl:w-3 xl:h-3 rounded-full mt-1 shrink-0",
             op.priority === "high" ? "bg-red-500" : op.priority === "medium" ? "bg-amber-500" : "bg-emerald-500"
           )} />
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-tight truncate">{op.location}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
+            <p className="text-sm xl:text-base font-semibold leading-tight truncate">{op.location}</p>
+            <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
           </div>
         </div>
-        <span className="text-[11px] font-mono tabular-nums text-muted-foreground shrink-0">
+        <span className="text-[11px] xl:text-xs font-mono tabular-nums text-muted-foreground shrink-0">
           {getTimeSince(op.statusChangedAt || op.dispatchTime)}
         </span>
       </div>
       {op.vehicles.length > 0 && (
-        <div className="flex gap-1 mt-1.5 pl-4">
+        <div className="flex gap-1 mt-1.5 pl-4 xl:pl-5">
           {op.vehicles.map((v, i) => (
-            <span key={i} className="text-[10px] font-medium text-foreground/70 bg-background/60 px-1.5 py-0.5 rounded-sm">{v}</span>
+            <span key={i} className="text-[10px] xl:text-[11px] font-medium text-foreground/70 bg-background/60 px-1.5 py-0.5 rounded-sm">{v}</span>
           ))}
         </div>
       )}
@@ -304,14 +298,14 @@ function IncidentRow({ operation: op }: { operation: Operation }) {
 function PersonRow({ person: p, assignedLocation }: { person: Person; assignedLocation?: string }) {
   const isAssigned = p.status === "assigned"
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm">
-      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", isAssigned ? "bg-orange-500" : "bg-emerald-500")} />
-      <span className="text-xs truncate flex-1">{p.name}</span>
+    <div className="flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm">
+      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", isAssigned ? "bg-orange-500" : "bg-emerald-500")} />
+      <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
       {p.isDriver && p.driverVehicleName && (
-        <span className="text-[10px] text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
+        <span className="text-[10px] xl:text-xs text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}
       {isAssigned && assignedLocation && (
-        <span className="text-[10px] text-orange-600 dark:text-orange-400 truncate max-w-[120px] shrink-0">→ {assignedLocation}</span>
+        <span className="text-[10px] xl:text-xs text-orange-600 dark:text-orange-400 truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedLocation}</span>
       )}
     </div>
   )
@@ -320,13 +314,13 @@ function PersonRow({ person: p, assignedLocation }: { person: Person; assignedLo
 function MaterialRow({ material: m, assignedLocation }: { material: Material; assignedLocation?: string }) {
   const isAssigned = m.status === "assigned"
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm">
-      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", isAssigned ? "bg-orange-500" : "bg-emerald-500")} />
-      <span className="text-xs truncate flex-1">{m.name}</span>
+    <div className="flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm">
+      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", isAssigned ? "bg-orange-500" : "bg-emerald-500")} />
+      <span className="text-xs xl:text-sm truncate flex-1">{m.name}</span>
       {isAssigned && assignedLocation ? (
-        <span className="text-[10px] text-orange-600 dark:text-orange-400 truncate max-w-[120px] shrink-0">→ {assignedLocation}</span>
+        <span className="text-[10px] xl:text-xs text-orange-600 dark:text-orange-400 truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedLocation}</span>
       ) : (
-        !isAssigned && <span className="text-[10px] text-muted-foreground shrink-0">verfügbar</span>
+        !isAssigned && <span className="text-[10px] xl:text-xs text-muted-foreground shrink-0">verfügbar</span>
       )}
     </div>
   )
