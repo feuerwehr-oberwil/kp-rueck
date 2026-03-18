@@ -9,6 +9,7 @@ import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incident
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
+import { AssignmentLines } from "./map/assignment-lines"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
 
@@ -329,6 +330,7 @@ interface MapViewProps {
   resetZoomTrigger?: number // Counter to trigger zoom reset
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
+  showAssignmentLines?: boolean // Show animated lines from vehicles to assigned incidents
 }
 
 export default function MapView({
@@ -338,6 +340,7 @@ export default function MapView({
   resetZoomTrigger = 0,
   panTrigger = 0,
   statusFilters = { open: true, active: true, completed: false },
+  showAssignmentLines = true,
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -528,6 +531,13 @@ export default function MapView({
             </Tooltip>
           </Marker>
         ))}
+
+        {/* Assignment lines (vehicle GPS → incident) */}
+        <AssignmentLines
+          incidents={incidents}
+          vehiclePositions={vehiclePositions}
+          visible={showAssignmentLines && traccarConfigured}
+        />
 
         {/* Auto-fit bounds to show all incidents */}
         <FitBounds incidents={mappableIncidents} />

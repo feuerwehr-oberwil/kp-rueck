@@ -38,6 +38,7 @@ import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
+import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { KanbanLoading } from "@/components/kanban/kanban-loading"
 import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/kanban/sidebar-loading"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
@@ -201,6 +202,16 @@ export default function FireStationDashboard() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [viewerCopied, setViewerCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
+
+  // Cross-window sync (bidirectional)
+  const { broadcast } = useCrossWindowSync({
+    onMessage: (msg) => {
+      if (msg.type === "incident:selected" && msg.incidentId) {
+        setSelectedOperationId(msg.incidentId)
+        setHighlightedOperationId(msg.incidentId)
+      }
+    },
+  })
 
   // Side panel state for ultrawide monitors
   const [panelSelectedId, setPanelSelectedId] = useState<string | null>(null)
@@ -802,6 +813,7 @@ export default function FireStationDashboard() {
     setSelectedOperationId(operation.id)
     setHoveredOperationId(operation.id) // Set hovered ID so keyboard shortcuts work on this operation
     setDetailModalOpen(true)
+    broadcast("incident:selected", operation.id)
   }
 
   const handleCardSelect = (operation: Operation) => {

@@ -111,6 +111,26 @@ export function MapLegend() {
           </div>
         </div>
       </div>
+      {/* Assignment Lines Legend */}
+      <div className="space-y-2 mt-4 pt-3 border-t border-border">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Zuweisungen
+        </p>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <svg width="24" height="6" viewBox="0 0 24 6" className="flex-shrink-0" aria-hidden="true">
+              <line
+                x1="0" y1="3" x2="24" y2="3"
+                stroke="#dc2626"
+                strokeWidth="2.5"
+                strokeDasharray="4,6"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="text-xs">Fahrzeug → Einsatz</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -24,6 +24,7 @@ import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
+import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -85,6 +86,7 @@ export default function MapPage() {
     completed: false, // Hidden by default (matches current behavior)
   })
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
+  const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const mapRef = useRef<any>(null)
@@ -96,6 +98,15 @@ export default function MapPage() {
     [incidents, selectedIncidentId]
   )
 
+  // Cross-window sync (bidirectional)
+  const { broadcast } = useCrossWindowSync({
+    onMessage: (msg) => {
+      if (msg.type === "incident:selected") {
+        setSelectedIncidentId(msg.incidentId)
+      }
+    },
+  })
+
   const handleIncidentClick = (incidentId: string) => {
     if (incidentId === selectedIncidentId) {
       // Re-clicking same incident - trigger pan
@@ -103,6 +114,7 @@ export default function MapPage() {
     } else {
       // Different incident - update selection
       setSelectedIncidentId(incidentId)
+      broadcast("incident:selected", incidentId)
     }
   }
 
@@ -162,7 +174,7 @@ export default function MapPage() {
     setStatusFilters(prev => ({ ...prev, [group]: !prev[group] }))
   }
 
-  // Load vehicles from API once authenticated
+  // Load vehicles and settings from API once authenticated
   useEffect(() => {
     if (!isAuthenticated) return
     const loadVehicles = async () => {
@@ -179,7 +191,18 @@ export default function MapPage() {
         console.error('Failed to load vehicles:', error)
       }
     }
+    const loadSettings = async () => {
+      try {
+        const settings = await apiClient.getAllSettings()
+        if (settings.show_assignment_lines !== undefined) {
+          setShowAssignmentLines(settings.show_assignment_lines !== 'false')
+        }
+      } catch (error) {
+        console.debug('Failed to load assignment line setting:', error)
+      }
+    }
     loadVehicles()
+    loadSettings()
   }, [isAuthenticated])
 
   // Refresh incidents immediately when map page loads
@@ -349,6 +372,7 @@ export default function MapPage() {
               resetZoomTrigger={resetZoomTrigger}
               panTrigger={panTrigger}
               statusFilters={statusFilters}
+              showAssignmentLines={showAssignmentLines}
             />
           </main>
 

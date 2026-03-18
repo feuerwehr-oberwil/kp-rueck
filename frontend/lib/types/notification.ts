@@ -7,6 +7,7 @@ export type NotificationType =
   | 'fatigue_warning'
   | 'missing_location'
   | 'event_size_limit'
+  | 'vehicle_arrived'
 
 export interface Notification {
   id: string
@@ -42,6 +43,10 @@ export interface NotificationSettings {
   database_size_limit_gb: number
   photo_size_limit_gb: number
 
+  // Geofence settings
+  enabled_geofence_alerts: boolean
+  geofence_radius_meters: number
+
   // Enabled alerts (can toggle individual types)
   enabled_time_alerts: boolean
   enabled_resource_alerts: boolean
@@ -73,6 +78,10 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   // Event size limits
   database_size_limit_gb: 5,
   photo_size_limit_gb: 5,
+
+  // Geofence settings
+  enabled_geofence_alerts: true,
+  geofence_radius_meters: 200,
 
   // Enabled alerts
   enabled_time_alerts: true,
