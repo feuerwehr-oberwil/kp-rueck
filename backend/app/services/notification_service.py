@@ -1,6 +1,8 @@
 """Notification evaluation and management service."""
 
 import json
+import logging
+import math
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -8,8 +10,10 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel
+from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
+
+logger = logging.getLogger(__name__)
 
 NOTIFICATION_SETTINGS_KEY = "notification_settings"
 
@@ -77,6 +81,11 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     if settings.enabled_event_alerts:
         event_notifications = await _check_event_size_alerts(db, event_id, settings)
         notifications.extend(event_notifications)
+
+    # Geofence alerts (vehicle arrived at incident)
+    if settings.enabled_geofence_alerts:
+        geofence_notifications = await _check_geofence_alerts(db, event_id, settings)
+        notifications.extend(geofence_notifications)
 
     # Deduplicate and save new notifications
     await _deduplicate_and_save(db, notifications, event_id)
@@ -391,6 +400,89 @@ async def _check_event_size_alerts(
     # TODO: Implement photo storage size check
     # - Calculate total size of photos directory
     # - Compare against settings.photo_size_limit_gb
+
+    return notifications
+
+
+def _haversine_distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the great-circle distance between two points on Earth in meters."""
+    earth_radius = 6_371_000  # Earth radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return earth_radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+async def _check_geofence_alerts(
+    db: AsyncSession, event_id: UUID, settings: NotificationSettings
+) -> list[Notification]:
+    """
+    Check if any GPS-tracked vehicle is within the geofence radius of its assigned incident.
+
+    Fires once per vehicle+incident assignment (deduplication handled by _deduplicate_and_save).
+    """
+    notifications: list[Notification] = []
+
+    try:
+        from ..traccar import traccar_client
+
+        if not traccar_client.is_configured:
+            return notifications
+
+        # Get all vehicle positions
+        positions = await traccar_client.get_vehicle_positions()
+        if not positions:
+            return notifications
+
+        # Build a map of vehicle name (lowercase) → position
+        position_by_name: dict[str, object] = {}
+        for pos in positions:
+            position_by_name[pos.device_name.lower()] = pos
+
+        # Get active vehicle assignments for this event
+        result = await db.execute(
+            select(IncidentAssignment, Incident, Vehicle)
+            .join(Incident, IncidentAssignment.incident_id == Incident.id)
+            .join(Vehicle, IncidentAssignment.resource_id == Vehicle.id)
+            .where(Incident.event_id == event_id)
+            .where(IncidentAssignment.resource_type == "vehicle")
+            .where(IncidentAssignment.unassigned_at.is_(None))
+            .where(Incident.deleted_at.is_(None))
+            .where(Incident.status.in_(["disponiert", "einsatz"]))
+            .where(Incident.location_lat.isnot(None))
+            .where(Incident.location_lng.isnot(None))
+        )
+        assignments = result.all()
+
+        for assignment, incident, vehicle in assignments:
+            vp = position_by_name.get(vehicle.name.lower())
+            if vp is None:
+                continue
+
+            distance = _haversine_distance_meters(
+                float(vp.latitude),
+                float(vp.longitude),
+                float(incident.location_lat),
+                float(incident.location_lng),
+            )
+
+            if distance <= settings.geofence_radius_meters:
+                notifications.append(
+                    Notification(
+                        type="vehicle_arrived",
+                        severity="info",
+                        message=f"{vehicle.name} vor Ort: {incident.title or incident.location_address or 'Einsatz'}",
+                        incident_id=incident.id,
+                        event_id=event_id,
+                    )
+                )
+
+    except Exception as e:
+        # Don't let Traccar failures break the entire notification evaluation
+        logger.debug("Geofence check failed: %s", e)
 
     return notifications
 

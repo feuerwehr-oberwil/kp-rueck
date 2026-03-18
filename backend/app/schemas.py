@@ -986,6 +986,10 @@ class NotificationSettings(BaseModel):
     # When > 0, dismissed notifications can re-appear after this many minutes
     re_alarm_interval_min: int = 0
 
+    # Geofence settings
+    enabled_geofence_alerts: bool = True
+    geofence_radius_meters: int = 200
+
     # Enabled alerts (can toggle individual types)
     enabled_time_alerts: bool = True
     enabled_resource_alerts: bool = True
@@ -1043,6 +1047,9 @@ class NotificationSettingsUpdate(BaseModel):
     photo_size_limit_gb: int | None = None
 
     re_alarm_interval_min: int | None = None
+
+    enabled_geofence_alerts: bool | None = None
+    geofence_radius_meters: int | None = None
 
     enabled_time_alerts: bool | None = None
     enabled_resource_alerts: bool | None = None
