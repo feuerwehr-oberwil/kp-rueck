@@ -483,6 +483,7 @@ export default function MapView({
         zoomControl={true}
       >
         <TileLayer
+          key={getTileUrl()}
           attribution={getAttribution()}
           url={getTileUrl()}
           eventHandlers={{
