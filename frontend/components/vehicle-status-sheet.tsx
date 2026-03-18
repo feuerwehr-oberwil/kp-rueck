@@ -97,7 +97,7 @@ function getIncidentStatusBadgeVariant(incidentStatus: string | null): "default"
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
   const router = useRouter()
   const isMobile = useIsMobile()
-  const { personnel } = useOperations()
+  const { personnel, operations, removeCrew } = useOperations()
   const [vehicles, setVehicles] = useState<VehicleStatus[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(-1)
@@ -495,8 +495,10 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         currentDriverId={selectedVehicleForDriver.driver_id}
         currentDriverName={selectedVehicleForDriver.driver_name}
         personnel={personnel}
+        operations={operations}
         specialFunctions={specialFunctions}
         onDriverAssigned={handleDriverAssigned}
+        removeCrew={removeCrew}
       />
     )}
     </>
