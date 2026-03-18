@@ -36,6 +36,29 @@ Events verwalten, wechseln, archivieren, exportieren.
 
 ---
 
+## Display-Ansichten (Multi-Monitor)
+
+Für Kommandoposten mit mehreren Bildschirmen gibt es spezielle Anzeige-Seiten unter `/display`. Diese sind rein lesend — keine Bearbeitungsfunktionen.
+
+**Zugriff:** Benutzermenü → Abschnitt "Anzeige" (öffnet in neuem Tab), oder direkt `/display` aufrufen.
+
+### Lagekarte (`/display/map`)
+Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen und animierte Zuweisungslinien (Fahrzeug → Einsatz). Ideal für einen zentralen Lagebildschirm.
+
+### Board (`/display/board`)
+Kanban-Board ohne Bearbeitungsmöglichkeiten. Alle 6 Status-Spalten werden gleichmässig auf die Fensterbreite skaliert.
+
+### Status (`/display/status`)
+Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch.
+
+### Cross-Window-Sync
+Alle Display-Ansichten synchronisieren sich mit dem Editor-Fenster: Wird auf dem Hauptbildschirm ein Einsatz ausgewählt, springt die Display-Karte zum entsprechenden Marker und das Display-Board hebt die Karte hervor — und umgekehrt.
+
+### Kartenstil
+Unter Einstellungen → Kartenstil kann zwischen verschiedenen Kartenstilen gewechselt werden: OpenStreetMap (Standard), Topografisch (Esri), Voyager/Hell (CARTO) und Dunkel (CARTO).
+
+---
+
 ## Suche
 
 Die Suchleiste (`/`) durchsucht alle Einsätze nach Adresse, Typ und Meldungstext. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
