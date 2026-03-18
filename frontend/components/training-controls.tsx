@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useEvent } from '@/lib/contexts/event-context';
+import { useOperations } from '@/lib/contexts/operations-context';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,7 @@ import {
 
 export function TrainingControls() {
   const { selectedEvent } = useEvent();
+  const { operations } = useOperations();
   const [isGenerating, setIsGenerating] = useState(false);
 
   if (!selectedEvent?.training_flag) {
@@ -115,7 +117,7 @@ export function TrainingControls() {
             Übungs-Steuerung
           </CardTitle>
           <CardDescription>
-            Manuelle Einsatz-Generierung für Training
+            Manuelle Einsatz-Generierung für Training · {operations.length} Einsätze total
           </CardDescription>
         </div>
       </CardHeader>
