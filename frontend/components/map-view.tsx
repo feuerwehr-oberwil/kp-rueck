@@ -101,13 +101,13 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
   })
 }
 
-// Create vehicle marker icon (truck icon with rotation based on heading)
+// Create vehicle marker icon with permanent callsign label
 function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
   const isOnline = vehicle.status === 'online'
   const size = 28
   const rotation = vehicle.course ?? 0
+  const name = vehicle.device_name
 
-  // SVG truck icon pointing up (north)
   const truckSvg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="${size}" height="${size}">
       <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
@@ -115,31 +115,85 @@ function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
   `
 
   const html = `
-    <div style="
-      width: ${size}px;
-      height: ${size}px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
-      color: white;
-      border: 2px solid white;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      transform: rotate(${rotation}deg);
-      transition: all 0.3s ease;
-    ">
-      ${truckSvg}
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
+        color: white;
+        border: 2px solid white;
+        border-radius: 6px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        transform: rotate(${rotation}deg);
+        transition: all 0.3s ease;
+      ">
+        ${truckSvg}
+      </div>
+      <span style="
+        font-size: 10px;
+        font-weight: 700;
+        color: #1e293b;
+        background: rgba(255,255,255,0.9);
+        padding: 0 4px;
+        border-radius: 3px;
+        white-space: nowrap;
+        line-height: 1.4;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      ">${name}</span>
     </div>
   `
 
   return L.divIcon({
     html,
     className: "vehicle-marker",
-    iconSize: [size, size],
+    iconSize: [size, size + 16],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -size / 2],
   })
+}
+
+// Create firestation marker icon (no label — operators know where they are)
+function createFirestationIcon(): L.DivIcon {
+  const html = `
+    <div style="
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #dc2626;
+      color: white;
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      font-size: 14px;
+    ">⌂</div>
+  `
+
+  return L.divIcon({
+    html,
+    className: "firestation-marker",
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  })
+}
+
+// Component that tracks zoom level for conditional label rendering
+function ZoomWatcher({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+  const map = useMap()
+
+  useEffect(() => {
+    onZoomChange(map.getZoom())
+    const handler = () => onZoomChange(map.getZoom())
+    map.on("zoomend", handler)
+    return () => { map.off("zoomend", handler) }
+  }, [map, onZoomChange])
+
+  return null
 }
 
 // Component to auto-fit map bounds to show all incidents (only on initial mount)
@@ -352,6 +406,7 @@ export default function MapView({
   // Vehicle positions from Traccar GPS
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [traccarConfigured, setTraccarConfigured] = useState<boolean>(false)
+  const [zoomLevel, setZoomLevel] = useState(13)
 
   // Map mode management
   const {
@@ -407,15 +462,28 @@ export default function MapView({
         setTraccarConfigured(status.configured)
 
         if (status.configured) {
-          // Fetch immediately
           await fetchVehiclePositions()
-
-          // Poll every 10 seconds
           pollInterval = setInterval(fetchVehiclePositions, 10000)
+          return
         }
       } catch (error) {
         console.debug("Traccar status check failed:", error)
-        setTraccarConfigured(false)
+      }
+      // No Traccar — show dummy vehicle in dev mode
+      setTraccarConfigured(false)
+      if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+        setVehiclePositions([{
+          device_id: 0,
+          device_name: "TLF (Demo)",
+          unique_id: "demo-tlf",
+          status: "online",
+          latitude: 47.5180,
+          longitude: 7.5650,
+          speed: 0,
+          course: 45,
+          last_update: new Date().toISOString(),
+          address: null,
+        }])
       }
     }
 
@@ -492,9 +560,26 @@ export default function MapView({
           }}
         />
 
+        <ZoomWatcher onZoomChange={setZoomLevel} />
+
+        {/* Firestation marker */}
+        <Marker
+          position={firestationCoords}
+          icon={createFirestationIcon()}
+          zIndexOffset={-100}
+        >
+          <Tooltip direction="top" offset={[0, -12]}>
+            <span>{firestationName}</span>
+          </Tooltip>
+        </Marker>
+
         {/* Incident Markers */}
         {mappableIncidents.map((incident) => {
           const isHighlighted = selectedIncidentId === incident.id
+          const shortAddress = incident.location_address
+            ? incident.location_address.split(",")[0].trim()
+            : incident.title
+          const crewCount = incident.assigned_vehicles.length + (incident.assigned_personnel?.length || 0)
           return (
             <Marker
               key={incident.id}
@@ -504,8 +589,16 @@ export default function MapView({
                 click: () => onMarkerClick?.(incident.id),
               }}
             >
-              <Tooltip direction="top" offset={[0, -12]}>
-                <span>{incident.title}</span>
+              <Tooltip
+                direction="right"
+                offset={[14, 0]}
+                permanent={zoomLevel >= 14}
+                className="incident-label"
+              >
+                <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
+                {crewCount > 0 && (
+                  <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }}>({crewCount})</span>
+                )}
               </Tooltip>
             </Marker>
           )
