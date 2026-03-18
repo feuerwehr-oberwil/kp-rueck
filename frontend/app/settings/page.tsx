@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -444,6 +445,17 @@ export default function SettingsPage() {
   const renderSettingInput = (config: SettingConfig) => {
     const value = settings[config.key] || '';
     const isCurrentlySaving = saving === config.key;
+
+    // Boolean without options → render as Switch
+    if (config.type === 'boolean' && !config.options) {
+      return (
+        <Switch
+          checked={value === 'true' || value === ''}
+          onCheckedChange={(checked) => updateSetting(config.key, String(checked))}
+          disabled={!isEditor || isCurrentlySaving}
+        />
+      );
+    }
 
     if ((config.type === 'boolean' || config.type === 'select') && config.options) {
       return (

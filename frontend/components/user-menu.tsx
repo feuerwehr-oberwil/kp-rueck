@@ -369,27 +369,27 @@ export function UserMenu({
             Anzeige
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
-            <Link href="/display" className="cursor-pointer">
+            <Link href="/display" target="_blank" className="cursor-pointer">
               <Monitor className="mr-2 h-4 w-4" />
               <span>Display-Übersicht</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/display/map" className="cursor-pointer">
+            <Link href="/display/map" target="_blank" className="cursor-pointer">
               <Map className="mr-2 h-4 w-4" />
-              <span>Lagekarte (Display)</span>
+              <span>Lagekarte</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/display/board" className="cursor-pointer">
+            <Link href="/display/board" target="_blank" className="cursor-pointer">
               <LayoutGrid className="mr-2 h-4 w-4" />
-              <span>Board (Display)</span>
+              <span>Board</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/display/status" className="cursor-pointer">
+            <Link href="/display/status" target="_blank" className="cursor-pointer">
               <BarChart3 className="mr-2 h-4 w-4" />
-              <span>Status (Display)</span>
+              <span>Status</span>
             </Link>
           </DropdownMenuItem>
 

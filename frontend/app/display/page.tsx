@@ -1,60 +1,53 @@
 "use client"
 
 import Link from "next/link"
-import { Map, LayoutGrid, BarChart3, ArrowLeft } from "lucide-react"
+import { Map, LayoutGrid, BarChart3, ArrowLeft, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const displays = [
   {
     href: "/display/map",
     title: "Lagekarte",
-    description: "Vollbild-Karte mit Einsatzorten, Fahrzeug-GPS und Zuweisungslinien",
+    description: "Karte mit Einsatzorten und Fahrzeug-GPS",
     icon: Map,
     color: "text-blue-500",
-    bg: "bg-blue-500/10 hover:bg-blue-500/15 border-blue-500/20",
+    border: "border-blue-500/30 hover:border-blue-500/60",
   },
   {
     href: "/display/board",
     title: "Board",
-    description: "Kanban-Übersicht aller Einsätze nach Status — ohne Bearbeitungsfunktionen",
+    description: "Kanban-Übersicht aller Einsätze",
     icon: LayoutGrid,
     color: "text-orange-500",
-    bg: "bg-orange-500/10 hover:bg-orange-500/15 border-orange-500/20",
+    border: "border-orange-500/30 hover:border-orange-500/60",
   },
   {
     href: "/display/status",
     title: "Status",
-    description: "Fahrzeuge, Einsätze, Personal und Material — auf einen Blick",
+    description: "Fahrzeuge, Einsätze, Personal, Material",
     icon: BarChart3,
     color: "text-emerald-500",
-    bg: "bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/20",
+    border: "border-emerald-500/30 hover:border-emerald-500/60",
   },
 ]
 
 export default function DisplayIndexPage() {
   return (
-    <div className="flex flex-col items-center justify-center gap-8 p-8">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Display-Ansichten</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Optimiert für Kommandoposten-Monitore — ohne Bearbeitungsfunktionen
-        </p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 w-full max-w-3xl">
+    <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+      <div className="grid grid-cols-3 gap-3 w-full max-w-2xl">
         {displays.map((d) => (
           <Link
             key={d.href}
             href={d.href}
             className={cn(
-              "flex flex-col items-center gap-3 rounded-lg border p-6 transition-all",
-              d.bg
+              "flex flex-col items-center gap-2.5 rounded-lg border bg-card/50 p-5 transition-all",
+              d.border
             )}
           >
-            <d.icon className={cn("h-10 w-10", d.color)} />
+            <d.icon className={cn("h-7 w-7", d.color)} />
             <div className="text-center">
-              <h2 className="font-bold text-lg">{d.title}</h2>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{d.description}</p>
+              <h2 className="font-bold text-sm">{d.title}</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{d.description}</p>
             </div>
           </Link>
         ))}
@@ -62,10 +55,10 @@ export default function DisplayIndexPage() {
 
       <Link
         href="/"
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="h-4 w-4" />
-        Zurück zum Editor
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Editor
       </Link>
     </div>
   )
