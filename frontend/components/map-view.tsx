@@ -462,28 +462,15 @@ export default function MapView({
         setTraccarConfigured(status.configured)
 
         if (status.configured) {
+          setTraccarConfigured(true)
           await fetchVehiclePositions()
           pollInterval = setInterval(fetchVehiclePositions, 10000)
-          return
+        } else {
+          setTraccarConfigured(false)
         }
       } catch (error) {
         console.debug("Traccar status check failed:", error)
-      }
-      // No Traccar — show dummy vehicle in dev mode
-      setTraccarConfigured(false)
-      if (typeof window !== "undefined" && window.location.hostname === "localhost") {
-        setVehiclePositions([{
-          device_id: 0,
-          device_name: "TLF (Demo)",
-          unique_id: "demo-tlf",
-          status: "online",
-          latitude: 47.5180,
-          longitude: 7.5650,
-          speed: 0,
-          course: 45,
-          last_update: new Date().toISOString(),
-          address: null,
-        }])
+        setTraccarConfigured(false)
       }
     }
 
