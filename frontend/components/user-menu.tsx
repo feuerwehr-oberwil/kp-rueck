@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle, Plus, QrCode, Search, Truck, Printer, Calendar } from 'lucide-react';
+import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3 } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -359,6 +359,37 @@ export function UserMenu({
                   <span className="text-xs">{getPrinterStatusText()}</span>
                 </div>
               </div>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* DISPLAY GROUP */}
+          <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+            Anzeige
+          </DropdownMenuLabel>
+          <DropdownMenuItem asChild>
+            <Link href="/display" className="cursor-pointer">
+              <Monitor className="mr-2 h-4 w-4" />
+              <span>Display-Übersicht</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/display/map" className="cursor-pointer">
+              <Map className="mr-2 h-4 w-4" />
+              <span>Lagekarte (Display)</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/display/board" className="cursor-pointer">
+              <LayoutGrid className="mr-2 h-4 w-4" />
+              <span>Board (Display)</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/display/status" className="cursor-pointer">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              <span>Status (Display)</span>
             </Link>
           </DropdownMenuItem>
 
