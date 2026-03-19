@@ -739,6 +739,7 @@ export default function FireStationDashboard() {
     assignPersonToOperation,
     assignRekoPersonToOperation,
     assignMaterialToOperation,
+    assignVehicleToOperation,
     setDraggingItem,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel

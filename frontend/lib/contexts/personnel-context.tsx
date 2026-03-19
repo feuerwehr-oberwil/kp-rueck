@@ -24,6 +24,7 @@ export interface Person {
   tags?: string[]
   isReko?: boolean
   isDriver?: boolean
+  driverVehicleId?: string
   driverVehicleName?: string
   isMagazin?: boolean
   roleSortOrder: number

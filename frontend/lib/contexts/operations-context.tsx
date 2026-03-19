@@ -204,14 +204,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Fetch special functions first to know who is reko personnel
       // (reko personnel should not appear in crew list - they're tracked separately)
       const rekoPersonnelIds = new Set<string>()
-      const driverPersonnelIds = new Map<string, string>() // personId -> vehicleName
+      const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>() // personId -> vehicle info
       const magazinPersonnelIds = new Set<string>()
       let specialFunctions: Awaited<ReturnType<typeof apiClient.getEventSpecialFunctions>> = []
       try {
         specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
         for (const func of specialFunctions) {
           if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
-          else if (func.function_type === 'driver') driverPersonnelIds.set(func.personnel_id, func.vehicle_name || '')
+          else if (func.function_type === 'driver') driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
           else if (func.function_type === 'magazin') magazinPersonnelIds.add(func.personnel_id)
         }
       } catch (error) {
@@ -304,7 +304,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
         isReko: rekoPersonnelIds.has(person.id),
         isDriver: driverPersonnelIds.has(person.id),
-        driverVehicleName: driverPersonnelIds.get(person.id) || undefined,
+        driverVehicleId: driverPersonnelIds.get(person.id)?.vehicleId || undefined,
+        driverVehicleName: driverPersonnelIds.get(person.id)?.vehicleName || undefined,
         isMagazin: magazinPersonnelIds.has(person.id),
       }))
 
@@ -434,14 +435,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const assignedPersonIds = new Set<string>()
         const assignedMaterialIds = new Set<string>()
         const rekoPersonnelIds = new Set<string>()
-        const driverPersonnelIds = new Map<string, string>() // personId -> vehicleName
+        const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>() // personId -> vehicle info
         const magazinPersonnelIds = new Set<string>()
 
         try {
           const specialFunctions = await apiClient.getEventSpecialFunctions(eventId)
           for (const func of specialFunctions) {
             if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
-            else if (func.function_type === 'driver') { driverPersonnelIds.set(func.personnel_id, func.vehicle_name || ''); assignedPersonIds.add(func.personnel_id) }
+            else if (func.function_type === 'driver') { driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' }); assignedPersonIds.add(func.personnel_id) }
             else if (func.function_type === 'magazin') { magazinPersonnelIds.add(func.personnel_id); assignedPersonIds.add(func.personnel_id) }
             else assignedPersonIds.add(func.personnel_id)
           }
@@ -462,7 +463,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
           isReko: rekoPersonnelIds.has(person.id),
           isDriver: driverPersonnelIds.has(person.id),
-          driverVehicleName: driverPersonnelIds.get(person.id) || undefined,
+          driverVehicleId: driverPersonnelIds.get(person.id)?.vehicleId || undefined,
+          driverVehicleName: driverPersonnelIds.get(person.id)?.vehicleName || undefined,
           isMagazin: magazinPersonnelIds.has(person.id),
         }))
 

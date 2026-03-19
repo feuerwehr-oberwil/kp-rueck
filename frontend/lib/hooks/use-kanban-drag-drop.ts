@@ -11,6 +11,7 @@ interface UseKanbanDragDropProps {
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
+  assignVehicleToOperation?: (vehicleId: string, vehicleName: string, operationId: string) => void
   setDraggingItem?: (item: Person | Material | Operation | null) => void
   onOperationDrop?: (operationId: string) => void
   onStatusChange?: (operationId: string, newStatus: OperationStatus) => void
@@ -29,6 +30,7 @@ export function useKanbanDragDrop({
   assignPersonToOperation,
   assignRekoPersonToOperation,
   assignMaterialToOperation,
+  assignVehicleToOperation,
   setDraggingItem,
   onOperationDrop,
   onStatusChange,
@@ -76,6 +78,14 @@ export function useKanbanDragDrop({
           } else if (person.status === "available") {
             assignPersonToOperation(person.id, person.name, operationId)
           }
+        }
+
+        // Driver (as vehicle) dropped on operation
+        if (sourceData.type === "driver-vehicle" && destData.type === "operation-drop") {
+          const vehicleId = sourceData.vehicleId as string
+          const vehicleName = sourceData.vehicleName as string
+          const operationId = destData.operationId as string
+          assignVehicleToOperation?.(vehicleId, vehicleName, operationId)
         }
 
         // Material dropped on operation
@@ -186,5 +196,5 @@ export function useKanbanDragDrop({
         }
       },
     })
-  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, setOperations, updateOperation, setDraggingItem, onOperationDrop, onStatusChange])
+  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, setDraggingItem, onOperationDrop, onStatusChange])
 }

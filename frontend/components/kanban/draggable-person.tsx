@@ -24,7 +24,8 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
   const { selectedEvent } = useEvent()
 
   // Reko personnel can be dragged even when assigned (they can be on multiple incidents)
-  const canDrag = !disabled && (person.status === "available" || person.isReko)
+  // Drivers can be dragged to assign their vehicle to an incident
+  const canDrag = !disabled && (person.status === "available" || person.isReko || person.isDriver)
 
   // Load special functions for this person
   useEffect(() => {
@@ -48,7 +49,18 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
 
     return draggable({
       element,
-      getInitialData: () => ({ type: "person", person }),
+      getInitialData: () => {
+        // Drivers drag as vehicles, not as persons
+        if (person.isDriver && person.driverVehicleId && person.driverVehicleName) {
+          return {
+            type: "driver-vehicle",
+            person,
+            vehicleId: person.driverVehicleId,
+            vehicleName: person.driverVehicleName,
+          }
+        }
+        return { type: "person", person }
+      },
       onDragStart: () => setIsDragging(true),
       onDrop: () => setIsDragging(false),
     })
@@ -123,6 +135,7 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
           "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:bg-muted/50 hover:border-border",
           canDrag && "draggable",
           isDragging && "dragging",
+          isDragging && person.isDriver && "ring-2 ring-blue-500/50",
           // Assigned reko personnel: subtle visual distinction but still draggable
           // Use border and background colors instead of opacity for WCAG contrast compliance
           canDrag && person.isReko && person.status === "assigned" && "bg-muted/30 border-border/30",
