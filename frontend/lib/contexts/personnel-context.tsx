@@ -26,6 +26,7 @@ export interface Person {
   isDriver?: boolean
   driverVehicleName?: string
   isMagazin?: boolean
+  roleSortOrder: number
 }
 
 interface PersonnelContextType {
@@ -44,6 +45,7 @@ const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
   role: apiPerson.role as PersonRole,
   status: apiPerson.availability as PersonStatus,
   tags: apiPerson.tags || [],
+  roleSortOrder: apiPerson.role_sort_order,
 })
 
 export function PersonnelProvider({ children }: { children: ReactNode }) {

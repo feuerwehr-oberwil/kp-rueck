@@ -18,6 +18,7 @@ export interface Material {
   name: string
   category: string
   status: "available" | "assigned"
+  categorySortOrder: number
 }
 
 interface MaterialsContextType {
@@ -35,6 +36,7 @@ const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({
   name: apiMat.name,
   category: apiMat.location || "General",
   status: (apiMat.status === "available" ? "available" : "assigned") as "available" | "assigned",
+  categorySortOrder: apiMat.location_sort_order,
 })
 
 export function MaterialsProvider({ children }: { children: ReactNode }) {

@@ -70,7 +70,10 @@ function SituationBoard() {
 
   const groupedPersonnel = useMemo(() => {
     const sorted = [...personnel].sort((a, b) => {
-      if (a.role !== b.role) return a.role.localeCompare(b.role, "de")
+      if (a.role !== b.role) {
+        if (a.roleSortOrder !== b.roleSortOrder) return a.roleSortOrder - b.roleSortOrder
+        return a.role.localeCompare(b.role, "de")
+      }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
       return a.name.localeCompare(b.name, "de")
     })
@@ -90,7 +93,10 @@ function SituationBoard() {
 
   const groupedMaterials = useMemo(() => {
     const sorted = [...materials].sort((a, b) => {
-      if (a.category !== b.category) return a.category.localeCompare(b.category, "de")
+      if (a.category !== b.category) {
+        if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
+        return a.category.localeCompare(b.category, "de")
+      }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
       return a.name.localeCompare(b.name, "de")
     })

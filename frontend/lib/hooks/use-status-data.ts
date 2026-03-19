@@ -12,6 +12,7 @@ export interface VehicleWithStatus {
   name: string
   type: string
   status: string
+  displayOrder: number
   assignedOperation: Operation | undefined
   gps: ApiVehiclePosition | undefined
   driverName: string | null
@@ -33,13 +34,13 @@ export function useStatusData() {
   const { personnel } = usePersonnel()
   const { materials } = useMaterials()
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
-  const [vehicles, setVehicles] = useState<Array<{ id: string; name: string; type: string; status: string }>>([])
+  const [vehicles, setVehicles] = useState<Array<{ id: string; name: string; type: string; status: string; displayOrder: number }>>([])
 
   useEffect(() => {
     const load = async () => {
       try {
         const v = await apiClient.getVehicles()
-        setVehicles(v.map((veh) => ({ id: veh.id, name: veh.name, type: veh.type, status: veh.status })))
+        setVehicles(v.map((veh) => ({ id: veh.id, name: veh.name, type: veh.type, status: veh.status, displayOrder: veh.display_order })))
       } catch { /* silent */ }
     }
     load()
@@ -92,17 +93,19 @@ export function useStatusData() {
   }, [operations, personnel])
 
   const vehicleStatus: VehicleWithStatus[] = useMemo(() => {
-    return vehicles.map((v) => {
-      const assignedOp = operations.find((op) =>
-        op.vehicles.some((vName) => vName.toLowerCase() === v.name.toLowerCase())
-      )
-      const gps = vehiclePositions.find(
-        (vp) => vp.device_name.toLowerCase() === v.name.toLowerCase()
-      )
-      const driver = personnel.find((p) => p.isDriver && p.driverVehicleName?.toLowerCase() === v.name.toLowerCase())
+    return vehicles
+      .map((v) => {
+        const assignedOp = operations.find((op) =>
+          op.vehicles.some((vName) => vName.toLowerCase() === v.name.toLowerCase())
+        )
+        const gps = vehiclePositions.find(
+          (vp) => vp.device_name.toLowerCase() === v.name.toLowerCase()
+        )
+        const driver = personnel.find((p) => p.isDriver && p.driverVehicleName?.toLowerCase() === v.name.toLowerCase())
 
-      return { ...v, assignedOperation: assignedOp, gps, driverName: driver?.name || null }
-    })
+        return { ...v, assignedOperation: assignedOp, gps, driverName: driver?.name || null }
+      })
+      .sort((a, b) => a.displayOrder - b.displayOrder)
   }, [vehicles, operations, vehiclePositions, personnel])
 
   const recentActivity: Operation[] = useMemo(() => {
