@@ -56,7 +56,7 @@ interface DraggableOperationProps {
 const priorityStyles = {
   high: {
     icon: 'text-destructive',
-    card: 'border-l-4 border-l-destructive',
+    card: 'border-l-4 border-l-destructive priority-high-pulse',
   },
   medium: {
     icon: 'text-warning',

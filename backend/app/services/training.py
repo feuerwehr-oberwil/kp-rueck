@@ -99,8 +99,8 @@ class TrainingGenerator:
         full_address = location.get_full_address()
 
         # Determine priority based on template category
-        # critical templates -> high priority, normal templates -> medium priority
-        priority = "high" if category == "critical" else "medium"
+        # critical templates -> high priority, normal templates -> low priority
+        priority = "high" if category == "critical" else "low"
 
         # Create incident
         incident = Incident(

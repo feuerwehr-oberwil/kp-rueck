@@ -82,14 +82,14 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
     - Chemical hazards
     - Medical emergencies
 
-    Everything else defaults to MEDIUM (we're dealing with emergencies, not routine tasks).
+    Everything else defaults to LOW. Only life-threatening situations are HIGH.
 
     Args:
         title: Incident title (e.g., "Wohnungsbrand", "BMA Schulhaus")
         text: Optional incident description/text
 
     Returns:
-        IncidentPriority.HIGH for critical situations, MEDIUM otherwise
+        IncidentPriority.HIGH for critical situations, LOW otherwise
     """
     # Combine title and text for keyword search
     combined = f"{title} {text or ''}".upper()
@@ -151,8 +151,8 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
         if keyword in combined:
             return schemas.IncidentPriority.HIGH
 
-    # Default to MEDIUM for all other emergencies
-    return schemas.IncidentPriority.MEDIUM
+    # Default to LOW for all other emergencies
+    return schemas.IncidentPriority.LOW
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)

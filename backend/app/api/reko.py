@@ -110,6 +110,22 @@ async def submit_reko_report(
         response_data.incident_description = incident.description
         response_data.incident_contact = incident.contact
 
+    # Auto-bump priority from low → medium if any danger flags are set
+    if submit and incident and updated.dangers_json:
+        dangers = updated.dangers_json
+        has_danger = any([
+            dangers.get("fire"),
+            dangers.get("explosion"),
+            dangers.get("collapse"),
+            dangers.get("chemical"),
+            dangers.get("electrical"),
+            dangers.get("fire_danger"),
+        ])
+        if has_danger and incident.priority == "low":
+            incident.priority = "medium"
+            await db.commit()
+            await db.refresh(incident)
+
     # Create notification when report is submitted (not draft)
     if submit and incident and incident.event_id:
         # Get personnel name if available
