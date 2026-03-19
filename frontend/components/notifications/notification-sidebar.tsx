@@ -17,9 +17,10 @@ import { cn } from '@/lib/utils'
 interface NotificationCardProps {
   notification: Notification
   onDismiss?: (id: string) => void
+  onClickIncident?: (incidentId: string) => void
 }
 
-function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
+function NotificationCard({ notification, onDismiss, onClickIncident }: NotificationCardProps) {
   const getSeverityStyles = (severity: NotificationSeverity) => {
     switch (severity) {
       case 'critical':
@@ -72,16 +73,20 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
     }
   }
 
+  const isClickable = !!notification.incident_id && !!onClickIncident
+
   return (
     <div
       className={cn(
         'p-3 rounded-lg border transition-all duration-200',
         styles.border,
         styles.bg,
-        notification.dismissed ? 'opacity-60' : 'shadow-sm hover:shadow-md'
+        notification.dismissed ? 'opacity-60' : 'shadow-sm hover:shadow-md',
+        isClickable && 'cursor-pointer hover:ring-1 hover:ring-ring/30'
       )}
       role="article"
       aria-label={`${getSeverityLabel(notification.severity)} notification`}
+      onClick={() => isClickable && onClickIncident(notification.incident_id!)}
     >
       <div className="flex items-start gap-2.5">
         <div className="flex-shrink-0 mt-0.5">{styles.icon}</div>
@@ -115,8 +120,16 @@ function NotificationCard({ notification, onDismiss }: NotificationCardProps) {
   )
 }
 
-export function NotificationSidebar() {
-  const [isOpen, setIsOpen] = useState(false)
+interface NotificationSidebarProps {
+  onClickIncident?: (incidentId: string) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+export function NotificationSidebar({ onClickIncident, open: controlledOpen, onOpenChange }: NotificationSidebarProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isOpen = controlledOpen ?? internalOpen
+  const setIsOpen = onOpenChange ?? setInternalOpen
   const { notifications, unreadCount, dismissNotification, dismissAllNotifications } = useNotifications()
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
@@ -173,6 +186,10 @@ export function NotificationSidebar() {
                     key={notification.id}
                     notification={notification}
                     onDismiss={dismissNotification}
+                    onClickIncident={(incidentId) => {
+                      setIsOpen(false)
+                      onClickIncident?.(incidentId)
+                    }}
                   />
                 ))}
               </div>
@@ -194,7 +211,14 @@ export function NotificationSidebar() {
               <h3 className="text-sm font-semibold text-muted-foreground mb-2">Verlauf</h3>
               <div className="space-y-2">
                 {historicalNotifications.map((notification) => (
-                  <NotificationCard key={notification.id} notification={notification} />
+                  <NotificationCard
+                    key={notification.id}
+                    notification={notification}
+                    onClickIncident={(incidentId) => {
+                      setIsOpen(false)
+                      onClickIncident?.(incidentId)
+                    }}
+                  />
                 ))}
               </div>
             </div>

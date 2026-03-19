@@ -20,6 +20,9 @@ interface NotificationContextValue {
   toggleSidebar: () => void
   openSidebar: () => void
   closeSidebar: () => void
+  // Navigate to incident from notification
+  navigateToIncident: (incidentId: string) => void
+  registerNavigateHandler: (handler: ((incidentId: string) => void) | null) => void
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
@@ -76,6 +79,17 @@ export function NotificationProvider({
   const closeSidebar = useCallback(() => {
     setIsSidebarOpen(false)
     localStorage.setItem('notification-sidebar-open', 'false')
+  }, [])
+
+  // Navigate to incident from notification click
+  const navigateHandlerRef = useRef<((incidentId: string) => void) | null>(null)
+
+  const registerNavigateHandler = useCallback((handler: ((incidentId: string) => void) | null) => {
+    navigateHandlerRef.current = handler
+  }, [])
+
+  const navigateToIncident = useCallback((incidentId: string) => {
+    navigateHandlerRef.current?.(incidentId)
   }, [])
 
   // Load previously seen notification IDs from localStorage on mount
@@ -300,6 +314,8 @@ export function NotificationProvider({
     toggleSidebar,
     openSidebar,
     closeSidebar,
+    navigateToIncident,
+    registerNavigateHandler,
   }
 
   return (

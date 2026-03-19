@@ -150,6 +150,29 @@ async def submit_reko_report(
             if updated.submitted_by_personnel:
                 submitted_by_name = updated.submitted_by_personnel.name
 
+        # Extract danger types and effort info for notification
+        danger_types = []
+        if updated.dangers_json:
+            d = updated.dangers_json
+            if d.get("fire"):
+                danger_types.append("Feuer")
+            if d.get("explosion"):
+                danger_types.append("Explosion")
+            if d.get("collapse"):
+                danger_types.append("Einsturz")
+            if d.get("chemical"):
+                danger_types.append("Gefahrstoffe")
+            if d.get("electrical"):
+                danger_types.append("Elektrisch")
+            if d.get("fire_danger"):
+                danger_types.append("Brandgefahr")
+
+        personnel_count = None
+        estimated_duration = None
+        if updated.effort_json:
+            personnel_count = updated.effort_json.get("personnel_count")
+            estimated_duration = updated.effort_json.get("estimated_duration_hours")
+
         await create_reko_notification(
             db=db,
             incident_id=incident.id,
@@ -157,6 +180,10 @@ async def submit_reko_report(
             incident_title=incident.title or incident.location_address or "Unbekannt",
             is_relevant=updated.is_relevant if updated.is_relevant is not None else True,
             submitted_by_name=submitted_by_name,
+            incident_address=incident.location_address,
+            danger_types=danger_types if danger_types else None,
+            personnel_count=personnel_count,
+            estimated_duration=estimated_duration,
         )
 
     return response_data

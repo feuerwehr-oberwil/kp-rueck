@@ -78,7 +78,7 @@ export default function FireStationDashboard() {
 
   const { selectedEvent, isEventLoaded } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
-  const { toggleSidebar: toggleNotificationSidebar } = useNotifications()
+  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
   const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -152,6 +152,25 @@ export default function FireStationDashboard() {
       setDetailModalOpen(true)
     }
   }, [operations])
+
+  // Register notification click → scroll to card + open detail
+  useEffect(() => {
+    registerNavigateHandler((incidentId: string) => {
+      closeNotificationSidebar()
+      scrollToCard(incidentId)
+      // Open detail after scroll
+      setTimeout(() => {
+        const operation = operations.find(op => op.id === incidentId)
+        if (operation) {
+          setSelectedOperationId(incidentId)
+          setPanelSelectedId(incidentId)
+          setHoveredOperationId(incidentId)
+          setDetailModalOpen(true)
+        }
+      }, 200)
+    })
+    return () => registerNavigateHandler(null)
+  }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations])
 
   // Update operation REKO summary when new report arrives
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: {

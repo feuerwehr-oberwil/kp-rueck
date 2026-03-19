@@ -190,7 +190,7 @@ async def _check_time_based_alerts(
                 Notification(
                     type="time_overdue",
                     severity="warning",
-                    message=f"Einsatz '{incident.title}' ist {duration_str} im Status '{incident.status}'",
+                    message=f"{incident.location_address or incident.title}: {duration_str} im Status '{incident.status}'",
                     incident_id=incident.id,
                     event_id=event_id,
                 )
@@ -219,7 +219,7 @@ async def _check_time_based_alerts(
                     Notification(
                         type="time_overdue",
                         severity="warning",
-                        message=f"Einsatz '{incident.title}' ist seit {duration_str} abgeschlossen, aber nicht archiviert",
+                        message=f"{incident.location_address or incident.title}: seit {duration_str} abgeschlossen, nicht archiviert",
                         incident_id=incident.id,
                         event_id=event_id,
                     )
@@ -659,6 +659,10 @@ async def create_reko_notification(
     incident_title: str,
     is_relevant: bool,
     submitted_by_name: str | None = None,
+    incident_address: str | None = None,
+    danger_types: list[str] | None = None,
+    personnel_count: int | None = None,
+    estimated_duration: float | None = None,
 ) -> Notification:
     """
     Create a notification for a new Reko report submission.
@@ -670,16 +674,38 @@ async def create_reko_notification(
         incident_title: Title of the incident for the message
         is_relevant: Whether the reko found the incident relevant
         submitted_by_name: Optional name of personnel who submitted
+        incident_address: Location address for identification
+        danger_types: List of danger types found
+        personnel_count: Estimated personnel needed
+        estimated_duration: Estimated duration in hours
 
     Returns:
         Created notification
     """
-    # Build message
-    relevance_text = "Einsatz relevant" if is_relevant else "Kein Einsatz nötig"
+    # Use address as primary identifier
+    location = incident_address or incident_title
+
+    # Build structured message
+    parts = [f"Reko abgeschlossen: {location}"]
+
     if submitted_by_name:
-        message = f"Neue Reko-Meldung von {submitted_by_name}: {incident_title} - {relevance_text}"
-    else:
-        message = f"Neue Reko-Meldung: {incident_title} - {relevance_text}"
+        parts.append(f"von {submitted_by_name}")
+
+    relevance_text = "Einsatz relevant" if is_relevant else "Kein Einsatz nötig"
+    parts.append(f"— {relevance_text}")
+
+    # Add details on new line
+    details = []
+    if personnel_count:
+        details.append(f"{personnel_count} Pers.")
+    if estimated_duration:
+        details.append(f"~{estimated_duration}h")
+    if danger_types:
+        details.append(f"Gefahren: {', '.join(danger_types)}")
+
+    message = " ".join(parts)
+    if details:
+        message += f" ({', '.join(details)})"
 
     notification = Notification(
         type="reko_submitted",
@@ -716,11 +742,11 @@ async def create_reko_arrived_notification(
     Returns:
         Created notification
     """
-    # Build message
+    # Build message with address as primary identifier
     if arrived_by_name:
-        message = f"REKO vor Ort: {arrived_by_name} bei {incident_title}"
+        message = f"Reko vor Ort: {arrived_by_name} bei {incident_title}"
     else:
-        message = f"REKO vor Ort: {incident_title}"
+        message = f"Reko vor Ort: {incident_title}"
 
     notification = Notification(
         type="reko_arrived",
