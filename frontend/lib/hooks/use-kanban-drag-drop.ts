@@ -13,6 +13,7 @@ interface UseKanbanDragDropProps {
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   setDraggingItem?: (item: Person | Material | Operation | null) => void
   onOperationDrop?: (operationId: string) => void
+  onStatusChange?: (operationId: string, newStatus: OperationStatus) => void
 }
 
 /**
@@ -30,6 +31,7 @@ export function useKanbanDragDrop({
   assignMaterialToOperation,
   setDraggingItem,
   onOperationDrop,
+  onStatusChange,
 }: UseKanbanDragDropProps) {
 
   useEffect(() => {
@@ -164,6 +166,7 @@ export function useKanbanDragDrop({
 
               // Auto-select the dropped card
               onOperationDrop?.(draggedOp.id)
+              onStatusChange?.(draggedOp.id, targetOp.status as OperationStatus)
             }
           }
           // Dropped on empty column area
@@ -172,14 +175,16 @@ export function useKanbanDragDrop({
             const targetColumn = columns.find(col => col.id === targetColumnId)
 
             if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
-              updateOperation(draggedOp.id, { status: targetColumn.status[0] as OperationStatus })
+              const newStatus = targetColumn.status[0] as OperationStatus
+              updateOperation(draggedOp.id, { status: newStatus })
 
               // Auto-select the dropped card
               onOperationDrop?.(draggedOp.id)
+              onStatusChange?.(draggedOp.id, newStatus)
             }
           }
         }
       },
     })
-  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, setOperations, updateOperation, setDraggingItem, onOperationDrop])
+  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, setOperations, updateOperation, setDraggingItem, onOperationDrop, onStatusChange])
 }

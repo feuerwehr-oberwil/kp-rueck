@@ -51,6 +51,7 @@ import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
 import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
+import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 
 export default function FireStationDashboard() {
   const {
@@ -202,6 +203,7 @@ export default function FireStationDashboard() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [viewerCopied, setViewerCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
+  const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
 
   // Cross-window sync (bidirectional)
   const { broadcast } = useCrossWindowSync({
@@ -301,6 +303,12 @@ export default function FireStationDashboard() {
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
 
+  // Show disponiert transition dialog when moving to enroute
+  const triggerDisponiertDialog = useCallback((operationId: string) => {
+    const op = operations.find(o => o.id === operationId)
+    if (op) setDisponiertDialogOp(op)
+  }, [operations])
+
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
@@ -310,8 +318,9 @@ export default function FireStationDashboard() {
       const nextColumn = columns[currentColumnIndex + 1]
       const newStatus = nextColumn.status[0] as OperationStatus
       updateOperation(operationId, { status: newStatus })
+      if (newStatus === "enroute") triggerDisponiertDialog(operationId)
     }
-  }, [operations, updateOperation])
+  }, [operations, updateOperation, triggerDisponiertDialog])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -322,8 +331,9 @@ export default function FireStationDashboard() {
       const prevColumn = columns[currentColumnIndex - 1]
       const newStatus = prevColumn.status[0] as OperationStatus
       updateOperation(operationId, { status: newStatus })
+      if (newStatus === "enroute") triggerDisponiertDialog(operationId)
     }
-  }, [operations, updateOperation])
+  }, [operations, updateOperation, triggerDisponiertDialog])
 
   // Register command palette handlers
   useEffect(() => {
@@ -705,6 +715,9 @@ export default function FireStationDashboard() {
       // Auto-select dropped card in side panel
       setPanelSelectedId(operationId)
       setHoveredOperationId(operationId)
+    },
+    onStatusChange: (operationId, newStatus) => {
+      if (newStatus === "enroute") triggerDisponiertDialog(operationId)
     },
   })
 
@@ -1876,6 +1889,15 @@ export default function FireStationDashboard() {
         onOpenChange={(open) => !open && activeFooterSheet === 'thermo' && setActiveFooterSheet(null)}
         onPrint={handlePrintBoard}
         isPrinting={isPrintingBoard}
+      />
+
+      {/* Disponiert Transition Dialog */}
+      <DisponierTransitionDialog
+        open={!!disponiertDialogOp}
+        onOpenChange={(open) => !open && setDisponiertDialogOp(null)}
+        operation={disponiertDialogOp}
+        materials={materials}
+        printerEnabled={printerEnabled}
       />
 
       {/* Mobile Personnel Sheet */}

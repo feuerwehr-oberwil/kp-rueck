@@ -27,6 +27,7 @@ interface DroppableColumnProps {
     title: string
     status: string[]
     color: string
+    collapsible?: boolean
   }
   operations: Operation[]
   onRemoveCrew: (operationId: string, crewName: string) => void
@@ -78,13 +79,29 @@ export const DroppableColumn = memo(function DroppableColumn({
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
   const isLargeScreen = useIsLargeScreen()
 
-  const isEmpty = operations.length === 0
-  const isCollapsed = isEmpty && !isOver && !isManuallyExpanded && !isLargeScreen
+  // Collapsible columns (like Abgeschlossen) start collapsed and persist via localStorage
+  const isCollapsibleColumn = column.collapsible === true
+  const [isCollapsibleOpen, setIsCollapsibleOpen] = useState(() => {
+    if (!isCollapsibleColumn) return true
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(`column-collapsed-${column.id}`) === 'open'
+  })
 
-  // Reset manual expand when column gets operations
+  const toggleCollapsible = () => {
+    const next = !isCollapsibleOpen
+    setIsCollapsibleOpen(next)
+    localStorage.setItem(`column-collapsed-${column.id}`, next ? 'open' : 'collapsed')
+  }
+
+  const isEmpty = operations.length === 0
+  const isCollapsed = isCollapsibleColumn
+    ? !isCollapsibleOpen
+    : (isEmpty && !isOver && !isManuallyExpanded && !isLargeScreen)
+
+  // Reset manual expand when column gets operations (non-collapsible only)
   useEffect(() => {
-    if (!isEmpty) setIsManuallyExpanded(false)
-  }, [isEmpty])
+    if (!isEmpty && !isCollapsibleColumn) setIsManuallyExpanded(false)
+  }, [isEmpty, isCollapsibleColumn])
 
   useEffect(() => {
     const element = ref.current
@@ -113,15 +130,15 @@ export const DroppableColumn = memo(function DroppableColumn({
           column.color,
           isOver && "drop-zone-active w-16"
         )}
-        onClick={() => setIsManuallyExpanded(true)}
+        onClick={() => isCollapsibleColumn ? toggleCollapsible() : setIsManuallyExpanded(true)}
         role="region"
-        aria-label={`${column.title} column (leer)`}
+        aria-label={`${column.title} column (${operations.length} Einsätze)`}
       >
         <div className="flex flex-col items-center gap-2 py-3">
           <span className="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
             {column.title}
           </span>
-          <span className="text-xs text-muted-foreground/60 font-mono">0</span>
+          <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
         </div>
       </div>
     )
@@ -133,8 +150,21 @@ export const DroppableColumn = memo(function DroppableColumn({
         "mb-2 rounded-lg border border-border px-3 py-2 transition-all",
         column.color
       )}>
-        <h2 className="text-balance text-sm font-semibold text-foreground">{column.title}</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-balance text-sm font-semibold text-foreground">{column.title}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
+          </div>
+          {isCollapsibleColumn && (
+            <button
+              onClick={toggleCollapsible}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
+              title="Spalte einklappen"
+            >
+              ←
+            </button>
+          )}
+        </div>
       </div>
 
       <div

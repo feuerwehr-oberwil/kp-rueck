@@ -132,7 +132,7 @@ async def _check_time_based_alerts(
     result = await db.execute(
         select(Incident)
         .where(Incident.event_id == event_id)
-        .where(Incident.status.in_(["eingegangen", "reko", "disponiert", "einsatz", "einsatz_beendet"]))
+        .where(Incident.status.in_(["eingegangen", "reko", "reko_done", "disponiert", "einsatz", "einsatz_beendet"]))
         .where(Incident.deleted_at.is_(None))
     )
     incidents = list(result.scalars().all())

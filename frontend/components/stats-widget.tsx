@@ -35,6 +35,7 @@ function StatCard({ label, value, icon }: StatCardProps) {
 const STATUS_LABELS: Record<string, string> = {
   eingegangen: 'Eingegangen',
   reko: 'Reko',
+  reko_done: 'Reko abgeschlossen',
   disponiert: 'Disponiert',
   einsatz: 'Einsatz',
   einsatz_beendet: 'Einsatz beendet',

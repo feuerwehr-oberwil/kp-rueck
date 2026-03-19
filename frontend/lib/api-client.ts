@@ -235,6 +235,7 @@ export type IncidentPriority = "low" | "medium" | "high"
 export type IncidentStatus =
   | "eingegangen"
   | "reko"
+  | "reko_done"
   | "disponiert"
   | "einsatz"
   | "einsatz_beendet"
@@ -262,6 +263,7 @@ export interface ApiIncident {
   contact: string | null
   internal_notes: string | null
   nachbarhilfe: boolean // Neighboring station assistance flag
+  nachbarhilfe_note: string | null
   created_at: string
   updated_at: string
   created_by: string | null // UUID
@@ -285,6 +287,7 @@ export interface ApiIncidentCreate {
   contact?: string | null
   internal_notes?: string | null
   nachbarhilfe?: boolean
+  nachbarhilfe_note?: string | null
 }
 
 export interface ApiIncidentUpdate {
@@ -299,6 +302,7 @@ export interface ApiIncidentUpdate {
   contact?: string | null
   internal_notes?: string | null
   nachbarhilfe?: boolean
+  nachbarhilfe_note?: string | null
 }
 
 export interface ApiStatusTransition {

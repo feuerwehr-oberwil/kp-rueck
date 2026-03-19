@@ -31,10 +31,11 @@ interface PrintViewProps {
 const STATUS_ORDER: Record<string, { label: string; order: number }> = {
   incoming: { label: "EINGEGANGEN", order: 1 },
   ready: { label: "REKO", order: 2 },
-  enroute: { label: "DISPONIERT / UNTERWEGS", order: 3 },
-  active: { label: "EINSATZ", order: 4 },
-  returning: { label: "BEENDET / RÜCKFAHRT", order: 5 },
-  complete: { label: "ABGESCHLOSSEN", order: 6 },
+  rekoDone: { label: "REKO ABGESCHLOSSEN", order: 3 },
+  enroute: { label: "DISPONIERT", order: 4 },
+  active: { label: "EINSATZ", order: 5 },
+  returning: { label: "BEENDET / RÜCKFAHRT", order: 6 },
+  complete: { label: "ABGESCHLOSSEN", order: 7 },
 }
 
 const PRIORITY_LABELS: Record<string, string> = {

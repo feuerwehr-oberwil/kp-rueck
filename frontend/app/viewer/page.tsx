@@ -30,6 +30,7 @@ function mapApiStatus(apiStatus: string): OperationStatus {
   const statusMap: Record<string, OperationStatus> = {
     eingegangen: 'incoming',
     reko: 'ready',
+    reko_done: 'rekoDone',
     disponiert: 'enroute',
     einsatz: 'active',
     einsatz_beendet: 'returning',

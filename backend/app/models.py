@@ -283,6 +283,7 @@ class Incident(Base):
     contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # Internal notes
     nachbarhilfe: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Neighboring station assistance
+    nachbarhilfe_note: Mapped[str | None] = mapped_column(Text, nullable=True)  # Note for nachbarhilfe
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -317,7 +318,7 @@ class Incident(Base):
         ),
         CheckConstraint("priority IN ('low', 'medium', 'high')", name="valid_priority"),
         CheckConstraint(
-            "status IN ('eingegangen', 'reko', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss')",
+            "status IN ('eingegangen', 'reko', 'reko_done', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss')",
             name="valid_status",
         ),
         CheckConstraint(

@@ -160,6 +160,7 @@ export const PRIORITY_LABELS: Record<IncidentPriority, string> = {
 export const STATUS_LABELS: Record<IncidentStatus, string> = {
   eingegangen: 'Eingegangen',
   reko: 'Reko',
+  reko_done: 'Reko abgeschlossen',
   disponiert: 'Disponiert',
   einsatz: 'Einsatz',
   einsatz_beendet: 'Einsatz beendet',
@@ -182,6 +183,12 @@ export const KANBAN_COLUMNS = [
     title: 'REKO',
     status: ['reko'] as IncidentStatus[],
     color: 'bg-emerald-100/80 dark:bg-zinc-800/50',
+  },
+  {
+    id: 'reko_done',
+    title: 'REKO ABGESCHLOSSEN',
+    status: ['reko_done'] as IncidentStatus[],
+    color: 'bg-teal-100/80 dark:bg-teal-900/30',
   },
   {
     id: 'disponiert',
@@ -221,6 +228,7 @@ export type StatusGroup = 'open' | 'active' | 'completed'
 export const STATUS_TO_GROUP: Record<IncidentStatus, StatusGroup> = {
   eingegangen: 'open',
   reko: 'open',
+  reko_done: 'open',
   disponiert: 'active',
   einsatz: 'active',
   einsatz_beendet: 'completed',

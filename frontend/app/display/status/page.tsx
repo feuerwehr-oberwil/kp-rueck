@@ -10,11 +10,12 @@ import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { cn } from "@/lib/utils"
 
-const STATUS_ORDER = ["incoming", "ready", "enroute", "active", "returning"]
+const STATUS_ORDER = ["incoming", "ready", "rekoDone", "enroute", "active", "returning"]
 
 const STATUS_BORDER: Record<string, string> = {
   incoming: "border-l-slate-500",
   ready: "border-l-emerald-500",
+  rekoDone: "border-l-teal-500",
   enroute: "border-l-blue-500",
   active: "border-l-orange-500",
   returning: "border-l-sky-500",
@@ -23,6 +24,7 @@ const STATUS_BORDER: Record<string, string> = {
 const STATUS_BG: Record<string, string> = {
   incoming: "bg-muted/30",
   ready: "bg-muted/30",
+  rekoDone: "bg-muted/30",
   enroute: "bg-muted/30",
   active: "bg-muted/30",
   returning: "bg-muted/30",

@@ -469,6 +469,7 @@ class IncidentStatus(str, Enum):
 
     EINGEGANGEN = "eingegangen"
     REKO = "reko"
+    REKO_DONE = "reko_done"
     DISPONIERT = "disponiert"
     EINSATZ = "einsatz"
     EINSATZ_BEENDET = "einsatz_beendet"
@@ -489,6 +490,7 @@ class IncidentBase(BaseModel):
     contact: str | None = None
     internal_notes: str | None = None
     nachbarhilfe: bool = False
+    nachbarhilfe_note: str | None = None
 
     @field_validator("title")
     @classmethod
@@ -559,6 +561,7 @@ class IncidentUpdate(BaseModel):
     contact: str | None = None
     internal_notes: str | None = None
     nachbarhilfe: bool | None = None
+    nachbarhilfe_note: str | None = None
     # training_flag intentionally excluded (use separate endpoint)
 
 

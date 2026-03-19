@@ -23,7 +23,7 @@ const isValidUUID = (id: string | undefined | null): id is string => {
 }
 
 // Types
-export type OperationStatus = "incoming" | "ready" | "enroute" | "active" | "returning" | "complete"
+export type OperationStatus = "incoming" | "ready" | "rekoDone" | "enroute" | "active" | "returning" | "complete"
 export type VehicleType = string | null
 
 export interface RekoSummary {
@@ -50,6 +50,7 @@ export interface Operation {
   contact: string
   internalNotes: string
   nachbarhilfe: boolean
+  nachbarhilfeNote: string
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -140,6 +141,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const statusMap: Record<string, OperationStatus> = {
       "eingegangen": "incoming",
       "reko": "ready",
+      "reko_done": "rekoDone",
       "disponiert": "enroute",
       "einsatz": "active",
       "einsatz_beendet": "returning",
@@ -164,6 +166,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       contact: incident.contact || "",
       internalNotes: incident.internal_notes || "",
       nachbarhilfe: incident.nachbarhilfe || false,
+      nachbarhilfeNote: incident.nachbarhilfe_note || "",
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
@@ -742,6 +745,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const statusToBackend: Record<OperationStatus, string> = {
           "incoming": "eingegangen",
           "ready": "reko",
+          "rekoDone": "reko_done",
           "enroute": "disponiert",
           "active": "einsatz",
           "returning": "einsatz_beendet",
@@ -761,6 +765,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.contact !== undefined) apiUpdates.contact = batchedUpdates.contact
         if (batchedUpdates.internalNotes !== undefined) apiUpdates.internal_notes = batchedUpdates.internalNotes
         if (batchedUpdates.nachbarhilfe !== undefined) apiUpdates.nachbarhilfe = batchedUpdates.nachbarhilfe
+        if (batchedUpdates.nachbarhilfeNote !== undefined) apiUpdates.nachbarhilfe_note = batchedUpdates.nachbarhilfeNote
 
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
@@ -843,6 +848,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           contact: apiIncident.contact || "",
           internalNotes: apiIncident.internal_notes || "",
           nachbarhilfe: apiIncident.nachbarhilfe || false,
+          nachbarhilfeNote: apiIncident.nachbarhilfe_note || "",
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
           rekoArrivedAt: null,
@@ -1213,6 +1219,7 @@ export function useIncidents() {
   const operationToIncidentStatus: Record<OperationStatus, string> = {
     "incoming": "eingegangen",
     "ready": "reko",
+    "rekoDone": "reko_done",
     "enroute": "disponiert",
     "active": "einsatz",
     "returning": "einsatz_beendet",

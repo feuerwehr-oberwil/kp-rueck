@@ -1,6 +1,7 @@
 """Reko form API endpoints (no authentication required for forms, authentication required for photos)."""
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -15,7 +16,7 @@ from ..crud import reko as crud
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
-from ..models import Incident, RekoReport
+from ..models import Incident, RekoReport, StatusTransition
 from ..utils.errors import ErrorMessages
 
 logger = get_logger(__name__)
@@ -109,6 +110,20 @@ async def submit_reko_report(
         response_data.incident_type = incident.type
         response_data.incident_description = incident.description
         response_data.incident_contact = incident.contact
+
+    # Auto-transition reko → reko_done when report is submitted
+    if submit and incident and incident.status == "reko":
+        old_status = incident.status
+        incident.status = "reko_done"
+        transition = StatusTransition(
+            incident_id=incident.id,
+            from_status=old_status,
+            to_status="reko_done",
+            notes="Reko-Formular eingereicht",
+        )
+        db.add(transition)
+        await db.commit()
+        await db.refresh(incident)
 
     # Auto-bump priority from low → medium if any danger flags are set
     if submit and incident and updated.dangers_json:

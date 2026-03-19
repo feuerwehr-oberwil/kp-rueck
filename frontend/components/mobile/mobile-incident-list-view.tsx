@@ -30,14 +30,15 @@ const statusOrder: Record<string, number> = {
   enroute: 1,
   incoming: 2,
   ready: 3,
-  returning: 4,
-  complete: 5,
+  rekoDone: 4,
+  returning: 5,
+  complete: 6,
 }
 
 // Status groups for filtering
 const statusGroups = [
   { id: "active", label: "Aktiv", statuses: ["active", "enroute"] },
-  { id: "incoming", label: "Neu", statuses: ["incoming", "ready"] },
+  { id: "incoming", label: "Neu", statuses: ["incoming", "ready", "rekoDone"] },
   { id: "returning", label: "Beendet", statuses: ["returning"] },
   { id: "complete", label: "Abgeschlossen", statuses: ["complete"] },
 ]
