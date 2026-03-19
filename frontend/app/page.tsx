@@ -52,6 +52,7 @@ import { PrintOptionsModal } from "@/components/print/print-options-modal"
 import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
+import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 
 export default function FireStationDashboard() {
   const {
@@ -294,6 +295,12 @@ export default function FireStationDashboard() {
 
     fetchRekoPersonnel()
   }, [assignmentDialogOpen, assignmentResourceType, selectedEvent, personnel])
+
+  // Track WebSocket connection status for indicator
+  const [wsStatus, setWsStatus] = useState<WebSocketStatus>('disconnected')
+  useEffect(() => {
+    return wsClient.onStatusChange(setWsStatus)
+  }, [])
 
   // Fetch printer status once authenticated
   useEffect(() => {
@@ -1574,14 +1581,29 @@ export default function FireStationDashboard() {
               </button>
             </div>
 
-            {/* Right: Help hint */}
-            <button
-              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
-            >
-              <Kbd className="h-5 text-[10px] px-1.5">⌘K</Kbd>
-              <span className="hidden lg:inline">Befehle</span>
-            </button>
+            {/* Right: Connection status + Help hint */}
+            <div className="flex items-center gap-3">
+              <div
+                className="flex items-center gap-1.5 text-xs text-muted-foreground/60"
+                title={wsStatus === 'connected' ? 'WebSocket verbunden' : wsStatus === 'connecting' ? 'Verbinde...' : 'Polling-Modus (kein WebSocket)'}
+              >
+                <div className={`h-1.5 w-1.5 rounded-full ${
+                  wsStatus === 'connected' ? 'bg-emerald-500' :
+                  wsStatus === 'connecting' ? 'bg-amber-500 animate-pulse' :
+                  'bg-red-400'
+                }`} />
+                <span className="hidden xl:inline">
+                  {wsStatus === 'connected' ? 'Live' : wsStatus === 'connecting' ? 'Verbinde' : 'Polling'}
+                </span>
+              </div>
+              <button
+                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+              >
+                <Kbd className="h-5 text-[10px] px-1.5">⌘K</Kbd>
+                <span className="hidden lg:inline">Befehle</span>
+              </button>
+            </div>
           </div>
         </footer>
           </>

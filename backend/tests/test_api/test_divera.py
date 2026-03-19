@@ -690,10 +690,10 @@ async def test_priority_detection_high(editor_client: AsyncClient, test_event: E
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_priority_detection_medium_default(
+async def test_priority_detection_low_default(
     editor_client: AsyncClient, test_event: Event, db_session: AsyncSession
 ):
-    """Test that non-critical situations default to MEDIUM priority."""
+    """Test that non-critical situations default to LOW priority."""
     emergency = DiveraEmergency(
         id=uuid4(),
         divera_id=60004,
@@ -713,7 +713,7 @@ async def test_priority_detection_medium_default(
         )
         assert response.status_code == 201
         data = response.json()
-        assert data["priority"] == "medium"
+        assert data["priority"] == "low"
 
 
 # ============================================

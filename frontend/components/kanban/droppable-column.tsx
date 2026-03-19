@@ -51,6 +51,60 @@ interface DroppableColumnProps {
   printerEnabled?: boolean
 }
 
+// Custom comparison: skip re-render if operations for this column haven't actually changed
+function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): boolean {
+  // Always re-render if non-operation props changed
+  if (
+    prev.column !== next.column ||
+    prev.highlightedOperationId !== next.highlightedOperationId ||
+    prev.selectedOperationId !== next.selectedOperationId ||
+    prev.hoveredOperationId !== next.hoveredOperationId ||
+    prev.showMeldung !== next.showMeldung ||
+    prev.printerEnabled !== next.printerEnabled ||
+    prev.materials !== next.materials
+  ) {
+    return false
+  }
+
+  // Deep compare operations array for this column
+  if (prev.operations.length !== next.operations.length) return false
+  for (let i = 0; i < prev.operations.length; i++) {
+    const a = prev.operations[i]
+    const b = next.operations[i]
+    if (
+      a.id !== b.id ||
+      a.status !== b.status ||
+      a.priority !== b.priority ||
+      a.location !== b.location ||
+      a.incidentType !== b.incidentType ||
+      a.crew.length !== b.crew.length ||
+      a.vehicles.length !== b.vehicles.length ||
+      a.materials.length !== b.materials.length ||
+      a.notes !== b.notes ||
+      a.contact !== b.contact ||
+      a.hasCompletedReko !== b.hasCompletedReko ||
+      a.nachbarhilfe !== b.nachbarhilfe ||
+      a.assignedReko?.id !== b.assignedReko?.id
+    ) {
+      return false
+    }
+    // Check crew members changed
+    for (let j = 0; j < a.crew.length; j++) {
+      if (a.crew[j] !== b.crew[j]) return false
+    }
+    // Check vehicles changed
+    for (let j = 0; j < a.vehicles.length; j++) {
+      if (a.vehicles[j] !== b.vehicles[j]) return false
+    }
+    // Check materials changed
+    for (let j = 0; j < a.materials.length; j++) {
+      if (a.materials[j] !== b.materials[j]) return false
+    }
+  }
+
+  return true
+}
+
 export const DroppableColumn = memo(function DroppableColumn({
   column,
   operations,
@@ -231,4 +285,4 @@ export const DroppableColumn = memo(function DroppableColumn({
       </div>
     </div>
   )
-})
+}, arePropsEqual)

@@ -1254,6 +1254,11 @@ class ApiClient {
     return this.request<ApiEventRekoSummariesResponse>(`/api/reko/event/${eventId}/summaries`)
   }
 
+  // Sync version check (lightweight polling optimization)
+  async getSyncVersion(eventId: string): Promise<{ version: string }> {
+    return this.request<{ version: string }>(`/api/incidents/sync-version?event_id=${encodeURIComponent(eventId)}`)
+  }
+
   // Excel Import/Export
   async downloadImportTemplate(): Promise<Blob> {
     const url = `${this.getBaseUrl()}/api/admin/import/template`

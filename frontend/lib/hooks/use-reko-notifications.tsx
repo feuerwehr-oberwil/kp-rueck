@@ -93,9 +93,9 @@ export function useRekoNotifications(
       }
     }
 
-    // Check immediately and then every 3 seconds
+    // Check immediately and then every 10 seconds (aligned with main polling interval)
     checkForNewRekos()
-    const interval = setInterval(checkForNewRekos, 3000)
+    const interval = setInterval(checkForNewRekos, 10000)
 
     return () => clearInterval(interval)
   }, [incidents, selectedEvent, seenRekoIds, refetchNotifications])

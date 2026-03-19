@@ -329,3 +329,48 @@ async def transfer_assignments(
         assignment_ids=result["assignment_ids"],
         message=f"{result['transferred_count']} Ressourcen übertragen",
     )
+
+
+@router.get("/sync-version")
+async def get_sync_version(
+    event_id: str = Query(...),
+    current_user: CurrentUser = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return a quick hash of the current state for change detection.
+
+    Lightweight endpoint that returns a version string based on incident count
+    and latest update timestamp. Clients can poll this cheaply and only do a
+    full refresh when the version changes.
+    """
+    result = await db.execute(
+        select(
+            sa_func.count(models.Incident.id),
+            sa_func.max(models.Incident.updated_at),
+        )
+        .where(models.Incident.event_id == event_id)
+        .where(models.Incident.deleted_at.is_(None))
+    )
+    row = result.one()
+    count = row[0] or 0
+    latest = row[1]
+
+    # Also check assignment changes (crew/vehicle/material changes)
+    assignment_result = await db.execute(
+        select(
+            sa_func.count(models.IncidentAssignment.id),
+            sa_func.max(models.IncidentAssignment.assigned_at),
+        )
+        .join(models.Incident, models.IncidentAssignment.incident_id == models.Incident.id)
+        .where(models.Incident.event_id == event_id)
+        .where(models.Incident.deleted_at.is_(None))
+    )
+    a_row = assignment_result.one()
+    a_count = a_row[0] or 0
+    a_latest = a_row[1]
+
+    # Combine into version string
+    latest_str = latest.isoformat() if latest else "0"
+    a_latest_str = a_latest.isoformat() if a_latest else "0"
+    version = f"{count}-{latest_str}-{a_count}-{a_latest_str}"
+    return {"version": version}

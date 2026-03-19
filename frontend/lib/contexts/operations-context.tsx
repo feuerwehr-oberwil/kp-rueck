@@ -120,6 +120,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const recentStatusUpdateRef = useRef<boolean>(false)
   const statusUpdateCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
+  // Sync version for lightweight polling optimization
+  const lastSyncVersionRef = useRef<string | null>(null)
+
   // Polling configuration
   const pollingBackoffRef = useRef<number>(1)
   const POLLING_BASE_INTERVAL = 5000
@@ -479,6 +482,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setHomeCity(settings.home_city || "")
         setIsLoaded(true)
         if (isInitialLoad) setIsInitialLoad(false)
+
+        // Update sync version after successful full load
+        try {
+          const { version } = await apiClient.getSyncVersion(eventId)
+          lastSyncVersionRef.current = version
+        } catch {
+          // Non-critical - version check is an optimization
+        }
       } catch (error) {
         console.error("Failed to load data:", error)
         setIsLoaded(true)
@@ -533,7 +544,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (!isPollingActive) return
         if (!isLoading && !shouldSkipUpdate()) {
           try {
-            await loadData(false)
+            // Lightweight version check before full reload
+            const { version } = await apiClient.getSyncVersion(eventId)
+            if (version !== lastSyncVersionRef.current) {
+              lastSyncVersionRef.current = version
+              await loadData(false)
+            }
           } catch {
             pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
           }
