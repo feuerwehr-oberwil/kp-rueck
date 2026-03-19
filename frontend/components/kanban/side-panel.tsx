@@ -24,6 +24,8 @@ import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
+import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
+import { usePersonnel } from "@/lib/contexts/personnel-context"
 import type { Incident } from "@/lib/types/incidents"
 import dynamic from "next/dynamic"
 
@@ -224,8 +226,10 @@ function SidePanelDetail({
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
+  const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
   const [isCopyingRekoLink, setIsCopyingRekoLink] = useState(false)
   const [rekoCopied, setRekoCopied] = useState<'direct' | 'dashboard' | null>(null)
+  const { personnel } = usePersonnel()
 
   // Use assignedReko directly from the operation (kept in sync by operations context)
   const assignedRekoPersonnel = operation?.assignedReko ?? null
@@ -574,25 +578,40 @@ function SidePanelDetail({
               <Search className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Reko</span>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setRekoDialogOpen(true)}
-              className="h-6 px-2 gap-1 text-xs"
-              tabIndex={0}
-            >
-              {assignedRekoPersonnel ? (
-                <>
+            <div className="flex gap-1">
+              {assignedRekoPersonnel && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setRekoTransferDialogOpen(true)}
+                  className="h-6 px-2 gap-1 text-xs"
+                  tabIndex={-1}
+                  title="Alle offenen Rekos an andere Person übertragen"
+                >
                   <ArrowRightLeft className="h-3 w-3" />
-                  Wechseln
-                </>
-              ) : (
-                <>
-                  <Plus className="h-3 w-3" />
-                  Zuweisen
-                </>
+                  Übertragen
+                </Button>
               )}
-            </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setRekoDialogOpen(true)}
+                className="h-6 px-2 gap-1 text-xs"
+                tabIndex={0}
+              >
+                {assignedRekoPersonnel ? (
+                  <>
+                    <ArrowRightLeft className="h-3 w-3" />
+                    Wechseln
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-3 w-3" />
+                    Zuweisen
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {assignedRekoPersonnel ? (
@@ -881,9 +900,21 @@ function SidePanelDetail({
         incidentTitle={operation.location}
         onAssigned={() => {
           // Assignment is handled by context via optimistic update + WebSocket/polling
-          // No need for a separate API call here
         }}
       />
+
+      {/* Transfer Reko Assignments Dialog */}
+      {assignedRekoPersonnel && (
+        <TransferRekoDialog
+          open={rekoTransferDialogOpen}
+          onOpenChange={setRekoTransferDialogOpen}
+          fromPerson={assignedRekoPersonnel ? { id: assignedRekoPersonnel.id, name: assignedRekoPersonnel.name, role: '' as any, status: 'assigned' as any, roleSortOrder: 0 } : null}
+          rekoPersonnel={personnel.filter(p => p.isReko)}
+          onTransferred={() => {
+            // Refresh will happen via polling/WebSocket
+          }}
+        />
+      )}
     </div>
   )
 }

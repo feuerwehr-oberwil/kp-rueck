@@ -1533,6 +1533,19 @@ class ApiClient {
     )
   }
 
+  async transferRekoAssignments(
+    fromPersonnelId: string,
+    toPersonnelId: string,
+    eventId: string,
+  ): Promise<{ transferred_count: number; incident_ids: string[] }> {
+    return this.request<{ transferred_count: number; incident_ids: string[] }>(
+      `/api/reko-dashboard/transfer-rekos?from_personnel_id=${encodeURIComponent(fromPersonnelId)}&to_personnel_id=${encodeURIComponent(toPersonnelId)}&event_id=${encodeURIComponent(eventId)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
   // Viewer (read-only access)
   async generateViewerLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
     return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(

@@ -250,3 +250,61 @@ async def unassign_reko_personnel(
     )
 
     return None
+
+
+@router.post(
+    "/transfer-rekos",
+    status_code=status.HTTP_200_OK,
+)
+async def transfer_reko_assignments(
+    from_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer from"),
+    to_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer to"),
+    event_id: uuid.UUID = Query(..., description="Event ID"),
+    request: Request = None,
+    background_tasks: BackgroundTasks = None,
+    current_user: CurrentEditor = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Transfer all open reko assignments from one person to another.
+
+    Only transfers incidents that are in reko status (not yet completed).
+    """
+    # Get all reko assignments for the source person in this event
+    assignments = await crud.get_reko_assignments_for_personnel(db, event_id, from_personnel_id)
+
+    # Filter to only open assignments (incidents in reko status, not reko_done or later)
+    transferred = []
+    for assignment in assignments:
+        incident = await incidents_crud.get_incident(db, assignment["incident_id"])
+        if incident and incident.status in ("eingegangen", "reko"):
+            # Unassign old person
+            await crud.unassign_reko_personnel_from_incident(
+                db, assignment["incident_id"], from_personnel_id
+            )
+            # Assign new person
+            db_assignment = IncidentAssignment(
+                incident_id=assignment["incident_id"],
+                resource_type="personnel",
+                resource_id=to_personnel_id,
+                assigned_by=current_user.id if current_user else None,
+            )
+            db.add(db_assignment)
+            transferred.append(str(assignment["incident_id"]))
+
+    await db.commit()
+
+    # Broadcast updates
+    if background_tasks:
+        for inc_id in transferred:
+            background_tasks.add_task(
+                broadcast_assignment_update,
+                {
+                    "incident_id": inc_id,
+                    "resource_type": "personnel",
+                    "resource_id": str(to_personnel_id),
+                },
+                "create",
+            )
+
+    return {"transferred_count": len(transferred), "incident_ids": transferred}
