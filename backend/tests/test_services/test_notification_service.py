@@ -925,7 +925,7 @@ class TestCreateRekoNotification:
             is_relevant=True,
         )
 
-        assert "Neue Reko-Meldung:" in notification.message
+        assert "Reko abgeschlossen:" in notification.message
         assert notification.id is not None
 
 
