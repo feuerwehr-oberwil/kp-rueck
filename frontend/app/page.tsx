@@ -216,13 +216,23 @@ export default function FireStationDashboard() {
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
-  const [showMeldung, setShowMeldung] = useState(false)
+  const [showMeldung, setShowMeldung] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('showMeldung') === 'true'
+    }
+    return false
+  })
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [rekoCopied, setRekoCopied] = useState(false)
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [viewerCopied, setViewerCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
+
+  // Persist showMeldung to localStorage
+  useEffect(() => {
+    localStorage.setItem('showMeldung', String(showMeldung))
+  }, [showMeldung])
 
   // Cross-window sync (bidirectional)
   const { broadcast } = useCrossWindowSync({

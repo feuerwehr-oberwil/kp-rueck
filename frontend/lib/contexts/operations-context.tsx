@@ -261,6 +261,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             const dangerTypes: string[] = []
             if (summary.dangers_json) {
               if (summary.dangers_json.fire) dangerTypes.push("Feuer")
+              if (summary.dangers_json.fire_danger) dangerTypes.push("Brandgefahr")
               if (summary.dangers_json.explosion) dangerTypes.push("Explosion")
               if (summary.dangers_json.collapse) dangerTypes.push("Einsturz")
               if (summary.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")

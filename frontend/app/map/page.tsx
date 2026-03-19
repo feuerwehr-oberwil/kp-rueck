@@ -417,7 +417,7 @@ export default function MapPage() {
                 />
                 {!isMobile && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Kbd className="text-xs">/</Kbd>
+                    <Kbd className="text-xs">S</Kbd>
                   </div>
                 )}
               </div>

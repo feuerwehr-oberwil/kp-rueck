@@ -465,19 +465,29 @@ export function OperationDetailModal({
           </div>
 
           {/* Nachbarhilfe Toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
-            <div className="flex items-center gap-3">
-              <Building2 className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <Label htmlFor="modal-nachbarhilfe" className="text-sm font-semibold">Nachbarhilfe</Label>
-                <p className="text-xs text-muted-foreground">Einsatz mit Nachbarfeuerwehr-Beteiligung</p>
+          <div className="rounded-lg border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <Label htmlFor="modal-nachbarhilfe" className="text-sm font-semibold">Nachbarhilfe</Label>
+                  <p className="text-xs text-muted-foreground">Einsatz mit Nachbarfeuerwehr-Beteiligung</p>
+                </div>
               </div>
+              <Switch
+                id="modal-nachbarhilfe"
+                checked={operation.nachbarhilfe || false}
+                onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
+              />
             </div>
-            <Switch
-              id="modal-nachbarhilfe"
-              checked={operation.nachbarhilfe || false}
-              onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
-            />
+            {operation.nachbarhilfe && (
+              <Input
+                placeholder="Feuerwehr, Kontakt..."
+                value={operation.nachbarhilfeNote || ''}
+                onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
+                className="text-sm"
+              />
+            )}
           </div>
           </div>
 

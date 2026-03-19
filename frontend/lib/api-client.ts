@@ -318,6 +318,7 @@ export interface ApiStatusTransition {
 // Reko Report Types
 export interface ApiDangersAssessment {
   fire: boolean
+  fire_danger: boolean
   explosion: boolean
   collapse: boolean
   chemical: boolean

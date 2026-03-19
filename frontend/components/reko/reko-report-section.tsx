@@ -150,6 +150,7 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
           {/* Dangers */}
           {report.dangers_json && (
             report.dangers_json.fire ||
+            report.dangers_json.fire_danger ||
             report.dangers_json.explosion ||
             report.dangers_json.collapse ||
             report.dangers_json.chemical ||
@@ -163,6 +164,7 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
               </h5>
               <div className="flex flex-wrap gap-2">
                 {report.dangers_json.fire && <Badge variant="destructive">Feuer</Badge>}
+                {report.dangers_json.fire_danger && <Badge variant="destructive">Brandgefahr</Badge>}
                 {report.dangers_json.explosion && <Badge variant="destructive">Explosion</Badge>}
                 {report.dangers_json.collapse && <Badge variant="destructive">Einsturz</Badge>}
                 {report.dangers_json.chemical && <Badge variant="destructive">Gefahrstoffe</Badge>}
@@ -285,6 +287,7 @@ function RekoReportCardCompact({ report, incidentId }: RekoReportCardProps) {
 
   const hasDangers = report.dangers_json && (
     report.dangers_json.fire ||
+    report.dangers_json.fire_danger ||
     report.dangers_json.explosion ||
     report.dangers_json.collapse ||
     report.dangers_json.chemical ||

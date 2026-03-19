@@ -529,19 +529,29 @@ function SidePanelDetail({
       </div>
 
       {/* Nachbarhilfe Toggle */}
-      <div className="flex items-center justify-between rounded-lg border p-3">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <div>
-            <Label htmlFor="panel-nachbarhilfe" className="text-xs font-semibold">Nachbarhilfe</Label>
-            <p className="text-xs text-muted-foreground">Nachbarfeuerwehr-Beteiligung</p>
+      <div className="rounded-lg border p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <Label htmlFor="panel-nachbarhilfe" className="text-xs font-semibold">Nachbarhilfe</Label>
+              <p className="text-xs text-muted-foreground">Nachbarfeuerwehr-Beteiligung</p>
+            </div>
           </div>
+          <Switch
+            id="panel-nachbarhilfe"
+            checked={operation.nachbarhilfe || false}
+            onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
+          />
         </div>
-        <Switch
-          id="panel-nachbarhilfe"
-          checked={operation.nachbarhilfe || false}
-          onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
-        />
+        {operation.nachbarhilfe && (
+          <Input
+            placeholder="Feuerwehr, Kontakt..."
+            value={operation.nachbarhilfeNote || ''}
+            onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
+            className="h-8 text-sm"
+          />
+        )}
       </div>
 
       {/* Reko Reports Section */}

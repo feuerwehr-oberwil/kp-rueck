@@ -29,6 +29,7 @@ const INITIAL_FORM_DATA: RekoFormData = {
   is_relevant: null,
   dangers_json: {
     fire: false,
+    fire_danger: false,
     explosion: false,
     collapse: false,
     chemical: false,
@@ -118,7 +119,7 @@ export default function RekoForm() {
 
   // Dummy data generation functions for training mode
   const generateRandomDangers = (): Partial<ApiDangersAssessment> => {
-    const allDangers: Array<keyof ApiDangersAssessment> = ['explosion', 'collapse', 'chemical', 'electrical'];
+    const allDangers: Array<keyof ApiDangersAssessment> = ['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'];
     const selectedCount = Math.floor(Math.random() * 3) + 1; // 1-3 dangers
     const selected: Partial<ApiDangersAssessment> = {};
 
@@ -184,6 +185,7 @@ export default function RekoForm() {
       is_relevant: Math.random() > 0.2, // 80% relevant
       dangers_json: {
         fire: false, // Not shown in form - if there's fire, reko isn't needed
+        fire_danger: false,
         explosion: false,
         collapse: false,
         chemical: false,
@@ -479,6 +481,7 @@ export default function RekoForm() {
 
         <div className="space-y-2">
           {[
+            { key: 'fire_danger', label: 'Brandgefahr' },
             { key: 'explosion', label: 'Explosionsgefahr' },
             { key: 'collapse', label: 'Einsturzgefahr' },
             { key: 'chemical', label: 'Gefahrstoffe' },

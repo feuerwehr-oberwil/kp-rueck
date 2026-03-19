@@ -90,6 +90,7 @@ export function formatWhatsAppMessage({ operation, materials, rekoReport, vehicl
     if (rekoReport.dangers_json) {
       const dangers: string[] = []
       if (rekoReport.dangers_json.fire) dangers.push('🔥 Feuer')
+      if (rekoReport.dangers_json.fire_danger) dangers.push('🔥 Brandgefahr')
       if (rekoReport.dangers_json.explosion) dangers.push('💥 Explosion')
       if (rekoReport.dangers_json.collapse) dangers.push('⚠️ Einsturz')
       if (rekoReport.dangers_json.chemical) dangers.push('☢️ Gefahrstoffe')

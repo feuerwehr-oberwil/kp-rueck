@@ -763,6 +763,7 @@ class DangersAssessment(BaseModel):
     """Structured danger checklist."""
 
     fire: bool = False
+    fire_danger: bool = False
     explosion: bool = False
     collapse: bool = False
     chemical: bool = False
