@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Camera, Upload, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -14,6 +14,7 @@ async function convertToJpeg(file: File): Promise<File> {
   // Try createImageBitmap first (more reliable for HEIC on iOS)
   // Falls back to <img> element if not available
   let bitmap: ImageBitmap | null = null
+  let imgElement: HTMLImageElement | null = null
   let imgWidth: number
   let imgHeight: number
 
@@ -38,10 +39,7 @@ async function convertToJpeg(file: File): Promise<File> {
     })
     imgWidth = result.width
     imgHeight = result.height
-    // Store img for drawing later
-    bitmap = null
-    // We need to draw using the img element below
-    var imgElement = result.img
+    imgElement = result.img
   }
 
   const canvas = document.createElement('canvas')
@@ -96,6 +94,14 @@ export default function PhotoUpload({
 
   // Store local blob URLs for immediate preview (mobile-friendly)
   const [localPreviews, setLocalPreviews] = useState<Map<string, string>>(new Map())
+
+  // Revoke all blob URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      localPreviews.forEach(url => URL.revokeObjectURL(url))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleFileUpload(files: FileList | null) {
     if (!files || files.length === 0) return

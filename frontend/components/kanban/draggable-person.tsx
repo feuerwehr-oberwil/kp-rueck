@@ -6,8 +6,6 @@ import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
-import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
-import { useEvent } from "@/lib/contexts/event-context"
 import { Car, Binoculars, Package2, Check, Minus } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
@@ -20,28 +18,10 @@ interface DraggablePersonProps {
 function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
-  const { selectedEvent } = useEvent()
 
   // Reko personnel can be dragged even when assigned (they can be on multiple incidents)
   // Drivers can be dragged to assign their vehicle to an incident
   const canDrag = !disabled && (person.status === "available" || person.isReko || person.isDriver)
-
-  // Load special functions for this person
-  useEffect(() => {
-    const loadSpecialFunctions = async () => {
-      if (!selectedEvent) return
-
-      try {
-        const functions = await apiClient.getPersonnelSpecialFunctions(selectedEvent.id, person.id)
-        setSpecialFunctions(functions)
-      } catch (error) {
-        console.error('Failed to load special functions:', error)
-      }
-    }
-
-    loadSpecialFunctions()
-  }, [selectedEvent, person.id])
 
   useEffect(() => {
     const element = ref.current
@@ -66,35 +46,22 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
     })
   }, [person, canDrag])
 
-  const refreshSpecialFunctions = async () => {
-    if (!selectedEvent) return
-
-    try {
-      const functions = await apiClient.getPersonnelSpecialFunctions(selectedEvent.id, person.id)
-      setSpecialFunctions(functions)
-    } catch (error) {
-      console.error('Failed to refresh special functions:', error)
-    }
-  }
-
+  // Render badges from Person props (already computed in operations context)
   const renderSpecialFunctionBadges = () => {
     const badges = []
 
-    // Driver badges (show vehicle name)
-    const driverFunctions = specialFunctions.filter(f => f.function_type === 'driver')
-    driverFunctions.forEach(df => {
-      if (df.vehicle_name) {
-        badges.push(
-          <Badge key={`driver-${df.vehicle_id}`} variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
-            <Car className="h-3 w-3" />
-            {df.vehicle_name}
-          </Badge>
-        )
-      }
-    })
+    // Driver badge (show vehicle name)
+    if (person.isDriver && person.driverVehicleName) {
+      badges.push(
+        <Badge key={`driver-${person.driverVehicleId}`} variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
+          <Car className="h-3 w-3" />
+          {person.driverVehicleName}
+        </Badge>
+      )
+    }
 
     // Reko badge
-    if (specialFunctions.some(f => f.function_type === 'reko')) {
+    if (person.isReko) {
       badges.push(
         <Badge key="reko" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
           <Binoculars className="h-3 w-3" />
@@ -104,7 +71,7 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
     }
 
     // Magazin badge
-    if (specialFunctions.some(f => f.function_type === 'magazin')) {
+    if (person.isMagazin) {
       badges.push(
         <Badge key="magazin" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
           <Package2 className="h-3 w-3" />
@@ -122,8 +89,6 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
     <PersonContextMenu
       personnelId={person.id}
       personnelName={person.name}
-      currentFunctions={specialFunctions}
-      onFunctionsChange={refreshSpecialFunctions}
     >
       <Card
         ref={ref}
@@ -196,6 +161,10 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.person.status === nextProps.person.status &&
     prevProps.person.name === nextProps.person.name &&
     prevProps.person.role === nextProps.person.role &&
+    prevProps.person.isReko === nextProps.person.isReko &&
+    prevProps.person.isDriver === nextProps.person.isDriver &&
+    prevProps.person.driverVehicleName === nextProps.person.driverVehicleName &&
+    prevProps.person.isMagazin === nextProps.person.isMagazin &&
     JSON.stringify(prevProps.person.tags) === JSON.stringify(nextProps.person.tags) &&
     prevProps.disabled === nextProps.disabled
   )

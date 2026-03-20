@@ -3,7 +3,7 @@
  */
 
 import { io, Socket } from 'socket.io-client'
-import { getApiUrl } from './env'
+import { getWsUrl } from './env'
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
@@ -27,6 +27,7 @@ class WebSocketClient {
   private reconnectAttempts = 0
   private maxReconnectAttempts = 10
   private reconnectDelay = 1000
+  private pingIntervalId: ReturnType<typeof setInterval> | null = null
 
   /**
    * Connect to the WebSocket server
@@ -37,7 +38,7 @@ class WebSocketClient {
       return
     }
 
-    const wsUrl = getApiUrl().replace(/^http/, 'ws')
+    const wsUrl = getWsUrl()
 
     this.socket = io(wsUrl, {
       transports: ['websocket', 'polling'],
@@ -57,6 +58,10 @@ class WebSocketClient {
    * Disconnect from the WebSocket server
    */
   disconnect() {
+    if (this.pingIntervalId) {
+      clearInterval(this.pingIntervalId)
+      this.pingIntervalId = null
+    }
     if (this.socket) {
       this.socket.disconnect()
       this.socket = null
@@ -215,8 +220,11 @@ class WebSocketClient {
       console.error('WebSocket error:', data)
     })
 
-    // Keep-alive ping every 30 seconds
-    setInterval(() => {
+    // Keep-alive ping every 30 seconds (clear previous to prevent leaks)
+    if (this.pingIntervalId) {
+      clearInterval(this.pingIntervalId)
+    }
+    this.pingIntervalId = setInterval(() => {
       this.ping()
     }, 30000)
   }

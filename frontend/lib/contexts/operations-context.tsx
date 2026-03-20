@@ -362,28 +362,47 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         const ops = apiIncidents.map(apiIncidentToOperation)
 
-        // Fetch special functions first to know who is reko personnel
-        const rekoPersonnelIdsPolling = new Set<string>()
-        try {
-          const specialFunctionsPolling = await apiClient.getEventSpecialFunctions(eventId)
-          specialFunctionsPolling
-            .filter(func => func.function_type === 'reko')
-            .forEach(func => rekoPersonnelIdsPolling.add(func.personnel_id))
-        } catch (error) {
-          console.error('Failed to load special functions:', error)
+        // Fetch special functions, assignments, and reko summaries in parallel
+        const rekoPersonnelIds = new Set<string>()
+        const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>()
+        const magazinPersonnelIds = new Set<string>()
+        const assignedPersonIds = new Set<string>()
+        const assignedMaterialIds = new Set<string>()
+
+        const [specialFunctionsResult, assignmentsResult, rekoSummariesResult] = await Promise.allSettled([
+          apiClient.getEventSpecialFunctions(eventId),
+          apiClient.getAssignmentsByEvent(eventId),
+          apiClient.getEventRekoSummaries(eventId),
+        ])
+
+        // Process special functions (single fetch, used for both reko filtering and availability)
+        if (specialFunctionsResult.status === 'fulfilled') {
+          for (const func of specialFunctionsResult.value) {
+            if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
+            else if (func.function_type === 'driver') {
+              driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
+              assignedPersonIds.add(func.personnel_id)
+            } else if (func.function_type === 'magazin') {
+              magazinPersonnelIds.add(func.personnel_id)
+              assignedPersonIds.add(func.personnel_id)
+            } else {
+              assignedPersonIds.add(func.personnel_id)
+            }
+          }
+        } else {
+          console.error('Failed to load special functions:', specialFunctionsResult.reason)
         }
 
-        // Fetch assignments
-        try {
-          const assignmentsByIncident = await apiClient.getAssignmentsByEvent(eventId)
+        // Process assignments
+        if (assignmentsResult.status === 'fulfilled') {
+          const assignmentsByIncident = assignmentsResult.value
           ops.forEach((operation) => {
             const assignments = assignmentsByIncident[operation.id] || []
             for (const assignment of assignments) {
               if (assignment.resource_type === "personnel") {
                 const person = personnelList.find(p => p.id === assignment.resource_id)
                 if (person) {
-                  // Reko personnel are stored separately, not as crew
-                  if (rekoPersonnelIdsPolling.has(person.id)) {
+                  if (rekoPersonnelIds.has(person.id)) {
                     operation.assignedReko = { id: person.id, name: person.name }
                     continue
                   }
@@ -402,13 +421,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               }
             }
           })
-        } catch (error) {
-          console.error(`Failed to load assignments:`, error)
+        } else {
+          console.error('Failed to load assignments:', assignmentsResult.reason)
         }
 
-        // Fetch reko summaries
-        try {
-          const rekoSummaries = await apiClient.getEventRekoSummaries(eventId)
+        // Process reko summaries
+        if (rekoSummariesResult.status === 'fulfilled') {
+          const rekoSummaries = rekoSummariesResult.value
           ops.forEach(op => {
             const summary = rekoSummaries.summaries[op.id]
             if (summary?.has_completed_reko) {
@@ -430,28 +449,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               }
             }
           })
-        } catch (error) {
-          console.error('Failed to load reko summaries:', error)
+        } else {
+          console.error('Failed to load reko summaries:', rekoSummariesResult.reason)
         }
 
-        // Calculate availability
-        const assignedPersonIds = new Set<string>()
-        const assignedMaterialIds = new Set<string>()
-        const rekoPersonnelIds = new Set<string>()
-        const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>() // personId -> vehicle info
-        const magazinPersonnelIds = new Set<string>()
-
-        try {
-          const specialFunctions = await apiClient.getEventSpecialFunctions(eventId)
-          for (const func of specialFunctions) {
-            if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
-            else if (func.function_type === 'driver') { driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' }); assignedPersonIds.add(func.personnel_id) }
-            else if (func.function_type === 'magazin') { magazinPersonnelIds.add(func.personnel_id); assignedPersonIds.add(func.personnel_id) }
-            else assignedPersonIds.add(func.personnel_id)
-          }
-        } catch (error) {
-          console.error('Failed to load special functions:', error)
-        }
+        // Calculate availability from assignments
 
         ops.forEach(operation => {
           operation.crew.forEach(crewName => {

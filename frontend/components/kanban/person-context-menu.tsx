@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useCallback } from "react"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -28,21 +28,18 @@ interface PersonContextMenuProps {
   children: React.ReactNode
   personnelId: string
   personnelName: string
-  currentFunctions: ApiEventSpecialFunctionResponse[]
-  onFunctionsChange: () => void
 }
 
 export function PersonContextMenu({
   children,
   personnelId,
   personnelName,
-  currentFunctions,
-  onFunctionsChange,
 }: PersonContextMenuProps) {
   const { selectedEvent } = useEvent()
-  const { operations, removeCrew } = useOperations()
+  const { operations, removeCrew, refreshOperations } = useOperations()
   const [vehicles, setVehicles] = useState<Array<{ id: string; name: string }>>([])
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const [currentFunctions, setCurrentFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
   const [loading, setLoading] = useState(false)
 
   // State for conflict confirmation dialog
@@ -53,36 +50,40 @@ export function PersonContextMenu({
     conflictingOperations: Array<{ id: string; location: string; crewName: string }>
   }>({ open: false, functionType: 'driver', conflictingOperations: [] })
 
-  useEffect(() => {
-    // Load available vehicles and their current drivers
-    const loadVehicles = async () => {
-      if (!selectedEvent) return
+  // Load data lazily when context menu opens
+  const handleOpenChange = useCallback(async (open: boolean) => {
+    if (!open || !selectedEvent) return
 
-      try {
-        const allVehicles = await apiClient.getVehicles()
-        // Sort by display_order (1-5)
-        const sorted = allVehicles
-          .sort((a, b) => a.display_order - b.display_order)
-          .map(v => ({ id: v.id, name: v.name }))
-        setVehicles(sorted)
+    try {
+      const [allVehicles, allFunctions, personnelFunctions] = await Promise.all([
+        apiClient.getVehicles(),
+        apiClient.getEventSpecialFunctions(selectedEvent.id),
+        apiClient.getPersonnelSpecialFunctions(selectedEvent.id, personnelId),
+      ])
 
-        // Load all special functions to see who is assigned as driver
-        const allFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        const driverMap = new Map<string, string>()
-        allFunctions
-          .filter(f => f.function_type === 'driver' && f.vehicle_id)
-          .forEach(f => {
-            if (f.vehicle_id) {
-              driverMap.set(f.vehicle_id, f.personnel_name)
-            }
-          })
-        setVehicleDrivers(driverMap)
-      } catch (error) {
-        console.error('Failed to load vehicles:', error)
-      }
+      // Set vehicles
+      const sorted = allVehicles
+        .sort((a, b) => a.display_order - b.display_order)
+        .map(v => ({ id: v.id, name: v.name }))
+      setVehicles(sorted)
+
+      // Build driver map from all functions
+      const driverMap = new Map<string, string>()
+      allFunctions
+        .filter(f => f.function_type === 'driver' && f.vehicle_id)
+        .forEach(f => {
+          if (f.vehicle_id) {
+            driverMap.set(f.vehicle_id, f.personnel_name)
+          }
+        })
+      setVehicleDrivers(driverMap)
+
+      // Set this person's functions
+      setCurrentFunctions(personnelFunctions)
+    } catch (error) {
+      console.error('Failed to load context menu data:', error)
     }
-    loadVehicles()
-  }, [selectedEvent])
+  }, [selectedEvent, personnelId])
 
   // Find operations where this person is assigned as crew
   const getConflictingOperations = () => {
@@ -124,7 +125,7 @@ export function PersonContextMenu({
       toast.success('Funktion zugewiesen', {
         description: `${personnelName} wurde als ${getFunctionLabel(functionType)} zugewiesen`,
       })
-      onFunctionsChange()
+      refreshOperations()
     } catch (error: any) {
       console.error('Failed to assign function:', error)
 
@@ -174,7 +175,7 @@ export function PersonContextMenu({
       toast.success('Funktion entfernt', {
         description: `${personnelName} wurde als ${getFunctionLabel(functionType)} entfernt`,
       })
-      onFunctionsChange()
+      refreshOperations()
     } catch (error: any) {
       console.error('Failed to unassign function:', error)
       const errorMessage = error?.response?.data?.detail || 'Funktion konnte nicht entfernt werden'
@@ -208,7 +209,7 @@ export function PersonContextMenu({
 
   return (
     <>
-      <ContextMenu>
+      <ContextMenu onOpenChange={handleOpenChange}>
         <ContextMenuTrigger asChild>
           {children}
         </ContextMenuTrigger>
