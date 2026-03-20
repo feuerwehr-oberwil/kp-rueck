@@ -323,7 +323,7 @@ class TestEmergencyGeneration:
         generator = TrainingGenerator(db_session)
         incident = await generator.generate_emergency(training_event.id, category="normal")
 
-        assert incident.priority == "medium"
+        assert incident.priority == "low"
         assert incident.type == "brandbekaempfung"  # Only normal template type
 
     @pytest.mark.asyncio
@@ -432,8 +432,8 @@ class TestEmergencyGeneration:
         settings = {"training_normal_weight": "100", "training_critical_weight": "0"}
         incident = await generator.generate_emergency(training_event.id, settings=settings)
 
-        # Should always be medium priority (normal)
-        assert incident.priority == "medium"
+        # Should always be low priority (normal)
+        assert incident.priority == "low"
 
 
 # ============================================
@@ -567,7 +567,7 @@ class TestModuleFunctions:
         # Generate several incidents, most should be normal
         incidents = await generate_training_emergency(db_session, training_event.id, count=10)
 
-        normal_count = sum(1 for i in incidents if i.priority == "medium")
+        normal_count = sum(1 for i in incidents if i.priority == "low")
         # With 80/20 weights, expect roughly 8 normal incidents (allow variance)
         assert normal_count >= 5  # At least half should be normal
 
