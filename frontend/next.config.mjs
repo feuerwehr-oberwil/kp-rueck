@@ -45,7 +45,8 @@ const nextConfig = {
       // Fonts: self + data URIs
       "font-src 'self' data:",
       // Connect: self + API + map tiles + local tile server + WebSocket
-      "connect-src 'self' http://localhost:8000 https://*.railway.app https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080 ws://localhost:* wss://*.railway.app",
+      // Dynamically include backend URL from env (supports custom domains like kp-api.fwo.li)
+      `connect-src 'self' http://localhost:8000 https://*.railway.app ${process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : ''} ${process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/^https?/, 'wss') : ''} https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080 ws://localhost:* wss://*.railway.app`,
       // Frame ancestors: prevent clickjacking
       "frame-ancestors 'none'",
       // Form actions: only to self
