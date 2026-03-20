@@ -675,6 +675,15 @@
   }
 }
 
+/* Desaturate map tiles so incident markers stand out */
+.leaflet-tile-pane {
+  filter: saturate(0.3) brightness(1.05) contrast(0.95);
+}
+
+.dark .leaflet-tile-pane {
+  filter: saturate(0) brightness(0.6) contrast(1.1);
+}
+
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
 }

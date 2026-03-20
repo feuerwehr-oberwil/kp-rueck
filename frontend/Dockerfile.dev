@@ -18,6 +18,9 @@ RUN pnpm install
 # Copy source code and set ownership
 COPY --chown=nextjs:nodejs . .
 
+# Pre-create .next with correct ownership so anonymous volume inherits it
+RUN mkdir -p /app/.next && chown nextjs:nodejs /app/.next
+
 # Switch to non-root user
 USER nextjs
 
