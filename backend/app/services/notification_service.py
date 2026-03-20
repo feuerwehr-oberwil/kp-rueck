@@ -728,6 +728,7 @@ async def create_reko_arrived_notification(
     event_id: UUID,
     incident_title: str,
     arrived_by_name: str | None = None,
+    incident_address: str | None = None,
 ) -> Notification:
     """
     Create a notification when Reko personnel arrives on site.
@@ -738,15 +739,17 @@ async def create_reko_arrived_notification(
         event_id: ID of the event
         incident_title: Title of the incident for the message
         arrived_by_name: Optional name of personnel who arrived
+        incident_address: Location address for identification
 
     Returns:
         Created notification
     """
-    # Build message with address as primary identifier
+    # Use address as primary identifier, fall back to title
+    location = incident_address or incident_title
     if arrived_by_name:
-        message = f"Reko vor Ort: {arrived_by_name} bei {incident_title}"
+        message = f"Reko vor Ort: {arrived_by_name} bei {location}"
     else:
-        message = f"Reko vor Ort: {incident_title}"
+        message = f"Reko vor Ort: {location}"
 
     notification = Notification(
         type="reko_arrived",

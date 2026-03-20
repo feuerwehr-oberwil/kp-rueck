@@ -316,6 +316,7 @@ async def mark_reko_arrived(
                 event_id=incident.event_id,
                 incident_title=incident.title or incident.location_address or "Unbekannt",
                 arrived_by_name=arrived_by_name,
+                incident_address=incident.location_address,
             )
 
         # Convert to response schema with incident details
