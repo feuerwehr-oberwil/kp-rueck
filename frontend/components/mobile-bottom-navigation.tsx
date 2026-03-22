@@ -159,8 +159,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
                       onClick={() => {
-                        onCheckIn()
                         setSheetOpen(false)
+                        setTimeout(() => onCheckIn(), 350)
                       }}
                     >
                       <QrCode className="h-5 w-5" />
@@ -174,8 +174,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       onClick={() => {
-                        onPersonnel()
                         setSheetOpen(false)
+                        setTimeout(() => onPersonnel(), 350)
                       }}
                     >
                       <Users className="h-5 w-5" />
@@ -189,8 +189,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
                       onClick={() => {
-                        onVehicleStatus()
                         setSheetOpen(false)
+                        setTimeout(() => onVehicleStatus(), 350)
                       }}
                     >
                       <Truck className="h-5 w-5" />
@@ -204,8 +204,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
                       onClick={() => {
-                        onPrint()
                         setSheetOpen(false)
+                        setTimeout(() => onPrint(), 350)
                       }}
                     >
                       <Printer className="h-5 w-5" />
@@ -219,8 +219,8 @@ export function MobileBottomNavigation({
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
                       onClick={() => {
-                        onThermo()
                         setSheetOpen(false)
+                        setTimeout(() => onThermo(), 350)
                       }}
                     >
                       <Printer className="h-5 w-5" />
