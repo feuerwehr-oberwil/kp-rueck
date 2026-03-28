@@ -101,48 +101,34 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
   })
 }
 
-// Create vehicle marker icon with tactical omega symbol
+// Create vehicle marker icon — simple square with device number
 function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
   const isOnline = vehicle.status === 'online'
-  const size = 32
+  const size = 28
   const name = vehicle.device_name
 
   const html = `
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
-        color: white;
-        border: 2px solid white;
-        border-radius: 6px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
-        font-size: 20px;
-        font-weight: 700;
-        line-height: 1;
-      ">Ω</div>
-      <span style="
-        font-size: 10px;
-        font-weight: 700;
-        color: #1e293b;
-        background: rgba(255,255,255,0.9);
-        padding: 0 4px;
-        border-radius: 3px;
-        white-space: nowrap;
-        line-height: 1.4;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-      ">${name}</span>
-    </div>
+    <div style="
+      width: ${size}px;
+      height: ${size}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
+      color: white;
+      border: 2px solid white;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1;
+    ">${name}</div>
   `
 
   return L.divIcon({
     html,
     className: "vehicle-marker",
-    iconSize: [size, size + 16],
+    iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -size / 2],
   })
