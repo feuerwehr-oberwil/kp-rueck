@@ -1,7 +1,6 @@
 """Reko form API endpoints (no authentication required for forms, authentication required for photos)."""
 
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -16,12 +15,12 @@ from ..crud import reko as crud
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
-from ..models import Incident, RekoReport, StatusTransition
+from ..models import Incident, RekoReport
 from ..utils.errors import ErrorMessages
 
 logger = get_logger(__name__)
 from ..services.audit import log_action
-from ..services.notification_service import create_reko_arrived_notification, create_reko_notification
+from ..services.notification_service import create_reko_arrived_notification
 from ..services.photo_storage import photo_storage
 from ..services.tokens import generate_form_token, validate_form_token
 
@@ -111,80 +110,9 @@ async def submit_reko_report(
         response_data.incident_description = incident.description
         response_data.incident_contact = incident.contact
 
-    # Auto-transition reko → reko_done when report is submitted
-    if submit and incident and incident.status == "reko":
-        old_status = incident.status
-        incident.status = "reko_done"
-        transition = StatusTransition(
-            incident_id=incident.id,
-            from_status=old_status,
-            to_status="reko_done",
-            notes="Reko-Formular eingereicht",
-        )
-        db.add(transition)
-        await db.commit()
-        await db.refresh(incident)
-
-    # Auto-bump priority from low → medium if any danger flags are set
-    if submit and incident and updated.dangers_json:
-        dangers = updated.dangers_json
-        has_danger = any([
-            dangers.get("fire"),
-            dangers.get("explosion"),
-            dangers.get("collapse"),
-            dangers.get("chemical"),
-            dangers.get("electrical"),
-            dangers.get("fire_danger"),
-        ])
-        if has_danger and incident.priority == "low":
-            incident.priority = "medium"
-            await db.commit()
-            await db.refresh(incident)
-
-    # Create notification when report is submitted (not draft)
-    if submit and incident and incident.event_id:
-        # Get personnel name if available
-        submitted_by_name = None
-        if updated.submitted_by_personnel_id:
-            await db.refresh(updated, ["submitted_by_personnel"])
-            if updated.submitted_by_personnel:
-                submitted_by_name = updated.submitted_by_personnel.name
-
-        # Extract danger types and effort info for notification
-        danger_types = []
-        if updated.dangers_json:
-            d = updated.dangers_json
-            if d.get("fire"):
-                danger_types.append("Feuer")
-            if d.get("explosion"):
-                danger_types.append("Explosion")
-            if d.get("collapse"):
-                danger_types.append("Einsturz")
-            if d.get("chemical"):
-                danger_types.append("Gefahrstoffe")
-            if d.get("electrical"):
-                danger_types.append("Elektrisch")
-            if d.get("fire_danger"):
-                danger_types.append("Brandgefahr")
-
-        personnel_count = None
-        estimated_duration = None
-        if updated.effort_json:
-            personnel_count = updated.effort_json.get("personnel_count")
-            estimated_duration = updated.effort_json.get("estimated_duration_hours")
-
-        await create_reko_notification(
-            db=db,
-            incident_id=incident.id,
-            event_id=incident.event_id,
-            incident_title=incident.title or incident.location_address or "Unbekannt",
-            is_relevant=updated.is_relevant if updated.is_relevant is not None else True,
-            submitted_by_name=submitted_by_name,
-            incident_address=incident.location_address,
-            danger_types=danger_types if danger_types else None,
-            personnel_count=personnel_count,
-            estimated_duration=estimated_duration,
-        )
+    # Handle post-submission side effects (status transition, priority bump, notification)
+    if submit and incident:
+        await crud.process_reko_submission(db, incident, updated)
 
     return response_data
 

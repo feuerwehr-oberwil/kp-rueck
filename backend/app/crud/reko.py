@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, RekoReport
+from ..models import Incident, RekoReport, StatusTransition
 from ..services.tokens import validate_form_token
 
 
@@ -326,3 +326,96 @@ async def get_reko_summaries_by_event(
         }
 
     return summaries
+
+
+async def process_reko_submission(
+    db: AsyncSession,
+    incident: Incident,
+    report: RekoReport,
+) -> None:
+    """
+    Handle post-submission side effects for a reko report.
+
+    - Auto-transition incident status reko → reko_done
+    - Bump priority low → medium if dangers detected
+    - Create reko notification
+
+    Args:
+        db: Database session
+        incident: The incident the report belongs to
+        report: The submitted reko report
+    """
+    from ..services.notification_service import create_reko_notification
+
+    # Auto-transition reko → reko_done
+    if incident.status == "reko":
+        old_status = incident.status
+        incident.status = "reko_done"
+        transition = StatusTransition(
+            incident_id=incident.id,
+            from_status=old_status,
+            to_status="reko_done",
+            notes="Reko-Formular eingereicht",
+        )
+        db.add(transition)
+        await db.commit()
+        await db.refresh(incident)
+
+    # Auto-bump priority from low → medium if any danger flags are set
+    if report.dangers_json:
+        dangers = report.dangers_json
+        has_danger = any([
+            dangers.get("fire"),
+            dangers.get("explosion"),
+            dangers.get("collapse"),
+            dangers.get("chemical"),
+            dangers.get("electrical"),
+            dangers.get("fire_danger"),
+        ])
+        if has_danger and incident.priority == "low":
+            incident.priority = "medium"
+            await db.commit()
+            await db.refresh(incident)
+
+    # Create notification
+    if incident.event_id:
+        submitted_by_name = None
+        if report.submitted_by_personnel_id:
+            await db.refresh(report, ["submitted_by_personnel"])
+            if report.submitted_by_personnel:
+                submitted_by_name = report.submitted_by_personnel.name
+
+        danger_types = []
+        if report.dangers_json:
+            d = report.dangers_json
+            if d.get("fire"):
+                danger_types.append("Feuer")
+            if d.get("explosion"):
+                danger_types.append("Explosion")
+            if d.get("collapse"):
+                danger_types.append("Einsturz")
+            if d.get("chemical"):
+                danger_types.append("Gefahrstoffe")
+            if d.get("electrical"):
+                danger_types.append("Elektrisch")
+            if d.get("fire_danger"):
+                danger_types.append("Brandgefahr")
+
+        personnel_count = None
+        estimated_duration = None
+        if report.effort_json:
+            personnel_count = report.effort_json.get("personnel_count")
+            estimated_duration = report.effort_json.get("estimated_duration_hours")
+
+        await create_reko_notification(
+            db=db,
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            incident_title=incident.title or incident.location_address or "Unbekannt",
+            is_relevant=report.is_relevant if report.is_relevant is not None else True,
+            submitted_by_name=submitted_by_name,
+            incident_address=incident.location_address,
+            danger_types=danger_types if danger_types else None,
+            personnel_count=personnel_count,
+            estimated_duration=estimated_duration,
+        )

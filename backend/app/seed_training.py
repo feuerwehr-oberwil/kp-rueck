@@ -11,357 +11,497 @@ from app.models import EmergencyTemplate, TrainingLocation
 
 # Emergency Templates - Storm and water-focused scenarios
 EMERGENCY_TEMPLATES = [
-    # NORMAL - Wasserschaden / Keller auspumpen (45%)
+    # ========================================
+    # NORMAL - Wasserschaden / Keller auspumpen
+    # ========================================
     {
         "title_pattern": "Wasser im Keller Einfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller unter Wasser, ca. 25cm Wasserhöhe. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
+        "message_pattern": "Wasserschaden, Keller. Ca. 25cm Wasser, Heizung betroffen.",
     },
     {
         "title_pattern": "Überflutung Tiefgarage",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Tiefgarage überflutet durch Starkregen. Ca. 40cm Wasser. Mehrere Fahrzeuge betroffen.",
+        "message_pattern": "Hochwasser, Tiefgarage. Ca. 40cm, mehrere Fahrzeuge drin.",
     },
     {
         "title_pattern": "Wasserschaden Mehrfamilienhaus",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. Pumpen benötigt.",
+        "message_pattern": "Wasserschaden, MFH. Wasser durch Kellerfenster, Waschküche betroffen.",
     },
     {
         "title_pattern": "Keller auspumpen Gewerbebetrieb",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Grundwasser im Keller, ca. 35cm. Lagerware gefährdet. Dringend Tauchpumpen erforderlich.",
+        "message_pattern": "Wasser im Keller, Gewerbebetrieb. Ca. 35cm, Lagerware gefährdet.",
     },
     {
         "title_pattern": "Wassereinbruch nach Rohrbruch",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasserrohr im Keller gebrochen. Wasser läuft aus. Haupthahn abgestellt. Auspumpen erforderlich.",
+        "message_pattern": "Rohrbruch, Keller. Haupthahn abgestellt, Wasser steht noch.",
     },
     {
         "title_pattern": "Keller geflutet Reihenhaussiedlung",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Mehrere Keller in Siedlung überflutet. Ca. 20-30cm Wasser. Koordinierte Hilfeleistung nötig.",
+        "message_pattern": "Hochwasser, Reihenhaussiedlung. Mehrere Keller, ca. 20-30cm.",
     },
     {
         "title_pattern": "Wasserschaden Schule",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Untergeschoss der Turnhalle unter Wasser. Sportgeräte betroffen. Grosser Pumpeinsatz nötig.",
+        "message_pattern": "Wasserschaden, Turnhalle UG. Sportgeräte im Wasser.",
     },
     {
         "title_pattern": "Wasser in Liftschacht",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser im Liftschacht Mehrfamilienhaus. Lift ausser Betrieb. Fachfirma vor Ort.",
+        "message_pattern": "Wasser im Liftschacht, MFH. Lift ausser Betrieb.",
     },
     {
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Parkplatz steht unter Wasser nach Gewitter. Mehrere Fahrzeuge eingeschlossen. Abfluss verstopft.",
+        "message_pattern": "Hochwasser, Parkplatz. Abfluss verstopft, Fahrzeuge stehen im Wasser.",
     },
     {
         "title_pattern": "Wasserschaden Arztpraxis",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller der Arztpraxis überflutet. Medizinische Geräte im Lager bedroht. Priorität hoch.",
+        "message_pattern": "Wasserschaden, Keller Arztpraxis. Medizinische Geräte im Lager.",
     },
     {
         "title_pattern": "Rückstau Kanalisation",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Abwasser drückt in Keller zurück. Kanalisation überlastet. Geruchsbelästigung. Pumpen nötig.",
+        "message_pattern": "Kanalrückstau, Abwasser im Keller. Geruchsbelästigung.",
     },
-    {
-        "title_pattern": "Heizöl im Keller",
-        "incident_type": "oelwehr",
-        "category": "normal",
-        "message_pattern": "Heizöltank leckt. Öl im Keller, ca. 50 Liter. Kein Gewässer betroffen.",
-    },
-    # Simple/routine water in cellar cases - varying sizes
     {
         "title_pattern": "Wasser im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser im Keller nach Regen. Ca. 5cm in einem Raum. Bewohner bittet um Hilfe.",
+        "message_pattern": "Wasser im Keller nach Regen. Ca. 5cm, ein Raum.",
     },
     {
         "title_pattern": "Keller feucht",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller steht unter Wasser, ca. 10cm. Nur Kellerabteil betroffen. Kleine Pumpe reicht.",
+        "message_pattern": "Wasserschaden, Keller. Ca. 10cm, nur ein Abteil.",
     },
     {
         "title_pattern": "Wasser in Waschküche",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Waschküche überflutet. Ca. 3cm Wasser. Waschmaschine steht im Wasser.",
-    },
-    {
-        "title_pattern": "Wasser im Hauseingang",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Regenwasser im Hauseingang. Ca. 2cm. Läuft nicht ab. Wassersauger genügt.",
+        "message_pattern": "Wasser in Waschküche. Ca. 3cm, Maschine steht im Wasser.",
     },
     {
         "title_pattern": "Keller vollgelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller komplett unter Wasser. Ca. 50cm Wasserhöhe. Mehrere Räume. Grosse Pumpe nötig.",
+        "message_pattern": "Keller komplett unter Wasser. Ca. 50cm, mehrere Räume.",
     },
     {
         "title_pattern": "Wasserschaden Hobbyraum",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Hobbyraum im UG unter Wasser. Ca. 15cm. Möbel und Geräte betroffen.",
+        "message_pattern": "Wasserschaden, Hobbyraum UG. Ca. 15cm. Bewohner sehr aufgelöst wegen Modelleisenbahn.",
     },
     {
         "title_pattern": "Wasser im Veloraum",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Veloraum im Keller überflutet. Ca. 8cm Wasser. Velos müssen raus.",
+        "message_pattern": "Wasser im Veloraum. Ca. 8cm, 12 E-Bikes im Wasser.",
     },
     {
         "title_pattern": "Pfütze im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Wasser sammelt sich im Keller. Kleine Pfütze, ca. 2cm. Ursache unklar.",
+        "message_pattern": "Wasser im Keller, kleine Pfütze. Ca. 2cm, Ursache unklar.",
     },
     {
         "title_pattern": "Keller halb voll",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Kellerräume zur Hälfte geflutet. Ca. 30cm Wasser. Heizraum betroffen.",
-    },
-    {
-        "title_pattern": "Wasser im Treppenhaus",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Wasser läuft ins Treppenhaus. Ca. 1cm auf Treppenstufen. Rutschgefahr.",
+        "message_pattern": "Wasserschaden, Keller. Ca. 30cm, Heizraum betroffen.",
     },
     {
         "title_pattern": "Garage unter Wasser",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Einzelgarage überflutet. Ca. 12cm Wasser. Auto steht drin.",
+        "message_pattern": "Wasser in Garage. Ca. 12cm, Auto steht drin.",
     },
     {
         "title_pattern": "Wasser im Lagerraum",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Lagerraum im Keller nass. Ca. 6cm Wasser. Kartons und Kisten betroffen.",
+        "message_pattern": "Wasser im Keller, Lagerraum. Ca. 6cm, Kartons betroffen.",
     },
-    # NORMAL - Sturmschaden (25%)
-    {
-        "title_pattern": "Dachziegel gelöst",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Sturm hat Dachziegel gelöst. Absturzgefahr auf Gehweg. Sicherung erforderlich.",
-    },
-    {
-        "title_pattern": "Fassadenteile lose",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Fassadenelemente durch Sturm beschädigt. Öffentlicher Bereich gefährdet.",
-    },
-    {
-        "title_pattern": "Fenster eingeschlagen",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Sturmschaden - mehrere Fenster eingeschlagen. Gebäude offen, Wasser dringt ein.",
-    },
-    {
-        "title_pattern": "Gerüst beschädigt",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Baugerüst durch Sturm beschädigt. Einsturzgefahr. Absperrung notwendig.",
-    },
-    {
-        "title_pattern": "Werbetafel gefährdet",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Grosse Werbetafel droht zu fallen. Sturm. Strasse muss gesperrt werden.",
-    },
-    {
-        "title_pattern": "Dach abgedeckt",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Sturmschaden - Dachteile fehlen. Regenwasser dringt ein. Notabdeckung erforderlich.",
-    },
-    # NORMAL - Baum (20%)
-    {
-        "title_pattern": "Baum auf Strasse",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Baum umgestürzt, blockiert Fahrbahn komplett. Verkehr gestaut.",
-    },
-    {
-        "title_pattern": "Ast auf parkiertes Auto",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Grosser Ast auf Fahrzeug gefallen. Auto beschädigt. Niemand verletzt.",
-    },
-    {
-        "title_pattern": "Baum droht zu fallen",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Baum stark angeschlagen durch Sturm. Kippt Richtung Gebäude. Sicherung dringend.",
-    },
-    {
-        "title_pattern": "Äste auf Oberleitung",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Baum auf Stromleitung. Kurzschlussgefahr. EW bereits informiert.",
-    },
-    {
-        "title_pattern": "Baum blockiert Gehweg",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Umgestürzter Baum versperrt Fussgängerweg. Schulweg betroffen.",
-    },
-    {
-        "title_pattern": "Wurzelwerk gelockert",
-        "incident_type": "elementarereignis",
-        "category": "normal",
-        "message_pattern": "Grosse Eiche nach Sturm instabil. Wurzeln aus Boden. Akute Umsturzgefahr.",
-    },
-    # NORMAL - Weitere Wasserschäden (10%)
     {
         "title_pattern": "Wasser im Keller Restaurant",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Lagerraum Restaurant überflutet. Ca. 25cm Wasser. Lebensmittelvorräte gefährdet.",
+        "message_pattern": "Wasserschaden, Restaurant-Lager. Ca. 25cm, Lebensmittel gefährdet.",
     },
     {
         "title_pattern": "Überschwemmung Garageneinfahrt",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Einfahrt zur Tiefgarage überflutet. Wasser läuft in Garage. Ablauf verstopft.",
+        "message_pattern": "Hochwasser, Tiefgarageneinfahrt. Wasser läuft rein, Ablauf verstopft.",
     },
     {
         "title_pattern": "Wasserschaden Kindergarten",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Keller des Kindergartens unter Wasser. Material und Spielsachen betroffen. Pumpen nötig.",
+        "message_pattern": "Wasserschaden, Keller Kindergarten. Spielsachen und Material betroffen.",
     },
-    # NORMAL - Andere (10%)
     {
-        "title_pattern": "Ölspur Hauptstrasse",
-        "incident_type": "oelwehr",
+        "title_pattern": "Waschmaschine ausgelaufen",
+        "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Lange Ölspur auf Fahrbahn, ca. 100m. Unfallgefahr. Bindemittel notwendig.",
+        "message_pattern": "Wasserschaden, Waschmaschine defekt. Ca. 3cm im Keller. Melder etwas aufgeregt.",
+    },
+    {
+        "title_pattern": "Pool übergelaufen",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Gartenpool läuft über, Wasser in Nachbars Keller. Nachbarschaftsstreit.",
     },
     {
         "title_pattern": "Dachentwässerung verstopft",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Dachrinne überlauft. Wasser läuft an Fassade herunter. Eindringen in Mauerwerk.",
+        "message_pattern": "Dachrinne verstopft, Wasser läuft an Fassade runter.",
+    },
+    # ========================================
+    # NORMAL - Sturmschaden
+    # ========================================
+    {
+        "title_pattern": "Dachziegel gelöst",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, Dachziegel lose. Absturzgefahr auf Gehweg.",
+    },
+    {
+        "title_pattern": "Fassadenteile lose",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, Fassadenteile lose. Über Gehweg.",
+    },
+    {
+        "title_pattern": "Fenster eingeschlagen",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, Fenster eingeschlagen. Wasser dringt ein.",
+    },
+    {
+        "title_pattern": "Gerüst beschädigt",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, Baugerüst instabil. Einsturzgefahr.",
+    },
+    {
+        "title_pattern": "Werbetafel gefährdet",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, grosse Werbetafel droht zu fallen.",
+    },
+    {
+        "title_pattern": "Dach abgedeckt",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, Dach teilweise abgedeckt. Regen dringt ein.",
+    },
+    {
+        "title_pattern": "Trampolin auf Strasse",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, Trampolin auf Fahrbahn. Blockiert eine Spur.",
+    },
+    {
+        "title_pattern": "Sonnenstoren lose",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Sturmschaden, Storen hängt lose. Schlägt gegen Fenster.",
+    },
+    # ========================================
+    # NORMAL - Baum
+    # ========================================
+    {
+        "title_pattern": "Baum auf Strasse",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Baum auf Strasse, blockiert Fahrbahn komplett.",
+    },
+    {
+        "title_pattern": "Ast auf parkiertes Auto",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Grosser Ast auf parkiertes Auto. Keine Verletzten.",
+    },
+    {
+        "title_pattern": "Baum droht zu fallen",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Baum instabil nach Sturm. Kippt Richtung Gebäude.",
+    },
+    {
+        "title_pattern": "Äste auf Oberleitung",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Baum auf Stromleitung. EW informiert.",
+    },
+    {
+        "title_pattern": "Baum blockiert Gehweg",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Baum auf Fussgängerweg, Schulweg betroffen.",
+    },
+    {
+        "title_pattern": "Wurzelwerk gelockert",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Grosse Eiche instabil, Wurzeln aus Boden. Umsturzgefahr.",
+    },
+    {
+        "title_pattern": "Ast auf Spielplatz",
+        "incident_type": "elementarereignis",
+        "category": "normal",
+        "message_pattern": "Ast auf Spielplatz gefallen. Spielplatz gesperrt.",
+    },
+    # ========================================
+    # NORMAL - Öl / Technisch / Divers
+    # ========================================
+    {
+        "title_pattern": "Heizöl im Keller",
+        "incident_type": "oelwehr",
+        "category": "normal",
+        "message_pattern": "Ölwehr, Heizöltank leckt. Ca. 50 Liter im Keller.",
+    },
+    {
+        "title_pattern": "Ölspur Hauptstrasse",
+        "incident_type": "oelwehr",
+        "category": "normal",
+        "message_pattern": "Ölspur auf Fahrbahn. Ca. 100m lang.",
+    },
+    {
+        "title_pattern": "Ölspur Kreisel",
+        "incident_type": "oelwehr",
+        "category": "normal",
+        "message_pattern": "Ölspur im Kreisel, LKW verliert Hydrauliköl. Ca. 30m.",
     },
     {
         "title_pattern": "Lichtmast beschädigt",
-        "incident_type": "strassenrettung",
+        "incident_type": "technische_hilfeleistung",
         "category": "normal",
-        "message_pattern": "Strassenlaterne nach Sturm schief. Umzustürzen droht. Strasse sperren.",
+        "message_pattern": "Strassenlaterne schief nach Sturm. Droht umzufallen.",
     },
     {
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Parkplatz steht unter Wasser. Mehrere Fahrzeuge betroffen. Zufahrt gesperrt.",
+        "message_pattern": "Hochwasser, Parkplatz unter Wasser. Zufahrt gesperrt.",
     },
     {
         "title_pattern": "Kanaldeckel hochgedrückt",
         "incident_type": "elementarereignis",
         "category": "normal",
-        "message_pattern": "Kanaldeckel durch Wasserdruck angehoben. Stolpergefahr. Absperrung erforderlich.",
+        "message_pattern": "Kanaldeckel angehoben durch Wasserdruck. Stolpergefahr.",
     },
-    # CRITICAL - Brand (40% of critical = 4% total)
+    {
+        "title_pattern": "Tiefgaragentor klemmt",
+        "incident_type": "technische_hilfeleistung",
+        "category": "normal",
+        "message_pattern": "Tiefgaragentor blockiert, 6 Fahrzeuge eingeschlossen.",
+    },
+    {
+        "title_pattern": "Bagger reisst Wasserleitung",
+        "incident_type": "technische_hilfeleistung",
+        "category": "normal",
+        "message_pattern": "Baustelle, Bagger hat Wasserleitung erwischt. Wasser spritzt.",
+    },
+    {
+        "title_pattern": "Wespennest am Schulhaus",
+        "incident_type": "diverse_einsaetze",
+        "category": "normal",
+        "message_pattern": "Wespennest beim Eingang Schule. Schädlingsbekämpfer erst morgen verfügbar.",
+    },
+    {
+        "title_pattern": "Katze auf Baum",
+        "incident_type": "gerettete_tiere",
+        "category": "normal",
+        "message_pattern": "Katze auf Baum, seit 2 Tagen. Besitzerin am Verzweifeln.",
+    },
+    {
+        "title_pattern": "Ente in Lichtschacht",
+        "incident_type": "gerettete_tiere",
+        "category": "normal",
+        "message_pattern": "Ente mit 6 Küken im Lichtschacht. Kommen nicht raus.",
+    },
+    {
+        "title_pattern": "Igel im Kellerschacht",
+        "incident_type": "gerettete_tiere",
+        "category": "normal",
+        "message_pattern": "Igel in Kellerschacht. Bewohner füttert ihn seit einer Woche, will ihn jetzt raus haben.",
+    },
+    {
+        "title_pattern": "Schwan auf Strasse",
+        "incident_type": "gerettete_tiere",
+        "category": "normal",
+        "message_pattern": "Schwan blockiert Kreuzung. Polizei hat aufgegeben.",
+    },
+    # ========================================
+    # CRITICAL - Brand
+    # ========================================
     {
         "title_pattern": "Wohnungsbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Feuer in Wohnung, 2. OG. Rauchentwicklung stark. Personen evtl. noch im Gebäude.",
+        "message_pattern": "Brand, Wohnung 2. OG. Starker Rauch, Personen evtl. noch drin.",
     },
     {
         "title_pattern": "Fahrzeugbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "PKW brennt auf Parkplatz. Flammen sichtbar. Übergriff auf Nachbarfahrzeuge möglich.",
+        "message_pattern": "Fahrzeugbrand auf Parkplatz. Flammen sichtbar.",
     },
     {
         "title_pattern": "Brand Gartenhaus",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Gartenhütte in Vollbrand. Gasflaschen gelagert. Übergriffsgefahr auf Wohnhaus.",
+        "message_pattern": "Brand, Gartenhütte in Vollbrand. Gasflaschen drin.",
     },
     {
         "title_pattern": "Küchenbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Feuer in Küche, Fettbrand. Starke Rauchentwicklung. Bewohner evakuiert.",
+        "message_pattern": "Brand klein, Küche Fettbrand. Starker Rauch, Bewohner draussen.",
     },
     {
         "title_pattern": "Brand Dachstock",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Dachstockbrand Mehrfamilienhaus. Flammen durch Dach. Mehrere Wohnungen betroffen.",
+        "message_pattern": "Brand, Dachstock MFH. Flammen durch Dach sichtbar.",
     },
-    # CRITICAL - BMA (30% of critical = 3% total)
     {
-        "title_pattern": "BMA Schulhaus",
+        "title_pattern": "Brand Tiefgarage",
         "incident_type": "brandbekaempfung",
         "category": "critical",
-        "message_pattern": "Automatische Brandmeldeanlage ausgelöst. Schulhaus. Schüler werden evakuiert.",
+        "message_pattern": "Rauch aus Tiefgarage, vermutlich Fahrzeugbrand. Starke Verrauchung.",
+    },
+    {
+        "title_pattern": "Brand Abfallcontainer",
+        "incident_type": "brandbekaempfung",
+        "category": "critical",
+        "message_pattern": "Brand klein, Abfallcontainer unter Vordach. Flammen schlagen hoch.",
+    },
+    {
+        "title_pattern": "Brand Werkstatt",
+        "incident_type": "brandbekaempfung",
+        "category": "critical",
+        "message_pattern": "Brand, Schreinerei. Starke Flammen, viel Holz. Keine Personen.",
+    },
+    {
+        "title_pattern": "E-Bike Brand Keller",
+        "incident_type": "brandbekaempfung",
+        "category": "critical",
+        "message_pattern": "Brand, E-Bike-Akku im Veloraum. Rauch im Treppenhaus.",
+    },
+    # ========================================
+    # CRITICAL - BMA
+    # ========================================
+    {
+        "title_pattern": "BMA Schulhaus",
+        "incident_type": "bma_unechte_alarme",
+        "category": "critical",
+        "message_pattern": "BMA, Schulhaus. Evakuation läuft.",
     },
     {
         "title_pattern": "BMA Altersheim",
-        "incident_type": "brandbekaempfung",
+        "incident_type": "bma_unechte_alarme",
         "category": "critical",
-        "message_pattern": "Brandmeldeanlage Pflegeheim aktiv. Melder 2. Stock Ost. Evakuation läuft.",
+        "message_pattern": "BMA, Pflegeheim. Melder 2. Stock Ost.",
     },
     {
         "title_pattern": "BMA Gewerbe",
-        "incident_type": "brandbekaempfung",
+        "incident_type": "bma_unechte_alarme",
         "category": "critical",
-        "message_pattern": "BMA Industriebetrieb. Rauchmelder Produktionshalle. Ursache unklar.",
+        "message_pattern": "BMA, Industriebetrieb. Melder Produktionshalle.",
     },
-    # CRITICAL - Personenrettung (20% of critical = 2% total)
+    {
+        "title_pattern": "BMA Einkaufszentrum",
+        "incident_type": "bma_unechte_alarme",
+        "category": "critical",
+        "message_pattern": "BMA, Einkaufszentrum. Melder Küche Food Court.",
+    },
+    {
+        "title_pattern": "BMA Hallenbad",
+        "incident_type": "bma_unechte_alarme",
+        "category": "critical",
+        "message_pattern": "BMA, Hallenbad. Melder Technikraum, Chloranlage in der Nähe.",
+    },
+    {
+        "title_pattern": "BMA Wohnheim",
+        "incident_type": "bma_unechte_alarme",
+        "category": "critical",
+        "message_pattern": "BMA, Studentenwohnheim. Melder 3. OG Küche.",
+    },
+    # ========================================
+    # CRITICAL - Personenrettung
+    # ========================================
     {
         "title_pattern": "Person in Lift",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "Person eingeschlossen in Personenlift. 4. OG. Lift steht zwischen Stockwerken.",
+        "message_pattern": "Person in Lift eingeschlossen, 4. OG. Steht zwischen Stockwerken.",
     },
     {
         "title_pattern": "Verkehrsunfall eingeklemmt",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "VU zwei PKW. Eine Person eingeklemmt. Sanität vor Ort. Rettung erforderlich.",
+        "message_pattern": "VU, 2 PKW. Eine Person eingeklemmt. Sanität vor Ort.",
     },
     {
         "title_pattern": "Absturz Baugerüst",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "Person von Gerüst gestürzt. Ca. 3m Höhe. Bewusstlos. Sanität alarmiert.",
+        "message_pattern": "Person ab Gerüst gestürzt, ca. 3m. Bewusstlos.",
     },
-    # CRITICAL - Andere (10% of critical = 1% total)
     {
-        "title_pattern": "Gasgeruch",
+        "title_pattern": "Kind in Schacht",
         "incident_type": "strassenrettung",
         "category": "critical",
-        "message_pattern": "Starker Gasgeruch in Mehrfamilienhaus. Quelle unbekannt. Bewohner besorgt.",
+        "message_pattern": "Kind in Kanalschacht gefallen. Ansprechbar.",
+    },
+    {
+        "title_pattern": "Auffahrunfall Kreuzung",
+        "incident_type": "strassenrettung",
+        "category": "critical",
+        "message_pattern": "VU, Auffahrunfall 3 Fahrzeuge. Betriebsstoffe laufen aus.",
+    },
+    # ========================================
+    # CRITICAL - Andere
+    # ========================================
+    {
+        "title_pattern": "Gasgeruch",
+        "incident_type": "chemiewehr",
+        "category": "critical",
+        "message_pattern": "Gasgeruch in MFH. Quelle unbekannt, Bewohner draussen.",
     },
     {
         "title_pattern": "Chemikalienunfall Labor",
-        "incident_type": "strassenrettung",
+        "incident_type": "chemiewehr",
         "category": "critical",
-        "message_pattern": "Chemikalien ausgelaufen. Schule, Chemiesaal. Dämpfe. Gebäude wird geräumt.",
+        "message_pattern": "Chemie ausgelaufen, Schule Chemiesaal. Dämpfe, Gebäude wird geräumt.",
+    },
+    {
+        "title_pattern": "Chlorgeruch Hallenbad",
+        "incident_type": "chemiewehr",
+        "category": "critical",
+        "message_pattern": "Chlorgeruch Hallenbad. Dosieranlage vermutlich defekt.",
     },
 ]
 

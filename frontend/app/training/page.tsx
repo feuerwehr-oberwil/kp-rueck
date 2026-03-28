@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { TrainingControls } from "@/components/training-controls"
+import { TrainingSimulationControls } from "@/components/training-simulation-controls"
 import { useEvent } from "@/lib/contexts/event-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
@@ -71,6 +72,7 @@ export default function TrainingPage() {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-20 md:pb-8">
           <div className="max-w-4xl mx-auto">
             <TrainingControls />
+            <TrainingSimulationControls />
           </div>
         </main>
 

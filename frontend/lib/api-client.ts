@@ -1365,6 +1365,25 @@ class ApiClient {
     return this.request<ApiTrainingLocation[]>('/api/training/locations/')
   }
 
+  async simulateCheckin(
+    eventId: string,
+    count: number
+  ): Promise<{ checked_in: string[]; total_checked_in: number; total_available: number }> {
+    return this.request(`/api/training/events/${eventId}/simulate/checkin`, {
+      method: 'POST',
+      body: JSON.stringify({ count }),
+    })
+  }
+
+  async simulateReko(
+    eventId: string,
+    incidentId: string
+  ): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(`/api/training/events/${eventId}/simulate/reko/${incidentId}`, {
+      method: 'POST',
+    })
+  }
+
   // Divera 24/7 Integration
   async getDiveraEmergencies(params?: {
     attached?: boolean

@@ -1256,6 +1256,20 @@ class GenerateEmergencyRequest(BaseModel):
     count: int = 1  # For burst generation (1-10)
 
 
+class SimulateCheckinRequest(BaseModel):
+    """Schema for simulating personnel check-in during training."""
+
+    count: int = 10  # Number of personnel to check in (1-50)
+
+
+class SimulateCheckinResponse(BaseModel):
+    """Response for simulated check-ins."""
+
+    checked_in: list[str]  # Names of checked-in personnel
+    total_checked_in: int  # Total now checked in for this event
+    total_available: int  # Total available personnel
+
+
 # ============================================
 # Stats Schemas
 # ============================================
