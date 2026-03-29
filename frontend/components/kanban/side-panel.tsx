@@ -406,7 +406,6 @@ function SidePanelDetail({
       setIsTransferring(true)
       await apiClient.transferAssignments(operation.id, targetIncidentId)
       setTransferDialogOpen(false)
-      toast.success("Ressourcen übertragen")
     } catch (error: any) {
       toast.error("Fehler beim Übertragen", {
         description: error?.message || "Die Ressourcen konnten nicht übertragen werden."

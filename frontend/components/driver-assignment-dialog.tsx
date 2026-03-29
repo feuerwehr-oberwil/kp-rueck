@@ -167,7 +167,6 @@ export function DriverAssignmentDialog({
       setJustAssigned(person.id)
       setTimeout(() => setJustAssigned(null), 600)
 
-      toast.success(`${person.name} als Fahrer für ${vehicleName} zugewiesen`)
       onDriverAssigned()
       onOpenChange(false)
     } catch (error) {
@@ -211,7 +210,6 @@ export function DriverAssignmentDialog({
       setLocalDriverId(null)
       setLocalDriverName(null)
 
-      toast.success(`Fahrer von ${vehicleName} entfernt`)
       onDriverAssigned()
       // Keep modal open to allow selecting a new driver
     } catch (error) {

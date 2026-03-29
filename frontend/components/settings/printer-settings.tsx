@@ -73,7 +73,6 @@ export function PrinterSettings() {
       await apiClient.updateSetting(key, value);
       setSettings((prev) => ({ ...prev, [key]: value }));
       savedSettingsRef.current[key] = value;
-      toast.success('Einstellung gespeichert');
       // Refresh status after settings change
       loadPrinterStatus();
     } catch (error) {

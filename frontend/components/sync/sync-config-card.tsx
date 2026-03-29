@@ -55,7 +55,6 @@ export function SyncConfigCard() {
       }
       await apiClient.updateSyncConfig(newConfig)
       setConfig(newConfig)
-      toast.success('Synchronisations-Konfiguration gespeichert')
     } catch (error) {
       toast.error('Fehler beim Speichern der Konfiguration')
       console.error(error)

@@ -33,15 +33,6 @@ export function TrainingControls() {
       const incident = incidents[0];
       console.log('✓ Normal training emergency created:', incident.title, 'at', incident.location_address);
 
-      toast.success('✓ Normal-Einsatz erstellt', {
-        description: (
-          <div className="mt-2 space-y-1">
-            <div className="font-semibold">{incident.title}</div>
-            {incident.location_address && <div className="text-sm text-muted-foreground">{incident.location_address}</div>}
-          </div>
-        ),
-        duration: 5000,
-      });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
       toast.error('Fehler', {
@@ -60,15 +51,6 @@ export function TrainingControls() {
       const incident = incidents[0];
       console.log('✓ Critical training emergency created:', incident.title, 'at', incident.location_address);
 
-      toast.success('✓ Kritischer Einsatz erstellt', {
-        description: (
-          <div className="mt-2 space-y-1">
-            <div className="font-semibold">{incident.title}</div>
-            {incident.location_address && <div className="text-sm text-muted-foreground">{incident.location_address}</div>}
-          </div>
-        ),
-        duration: 5000,
-      });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
       toast.error('Fehler', {
@@ -86,18 +68,6 @@ export function TrainingControls() {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: null, count: 5 });
       console.log(`✓ ${incidents.length} training emergencies created:`, incidents.map(i => i.title).join(', '));
 
-      toast.success(`✓ ${incidents.length} Einsätze erstellt`, {
-        description: (
-          <div className="mt-2 space-y-1">
-            {incidents.map((inc, idx) => (
-              <div key={inc.id} className="text-sm">
-                {idx + 1}. {inc.title}
-              </div>
-            ))}
-          </div>
-        ),
-        duration: 6000,
-      });
     } catch (error) {
       console.error('❌ Failed to generate burst:', error);
       toast.error('Fehler', {

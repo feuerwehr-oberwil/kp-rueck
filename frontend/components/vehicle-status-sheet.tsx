@@ -247,7 +247,6 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
   const handleManualRefresh = () => {
     loadVehicleStatuses()
-    toast.success("Aktualisiert")
   }
 
   if (!eventId) {

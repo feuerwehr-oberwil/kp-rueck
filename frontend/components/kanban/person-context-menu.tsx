@@ -122,9 +122,6 @@ export function PersonContextMenu({
         function_type: functionType,
         vehicle_id: vehicleId || null,
       })
-      toast.success('Funktion zugewiesen', {
-        description: `${personnelName} wurde als ${getFunctionLabel(functionType)} zugewiesen`,
-      })
       refreshOperations()
     } catch (error: any) {
       console.error('Failed to assign function:', error)
@@ -171,9 +168,6 @@ export function PersonContextMenu({
         personnel_id: personnelId,
         function_type: functionType,
         vehicle_id: vehicleId || null,
-      })
-      toast.success('Funktion entfernt', {
-        description: `${personnelName} wurde als ${getFunctionLabel(functionType)} entfernt`,
       })
       refreshOperations()
     } catch (error: any) {

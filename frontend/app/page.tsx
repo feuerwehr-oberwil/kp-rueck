@@ -376,7 +376,6 @@ export default function FireStationDashboard() {
       onNewOperation: () => setNewEmergencyModalOpen(true),
       onRefresh: () => {
         refreshOperations()
-        toast.success("Daten aktualisiert")
       },
       onToggleLeftSidebar: () => setShowLeftSidebar(prev => !prev),
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
@@ -709,7 +708,6 @@ export default function FireStationDashboard() {
         // This allows cmd+r / ctrl+r to work normally for browser refresh
         e.preventDefault()
         refreshOperations()
-        toast.success("Daten aktualisiert")
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         // Delete hovered operation with confirmation dialog
         if (hoveredOperationId) {
@@ -1057,7 +1055,6 @@ export default function FireStationDashboard() {
     if (!operationToDelete) return
     try {
       await deleteOperation(operationToDelete.id)
-      toast.success("Einsatz gelöscht")
     } catch (error) {
       console.error('Failed to delete operation:', error)
       toast.error("Fehler beim Löschen")
@@ -1327,7 +1324,6 @@ export default function FireStationDashboard() {
               try {
                 await deleteOperation(operationId)
                 setPanelSelectedId(null)
-                toast.success("Einsatz gelöscht")
               } catch (error) {
                 console.error('Failed to delete operation:', error)
                 toast.error("Fehler beim Löschen")

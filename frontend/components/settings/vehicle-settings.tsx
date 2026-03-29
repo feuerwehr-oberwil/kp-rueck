@@ -114,10 +114,8 @@ export function VehicleSettings() {
     try {
       if (editingVehicle) {
         await apiClient.updateVehicle(editingVehicle.id, formData);
-        toast.success(`Fahrzeug "${formData.name}" aktualisiert`);
       } else {
         await apiClient.createVehicle(formData);
-        toast.success(`Fahrzeug "${formData.name}" erstellt`);
       }
       await loadVehicles();
       handleCloseDialog();
@@ -151,7 +149,6 @@ export function VehicleSettings() {
     try {
       await apiClient.deleteVehicle(vehicleToDelete.id);
       await loadVehicles();
-      toast.success(`Fahrzeug "${vehicleToDelete.name}" gelöscht`);
     } catch (error) {
       console.error('Failed to delete vehicle:', error);
       toast.error('Fehler beim Löschen des Fahrzeugs', { description: 'Das Fahrzeug konnte nicht gelöscht werden. Versuchen Sie es erneut.' });

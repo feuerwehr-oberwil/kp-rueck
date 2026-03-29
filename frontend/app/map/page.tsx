@@ -319,7 +319,6 @@ export default function MapPage() {
         // This allows cmd+r / ctrl+r to work normally for browser refresh
         e.preventDefault()
         refreshIncidents()
-        toast.success("Daten aktualisiert")
       }
       // Arrow keys to pan map (placeholder - would need to integrate with Leaflet map)
       // Note: Actual map panning would require access to the Leaflet map instance

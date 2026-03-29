@@ -527,11 +527,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (update: WebSocketUpdate) => {
       if (!shouldSkipUpdate()) {
         loadData(false)
-        if (update.data && typeof update.data === 'object' && 'count' in update.data) {
-          toast.success("Ressourcen übertragen", {
-            description: `${update.data.count} Ressourcen wurden erfolgreich übertragen.`
-          })
-        }
       }
     })
 

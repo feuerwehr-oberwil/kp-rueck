@@ -9,7 +9,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search, Users, Truck, Package, CheckCircle, Circle } from "lucide-react"
 import { type Person, type Material } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
-import { toast } from "sonner"
 
 interface ResourceAssignmentDialogProps {
   open: boolean
@@ -154,12 +153,10 @@ export function ResourceAssignmentDialog({
     const isAssigned = isVehicleAssigned(vehicle.name)
     if (isAssigned) {
       onRemoveVehicle(operationId, vehicle.name)
-      toast.success(`${vehicle.name} entfernt`)
     } else {
       onAssignVehicle(vehicle.id, vehicle.name, operationId)
       setJustAssigned(vehicle.id)
       setTimeout(() => setJustAssigned(null), 600)
-      toast.success(`${vehicle.name} zugewiesen`)
     }
   }
 
@@ -204,9 +201,6 @@ export function ResourceAssignmentDialog({
         onRemovePerson(operationId, name)
       }
 
-      if (toAdd.length > 0 || toRemove.length > 0) {
-        toast.success(`Mannschaft aktualisiert`)
-      }
     }
 
     // Process material changes
@@ -225,9 +219,6 @@ export function ResourceAssignmentDialog({
         onRemoveMaterial(operationId, id)
       }
 
-      if (toAdd.length > 0 || toRemove.length > 0) {
-        toast.success(`Material aktualisiert`)
-      }
     }
 
     onOpenChange(false)

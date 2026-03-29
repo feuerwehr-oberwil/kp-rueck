@@ -271,7 +271,6 @@ export default function SettingsPage() {
     try {
       await apiClient.updateSetting(key, value);
       setSettings((prev) => ({ ...prev, [key]: value }));
-      toast.success('Einstellung gespeichert');
     } catch (err) {
       console.error(`Failed to update setting ${key}:`, err);
       toast.error('Fehler beim Speichern');

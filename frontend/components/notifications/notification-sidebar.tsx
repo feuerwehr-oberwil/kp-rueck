@@ -86,7 +86,14 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
       )}
       role="article"
       aria-label={`${getSeverityLabel(notification.severity)} notification`}
-      onClick={() => isClickable && onClickIncident(notification.incident_id!)}
+      onClick={() => {
+        if (isClickable) {
+          if (!notification.dismissed && onDismiss) {
+            onDismiss(notification.id)
+          }
+          onClickIncident(notification.incident_id!)
+        }
+      }}
     >
       <div className="flex items-start gap-2.5">
         <div className="flex-shrink-0 mt-0.5">{styles.icon}</div>

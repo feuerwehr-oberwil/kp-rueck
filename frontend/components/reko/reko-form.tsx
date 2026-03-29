@@ -170,7 +170,6 @@ export default function RekoForm() {
       const response = await apiClient.markRekoArrived(incidentId, token)
       if (response.arrived_at) {
         setArrivedAt(new Date(response.arrived_at))
-        toast.success('Ankunft gemeldet')
       }
     } catch (error) {
       console.error('Failed to mark arrived:', error)
@@ -207,7 +206,6 @@ export default function RekoForm() {
     };
 
     setFormData(dummyData);
-    toast.success('Dummy-Daten generiert');
   };
 
   // Validate access and load existing data
@@ -339,8 +337,6 @@ export default function RekoForm() {
 
       // Clear localStorage after successful submission
       clearLocalStorage()
-
-      toast.success('Meldung erfolgreich übermittelt')
 
       // Redirect to success page with return URL for back button functionality
       setTimeout(() => {

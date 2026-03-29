@@ -45,9 +45,6 @@ export function useOperationHandlers({
   const handleOperationDelete = async (operationId: string) => {
     try {
       await deleteOperation(operationId)
-      toast.success("Einsatz gelöscht", {
-        description: "Der Einsatz wurde erfolgreich aus der Datenbank entfernt.",
-      })
     } catch (error) {
       console.error('Failed to delete operation:', error)
       toast.error("Fehler beim Löschen", {

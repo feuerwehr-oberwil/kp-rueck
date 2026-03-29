@@ -49,22 +49,6 @@ export function TrainingSimulationControls() {
         toast.info('Keine weiteren Personen verfügbar', {
           description: 'Alle verfügbaren Personen sind bereits eingecheckt.',
         });
-      } else {
-        toast.success(`${result.checked_in.length} Person(en) eingecheckt`, {
-          description: (
-            <div className="mt-1 space-y-0.5">
-              <div className="text-xs text-muted-foreground">
-                {result.total_checked_in} von {result.total_available} total eingecheckt
-              </div>
-              {result.checked_in.length <= 5 && (
-                <div className="text-xs">
-                  {result.checked_in.join(', ')}
-                </div>
-              )}
-            </div>
-          ),
-          duration: 4000,
-        });
       }
     } catch (error) {
       console.error('Failed to simulate check-in:', error);
@@ -79,18 +63,6 @@ export function TrainingSimulationControls() {
     setIsSubmittingReko(true);
     try {
       const result = await apiClient.simulateReko(selectedEvent.id, selectedIncidentId);
-
-      toast.success('Reko-Bericht eingereicht', {
-        description: (
-          <div className="mt-1 space-y-0.5">
-            <div className="font-medium text-sm">{result.incident_title}</div>
-            {result.summary_text && (
-              <div className="text-xs text-muted-foreground line-clamp-2">{result.summary_text}</div>
-            )}
-          </div>
-        ),
-        duration: 5000,
-      });
 
       // Clear selection since this incident is no longer in reko status
       setSelectedIncidentId('');

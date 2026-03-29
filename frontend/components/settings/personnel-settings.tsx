@@ -109,12 +109,10 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         setPersonnel((prev) =>
           prev.map((p) => (p.id === editingPersonnel.id ? updated : p))
         );
-        toast.success(`"${formData.name}" aktualisiert`);
       } else {
         const created = await apiClient.createPersonnel(formData);
         // Optimistic update: append new person
         setPersonnel((prev) => [...prev, created]);
-        toast.success(`"${formData.name}" erstellt`);
       }
       handleCloseDialog();
     } catch (error) {
@@ -148,7 +146,6 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       await apiClient.deletePersonnel(personnelToDelete.id);
       // Optimistic update: remove the deleted person
       setPersonnel((prev) => prev.filter((p) => p.id !== personnelToDelete.id));
-      toast.success(`"${personnelToDelete.name}" gelöscht`);
     } catch (error) {
       console.error('Failed to delete personnel:', error);
       toast.error('Fehler beim Löschen', { description: 'Die Person konnte nicht gelöscht werden. Versuchen Sie es erneut.' });

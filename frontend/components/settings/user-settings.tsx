@@ -94,7 +94,6 @@ export function UserSettings() {
         ...formData,
         display_name: formData.display_name || formData.username,
       });
-      toast.success('Benutzer erstellt');
       setCreateDialogOpen(false);
       setFormData({ username: '', password: '', role: 'editor', display_name: '' });
       fetchUsers();
@@ -116,7 +115,6 @@ export function UserSettings() {
         role: formData.role as 'admin' | 'editor',
       };
       await apiClient.updateUser(selectedUser.id, updateData);
-      toast.success('Benutzer aktualisiert');
       setEditDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
@@ -133,7 +131,6 @@ export function UserSettings() {
     setSubmitting(true);
     try {
       await apiClient.resetUserPassword(selectedUser.id, newPassword);
-      toast.success('Passwort zurückgesetzt');
       setPasswordDialogOpen(false);
       setSelectedUser(null);
       setNewPassword('');
@@ -150,7 +147,6 @@ export function UserSettings() {
     setSubmitting(true);
     try {
       await apiClient.deleteUser(selectedUser.id);
-      toast.success('Benutzer deaktiviert');
       setDeleteDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
@@ -166,7 +162,6 @@ export function UserSettings() {
     setSubmitting(true);
     try {
       await apiClient.updateUser(user.id, { is_active: true });
-      toast.success('Benutzer reaktiviert');
       fetchUsers();
     } catch (err) {
       console.error('Failed to reactivate user:', err);
@@ -181,7 +176,6 @@ export function UserSettings() {
     setSubmitting(true);
     try {
       await apiClient.deleteUser(selectedUser.id, true);
-      toast.success('Benutzer endgültig gelöscht');
       setPermanentDeleteDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();

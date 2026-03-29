@@ -147,7 +147,6 @@ export default function PhotoUpload({
 
       if (uploadedFilenames.length > 0) {
         onPhotosChange([...photos, ...uploadedFilenames])
-        toast.success(`${uploadedFilenames.length} Foto(s) hochgeladen`)
       }
     } catch (error) {
       console.error('Upload failed:', error)
@@ -178,7 +177,6 @@ export default function PhotoUpload({
       }
 
       onPhotosChange(photos.filter(f => f !== filename))
-      toast.success('Foto entfernt')
     } catch (error) {
       console.error('Delete failed:', error)
       toast.error('Foto konnte nicht gelöscht werden')

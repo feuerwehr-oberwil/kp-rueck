@@ -57,7 +57,6 @@ export function AssignRekoDialog({
     setAssigning(person.personnel_id)
     try {
       await apiClient.assignRekoPersonnel(incidentId, person.personnel_id)
-      toast.success(`${person.name} für Reko zugewiesen`)
       onAssigned?.()
       onOpenChange(false)
     } catch (err) {

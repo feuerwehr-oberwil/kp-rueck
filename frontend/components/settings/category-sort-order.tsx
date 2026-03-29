@@ -166,9 +166,6 @@ export function CategorySortOrder({ title, description, categories: initialCateg
     try {
       await onSave(categories);
       setHasChanges(false);
-      toast.success('Sortierung gespeichert', {
-        description: 'Die Kategoriereihenfolge wurde erfolgreich aktualisiert.',
-      });
     } catch (error) {
       console.error('Failed to save sort order:', error);
       toast.error('Fehler beim Speichern', {

@@ -269,10 +269,6 @@ export function OperationDetailModal({
       setTransferDialogOpen(false)
       onOpenChange(false)
 
-      // Success toast after dialogs close
-      toast.success("Ressourcen übertragen", {
-        description: `Alle Ressourcen wurden erfolgreich übertragen.`
-      })
     } catch (error: any) {
       toast.error("Fehler beim Übertragen", {
         description: error?.message || "Die Ressourcen konnten nicht übertragen werden."
@@ -301,17 +297,14 @@ export function OperationDetailModal({
         if (e.key === '1' || e.key === '!') {
           e.preventDefault()
           onUpdate({ priority: 'low' })
-          toast.success('Priorität auf Niedrig gesetzt')
           return
         } else if (e.key === '2' || e.key === '@') {
           e.preventDefault()
           onUpdate({ priority: 'medium' })
-          toast.success('Priorität auf Mittel gesetzt')
           return
         } else if (e.key === '3' || e.key === '#') {
           e.preventDefault()
           onUpdate({ priority: 'high' })
-          toast.success('Priorität auf Hoch gesetzt')
           return
         }
       }
@@ -327,11 +320,9 @@ export function OperationDetailModal({
           if (isAssigned) {
             // Unassign the vehicle
             onRemoveVehicle(operation.id, vehicle.name)
-            toast.success(`${vehicle.name} entfernt`)
           } else {
             // Assign the vehicle
             onAssignVehicle(vehicle.id, vehicle.name, operation.id)
-            toast.success(`${vehicle.name} zugewiesen`)
           }
         }
         return

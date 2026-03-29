@@ -47,7 +47,6 @@ export function TransferRekoDialog({
         toPerson.id,
         selectedEvent.id,
       )
-      toast.success(`${result.transferred_count} Reko-Aufträge übertragen an ${toPerson.name}`)
       onTransferred()
       onOpenChange(false)
     } catch {

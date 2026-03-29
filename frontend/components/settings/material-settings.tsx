@@ -67,10 +67,8 @@ export function MaterialSettings() {
     try {
       if (editingMaterial) {
         await apiClient.updateMaterialResource(editingMaterial.id, formData);
-        toast.success(`Material "${formData.name}" aktualisiert`);
       } else {
         await apiClient.createMaterialResource(formData);
-        toast.success(`Material "${formData.name}" erstellt`);
       }
       await loadMaterials();
       handleCloseDialog();
@@ -102,7 +100,6 @@ export function MaterialSettings() {
     try {
       await apiClient.deleteMaterialResource(materialToDelete.id);
       await loadMaterials();
-      toast.success(`Material "${materialToDelete.name}" gelöscht`);
     } catch (error) {
       console.error('Failed to delete material:', error);
       toast.error('Fehler beim Löschen des Materials', { description: 'Das Material konnte nicht gelöscht werden. Versuchen Sie es erneut.' });

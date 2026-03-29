@@ -50,9 +50,6 @@ export function IncidentsKanban() {
     try {
       setIsTransferring(true)
       await apiClient.transferAssignments(transferSourceIncident.id, targetIncidentId)
-      toast.success("Ressourcen übertragen", {
-        description: `Alle Ressourcen wurden erfolgreich übertragen.`
-      })
       setTransferDialogOpen(false)
       refreshIncidents()
     } catch (error: any) {

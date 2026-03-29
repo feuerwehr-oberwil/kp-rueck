@@ -12,7 +12,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Save, MapPin, Check, ChevronsUpDown, Building2 } from 'lucide-react'
-import { toast } from "sonner"
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { useIncidents } from "@/lib/contexts/operations-context"
@@ -86,7 +85,6 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
     try {
       if (mode === 'create') {
         await createIncident(formData)
-        toast.success('Einsatz erstellt', { description: formData.title })
       } else if (incident) {
         const updateData: IncidentUpdate = {
           title: formData.title,
@@ -99,7 +97,6 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
           nachbarhilfe: formData.nachbarhilfe,
         }
         await updateIncident(incident.id, updateData)
-        toast.success('Einsatz aktualisiert', { description: formData.title })
       }
 
       // Reset form and close

@@ -81,7 +81,6 @@ export function NewEmergencyModal({
     }
 
     onCreateOperation(formData)
-    toast.success(`Einsatz erstellt: ${formData.location}`)
 
     // Reset form and validation state
     setFormData({
