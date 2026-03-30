@@ -88,10 +88,12 @@ export function PrinterSettings() {
     try {
       const status = await loadPrinterStatus();
 
-      if (status?.enabled && status.ip) {
-        toast.success('Drucker ist konfiguriert und bereit');
-      } else {
+      if (!status?.enabled || !status.ip) {
         toast.info('Drucker ist nicht aktiviert oder konfiguriert');
+      } else if (status.last_error) {
+        toast.error(`Letzter Druckauftrag fehlgeschlagen: ${status.last_error}`);
+      } else {
+        toast.success('Drucker ist konfiguriert und bereit');
       }
     } catch (error) {
       toast.error('Verbindungstest fehlgeschlagen');

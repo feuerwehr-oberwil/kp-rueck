@@ -15,7 +15,6 @@ import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { copyToClipboard } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
 
 interface DisponiertTransitionDialogProps {
   open: boolean
@@ -24,6 +23,7 @@ interface DisponiertTransitionDialogProps {
   materials: Material[]
   printerEnabled?: boolean
   vehicleDrivers?: Map<string, string>
+  funkrufname?: string
 }
 
 export function DisponierTransitionDialog({
@@ -33,6 +33,7 @@ export function DisponierTransitionDialog({
   materials,
   printerEnabled,
   vehicleDrivers,
+  funkrufname = "Omega",
 }: DisponiertTransitionDialogProps) {
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
@@ -63,13 +64,24 @@ export function DisponierTransitionDialog({
     }
   }
 
+  const location = operation.location || "[Adresse]"
+  const crewList = operation.crew.length > 0
+    ? operation.crew.join(", ")
+    : null
   const vehicleList = operation.vehicles.length > 0
     ? operation.vehicles.join(", ")
-    : "[Fahrzeug]"
+    : null
+  const materialNames = operation.materials.length > 0
+    ? operation.materials
+        .map(id => materials.find(m => m.id === id)?.name)
+        .filter(Boolean)
+        .join(", ")
+    : null
 
-  const incidentType = getIncidentTypeLabel(operation.incidentType)
-  const location = operation.location || "[Adresse]"
-  const description = operation.notes || ""
+  // Reko dangers for "besonderes" section
+  const rekoDangers = operation.rekoSummary?.hasDangers && operation.rekoSummary.dangerTypes.length > 0
+    ? operation.rekoSummary.dangerTypes.join(", ")
+    : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,7 +101,7 @@ export function DisponierTransitionDialog({
               Funkdurchsage
             </div>
             <p className="text-sm text-muted-foreground italic leading-relaxed">
-              &quot;Einsatzleitung an <span className="font-semibold text-foreground">{vehicleList}</span>, neuer Einsatz: <span className="font-semibold text-foreground">{incidentType}</span> an <span className="font-semibold text-foreground">{location}</span>.{description ? ` ${description}.` : ""} Bitte kommen.&quot;
+              &quot;An alle {funkrufname}, neuer Einsatz: <span className="font-semibold text-foreground">{location}</span>, es rücken aus{crewList ? <> <span className="font-semibold text-foreground">{crewList}</span></> : null}{vehicleList ? <> mit <span className="font-semibold text-foreground">{vehicleList}</span></> : null}{materialNames ? <> und <span className="font-semibold text-foreground">{materialNames}</span></> : null}.{rekoDangers ? <> Besonderes: <span className="font-semibold text-foreground">{rekoDangers}</span>.</> : null}&quot;
             </p>
           </div>
 

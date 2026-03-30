@@ -112,6 +112,12 @@ const SETTING_CONFIGS: SettingConfig[] = [
     type: 'text',
   },
   {
+    key: 'funkrufname',
+    label: 'Funkrufname',
+    description: 'Funkrufname der Einheit für die Funkdurchsage (z.B. Omega, Gamma)',
+    type: 'text',
+  },
+  {
     key: 'map_mode',
     label: 'Karten-Modus',
     description: 'Auto (Online mit Offline-Fallback), Online oder Offline',

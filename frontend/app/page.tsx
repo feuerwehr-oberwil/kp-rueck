@@ -271,6 +271,7 @@ export default function FireStationDashboard() {
   // Thermal printer state
   const [printerEnabled, setPrinterEnabled] = useState(false)
   const [isPrintingBoard, setIsPrintingBoard] = useState(false)
+  const [funkrufname, setFunkrufname] = useState("Omega")
 
   // Fetch Reko personnel names when the crew assignment dialog opens
   // These personnel should be excluded from regular crew assignment (they're Reko only)
@@ -301,7 +302,7 @@ export default function FireStationDashboard() {
   }, [assignmentDialogOpen, assignmentResourceType, selectedEvent, personnel])
 
 
-  // Fetch printer status once authenticated
+  // Fetch printer status and settings once authenticated
   useEffect(() => {
     if (!isAuthenticated) return
     async function fetchPrinterStatus() {
@@ -313,7 +314,14 @@ export default function FireStationDashboard() {
         setPrinterEnabled(false)
       }
     }
+    async function fetchFunkrufname() {
+      try {
+        const settings = await apiClient.getAllSettings()
+        if (settings.funkrufname) setFunkrufname(settings.funkrufname)
+      } catch { /* ignore */ }
+    }
     fetchPrinterStatus()
+    fetchFunkrufname()
   }, [isAuthenticated])
 
   // Handle thermal board print
@@ -1396,7 +1404,7 @@ export default function FireStationDashboard() {
         </div>
 
         {/* Desktop Footer - z-index lowered when modals open so dialog overlay covers it */}
-        <footer className={`relative bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border ${detailModalOpen || newEmergencyModalOpen ? 'z-40' : 'z-[60]'}`}>
+        <footer className={`relative bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border ${detailModalOpen || newEmergencyModalOpen || disponiertDialogOp ? 'z-40' : 'z-[60]'}`}>
           <div className="flex items-center justify-between gap-4">
             {/* Left: Primary action */}
             <div className="flex items-center gap-3">
@@ -1938,6 +1946,7 @@ export default function FireStationDashboard() {
         operation={disponiertDialogOp}
         materials={materials}
         printerEnabled={printerEnabled}
+        funkrufname={funkrufname}
       />
 
       {/* Mobile Personnel Sheet */}

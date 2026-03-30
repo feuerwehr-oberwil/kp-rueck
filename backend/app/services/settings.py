@@ -31,6 +31,7 @@ DEFAULT_SETTINGS = {
     "printer.ip": "",  # Printer IP address (e.g., "192.168.1.100")
     "printer.port": "9100",  # Printer port (default ESC/POS port)
     "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "einsatz"
+    "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
 }
 
 
