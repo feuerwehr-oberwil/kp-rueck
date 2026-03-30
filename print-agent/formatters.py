@@ -1,7 +1,7 @@
 """Formatters for print jobs.
 
 Formats assignment slips and board snapshots for the Epson thermal printer
-(58mm paper). Font A (~22 chars) for headers, Font B (~32 chars) for body text.
+(80mm paper). Font A (48 chars) for headers, Font B (64 chars) for body text.
 Separators use Font B for full paper width.
 """
 
@@ -11,9 +11,9 @@ from escpos.printer import Network
 
 logger = logging.getLogger(__name__)
 
-# Paper widths in characters for 58mm paper
-WIDTH_A = 22   # Font A chars per line
-WIDTH_B = 32   # Font B chars per line
+# Paper widths in characters for 80mm paper
+WIDTH_A = 48   # Font A chars per line
+WIDTH_B = 64   # Font B chars per line
 
 # Type translations for display
 TYPE_LABELS = {
@@ -50,8 +50,8 @@ PRIORITY_MARKERS = {
 
 
 def _init_printer(p: Network) -> None:
-    """Initialize printer with correct codepage."""
-    p._raw(bytes([0x1B, 0x74, 16]))  # ESC t 16 = WPC1252
+    """Initialize printer with correct codepage for German umlauts."""
+    p.charcode('CP1252')
 
 
 def _font_a(p: Network, bold: bool = False, align: str = "left") -> None:
@@ -89,35 +89,39 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
         p.text("KEIN STANDORT\n")
     _sep(p)
 
-    # --- Incident type ---
+    # --- Incident type + priority + details ---
     inc_type = payload.get("type", "")
     type_label = TYPE_LABELS.get(inc_type, inc_type.upper())
     priority = payload.get("priority", "medium")
     priority_marker = PRIORITY_MARKERS.get(priority, "")
     type_label = f"{priority_marker}{type_label}"
     if payload.get("nachbarhilfe"):
-        type_label = f"{type_label} [NH]"
+        type_label = f"{type_label} [Nachbarhilfe]"
 
     _font_a(p, bold=True)
     for line in _wrap_text(type_label, WIDTH_A):
         p.text(f"{line}\n")
 
-    # --- Description ---
+    # Description, contact, dispatch time on one block
+    _font_b(p)
     description = payload.get("description", "")
     if description:
-        _font_b(p)
         for line in _wrap_text(description, WIDTH_B):
             p.text(f"{line}\n")
-
-    # --- Contact ---
     contact = payload.get("contact", "")
     if contact:
-        _font_b(p)
         p.text(f"Tel: {contact}\n")
+    created_at = payload.get("created_at", "")
+    if created_at:
+        try:
+            dt = datetime.fromisoformat(created_at)
+            p.text(f"Alarmiert: {dt.strftime('%d.%m.%Y %H:%M')}\n")
+        except (ValueError, TypeError):
+            pass
 
     # --- Vehicles ---
     if vehicles:
-        p.text("\n")
+        _sep(p, "-")
         _font_a(p, bold=True)
         p.text("FAHRZEUGE\n")
         _font_b(p)
@@ -133,7 +137,7 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     # --- Crew ---
     crew = payload.get("crew", [])
     if crew:
-        p.text("\n")
+        _sep(p, "-")
         _font_a(p, bold=True)
         p.text("BESATZUNG\n")
         _font_b(p)
@@ -150,7 +154,7 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     # --- Materials ---
     materials = payload.get("materials", [])
     if materials:
-        p.text("\n")
+        _sep(p, "-")
         _font_a(p, bold=True)
         p.text("MATERIAL\n")
         _font_b(p)
@@ -159,10 +163,10 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
                 p.text(f"{wrapped}\n")
 
     # --- Footer ---
-    p.text("\n")
+    _sep(p, "-")
     _font_b(p, align="center")
     p.text(f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
-    p.cut()
+    p.cut(mode="PART", feed=False)
 
 
 def format_board_snapshot(p: Network, payload: dict) -> None:
@@ -176,7 +180,6 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
     personnel = payload.get("personnel_summary", {})
 
     # --- Header (Font A bold, centered) ---
-    _sep(p)
     _font_a(p, bold=True, align="center")
     if training:
         p.text("ÜBUNG\n")
@@ -232,7 +235,7 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
             type_label = TYPE_LABELS.get(inc_type, inc_type.upper())
             detail = f" [{status_label}] {type_label}"
             if nachbarhilfe:
-                detail += " [NH]"
+                detail += " [Nachbarhilfe]"
             for line in _wrap_text(detail, WIDTH_B):
                 p.text(f"{line}\n")
             if loc:
@@ -295,10 +298,10 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
                 for wrapped in _wrap_text(line, WIDTH_B):
                     p.text(f"{wrapped}\n")
 
-    p.text("\n")
+    _sep(p, "-")
     _font_b(p, align="center")
     p.text(f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
-    p.cut()
+    p.cut(mode="PART", feed=False)
 
 
 def _wrap_text(text: str, width: int) -> list[str]:

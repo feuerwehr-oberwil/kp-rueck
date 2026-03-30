@@ -1,7 +1,7 @@
 """ESC/POS thermal printer wrapper for Epson thermal printer.
 
 This module provides a simple interface to the thermal printer
-using python-escpos over network connection (58mm paper, Font B, WPC1252).
+using python-escpos over network connection (80mm paper, Font B, WPC1252).
 """
 
 import logging
@@ -25,8 +25,8 @@ class ThermalPrinter:
         """Connect to the printer."""
         if self._printer is None:
             self._printer = Network(self.ip, port=self.port)
-            # Set WPC1252 codepage for German umlauts and Font B for 58mm paper
-            self._printer._raw(bytes([0x1B, 0x74, 16]))
+            # Set CP1252 codepage for German umlauts and Font B for 80mm paper
+            self._printer.charcode('CP1252')
             self._printer.set(font="b")
         return self._printer
 
@@ -72,9 +72,9 @@ class ThermalPrinter:
             p.set(font="b", align="left", bold=False, double_height=False, double_width=False)
 
     def print_separator(self, char: str = "-"):
-        """Print a separator line (32 chars for 58mm paper with Font B)."""
+        """Print a separator line (64 chars for 80mm paper with Font B)."""
         with self as p:
-            p.text(char * 32 + "\n")
+            p.text(char * 64 + "\n")
 
     def feed_and_cut(self):
         """Feed paper and cut."""
