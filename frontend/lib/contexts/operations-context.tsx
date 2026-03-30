@@ -51,6 +51,9 @@ export interface Operation {
   internalNotes: string
   nachbarhilfe: boolean
   nachbarhilfeNote: string
+  amWarten: boolean
+  amWartenNote: string
+  zuFuss: boolean
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -59,6 +62,8 @@ export interface Operation {
   crewAssignments: Map<string, string>
   materialAssignments: Map<string, string>
   vehicleAssignments: Map<string, string>
+  vehicleCallsigns: Map<string, string> // vehicle name -> radio_call_sign
+  vehicleDriverStay: Map<string, boolean>
 }
 
 /**
@@ -170,6 +175,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       internalNotes: incident.internal_notes || "",
       nachbarhilfe: incident.nachbarhilfe || false,
       nachbarhilfeNote: incident.nachbarhilfe_note || "",
+      amWarten: incident.am_warten || false,
+      amWartenNote: incident.am_warten_note || "",
+      zuFuss: incident.zu_fuss || false,
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
@@ -178,6 +186,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       crewAssignments: new Map(),
       materialAssignments: new Map(),
       vehicleAssignments: new Map(),
+      vehicleCallsigns: new Map(),
+      vehicleDriverStay: new Map(),
     }
   }
 
@@ -190,7 +200,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      setIsLoading(true)
 
       // Fetch all data in parallel
       const [apiIncidents, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
@@ -247,6 +256,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               if (vehicle) {
                 operation.vehicles.push(vehicle.name)
                 operation.vehicleAssignments.set(vehicle.name, assignment.id)
+                if (vehicle.radio_call_sign) {
+                  operation.vehicleCallsigns.set(vehicle.name, vehicle.radio_call_sign)
+                }
+                operation.vehicleDriverStay.set(vehicle.name, assignment.driver_stay || false)
               }
             }
           }
@@ -417,6 +430,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
                 if (vehicle) {
                   operation.vehicles.push(vehicle.name)
                   operation.vehicleAssignments.set(vehicle.name, assignment.id)
+                  if (vehicle.radio_call_sign) {
+                    operation.vehicleCallsigns.set(vehicle.name, vehicle.radio_call_sign)
+                  }
+                  operation.vehicleDriverStay.set(vehicle.name, assignment.driver_stay || false)
                 }
               }
             }
@@ -602,6 +619,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+
     setOperations((ops) =>
       ops.map((op) => {
         if (op.id === operationId) {
@@ -624,10 +644,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId).catch(err => {
-        console.error("Failed to unassign crew:", err)
-        toast.error("Fehler beim Entfernen", { description: "Die Person konnte nicht entfernt werden." })
-      })
+      apiClient.unassignResource(operationId, assignmentId)
+        .catch(err => {
+          console.error("Failed to unassign crew:", err)
+          toast.error("Fehler beim Entfernen", { description: "Die Person konnte nicht entfernt werden." })
+        })
+        .finally(() => {
+          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        })
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -637,6 +663,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     const rekoPersonId = operation.assignedReko.id
 
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+
     // Optimistically update UI
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, assignedReko: null } : op))
@@ -644,14 +673,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     if (isLoaded) {
       // Use the unassign reko API
-      apiClient.unassignRekoPersonnel(operationId, rekoPersonId).catch(err => {
-        console.error("Failed to unassign reko:", err)
-        toast.error("Fehler beim Entfernen", { description: "Die Reko-Person konnte nicht entfernt werden." })
-        // Revert on error
-        setOperations((ops) =>
-          ops.map((op) => (op.id === operationId ? { ...op, assignedReko: operation.assignedReko } : op))
-        )
-      })
+      apiClient.unassignRekoPersonnel(operationId, rekoPersonId)
+        .catch(err => {
+          console.error("Failed to unassign reko:", err)
+          toast.error("Fehler beim Entfernen", { description: "Die Reko-Person konnte nicht entfernt werden." })
+          // Revert on error
+          setOperations((ops) =>
+            ops.map((op) => (op.id === operationId ? { ...op, assignedReko: operation.assignedReko } : op))
+          )
+        })
+        .finally(() => {
+          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        })
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -664,6 +699,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       console.warn(`No assignment ID found for material ${materialId}`)
       return
     }
+
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
 
     setOperations((ops) =>
       ops.map((op) => {
@@ -687,10 +725,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId).catch(err => {
-        console.error("Failed to unassign material:", err)
-        toast.error("Fehler beim Entfernen", { description: "Das Material konnte nicht entfernt werden." })
-      })
+      apiClient.unassignResource(operationId, assignmentId)
+        .catch(err => {
+          console.error("Failed to unassign material:", err)
+          toast.error("Fehler beim Entfernen", { description: "Das Material konnte nicht entfernt werden." })
+        })
+        .finally(() => {
+          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        })
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -714,6 +758,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             crewAssignments: new Map(),
             vehicles: [],
             vehicleAssignments: new Map(),
+            vehicleCallsigns: new Map(),
             // Keep materials - backend keeps them assigned (may be left on site)
           }
         }
@@ -752,6 +797,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }, 2000)
     }
 
+    // Guard against polling overwriting optimistic updates for field changes
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+
     const isCriticalUpdate = updates.location !== undefined || updates.coordinates !== undefined
 
     if (isLoaded) {
@@ -782,6 +831,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.internalNotes !== undefined) apiUpdates.internal_notes = batchedUpdates.internalNotes
         if (batchedUpdates.nachbarhilfe !== undefined) apiUpdates.nachbarhilfe = batchedUpdates.nachbarhilfe
         if (batchedUpdates.nachbarhilfeNote !== undefined) apiUpdates.nachbarhilfe_note = batchedUpdates.nachbarhilfeNote
+        if (batchedUpdates.amWarten !== undefined) apiUpdates.am_warten = batchedUpdates.amWarten
+        if (batchedUpdates.amWartenNote !== undefined) apiUpdates.am_warten_note = batchedUpdates.amWartenNote
+        if (batchedUpdates.zuFuss !== undefined) apiUpdates.zu_fuss = batchedUpdates.zuFuss
 
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
@@ -798,6 +850,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         } finally {
           pendingUpdatesRef.current.delete(operationId)
           if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
+          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
         }
       }
 
@@ -814,6 +867,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       } else {
         updateTimeoutRef.current = setTimeout(() => performUpdate(updates), 500)
       }
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -865,6 +920,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           internalNotes: apiIncident.internal_notes || "",
           nachbarhilfe: apiIncident.nachbarhilfe || false,
           nachbarhilfeNote: apiIncident.nachbarhilfe_note || "",
+          amWarten: apiIncident.am_warten || false,
+          amWartenNote: apiIncident.am_warten_note || "",
+          zuFuss: apiIncident.zu_fuss || false,
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
           rekoArrivedAt: null,
@@ -873,6 +931,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           crewAssignments: new Map(),
           materialAssignments: new Map(),
           vehicleAssignments: new Map(),
+          vehicleCallsigns: new Map(),
+          vehicleDriverStay: new Map(),
         }
         setOperations((ops) => [newOperation, ...ops])
       } catch (error) {
@@ -891,6 +951,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         crewAssignments: new Map(),
         materialAssignments: new Map(),
         vehicleAssignments: new Map(),
+        vehicleCallsigns: new Map(),
       }
       setOperations((ops) => [newOperation, ...ops])
     }
@@ -1086,7 +1147,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             if (op.id === operationId) {
               const newVehicleAssignments = new Map(op.vehicleAssignments)
               newVehicleAssignments.set(vehicleName, assignment.id)
-              return { ...op, vehicleAssignments: newVehicleAssignments }
+              const newVehicleDriverStay = new Map(op.vehicleDriverStay)
+              newVehicleDriverStay.set(vehicleName, assignment.driver_stay || false)
+              return { ...op, vehicleAssignments: newVehicleAssignments, vehicleDriverStay: newVehicleDriverStay }
             }
             return op
           })
@@ -1115,22 +1178,35 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+
     setOperations((ops) =>
       ops.map((op) => {
         if (op.id === operationId) {
           const newVehicleAssignments = new Map(op.vehicleAssignments)
           newVehicleAssignments.delete(vehicleName)
-          return { ...op, vehicles: op.vehicles.filter((name) => name !== vehicleName), vehicleAssignments: newVehicleAssignments }
+          const newVehicleCallsigns = new Map(op.vehicleCallsigns)
+          newVehicleCallsigns.delete(vehicleName)
+          const newVehicleDriverStay = new Map(op.vehicleDriverStay)
+          newVehicleDriverStay.delete(vehicleName)
+          return { ...op, vehicles: op.vehicles.filter((name) => name !== vehicleName), vehicleAssignments: newVehicleAssignments, vehicleCallsigns: newVehicleCallsigns, vehicleDriverStay: newVehicleDriverStay }
         }
         return op
       })
     )
 
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId).catch(err => {
-        console.error("Failed to unassign vehicle:", err)
-        toast.error("Fehler beim Entfernen", { description: "Das Fahrzeug konnte nicht entfernt werden." })
-      })
+      apiClient.unassignResource(operationId, assignmentId)
+        .catch(err => {
+          console.error("Failed to unassign vehicle:", err)
+          toast.error("Fehler beim Entfernen", { description: "Das Fahrzeug konnte nicht entfernt werden." })
+        })
+        .finally(() => {
+          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        })
+    } else {
+      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
     }
   }
 
@@ -1254,6 +1330,8 @@ export function useIncidents() {
     status: operationToIncidentStatus[op.status] as any,
     description: op.notes,
     nachbarhilfe: op.nachbarhilfe || false,
+    am_warten: op.amWarten || false,
+    zu_fuss: op.zuFuss || false,
     created_at: op.dispatchTime,
     updated_at: op.dispatchTime,
     created_by: null,
@@ -1262,11 +1340,12 @@ export function useIncidents() {
     has_completed_reko: op.hasCompletedReko || false,
     reko_arrived_at: op.rekoArrivedAt ?? null,
     assigned_vehicles: op.vehicles.map((name) => ({
-      assignment_id: "",
+      assignment_id: op.vehicleAssignments.get(name) || "",
       vehicle_id: "",
       name,
       type: "",
       assigned_at: new Date(),
+      driver_stay: op.vehicleDriverStay.get(name) || false,
     })),
     assigned_personnel: op.crew.map((name) => ({
       assignment_id: "",

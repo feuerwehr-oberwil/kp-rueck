@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
@@ -17,6 +17,7 @@ from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Incident, RekoReport
 from ..utils.errors import ErrorMessages
+from ..websocket_manager import broadcast_incident_update
 
 logger = get_logger(__name__)
 from ..services.audit import log_action
@@ -77,6 +78,7 @@ async def get_reko_form(
 @router.post("/", response_model=schemas.RekoReportResponse)
 async def submit_reko_report(
     report_data: schemas.RekoReportCreate,
+    background_tasks: BackgroundTasks,
     submit: bool = Query(default=True, description="Mark as submitted (not draft)"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -113,6 +115,12 @@ async def submit_reko_report(
     # Handle post-submission side effects (status transition, priority bump, notification)
     if submit and incident:
         await crud.process_reko_submission(db, incident, updated)
+        # Broadcast incident update so other clients see reko completion and status change
+        background_tasks.add_task(
+            broadcast_incident_update,
+            {"id": str(report_data.incident_id), "has_completed_reko": True},
+            "update",
+        )
 
     return response_data
 
@@ -209,6 +217,7 @@ async def get_incident_reports(
 @router.post("/{incident_id}/arrived", response_model=schemas.RekoReportResponse)
 async def mark_reko_arrived(
     incident_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
@@ -255,6 +264,13 @@ async def mark_reko_arrived(
             response_data.incident_type = incident.type
             response_data.incident_description = incident.description
             response_data.incident_contact = incident.contact
+
+        # Broadcast incident update so other clients see "vor Ort" status
+        background_tasks.add_task(
+            broadcast_incident_update,
+            {"id": str(incident_id), "reko_arrived_at": report.arrived_at.isoformat() if report.arrived_at else None},
+            "update",
+        )
 
         return response_data
     except ValueError as e:

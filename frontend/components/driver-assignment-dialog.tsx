@@ -116,15 +116,30 @@ export function DriverAssignmentDialog({
     return operations.some(op => op.crew.includes(person.name))
   }
 
-  // Filter by search query
+  // Filter by search query (matches name, role, and tags)
   const filteredPersonnel = useMemo(() => {
     if (!searchQuery.trim()) return availablePersonnel
     const query = searchQuery.toLowerCase()
     return availablePersonnel.filter(p =>
       p.name.toLowerCase().includes(query) ||
-      (p.role && p.role.toLowerCase().includes(query))
+      (p.role && p.role.toLowerCase().includes(query)) ||
+      (p.tags && p.tags.some(t => t.toLowerCase().includes(query)))
     )
   }, [availablePersonnel, searchQuery])
+
+  // Split into F-tagged (Fahrer) and others
+  const { driversGroup, othersGroup } = useMemo(() => {
+    const drivers: Person[] = []
+    const others: Person[] = []
+    for (const p of filteredPersonnel) {
+      if (p.tags && p.tags.includes("F")) {
+        drivers.push(p)
+      } else {
+        others.push(p)
+      }
+    }
+    return { driversGroup: drivers, othersGroup: others }
+  }, [filteredPersonnel])
 
   const handleAssignDriver = async (person: Person) => {
     // Check if person is assigned to any incident
@@ -279,52 +294,115 @@ export function DriverAssignmentDialog({
             {/* Personnel List */}
             <ScrollArea className="h-[300px] pr-4">
               <div className="space-y-2">
-                {filteredPersonnel.map((person) => {
-                  const isCurrentDriver = person.id === localDriverId
-                  const wasJustAssigned = justAssigned === person.id
-                  const hasIncidentConflict = isAssignedToIncident(person)
+                {/* Fahrer (F-tagged) section */}
+                {driversGroup.length > 0 && (
+                  <>
+                    {othersGroup.length > 0 && (
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-1">Fahrer</p>
+                    )}
+                    {driversGroup.map((person) => {
+                      const isCurrentDriver = person.id === localDriverId
+                      const wasJustAssigned = justAssigned === person.id
+                      const hasIncidentConflict = isAssignedToIncident(person)
 
-                  return (
-                    <button
-                      key={person.id}
-                      onClick={() => !isCurrentDriver && handleAssignDriver(person)}
-                      disabled={isAssigning || isCurrentDriver}
-                      className={cn(
-                        "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
-                        !isCurrentDriver && "hover:border-primary/50 hover:bg-secondary/30",
-                        isCurrentDriver && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        {isCurrentDriver ? (
-                          <CheckCircle className={cn(
-                            "h-5 w-5 text-primary flex-shrink-0",
-                            wasJustAssigned && "animate-checkmark-spring"
-                          )} />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">{person.name}</p>
-                          {person.role && (
-                            <p className="text-xs text-muted-foreground">{person.role}</p>
+                      return (
+                        <button
+                          key={person.id}
+                          onClick={() => !isCurrentDriver && handleAssignDriver(person)}
+                          disabled={isAssigning || isCurrentDriver}
+                          className={cn(
+                            "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
+                            !isCurrentDriver && "hover:border-primary/50 hover:bg-secondary/30",
+                            isCurrentDriver && "opacity-50 cursor-not-allowed"
                           )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {hasIncidentConflict && (
-                          <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
-                            <AlertTriangle className="h-3 w-3" />
-                            Im Einsatz
-                          </Badge>
-                        )}
-                        {isCurrentDriver && (
-                          <Badge variant="secondary" className="text-xs">Aktuell</Badge>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isCurrentDriver ? (
+                              <CheckCircle className={cn(
+                                "h-5 w-5 text-primary flex-shrink-0",
+                                wasJustAssigned && "animate-checkmark-spring"
+                              )} />
+                            ) : (
+                              <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">{person.name}</p>
+                              {person.role && (
+                                <p className="text-xs text-muted-foreground">{person.role}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {hasIncidentConflict && (
+                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                <AlertTriangle className="h-3 w-3" />
+                                Im Einsatz
+                              </Badge>
+                            )}
+                            {isCurrentDriver && (
+                              <Badge variant="secondary" className="text-xs">Aktuell</Badge>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </>
+                )}
+
+                {/* Andere (non-F-tagged) section */}
+                {othersGroup.length > 0 && (
+                  <>
+                    {driversGroup.length > 0 && (
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-3">Andere</p>
+                    )}
+                    {othersGroup.map((person) => {
+                      const isCurrentDriver = person.id === localDriverId
+                      const wasJustAssigned = justAssigned === person.id
+                      const hasIncidentConflict = isAssignedToIncident(person)
+
+                      return (
+                        <button
+                          key={person.id}
+                          onClick={() => !isCurrentDriver && handleAssignDriver(person)}
+                          disabled={isAssigning || isCurrentDriver}
+                          className={cn(
+                            "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
+                            !isCurrentDriver && "hover:border-primary/50 hover:bg-secondary/30",
+                            isCurrentDriver && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isCurrentDriver ? (
+                              <CheckCircle className={cn(
+                                "h-5 w-5 text-primary flex-shrink-0",
+                                wasJustAssigned && "animate-checkmark-spring"
+                              )} />
+                            ) : (
+                              <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">{person.name}</p>
+                              {person.role && (
+                                <p className="text-xs text-muted-foreground">{person.role}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {hasIncidentConflict && (
+                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                <AlertTriangle className="h-3 w-3" />
+                                Im Einsatz
+                              </Badge>
+                            )}
+                            {isCurrentDriver && (
+                              <Badge variant="secondary" className="text-xs">Aktuell</Badge>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </>
+                )}
 
                 {/* Empty state */}
                 {filteredPersonnel.length === 0 && (

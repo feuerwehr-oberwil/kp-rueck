@@ -47,6 +47,8 @@ interface DroppableColumnProps {
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onAssignReko?: (operationId: string) => void
   onToggleNachbarhilfe?: (operationId: string) => void
+  onToggleAmWarten?: (operationId: string) => void
+  onToggleZuFuss?: (operationId: string) => void
   showMeldung?: boolean
   printerEnabled?: boolean
 }
@@ -84,6 +86,7 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
       a.contact !== b.contact ||
       a.hasCompletedReko !== b.hasCompletedReko ||
       a.nachbarhilfe !== b.nachbarhilfe ||
+      a.zuFuss !== b.zuFuss ||
       a.assignedReko?.id !== b.assignedReko?.id
     ) {
       return false
@@ -125,6 +128,8 @@ export const DroppableColumn = memo(function DroppableColumn({
   onAssignResource,
   onAssignReko,
   onToggleNachbarhilfe,
+  onToggleAmWarten,
+  onToggleZuFuss,
   showMeldung,
   printerEnabled,
 }: DroppableColumnProps) {
@@ -201,23 +206,25 @@ export const DroppableColumn = memo(function DroppableColumn({
   return (
     <div data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
       <div className={cn(
-        "mb-2 rounded-lg border border-border px-3 py-2 transition-all",
+        "mb-2 rounded-lg border border-border px-3 py-3 transition-all",
         column.color
       )}>
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-balance text-sm font-semibold text-foreground">{column.title}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{operations.length} Einsätze</p>
+          <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{column.title}</h2>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+              {operations.length}
+            </span>
+            {isCollapsibleColumn && (
+              <button
+                onClick={toggleCollapsible}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
+                title="Spalte einklappen"
+              >
+                ←
+              </button>
+            )}
           </div>
-          {isCollapsibleColumn && (
-            <button
-              onClick={toggleCollapsible}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
-              title="Spalte einklappen"
-            >
-              ←
-            </button>
-          )}
         </div>
       </div>
 
@@ -276,6 +283,8 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onAssignResource={onAssignResource}
                 onAssignReko={onAssignReko ? () => onAssignReko(operation.id) : undefined}
                 onToggleNachbarhilfe={onToggleNachbarhilfe ? () => onToggleNachbarhilfe(operation.id) : undefined}
+                onToggleAmWarten={onToggleAmWarten ? () => onToggleAmWarten(operation.id) : undefined}
+                onToggleZuFuss={onToggleZuFuss ? () => onToggleZuFuss(operation.id) : undefined}
                 showMeldung={showMeldung}
                 printerEnabled={printerEnabled}
               />

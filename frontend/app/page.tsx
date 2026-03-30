@@ -153,25 +153,6 @@ export default function FireStationDashboard() {
     }
   }, [operations])
 
-  // Register notification click → scroll to card + open detail
-  useEffect(() => {
-    registerNavigateHandler((incidentId: string) => {
-      closeNotificationSidebar()
-      scrollToCard(incidentId)
-      // Open detail after scroll
-      setTimeout(() => {
-        const operation = operations.find(op => op.id === incidentId)
-        if (operation) {
-          setSelectedOperationId(incidentId)
-          setPanelSelectedId(incidentId)
-          setHoveredOperationId(incidentId)
-          setDetailModalOpen(true)
-        }
-      }, 200)
-    })
-    return () => registerNavigateHandler(null)
-  }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations])
-
   // Update operation REKO summary when new report arrives
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: {
     isRelevant: boolean
@@ -223,9 +204,15 @@ export default function FireStationDashboard() {
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
   const [showMeldung, setShowMeldung] = useState(() => {
     if (typeof window !== 'undefined') {
+      // Migration: force showMeldung=true for existing users (v2 key)
+      if (!localStorage.getItem('showMeldung_v2')) {
+        localStorage.setItem('showMeldung_v2', '1')
+        localStorage.setItem('showMeldung', 'true')
+        return true
+      }
       return localStorage.getItem('showMeldung') === 'true'
     }
-    return false
+    return true
   })
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [rekoCopied, setRekoCopied] = useState(false)
@@ -257,6 +244,34 @@ export default function FireStationDashboard() {
     if (!panelSelectedId) return null
     return operations.find(op => op.id === panelSelectedId) || null
   }, [panelSelectedId, operations])
+
+  // Register notification click → scroll to card + open detail
+  // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
+  useEffect(() => {
+    registerNavigateHandler((incidentId: string) => {
+      closeNotificationSidebar()
+      scrollToCard(incidentId)
+      // Open detail after scroll
+      setTimeout(() => {
+        const operation = operations.find(op => op.id === incidentId)
+        if (operation) {
+          const isLargeScreen = window.innerWidth >= 1536 // SIDEPANEL_BREAKPOINT
+          if (isLargeScreen) {
+            // Side panel selection (same as onCardSelect / handleCardSelect)
+            setPanelSelectedId(incidentId)
+            setHoveredOperationId(incidentId)
+            setSidePanelMode(prev => prev === 'collapsed' ? 'detail' : prev)
+          } else {
+            // Modal overlay (same as onCardClick / handleCardClick)
+            setSelectedOperationId(incidentId)
+            setHoveredOperationId(incidentId)
+            setDetailModalOpen(true)
+          }
+        }
+      }, 200)
+    })
+    return () => registerNavigateHandler(null)
+  }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations])
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -560,8 +575,16 @@ export default function FireStationDashboard() {
         }
       }
 
-      // Ignore other shortcuts if typing in input/textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      // Ignore other shortcuts if typing in input/textarea/select/contentEditable
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
+        (e.target as HTMLElement).isContentEditable ||
+        (e.target as HTMLElement).getAttribute?.('role') === 'combobox' ||
+        (e.target as HTMLElement).getAttribute?.('role') === 'listbox' ||
+        (e.target as HTMLElement).getAttribute?.('role') === 'option'
+      ) {
         return
       }
 
@@ -610,6 +633,13 @@ export default function FireStationDashboard() {
           setGPrefixActive(false)
           gPrefixTimeoutRef.current = null
         }, 1500)
+        return
+      }
+
+      // Zu Fuss shortcut (0) - toggle zu_fuss on hovered operation
+      if (e.key === '0' && hoveredOperationId && !e.shiftKey) {
+        e.preventDefault()
+        handleToggleZuFuss(hoveredOperationId)
         return
       }
 
@@ -1042,6 +1072,22 @@ export default function FireStationDashboard() {
     }
   }
 
+  // Handle toggling Am Warten status (from context menu)
+  const handleToggleAmWarten = (operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (operation) {
+      updateOperation(operationId, { amWarten: !operation.amWarten })
+    }
+  }
+
+  // Handle toggling Zu Fuss status (from context menu or badge removal)
+  const handleToggleZuFuss = (operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (operation) {
+      updateOperation(operationId, { zuFuss: !operation.zuFuss })
+    }
+  }
+
   // Get assigned resources for selected operation
   const getAssignedResourcesForOperation = (operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -1301,6 +1347,8 @@ export default function FireStationDashboard() {
                       onAssignResource={handleOpenAssignmentDialog}
                       onAssignReko={handleOpenRekoAssignDialog}
                       onToggleNachbarhilfe={handleToggleNachbarhilfe}
+                      onToggleAmWarten={handleToggleAmWarten}
+                      onToggleZuFuss={handleToggleZuFuss}
                       showMeldung={showMeldung}
                       printerEnabled={printerEnabled}
                     />
@@ -1682,6 +1730,8 @@ export default function FireStationDashboard() {
         onRemovePerson={removeCrew}
         onRemoveVehicle={removeVehicle}
         onRemoveMaterial={removeMaterial}
+        zuFuss={assignmentOperationId ? operations.find(op => op.id === assignmentOperationId)?.zuFuss ?? false : false}
+        onToggleZuFuss={assignmentOperationId ? () => handleToggleZuFuss(assignmentOperationId) : undefined}
       />
 
 

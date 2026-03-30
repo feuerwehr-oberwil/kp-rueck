@@ -68,7 +68,8 @@ export function DisponierTransitionDialog({
   const crewList = operation.crew.length > 0
     ? operation.crew.join(", ")
     : null
-  const vehicleList = operation.vehicles.length > 0
+  const isZuFuss = operation.zuFuss || false
+  const vehicleList = !isZuFuss && operation.vehicles.length > 0
     ? operation.vehicles.join(", ")
     : null
   const materialNames = operation.materials.length > 0
@@ -101,7 +102,7 @@ export function DisponierTransitionDialog({
               Funkdurchsage
             </div>
             <p className="text-sm text-muted-foreground italic leading-relaxed">
-              &quot;An alle {funkrufname}, neuer Einsatz: <span className="font-semibold text-foreground">{location}</span>, es rücken aus{crewList ? <> <span className="font-semibold text-foreground">{crewList}</span></> : null}{vehicleList ? <> mit <span className="font-semibold text-foreground">{vehicleList}</span></> : null}{materialNames ? <> und <span className="font-semibold text-foreground">{materialNames}</span></> : null}.{rekoDangers ? <> Besonderes: <span className="font-semibold text-foreground">{rekoDangers}</span>.</> : null}&quot;
+              &quot;An alle {funkrufname}, neuer Einsatz: <span className="font-semibold text-foreground">{location}</span>, es rücken aus{crewList ? <> <span className="font-semibold text-foreground">{crewList}</span></> : null}{isZuFuss ? <> <span className="font-semibold text-foreground">zu Fuss</span></> : vehicleList ? <> mit <span className="font-semibold text-foreground">{vehicleList}</span></> : null}{materialNames ? <> und <span className="font-semibold text-foreground">{materialNames}</span></> : null}.{rekoDangers ? <> Besonderes: <span className="font-semibold text-foreground">{rekoDangers}</span>.</> : null}&quot;
             </p>
           </div>
 

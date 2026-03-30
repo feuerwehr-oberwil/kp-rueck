@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import { Plus, Save, MapPin, Check, ChevronsUpDown, Building2 } from 'lucide-react'
+import { Plus, Save, MapPin, Check, ChevronsUpDown, Building2, Timer } from 'lucide-react'
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { useIncidents } from "@/lib/contexts/operations-context"
@@ -44,6 +44,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
     description: incident?.description || null,
     status: incident?.status || 'eingegangen',
     nachbarhilfe: incident?.nachbarhilfe || false,
+    am_warten: incident?.am_warten || false,
   })
 
   // Keyboard shortcuts for priority (Shift+1-3)
@@ -95,6 +96,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
           location_lng: formData.location_lng,
           description: formData.description,
           nachbarhilfe: formData.nachbarhilfe,
+          am_warten: formData.am_warten,
         }
         await updateIncident(incident.id, updateData)
       }
@@ -111,6 +113,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         description: null,
         status: 'eingegangen',
         nachbarhilfe: false,
+        am_warten: false,
       })
       onOpenChange(false)
     } catch (error) {
@@ -137,6 +140,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         description: incident.description,
         status: incident.status,
         nachbarhilfe: incident.nachbarhilfe || false,
+        am_warten: incident.am_warten || false,
       })
     } else if (mode === 'create') {
       // Reset to defaults for create mode
@@ -151,6 +155,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
         description: null,
         status: 'eingegangen',
         nachbarhilfe: false,
+        am_warten: false,
       })
     }
     // Only run when dialog opens or incident/mode changes, NOT when selectedEvent updates
@@ -317,6 +322,24 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
               id="nachbarhilfe"
               checked={formData.nachbarhilfe || false}
               onCheckedChange={(checked) => setFormData({ ...formData, nachbarhilfe: checked })}
+            />
+          </div>
+
+          {/* Am Warten Toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              <Timer className="h-5 w-5 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="am-warten" className="text-sm font-semibold">Am Warten</Label>
+                <p className="text-xs text-muted-foreground">
+                  Einsatz verzögert / wartet auf Ressourcen
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="am-warten"
+              checked={formData.am_warten || false}
+              onCheckedChange={(checked) => setFormData({ ...formData, am_warten: checked })}
             />
           </div>
 

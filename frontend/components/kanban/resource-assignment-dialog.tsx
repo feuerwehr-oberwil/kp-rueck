@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Users, Truck, Package, CheckCircle, Circle } from "lucide-react"
+import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints } from "lucide-react"
 import { type Person, type Material } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
 
@@ -29,6 +29,8 @@ interface ResourceAssignmentDialogProps {
   onRemovePerson: (operationId: string, personName: string) => void
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
+  zuFuss?: boolean
+  onToggleZuFuss?: () => void
 }
 
 export function ResourceAssignmentDialog({
@@ -49,6 +51,8 @@ export function ResourceAssignmentDialog({
   onRemovePerson,
   onRemoveVehicle,
   onRemoveMaterial,
+  zuFuss = false,
+  onToggleZuFuss,
 }: ResourceAssignmentDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchFocused, setSearchFocused] = useState(false)
@@ -95,8 +99,9 @@ export function ResourceAssignmentDialog({
   }, [personnel, rekoPersonnelNames, assignedPersonnel])
 
   const availableVehicles = useMemo(() => {
-    return vehicles.filter(v => !assignedVehicles.includes(v.name))
-  }, [vehicles, assignedVehicles])
+    // Show all vehicles — assigned ones appear checked and can be toggled off
+    return vehicles
+  }, [vehicles])
 
   // For materials: show available materials OR materials already assigned to THIS operation (for deselection)
   const selectableMaterials = useMemo(() => {
@@ -242,7 +247,7 @@ export function ResourceAssignmentDialog({
       case 'crew':
         return `${selectedPersonnel.size} ausgewählt, ${selectablePersonnel.length} verfügbar`
       case 'vehicles':
-        return `${assignedVehicles.length} Fahrzeug(e) zugewiesen, ${availableVehicles.length} verfügbar`
+        return `${assignedVehicles.length} Fahrzeug(e) zugewiesen${zuFuss ? ', Zu Fuss' : ''}`
       case 'materials':
         return `${selectedMaterials.size} ausgewählt, ${selectableMaterials.length} verfügbar`
       default:
@@ -353,6 +358,29 @@ export function ResourceAssignmentDialog({
                 )
               })}
 
+              {resourceType === 'vehicles' && onToggleZuFuss && (
+                <button
+                  onClick={onToggleZuFuss}
+                  className={cn(
+                    "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                    zuFuss && "border-primary/30 bg-primary/5"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    {zuFuss ? (
+                      <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                    ) : (
+                      <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <div>
+                      <p className="font-medium text-sm">Zu Fuss</p>
+                      <p className="text-xs text-muted-foreground">Kein Fahrzeug</p>
+                    </div>
+                  </div>
+                  <Footprints className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+
               {resourceType === 'vehicles' && filteredVehicles.map((vehicle, index) => {
                 const isAssigned = isVehicleAssigned(vehicle.name)
                 const wasJustAssigned = justAssigned === vehicle.id
@@ -361,7 +389,8 @@ export function ResourceAssignmentDialog({
                     key={vehicle.id}
                     onClick={() => handleToggleVehicle(vehicle)}
                     className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight"
+                      "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                      isAssigned && "border-primary/30 bg-primary/5"
                     )}
                   >
                     <div className="flex items-center gap-3">

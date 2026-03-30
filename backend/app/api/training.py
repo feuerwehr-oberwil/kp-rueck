@@ -220,8 +220,8 @@ async def simulate_reko(
     # Get or create report
     report = await reko_crud.get_or_create_reko_report(db, incident_id, token)
 
-    # Generate and apply random reko data based on incident type
-    reko_data = generate_reko_report_data(incident.type)
+    # Generate and apply random reko data based on incident type and title
+    reko_data = generate_reko_report_data(incident.type, title=incident.title)
     update_data = RekoReportUpdate(**reko_data)
     updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
 

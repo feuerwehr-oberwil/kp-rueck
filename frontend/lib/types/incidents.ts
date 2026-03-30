@@ -54,6 +54,7 @@ export interface AssignedVehicle {
   name: string // Vehicle name (e.g., "TLF 1")
   type: string // Vehicle type (e.g., "TLF", "DLK")
   assigned_at: Date
+  driver_stay: boolean // Whether driver+car should stay on scene
 }
 
 /**
@@ -72,6 +73,8 @@ export interface Incident {
   status: IncidentStatus
   description: string | null
   nachbarhilfe: boolean // Neighboring station assistance flag
+  am_warten: boolean // Delayed/waiting emergency
+  zu_fuss: boolean // Personnel go by foot (not by vehicle)
   created_at: Date
   updated_at: Date
   created_by: string | null // UUID
@@ -96,6 +99,8 @@ export interface IncidentCreate {
   status?: IncidentStatus
   description?: string | null
   nachbarhilfe?: boolean
+  am_warten?: boolean
+  zu_fuss?: boolean
 }
 
 /**
@@ -111,6 +116,9 @@ export interface IncidentUpdate {
   status?: IncidentStatus
   description?: string | null
   nachbarhilfe?: boolean
+  am_warten?: boolean
+  am_warten_note?: string | null
+  zu_fuss?: boolean
 }
 
 /**

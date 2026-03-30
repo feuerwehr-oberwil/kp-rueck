@@ -385,8 +385,6 @@ export default function MapView({
   // Vehicle positions from Traccar GPS
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [traccarConfigured, setTraccarConfigured] = useState<boolean>(false)
-  const [zoomLevel, setZoomLevel] = useState(13)
-
   // Map mode management
   const {
     preferredMode,
@@ -526,8 +524,6 @@ export default function MapView({
           }}
         />
 
-        <ZoomWatcher onZoomChange={setZoomLevel} />
-
         {/* Firestation marker */}
         <Marker
           position={firestationCoords}
@@ -558,7 +554,7 @@ export default function MapView({
               <Tooltip
                 direction="right"
                 offset={[14, 0]}
-                permanent={zoomLevel >= 14}
+                permanent={true}
                 className="incident-label"
               >
                 <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>

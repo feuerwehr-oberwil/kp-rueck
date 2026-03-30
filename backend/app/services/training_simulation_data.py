@@ -18,6 +18,28 @@ _DANGER_PROFILES: dict[str, dict[str, float]] = {
         "chemical": 0.05,
         "electrical": 0.35,
     },
+    # Elementarereignis subcategory overrides
+    "elementar_water": {
+        "fire_danger": 0.02,
+        "explosion": 0.02,
+        "collapse": 0.1,
+        "chemical": 0.05,
+        "electrical": 0.5,
+    },
+    "elementar_tree": {
+        "fire_danger": 0.05,
+        "explosion": 0.02,
+        "collapse": 0.6,
+        "chemical": 0.02,
+        "electrical": 0.3,
+    },
+    "elementar_storm": {
+        "fire_danger": 0.03,
+        "explosion": 0.02,
+        "collapse": 0.5,
+        "chemical": 0.03,
+        "electrical": 0.25,
+    },
     "strassenrettung": {
         "fire_danger": 0.2,
         "explosion": 0.15,
@@ -131,6 +153,39 @@ _SUMMARIES: dict[str, list[str]] = {
         "Ganze Siedlung meldet Wasser im Keller. Ist der Grundwasserspiegel. Gemeinde bereits informiert.",
         "Waschmaschine ausgelaufen, Keller 3cm Wasser. Bewohner hat in Meldung etwas übertrieben.",
     ],
+    "elementar_water": [
+        "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig.",
+        "Wasser fliesst weiter nach. Sandsäcke liegen bereit, Tauchpumpe fehlt.",
+        "Situation stabil, Wasserstand gleichbleibend. Eine Pumpe reicht, kein Mehraufwand.",
+        "Mehrere Kellerräume betroffen. Abpumpen nur in Reihenfolge möglich, Zugang eng.",
+        "Zufahrt frei. Einsatzstelle gut zugänglich. Standard-Pumpeinsatz genügt.",
+        "Kanalrückstau, Wasser drückt in Keller. Abwasser, entsprechende Schutzausrüstung nötig.",
+        "Keller trocken bei Ankunft. Bewohner hat selbst gepumpt. Kontrolle genügt.",
+        "5cm Wasser im Keller. Bewohner fragt, ob wir auch gleich den Keller aufräumen können.",
+        "Ganze Siedlung meldet Wasser im Keller. Ist der Grundwasserspiegel. Gemeinde bereits informiert.",
+        "Waschmaschine ausgelaufen, Keller 3cm Wasser. Bewohner hat in Meldung etwas übertrieben.",
+        "Keller riecht modrig, aber kein stehendes Wasser. Vermutlich alter Wasserschaden. Entwarnung.",
+        "Dachrinne verstopft mit Laub. Wasser läuft über Fassade. Leiter und Eimer reichen.",
+    ],
+    "elementar_tree": [
+        "Baum auf Strasse, Fahrbahn komplett blockiert. Ca. 40cm Stammdurchmesser.",
+        "Baum auf Gartenzaun gefallen. Keine Gefahr für Personen. Nachbar filmt für Social Media.",
+        "Grosser Ast auf Gehweg. Fussgänger müssen auf Strasse ausweichen. Absperrung nötig.",
+        "Baum auf Telefonleitung gestürzt. Swisscom ist informiert. Leitung hängt tief.",
+        "Entwurzelter Baum blockiert Einfahrt. Bewohner kommt nicht raus. Motorsäge nötig.",
+        "Ast hängt lose in Baumkrone über Spielplatz. Muss gesichert werden.",
+        "Baum auf parkiertes Auto gefallen. Keine Personen betroffen. Versicherung wird Freude haben.",
+    ],
+    "elementar_storm": [
+        "Dachziegel lose, einzelne bereits auf Gehweg gefallen. Absturzgefahr.",
+        "Sturmschaden: Fassadenteile hängen lose über Gehweg. Bereich bereits abgesperrt.",
+        "Trampolin vom Nachbargarten auf Strasse geweht. Keine Verletzten, aber Verkehrsbehinderung.",
+        "Sonnenstoren abgerissen, hängt an Kabel über Gehweg. Bereich absperren.",
+        "Baugerüst wackelt stark im Wind. Passanten gefährdet. Sofort sichern.",
+        "Werbetafel droht herabzufallen. Bereich bereits weiträumig abgesperrt.",
+        "Fensterläden schlagen im Wind. Glas noch ganz, aber Scharniere geben nach.",
+        "Dachrinne abgerissen, hängt lose an Fassade. Tropft auf Passanten.",
+    ],
     "strassenrettung": [
         "Person eingeklemmt, Fahrerseite deformiert. Hydraulische Rettung erforderlich.",
         "Verletzte Person ansprechbar. Sanität bereits vor Ort. Technische Rettung nötig.",
@@ -194,6 +249,33 @@ _POWER_SUPPLY_WEIGHTS: dict[str, dict[str, float]] = {
 _DEFAULT_POWER_SUPPLY_WEIGHTS = {"available": 0.35, "unavailable": 0.25, "emergency_needed": 0.2, "unknown": 0.2}
 
 
+def _get_elementar_subcategory(title: str) -> str:
+    """Categorize an elementarereignis incident by title keywords into a subcategory."""
+    lower = title.lower()
+
+    water_keywords = [
+        "wasser", "keller", "überflut", "kanal", "rückstau", "pumpen",
+        "feucht", "waschmaschine", "pool", "garage unter", "liftschacht",
+    ]
+    tree_keywords = ["baum", "ast", "wurzel", "äste"]
+    storm_keywords = [
+        "dach", "fassade", "fenster", "gerüst", "werbetafel",
+        "trampolin", "sonnenstoren", "ziegel",
+    ]
+
+    for kw in water_keywords:
+        if kw in lower:
+            return "elementar_water"
+    for kw in tree_keywords:
+        if kw in lower:
+            return "elementar_tree"
+    for kw in storm_keywords:
+        if kw in lower:
+            return "elementar_storm"
+
+    return "elementarereignis"
+
+
 def _pick_weighted(weights: dict[str, float]) -> str:
     """Pick a key based on weights (don't need to sum to 1)."""
     items = list(weights.items())
@@ -237,8 +319,8 @@ def generate_power_supply(incident_type: str | None = None) -> str:
     return _pick_weighted(weights)
 
 
-def generate_summary(incident_type: str | None = None) -> str:
-    """Generate a contextual German summary based on incident type."""
+def generate_summary(incident_type: str | None = None, title: str | None = None) -> str:
+    """Generate a contextual German summary based on incident type and title."""
     pool_key = incident_type or "elementarereignis"
 
     # Types without their own pool fall back
@@ -249,11 +331,15 @@ def generate_summary(incident_type: str | None = None) -> str:
     elif pool_key in ("dienstleistungen", "diverse_einsaetze", "gerettete_menschen"):
         pool_key = "elementarereignis"
 
+    # For elementarereignis, use subcategory based on title keywords
+    if pool_key == "elementarereignis" and title:
+        pool_key = _get_elementar_subcategory(title)
+
     summaries = _SUMMARIES.get(pool_key, _SUMMARIES["elementarereignis"])
     return random.choice(summaries)
 
 
-def generate_reko_report_data(incident_type: str | None = None) -> dict:
+def generate_reko_report_data(incident_type: str | None = None, title: str | None = None) -> dict:
     """Generate a complete reko report payload with contextual random data."""
     # BMA false alarms have a high chance of being non-relevant
     if incident_type == "bma_unechte_alarme":
@@ -261,12 +347,17 @@ def generate_reko_report_data(incident_type: str | None = None) -> dict:
     else:
         is_relevant = random.random() > 0.1  # 90% relevant
 
+    # For elementarereignis, resolve subcategory for danger profiles
+    danger_type = incident_type
+    if incident_type == "elementarereignis" and title:
+        danger_type = _get_elementar_subcategory(title)
+
     return {
         "is_relevant": is_relevant,
-        "dangers_json": generate_dangers(incident_type),
+        "dangers_json": generate_dangers(danger_type),
         "effort_json": generate_effort(incident_type),
         "power_supply": generate_power_supply(incident_type),
-        "summary_text": generate_summary(incident_type),
+        "summary_text": generate_summary(incident_type, title),
         "additional_notes": None,
         "is_draft": False,
     }

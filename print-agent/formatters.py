@@ -119,12 +119,19 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
         p.set(font="b", bold=False, align="left")
         for v in vehicles:
             name = v.get("name", "")
-            vtype = v.get("type", "")
+            callsign = v.get("radio_call_sign", "")
+            driver = v.get("driver", "")
+            driver_stay = v.get("driver_stay", False)
             line = f" {name}"
-            if vtype:
-                line += f" ({vtype})"
+            if callsign:
+                line += f" ({callsign})"
             for wrapped in _wrap_text(line, WIDTH_B):
                 _text(p, f"{wrapped}\n")
+            if driver:
+                stay_text = "bleibt vor Ort" if driver_stay else "kehrt zurueck"
+                driver_line = f"   Fahrer: {driver} [{stay_text}]"
+                for wrapped in _wrap_text(driver_line, WIDTH_B):
+                    _text(p, f"{wrapped}\n")
 
     # --- Crew ---
     crew = payload.get("crew", [])
@@ -239,7 +246,24 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
             if contact:
                 _text(p, f" Tel: {contact}\n")
             if inc_vehicles:
-                veh_line = f" Fz: {', '.join(inc_vehicles)}"
+                # Handle both string list (legacy) and object list (new format)
+                if inc_vehicles and isinstance(inc_vehicles[0], dict):
+                    veh_parts = []
+                    for v in inc_vehicles:
+                        vname = v.get("name", "")
+                        callsign = v.get("radio_call_sign", "")
+                        driver = v.get("driver", "")
+                        driver_stay = v.get("driver_stay", False)
+                        part = f"{vname}"
+                        if callsign:
+                            part += f" ({callsign})"
+                        if driver:
+                            stay = "bleibt" if driver_stay else "kehrt zurueck"
+                            part += f" [F: {driver}, {stay}]"
+                        veh_parts.append(part)
+                    veh_line = f" Fz: {', '.join(veh_parts)}"
+                else:
+                    veh_line = f" Fz: {', '.join(inc_vehicles)}"
                 for line in _wrap_text(veh_line, WIDTH_B):
                     _text(p, f"{line}\n")
             if inc_crew:

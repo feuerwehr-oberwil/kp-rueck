@@ -49,6 +49,9 @@ export function NewEmergencyModal({
     internalNotes: "",
     nachbarhilfe: false,
     nachbarhilfeNote: "",
+    amWarten: false,
+    amWartenNote: "",
+    zuFuss: false,
     statusChangedAt: null as Date | null,
     hasCompletedReko: false,
     rekoArrivedAt: null as Date | null,
@@ -58,6 +61,8 @@ export function NewEmergencyModal({
     materialAssignments: new Map(),
     vehicles: [] as string[],
     vehicleAssignments: new Map(),
+    vehicleCallsigns: new Map() as Map<string, string>,
+    vehicleDriverStay: new Map() as Map<string, boolean>,
   })
 
   // Form validation state
@@ -97,6 +102,9 @@ export function NewEmergencyModal({
       internalNotes: "",
       nachbarhilfe: false,
       nachbarhilfeNote: "",
+      amWarten: false,
+      amWartenNote: "",
+      zuFuss: false,
       statusChangedAt: null,
       hasCompletedReko: false,
       rekoArrivedAt: null,
@@ -106,6 +114,8 @@ export function NewEmergencyModal({
       materialAssignments: new Map(),
       vehicles: [],
       vehicleAssignments: new Map(),
+      vehicleCallsigns: new Map(),
+      vehicleDriverStay: new Map(),
     })
     setTouched({})
     setShowValidationErrors(false)

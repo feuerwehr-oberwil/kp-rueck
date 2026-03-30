@@ -195,6 +195,7 @@ export interface ApiAssignment {
   assigned_at: string
   unassigned_at: string | null
   assigned_by: string
+  driver_stay: boolean // Whether driver+car should stay on scene (vehicle assignments only)
 }
 
 export interface ApiAssignmentCreate {
@@ -247,6 +248,7 @@ export interface ApiAssignedVehicle {
   name: string
   type: string
   assigned_at: string
+  driver_stay: boolean // Whether driver+car should stay on scene
 }
 
 export interface ApiIncident {
@@ -264,6 +266,9 @@ export interface ApiIncident {
   internal_notes: string | null
   nachbarhilfe: boolean // Neighboring station assistance flag
   nachbarhilfe_note: string | null
+  am_warten: boolean // Delayed/waiting emergency
+  am_warten_note: string | null
+  zu_fuss: boolean // Personnel go by foot (not by vehicle)
   created_at: string
   updated_at: string
   created_by: string | null // UUID
@@ -303,6 +308,9 @@ export interface ApiIncidentUpdate {
   internal_notes?: string | null
   nachbarhilfe?: boolean
   nachbarhilfe_note?: string | null
+  am_warten?: boolean
+  am_warten_note?: string | null
+  zu_fuss?: boolean
 }
 
 export interface ApiStatusTransition {
@@ -929,6 +937,20 @@ class ApiClient {
       {
         method: 'POST',
         body: JSON.stringify({ target_incident_id: targetIncidentId }),
+      }
+    )
+  }
+
+  async updateAssignment(
+    incidentId: string,
+    assignmentId: string,
+    data: { driver_stay?: boolean }
+  ): Promise<ApiAssignment> {
+    return this.request<ApiAssignment>(
+      `/api/incidents/${incidentId}/assignments/${assignmentId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
       }
     )
   }

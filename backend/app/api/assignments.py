@@ -98,6 +98,26 @@ async def get_assignments(
     return await crud.get_incident_assignments(db, incident_id)
 
 
+@router.patch("/{incident_id}/assignments/{assignment_id}", response_model=schemas.AssignmentResponse)
+async def update_assignment(
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    update: schemas.AssignmentUpdate,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update assignment properties (e.g., driver_stay flag)."""
+    assignment = await crud.update_assignment(db, assignment_id, update)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    # Only broadcast for structural changes, not property toggles like driver_stay
+    # The client already does optimistic updates; broadcasting would cause
+    # unnecessary full reloads and UI flicker on other panels
+    return assignment
+
+
 @router.post("/{incident_id}/release-all", status_code=status.HTTP_204_NO_CONTENT)
 async def release_all_resources(
     incident_id: uuid.UUID,

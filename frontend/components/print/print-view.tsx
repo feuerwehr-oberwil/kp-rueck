@@ -26,6 +26,7 @@ interface PrintViewProps {
   vehicles: ApiVehicle[]
   materials: Material[]
   options: PrintOptions
+  vehicleDrivers?: Map<string, string> // vehicle name -> driver name
 }
 
 const STATUS_ORDER: Record<string, { label: string; order: number }> = {
@@ -70,7 +71,7 @@ function formatDateTime(date: Date): string {
 }
 
 export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
-  ({ eventName, operations, personnel, vehicles, materials, options }, ref) => {
+  ({ eventName, operations, personnel, vehicles, materials, options, vehicleDrivers }, ref) => {
     // Filter operations based on options
     const filteredOperations = options.includeCompleted
       ? operations
@@ -173,7 +174,15 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                       )}
                       {op.vehicles.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">Fahrzeuge:</span> {op.vehicles.join(", ")}
+                          <span className="font-semibold">Fahrzeuge:</span>{" "}
+                          {op.vehicles.map((vName) => {
+                            const driverName = vehicleDrivers?.get(vName)
+                            const callsign = op.vehicleCallsigns.get(vName)
+                            const parts = [vName]
+                            if (callsign) parts[0] = `${vName} · ${callsign}`
+                            if (driverName) return `${parts[0]} (Fahrer: ${driverName})`
+                            return parts[0]
+                          }).join(", ")}
                         </div>
                       )}
                       {op.materials.length > 0 && (

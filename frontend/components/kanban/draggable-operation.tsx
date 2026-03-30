@@ -49,6 +49,7 @@ interface DraggableOperationProps {
   onAssignReko?: () => void
   onToggleNachbarhilfe?: () => void
   onToggleAmWarten?: () => void
+  onToggleZuFuss?: () => void
   showMeldung?: boolean
   printerEnabled?: boolean
 }
@@ -92,6 +93,7 @@ function DraggableOperationBase({
   onAssignReko,
   onToggleNachbarhilfe,
   onToggleAmWarten,
+  onToggleZuFuss,
   showMeldung,
   printerEnabled,
 }: DraggableOperationProps) {
@@ -321,7 +323,7 @@ function DraggableOperationBase({
           )}
 
           {/* Resource assignments - show names with quick removal */}
-          {(operation.assignedReko || operation.crew.length > 0 || operation.vehicles.length > 0 || operation.materials.length > 0) && (
+          {(operation.assignedReko || operation.crew.length > 0 || operation.zuFuss || operation.vehicles.length > 0 || operation.materials.length > 0) && (
             <div className="border-t pt-3 space-y-1.5 text-xs">
               {/* Assigned Reko Person */}
               {operation.assignedReko && (
@@ -386,10 +388,20 @@ function DraggableOperationBase({
                     {operation.zuFuss && (
                       <Badge
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
+                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
                       >
                         <Footprints className="h-3 w-3" />
                         <span>Zu Fuss</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleZuFuss?.()
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                          title="Zu Fuss entfernen"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
                       </Badge>
                     )}
                     {operation.vehicles.map((vehicleName) => {
@@ -501,6 +513,12 @@ function DraggableOperationBase({
           <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
             <Truck className="mr-2 h-4 w-4" />
             Fahrzeug zuweisen
+          </ContextMenuItem>
+        )}
+        {onToggleZuFuss && (
+          <ContextMenuItem onClick={() => onToggleZuFuss()}>
+            <Footprints className="mr-2 h-4 w-4" />
+            {operation.zuFuss ? 'Zu Fuss entfernen' : 'Zu Fuss markieren'}
           </ContextMenuItem>
         )}
         {onToggleNachbarhilfe && (

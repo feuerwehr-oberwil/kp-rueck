@@ -491,6 +491,9 @@ class IncidentBase(BaseModel):
     internal_notes: str | None = None
     nachbarhilfe: bool = False
     nachbarhilfe_note: str | None = None
+    am_warten: bool = False
+    am_warten_note: str | None = None
+    zu_fuss: bool = False
 
     @field_validator("title")
     @classmethod
@@ -562,6 +565,9 @@ class IncidentUpdate(BaseModel):
     internal_notes: str | None = None
     nachbarhilfe: bool | None = None
     nachbarhilfe_note: str | None = None
+    am_warten: bool | None = None
+    am_warten_note: str | None = None
+    zu_fuss: bool | None = None
     # training_flag intentionally excluded (use separate endpoint)
 
 
@@ -575,6 +581,7 @@ class AssignedVehicle(BaseModel):
     name: str
     type: str
     assigned_at: datetime
+    driver_stay: bool = False  # Whether driver+car should stay on scene
 
 
 class IncidentResponse(IncidentBase):
@@ -622,6 +629,12 @@ class AssignmentCreate(BaseModel):
         return v
 
 
+class AssignmentUpdate(BaseModel):
+    """Schema for updating assignment properties."""
+
+    driver_stay: bool | None = None
+
+
 class AssignmentResponse(BaseModel):
     """Assignment response schema."""
 
@@ -634,6 +647,7 @@ class AssignmentResponse(BaseModel):
     assigned_at: datetime
     unassigned_at: datetime | None = None
     assigned_by: UUID | None = None
+    driver_stay: bool = False
 
 
 # ============================================

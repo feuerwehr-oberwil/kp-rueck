@@ -20,6 +20,47 @@ interface AssignmentLinesProps {
 }
 
 /**
+ * Normalize a name for fuzzy matching: lowercase, strip whitespace and punctuation.
+ * e.g. "TLF 1" → "tlf1", "TLF1" → "tlf1"
+ */
+function normalizeName(name: string): string {
+  return name.toLowerCase().replace(/[\s\-_.]+/g, '')
+}
+
+/**
+ * Try to find a vehicle position matching a given vehicle name.
+ * Uses multiple strategies:
+ * 1. Exact lowercase match
+ * 2. Normalized match (strip whitespace/punctuation)
+ * 3. Containment check (device name contains vehicle name or vice versa)
+ */
+function findMatchingPosition(
+  vehicleName: string,
+  byExact: Map<string, ApiVehiclePosition>,
+  byNormalized: Map<string, ApiVehiclePosition>,
+  allPositions: ApiVehiclePosition[]
+): ApiVehiclePosition | undefined {
+  // Strategy 1: Exact lowercase
+  const exact = byExact.get(vehicleName.toLowerCase())
+  if (exact) return exact
+
+  // Strategy 2: Normalized (strip whitespace)
+  const normalized = byNormalized.get(normalizeName(vehicleName))
+  if (normalized) return normalized
+
+  // Strategy 3: Containment — one name contains the other
+  const vNameNorm = normalizeName(vehicleName)
+  for (const vp of allPositions) {
+    const devNorm = normalizeName(vp.device_name)
+    if (devNorm.includes(vNameNorm) || vNameNorm.includes(devNorm)) {
+      return vp
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Draws animated dashed red polylines ("ant trails") from each vehicle's
  * GPS position to its assigned incident location.
  *
@@ -30,14 +71,16 @@ interface AssignmentLinesProps {
  */
 export function AssignmentLines({ incidents, vehiclePositions, visible = true }: AssignmentLinesProps) {
   const lines = useMemo(() => {
-    if (!visible) return []
+    if (!visible || vehiclePositions.length === 0) return []
 
     const result: AssignmentLine[] = []
 
-    // Build a map of vehicle name (lowercase) → position for quick lookup
-    const vehicleByName = new Map<string, ApiVehiclePosition>()
+    // Build lookup maps for vehicle positions
+    const byExact = new Map<string, ApiVehiclePosition>()
+    const byNormalized = new Map<string, ApiVehiclePosition>()
     for (const vp of vehiclePositions) {
-      vehicleByName.set(vp.device_name.toLowerCase(), vp)
+      byExact.set(vp.device_name.toLowerCase(), vp)
+      byNormalized.set(normalizeName(vp.device_name), vp)
     }
 
     // For each incident with assigned vehicles, try to find a matching GPS position
@@ -50,7 +93,7 @@ export function AssignmentLines({ incidents, vehiclePositions, visible = true }:
       if (group === "completed") continue
 
       for (const vehicle of incident.assigned_vehicles) {
-        const vp = vehicleByName.get(vehicle.name.toLowerCase())
+        const vp = findMatchingPosition(vehicle.name, byExact, byNormalized, vehiclePositions)
         if (!vp) continue
 
         result.push({

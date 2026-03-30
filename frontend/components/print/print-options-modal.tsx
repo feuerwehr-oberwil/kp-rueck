@@ -16,7 +16,7 @@ import { PrintView, type PrintOptions } from "./print-view"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { apiClient, type ApiVehicle } from "@/lib/api-client"
+import { apiClient, type ApiVehicle, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 
 interface PrintOptionsModalProps {
   open: boolean
@@ -38,19 +38,44 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
   })
 
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
+  const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
   const [isLoading, setIsLoading] = useState(false)
 
-  // Fetch vehicles when modal opens
+  // Fetch vehicles and drivers when modal opens
   useEffect(() => {
     if (open) {
       setIsLoading(true)
-      apiClient
-        .getVehicles()
-        .then(setVehicles)
-        .catch(console.error)
-        .finally(() => setIsLoading(false))
+      const loadData = async () => {
+        try {
+          const [vehiclesList, specialFunctions] = await Promise.all([
+            apiClient.getVehicles(),
+            selectedEvent ? apiClient.getEventSpecialFunctions(selectedEvent.id) : Promise.resolve([]),
+          ])
+          setVehicles(vehiclesList)
+
+          // Build vehicle driver map
+          const vehicleIdToName = new Map<string, string>()
+          vehiclesList.forEach(v => vehicleIdToName.set(v.id, v.name))
+
+          const driverMap = new Map<string, string>()
+          specialFunctions
+            .filter(f => f.function_type === 'driver' && f.vehicle_id)
+            .forEach(f => {
+              const vehicleName = vehicleIdToName.get(f.vehicle_id!)
+              if (vehicleName) {
+                driverMap.set(vehicleName, f.personnel_name)
+              }
+            })
+          setVehicleDrivers(driverMap)
+        } catch (error) {
+          console.error('Failed to load print data:', error)
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      loadData()
     }
-  }, [open])
+  }, [open, selectedEvent])
 
   const handlePrint = () => {
     // Trigger browser print
@@ -188,6 +213,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
           vehicles={vehicles}
           materials={materials}
           options={options}
+          vehicleDrivers={vehicleDrivers}
         />
       )}
     </>

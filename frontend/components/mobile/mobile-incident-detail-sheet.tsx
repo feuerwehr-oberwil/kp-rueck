@@ -379,9 +379,10 @@ export function MobileIncidentDetailSheet({
                 <div className="flex flex-wrap gap-2">
                   {operation.vehicles.map((vehicleName) => {
                     const driverName = vehicleDrivers.get(vehicleName)
+                    const callsign = operation.vehicleCallsigns.get(vehicleName)
                     return (
                       <Badge key={vehicleName} variant="default" className="text-sm">
-                        {vehicleName}
+                        {vehicleName}{callsign ? ` · ${callsign}` : ''}
                         {driverName && (
                           <span className="ml-1 opacity-70">({driverName})</span>
                         )}

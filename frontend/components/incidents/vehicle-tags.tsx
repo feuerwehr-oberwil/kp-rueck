@@ -29,7 +29,13 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
   // Track recently unassigned vehicles to prevent immediate re-assignment
   const [recentlyUnassigned, setRecentlyUnassigned] = useState<Set<string>>(new Set())
 
-  // Load all vehicles when popover opens
+  // Load all vehicles on mount (for callsign display) and when popover opens
+  useEffect(() => {
+    if (assignedVehicles.length > 0 && allVehicles.length === 0) {
+      loadVehicles()
+    }
+  }, [assignedVehicles])
+
   useEffect(() => {
     if (isPopoverOpen) {
       loadVehicles()
@@ -128,14 +134,18 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {/* Assigned vehicles as badges */}
-      {assignedVehicles.map((vehicle) => (
+      {assignedVehicles.map((vehicle) => {
+        const fullVehicle = allVehicles.find(v => v.id === vehicle.vehicle_id)
+        const callsign = fullVehicle?.radio_call_sign
+        return (
         <Badge
           key={vehicle.assignment_id}
           variant="outline"
           className="gap-1 pr-1 group hover:bg-destructive/20 transition-colors text-xs"
+          title={callsign ? `Funkrufname: ${callsign}` : undefined}
         >
           <Truck className="h-3 w-3" />
-          <span>{vehicle.name}</span>
+          <span>{vehicle.name}{callsign ? ` · ${callsign}` : ''}</span>
           {!readOnly && (
             <button
               onClick={(e) => handleUnassignVehicle(vehicle.assignment_id, vehicle.vehicle_id, e)}
@@ -151,7 +161,8 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
             </button>
           )}
         </Badge>
-      ))}
+        )
+      })}
 
       {/* Add vehicle button */}
       {!readOnly && (

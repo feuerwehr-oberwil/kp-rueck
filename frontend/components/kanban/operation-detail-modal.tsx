@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2 } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2 } from 'lucide-react'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -22,7 +22,7 @@ import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { Kbd } from "@/components/ui/kbd"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
-import { copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
+import { cn, copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
@@ -57,7 +57,7 @@ export function OperationDetailModal({
   onRemoveCrew,
   onRemoveMaterial,
 }: OperationDetailModalProps) {
-  const { formatLocation } = useOperations()
+  const { formatLocation, setOperations } = useOperations()
   const { selectedEvent } = useEvent()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
@@ -309,6 +309,13 @@ export function OperationDetailModal({
         }
       }
 
+      // Zu Fuss shortcut (0)
+      if (e.key === '0' && !e.shiftKey) {
+        e.preventDefault()
+        onUpdate({ zuFuss: !operation.zuFuss })
+        return
+      }
+
       // Vehicle assignment shortcuts (1-5)
       const vehicleIndex = parseInt(e.key) - 1
       if (!isNaN(vehicleIndex) && vehicleIndex >= 0 && vehicleIndex < 5 && vehicleIndex < availableVehicles.length) {
@@ -480,6 +487,33 @@ export function OperationDetailModal({
               />
             )}
           </div>
+
+          {/* Am Warten Toggle */}
+          <div className="rounded-lg border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Timer className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <Label htmlFor="modal-am-warten" className="text-sm font-semibold">Am Warten</Label>
+                  <p className="text-xs text-muted-foreground">Einsatz verzögert / wartet auf Ressourcen</p>
+                </div>
+              </div>
+              <Switch
+                id="modal-am-warten"
+                checked={operation.amWarten || false}
+                onCheckedChange={(checked) => onUpdate({ amWarten: checked })}
+              />
+            </div>
+            {operation.amWarten && (
+              <Input
+                placeholder="Grund der Verzögerung..."
+                value={operation.amWartenNote || ''}
+                onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
+                className="text-sm"
+              />
+            )}
+          </div>
+
           </div>
 
           {/* Right Column - External Info */}
@@ -651,28 +685,47 @@ export function OperationDetailModal({
                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                           Fahrzeug zuweisen
                         </div>
+                        <button
+                          onClick={() => {
+                            onUpdate({ zuFuss: !operation.zuFuss })
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors",
+                            operation.zuFuss ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                          )}
+                        >
+                          <Footprints className="h-4 w-4" />
+                          <div className="text-left flex-1">
+                            <div className="font-medium">Zu Fuss</div>
+                            <div className="text-xs text-muted-foreground">Ohne Fahrzeug</div>
+                          </div>
+                          <Kbd className="h-5 text-xs">0</Kbd>
+                        </button>
+                        <div className="border-t border-border my-1" />
                         {isLoadingVehicles ? (
                           <div className="px-2 py-3 text-xs text-muted-foreground text-center">
                             Lade Fahrzeuge...
                           </div>
-                        ) : availableVehicles.filter(v => !operation.vehicles.includes(v.name)).length === 0 ? (
-                          <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                            Alle Fahrzeuge zugewiesen
-                          </div>
                         ) : (
-                          availableVehicles
-                            .filter(v => !operation.vehicles.includes(v.name))
-                            .map((vehicle) => {
+                          availableVehicles.map((vehicle) => {
                               const shortcutIndex = availableVehicles.indexOf(vehicle)
+                              const isAssigned = operation.vehicles.includes(vehicle.name)
                               return (
                                 <button
                                   key={vehicle.id}
                                   onClick={() => {
-                                    onAssignVehicle(vehicle.id, vehicle.name, operation.id)
+                                    if (isAssigned) {
+                                      onRemoveVehicle(operation.id, vehicle.name)
+                                    } else {
+                                      onAssignVehicle(vehicle.id, vehicle.name, operation.id)
+                                    }
                                   }}
-                                  className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
+                                  className={cn(
+                                    "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors",
+                                    isAssigned ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                                  )}
                                 >
-                                  <Truck className="h-4 w-4 text-muted-foreground" />
+                                  <Truck className={cn("h-4 w-4", isAssigned ? "text-primary" : "text-muted-foreground")} />
                                   <div className="text-left flex-1">
                                     <div className="font-medium">{vehicle.name}</div>
                                     <div className="text-xs text-muted-foreground">{vehicle.type}</div>
@@ -690,22 +743,90 @@ export function OperationDetailModal({
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                {operation.zuFuss && (
+                  <Badge variant="secondary" className="text-sm gap-1">
+                    <Footprints className="h-3.5 w-3.5" />
+                    Zu Fuss
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onUpdate({ zuFuss: false })
+                      }}
+                      className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+                      title="Zu Fuss entfernen"
+                      tabIndex={-1}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
                 {operation.vehicles.length > 0 ? (
                   operation.vehicles.map((vehicleName) => {
                     const driverName = vehicleDrivers.get(vehicleName)
+                    const callsign = operation.vehicleCallsigns.get(vehicleName)
+                    const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
+                    const assignmentId = operation.vehicleAssignments.get(vehicleName)
                     return (
                       <Badge
                         key={vehicleName}
                         variant="default"
-                        className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                        className="text-sm gap-1 pr-1 group transition-colors"
+                        title={callsign ? `Funkrufname: ${callsign}` : undefined}
                       >
-                        {vehicleName}{driverName ? ` (${driverName})` : ''}
+                        {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
+                        {assignmentId && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const newValue = !driverStay
+                              // Optimistic update
+                              setOperations((ops: Operation[]) =>
+                                ops.map((op: Operation) => {
+                                  if (op.id === operation.id) {
+                                    const newDriverStay = new Map(op.vehicleDriverStay)
+                                    newDriverStay.set(vehicleName, newValue)
+                                    return { ...op, vehicleDriverStay: newDriverStay }
+                                  }
+                                  return op
+                                })
+                              )
+                              apiClient.updateAssignment(operation.id, assignmentId, { driver_stay: newValue }).catch(() => {
+                                toast.error('Fehler beim Aktualisieren')
+                                // Revert
+                                setOperations((ops: Operation[]) =>
+                                  ops.map((op: Operation) => {
+                                    if (op.id === operation.id) {
+                                      const revertDriverStay = new Map(op.vehicleDriverStay)
+                                      revertDriverStay.set(vehicleName, driverStay)
+                                      return { ...op, vehicleDriverStay: revertDriverStay }
+                                    }
+                                    return op
+                                  })
+                                )
+                              })
+                            }}
+                            className={cn(
+                              "ml-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors",
+                              driverStay
+                                ? "bg-white/20 text-white hover:bg-white/30"
+                                : "bg-white/10 text-white/60 hover:bg-white/20"
+                            )}
+                            title={driverStay ? "Fahrer bleibt vor Ort — klicken für Rückkehr" : "Fahrer kehrt zurück — klicken für vor Ort bleiben"}
+                            tabIndex={-1}
+                          >
+                            {driverStay ? (
+                              <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> bleibt</span>
+                            ) : (
+                              <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3" /> zurück</span>
+                            )}
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             onRemoveVehicle(operation.id, vehicleName)
                           }}
-                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
                           title="Fahrzeug entfernen"
                           tabIndex={-1}
                         >

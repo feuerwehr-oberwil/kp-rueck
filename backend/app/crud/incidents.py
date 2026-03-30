@@ -108,6 +108,7 @@ async def get_incidents(
                     name=vehicle.name,
                     type=vehicle.type,
                     assigned_at=assignment.assigned_at,
+                    driver_stay=assignment.driver_stay,
                 )
             )
 
@@ -506,6 +507,7 @@ async def _get_assigned_vehicles(db: AsyncSession, incident_id: uuid.UUID) -> li
                 name=vehicle.name,
                 type=vehicle.type,
                 assigned_at=assignment.assigned_at,
+                driver_stay=assignment.driver_stay,
             )
         )
 

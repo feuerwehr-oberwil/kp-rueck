@@ -95,6 +95,26 @@ async def assign_resource(
     return assignment
 
 
+async def update_assignment(
+    db: AsyncSession,
+    assignment_id: uuid.UUID,
+    update: schemas.AssignmentUpdate,
+) -> schemas.AssignmentResponse | None:
+    """Update assignment properties (e.g., driver_stay)."""
+    result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        return None
+
+    update_data = update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(assignment, key, value)
+
+    await db.commit()
+    await db.refresh(assignment)
+    return schemas.AssignmentResponse.model_validate(assignment)
+
+
 async def unassign_resource(
     db: AsyncSession,
     assignment_id: uuid.UUID,
@@ -220,14 +240,7 @@ async def get_assignments_by_event(
             assignments_by_incident[assignment.incident_id] = []
 
         assignments_by_incident[assignment.incident_id].append(
-            schemas.AssignmentResponse(
-                id=assignment.id,
-                incident_id=assignment.incident_id,
-                resource_type=assignment.resource_type,
-                resource_id=assignment.resource_id,
-                assigned_at=assignment.assigned_at,
-                assigned_by=assignment.assigned_by,
-            )
+            schemas.AssignmentResponse.model_validate(assignment)
         )
 
     return assignments_by_incident

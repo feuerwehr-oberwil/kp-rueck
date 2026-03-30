@@ -14,13 +14,14 @@ interface FormatWhatsAppMessageOptions {
   materials: Material[]
   rekoReport?: ApiRekoReportResponse | null
   vehicleDrivers?: Map<string, string> // Map of vehicle name to driver name
+  vehicleCallsigns?: Map<string, string> // Map of vehicle name to radio_call_sign
 }
 
 /**
  * Format an operation for WhatsApp sharing
  * Uses WhatsApp markdown syntax and emojis for better readability
  */
-export function formatWhatsAppMessage({ operation, materials, rekoReport, vehicleDrivers }: FormatWhatsAppMessageOptions): string {
+export function formatWhatsAppMessage({ operation, materials, rekoReport, vehicleDrivers, vehicleCallsigns }: FormatWhatsAppMessageOptions): string {
   const lines: string[] = []
 
   // === HEADER SECTION ===
@@ -48,13 +49,23 @@ export function formatWhatsAppMessage({ operation, materials, rekoReport, vehicl
   // === ASSIGNMENTS SECTION ===
   const assignments: string[] = []
 
-  // Assigned Vehicles
+  // Assigned Vehicles with driver info and stay/return status
   if (operation.vehicles.length > 0) {
-    const vehicleList = operation.vehicles.map(vehicleName => {
+    const vehicleLines = operation.vehicles.map(vehicleName => {
+      const callsign = vehicleCallsigns?.get(vehicleName) || operation.vehicleCallsigns?.get(vehicleName)
       const driverName = vehicleDrivers?.get(vehicleName)
-      return driverName ? `${vehicleName} (${driverName})` : vehicleName
+      const driverStay = operation.vehicleDriverStay?.get(vehicleName)
+      const displayName = callsign ? `${vehicleName} · ${callsign}` : vehicleName
+      const parts = [displayName]
+      if (driverName) parts.push(`Fahrer: ${driverName}`)
+      if (driverStay !== undefined) {
+        parts.push(driverStay ? '📍 bleibt vor Ort' : '↩ kehrt zurück')
+      }
+      return driverName || driverStay !== undefined
+        ? `${parts[0]} (${parts.slice(1).join(', ')})`
+        : parts[0]
     })
-    assignments.push(`🚒 ${vehicleList.join(', ')}`)
+    assignments.push(`🚒 ${vehicleLines.join(', ')}`)
   }
 
   // Assigned Crew

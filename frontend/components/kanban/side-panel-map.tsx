@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet"
 import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { type Operation } from "@/lib/contexts/operations-context"
+import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 
 // Priority color mapping
@@ -67,27 +68,69 @@ function createOperationIcon(operation: Operation, isSelected: boolean = false):
   })
 }
 
+// Create vehicle marker icon — simple blue square with device name
+function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
+  const isOnline = vehicle.status === 'online'
+  const size = 22
+
+  const html = `
+    <div style="
+      width: ${size}px;
+      height: ${size}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
+      color: white;
+      border: 2px solid white;
+      border-radius: 3px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+    ">${vehicle.device_name}</div>
+  `
+
+  return L.divIcon({
+    html,
+    className: "vehicle-marker",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  })
+}
+
+// Normalize a vehicle name for matching (lowercase, strip whitespace and punctuation)
+function normalizeVehicleName(name: string): string {
+  return name.toLowerCase().replace(/[\s\-_.]+/g, '')
+}
+
 // Component to auto-fit bounds
-function FitBounds({ operations }: { operations: Operation[] }) {
+function FitBounds({ operations, vehiclePositions = [] }: { operations: Operation[]; vehiclePositions?: ApiVehiclePosition[] }) {
   const map = useMap()
   const hasInitializedRef = useRef(false)
 
   useEffect(() => {
-    if (hasInitializedRef.current || operations.length === 0) return
+    if (hasInitializedRef.current) return
 
-    const validOps = operations.filter(
-      (op) => op.coordinates && op.coordinates[0] && op.coordinates[1]
-    )
+    const points: [number, number][] = []
 
-    if (validOps.length === 0) return
+    for (const op of operations) {
+      if (op.coordinates && op.coordinates[0] && op.coordinates[1]) {
+        points.push([op.coordinates[0], op.coordinates[1]])
+      }
+    }
 
-    const bounds = L.latLngBounds(
-      validOps.map((op) => [op.coordinates[0], op.coordinates[1]] as [number, number])
-    )
+    for (const vp of vehiclePositions) {
+      points.push([vp.latitude, vp.longitude])
+    }
 
+    if (points.length === 0) return
+
+    const bounds = L.latLngBounds(points)
     map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 })
     hasInitializedRef.current = true
-  }, [map, operations])
+  }, [map, operations, vehiclePositions])
 
   return null
 }
@@ -124,6 +167,57 @@ export default function SidePanelMapContent({
   formatLocation,
 }: SidePanelMapContentProps) {
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
+
+  // Vehicle positions from Traccar GPS
+  const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
+
+  // Fetch vehicle positions from Traccar
+  const fetchVehiclePositions = useCallback(async () => {
+    try {
+      const positions = await apiClient.getVehiclePositions()
+      setVehiclePositions(positions)
+    } catch {
+      // Silent fail - Traccar might not be configured
+    }
+  }, [])
+
+  // Check Traccar status and start polling if configured
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null
+
+    const checkTraccar = async () => {
+      try {
+        const status = await apiClient.getTraccarStatus()
+        if (status.configured) {
+          await fetchVehiclePositions()
+          pollInterval = setInterval(fetchVehiclePositions, 10000)
+        }
+      } catch {
+        // Traccar not available
+      }
+    }
+
+    checkTraccar()
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval)
+    }
+  }, [fetchVehiclePositions])
+
+  // Vehicle positions for the selected operation's assigned vehicles
+  const assignedVehiclePositions = useMemo(() => {
+    if (!selectedOperation || vehiclePositions.length === 0) return []
+
+    const assignedNames = selectedOperation.vehicles.map(normalizeVehicleName)
+
+    return vehiclePositions.filter((vp) => {
+      const devNorm = normalizeVehicleName(vp.device_name)
+      // Exact normalized match, or containment (one name contains the other)
+      return assignedNames.some(
+        (name) => name === devNorm || name.includes(devNorm) || devNorm.includes(name)
+      )
+    })
+  }, [selectedOperation, vehiclePositions])
 
   // Filter active operations (not completed) with valid coordinates
   const mappableOperations = useMemo(
@@ -194,8 +288,28 @@ export default function SidePanelMapContent({
           )
         })}
 
+        {/* Vehicle GPS Markers for selected operation */}
+        {assignedVehiclePositions.map((vehicle) => (
+          <Marker
+            key={`vehicle-${vehicle.device_id}`}
+            position={[vehicle.latitude, vehicle.longitude]}
+            icon={createVehicleIcon(vehicle)}
+          >
+            <Tooltip permanent={false} direction="top" offset={[0, -11]}>
+              <div className="text-xs">
+                <div className="font-semibold">{vehicle.device_name}</div>
+                {vehicle.speed !== null && vehicle.speed > 1 && (
+                  <div className="text-muted-foreground">
+                    {Math.round(vehicle.speed)} km/h
+                  </div>
+                )}
+              </div>
+            </Tooltip>
+          </Marker>
+        ))}
+
         {/* Auto-fit bounds */}
-        <FitBounds operations={mappableOperations} />
+        <FitBounds operations={mappableOperations} vehiclePositions={assignedVehiclePositions} />
 
         {/* Pan to selected */}
         <PanToSelected selectedOperation={selectedOperation} />
@@ -216,6 +330,12 @@ export default function SidePanelMapContent({
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <span>Niedrig</span>
           </div>
+          {assignedVehiclePositions.length > 0 && (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-blue-500" />
+              <span>Fahrzeug</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
