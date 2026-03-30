@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -48,23 +48,25 @@ interface DraggableOperationProps {
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onAssignReko?: () => void
   onToggleNachbarhilfe?: () => void
+  onToggleAmWarten?: () => void
   showMeldung?: boolean
   printerEnabled?: boolean
 }
 
 // Priority visual configuration - bold borders for quick scanning
+// All cards always have border-l-4 to prevent layout shifts on hover/select
 const priorityStyles = {
   high: {
     icon: 'text-destructive',
-    card: 'border-l-4 border-l-destructive priority-high-pulse bg-destructive/[0.04] dark:bg-destructive/[0.06]',
+    card: 'border-l-destructive priority-high-pulse bg-destructive/[0.08] dark:bg-destructive/[0.12] ring-1 ring-destructive/20 dark:ring-destructive/30',
   },
   medium: {
     icon: 'text-warning',
-    card: 'border-l-4 border-l-warning',
+    card: 'border-l-warning',
   },
   low: {
     icon: 'text-muted-foreground/50',
-    card: '',
+    card: 'border-l-transparent',
   },
 } as const
 
@@ -89,6 +91,7 @@ function DraggableOperationBase({
   onAssignResource,
   onAssignReko,
   onToggleNachbarhilfe,
+  onToggleAmWarten,
   showMeldung,
   printerEnabled,
 }: DraggableOperationProps) {
@@ -207,14 +210,14 @@ function DraggableOperationBase({
             style={{ opacity: isDragging ? 0.5 : 1 }}
             data-incident-id={operation.id}
             className={cn(
-              'operation-card border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
+              'operation-card border border-border/50 border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
               // Priority styling (when not selected/highlighted)
               !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
               isOver && 'bg-muted/20',
-              // Selection/highlight states - use red for high priority
-              isHighlighted && (priority === 'high' ? 'border-l-4 border-l-destructive bg-muted/30' : 'border-l-4 border-l-foreground bg-muted/30'),
-              isSelected && !isHighlighted && (priority === 'high' ? 'ring-2 ring-destructive/50 border-l-4 border-l-destructive/80 bg-muted/30 shadow-sm' : 'ring-2 ring-primary/50 border-l-4 border-l-foreground/70 bg-muted/30 shadow-sm'),
-              isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-2 border-l-destructive/50' : 'border-l-2 border-l-muted-foreground/50')
+              // Selection/highlight states - preserve priority border colors
+              isHighlighted && (priority === 'high' ? 'border-l-destructive bg-muted/30' : priority === 'medium' ? 'border-l-warning bg-muted/30' : 'border-l-foreground bg-muted/30'),
+              isSelected && !isHighlighted && (priority === 'high' ? 'ring-2 ring-destructive/50 border-l-destructive/80 bg-muted/30 shadow-sm' : priority === 'medium' ? 'ring-2 ring-warning/50 border-l-warning/80 bg-muted/30 shadow-sm' : 'ring-2 ring-primary/50 border-l-foreground/70 bg-muted/30 shadow-sm'),
+              isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-destructive/50' : priority === 'medium' ? 'border-l-warning/50' : 'border-l-muted-foreground/50')
             )}
             onMouseEnter={() => onHover(operation.id)}
             onMouseLeave={() => onHover(null)}
@@ -250,6 +253,14 @@ function DraggableOperationBase({
             </div>
             {/* Non-draggable icons area */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {operation.amWarten && (
+                <div
+                  className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30"
+                  title="Am Warten"
+                >
+                  <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+              )}
               {operation.nachbarhilfe && (
                 <div
                   className="p-1.5 rounded-md bg-muted/60"
@@ -368,17 +379,33 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {operation.vehicles.length > 0 && (
+              {(operation.zuFuss || operation.vehicles.length > 0) && (
                 <div className="flex items-start gap-1.5">
                   <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
-                    {operation.vehicles.map((vehicleName) => (
+                    {operation.zuFuss && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
+                      >
+                        <Footprints className="h-3 w-3" />
+                        <span>Zu Fuss</span>
+                      </Badge>
+                    )}
+                    {operation.vehicles.map((vehicleName) => {
+                      const callsign = operation.vehicleCallsigns.get(vehicleName)
+                      const driverStay = operation.vehicleDriverStay?.get(vehicleName)
+                      return (
                       <Badge
                         key={vehicleName}
                         variant="secondary"
                         className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                        title={callsign ? `Funkrufname: ${callsign}` : undefined}
                       >
-                        <span>{vehicleName}</span>
+                        <span>{vehicleName}{callsign ? ` · ${callsign}` : ''}</span>
+                        {driverStay && (
+                          <span title="Fahrer bleibt vor Ort"><MapPin className="h-3 w-3 text-muted-foreground/70" /></span>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -390,7 +417,8 @@ function DraggableOperationBase({
                           <X className="h-2.5 w-2.5" />
                         </button>
                       </Badge>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -481,6 +509,12 @@ function DraggableOperationBase({
             {operation.nachbarhilfe ? 'Nachbarhilfe entfernen' : 'Als Nachbarhilfe markieren'}
           </ContextMenuItem>
         )}
+        {onToggleAmWarten && (
+          <ContextMenuItem onClick={() => onToggleAmWarten()}>
+            <Timer className="mr-2 h-4 w-4" />
+            {operation.amWarten ? 'Am Warten entfernen' : 'Als Am Warten markieren'}
+          </ContextMenuItem>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem asChild>
           <Link href={`/map?highlight=${operation.id}`}>
@@ -525,6 +559,8 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.location === nextProps.operation.location &&
     prevProps.operation.notes === nextProps.operation.notes &&
     prevProps.operation.nachbarhilfe === nextProps.operation.nachbarhilfe &&
+    prevProps.operation.amWarten === nextProps.operation.amWarten &&
+    prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
     prevProps.operation.crew.every((c, i) => c === nextProps.operation.crew[i]) &&
     prevProps.operation.materials.length === nextProps.operation.materials.length &&
