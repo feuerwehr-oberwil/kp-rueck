@@ -25,8 +25,7 @@ class ThermalPrinter:
         """Connect to the printer."""
         if self._printer is None:
             self._printer = Network(self.ip, port=self.port)
-            # Set CP1252 codepage for German umlauts and Font B for 80mm paper
-            self._printer.charcode('CP1252')
+            # Printer uses CP437 by default — text encoding handled by callers
             self._printer.set(font="b")
         return self._printer
 
