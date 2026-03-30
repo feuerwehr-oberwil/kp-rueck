@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Bell } from 'lucide-react'
+
 import { toast } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { apiClient } from '@/lib/api-client'
@@ -66,18 +66,17 @@ export function NotificationSettingsCard() {
   }
 
   return (
-    <Card className="p-6 space-y-6">
-      {/* Intro text */}
-      <p className="text-sm text-muted-foreground">
-        Konfigurieren Sie Warnungen, die auf dem Einsatz-Board angezeigt werden.
-        Änderungen werden automatisch gespeichert.
-      </p>
-
-      {/* Enable/Disable toggles */}
-      <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label htmlFor="time-alerts">Zeitbasierte Warnungen</Label>
+    <div className="space-y-6">
+      {/* Warnungen */}
+      <Card className="p-6">
+      <div className="space-y-1 mb-4">
+        <p className="font-medium">Warnungen</p>
+        <p className="text-xs text-muted-foreground">Welche Warnungstypen angezeigt werden sollen</p>
+      </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <Label htmlFor="time-alerts" className="font-medium">Zeitbasierte Warnungen</Label>
             <p className="text-xs text-muted-foreground">
               Warnung bei Überschreitung von Status-Zeitlimits
             </p>
@@ -90,9 +89,9 @@ export function NotificationSettingsCard() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label htmlFor="resource-alerts">Ressourcen-Warnungen</Label>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <Label htmlFor="resource-alerts" className="font-medium">Ressourcen-Warnungen</Label>
             <p className="text-xs text-muted-foreground">
               Warnung bei knappen Ressourcen oder Personalermüdung
             </p>
@@ -105,9 +104,9 @@ export function NotificationSettingsCard() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label htmlFor="data-quality-alerts">Datenqualitäts-Warnungen</Label>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <Label htmlFor="data-quality-alerts" className="font-medium">Datenqualitäts-Warnungen</Label>
             <p className="text-xs text-muted-foreground">
               Warnung bei fehlenden Pflichtdaten
             </p>
@@ -120,9 +119,9 @@ export function NotificationSettingsCard() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label htmlFor="event-alerts">Event-Limit-Warnungen</Label>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <Label htmlFor="event-alerts" className="font-medium">Event-Limit-Warnungen</Label>
             <p className="text-xs text-muted-foreground">
               Warnung bei Annäherung an Datenbankgrenzen
             </p>
@@ -135,9 +134,9 @@ export function NotificationSettingsCard() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label htmlFor="geofence-alerts">Geofence-Ankunft</Label>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <Label htmlFor="geofence-alerts" className="font-medium">Geofence-Ankunft</Label>
             <p className="text-xs text-muted-foreground">
               Benachrichtigung wenn ein Fahrzeug am Einsatzort eintrifft (GPS)
             </p>
@@ -151,9 +150,9 @@ export function NotificationSettingsCard() {
         </div>
 
         {settings.enabled_geofence_alerts && (
-          <div className="flex items-center justify-between pl-4">
-            <div>
-              <Label htmlFor="geofence-radius">Radius (Meter)</Label>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="geofence-radius" className="font-medium">Radius (Meter)</Label>
               <p className="text-xs text-muted-foreground">
                 Entfernung zum Einsatzort für Ankunftsmeldung
               </p>
@@ -161,7 +160,7 @@ export function NotificationSettingsCard() {
             <Input
               id="geofence-radius"
               type="number"
-              className="w-24 text-right"
+              className="w-24"
               value={settings.geofence_radius_meters}
               min={50}
               max={1000}
@@ -177,11 +176,13 @@ export function NotificationSettingsCard() {
           </div>
         )}
       </div>
+      </Card>
 
-      {/* Time threshold settings - Live vs Training */}
-      <div className="space-y-3">
+      {/* Zeitlimits */}
+      <Card className="p-6">
+      <div className="space-y-4">
         <div>
-          <p className="text-sm font-medium">Status-Zeitlimits</p>
+          <p className="font-medium">Status-Zeitlimits</p>
           <p className="text-xs text-muted-foreground">
             Warnung erscheint, wenn ein Einsatz länger als angegeben in einem Status verbleibt.
           </p>
@@ -196,7 +197,7 @@ export function NotificationSettingsCard() {
           <TabsContent value="live" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="live-eingegangen">Eingegangen (Min)</Label>
+                <Label htmlFor="live-eingegangen" className="font-medium">Eingegangen (Min)</Label>
                 <Input
                   id="live-eingegangen"
                   type="number"
@@ -212,7 +213,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-reko">Reko (Min)</Label>
+                <Label htmlFor="live-reko" className="font-medium">Reko (Min)</Label>
                 <Input
                   id="live-reko"
                   type="number"
@@ -228,7 +229,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-disponiert">Disponiert (Min)</Label>
+                <Label htmlFor="live-disponiert" className="font-medium">Disponiert (Min)</Label>
                 <Input
                   id="live-disponiert"
                   type="number"
@@ -244,7 +245,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-einsatz">Einsatz (Std)</Label>
+                <Label htmlFor="live-einsatz" className="font-medium">Einsatz (Std)</Label>
                 <Input
                   id="live-einsatz"
                   type="number"
@@ -260,7 +261,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-rueckfahrt">Rückfahrt (Min)</Label>
+                <Label htmlFor="live-rueckfahrt" className="font-medium">Rückfahrt (Min)</Label>
                 <Input
                   id="live-rueckfahrt"
                   type="number"
@@ -276,7 +277,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-archive">Archivierung (Std)</Label>
+                <Label htmlFor="live-archive" className="font-medium">Archivierung (Std)</Label>
                 <Input
                   id="live-archive"
                   type="number"
@@ -296,7 +297,7 @@ export function NotificationSettingsCard() {
           <TabsContent value="training" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="training-eingegangen">Eingegangen (Min)</Label>
+                <Label htmlFor="training-eingegangen" className="font-medium">Eingegangen (Min)</Label>
                 <Input
                   id="training-eingegangen"
                   type="number"
@@ -312,7 +313,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-reko">Reko (Min)</Label>
+                <Label htmlFor="training-reko" className="font-medium">Reko (Min)</Label>
                 <Input
                   id="training-reko"
                   type="number"
@@ -328,7 +329,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-disponiert">Disponiert (Min)</Label>
+                <Label htmlFor="training-disponiert" className="font-medium">Disponiert (Min)</Label>
                 <Input
                   id="training-disponiert"
                   type="number"
@@ -344,7 +345,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-einsatz">Einsatz (Std)</Label>
+                <Label htmlFor="training-einsatz" className="font-medium">Einsatz (Std)</Label>
                 <Input
                   id="training-einsatz"
                   type="number"
@@ -360,7 +361,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-rueckfahrt">Rückfahrt (Min)</Label>
+                <Label htmlFor="training-rueckfahrt" className="font-medium">Rückfahrt (Min)</Label>
                 <Input
                   id="training-rueckfahrt"
                   type="number"
@@ -376,7 +377,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-archive">Archivierung (Std)</Label>
+                <Label htmlFor="training-archive" className="font-medium">Archivierung (Std)</Label>
                 <Input
                   id="training-archive"
                   type="number"
@@ -394,11 +395,13 @@ export function NotificationSettingsCard() {
           </TabsContent>
         </Tabs>
       </div>
+      </Card>
 
-      {/* Resource and event settings */}
+      {/* Schwellenwerte */}
+      <Card className="p-6">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-medium">Ressourcen-Schwellenwerte</p>
+          <p className="font-medium">Schwellenwerte</p>
           <p className="text-xs text-muted-foreground">
             Warnung bei Überschreitung von Kapazitätsgrenzen.
           </p>
@@ -406,7 +409,7 @@ export function NotificationSettingsCard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="fatigue-hours">Personalermüdung (Std)</Label>
+            <Label htmlFor="fatigue-hours" className="font-medium">Personalermüdung (Std)</Label>
             <Input
               id="fatigue-hours"
               type="number"
@@ -422,7 +425,7 @@ export function NotificationSettingsCard() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="database-limit">Datenbank (GB)</Label>
+            <Label htmlFor="database-limit" className="font-medium">Datenbank (GB)</Label>
             <Input
               id="database-limit"
               type="number"
@@ -438,7 +441,7 @@ export function NotificationSettingsCard() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="photo-limit">Foto-Limit (GB)</Label>
+            <Label htmlFor="photo-limit" className="font-medium">Foto-Limit (GB)</Label>
             <Input
               id="photo-limit"
               type="number"
@@ -509,6 +512,7 @@ export function NotificationSettingsCard() {
           })}
         </div>
       </div>
-    </Card>
+      </Card>
+    </div>
   )
 }

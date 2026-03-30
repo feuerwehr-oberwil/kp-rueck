@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation';
 import {
   Table,
   TableBody,
@@ -53,7 +54,6 @@ import {
   Sun,
   Moon,
   Monitor,
-  ClipboardList,
   Printer,
   Shield,
   Info,
@@ -81,7 +81,7 @@ const SECTIONS = [
   { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'users', label: 'Benutzer', icon: Shield, group: 'admin', editorOnly: false, adminOnly: true },
+  { id: 'users', label: 'Benutzer', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
   { id: 'personnel', label: 'Personal', icon: Users, group: 'resources', editorOnly: true, adminOnly: false },
   { id: 'vehicles', label: 'Fahrzeuge', icon: Truck, group: 'resources', editorOnly: true, adminOnly: false },
   { id: 'materials', label: 'Material', icon: Package, group: 'resources', editorOnly: true, adminOnly: false },
@@ -143,6 +143,7 @@ const SETTING_CONFIGS: SettingConfig[] = [
 ];
 
 export default function SettingsPage() {
+  useGlobalNavigation();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isEditor, isAdmin, isAuthenticated } = useAuth();
@@ -512,79 +513,69 @@ export default function SettingsPage() {
       case 'general':
         return (
           <div className="space-y-6">
-            {/* Theme Selection */}
-            <Card className="p-6">
-              <div className="space-y-4">
-                <div>
+            <Card className="p-6 space-y-4">
+              {/* Theme Selection */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
                   <Label className="font-medium">Erscheinungsbild</Label>
-                  <p className="text-sm text-muted-foreground">Wähle zwischen Hell, Dunkel oder System-Einstellung</p>
+                  <p className="text-xs text-muted-foreground">Hell, Dunkel oder System</p>
                 </div>
                 {mounted && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setTheme('light')}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                        theme === 'light' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <Sun className="h-6 w-6" />
-                      <span className="text-sm font-medium">Hell</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTheme('dark')}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                        theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <Moon className="h-6 w-6" />
-                      <span className="text-sm font-medium">Dunkel</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTheme('system')}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                        theme === 'system' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <Monitor className="h-6 w-6" />
-                      <span className="text-sm font-medium">System</span>
-                    </button>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    {([
+                      { value: 'light', icon: Sun, label: 'Hell' },
+                      { value: 'dark', icon: Moon, label: 'Dunkel' },
+                      { value: 'system', icon: Monitor, label: 'System' },
+                    ] as const).map(({ value, icon: Icon, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setTheme(value)}
+                        className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-all ${
+                          theme === value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                        }`}
+                        title={label}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {label}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
-            </Card>
 
-            {/* Other Settings */}
-            {loading ? (
-              <Card className="p-6">
+              {/* Other Settings */}
+              {loading ? (
                 <div className="space-y-4">
                   <div className="h-4 w-24 bg-muted animate-pulse rounded" />
                   <div className="h-10 w-full bg-muted animate-pulse rounded" />
                   <div className="h-4 w-32 bg-muted animate-pulse rounded" />
                   <div className="h-10 w-full bg-muted animate-pulse rounded" />
                 </div>
-              </Card>
-            ) : error ? (
-              <Card className="p-6">
-                <p className="text-destructive">{error}</p>
-                <Button onClick={fetchSettings} className="mt-4">Erneut versuchen</Button>
-              </Card>
-            ) : (
-              <Card className="p-6 space-y-6">
-                {SETTING_CONFIGS.map((config) => (
-                  <div key={config.key} className="space-y-2">
-                    <Label htmlFor={config.key} className="font-medium">{config.label}</Label>
-                    <p className="text-sm text-muted-foreground">{config.description}</p>
-                    <div className="flex items-center gap-2">
-                      {renderSettingInput(config)}
-                      {saving === config.key && <Save className="h-4 w-4 text-blue-600 animate-pulse" />}
+              ) : error ? (
+                <div>
+                  <p className="text-destructive">{error}</p>
+                  <Button onClick={fetchSettings} className="mt-4">Erneut versuchen</Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {SETTING_CONFIGS.map((config) => (
+                    <div key={config.key} className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <Label htmlFor={config.key} className="font-medium">{config.label}</Label>
+                        <p className="text-xs text-muted-foreground">{config.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className={config.type === 'text' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
+                          {renderSettingInput(config)}
+                        </div>
+                        {saving === config.key && <Save className="h-4 w-4 text-primary animate-pulse" />}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </Card>
-            )}
+                  ))}
+                </div>
+              )}
+            </Card>
             {!isEditor && (
               <p className="text-sm text-muted-foreground">
                 Nur Bearbeiter können Einstellungen ändern.
@@ -658,11 +649,11 @@ export default function SettingsPage() {
             )}
 
             {importSuccess && (
-              <Card className="p-4 border-green-600 bg-green-600/10">
+              <Card className="p-4 border-success bg-success/10">
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-success mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm text-green-600/90">{importSuccess}</p>
+                    <p className="text-sm text-success">{importSuccess}</p>
                   </div>
                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setImportSuccess(null)}>
                     <X className="h-4 w-4" />
@@ -682,86 +673,6 @@ export default function SettingsPage() {
                   <Download className="h-4 w-4 mr-2" />
                   Exportieren
                 </Button>
-              </div>
-            </Card>
-
-            {/* Audit Export - For payment processing */}
-            <Card className="p-5">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <ClipboardList className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-medium">Audit-Export für Abrechnung</p>
-                    <p className="text-sm text-muted-foreground">
-                      Vollständige Zuweisungshistorie mit Zeitstempeln für Abrechnungszwecke.
-                      Enthält alle Personal-, Fahrzeug- und Materialzuweisungen inkl. Freigabezeiten.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <div className="flex-1 w-full sm:w-auto">
-                    <Select
-                      value={auditExportEventId}
-                      onValueChange={setAuditExportEventId}
-                      disabled={eventsLoading || auditExportLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Ereignis auswählen..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {events
-                          .filter(e => !e.archived_at)
-                          .map((event) => (
-                            <SelectItem key={event.id} value={event.id}>
-                              {event.name}
-                              {event.training_flag && (
-                                <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
-                              )}
-                            </SelectItem>
-                          ))}
-                        {events.filter(e => e.archived_at).length > 0 && (
-                          <>
-                            <SelectItem value="_divider" disabled>
-                              — Archiviert —
-                            </SelectItem>
-                            {events
-                              .filter(e => e.archived_at)
-                              .map((event) => (
-                                <SelectItem key={event.id} value={event.id}>
-                                  {event.name}
-                                  {event.training_flag && (
-                                    <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
-                                  )}
-                                </SelectItem>
-                              ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    onClick={handleAuditExport}
-                    disabled={!auditExportEventId || auditExportLoading || eventsLoading}
-                    className="w-full sm:w-auto"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    {auditExportLoading ? 'Exportiere...' : 'Audit exportieren'}
-                  </Button>
-                </div>
-
-                <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                  <p className="font-medium mb-1">Export enthält:</p>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    <li>Ereignis-Übersicht mit Zusammenfassung</li>
-                    <li>Alle Einsätze mit Zeitstempeln (ISO 8601)</li>
-                    <li>Personal-Zuweisungen (aktuell + historisch)</li>
-                    <li>Fahrzeug-Zuweisungen (aktuell + historisch)</li>
-                    <li>Material-Zuweisungen (aktuell + historisch)</li>
-                    <li>Status-Verlauf aller Einsätze</li>
-                    <li>Reko-Berichte</li>
-                  </ul>
-                </div>
               </div>
             </Card>
 
@@ -962,6 +873,69 @@ export default function SettingsPage() {
       case 'audit':
         return (
           <div className="space-y-4">
+            {/* Audit Export */}
+            <Card className="p-5">
+              <div className="space-y-4">
+                <div>
+                  <p className="font-medium">Audit-Export für Abrechnung</p>
+                  <p className="text-sm text-muted-foreground">
+                    Vollständige Zuweisungshistorie mit Zeitstempeln für Abrechnungszwecke.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex-1 w-full sm:w-auto">
+                    <Select
+                      value={auditExportEventId}
+                      onValueChange={setAuditExportEventId}
+                      disabled={eventsLoading || auditExportLoading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Ereignis auswählen..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {events
+                          .filter(e => !e.archived_at)
+                          .map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                              {event.name}
+                              {event.training_flag && (
+                                <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        {events.filter(e => e.archived_at).length > 0 && (
+                          <>
+                            <SelectItem value="_divider" disabled>
+                              — Archiviert —
+                            </SelectItem>
+                            {events
+                              .filter(e => e.archived_at)
+                              .map((event) => (
+                                <SelectItem key={event.id} value={event.id}>
+                                  {event.name}
+                                  {event.training_flag && (
+                                    <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
+                                  )}
+                                </SelectItem>
+                              ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={handleAuditExport}
+                    disabled={!auditExportEventId || auditExportLoading || eventsLoading}
+                    className="w-full sm:w-auto"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {auditExportLoading ? 'Exportiere...' : 'Audit exportieren'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
             {/* Search - Full width */}
             <Input
               placeholder="Suche nach Aktion, Ressource, ID, Benutzer oder IP..."
@@ -1061,7 +1035,7 @@ export default function SettingsPage() {
                           <TableCell>
                             {entry.changes_json ? (
                               <details className="cursor-pointer">
-                                <summary className="text-xs text-blue-600 hover:text-blue-800">Anzeigen</summary>
+                                <summary className="text-xs text-primary hover:text-primary/80">Anzeigen</summary>
                                 <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
                                   {JSON.stringify(entry.changes_json, null, 2)}
                                 </pre>
@@ -1097,7 +1071,7 @@ export default function SettingsPage() {
                       )}
                       {entry.changes_json && (
                         <details className="mt-2 cursor-pointer">
-                          <summary className="text-xs text-blue-600">Details anzeigen</summary>
+                          <summary className="text-xs text-primary">Details anzeigen</summary>
                           <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
                             {JSON.stringify(entry.changes_json, null, 2)}
                           </pre>
@@ -1210,32 +1184,6 @@ export default function SettingsPage() {
                   </>
                 )}
 
-                {/* Admin group */}
-                {isAdmin && (
-                  <>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">
-                      Administration
-                    </p>
-                    {visibleSections.filter(s => s.group === 'admin').map((section) => {
-                      const Icon = section.icon;
-                      const isActive = activeSection === section.id;
-                      return (
-                        <button
-                          key={section.id}
-                          onClick={() => navigateToSection(section.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                            isActive
-                              ? 'bg-background text-foreground shadow-sm'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {section.label}
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
               </nav>
             </aside>
           )}
@@ -1248,11 +1196,23 @@ export default function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {visibleSections.map((section) => (
-                    <SelectItem key={section.id} value={section.id}>
-                      {section.label}
-                    </SelectItem>
-                  ))}
+                  {(['config', 'resources', 'data'] as const).map((group) => {
+                    const groupSections = visibleSections.filter(s => s.group === group);
+                    if (groupSections.length === 0) return null;
+                    const groupLabel = group === 'config' ? 'Konfiguration' : group === 'resources' ? 'Ressourcen' : 'Daten';
+                    return (
+                      <div key={group}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {groupLabel}
+                        </div>
+                        {groupSections.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            {section.label}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

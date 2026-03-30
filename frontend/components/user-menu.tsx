@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, ArrowDown, ArrowUp, Loader2, Wifi, WifiOff, Radio, HelpCircle, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3 } from 'lucide-react';
+import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3 } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface UserMenuProps {
   // Quick action callbacks (optional, for pages that support them)
@@ -190,22 +191,6 @@ export function UserMenu({
     return "Synchronisiert";
   };
 
-  const getSyncDirectionIcon = () => {
-    if (!syncStatus) return null;
-
-    if (syncStatus.is_syncing) {
-      return <Loader2 className="h-3 w-3 animate-spin" />;
-    }
-
-    if (syncStatus.direction === 'from_railway') {
-      return <ArrowDown className="h-3 w-3" />;
-    } else if (syncStatus.direction === 'to_railway') {
-      return <ArrowUp className="h-3 w-3" />;
-    }
-
-    return null;
-  };
-
   const getWsStatusColor = () => {
     switch (wsStatus) {
       case 'connecting':
@@ -229,18 +214,6 @@ export function UserMenu({
         return 'Offline';
       case 'error':
         return 'Fehlgeschlagen';
-    }
-  };
-
-  const getWsStatusIcon = () => {
-    switch (wsStatus) {
-      case 'connecting':
-        return <Loader2 className="h-3 w-3 animate-spin" />;
-      case 'connected':
-        return <Wifi className="h-3 w-3" />;
-      case 'disconnected':
-      case 'error':
-        return <WifiOff className="h-3 w-3" />;
     }
   };
 
@@ -316,51 +289,48 @@ export function UserMenu({
             </>
           )}
 
-          {/* CONNECTION STATUS GROUP */}
-          <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-            Verbindung
-          </DropdownMenuLabel>
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Backend</span>
-              <div className="flex items-center gap-2">
-                <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
-                <span className="text-xs">{getStatusText()}</span>
-              </div>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">WebSocket</span>
-              <div className="flex items-center gap-2">
-                {getWsStatusIcon()}
-                <span className="text-xs">{getWsStatusText()}</span>
-              </div>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuItem asChild>
-            <Link href="/settings?section=sync" className={syncConfig?.is_production ? "cursor-pointer opacity-50" : "cursor-pointer"}>
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs text-muted-foreground">Sync</span>
+          {/* CONNECTION STATUS - dots only, tooltip on hover */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuItem asChild>
+                <Link href="/settings?section=sync" className="cursor-pointer">
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-xs text-muted-foreground">Verbindung</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
+                      <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
+                      {!syncConfig?.is_production && (
+                        <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
+                      )}
+                      <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
+                    </div>
+                  </div>
+                </Link>
+              </DropdownMenuItem>
+            </TooltipTrigger>
+            <TooltipContent side="left" sideOffset={8} showArrow={false} className="bg-popover text-popover-foreground border border-border shadow-md">
+              <div className="flex flex-col gap-1.5 py-0.5">
                 <div className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
-                  {getSyncDirectionIcon()}
-                  <span className="text-xs">{syncConfig?.is_production ? "Deaktiviert" : getSyncStatusText()}</span>
+                  <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
+                  <span>API: {getStatusText()}</span>
                 </div>
-              </div>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/settings?section=printer" className="cursor-pointer">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs text-muted-foreground">Drucker</span>
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
+                  <span>WebSocket: {getWsStatusText()}</span>
+                </div>
+                {!syncConfig?.is_production && (
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
+                    <span>Sync: {getSyncStatusText()}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
-                  <span className="text-xs">{getPrinterStatusText()}</span>
+                  <span>Drucker: {getPrinterStatusText()}</span>
                 </div>
               </div>
-            </Link>
-          </DropdownMenuItem>
+            </TooltipContent>
+          </Tooltip>
 
           <DropdownMenuSeparator />
 
@@ -417,13 +387,6 @@ export function UserMenu({
               <span>Divera Notfälle</span>
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/help" className="cursor-pointer">
-              <HelpCircle className="mr-2 h-4 w-4" />
-              <span>Hilfe</span>
-            </Link>
-          </DropdownMenuItem>
-
 
           <DropdownMenuSeparator />
 

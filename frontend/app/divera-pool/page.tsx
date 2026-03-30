@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 export default function DiveraPoolPage() {
+  useGlobalNavigation();
   const { isAuthenticated, isEditor } = useAuth();
   const { selectedEvent: currentEvent } = useEvent();
   const [emergencies, setEmergencies] = useState<ApiDiveraEmergency[]>([]);

@@ -300,6 +300,13 @@ export function VehicleSettings() {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {sortedVehicles.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                Keine Fahrzeuge vorhanden.
+              </TableCell>
+            </TableRow>
+          )}
           {sortedVehicles.map((vehicle) => (
               <TableRow key={vehicle.id}>
                 <TableCell className="font-mono text-sm text-muted-foreground">{vehicle.display_order}</TableCell>

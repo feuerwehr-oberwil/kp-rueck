@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { CheckCircle2, X, Loader2, Eye, EyeOff, Info } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import type { SyncConfig } from '@/types/sync'
@@ -78,14 +78,12 @@ export function SyncConfigCard() {
   )
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Synchronisations-Konfiguration</CardTitle>
-        <CardDescription>
-          Einstellungen für automatische Datensynchronisation
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Card className="p-6">
+      <div className="space-y-1 mb-4">
+        <p className="font-medium">Synchronisations-Konfiguration</p>
+        <p className="text-xs text-muted-foreground">Einstellungen für automatische Datensynchronisation</p>
+      </div>
+      <div className="space-y-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -93,7 +91,7 @@ export function SyncConfigCard() {
         ) : config?.is_production ? (
           /* Production - Only show info message */
           <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
-            <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+            <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="text-sm font-medium">Synchronisationsfunktion nur lokal verfügbar</p>
               <p className="text-sm text-muted-foreground">
@@ -105,9 +103,9 @@ export function SyncConfigCard() {
           </div>
         ) : (
           <>
-            {/* Railway Database URL */}
+            {/* Railway Database URL - full width since it's a long input */}
             <div className="space-y-2">
-              <Label htmlFor="railway-database-url">Railway PostgreSQL Verbindung</Label>
+              <Label htmlFor="railway-database-url" className="font-medium">Railway PostgreSQL Verbindung</Label>
               <div className="relative">
                 <Input
                   id="railway-database-url"
@@ -132,43 +130,38 @@ export function SyncConfigCard() {
                   )}
                 </Button>
               </div>
-              {isInternalUrl ? (
+              {isInternalUrl && (
                 <p className="text-sm text-amber-600 dark:text-amber-400">
-                  ⚠️ Diese URL sieht nach einer internen Railway-URL aus. Verwenden Sie die <strong>öffentliche</strong> Verbindungs-URL von Railway (unter Variables → DATABASE_PUBLIC_URL), damit die Synchronisation funktioniert.
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {railwayDatabaseUrl
-                    ? 'PostgreSQL Connection String der Railway Datenbank (öffentliche URL verwenden!)'
-                    : '⚠️ Keine Verbindung konfiguriert - Synchronisation deaktiviert'}
+                  ⚠️ Interne Railway-URL erkannt. Verwenden Sie die <strong>öffentliche</strong> URL (Variables → DATABASE_PUBLIC_URL).
                 </p>
               )}
             </div>
 
             {/* Sync Interval */}
-            <div className="space-y-2">
-              <Label htmlFor="sync-interval">Synchronisations-Intervall (Minuten)</Label>
-              <Input
-                id="sync-interval"
-                type="number"
-                min={1}
-                max={60}
-                value={intervalMinutes}
-                onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 2)}
-                className="max-w-xs"
-              />
-              <p className="text-sm text-muted-foreground">
-                Automatische Synchronisation alle {intervalMinutes} Minute(n)
-              </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <Label htmlFor="sync-interval" className="font-medium">Intervall</Label>
+                <p className="text-xs text-muted-foreground">Automatische Synchronisation</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Input
+                  id="sync-interval"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={intervalMinutes}
+                  onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 2)}
+                  className="w-20"
+                />
+                <span className="text-xs text-muted-foreground">Min</span>
+              </div>
             </div>
 
             {/* Auto-sync on create */}
-            <div className="flex items-center justify-between space-x-2">
-              <div className="space-y-1">
-                <Label htmlFor="auto-sync">Automatisch bei Erstellung synchronisieren</Label>
-                <p className="text-sm text-muted-foreground">
-                  Sofortige Synchronisation nach Erstellen von Einsätzen/Ereignissen
-                </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <Label htmlFor="auto-sync" className="font-medium">Auto-Sync bei Erstellung</Label>
+                <p className="text-xs text-muted-foreground">Sofortige Sync nach neuen Einsätzen/Ereignissen</p>
               </div>
               <Switch
                 id="auto-sync"
@@ -177,78 +170,23 @@ export function SyncConfigCard() {
               />
             </div>
 
-            {/* Advanced Settings */}
-            <div className="space-y-4 pt-4 border-t">
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center gap-2 text-sm font-medium"
-              >
-                <span>{showAdvanced ? '▼' : '▶'}</span>
-                Erweiterte Einstellungen
-              </button>
-
-              {showAdvanced && (
-                <div className="space-y-4 pl-6">
-                  {/* Conflict Buffer */}
-                  <div className="space-y-2">
-                    <Label htmlFor="conflict-buffer">Konflikt-Puffer (Sekunden)</Label>
-                    <Input
-                      id="conflict-buffer"
-                      type="number"
-                      min={0}
-                      max={30}
-                      value={conflictBuffer}
-                      onChange={(e) => setConflictBuffer(parseInt(e.target.value) || 5)}
-                      className="max-w-xs"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Zeitpuffer für Konfliktauflösung (lokale Änderungen gewinnen bei gleichen Zeitstempeln)
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Sync Scope - Read-only info */}
-            <div className="space-y-2 pt-4 border-t">
-              <Label>Synchronisations-Umfang</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Ereignisse</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Einsätze</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Personal</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Fahrzeuge</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Materialien</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Einstellungen</span>
-                </div>
+            {/* Conflict Buffer */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <Label htmlFor="conflict-buffer" className="font-medium">Konflikt-Puffer</Label>
+                <p className="text-xs text-muted-foreground">Lokale Änderungen gewinnen bei gleichen Zeitstempeln</p>
               </div>
-              <p className="text-sm text-muted-foreground pt-2">Nicht synchronisiert:</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <X className="h-4 w-4" />
-                  <span>Fotos</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <X className="h-4 w-4" />
-                  <span>Audit Logs</span>
-                </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Input
+                  id="conflict-buffer"
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={conflictBuffer}
+                  onChange={(e) => setConflictBuffer(parseInt(e.target.value) || 5)}
+                  className="w-20"
+                />
+                <span className="text-xs text-muted-foreground">Sek</span>
               </div>
             </div>
 
@@ -271,7 +209,7 @@ export function SyncConfigCard() {
             </div>
           </>
         )}
-      </CardContent>
+      </div>
     </Card>
   )
 }

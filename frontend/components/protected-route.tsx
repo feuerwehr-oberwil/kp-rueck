@@ -8,7 +8,41 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { checkBackendHealth } from '@/lib/auth-client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { Progress } from '@/components/ui/progress';
+import { Flame } from 'lucide-react';
+
+function AuthLoadingScreen({ message }: { message: string }) {
+  const [progress, setProgress] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setProgress(20), 100);
+    intervalRef.current = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 85) return prev;
+        return prev + Math.random() * 10;
+      });
+    }, 500);
+    return () => {
+      clearTimeout(timer);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+          <Flame className="h-7 w-7 text-primary" strokeWidth={1.5} />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">KP Rück</h1>
+        <p className="text-sm text-muted-foreground mb-6">{message}</p>
+        <Progress value={progress} className="h-1 mx-auto max-w-48" />
+      </div>
+    </div>
+  );
+}
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -18,14 +52,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      // Check if backend is available before redirecting to login
       setCheckingBackend(true);
       checkBackendHealth().then((isHealthy) => {
         setBackendAvailable(isHealthy);
         setCheckingBackend(false);
 
         if (isHealthy) {
-          // Backend is healthy, user just isn't logged in
           router.push('/login');
         }
       });
@@ -34,18 +66,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading || checkingBackend) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
-            <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
-              Lädt...
-            </span>
-          </div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            {loading ? 'Prüfe Anmeldung...' : 'Prüfe Serververbindung...'}
-          </p>
-        </div>
-      </div>
+      <AuthLoadingScreen
+        message={loading ? 'Anmeldung wird vorbereitet...' : 'Prüfe Serververbindung...'}
+      />
     );
   }
 
@@ -106,18 +129,7 @@ export function EditorRoute({ children }: { children: React.ReactNode }) {
   }, [user, loading, isEditor, router]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
-            <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
-              Lädt...
-            </span>
-          </div>
-          <p className="mt-4 text-sm text-muted-foreground">Lädt...</p>
-        </div>
-      </div>
-    );
+    return <AuthLoadingScreen message="Anmeldung wird vorbereitet..." />;
   }
 
   if (!user || !isEditor) return null;

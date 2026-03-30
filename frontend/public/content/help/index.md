@@ -25,6 +25,12 @@ Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel. Wechseln Si
 ### Ereignisse (`G E`)
 Events verwalten, wechseln, archivieren, exportieren.
 
+### Einstellungen (`G S`)
+System-Konfiguration: Benutzer, Sync, Drucker, Kartenstil und mehr.
+
+### Hilfe (`G H`)
+Diese Dokumentationsseite.
+
 **Echt vs. Training:** Events können als "Training" markiert werden. Badge "Übung" erscheint, Daten werden separat geführt. Echte Events kommen von Divera.
 
 **Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung.
@@ -229,6 +235,8 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 | `G K` | Kanban-Board |
 | `G M` | Kartenansicht |
 | `G E` | Ereignisse |
+| `G S` | Einstellungen |
+| `G H` | Hilfe |
 
 ### Aktionen
 | Shortcut | Aktion |

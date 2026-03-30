@@ -273,6 +273,12 @@ export default function MapPage() {
         } else if (e.key === 'e' || e.key === 'E') {
           router.push('/events')
           return
+        } else if (e.key === 's' || e.key === 'S') {
+          router.push('/settings')
+          return
+        } else if (e.key === 'h' || e.key === 'H') {
+          router.push('/help')
+          return
         }
         return
       }

@@ -36,9 +36,9 @@ function ConnectionIndicator() {
   return (
     <div className="flex items-center gap-1.5" title={online ? "Verbunden" : "Verbindung unterbrochen"}>
       {online ? (
-        <Wifi className="h-4 w-4 text-emerald-500" />
+        <Wifi className="h-4 w-4 text-success" />
       ) : (
-        <WifiOff className="h-4 w-4 text-red-500 animate-pulse" />
+        <WifiOff className="h-4 w-4 text-destructive animate-pulse" />
       )}
     </div>
   )
@@ -141,7 +141,7 @@ export default function DisplayLayout({
 
           <h1 className="text-sm font-semibold tracking-tight text-foreground">{eventName}</h1>
           {isTraining && (
-            <span className="text-xs font-medium text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded">
+            <span className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded">
               Übung
             </span>
           )}

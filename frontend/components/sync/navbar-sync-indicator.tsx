@@ -18,26 +18,26 @@ export function NavbarSyncIndicator() {
   // Determine status color and icon
   const getStatusDot = () => {
     if (isLoading) {
-      return <div className="h-2 w-2 rounded-full bg-gray-400 animate-pulse" />
+      return <div className="h-2 w-2 rounded-full bg-muted-foreground animate-pulse" />
     }
 
     if (error || !status) {
-      return <div className="h-2 w-2 rounded-full bg-red-500" />
+      return <div className="h-2 w-2 rounded-full bg-destructive" />
     }
 
     if (status.is_syncing) {
-      return <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+      return <div className="h-2 w-2 rounded-full bg-warning animate-pulse" />
     }
 
     if (!status.railway_healthy) {
-      return <div className="h-2 w-2 rounded-full bg-red-500" />
+      return <div className="h-2 w-2 rounded-full bg-destructive" />
     }
 
     if (isStale) {
-      return <div className="h-2 w-2 rounded-full bg-orange-500" />
+      return <div className="h-2 w-2 rounded-full bg-warning" />
     }
 
-    return <div className="h-2 w-2 rounded-full bg-green-500" />
+    return <div className="h-2 w-2 rounded-full bg-success" />
   }
 
   const getDirectionIcon = () => {

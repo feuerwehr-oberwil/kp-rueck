@@ -256,7 +256,7 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
               <ClipboardCheck className="h-5 w-5 text-primary" />
               <h3 className="text-base font-semibold">Setup-Checkliste</h3>
               {allCriticalComplete && (
-                <Badge variant="default" className="bg-green-600 text-xs h-5 px-2">
+                <Badge variant="default" className="bg-success text-xs h-5 px-2">
                   <Rocket className="h-3.5 w-3.5 mr-1" />
                   Bereit
                 </Badge>
@@ -301,7 +301,7 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
                     className="flex-shrink-0 hover:opacity-80 transition-opacity"
                   >
                     {isCompleted ? (
-                      <div className="h-4.5 w-4.5 rounded-full bg-green-600 flex items-center justify-center">
+                      <div className="h-4.5 w-4.5 rounded-full bg-success flex items-center justify-center">
                         <Check className="h-3 w-3 text-white" />
                       </div>
                     ) : (
@@ -368,7 +368,7 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
                     className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
                   />
                   <Button variant="outline" size="icon" onClick={copyCheckInUrlToClipboard}>
-                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>

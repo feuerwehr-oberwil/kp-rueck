@@ -10,6 +10,7 @@ import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
 import { cn } from '@/lib/utils';
+import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation';
 
 interface TocItem {
   id: string;
@@ -21,6 +22,7 @@ export default function HelpPage() {
   const { selectedEvent } = useEvent();
   const { isAuthenticated } = useAuth();
   const isMobile = useIsMobile();
+  useGlobalNavigation();
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string>('');

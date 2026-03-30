@@ -255,13 +255,7 @@ export function UserSettings() {
   return (
     <div className="space-y-4">
       {/* Header with Create Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium">Benutzerverwaltung</h3>
-          <p className="text-sm text-muted-foreground">
-            Benutzerkonten erstellen und verwalten
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Neuer Benutzer

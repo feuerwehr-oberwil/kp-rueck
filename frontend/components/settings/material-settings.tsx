@@ -310,11 +310,18 @@ export function MaterialSettings() {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {sortedMaterials.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                Kein Material vorhanden.
+              </TableCell>
+            </TableRow>
+          )}
           {sortedMaterials.map((material) => (
             <TableRow key={material.id}>
               <TableCell className="font-medium">{material.name}</TableCell>
               <TableCell>
-                <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
+                <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
                   {material.location || 'General'}
                 </span>
               </TableCell>

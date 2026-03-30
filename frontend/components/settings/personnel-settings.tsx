@@ -349,6 +349,13 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               </TableRow>
             </TableHeader>
             <TableBody>
+              {sortedPersonnel.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    Kein Personal vorhanden.
+                  </TableCell>
+                </TableRow>
+              )}
               {sortedPersonnel.map((person) => (
                 <TableRow key={person.id}>
                   <TableCell className="font-medium">{person.name}</TableCell>

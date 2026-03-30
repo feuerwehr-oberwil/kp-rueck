@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Fragment } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -59,7 +59,7 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
     switch (status) {
       case 'success':
         return (
-          <Badge variant="secondary" className="bg-green-500 text-white flex items-center gap-1 w-fit">
+          <Badge variant="secondary" className="bg-success text-success-foreground flex items-center gap-1 w-fit">
             <CheckCircle2 className="h-3 w-3" />
             Erfolgreich
           </Badge>
@@ -73,14 +73,14 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
         )
       case 'partial':
         return (
-          <Badge variant="secondary" className="bg-orange-500 text-white flex items-center gap-1 w-fit">
+          <Badge variant="secondary" className="bg-warning text-warning-foreground flex items-center gap-1 w-fit">
             <AlertTriangle className="h-3 w-3" />
             Teilweise
           </Badge>
         )
       case 'syncing':
         return (
-          <Badge variant="secondary" className="bg-yellow-500 text-white flex items-center gap-1 w-fit">
+          <Badge variant="secondary" className="bg-warning text-warning-foreground flex items-center gap-1 w-fit">
             <Loader2 className="h-3 w-3 animate-spin" />
             Läuft...
           </Badge>
@@ -127,14 +127,12 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Synchronisations-Verlauf</CardTitle>
-        <CardDescription>
-          Letzte 10 Synchronisationen zwischen Railway und Local
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Card className="p-6">
+      <div className="space-y-1 mb-4">
+        <p className="font-medium">Synchronisations-Verlauf</p>
+        <p className="text-xs text-muted-foreground">Letzte 10 Synchronisationen zwischen Railway und Local</p>
+      </div>
+      <div>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -224,8 +222,8 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
                               )}
                               {entry.errors && Object.keys(entry.errors).length > 0 && (
                                 <div className="mt-2">
-                                  <span className="font-medium text-sm text-red-600">Fehler:</span>
-                                  <div className="mt-1 text-sm text-red-700 space-y-1">
+                                  <span className="font-medium text-sm text-destructive">Fehler:</span>
+                                  <div className="mt-1 text-sm text-destructive/80 space-y-1">
                                     {Object.entries(entry.errors).map(([key, value]) => (
                                       <div key={key}>
                                         <span className="font-medium">{key}:</span> {value}
@@ -245,7 +243,7 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
             </Table>
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   )
 }

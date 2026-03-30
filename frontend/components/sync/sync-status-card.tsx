@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react'
@@ -90,7 +90,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
 
     if (status.is_syncing || isSyncing) {
       return (
-        <Badge variant="secondary" className="flex items-center gap-1 bg-yellow-500 text-white">
+        <Badge variant="secondary" className="flex items-center gap-1 bg-warning text-warning-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
           Synchronisiert...
         </Badge>
@@ -108,7 +108,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
 
     if (isStale) {
       return (
-        <Badge variant="secondary" className="flex items-center gap-1 bg-orange-500 text-white">
+        <Badge variant="secondary" className="flex items-center gap-1 bg-warning text-warning-foreground">
           <AlertTriangle className="h-3 w-3" />
           Daten veraltet
         </Badge>
@@ -116,7 +116,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     }
 
     return (
-      <Badge variant="secondary" className="flex items-center gap-1 bg-green-500 text-white">
+      <Badge variant="secondary" className="flex items-center gap-1 bg-success text-success-foreground">
         <CheckCircle2 className="h-3 w-3" />
         Synchronisiert
       </Badge>
@@ -166,19 +166,15 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Synchronisations-Status</CardTitle>
-            <CardDescription>
-              Live-Status der Datensynchronisation zwischen Railway und Local
-            </CardDescription>
-          </div>
-          {getStatusBadge()}
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="font-medium">Synchronisations-Status</p>
+          <p className="text-xs text-muted-foreground">Live-Status der Datensynchronisation zwischen Railway und Local</p>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        {getStatusBadge()}
+      </div>
+      <div className="space-y-4">
         {/* Status Details */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -279,7 +275,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             </Button>
           )}
         </div>
-      </CardContent>
+      </div>
     </Card>
   )
 }

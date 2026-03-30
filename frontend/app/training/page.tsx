@@ -10,8 +10,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { useGlobalNavigation } from "@/lib/hooks/use-global-navigation"
 
 export default function TrainingPage() {
+  useGlobalNavigation()
   const { selectedEvent, isEventLoaded } = useEvent()
   const router = useRouter()
 

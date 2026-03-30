@@ -57,7 +57,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
       className={cn(
         "p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
         columnColor,
-        priority === "high" ? "border-red-500/40 border-2" : "border-border/50"
+        priority === "high" ? "border-red-500/40 border-2 bg-red-500/[0.04] dark:bg-red-500/[0.06]" : "border-border/50"
       )}
       onClick={onClick}
     >

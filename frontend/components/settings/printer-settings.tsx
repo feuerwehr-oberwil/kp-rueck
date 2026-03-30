@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -120,10 +120,10 @@ export function PrinterSettings() {
   return (
     <div className="space-y-4">
       {/* Info banner */}
-      <Card className="p-3 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30">
+      <Card className="p-3 border-info/30 bg-info/5">
         <div className="flex gap-2">
-          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-700 dark:text-blue-300">
+          <Info className="h-4 w-4 text-info flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-info-foreground">
             Der Print-Agent muss auf dem Kommandoposten-Netzwerk laufen und Zugriff auf den Drucker haben.
           </p>
         </div>
@@ -135,7 +135,7 @@ export function PrinterSettings() {
           <div className="flex items-center gap-2">
             {printerStatus?.enabled ? (
               <>
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium">Drucker aktiviert</span>
                 {printerStatus.ip && (
                   <span className="text-sm text-muted-foreground">
@@ -162,17 +162,17 @@ export function PrinterSettings() {
       </Card>
 
       {/* Configuration Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Drucker-Konfiguration</CardTitle>
-          <CardDescription>Einstellungen für den Thermodrucker</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <Card className="p-6">
+        <div className="space-y-1 mb-4">
+          <p className="font-medium">Drucker-Konfiguration</p>
+          <p className="text-xs text-muted-foreground">Einstellungen für den Thermodrucker</p>
+        </div>
+        <div className="space-y-4">
           {/* Enable/Disable Toggle */}
-          <div className="flex items-center justify-between space-x-2">
-            <div className="space-y-1">
-              <Label htmlFor="printer-enabled">Drucker aktiviert</Label>
-              <p className="text-sm text-muted-foreground">Aktiviert die Thermodrucker-Funktionen</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="printer-enabled" className="font-medium">Drucker aktiviert</Label>
+              <p className="text-xs text-muted-foreground">Aktiviert die Thermodrucker-Funktionen</p>
             </div>
             <Switch
               id="printer-enabled"
@@ -185,53 +185,60 @@ export function PrinterSettings() {
           </div>
 
           {/* IP Address */}
-          <div className="space-y-2">
-            <Label htmlFor="printer-ip">Drucker IP-Adresse</Label>
-            <Input
-              id="printer-ip"
-              type="text"
-              placeholder="192.168.1.100"
-              value={printerIp}
-              onChange={(e) =>
-                setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
-              }
-              onBlur={(e) => {
-                if (e.target.value !== savedSettingsRef.current['printer.ip']) {
-                  updateSetting('printer.ip', e.target.value);
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="printer-ip" className="font-medium">IP-Adresse</Label>
+              <p className="text-xs text-muted-foreground">Netzwerk-IP des Thermodruckers</p>
+            </div>
+            <div className="flex-shrink-0 w-48">
+              <Input
+                id="printer-ip"
+                type="text"
+                placeholder="192.168.1.100"
+                value={printerIp}
+                onChange={(e) =>
+                  setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
                 }
-              }}
-              disabled={saving === 'printer.ip'}
-            />
-            <p className="text-sm text-muted-foreground">Netzwerk-IP des Thermodruckers (z.B. 192.168.1.100)</p>
+                onBlur={(e) => {
+                  if (e.target.value !== savedSettingsRef.current['printer.ip']) {
+                    updateSetting('printer.ip', e.target.value);
+                  }
+                }}
+                disabled={saving === 'printer.ip'}
+              />
+            </div>
           </div>
 
           {/* Port */}
-          <div className="space-y-2">
-            <Label htmlFor="printer-port">Port</Label>
-            <Input
-              id="printer-port"
-              type="number"
-              placeholder="9100"
-              value={printerPort}
-              onChange={(e) =>
-                setSettings((prev) => ({ ...prev, 'printer.port': e.target.value }))
-              }
-              onBlur={(e) => {
-                if (e.target.value !== savedSettingsRef.current['printer.port']) {
-                  updateSetting('printer.port', e.target.value);
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="printer-port" className="font-medium">Port</Label>
+              <p className="text-xs text-muted-foreground">ESC/POS Standard-Port (normalerweise 9100)</p>
+            </div>
+            <div className="flex-shrink-0 w-24">
+              <Input
+                id="printer-port"
+                type="number"
+                placeholder="9100"
+                value={printerPort}
+                onChange={(e) =>
+                  setSettings((prev) => ({ ...prev, 'printer.port': e.target.value }))
                 }
-              }}
-              disabled={saving === 'printer.port'}
-              className="max-w-xs"
-            />
-            <p className="text-sm text-muted-foreground">ESC/POS Standard-Port (normalerweise 9100)</p>
+                onBlur={(e) => {
+                  if (e.target.value !== savedSettingsRef.current['printer.port']) {
+                    updateSetting('printer.port', e.target.value);
+                  }
+                }}
+                disabled={saving === 'printer.port'}
+              />
+            </div>
           </div>
 
           {/* Auto-print on Anfahrt */}
-          <div className="flex items-center justify-between space-x-2">
-            <div className="space-y-1">
-              <Label htmlFor="auto-anfahrt">Auto-Druck bei Anfahrt</Label>
-              <p className="text-sm text-muted-foreground">Automatisch Einsatzzettel drucken bei Status &quot;Einsatz&quot;</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="auto-anfahrt" className="font-medium">Auto-Druck bei Anfahrt</Label>
+              <p className="text-xs text-muted-foreground">Einsatzzettel automatisch drucken bei Status &quot;Einsatz&quot;</p>
             </div>
             <Switch
               id="auto-anfahrt"
@@ -244,9 +251,10 @@ export function PrinterSettings() {
           </div>
 
           {/* Test Button */}
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-2">
             <Button
               variant="outline"
+              size="sm"
               onClick={handleTestPrint}
               disabled={testingConnection || !isEnabled}
             >
@@ -258,7 +266,7 @@ export function PrinterSettings() {
               Verbindung testen
             </Button>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {/* Print Agent Info */}

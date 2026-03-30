@@ -51,13 +51,13 @@ export function WebSocketStatus() {
   const getStatusColor = () => {
     switch (status) {
       case 'connecting':
-        return 'text-yellow-600 dark:text-yellow-400'
+        return 'text-warning'
       case 'connected':
-        return 'text-green-600 dark:text-green-400'
+        return 'text-success'
       case 'disconnected':
-        return 'text-gray-600 dark:text-gray-400'
+        return 'text-muted-foreground'
       case 'error':
-        return 'text-red-600 dark:text-red-400'
+        return 'text-destructive'
     }
   }
 
