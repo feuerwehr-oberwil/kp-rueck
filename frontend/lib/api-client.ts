@@ -157,25 +157,45 @@ export interface ApiVehicleUpdate {
 export interface ApiMaterialResource {
   id: string // UUID
   name: string
+  type: string
   status: string // available, assigned, planned, maintenance
   location?: string | null
   location_sort_order: number // Sort order for grouping by location
+  consumable: boolean
+  group_id: string | null
   created_at: string
   updated_at: string
 }
 
 export interface ApiMaterialCreate {
   name: string
+  type: string
   status: string
   location?: string | null
   location_sort_order?: number
+  consumable?: boolean
+  group_id?: string | null
 }
 
 export interface ApiMaterialUpdate {
   name?: string
+  type?: string
   status?: string
   location?: string | null
   location_sort_order?: number
+  consumable?: boolean
+  group_id?: string | null
+}
+
+export interface ApiMaterialGroup {
+  id: string
+  name: string
+  description: string | null
+  location: string
+  location_sort_order: number
+  materials: ApiMaterialResource[]
+  created_at: string
+  updated_at: string
 }
 
 export interface CategorySortOrder {
@@ -1080,6 +1100,31 @@ class ApiClient {
     return this.request<{ status: string; updated_categories: number }>('/api/materials/categories/sort-order', {
       method: 'POST',
       body: JSON.stringify(data),
+    })
+  }
+
+  // Material Groups
+  async getMaterialGroups(): Promise<ApiMaterialGroup[]> {
+    return this.request<ApiMaterialGroup[]>('/api/material-groups/')
+  }
+
+  async createMaterialGroup(data: { name: string; description?: string; location?: string; location_sort_order?: number; material_ids?: string[] }): Promise<ApiMaterialGroup> {
+    return this.request<ApiMaterialGroup>('/api/material-groups/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateMaterialGroup(id: string, data: { name?: string; description?: string; location?: string; location_sort_order?: number; material_ids?: string[] }): Promise<ApiMaterialGroup> {
+    return this.request<ApiMaterialGroup>(`/api/material-groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteMaterialGroup(id: string): Promise<void> {
+    return this.request<void>(`/api/material-groups/${id}`, {
+      method: 'DELETE',
     })
   }
 

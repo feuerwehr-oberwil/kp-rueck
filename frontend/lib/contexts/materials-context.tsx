@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react"
-import { apiClient, type ApiMaterialResource } from "@/lib/api-client"
+import { apiClient, type ApiMaterialResource, type ApiMaterialGroup } from "@/lib/api-client"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 
@@ -19,13 +19,25 @@ export interface Material {
   category: string
   status: "available" | "assigned"
   categorySortOrder: number
+  consumable: boolean
+  groupId: string | null
+}
+
+export interface MaterialGroup {
+  id: string
+  name: string
+  description: string | null
+  location: string
+  materialIds: string[]
 }
 
 interface MaterialsContextType {
   materials: Material[]
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
+  materialGroups: MaterialGroup[]
   isLoading: boolean
   refreshMaterials: () => Promise<Material[]>
+  refreshMaterialGroups: () => Promise<void>
 }
 
 const MaterialsContext = createContext<MaterialsContextType | undefined>(undefined)
@@ -37,12 +49,23 @@ const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({
   category: apiMat.location || "General",
   status: (apiMat.status === "available" ? "available" : "assigned") as "available" | "assigned",
   categorySortOrder: apiMat.location_sort_order,
+  consumable: apiMat.consumable ?? false,
+  groupId: apiMat.group_id ? String(apiMat.group_id) : null,
+})
+
+const apiGroupToGroup = (apiGroup: ApiMaterialGroup): MaterialGroup => ({
+  id: String(apiGroup.id),
+  name: apiGroup.name,
+  description: apiGroup.description,
+  location: apiGroup.location,
+  materialIds: apiGroup.materials.map(m => String(m.id)),
 })
 
 export function MaterialsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { selectedEvent } = useEvent()
   const [materials, setMaterials] = useState<Material[]>([])
+  const [materialGroups, setMaterialGroups] = useState<MaterialGroup[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   const refreshMaterials = useCallback(async (): Promise<Material[]> => {
@@ -65,6 +88,15 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedEvent])
 
+  const refreshMaterialGroups = useCallback(async () => {
+    try {
+      const apiGroups = await apiClient.getMaterialGroups()
+      setMaterialGroups(apiGroups.map(apiGroupToGroup))
+    } catch (error) {
+      console.error("Failed to load material groups:", error)
+    }
+  }, [])
+
   // Load initial data
   useEffect(() => {
     if (authLoading || !isAuthenticated) {
@@ -74,20 +106,24 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
 
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setMaterials([])
+      setMaterialGroups([])
       setIsLoading(false)
       return
     }
 
     refreshMaterials()
-  }, [authLoading, isAuthenticated, selectedEvent, refreshMaterials])
+    refreshMaterialGroups()
+  }, [authLoading, isAuthenticated, selectedEvent, refreshMaterials, refreshMaterialGroups])
 
   return (
     <MaterialsContext.Provider
       value={{
         materials,
         setMaterials,
+        materialGroups,
         isLoading,
         refreshMaterials,
+        refreshMaterialGroups,
       }}
     >
       {children}
