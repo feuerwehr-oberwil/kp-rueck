@@ -198,6 +198,16 @@ export default function FireStationDashboard() {
   const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'vehicles' | 'print' | 'thermo' | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // Auto-generate check-in QR code URL when no personnel are available
+  useEffect(() => {
+    if (!selectedEvent || checkInUrl || isLoading) return
+    if (personnel.filter((p) => p.status === "available").length > 0) return
+    apiClient.generateCheckInLink(selectedEvent.id).then((response) => {
+      setCheckInUrl(`${window.location.origin}${response.link}`)
+    }).catch(() => {})
+  }, [selectedEvent, personnel, checkInUrl, isLoading])
+
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -1302,25 +1312,6 @@ export default function FireStationDashboard() {
                           </Button>
                         </div>
                       </div>
-                    ) : selectedEvent ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            const response = await apiClient.generateCheckInLink(selectedEvent.id)
-                            const fullUrl = `${window.location.origin}${response.link}`
-                            setCheckInUrl(fullUrl)
-                          } catch (error) {
-                            toast.error('Fehler', {
-                              description: 'QR-Code konnte nicht generiert werden.',
-                            })
-                          }
-                        }}
-                      >
-                        <QrCode className="h-4 w-4 mr-2" />
-                        QR-Code anzeigen
-                      </Button>
                     ) : null}
                   </div>
                 ) : (
