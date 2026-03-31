@@ -97,7 +97,7 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
         aria-grabbed={isDragging}
         aria-label={canDrag ? `Drag ${person.name} to assign to incident` : undefined}
         className={cn(
-          "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:bg-muted/50 hover:border-border",
+          "border border-border/50 bg-card/80 backdrop-blur-sm px-3 py-2 gap-0 transition-all hover:bg-muted/50 hover:border-border",
           canDrag && "draggable",
           isDragging && "dragging",
           isDragging && person.isDriver && "ring-2 ring-blue-500/50",

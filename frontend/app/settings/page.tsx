@@ -165,6 +165,7 @@ export default function SettingsPage() {
 
   // General settings state
   const [settings, setSettings] = useState<Record<string, string>>({});
+  const [serverSettings, setServerSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -248,6 +249,7 @@ export default function SettingsPage() {
     try {
       const data = await apiClient.getAllSettings();
       setSettings(data);
+      setServerSettings(data);
     } catch (err) {
       console.error('Failed to fetch settings:', err);
       setError(err instanceof Error ? err.message : 'Fehler beim Laden');
@@ -272,6 +274,7 @@ export default function SettingsPage() {
     try {
       await apiClient.updateSetting(key, value);
       setSettings((prev) => ({ ...prev, [key]: value }));
+      setServerSettings((prev) => ({ ...prev, [key]: value }));
     } catch (err) {
       console.error(`Failed to update setting ${key}:`, err);
       toast.error('Fehler beim Speichern');
@@ -484,7 +487,7 @@ export default function SettingsPage() {
         value={value}
         onChange={(e) => setSettings((prev) => ({ ...prev, [config.key]: e.target.value }))}
         onBlur={(e) => {
-          if (e.target.value !== settings[config.key]) {
+          if (e.target.value !== serverSettings[config.key]) {
             updateSetting(config.key, e.target.value);
           }
         }}

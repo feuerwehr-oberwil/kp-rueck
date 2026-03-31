@@ -107,8 +107,8 @@ export function TransferIncidentDialog({
                 onClick={() => setSelectedIncidentId(incident.id)}
                 className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
                   selectedIncidentId === incident.id
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50 hover:bg-accent"
+                    ? "border-foreground/30 bg-muted"
+                    : "border-border hover:border-foreground/20 hover:bg-muted/50"
                 }`}
               >
                 <div className="space-y-2">

@@ -56,8 +56,6 @@ export function NotificationProvider({
   const { isAuthenticated, loading: authLoading } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS)
-  const audioRef = useRef<HTMLAudioElement>(null)
-
   // Sidebar state with localStorage persistence
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
@@ -250,22 +248,6 @@ export function NotificationProvider({
   const refetchNotifications = async () => {
     const newNotifications = await fetchNotifications()
 
-    // Check for new critical notifications
-    const newCritical = newNotifications.filter(
-      (n) =>
-        n.severity === 'critical' &&
-        !n.dismissed &&
-        !previousNotificationIds.current.has(n.id)
-    )
-
-    // Play audio for new critical notifications
-    if (newCritical.length > 0 && audioRef.current) {
-      audioRef.current.play().catch(() => {
-        // Silently handle autoplay restrictions
-        // Browser blocks audio playback until user interacts with the page
-      })
-    }
-
     // Update previous notification IDs
     previousNotificationIds.current = new Set(newNotifications.map((n) => n.id))
 
@@ -352,7 +334,6 @@ export function NotificationProvider({
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      <audio ref={audioRef} src="/alerts/mixkit-digital-quick-tone-2866.wav" preload="auto" />
     </NotificationContext.Provider>
   )
 }

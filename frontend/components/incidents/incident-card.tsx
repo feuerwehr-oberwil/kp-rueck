@@ -212,7 +212,7 @@ export function IncidentCard({
               e.stopPropagation()
               onTransfer()
             }}
-            className="w-full gap-2 mt-2"
+            className="w-full gap-2 mt-2 hover:bg-muted hover:text-foreground"
           >
             <ArrowRightLeft className="h-4 w-4" />
             Ressourcen übertragen
