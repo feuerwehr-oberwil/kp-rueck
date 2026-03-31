@@ -33,6 +33,7 @@ interface DroppableColumnProps {
   onRemoveCrew: (operationId: string, crewName: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
+  onToggleDriverStay?: (operationId: string, vehicleName: string) => void
   onRemoveReko?: (operationId: string) => void
   onCardClick: (operation: Operation) => void
   onCardSelect?: (operation: Operation) => void
@@ -98,6 +99,7 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     // Check vehicles changed
     for (let j = 0; j < a.vehicles.length; j++) {
       if (a.vehicles[j] !== b.vehicles[j]) return false
+      if (a.vehicleDriverStay?.get(a.vehicles[j]) !== b.vehicleDriverStay?.get(b.vehicles[j])) return false
     }
     // Check materials changed
     for (let j = 0; j < a.materials.length; j++) {
@@ -114,6 +116,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onRemoveCrew,
   onRemoveMaterial,
   onRemoveVehicle,
+  onToggleDriverStay,
   onRemoveReko,
   onCardClick,
   onCardSelect,
@@ -268,6 +271,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
                 onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
                 onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
+                onToggleDriverStay={onToggleDriverStay ? (vehicleName) => onToggleDriverStay(operation.id, vehicleName) : undefined}
                 onRemoveReko={onRemoveReko ? () => onRemoveReko(operation.id) : undefined}
                 onClick={() => onCardClick(operation)}
                 onSelect={() => onCardSelect?.(operation)}

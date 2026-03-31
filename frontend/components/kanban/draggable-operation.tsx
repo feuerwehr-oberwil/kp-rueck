@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2 } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -33,6 +33,7 @@ interface DraggableOperationProps {
   onRemoveCrew: (crewName: string) => void
   onRemoveMaterial: (materialId: string) => void
   onRemoveVehicle: (vehicleName: string) => void
+  onToggleDriverStay?: (vehicleName: string) => void
   onRemoveReko?: () => void
   onClick: () => void
   onSelect?: () => void
@@ -77,6 +78,7 @@ function DraggableOperationBase({
   onRemoveCrew,
   onRemoveMaterial,
   onRemoveVehicle,
+  onToggleDriverStay,
   onRemoveReko,
   onClick,
   onSelect,
@@ -411,13 +413,24 @@ function DraggableOperationBase({
                       <Badge
                         key={vehicleName}
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group transition-colors cursor-default"
                         title={callsign ? `Funkrufname: ${callsign}` : undefined}
                       >
-                        <span>{vehicleName}{callsign ? ` · ${callsign}` : ''}</span>
-                        {driverStay && (
-                          <span title="Fahrer bleibt vor Ort"><MapPin className="h-3 w-3 text-muted-foreground/70" /></span>
-                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleDriverStay?.(vehicleName)
+                          }}
+                          className="flex items-center gap-1 cursor-pointer"
+                          title={driverStay ? 'Fahrer bleibt vor Ort — klicken für Rückkehr' : 'Fahrer kehrt zurück — klicken für vor Ort bleiben'}
+                        >
+                          <span>{vehicleName}{callsign ? ` · ${callsign}` : ''}</span>
+                          {driverStay ? (
+                            <MapPin className="h-3 w-3 text-muted-foreground/70" />
+                          ) : (
+                            <Undo2 className="h-3 w-3 text-muted-foreground/40" />
+                          )}
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -585,6 +598,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.materials.every((m, i) => m === nextProps.operation.materials[i]) &&
     prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
     prevProps.operation.vehicles.every((v, i) => v === nextProps.operation.vehicles[i]) &&
+    prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleDriverStay?.get(v) === nextProps.operation.vehicleDriverStay?.get(v)) &&
     prevProps.columnColor === nextProps.columnColor &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&

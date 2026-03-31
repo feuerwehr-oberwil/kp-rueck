@@ -1088,6 +1088,39 @@ export default function FireStationDashboard() {
     }
   }
 
+  // Handle toggling driver stay on vehicle (vor Ort / zurück)
+  const handleToggleDriverStay = (operationId: string, vehicleName: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation) return
+    const assignmentId = operation.vehicleAssignments.get(vehicleName)
+    if (!assignmentId) return
+    const driverStay = operation.vehicleDriverStay?.get(vehicleName) || false
+    const newValue = !driverStay
+    setOperations((ops) =>
+      ops.map((op) => {
+        if (op.id === operationId) {
+          const newDriverStay = new Map(op.vehicleDriverStay)
+          newDriverStay.set(vehicleName, newValue)
+          return { ...op, vehicleDriverStay: newDriverStay }
+        }
+        return op
+      })
+    )
+    apiClient.updateAssignment(operationId, assignmentId, { driver_stay: newValue }).catch(() => {
+      toast.error('Fehler beim Aktualisieren')
+      setOperations((ops) =>
+        ops.map((op) => {
+          if (op.id === operationId) {
+            const revertDriverStay = new Map(op.vehicleDriverStay)
+            revertDriverStay.set(vehicleName, driverStay)
+            return { ...op, vehicleDriverStay: revertDriverStay }
+          }
+          return op
+        })
+      )
+    })
+  }
+
   // Get assigned resources for selected operation
   const getAssignedResourcesForOperation = (operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -1334,6 +1367,7 @@ export default function FireStationDashboard() {
                       onRemoveCrew={removeCrew}
                       onRemoveMaterial={removeMaterial}
                       onRemoveVehicle={removeVehicle}
+                      onToggleDriverStay={handleToggleDriverStay}
                       onRemoveReko={removeReko}
                       onCardClick={handleCardClick}
                       onCardSelect={handleCardSelect}
