@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -87,6 +87,7 @@ export default function MapPage() {
   })
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
+  const [showLabels, setShowLabels] = useState(true)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const mapRef = useRef<any>(null)
@@ -378,6 +379,7 @@ export default function MapPage() {
               panTrigger={panTrigger}
               statusFilters={statusFilters}
               showAssignmentLines={showAssignmentLines}
+              showLabels={showLabels}
             />
           </main>
 
@@ -407,6 +409,18 @@ export default function MapPage() {
                     {STATUS_GROUP_LABELS[group]} ({statusGroupCounts[group]})
                   </button>
                 ))}
+                <button
+                  onClick={() => setShowLabels(!showLabels)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
+                    showLabels
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                  title={showLabels ? 'Labels ausblenden' : 'Labels einblenden'}
+                >
+                  <Tag className="h-3 w-3" />
+                  Labels
+                </button>
               </div>
 
               {/* Search bar */}

@@ -365,6 +365,7 @@ interface MapViewProps {
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
   showAssignmentLines?: boolean // Show animated lines from vehicles to assigned incidents
+  showLabels?: boolean // Show permanent labels on incident markers
 }
 
 export default function MapView({
@@ -375,6 +376,7 @@ export default function MapView({
   panTrigger = 0,
   statusFilters = { open: true, active: true, completed: false },
   showAssignmentLines = true,
+  showLabels = true,
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -551,17 +553,19 @@ export default function MapView({
                 click: () => onMarkerClick?.(incident.id),
               }}
             >
-              <Tooltip
-                direction="right"
-                offset={[14, 0]}
-                permanent={true}
-                className="incident-label"
-              >
-                <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
-                {crewCount > 0 && (
-                  <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }}>({crewCount})</span>
-                )}
-              </Tooltip>
+              {showLabels && (
+                <Tooltip
+                  direction="right"
+                  offset={[14, 0]}
+                  permanent={true}
+                  className="incident-label"
+                >
+                  <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
+                  {crewCount > 0 && (
+                    <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }}>({crewCount})</span>
+                  )}
+                </Tooltip>
+              )}
             </Marker>
           )
         })}
