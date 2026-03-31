@@ -61,9 +61,6 @@ export function VehicleSettings() {
     }
   };
 
-  // Get unique vehicle types from existing vehicles
-  const availableVehicleTypes = Array.from(new Set(vehicles.map(v => v.type))).sort();
-
   // Handle column header click for sorting
   const handleSort = (column: 'display_order' | 'name' | 'radio_call_sign' | 'status') => {
     if (sortColumn === column) {
@@ -112,10 +109,11 @@ export function VehicleSettings() {
     e.preventDefault();
     setIsSaving(true);
     try {
+      const payload = { ...formData, type: formData.type || formData.name };
       if (editingVehicle) {
-        await apiClient.updateVehicle(editingVehicle.id, formData);
+        await apiClient.updateVehicle(editingVehicle.id, payload);
       } else {
-        await apiClient.createVehicle(formData);
+        await apiClient.createVehicle(payload);
       }
       await loadVehicles();
       handleCloseDialog();
@@ -179,8 +177,8 @@ export function VehicleSettings() {
                 {editingVehicle ? 'Fahrzeug bearbeiten' : 'Neues Fahrzeug hinzufügen'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
@@ -190,35 +188,7 @@ export function VehicleSettings() {
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="type">Fahrzeugtyp</Label>
-                {availableVehicleTypes.length > 0 ? (
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Typ auswählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableVehicleTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    id="type"
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    placeholder="Fahrzeugtyp eingeben (z.B. TLF, DLK, MTW)"
-                    required
-                  />
-                )}
-              </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="display_order">Reihenfolge (Tastaturkürzel)</Label>
                 <Input
                   id="display_order"
@@ -230,7 +200,7 @@ export function VehicleSettings() {
                   required
                 />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="radio_call_sign">Funkrufname</Label>
                 <Input
                   id="radio_call_sign"
@@ -240,7 +210,7 @@ export function VehicleSettings() {
                   required
                 />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}

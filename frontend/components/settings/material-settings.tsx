@@ -27,8 +27,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
-import { apiClient, ApiMaterialResource } from '@/lib/api-client';
+import { Switch } from '@/components/ui/switch';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, Infinity as InfinityIcon } from 'lucide-react';
+import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { toast } from 'sonner';
@@ -39,9 +40,12 @@ export function MaterialSettings() {
   const [editingMaterial, setEditingMaterial] = useState<ApiMaterialResource | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    type: '',
     status: 'available',
     location: '',
+    consumable: false,
   });
+  const [materialGroups, setMaterialGroups] = useState<ApiMaterialGroup[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [materialToDelete, setMaterialToDelete] = useState<ApiMaterialResource | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,7 +54,17 @@ export function MaterialSettings() {
 
   useEffect(() => {
     loadMaterials();
+    loadGroups();
   }, []);
+
+  const loadGroups = async () => {
+    try {
+      const data = await apiClient.getMaterialGroups();
+      setMaterialGroups(data);
+    } catch (error) {
+      console.error('Failed to load material groups:', error);
+    }
+  };
 
   const loadMaterials = async () => {
     try {
@@ -66,9 +80,9 @@ export function MaterialSettings() {
     setIsSaving(true);
     try {
       if (editingMaterial) {
-        await apiClient.updateMaterialResource(editingMaterial.id, formData);
+        await apiClient.updateMaterialResource(editingMaterial.id, { ...formData });
       } else {
-        await apiClient.createMaterialResource(formData);
+        await apiClient.createMaterialResource({ ...formData });
       }
       await loadMaterials();
       handleCloseDialog();
@@ -84,8 +98,10 @@ export function MaterialSettings() {
     setEditingMaterial(material);
     setFormData({
       name: material.name,
+      type: material.type || material.location || '',
       status: material.status,
       location: material.location || '',
+      consumable: material.consumable ?? false,
     });
     setIsDialogOpen(true);
   };
@@ -111,8 +127,22 @@ export function MaterialSettings() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingMaterial(null);
-    setFormData({ name: '', status: 'available', location: '' });
+    setFormData({ name: '', type: '', status: 'available', location: '', consumable: false });
   };
+
+  // Derive unique types and locations from existing materials for dynamic selects
+  const existingTypes = useMemo(() => {
+    const types = new Set(materials.map(m => m.type).filter(Boolean))
+    return Array.from(types).sort()
+  }, [materials])
+
+  const existingLocations = useMemo(() => {
+    const locs = new Set(materials.map(m => m.location || '').filter(Boolean))
+    return Array.from(locs).sort()
+  }, [materials])
+
+  const [newType, setNewType] = useState('')
+  const [newLocation, setNewLocation] = useState('')
 
   // Handle column header click for sorting
   const handleSort = (column: 'name' | 'location' | 'status') => {
@@ -202,8 +232,9 @@ export function MaterialSettings() {
   return (
     <div className="space-y-4">
       <Tabs defaultValue="list" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="list">Materialliste</TabsTrigger>
+          <TabsTrigger value="groups">Gruppen</TabsTrigger>
           <TabsTrigger value="sort">Kategorien sortieren</TabsTrigger>
         </TabsList>
 
@@ -222,8 +253,8 @@ export function MaterialSettings() {
                 {editingMaterial ? 'Material bearbeiten' : 'Neues Material hinzufügen'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
@@ -233,30 +264,105 @@ export function MaterialSettings() {
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="location">Standort/Kategorie</Label>
-                <Select
-                  value={formData.location}
-                  onValueChange={(value) => setFormData({ ...formData, location: value })}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Kategorie auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Tauchpumpen">Tauchpumpen</SelectItem>
-                    <SelectItem value="Wassersauger">Wassersauger</SelectItem>
-                    <SelectItem value="Sägen">Sägen</SelectItem>
-                    <SelectItem value="Generatoren">Generatoren</SelectItem>
-                    <SelectItem value="Elektrowerkzeug">Elektrowerkzeug</SelectItem>
-                    <SelectItem value="Anhänger">Anhänger</SelectItem>
-                    <SelectItem value="TLF">TLF</SelectItem>
-                    <SelectItem value="Pio">Pio</SelectItem>
-                    <SelectItem value="Depot">Depot</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-1.5">
+                <Label htmlFor="type">Typ</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => {
+                      if (value === '__new__') return
+                      setFormData({ ...formData, type: value })
+                    }}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Typ auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {existingTypes.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-1">
+                    <Input
+                      placeholder="Neuer Typ"
+                      value={newType}
+                      onChange={(e) => setNewType(e.target.value)}
+                      className="w-32"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newType.trim()) {
+                          e.preventDefault()
+                          setFormData({ ...formData, type: newType.trim() })
+                          setNewType('')
+                        }
+                      }}
+                    />
+                    {newType.trim() && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setFormData({ ...formData, type: newType.trim() })
+                          setNewType('')
+                        }}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
+              <div className="space-y-1.5">
+                <Label htmlFor="location">Standort</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.location}
+                    onValueChange={(value) => {
+                      if (value === '__new__') return
+                      setFormData({ ...formData, location: value })
+                    }}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Standort auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {existingLocations.map(l => (
+                        <SelectItem key={l} value={l}>{l}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-1">
+                    <Input
+                      placeholder="Neuer Standort"
+                      value={newLocation}
+                      onChange={(e) => setNewLocation(e.target.value)}
+                      className="w-32"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newLocation.trim()) {
+                          e.preventDefault()
+                          setFormData({ ...formData, location: newLocation.trim() })
+                          setNewLocation('')
+                        }
+                      }}
+                    />
+                    {newLocation.trim() && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setFormData({ ...formData, location: newLocation.trim() })
+                          setNewLocation('')
+                        }}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}
@@ -270,6 +376,17 @@ export function MaterialSettings() {
                     <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="consumable">Verbrauchsmaterial</Label>
+                  <p className="text-xs text-muted-foreground">Unbegrenzt verfügbar, keine Zuordnung nötig</p>
+                </div>
+                <Switch
+                  id="consumable"
+                  checked={formData.consumable}
+                  onCheckedChange={(checked) => setFormData({ ...formData, consumable: checked })}
+                />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
@@ -319,7 +436,10 @@ export function MaterialSettings() {
           )}
           {sortedMaterials.map((material) => (
             <TableRow key={material.id}>
-              <TableCell className="font-medium">{material.name}</TableCell>
+              <TableCell className="font-medium">
+                {material.name}
+                {material.consumable && <InfinityIcon className="inline ml-1.5 h-3.5 w-3.5 text-muted-foreground" />}
+              </TableCell>
               <TableCell>
                 <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
                   {material.location || 'General'}
@@ -358,6 +478,14 @@ export function MaterialSettings() {
       </Table>
         </TabsContent>
 
+        <TabsContent value="groups">
+          <MaterialGroupSettings
+            groups={materialGroups}
+            materials={materials}
+            onRefresh={() => { loadGroups(); loadMaterials(); }}
+          />
+        </TabsContent>
+
         <TabsContent value="sort">
           <CategorySortOrder
             title="Standort-Sortierung"
@@ -377,4 +505,228 @@ export function MaterialSettings() {
       />
     </div>
   );
+}
+
+// ─── Material Group Settings ──────────────────────────────────
+function MaterialGroupSettings({
+  groups,
+  materials,
+  onRefresh,
+}: {
+  groups: ApiMaterialGroup[]
+  materials: ApiMaterialResource[]
+  onRefresh: () => void
+}) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<ApiMaterialGroup | null>(null)
+  const [groupName, setGroupName] = useState('')
+  const [groupLocation, setGroupLocation] = useState('')
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<Set<string>>(new Set())
+  const [isSaving, setIsSaving] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [groupToDelete, setGroupToDelete] = useState<ApiMaterialGroup | null>(null)
+
+  const ungroupedMaterials = materials.filter(m => !m.group_id && !m.consumable)
+
+  const existingLocations = useMemo(() => {
+    const locs = new Set(materials.map(m => m.location || '').filter(Boolean))
+    return Array.from(locs).sort()
+  }, [materials])
+
+  const handleOpenCreate = () => {
+    setEditingGroup(null)
+    setGroupName('')
+    setGroupLocation('')
+    setSelectedMaterialIds(new Set())
+    setIsDialogOpen(true)
+  }
+
+  const handleOpenEdit = (group: ApiMaterialGroup) => {
+    setEditingGroup(group)
+    setGroupName(group.name)
+    setGroupLocation(group.location)
+    setSelectedMaterialIds(new Set(group.materials.map(m => m.id)))
+    setIsDialogOpen(true)
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const data = {
+        name: groupName,
+        location: groupLocation,
+        material_ids: Array.from(selectedMaterialIds),
+      }
+      if (editingGroup) {
+        await apiClient.updateMaterialGroup(editingGroup.id, data)
+      } else {
+        await apiClient.createMaterialGroup(data)
+      }
+      setIsDialogOpen(false)
+      onRefresh()
+    } catch (error) {
+      console.error('Failed to save group:', error)
+      toast.error('Fehler beim Speichern der Gruppe')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!groupToDelete) return
+    try {
+      await apiClient.deleteMaterialGroup(groupToDelete.id)
+      onRefresh()
+    } catch (error) {
+      console.error('Failed to delete group:', error)
+      toast.error('Fehler beim Löschen der Gruppe')
+    } finally {
+      setGroupToDelete(null)
+    }
+  }
+
+  const toggleMaterial = (id: string) => {
+    setSelectedMaterialIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Available materials = ungrouped + materials already in this group
+  const availableMaterials = materials.filter(
+    m => !m.consumable && (!m.group_id || (editingGroup && editingGroup.materials.some(gm => gm.id === m.id)))
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Materialgruppen fassen mehrere Einzelmaterialien zu einem Block zusammen (z.B. &quot;Modul 1&quot;).
+        </p>
+        <Button onClick={handleOpenCreate} size="sm">
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Gruppe erstellen
+        </Button>
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8 text-sm">
+          Keine Gruppen vorhanden. Erstellen Sie eine neue Gruppe.
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Kategorie</TableHead>
+              <TableHead>Materialien</TableHead>
+              <TableHead className="text-right">Aktionen</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.map((group) => (
+              <TableRow key={group.id}>
+                <TableCell className="font-medium">{group.name}</TableCell>
+                <TableCell>
+                  <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
+                    {group.location || '—'}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {group.materials.length > 0
+                    ? group.materials.map(m => m.name).join(', ')
+                    : <span className="italic">Keine Materialien</span>
+                  }
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(group)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setGroupToDelete(group); setDeleteDialogOpen(true); }}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{editingGroup ? 'Gruppe bearbeiten' : 'Neue Gruppe erstellen'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 flex-1 overflow-y-auto">
+            <div className="space-y-1.5">
+              <Label htmlFor="group-name">Name</Label>
+              <Input
+                id="group-name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="z.B. Modul 1"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="group-location">Standort</Label>
+              <Select
+                value={groupLocation}
+                onValueChange={(value) => setGroupLocation(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Standort auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {existingLocations.map(l => (
+                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Materialien auswählen</Label>
+              <div className="mt-2 space-y-1 max-h-[250px] overflow-y-auto border rounded-md p-2">
+                {availableMaterials.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Keine verfügbaren Materialien</p>
+                ) : (
+                  availableMaterials.map((mat) => (
+                    <label
+                      key={mat.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedMaterialIds.has(mat.id)}
+                        onChange={() => toggleMaterial(mat.id)}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{mat.name}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">{mat.location}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Abbrechen</Button>
+            <Button onClick={handleSave} disabled={isSaving || !groupName.trim()}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingGroup ? 'Aktualisieren' : 'Erstellen'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Gruppe löschen"
+        description={`Sind Sie sicher, dass Sie die Gruppe "${groupToDelete?.name}" löschen möchten? Die Materialien werden nicht gelöscht, nur die Gruppierung aufgelöst.`}
+        onConfirm={handleDelete}
+      />
+    </div>
+  )
 }

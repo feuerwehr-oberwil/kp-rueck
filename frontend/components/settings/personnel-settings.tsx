@@ -422,7 +422,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               {editingPersonnel ? 'Personal bearbeiten' : 'Neue Person hinzufügen'}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="name">Name</Label>
               <Input
