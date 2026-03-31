@@ -151,9 +151,14 @@ function SituationBoard() {
             incidentsByStatus.map(({ colDef, ops }) => (
               <div key={colDef.id}>
                 <div className={cn("px-3 xl:px-4 py-1.5 xl:py-2 border-b border-border", colDef.color)}>
-                  <span className="text-[10px] xl:text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-                    {colDef.title} ({ops.length})
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] xl:text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                      {colDef.title}
+                    </span>
+                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-md bg-foreground/10 text-foreground text-[10px] xl:text-xs font-bold tabular-nums">
+                      {ops.length}
+                    </span>
+                  </div>
                 </div>
                 <div className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
                   {ops.map((op) => (
@@ -231,11 +236,13 @@ function PanelHeader({ title, count, subtitle }: {
 }) {
   return (
     <div className="px-3 xl:px-4 py-2.5 xl:py-3 border-b border-border bg-muted/40 shrink-0 min-h-[60px]">
-      <div className="flex items-baseline gap-2">
-        <h2 className="text-sm xl:text-base font-bold tracking-tight">{title}</h2>
-        <span className="text-xl xl:text-2xl font-bold tabular-nums text-foreground/80">{count}</span>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm xl:text-base font-bold tracking-tight uppercase">{title}</h2>
+        <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs xl:text-sm font-bold tabular-nums">
+          {count}
+        </span>
       </div>
-      {subtitle && <p className="text-[10px] xl:text-xs text-muted-foreground">{subtitle}</p>}
+      {subtitle && <p className="text-[10px] xl:text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
     </div>
   )
 }
