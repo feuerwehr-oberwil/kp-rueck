@@ -40,7 +40,7 @@ const statusGroups = [
   { id: "active", label: "Aktiv", statuses: ["active", "enroute"] },
   { id: "incoming", label: "Neu", statuses: ["incoming", "ready", "rekoDone"] },
   { id: "returning", label: "Beendet", statuses: ["returning"] },
-  { id: "complete", label: "Abgeschlossen", statuses: ["complete"] },
+  { id: "complete", label: "Beendet", statuses: ["complete"] },
 ]
 
 export function MobileIncidentListView({

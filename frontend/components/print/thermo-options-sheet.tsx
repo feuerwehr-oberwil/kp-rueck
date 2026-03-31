@@ -79,7 +79,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
                 }
               />
               <Label htmlFor="thermoIncludeCompleted" className="cursor-pointer text-sm">
-                Abgeschlossene Einsätze
+                Beendete Einsätze
               </Label>
             </div>
 

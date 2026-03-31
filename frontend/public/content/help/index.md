@@ -12,7 +12,7 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 
 **Kartenlegende:**
 - **Priorität (Füllung):** Grün=Niedrig, Gelb=Mittel, Rot=Hoch
-- **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Abgeschlossen
+- **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Beendet
 - **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
 
 ### Seitenpanel (Kanban)
@@ -195,7 +195,7 @@ Einsätze durchlaufen 6 Phasen: **Eingegangen** → **Reko** → **Disponiert** 
 | Disponiert | Ressourcen zugewiesen, unterwegs |
 | Einsatz | Aktive Arbeitsphase |
 | Beendet | Rückfahrt zur Basis |
-| Archiv | Abgeschlossen, Personal & Fahrzeuge automatisch freigegeben |
+| Archiv | Beendet, Personal & Fahrzeuge automatisch freigegeben |
 
 **Verschieben:** Karte in neue Spalte ziehen, oder `>` / `<` Tasten nutzen.
 
@@ -364,7 +364,7 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 
 Beim Klick auf "Thermo" öffnet sich ein Auswahldialog:
 
-- **Abgeschlossene Einsätze** — auch archivierte Einsätze einbeziehen (Standard: aus)
+- **Beendete Einsätze** — auch archivierte Einsätze einbeziehen (Standard: aus)
 - **Fahrzeug-Status** — Verfügbarkeit aller Fahrzeuge anzeigen (Standard: ein)
 - **Personal-Übersicht** — Liste aller anwesenden Personen mit Zuteilungsstatus (Standard: ein)
 

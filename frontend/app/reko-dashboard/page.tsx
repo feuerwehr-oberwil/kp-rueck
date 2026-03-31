@@ -346,7 +346,7 @@ export default function RekoDashboardPage() {
                   {assignment.has_completed_reko && (
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-medium mt-2">
                       <CheckCircle className="h-3 w-3" />
-                      {isHistorical ? 'Früher abgeschlossen' : 'Abgeschlossen'}
+                      {isHistorical ? 'Früher abgeschlossen' : 'Beendet'}
                     </span>
                   )}
                 </div>

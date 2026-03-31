@@ -78,7 +78,7 @@ const statusLabels: Record<string, string> = {
   enroute: "Unterwegs",
   active: "Einsatz",
   returning: "Rückfahrt",
-  complete: "Abgeschlossen",
+  complete: "Beendet",
 }
 
 const statusKeys: OperationStatus[] = ["incoming", "ready", "enroute", "active", "returning", "complete"]

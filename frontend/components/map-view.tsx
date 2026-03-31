@@ -7,7 +7,7 @@ import "leaflet/dist/leaflet.css"
 import { useIncidents } from "@/lib/contexts/operations-context"
 import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incidents"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
-import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
+import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
 import { AssignmentLines } from "./map/assignment-lines"
 import { VehicleTrails } from "./map/vehicle-trails"
@@ -387,6 +387,8 @@ export default function MapView({
   // Vehicle positions from Traccar GPS
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [traccarConfigured, setTraccarConfigured] = useState<boolean>(false)
+  // KP Rück vehicles for mapping Traccar device names → vehicle names
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
   // Map mode management
   const {
     preferredMode,
@@ -398,11 +400,14 @@ export default function MapView({
     getAttribution,
   } = useMapMode()
 
-  // Load firestation settings from backend
+  // Load firestation settings and vehicle list from backend
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const settings = await apiClient.getAllSettings()
+        const [settings, vehicleList] = await Promise.all([
+          apiClient.getAllSettings(),
+          apiClient.getVehicles().catch(() => [] as ApiVehicle[]),
+        ])
         if (settings.firestation_name) {
           setFirestationName(settings.firestation_name)
         }
@@ -412,6 +417,7 @@ export default function MapView({
             parseFloat(settings.firestation_longitude),
           ])
         }
+        setVehicles(vehicleList)
       } catch (error) {
         console.error("Failed to load firestation settings:", error)
       }
@@ -461,6 +467,40 @@ export default function MapView({
       }
     }
   }, [fetchVehiclePositions])
+
+  // Map Traccar device names to KP Rück vehicle names for assignment line matching
+  // Strategies: exact name match, then display_order match (numeric device name → vehicle at that order)
+  const deviceNameToVehicleName = useMemo(() => {
+    if (vehicles.length === 0) return new Map<string, string>()
+
+    const vehicleNames = new Set(vehicles.map(v => v.name.toLowerCase()))
+    const orderToName = new Map(vehicles.map(v => [String(v.display_order), v.name]))
+    const mapping = new Map<string, string>()
+
+    for (const vp of vehiclePositions) {
+      // If the device name already matches a vehicle name, map to itself
+      if (vehicleNames.has(vp.device_name.toLowerCase())) {
+        mapping.set(vp.device_name, vp.device_name)
+        continue
+      }
+      // Try matching by display_order (e.g., device "1" → vehicle with display_order 1)
+      const mappedName = orderToName.get(vp.device_name.trim())
+      if (mappedName) {
+        mapping.set(vp.device_name, mappedName)
+      }
+    }
+
+    return mapping
+  }, [vehiclePositions, vehicles])
+
+  // Positions with mapped names for assignment line matching
+  const mappedVehiclePositions = useMemo(() => {
+    if (deviceNameToVehicleName.size === 0) return vehiclePositions
+    return vehiclePositions.map(vp => {
+      const mapped = deviceNameToVehicleName.get(vp.device_name)
+      return mapped && mapped !== vp.device_name ? { ...vp, device_name: mapped } : vp
+    })
+  }, [vehiclePositions, deviceNameToVehicleName])
 
   // Filter incidents with valid coordinates and based on status filters
   const mappableIncidents = useMemo(
@@ -579,7 +619,7 @@ export default function MapView({
           >
             <Tooltip permanent={false} direction="top" offset={[0, -14]}>
               <div className="text-sm">
-                <div className="font-semibold">{vehicle.device_name}</div>
+                <div className="font-semibold">{deviceNameToVehicleName.get(vehicle.device_name) || vehicle.device_name}</div>
                 {vehicle.speed !== null && vehicle.speed > 1 && (
                   <div className="text-xs text-muted-foreground">
                     {Math.round(vehicle.speed)} km/h
@@ -596,8 +636,8 @@ export default function MapView({
         {/* Assignment lines (vehicle GPS → incident) */}
         <AssignmentLines
           incidents={incidents}
-          vehiclePositions={vehiclePositions}
-          visible={showAssignmentLines && traccarConfigured}
+          vehiclePositions={mappedVehiclePositions}
+          visible={showAssignmentLines}
         />
 
         {/* Vehicle breadcrumb trails */}

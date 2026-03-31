@@ -86,7 +86,7 @@ export function MapLegend() {
           </div>
           <div className="flex items-center gap-2">
             <LegendMarker fillColor="#9ca3af" dasharray="2,2" opacity={0.6} />
-            <span className="text-xs">Abgeschlossen</span>
+            <span className="text-xs">Beendet</span>
           </div>
         </div>
       </div>

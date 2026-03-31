@@ -71,7 +71,7 @@ function findMatchingPosition(
  */
 export function AssignmentLines({ incidents, vehiclePositions, visible = true }: AssignmentLinesProps) {
   const lines = useMemo(() => {
-    if (!visible || vehiclePositions.length === 0) return []
+    if (!visible) return []
 
     const result: AssignmentLine[] = []
 
@@ -94,7 +94,14 @@ export function AssignmentLines({ incidents, vehiclePositions, visible = true }:
 
       for (const vehicle of incident.assigned_vehicles) {
         const vp = findMatchingPosition(vehicle.name, byExact, byNormalized, vehiclePositions)
-        if (!vp) continue
+        if (!vp) {
+          if (vehiclePositions.length > 0) {
+            console.debug(
+              `[AssignmentLines] No GPS match for vehicle "${vehicle.name}". Traccar devices: [${vehiclePositions.map(p => p.device_name).join(', ')}]`
+            )
+          }
+          continue
+        }
 
         result.push({
           vehicleName: vehicle.name,

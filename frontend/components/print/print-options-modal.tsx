@@ -129,7 +129,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                   }
                 />
                 <Label htmlFor="includeCompleted" className="cursor-pointer text-sm">
-                  Abgeschlossene Einsätze
+                  Beendete Einsätze
                 </Label>
               </div>
 

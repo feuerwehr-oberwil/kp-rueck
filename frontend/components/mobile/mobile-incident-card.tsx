@@ -38,7 +38,7 @@ const statusLabels: Record<string, string> = {
   enroute: "Unterwegs",
   active: "Einsatz",
   returning: "Rückfahrt",
-  complete: "Abgeschlossen",
+  complete: "Beendet",
 }
 
 function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIncidentCardProps) {

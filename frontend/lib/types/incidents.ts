@@ -249,7 +249,7 @@ export const STATUS_TO_GROUP: Record<IncidentStatus, StatusGroup> = {
 export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
   open: 'Offen',
   active: 'Aktiv',
-  completed: 'Abgeschlossen',
+  completed: 'Beendet',
 }
 
 /**
