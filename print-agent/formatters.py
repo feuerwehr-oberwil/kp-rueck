@@ -111,6 +111,22 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
         except (ValueError, TypeError):
             pass
 
+    # Zu Fuss flag
+    if payload.get("zu_fuss"):
+        _text(p, ">> ZU FUSS <<\n")
+
+    # Nachbarhilfe note
+    nachbarhilfe_note = payload.get("nachbarhilfe_note", "")
+    if payload.get("nachbarhilfe") and nachbarhilfe_note:
+        for line in _wrap_text(f"Nachbarhilfe: {nachbarhilfe_note}", WIDTH_B):
+            _text(p, f"{line}\n")
+
+    # Internal notes
+    internal_notes = payload.get("internal_notes", "")
+    if internal_notes:
+        for line in _wrap_text(f"Notizen: {internal_notes}", WIDTH_B):
+            _text(p, f"{line}\n")
+
     # --- Vehicles ---
     if vehicles:
         _sep(p, "-")
@@ -160,6 +176,30 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
         for mat in materials:
             for wrapped in _wrap_text(f" {mat.get('name', '')}", WIDTH_B):
                 _text(p, f"{wrapped}\n")
+
+    # --- Reko Summary ---
+    reko_summary = payload.get("reko_summary")
+    if reko_summary:
+        _sep(p, "-")
+        p.set(font="a", bold=True, align="left")
+        _text(p, "REKO-ERGEBNIS\n")
+        p.set(font="b", bold=False, align="left")
+        relevant = reko_summary.get("is_relevant")
+        if relevant is not None:
+            _text(p, f" Relevant: {'Ja' if relevant else 'Nein'}\n")
+        dangers = reko_summary.get("dangers", [])
+        if dangers:
+            _text(p, f" Gefahren: {', '.join(dangers)}\n")
+        personnel_count = reko_summary.get("personnel_count")
+        if personnel_count:
+            _text(p, f" Personalbedarf: {personnel_count}\n")
+        est_duration = reko_summary.get("estimated_duration")
+        if est_duration:
+            _text(p, f" Dauer: {est_duration}h\n")
+        summary_text = reko_summary.get("summary_text", "")
+        if summary_text:
+            for line in _wrap_text(f" {summary_text}", WIDTH_B):
+                _text(p, f"{line}\n")
 
     # --- Footer ---
     _sep(p, "-")

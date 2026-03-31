@@ -8,7 +8,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models import Incident, Material, Personnel, PrintJob, Vehicle
+from ..models import Incident, Material, Personnel, PrintJob, RekoReport, Vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +106,34 @@ async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dic
         for m in result.scalars().all():
             materials.append({"name": m.name, "type": m.type})
 
+    # Fetch reko report if submitted
+    reko_summary = None
+    reko_result = await db.execute(
+        select(RekoReport)
+        .where(RekoReport.incident_id == incident.id)
+        .where(RekoReport.is_draft == False)  # noqa: E712
+        .order_by(RekoReport.submitted_at.desc())
+        .limit(1)
+    )
+    reko = reko_result.scalar_one_or_none()
+    if reko:
+        dangers = []
+        if reko.dangers_json:
+            danger_labels = {
+                "fire": "Feuer", "explosion": "Explosion", "collapse": "Einsturz",
+                "chemical": "Gefahrstoffe", "electrical": "Elektrisch",
+            }
+            for key, label in danger_labels.items():
+                if reko.dangers_json.get(key):
+                    dangers.append(label)
+        reko_summary = {
+            "is_relevant": reko.is_relevant,
+            "dangers": dangers,
+            "personnel_count": reko.effort_json.get("personnel_count") if reko.effort_json else None,
+            "estimated_duration": reko.effort_json.get("estimated_duration_hours") if reko.effort_json else None,
+            "summary_text": reko.summary_text,
+        }
+
     # Build payload
     payload = {
         "incident_id": str(incident.id),
@@ -116,6 +144,10 @@ async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dic
         "description": incident.description or "",
         "contact": incident.contact or "",
         "nachbarhilfe": incident.nachbarhilfe,
+        "nachbarhilfe_note": incident.nachbarhilfe_note or "",
+        "internal_notes": incident.internal_notes or "",
+        "zu_fuss": incident.zu_fuss,
+        "reko_summary": reko_summary,
         "crew": crew,
         "vehicles": vehicles,
         "materials": materials,
