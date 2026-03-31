@@ -13,6 +13,7 @@ import { AssignmentLines } from "./map/assignment-lines"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
+import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 
 // Fix Leaflet default icon issue with Next.js
 import icon from "leaflet/dist/images/marker-icon.png"
@@ -437,9 +438,11 @@ export default function MapView({
     }
   }, [])
 
-  // Check Traccar status and start polling if configured
+  // Check Traccar status and use WebSocket + polling fallback for positions
   useEffect(() => {
     let pollInterval: NodeJS.Timeout | null = null
+    let unsubscribePositions: (() => void) | null = null
+    let unsubscribeStatus: (() => void) | null = null
 
     const checkTraccarStatus = async () => {
       try {
@@ -447,11 +450,34 @@ export default function MapView({
         setTraccarConfigured(status.configured)
 
         if (status.configured) {
-          setTraccarConfigured(true)
           await fetchVehiclePositions()
-          pollInterval = setInterval(fetchVehiclePositions, 10000)
-        } else {
-          setTraccarConfigured(false)
+
+          // Listen for WebSocket position updates (server-side Traccar polling)
+          unsubscribePositions = wsClient.on('vehicle_positions_update', (data: { data: ApiVehiclePosition[] }) => {
+            setVehiclePositions(data.data)
+          })
+
+          // Fallback polling when WebSocket is disconnected
+          const startPolling = () => {
+            if (!pollInterval) {
+              pollInterval = setInterval(fetchVehiclePositions, 10000)
+            }
+          }
+
+          const stopPolling = () => {
+            if (pollInterval) {
+              clearInterval(pollInterval)
+              pollInterval = null
+            }
+          }
+
+          unsubscribeStatus = wsClient.onStatusChange((wsStatus: WebSocketStatus) => {
+            if (wsStatus === 'disconnected' || wsStatus === 'error') {
+              startPolling()
+            } else if (wsStatus === 'connected') {
+              stopPolling()
+            }
+          })
         }
       } catch (error) {
         console.debug("Traccar status check failed:", error)
@@ -462,9 +488,9 @@ export default function MapView({
     checkTraccarStatus()
 
     return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval)
-      }
+      if (pollInterval) clearInterval(pollInterval)
+      unsubscribePositions?.()
+      unsubscribeStatus?.()
     }
   }, [fetchVehiclePositions])
 

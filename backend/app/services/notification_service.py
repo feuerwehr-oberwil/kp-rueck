@@ -719,6 +719,14 @@ async def create_reko_notification(
     await db.commit()
     await db.refresh(notification)
 
+    # Broadcast via WebSocket so frontends update immediately
+    from ..websocket_manager import broadcast_notification_update
+
+    await broadcast_notification_update(
+        {"id": str(notification.id), "type": notification.type, "incident_id": str(incident_id)},
+        "create",
+    )
+
     return notification
 
 
@@ -762,5 +770,13 @@ async def create_reko_arrived_notification(
     db.add(notification)
     await db.commit()
     await db.refresh(notification)
+
+    # Broadcast via WebSocket so frontends update immediately
+    from ..websocket_manager import broadcast_notification_update
+
+    await broadcast_notification_update(
+        {"id": str(notification.id), "type": notification.type, "incident_id": str(incident_id)},
+        "create",
+    )
 
     return notification

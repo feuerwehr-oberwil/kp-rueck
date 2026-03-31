@@ -6,6 +6,7 @@ import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useMaterials, type Material } from "@/lib/contexts/materials-context"
 import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
+import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 
 export interface VehicleWithStatus {
   id: string
@@ -54,18 +55,53 @@ export function useStatusData() {
   }, [])
 
   useEffect(() => {
+    let pollInterval: NodeJS.Timeout | undefined
+    let unsubscribePositions: (() => void) | undefined
+    let unsubscribeStatus: (() => void) | undefined
+
     const init = async () => {
       try {
         const status = await apiClient.getTraccarStatus()
         if (status.configured) {
           fetchPositions()
-          const interval = setInterval(fetchPositions, 10000)
-          return () => clearInterval(interval)
+
+          // Listen for WebSocket position updates
+          unsubscribePositions = wsClient.on('vehicle_positions_update', (data: { data: ApiVehiclePosition[] }) => {
+            setVehiclePositions(data.data)
+          })
+
+          // Fallback polling when disconnected
+          const startPolling = () => {
+            if (!pollInterval) {
+              pollInterval = setInterval(fetchPositions, 10000)
+            }
+          }
+
+          const stopPolling = () => {
+            if (pollInterval) {
+              clearInterval(pollInterval)
+              pollInterval = undefined
+            }
+          }
+
+          unsubscribeStatus = wsClient.onStatusChange((wsStatus: WebSocketStatus) => {
+            if (wsStatus === 'disconnected' || wsStatus === 'error') {
+              startPolling()
+            } else if (wsStatus === 'connected') {
+              stopPolling()
+            }
+          })
         }
       } catch { /* silent */ }
     }
-    const cleanup = init()
-    return () => { cleanup.then((fn) => fn?.()) }
+
+    init()
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval)
+      unsubscribePositions?.()
+      unsubscribeStatus?.()
+    }
   }, [fetchPositions])
 
   const stats: StatusStats = useMemo(() => {

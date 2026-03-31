@@ -5,6 +5,7 @@ import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import type { Operation } from '@/lib/contexts/operations-context'
+import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 /**
  * Hook to track new Reko reports across all incidents and update operation state.
@@ -93,10 +94,42 @@ export function useRekoNotifications(
       }
     }
 
-    // Check immediately and then every 10 seconds (aligned with main polling interval)
+    // Check immediately
     checkForNewRekos()
-    const interval = setInterval(checkForNewRekos, 10000)
 
-    return () => clearInterval(interval)
+    // Listen for WebSocket reko updates
+    const unsubscribeReko = wsClient.on('reko_update', () => {
+      checkForNewRekos()
+    })
+
+    // Fallback polling when WebSocket is disconnected
+    let pollIntervalId: NodeJS.Timeout | undefined
+
+    const startPolling = () => {
+      if (!pollIntervalId) {
+        pollIntervalId = setInterval(checkForNewRekos, 10000)
+      }
+    }
+
+    const stopPolling = () => {
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId)
+        pollIntervalId = undefined
+      }
+    }
+
+    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
+      if (status === 'disconnected' || status === 'error') {
+        startPolling()
+      } else if (status === 'connected') {
+        stopPolling()
+      }
+    })
+
+    return () => {
+      unsubscribeReko()
+      unsubscribeStatus()
+      stopPolling()
+    }
   }, [incidents, selectedEvent, seenRekoIds, refetchNotifications])
 }

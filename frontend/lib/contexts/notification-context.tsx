@@ -6,6 +6,7 @@ import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
+import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 interface NotificationContextValue {
   notifications: Notification[]
@@ -279,9 +280,9 @@ export function NotificationProvider({
     setNotifications(newNotifications)
   }
 
-  // Poll for notifications
+  // WebSocket + polling fallback for notifications
   useEffect(() => {
-    // Only poll if auth is loaded, we have a selected event with valid ID, and user is authenticated
+    // Only fetch if auth is loaded, we have a selected event with valid ID, and user is authenticated
     if (authLoading || !selectedEvent || !isValidUUID(selectedEvent.id) || !isAuthenticated) {
       setNotifications([])
       return
@@ -293,10 +294,40 @@ export function NotificationProvider({
     // Fetch settings
     fetchSettings().then(setSettings)
 
-    // Set up polling interval
-    const interval = setInterval(refetchNotifications, pollInterval)
+    // Listen for WebSocket notification events
+    const unsubscribeNotification = wsClient.on('notification_update', () => {
+      refetchNotifications()
+    })
 
-    return () => clearInterval(interval)
+    // Fallback polling when WebSocket is disconnected
+    let pollIntervalId: NodeJS.Timeout | undefined
+
+    const startPolling = () => {
+      if (!pollIntervalId) {
+        pollIntervalId = setInterval(refetchNotifications, pollInterval)
+      }
+    }
+
+    const stopPolling = () => {
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId)
+        pollIntervalId = undefined
+      }
+    }
+
+    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
+      if (status === 'disconnected' || status === 'error') {
+        startPolling()
+      } else if (status === 'connected') {
+        stopPolling()
+      }
+    })
+
+    return () => {
+      unsubscribeNotification()
+      unsubscribeStatus()
+      stopPolling()
+    }
   }, [pollInterval, selectedEvent, isAuthenticated, authLoading])
 
   // Calculate unread count (active notifications)

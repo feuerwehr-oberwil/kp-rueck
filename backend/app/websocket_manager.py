@@ -80,6 +80,7 @@ class WebSocketManager:
         self.user_sessions: dict[str, dict[str, Any]] = {}  # sid -> user info
         self._cleanup_task: asyncio.Task | None = None
         self._divera_poller = None  # Lazy import to avoid circular dependencies
+        self._traccar_poller = None  # Lazy import to avoid circular dependencies
 
     async def start_cleanup_task(self):
         """Start the background stale session cleanup task."""
@@ -142,8 +143,9 @@ class WebSocketManager:
         # Store basic session info with activity tracking
         self.user_sessions[sid] = {"connected_at": current_time, "last_activity": current_time, "rooms": set()}
 
-        # Start Divera polling when first user connects
+        # Start pollers when first user connects
         await self._maybe_start_divera_polling()
+        await self._maybe_start_traccar_polling()
 
     async def disconnect(self, sid: str):
         """Handle WebSocket disconnection."""
@@ -154,8 +156,9 @@ class WebSocketManager:
         # Remove session info
         self.user_sessions.pop(sid, None)
 
-        # Stop Divera polling when last user disconnects
+        # Stop pollers when last user disconnects
         await self._maybe_stop_divera_polling()
+        await self._maybe_stop_traccar_polling()
 
     async def _maybe_start_divera_polling(self):
         """Start Divera polling if users are connected and polling is configured."""
@@ -186,6 +189,32 @@ class WebSocketManager:
             # Last user disconnected, stop polling
             await self._divera_poller.stop_polling()
             logger.info("Stopped Divera polling (no users connected)")
+
+    async def _maybe_start_traccar_polling(self):
+        """Start Traccar polling if users are connected and Traccar is configured."""
+        if self._traccar_poller is None:
+            try:
+                from .services.traccar_poller import traccar_poller
+
+                self._traccar_poller = traccar_poller
+            except ImportError:
+                logger.debug("Traccar poller not available")
+                return
+
+        if not self._traccar_poller.is_configured:
+            return
+
+        if self.get_connection_count() == 1 and not self._traccar_poller.is_polling:
+            await self._traccar_poller.start_polling()
+
+    async def _maybe_stop_traccar_polling(self):
+        """Stop Traccar polling if no users are connected."""
+        if self._traccar_poller is None or not self._traccar_poller.is_polling:
+            return
+
+        if self.get_connection_count() == 0:
+            await self._traccar_poller.stop_polling()
+            logger.info("Stopped Traccar polling (no users connected)")
 
     async def join_room(self, sid: str, room: str):
         """Add a client to a room for targeted updates."""
@@ -318,6 +347,26 @@ async def broadcast_assignment_update(assignment_data: dict, action: str = "upda
     await ws_manager.broadcast_update(
         "assignment_update", {"action": action, "data": assignment_data}, room="operations"
     )
+
+
+async def broadcast_notification_update(notification_data: dict, action: str = "create"):
+    """Broadcast notification updates to all clients in operations room."""
+    await ws_manager.broadcast_update("notification_update", {"action": action, "data": notification_data}, room="operations")
+
+
+async def broadcast_reko_update(reko_data: dict, action: str = "update"):
+    """Broadcast reko report updates to all clients in operations room."""
+    await ws_manager.broadcast_update("reko_update", {"action": action, "data": reko_data}, room="operations")
+
+
+async def broadcast_vehicle_positions(positions_data: list[dict]):
+    """Broadcast GPS position updates to all clients in operations room."""
+    await ws_manager.broadcast_update("vehicle_positions_update", {"data": positions_data}, room="operations")
+
+
+async def broadcast_vehicle_trails(trails_data: list[dict]):
+    """Broadcast GPS trail updates to all clients in operations room."""
+    await ws_manager.broadcast_update("vehicle_trails_update", {"data": trails_data}, room="operations")
 
 
 async def broadcast_system_message(message: str, level: str = "info"):

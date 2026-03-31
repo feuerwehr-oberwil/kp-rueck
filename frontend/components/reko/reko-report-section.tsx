@@ -8,6 +8,7 @@ import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, 
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
+import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -36,15 +37,47 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
     }
   }, [incidentId])
 
-  // Initial load and polling for updates
+  // WebSocket + polling fallback for reko updates
   useEffect(() => {
     loadReports()
 
-    // Set up polling interval for live updates
-    const pollInterval = setInterval(loadReports, POLL_INTERVAL_MS)
+    // Listen for reko updates matching this incident
+    const unsubscribeReko = wsClient.on('reko_update', (data: { data: { incident_id?: string } }) => {
+      if (data.data?.incident_id === incidentId) {
+        loadReports()
+      }
+    })
 
-    return () => clearInterval(pollInterval)
-  }, [loadReports])
+    // Fallback polling when WebSocket is disconnected
+    let pollInterval: NodeJS.Timeout | undefined
+
+    const startPolling = () => {
+      if (!pollInterval) {
+        pollInterval = setInterval(loadReports, POLL_INTERVAL_MS)
+      }
+    }
+
+    const stopPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval)
+        pollInterval = undefined
+      }
+    }
+
+    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
+      if (status === 'disconnected' || status === 'error') {
+        startPolling()
+      } else if (status === 'connected') {
+        stopPolling()
+      }
+    })
+
+    return () => {
+      unsubscribeReko()
+      unsubscribeStatus()
+      stopPolling()
+    }
+  }, [loadReports, incidentId])
 
   if (isLoading) {
     return (

@@ -17,7 +17,7 @@ from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Incident, RekoReport
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_incident_update
+from ..websocket_manager import broadcast_incident_update, broadcast_reko_update
 
 logger = get_logger(__name__)
 from ..services.audit import log_action
@@ -121,6 +121,12 @@ async def submit_reko_report(
             {"id": str(report_data.incident_id), "has_completed_reko": True},
             "update",
         )
+        # Broadcast reko update for reko-specific listeners
+        background_tasks.add_task(
+            broadcast_reko_update,
+            {"incident_id": str(report_data.incident_id)},
+            "submit",
+        )
 
     return response_data
 
@@ -129,6 +135,7 @@ async def submit_reko_report(
 async def update_report(
     report_id: uuid.UUID,
     update_data: schemas.RekoReportUpdate,
+    background_tasks: BackgroundTasks,
     submit: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
 ):
@@ -148,6 +155,14 @@ async def update_report(
             response_data.incident_type = incident.type
             response_data.incident_description = incident.description
             response_data.incident_contact = incident.contact
+
+        # Broadcast reko update
+        if submit:
+            background_tasks.add_task(
+                broadcast_reko_update,
+                {"incident_id": str(updated.incident_id)},
+                "update",
+            )
 
         return response_data
     except ValueError as e:
@@ -270,6 +285,12 @@ async def mark_reko_arrived(
             broadcast_incident_update,
             {"id": str(incident_id), "reko_arrived_at": report.arrived_at.isoformat() if report.arrived_at else None},
             "update",
+        )
+        # Broadcast reko update for reko-specific listeners
+        background_tasks.add_task(
+            broadcast_reko_update,
+            {"incident_id": str(incident_id)},
+            "arrived",
         )
 
         return response_data

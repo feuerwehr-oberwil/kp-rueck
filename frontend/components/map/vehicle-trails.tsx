@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Polyline, Tooltip } from "react-leaflet"
 import { apiClient, type ApiVehicleTrail } from "@/lib/api-client"
+import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 
 interface VehicleTrailsProps {
   /** Whether Traccar is configured and trails should be fetched */
@@ -38,8 +39,41 @@ export function VehicleTrails({
     if (!enabled) return
 
     fetchTrails()
-    const interval = setInterval(fetchTrails, pollInterval)
-    return () => clearInterval(interval)
+
+    // Listen for WebSocket trail updates
+    const unsubscribeTrails = wsClient.on('vehicle_trails_update', (data: { data: ApiVehicleTrail[] }) => {
+      setTrails(data.data)
+    })
+
+    // Fallback polling when WebSocket is disconnected
+    let interval: NodeJS.Timeout | undefined
+
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(fetchTrails, pollInterval)
+      }
+    }
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval)
+        interval = undefined
+      }
+    }
+
+    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
+      if (status === 'disconnected' || status === 'error') {
+        startPolling()
+      } else if (status === 'connected') {
+        stopPolling()
+      }
+    })
+
+    return () => {
+      unsubscribeTrails()
+      unsubscribeStatus()
+      stopPolling()
+    }
   }, [enabled, fetchTrails, pollInterval])
 
   if (!enabled || trails.length === 0) return null
