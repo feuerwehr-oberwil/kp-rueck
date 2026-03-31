@@ -37,11 +37,14 @@ def get_websocket_cors_origins() -> list[str]:
     # Add Railway domains from environment (more restrictive than wildcard)
     railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
     railway_backend = os.getenv("RAILWAY_STATIC_URL", "")
+    frontend_url = os.getenv("FRONTEND_URL", "")
 
     if railway_frontend:
         origins.append(f"https://{railway_frontend}")
     if railway_backend:
         origins.append(f"https://{railway_backend}")
+    if frontend_url:
+        origins.append(frontend_url)
 
     # Remove duplicates while preserving order
     seen = set()
