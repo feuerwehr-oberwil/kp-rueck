@@ -55,14 +55,15 @@ export function useResourceFiltering(
   )
 
   const groupedMaterials = useMemo(
-    () => filteredMaterials.reduce(
-      (acc, material) => {
-        if (!acc[material.category]) acc[material.category] = []
-        acc[material.category].push(material)
-        return acc
-      },
-      {} as Record<string, Material[]>
-    ),
+    () => {
+      const groups: Record<string, Material[]> = {}
+      for (const material of filteredMaterials) {
+        const key = material.category || 'Sonstige'
+        if (!groups[key]) groups[key] = []
+        groups[key].push(material)
+      }
+      return groups
+    },
     [filteredMaterials]
   )
 

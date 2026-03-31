@@ -51,6 +51,10 @@ export function useKanbanDragDrop({
           setDraggingItem(data.person as Person)
         } else if (data.type === "material") {
           setDraggingItem(data.material as Material)
+        } else if (data.type === "material-group") {
+          // Use first material as representative for drag preview
+          const materials = data.materials as Material[]
+          if (materials.length > 0) setDraggingItem(materials[0])
         } else if (data.type === "operation") {
           setDraggingItem(data.operation as Operation)
         }
@@ -93,7 +97,17 @@ export function useKanbanDragDrop({
           const material = sourceData.material as Material
           const operationId = destData.operationId as string
 
-          if (material.status === "available") {
+          if (material.status === "available" || material.consumable) {
+            assignMaterialToOperation(material.id, operationId)
+          }
+        }
+
+        // Material group dropped on operation — assign all available materials in the group
+        if (sourceData.type === "material-group" && destData.type === "operation-drop") {
+          const groupMaterials = sourceData.materials as Material[]
+          const operationId = destData.operationId as string
+
+          for (const material of groupMaterials) {
             assignMaterialToOperation(material.id, operationId)
           }
         }

@@ -125,6 +125,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const recentStatusUpdateRef = useRef<boolean>(false)
   const statusUpdateCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
+  // Track known incident IDs for new high-priority alert sound
+  const knownIncidentIdsRef = useRef<Set<string>>(new Set())
+  const alertAudioRef = useRef<HTMLAudioElement | null>(null)
+
   // Sync version for lightweight polling optimization
   const lastSyncVersionRef = useRef<string | null>(null)
 
@@ -494,6 +498,26 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           ...material,
           status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
         }))
+
+        // Detect new high-priority incidents and play alert sound
+        if (knownIncidentIdsRef.current.size > 0) {
+          const newHighPriority = ops.filter(
+            op => op.priority === 'high' && !knownIncidentIdsRef.current.has(op.id)
+          )
+          if (newHighPriority.length > 0 && alertAudioRef.current) {
+            const playAttempt = () => {
+              alertAudioRef.current?.play().catch(() => {
+                // Browser autoplay blocked — retry once after a short delay
+                setTimeout(() => {
+                  alertAudioRef.current?.play().catch(() => {})
+                }, 500)
+              })
+            }
+            playAttempt()
+          }
+        }
+        // Update known incident IDs
+        knownIncidentIdsRef.current = new Set(ops.map(op => op.id))
 
         setOperations(ops)
         setPersonnel(eventScopedPersonnel)
@@ -1070,7 +1094,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const operation = operations.find(op => op.id === operationId)
     const material = materials.find(m => m.id === materialId)
 
-    if (!operation || !material || material.status === "assigned" || operation.materials.includes(materialId)) {
+    const isConsumable = material?.consumable
+    if (!operation || !material || (!isConsumable && material.status === "assigned") || operation.materials.includes(materialId)) {
       return
     }
 
@@ -1080,9 +1105,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, materials: [...op.materials, materialId] } : op))
     )
-    setMaterials((mats) =>
-      mats.map((m) => (m.id === materialId ? { ...m, status: "assigned" as Material["status"] } : m))
-    )
+    // Consumables stay "available" — they can be assigned to multiple incidents
+    if (!isConsumable) {
+      setMaterials((mats) =>
+        mats.map((m) => (m.id === materialId ? { ...m, status: "assigned" as Material["status"] } : m))
+      )
+    }
 
     if (isLoaded) {
       try {
@@ -1285,6 +1313,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <audio ref={alertAudioRef} src="/alerts/mixkit-digital-quick-tone-2866.wav" preload="auto" />
     </OperationsContext.Provider>
   )
 }

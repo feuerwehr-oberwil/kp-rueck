@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Material } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
-import { Check, Minus } from 'lucide-react'
+import { Check, Minus, Infinity as InfinityIcon } from 'lucide-react'
 
 interface DraggableMaterialProps {
   material: Material
@@ -17,7 +17,8 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  const canDrag = !disabled && material.status === "available"
+  const isConsumable = material.consumable
+  const canDrag = !disabled && (isConsumable || material.status === "available")
 
   useEffect(() => {
     const element = ref.current
@@ -39,11 +40,12 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
       aria-grabbed={isDragging}
       aria-label={canDrag ? `Drag ${material.name} to assign to incident` : undefined}
       className={cn(
-        "border border-border/50 bg-card/80 backdrop-blur-sm p-3 transition-all hover:bg-muted/50 hover:border-border",
+        "border border-border/50 bg-card/80 backdrop-blur-sm px-3 py-2 gap-0 transition-all hover:bg-muted/50 hover:border-border",
         canDrag && "draggable",
         isDragging && "dragging",
-        !canDrag && material.status === "assigned" && "cursor-not-allowed opacity-60",
-        !canDrag && material.status !== "assigned" && "cursor-pointer"
+        isConsumable && "opacity-70",
+        !canDrag && !isConsumable && material.status === "assigned" && "cursor-not-allowed opacity-60",
+        !canDrag && !isConsumable && material.status !== "assigned" && "cursor-pointer"
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -51,10 +53,12 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
           {/* Status indicator - icon only, muted colors */}
           <div
             className="flex items-center justify-center h-4 w-4 rounded flex-shrink-0 text-muted-foreground"
-            aria-label={material.status === "available" ? "Verfügbar" : "Im Einsatz"}
-            title={material.status === "available" ? "Verfügbar" : "Im Einsatz"}
+            aria-label={isConsumable ? "Verbrauchsmaterial" : material.status === "available" ? "Verfügbar" : "Im Einsatz"}
+            title={isConsumable ? "Verbrauchsmaterial (unbegrenzt)" : material.status === "available" ? "Verfügbar" : "Im Einsatz"}
           >
-            {material.status === "available" ? (
+            {isConsumable ? (
+              <InfinityIcon className="h-3.5 w-3.5" />
+            ) : material.status === "available" ? (
               <Check className="h-3 w-3" />
             ) : (
               <Minus className="h-3 w-3" />

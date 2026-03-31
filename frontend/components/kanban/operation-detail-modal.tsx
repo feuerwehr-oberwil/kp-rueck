@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2 } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers } from 'lucide-react'
+import { useMaterials } from "@/lib/contexts/materials-context"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -59,6 +60,7 @@ export function OperationDetailModal({
 }: OperationDetailModalProps) {
   const { formatLocation, setOperations } = useOperations()
   const { selectedEvent } = useEvent()
+  const { materialGroups } = useMaterials()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
@@ -826,7 +828,7 @@ export function OperationDetailModal({
                             e.stopPropagation()
                             onRemoveVehicle(operation.id, vehicleName)
                           }}
-                          className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
+                          className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white cursor-pointer"
                           title="Fahrzeug entfernen"
                           tabIndex={-1}
                         >
@@ -864,28 +866,85 @@ export function OperationDetailModal({
               </div>
               <div className="flex flex-wrap gap-2">
                 {operation.materials.length > 0 ? (
-                  operation.materials.map((matId) => (
-                    <Badge
-                      key={matId}
-                      variant="outline"
-                      className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                    >
-                      {materials.find(m => m.id === matId)?.name || matId}
-                      {onRemoveMaterial && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onRemoveMaterial(operation.id, matId)
-                          }}
-                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Material entfernen"
-                          tabIndex={-1}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </Badge>
-                  ))
+                  (() => {
+                    const ungrouped: string[] = []
+                    const grouped: Record<string, string[]> = {}
+                    for (const matId of operation.materials) {
+                      const material = materials.find(m => m.id === matId)
+                      const groupId = material?.groupId
+                      const group = groupId ? materialGroups.find(g => g.id === groupId) : null
+                      if (group) {
+                        if (!grouped[group.id]) grouped[group.id] = []
+                        grouped[group.id].push(matId)
+                      } else {
+                        ungrouped.push(matId)
+                      }
+                    }
+                    // Only show as group if ALL materials in group are assigned
+                    const completeGroups: Record<string, string[]> = {}
+                    for (const [groupId, matIds] of Object.entries(grouped)) {
+                      const group = materialGroups.find(g => g.id === groupId)
+                      if (group && matIds.length === group.materialIds.length) {
+                        completeGroups[groupId] = matIds
+                      } else {
+                        ungrouped.push(...matIds)
+                      }
+                    }
+                    return (
+                      <>
+                        {Object.entries(completeGroups).map(([groupId, matIds]) => {
+                          const group = materialGroups.find(g => g.id === groupId)!
+                          return (
+                            <Badge
+                              key={`group-${groupId}`}
+                              variant="outline"
+                              className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                            >
+                              <Layers className="h-3 w-3 text-muted-foreground" />
+                              {group.name}
+                              {onRemoveMaterial && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    for (const matId of matIds) {
+                                      onRemoveMaterial(operation.id, matId)
+                                    }
+                                  }}
+                                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title={`${group.name} entfernen`}
+                                  tabIndex={-1}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </Badge>
+                          )
+                        })}
+                        {ungrouped.map((matId) => (
+                          <Badge
+                            key={matId}
+                            variant="outline"
+                            className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                          >
+                            {materials.find(m => m.id === matId)?.name || matId}
+                            {onRemoveMaterial && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onRemoveMaterial(operation.id, matId)
+                                }}
+                                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Material entfernen"
+                                tabIndex={-1}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Badge>
+                        ))}
+                      </>
+                    )
+                  })()
                 ) : (
                   <p className="text-sm text-muted-foreground/60 italic">Kein Material zugewiesen</p>
                 )}
@@ -911,6 +970,7 @@ export function OperationDetailModal({
             variant="outline"
             size="sm"
             onClick={handleOpenTransfer}
+            className="hover:bg-muted hover:text-foreground"
           >
             <ArrowRightLeft className="h-4 w-4" />
             Ressourcen übertragen

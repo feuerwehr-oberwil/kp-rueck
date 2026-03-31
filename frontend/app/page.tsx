@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useMaterials, type MaterialGroup } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { QRCodeSVG } from 'qrcode.react'
@@ -31,6 +32,7 @@ import { columns } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
+import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
@@ -76,6 +78,7 @@ export default function FireStationDashboard() {
     isLoading
   } = useOperations()
 
+  const { materialGroups } = useMaterials()
   const { selectedEvent, isEventLoaded } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
@@ -1449,20 +1452,53 @@ export default function FireStationDashboard() {
                   <MaterialSidebarLoading />
                 ) : (
                   <div className="space-y-4">
-                    {Object.entries(groupedMaterials).map(([category, items]) => (
-                      <div key={category}>
-                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</h3>
-                        <div className="space-y-2">
-                          {items.map((material) => (
-                            <DraggableMaterial
-                              key={material.id}
-                              material={material}
-                              onClick={() => handleMaterialClick(material)}
-                            />
-                          ))}
+                    {Object.entries(groupedMaterials).map(([category, items]) => {
+                      // Separate grouped vs ungrouped materials
+                      const ungroupedItems = items.filter(m => !m.groupId)
+                      const groupedItems = new Map<string, Material[]>()
+                      for (const m of items.filter(m => m.groupId)) {
+                        const group = materialGroups.find(g => g.id === m.groupId)
+                        if (group) {
+                          if (!groupedItems.has(group.id)) groupedItems.set(group.id, [])
+                          groupedItems.get(group.id)!.push(m)
+                        } else {
+                          ungroupedItems.push(m)
+                        }
+                      }
+                      return (
+                        <div key={category}>
+                          <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</h3>
+                          <div className="space-y-2">
+                            {/* Material groups/blocks */}
+                            {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
+                              const group = materialGroups.find(g => g.id === groupId)!
+                              const allAvailable = groupMaterials.every(m => m.status === 'available')
+                              const someAssigned = groupMaterials.some(m => m.status === 'assigned')
+                              const allAssigned = groupMaterials.every(m => m.status === 'assigned')
+                              return (
+                                <MaterialGroupBlock
+                                  key={groupId}
+                                  group={group}
+                                  materials={groupMaterials}
+                                  allAvailable={allAvailable}
+                                  someAssigned={someAssigned}
+                                  allAssigned={allAssigned}
+                                  onMaterialClick={handleMaterialClick}
+                                />
+                              )
+                            })}
+                            {/* Ungrouped materials */}
+                            {ungroupedItems.map((material) => (
+                              <DraggableMaterial
+                                key={material.id}
+                                material={material}
+                                onClick={() => handleMaterialClick(material)}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>

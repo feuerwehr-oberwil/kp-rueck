@@ -12,12 +12,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2 } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useMaterials } from "@/lib/contexts/materials-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
@@ -106,6 +107,7 @@ function DraggableOperationBase({
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
+  const { materialGroups } = useMaterials()
 
   // Handle thermal print
   const handlePrint = async () => {
@@ -451,28 +453,87 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5">
                   <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
-                    {operation.materials.map((materialId, idx) => {
-                      const material = materials.find(m => m.id === materialId)
+                    {(() => {
+                      // Group assigned materials by their material group
+                      // Only show as group badge if ALL materials in the group are assigned
+                      const ungrouped: string[] = []
+                      const grouped: Record<string, string[]> = {}
+                      for (const materialId of operation.materials) {
+                        const material = materials.find(m => m.id === materialId)
+                        const groupId = material?.groupId
+                        const group = groupId ? materialGroups.find(g => g.id === groupId) : null
+                        if (group) {
+                          if (!grouped[group.id]) grouped[group.id] = []
+                          grouped[group.id].push(materialId)
+                        } else {
+                          ungrouped.push(materialId)
+                        }
+                      }
+                      // Check completeness — partial groups become ungrouped items
+                      const completeGroups: Record<string, string[]> = {}
+                      for (const [groupId, matIds] of Object.entries(grouped)) {
+                        const group = materialGroups.find(g => g.id === groupId)
+                        if (group && matIds.length === group.materialIds.length) {
+                          completeGroups[groupId] = matIds
+                        } else {
+                          ungrouped.push(...matIds)
+                        }
+                      }
                       return (
-                        <Badge
-                          key={idx}
-                          variant="secondary"
-                          className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
-                        >
-                          <span>{material?.name || materialId}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onRemoveMaterial(materialId)
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                            title={`${material?.name || materialId} entfernen`}
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </Badge>
+                        <>
+                          {/* Complete groups shown as single group badge */}
+                          {Object.entries(completeGroups).map(([groupId, matIds]) => {
+                            const group = materialGroups.find(g => g.id === groupId)!
+                            return (
+                              <Badge
+                                key={`group-${groupId}`}
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                              >
+                                <Layers className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span>{group.name}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Remove all materials in this group from the operation
+                                    for (const matId of matIds) {
+                                      onRemoveMaterial(matId)
+                                    }
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                                  title={`${group.name} entfernen`}
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </Badge>
+                            )
+                          })}
+                          {/* Ungrouped materials shown individually */}
+                          {ungrouped.map((materialId, idx) => {
+                            const material = materials.find(m => m.id === materialId)
+                            return (
+                              <Badge
+                                key={idx}
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                              >
+                                <span>{material?.name || materialId}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onRemoveMaterial(materialId)
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                                  title={`${material?.name || materialId} entfernen`}
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </Badge>
+                            )
+                          })}
+                        </>
                       )
-                    })}
+                    })()}
                   </div>
                 </div>
               )}

@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints } from "lucide-react"
+import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight } from "lucide-react"
 import { type Person, type Material } from "@/lib/contexts/operations-context"
+import { useMaterials } from "@/lib/contexts/materials-context"
 import { cn } from "@/lib/utils"
 
 interface ResourceAssignmentDialogProps {
@@ -54,9 +55,11 @@ export function ResourceAssignmentDialog({
   zuFuss = false,
   onToggleZuFuss,
 }: ResourceAssignmentDialogProps) {
+  const { materialGroups } = useMaterials()
   const [searchQuery, setSearchQuery] = useState("")
   const [searchFocused, setSearchFocused] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   // Local selection state for crew and materials (deferred assignment)
   // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
@@ -126,10 +129,17 @@ export function ResourceAssignmentDialog({
   const filteredMaterials = useMemo(() => {
     if (!searchQuery.trim()) return selectableMaterials
     const query = searchQuery.toLowerCase()
-    return selectableMaterials.filter(m =>
-      m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)
-    )
-  }, [selectableMaterials, searchQuery])
+    return selectableMaterials.filter(m => {
+      // Match material name or category
+      if (m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)) return true
+      // Match group name
+      if (m.groupId) {
+        const group = materialGroups.find(g => g.id === m.groupId)
+        if (group?.name.toLowerCase().includes(query)) return true
+      }
+      return false
+    })
+  }, [selectableMaterials, searchQuery, materialGroups])
 
   // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
   const isPersonSelected = (personName: string) => selectedPersonnel.has(personName)
@@ -179,6 +189,50 @@ export function ResourceAssignmentDialog({
       return next
     })
   }
+
+  // Toggle all materials in a group at once
+  const handleToggleGroupSelection = (groupMaterialIds: string[]) => {
+    setSelectedMaterials(prev => {
+      const next = new Set(prev)
+      const allSelected = groupMaterialIds.every(id => next.has(id))
+      if (allSelected) {
+        for (const id of groupMaterialIds) next.delete(id)
+      } else {
+        for (const id of groupMaterialIds) {
+          next.add(id)
+        }
+        setJustAssigned(`group-${groupMaterialIds[0]}`)
+        setTimeout(() => setJustAssigned(null), 600)
+      }
+      return next
+    })
+  }
+
+  // Build grouped + ungrouped structure for material display
+  const groupedFilteredMaterials = useMemo(() => {
+    const groups: { groupId: string; groupName: string; materials: Material[] }[] = []
+    const ungrouped: Material[] = []
+
+    // Collect materials by group
+    const groupMap = new Map<string, Material[]>()
+    for (const m of filteredMaterials) {
+      const groupId = m.groupId
+      const group = groupId ? materialGroups.find(g => g.id === groupId) : null
+      if (group) {
+        if (!groupMap.has(group.id)) groupMap.set(group.id, [])
+        groupMap.get(group.id)!.push(m)
+      } else {
+        ungrouped.push(m)
+      }
+    }
+
+    for (const [groupId, mats] of groupMap) {
+      const group = materialGroups.find(g => g.id === groupId)!
+      groups.push({ groupId, groupName: group.name, materials: mats })
+    }
+
+    return { groups, ungrouped }
+  }, [filteredMaterials, materialGroups])
 
   // Commit changes when "Fertig" is clicked (for crew and materials)
   const handleConfirm = () => {
@@ -414,38 +468,138 @@ export function ResourceAssignmentDialog({
                 )
               })}
 
-              {resourceType === 'materials' && filteredMaterials.map((material, index) => {
-                const isSelected = isMaterialSelected(material.id)
-                const wasJustAssigned = justAssigned === material.id
-                return (
-                  <button
-                    key={material.id}
-                    onClick={() => handleToggleMaterialSelection(material)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                      isSelected && "border-primary/30 bg-primary/5"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      {isSelected ? (
-                        <CheckCircle className={cn(
-                          "h-5 w-5 text-emerald-500 flex-shrink-0",
-                          wasJustAssigned && "animate-checkmark-spring"
-                        )} />
-                      ) : (
-                        <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      )}
-                      <div>
-                        <p className="font-medium text-sm">{material.name}</p>
-                        <p className="text-xs text-muted-foreground">{material.category}</p>
+              {resourceType === 'materials' && (
+                <>
+                  {/* Material groups */}
+                  {groupedFilteredMaterials.groups.map(({ groupId, groupName, materials: groupMats }) => {
+                    const groupMatIds = groupMats.map(m => m.id)
+                    const allSelected = groupMatIds.every(id => selectedMaterials.has(id))
+                    const someSelected = groupMatIds.some(id => selectedMaterials.has(id))
+                    const selectedCount = groupMatIds.filter(id => selectedMaterials.has(id)).length
+                    const isExpanded = expandedGroups.has(groupId)
+                    const wasJustAssigned = justAssigned === `group-${groupMatIds[0]}`
+                    return (
+                      <div key={`group-${groupId}`} className="space-y-1">
+                        {/* Group header row */}
+                        <div className={cn(
+                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-primary/50 hover:bg-secondary/30",
+                          allSelected && "border-primary/30 bg-primary/5"
+                        )}>
+                          {/* Expand/collapse toggle */}
+                          <button
+                            onClick={() => setExpandedGroups(prev => {
+                              const next = new Set(prev)
+                              if (next.has(groupId)) next.delete(groupId)
+                              else next.add(groupId)
+                              return next
+                            })}
+                            className="px-2 py-3"
+                          >
+                            {isExpanded
+                              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            }
+                          </button>
+                          {/* Select all toggle */}
+                          <button
+                            onClick={() => handleToggleGroupSelection(groupMatIds)}
+                            className="flex-1 flex items-center justify-between py-3 pr-3 text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              {allSelected ? (
+                                <CheckCircle className={cn(
+                                  "h-5 w-5 text-emerald-500 flex-shrink-0",
+                                  wasJustAssigned && "animate-checkmark-spring"
+                                )} />
+                              ) : someSelected ? (
+                                <CheckCircle className="h-5 w-5 text-emerald-500/50 flex-shrink-0" />
+                              ) : (
+                                <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                              )}
+                              <div>
+                                <p className="font-medium text-sm flex items-center gap-1.5">
+                                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                                  {groupName}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{selectedCount}/{groupMats.length} ausgewählt</p>
+                              </div>
+                            </div>
+                            {allSelected && (
+                              <Badge variant="secondary" className="text-xs animate-scale-in">Alle</Badge>
+                            )}
+                            {someSelected && !allSelected && (
+                              <Badge variant="secondary" className="text-xs animate-scale-in">Teilweise</Badge>
+                            )}
+                          </button>
+                        </div>
+                        {/* Expanded individual materials */}
+                        {isExpanded && groupMats.map((material) => {
+                          const isSelected = isMaterialSelected(material.id)
+                          const matJustAssigned = justAssigned === material.id
+                          return (
+                            <button
+                              key={material.id}
+                              onClick={() => handleToggleMaterialSelection(material)}
+                              className={cn(
+                                "w-full flex items-center justify-between p-3 pl-10 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                                isSelected && "border-primary/30 bg-primary/5"
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                {isSelected ? (
+                                  <CheckCircle className={cn(
+                                    "h-5 w-5 text-emerald-500 flex-shrink-0",
+                                    matJustAssigned && "animate-checkmark-spring"
+                                  )} />
+                                ) : (
+                                  <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                )}
+                                <p className="font-medium text-sm">{material.name}</p>
+                              </div>
+                              {isSelected && (
+                                <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
-                    </div>
-                    {isSelected && (
-                      <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
-                    )}
-                  </button>
-                )
-              })}
+                    )
+                  })}
+                  {/* Ungrouped materials */}
+                  {groupedFilteredMaterials.ungrouped.map((material) => {
+                    const isSelected = isMaterialSelected(material.id)
+                    const wasJustAssigned = justAssigned === material.id
+                    return (
+                      <button
+                        key={material.id}
+                        onClick={() => handleToggleMaterialSelection(material)}
+                        className={cn(
+                          "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                          isSelected && "border-primary/30 bg-primary/5"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          {isSelected ? (
+                            <CheckCircle className={cn(
+                              "h-5 w-5 text-emerald-500 flex-shrink-0",
+                              wasJustAssigned && "animate-checkmark-spring"
+                            )} />
+                          ) : (
+                            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <div>
+                            <p className="font-medium text-sm">{material.name}</p>
+                            <p className="text-xs text-muted-foreground">{material.category}</p>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
+                        )}
+                      </button>
+                    )
+                  })}
+                </>
+              )}
 
               {/* Empty state with personality */}
               {resourceType === 'crew' && filteredPersonnel.length === 0 && (
