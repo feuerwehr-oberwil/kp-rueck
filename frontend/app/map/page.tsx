@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -192,18 +192,7 @@ export default function MapPage() {
         console.error('Failed to load vehicles:', error)
       }
     }
-    const loadSettings = async () => {
-      try {
-        const settings = await apiClient.getAllSettings()
-        if (settings.show_assignment_lines !== undefined) {
-          setShowAssignmentLines(settings.show_assignment_lines !== 'false')
-        }
-      } catch (error) {
-        console.debug('Failed to load assignment line setting:', error)
-      }
-    }
     loadVehicles()
-    loadSettings()
   }, [isAuthenticated])
 
   // Refresh incidents immediately when map page loads
@@ -420,6 +409,18 @@ export default function MapPage() {
                 >
                   <Tag className="h-3 w-3" />
                   Labels
+                </button>
+                <button
+                  onClick={() => setShowAssignmentLines(!showAssignmentLines)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
+                    showAssignmentLines
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                  title={showAssignmentLines ? 'Zuweisungslinien ausblenden' : 'Zuweisungslinien einblenden'}
+                >
+                  <Route className="h-3 w-3" />
+                  Linien
                 </button>
               </div>
 

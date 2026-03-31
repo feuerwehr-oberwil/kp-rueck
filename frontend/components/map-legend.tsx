@@ -78,7 +78,7 @@ export function MapLegend() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <LegendMarker fillColor="#9ca3af" dasharray="4,3" />
-            <span className="text-xs">Offen/Neu</span>
+            <span className="text-xs">Offen</span>
           </div>
           <div className="flex items-center gap-2">
             <LegendMarker fillColor="#9ca3af" dasharray="none" />

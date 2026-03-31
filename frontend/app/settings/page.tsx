@@ -140,12 +140,6 @@ const SETTING_CONFIGS: SettingConfig[] = [
       { value: 'carto-dark', label: 'Dunkel (CARTO)' },
     ],
   },
-  {
-    key: 'show_assignment_lines',
-    label: 'Fahrzeug-Zuweisungslinien',
-    description: 'Animierte Linien von GPS-Fahrzeugen zu zugewiesenen Einsätzen auf der Karte anzeigen',
-    type: 'boolean',
-  },
 ];
 
 export default function SettingsPage() {

@@ -247,7 +247,7 @@ export const STATUS_TO_GROUP: Record<IncidentStatus, StatusGroup> = {
  * Human-readable labels for status groups
  */
 export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
-  open: 'Offen/Neu',
+  open: 'Offen',
   active: 'Aktiv',
   completed: 'Abgeschlossen',
 }
