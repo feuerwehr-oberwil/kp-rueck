@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,7 @@ import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import type { Incident } from "@/lib/types/incidents"
 import dynamic from "next/dynamic"
+import { wsClient } from "@/lib/websocket-client"
 
 interface SidePanelProps {
   mode: 'detail' | 'map' | 'collapsed'
@@ -235,38 +236,54 @@ function SidePanelDetail({
   // Use assignedReko directly from the operation (kept in sync by operations context)
   const assignedRekoPersonnel = operation?.assignedReko ?? null
 
-  // Load vehicle drivers when operation changes
-  useEffect(() => {
-    const loadVehicleDrivers = async () => {
-      if (!operation || !selectedEvent) return
+  // Load vehicle drivers
+  const loadVehicleDrivers = useCallback(async () => {
+    if (!operation || !selectedEvent) return
 
-      try {
-        const [vehicles, specialFunctions] = await Promise.all([
-          apiClient.getVehicles(),
-          apiClient.getEventSpecialFunctions(selectedEvent.id),
-        ])
+    try {
+      const [vehicles, specialFunctions] = await Promise.all([
+        apiClient.getVehicles(),
+        apiClient.getEventSpecialFunctions(selectedEvent.id),
+      ])
 
-        const vehicleIdToName = new Map<string, string>()
-        vehicles.forEach(v => vehicleIdToName.set(v.id, v.name))
+      const vehicleIdToName = new Map<string, string>()
+      vehicles.forEach(v => vehicleIdToName.set(v.id, v.name))
 
-        const driverMap = new Map<string, string>()
-        specialFunctions
-          .filter(f => f.function_type === 'driver' && f.vehicle_id)
-          .forEach(f => {
-            const vehicleName = vehicleIdToName.get(f.vehicle_id!)
-            if (vehicleName) {
-              driverMap.set(vehicleName, f.personnel_name)
-            }
-          })
+      const driverMap = new Map<string, string>()
+      specialFunctions
+        .filter(f => f.function_type === 'driver' && f.vehicle_id)
+        .forEach(f => {
+          const vehicleName = vehicleIdToName.get(f.vehicle_id!)
+          if (vehicleName) {
+            driverMap.set(vehicleName, f.personnel_name)
+          }
+        })
 
-        setVehicleDrivers(driverMap)
-      } catch (error) {
-        console.error('Failed to load vehicle drivers:', error)
-      }
+      setVehicleDrivers(driverMap)
+    } catch (error) {
+      console.error('Failed to load vehicle drivers:', error)
     }
-
-    loadVehicleDrivers()
   }, [operation, selectedEvent])
+
+  // Reload on operation/event change
+  useEffect(() => {
+    loadVehicleDrivers()
+  }, [loadVehicleDrivers])
+
+  // Reload on WebSocket special function updates + same-tab custom events
+  useEffect(() => {
+    const unsubscribeWs = wsClient.on('special_function_update', () => {
+      loadVehicleDrivers()
+    })
+
+    const handleDriverChanged = () => loadVehicleDrivers()
+    window.addEventListener('driver-assignment-changed', handleDriverChanged)
+
+    return () => {
+      unsubscribeWs()
+      window.removeEventListener('driver-assignment-changed', handleDriverChanged)
+    }
+  }, [loadVehicleDrivers])
 
   // Handler for copying direct reko form link
   const handleCopyDirectRekoLink = async () => {

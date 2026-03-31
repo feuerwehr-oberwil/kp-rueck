@@ -199,6 +199,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const handleDriverAssigned = () => {
     // Reload vehicle statuses after driver assignment
     loadVehicleStatuses(true)
+    // Notify sidebar (same-tab instant feedback)
+    window.dispatchEvent(new Event('driver-assignment-changed'))
   }
 
   // Vehicles are already sorted by display_order in loadVehicleStatuses
