@@ -31,6 +31,7 @@ from .api.exports import router as exports_router
 from .api.health import router as health_router
 from .api.help import router as help_router
 from .api.incidents import router as incidents_router
+from .api.materials import groups_router as material_groups_router
 from .api.materials import router as materials_router
 from .api.notifications import router as notifications_router
 from .api.personnel import router as personnel_router
@@ -319,6 +320,7 @@ app.include_router(personnel_checkin_router, prefix=settings.api_v1_prefix)
 app.include_router(print_router, prefix=settings.api_v1_prefix)
 app.include_router(vehicles_router, prefix=settings.api_v1_prefix)
 app.include_router(materials_router, prefix=settings.api_v1_prefix)
+app.include_router(material_groups_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_dashboard_router, prefix=settings.api_v1_prefix)
 app.include_router(photos_router, prefix=settings.api_v1_prefix)

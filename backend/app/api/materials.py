@@ -6,11 +6,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import materials as crud
 from ..database import get_db
-from ..models import Material
+from ..models import Material, MaterialGroup
 from ..websocket_manager import broadcast_material_update
 
 router = APIRouter(prefix="/materials", tags=["materials"])
@@ -116,3 +118,116 @@ async def update_location_sort_orders(
 
     await db.commit()
     return {"status": "success", "updated_categories": len(sort_update.categories)}
+
+
+# ============================================
+# Material Group Endpoints
+# ============================================
+
+groups_router = APIRouter(prefix="/material-groups", tags=["material-groups"])
+
+
+@groups_router.get("/", response_model=list[schemas.MaterialGroupResponse])
+async def list_material_groups(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """List all material groups with their materials."""
+    result = await db.execute(
+        select(MaterialGroup).order_by(MaterialGroup.location_sort_order, MaterialGroup.name)
+    )
+    groups = result.scalars().all()
+    # Eagerly load materials for each group
+    for group in groups:
+        await db.refresh(group, ["materials"])
+    return groups
+
+
+@groups_router.post("/", response_model=schemas.MaterialGroupResponse, status_code=status.HTTP_201_CREATED)
+async def create_material_group(
+    group: schemas.MaterialGroupCreate,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a material group and optionally assign materials to it."""
+    db_group = MaterialGroup(
+        name=group.name,
+        description=group.description,
+        location=group.location,
+        location_sort_order=group.location_sort_order,
+    )
+    db.add(db_group)
+    await db.flush()
+
+    # Assign materials to group
+    if group.material_ids:
+        await db.execute(
+            update(Material)
+            .where(Material.id.in_(group.material_ids))
+            .values(group_id=db_group.id)
+        )
+
+    await db.commit()
+    await db.refresh(db_group, ["materials"])
+    return db_group
+
+
+@groups_router.put("/{group_id}", response_model=schemas.MaterialGroupResponse)
+async def update_material_group(
+    group_id: uuid.UUID,
+    group_update: schemas.MaterialGroupUpdate,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a material group."""
+    result = await db.execute(select(MaterialGroup).where(MaterialGroup.id == group_id))
+    db_group = result.scalar_one_or_none()
+    if not db_group:
+        raise HTTPException(status_code=404, detail="Material group not found")
+
+    update_data = group_update.model_dump(exclude_unset=True, exclude={"material_ids"})
+    for field, value in update_data.items():
+        setattr(db_group, field, value)
+
+    # Update group membership if material_ids provided
+    if group_update.material_ids is not None:
+        # Remove all current members
+        await db.execute(
+            update(Material)
+            .where(Material.group_id == group_id)
+            .values(group_id=None)
+        )
+        # Add new members
+        if group_update.material_ids:
+            await db.execute(
+                update(Material)
+                .where(Material.id.in_(group_update.material_ids))
+                .values(group_id=group_id)
+            )
+
+    await db.commit()
+    await db.refresh(db_group, ["materials"])
+    return db_group
+
+
+@groups_router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_material_group(
+    group_id: uuid.UUID,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a material group. Materials are unlinked, not deleted."""
+    result = await db.execute(select(MaterialGroup).where(MaterialGroup.id == group_id))
+    db_group = result.scalar_one_or_none()
+    if not db_group:
+        raise HTTPException(status_code=404, detail="Material group not found")
+
+    # Unlink all materials first
+    await db.execute(
+        update(Material)
+        .where(Material.group_id == group_id)
+        .values(group_id=None)
+    )
+
+    await db.delete(db_group)
+    await db.commit()

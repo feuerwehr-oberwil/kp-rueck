@@ -312,6 +312,8 @@ class MaterialBase(BaseModel):
     location_sort_order: int = 0
     description: str | None = None
     status: str = "available"  # 'available', 'unavailable'
+    consumable: bool = False  # Consumable items (e.g., tape) — not tracked per-incident
+    group_id: UUID | None = None  # Material group/block reference
 
     @field_validator("name", "type", "location")
     @classmethod
@@ -372,6 +374,8 @@ class MaterialUpdate(BaseModel):
     location_sort_order: int | None = None
     description: str | None = None
     status: str | None = None
+    consumable: bool | None = None
+    group_id: UUID | None = None
 
 
 class Material(MaterialBase):
@@ -380,6 +384,42 @@ class Material(MaterialBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class MaterialGroupBase(BaseModel):
+    """Base schema for material groups/blocks."""
+
+    name: str
+    description: str | None = None
+    location: str = ""
+    location_sort_order: int = 0
+
+
+class MaterialGroupCreate(MaterialGroupBase):
+    """Schema for creating a material group."""
+
+    material_ids: list[UUID] = []  # IDs of materials to add to this group
+
+
+class MaterialGroupUpdate(BaseModel):
+    """Schema for updating a material group."""
+
+    name: str | None = None
+    description: str | None = None
+    location: str | None = None
+    location_sort_order: int | None = None
+    material_ids: list[UUID] | None = None  # If provided, replaces all group members
+
+
+class MaterialGroupResponse(MaterialGroupBase):
+    """Full material group schema with database fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    materials: list[Material] = []
     created_at: datetime
     updated_at: datetime
 

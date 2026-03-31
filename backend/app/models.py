@@ -128,6 +128,24 @@ class Personnel(Base):
     )
 
 
+class MaterialGroup(Base):
+    """Material group/block model. Groups materials into logical units (e.g., 'Modul 1')."""
+
+    __tablename__ = "material_groups"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    location_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    materials: Mapped[list["Material"]] = relationship("Material", back_populates="group")
+
+
 class Material(Base):
     """Material model."""
 
@@ -140,15 +158,20 @@ class Material(Base):
     location_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="available")
+    consumable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    group_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("material_groups.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    group: Mapped["MaterialGroup | None"] = relationship("MaterialGroup", back_populates="materials")
+
     __table_args__ = (
         CheckConstraint("status IN ('available', 'unavailable')", name="valid_material_status"),
         Index("idx_materials_status", "status"),
         Index("idx_materials_location_sort_order", "location_sort_order"),
+        Index("idx_materials_group_id", "group_id"),
     )
 
 
