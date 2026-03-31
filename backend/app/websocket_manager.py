@@ -354,6 +354,11 @@ async def broadcast_notification_update(notification_data: dict, action: str = "
     await ws_manager.broadcast_update("notification_update", {"action": action, "data": notification_data}, room="operations")
 
 
+async def broadcast_special_function_update(data: dict, action: str = "update"):
+    """Broadcast special function updates (driver assignments etc.) to all clients in operations room."""
+    await ws_manager.broadcast_update("special_function_update", {"action": action, "data": data}, room="operations")
+
+
 async def broadcast_reko_update(reko_data: dict, action: str = "update"):
     """Broadcast reko report updates to all clients in operations room."""
     await ws_manager.broadcast_update("reko_update", {"action": action, "data": reko_data}, room="operations")

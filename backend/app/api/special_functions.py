@@ -13,6 +13,7 @@ from ..crud import special_functions as crud
 from ..database import get_db
 from ..models import Personnel, Vehicle
 from ..utils.errors import ErrorMessages
+from ..websocket_manager import broadcast_special_function_update
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,7 @@ async def assign_special_function(
         if vehicle:
             vehicle_name = vehicle.name
 
-    return schemas.EventSpecialFunctionResponse(
+    response = schemas.EventSpecialFunctionResponse(
         id=db_assignment.id,
         event_id=db_assignment.event_id,
         personnel_id=db_assignment.personnel_id,
@@ -139,6 +140,12 @@ async def assign_special_function(
         assigned_at=db_assignment.assigned_at,
         assigned_by=db_assignment.assigned_by,
     )
+
+    await broadcast_special_function_update(
+        {"event_id": str(event_id), "function_type": assignment.function_type}, action="assign"
+    )
+
+    return response
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -161,3 +168,7 @@ async def unassign_special_function(
     )
     if not success:
         raise HTTPException(status_code=404, detail="Assignment not found")
+
+    await broadcast_special_function_update(
+        {"event_id": str(event_id), "function_type": assignment.function_type}, action="unassign"
+    )
