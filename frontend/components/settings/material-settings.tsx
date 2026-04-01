@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -79,10 +78,16 @@ export function MaterialSettings() {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // Capture any pending new type/location that wasn't explicitly added via + button
+      const submitData = {
+        ...formData,
+        type: formData.type || newType.trim(),
+        location: formData.location || newLocation.trim(),
+      };
       if (editingMaterial) {
-        await apiClient.updateMaterialResource(editingMaterial.id, { ...formData });
+        await apiClient.updateMaterialResource(editingMaterial.id, submitData);
       } else {
-        await apiClient.createMaterialResource({ ...formData });
+        await apiClient.createMaterialResource(submitData);
       }
       await loadMaterials();
       handleCloseDialog();
@@ -98,11 +103,13 @@ export function MaterialSettings() {
     setEditingMaterial(material);
     setFormData({
       name: material.name,
-      type: material.type || material.location || '',
+      type: material.type || '',
       status: material.status,
       location: material.location || '',
       consumable: material.consumable ?? false,
     });
+    setNewType('');
+    setNewLocation('');
     setIsDialogOpen(true);
   };
 
@@ -128,6 +135,8 @@ export function MaterialSettings() {
     setIsDialogOpen(false);
     setEditingMaterial(null);
     setFormData({ name: '', type: '', status: 'available', location: '', consumable: false });
+    setNewType('');
+    setNewLocation('');
   };
 
   // Derive unique types and locations from existing materials for dynamic selects
@@ -240,13 +249,17 @@ export function MaterialSettings() {
 
         <TabsContent value="list" className="space-y-4">
           <div className="flex justify-end">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingMaterial(null)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Material hinzufügen
-            </Button>
-          </DialogTrigger>
+        <Button onClick={() => {
+          setEditingMaterial(null);
+          setFormData({ name: '', type: '', status: 'available', location: '', consumable: false });
+          setNewType('');
+          setNewLocation('');
+          setIsDialogOpen(true);
+        }}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Material hinzufügen
+        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); else setIsDialogOpen(true); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
@@ -266,101 +279,99 @@ export function MaterialSettings() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="type">Typ</Label>
-                <div className="flex gap-2">
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) => {
-                      if (value === '__new__') return
-                      setFormData({ ...formData, type: value })
-                    }}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Typ auswählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {existingTypes.map(t => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex gap-1">
-                    <Input
-                      placeholder="Neuer Typ"
-                      value={newType}
-                      onChange={(e) => setNewType(e.target.value)}
-                      className="w-32"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newType.trim()) {
-                          e.preventDefault()
-                          setFormData({ ...formData, type: newType.trim() })
+                {existingTypes.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <Select
+                      value={existingTypes.includes(formData.type) ? formData.type : '__custom__'}
+                      onValueChange={(value) => {
+                        if (value === '__custom__') {
+                          setFormData({ ...formData, type: '' })
+                          setNewType('')
+                        } else {
+                          setFormData({ ...formData, type: value })
                           setNewType('')
                         }
                       }}
-                    />
-                    {newType.trim() && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          setFormData({ ...formData, type: newType.trim() })
-                          setNewType('')
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Typ auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {existingTypes.map(t => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                        <SelectItem value="__custom__">Andere...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(!existingTypes.includes(formData.type)) && (
+                      <Input
+                        placeholder="Neuen Typ eingeben"
+                        value={formData.type || newType}
+                        onChange={(e) => {
+                          setFormData({ ...formData, type: e.target.value })
+                          setNewType(e.target.value)
                         }}
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
+                      />
                     )}
                   </div>
-                </div>
+                ) : (
+                  <Input
+                    placeholder="z.B. Pumpe, Schlauch"
+                    value={formData.type || newType}
+                    onChange={(e) => {
+                      setFormData({ ...formData, type: e.target.value })
+                      setNewType(e.target.value)
+                    }}
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="location">Standort</Label>
-                <div className="flex gap-2">
-                  <Select
-                    value={formData.location}
-                    onValueChange={(value) => {
-                      if (value === '__new__') return
-                      setFormData({ ...formData, location: value })
-                    }}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Standort auswählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {existingLocations.map(l => (
-                        <SelectItem key={l} value={l}>{l}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex gap-1">
-                    <Input
-                      placeholder="Neuer Standort"
-                      value={newLocation}
-                      onChange={(e) => setNewLocation(e.target.value)}
-                      className="w-32"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newLocation.trim()) {
-                          e.preventDefault()
-                          setFormData({ ...formData, location: newLocation.trim() })
+                {existingLocations.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <Select
+                      value={existingLocations.includes(formData.location) ? formData.location : '__custom__'}
+                      onValueChange={(value) => {
+                        if (value === '__custom__') {
+                          setFormData({ ...formData, location: '' })
+                          setNewLocation('')
+                        } else {
+                          setFormData({ ...formData, location: value })
                           setNewLocation('')
                         }
                       }}
-                    />
-                    {newLocation.trim() && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          setFormData({ ...formData, location: newLocation.trim() })
-                          setNewLocation('')
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Standort auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {existingLocations.map(l => (
+                          <SelectItem key={l} value={l}>{l}</SelectItem>
+                        ))}
+                        <SelectItem value="__custom__">Andere...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(!existingLocations.includes(formData.location)) && (
+                      <Input
+                        placeholder="Neuen Standort eingeben"
+                        value={formData.location || newLocation}
+                        onChange={(e) => {
+                          setFormData({ ...formData, location: e.target.value })
+                          setNewLocation(e.target.value)
                         }}
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
+                      />
                     )}
                   </div>
-                </div>
+                ) : (
+                  <Input
+                    placeholder="z.B. TLF, Pio, Depot"
+                    value={formData.location || newLocation}
+                    onChange={(e) => {
+                      setFormData({ ...formData, location: e.target.value })
+                      setNewLocation(e.target.value)
+                    }}
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="status">Status</Label>

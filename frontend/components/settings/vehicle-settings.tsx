@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -164,13 +163,15 @@ export function VehicleSettings() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingVehicle(null)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Fahrzeug hinzufügen
-            </Button>
-          </DialogTrigger>
+        <Button onClick={() => {
+          setEditingVehicle(null);
+          setFormData({ name: '', type: '', display_order: vehicles.length + 1, status: 'available', radio_call_sign: '' });
+          setIsDialogOpen(true);
+        }}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Fahrzeug hinzufügen
+        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); else setIsDialogOpen(true); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
