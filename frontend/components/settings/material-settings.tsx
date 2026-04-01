@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, Infinity as InfinityIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, ChevronDown, Infinity as InfinityIcon } from 'lucide-react';
 import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
@@ -78,16 +78,10 @@ export function MaterialSettings() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      // Capture any pending new type/location that wasn't explicitly added via + button
-      const submitData = {
-        ...formData,
-        type: formData.type || newType.trim(),
-        location: formData.location || newLocation.trim(),
-      };
       if (editingMaterial) {
-        await apiClient.updateMaterialResource(editingMaterial.id, submitData);
+        await apiClient.updateMaterialResource(editingMaterial.id, { ...formData });
       } else {
-        await apiClient.createMaterialResource(submitData);
+        await apiClient.createMaterialResource({ ...formData });
       }
       await loadMaterials();
       handleCloseDialog();
@@ -279,99 +273,57 @@ export function MaterialSettings() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="type">Typ</Label>
-                {existingTypes.length > 0 ? (
-                  <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <Input
+                    id="type"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    placeholder="z.B. Pumpe, Schlauch"
+                    className="flex-1"
+                  />
+                  {existingTypes.filter(t => t !== formData.type).length > 0 && (
                     <Select
-                      value={existingTypes.includes(formData.type) ? formData.type : '__custom__'}
-                      onValueChange={(value) => {
-                        if (value === '__custom__') {
-                          setFormData({ ...formData, type: '' })
-                          setNewType('')
-                        } else {
-                          setFormData({ ...formData, type: value })
-                          setNewType('')
-                        }
-                      }}
+                      value=""
+                      onValueChange={(value) => setFormData({ ...formData, type: value })}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Typ auswählen" />
+                      <SelectTrigger className="w-10 px-0 justify-center flex-shrink-0">
+                        <ChevronDown className="h-4 w-4" />
                       </SelectTrigger>
                       <SelectContent>
-                        {existingTypes.map(t => (
+                        {existingTypes.filter(t => t !== formData.type).map(t => (
                           <SelectItem key={t} value={t}>{t}</SelectItem>
                         ))}
-                        <SelectItem value="__custom__">Andere...</SelectItem>
                       </SelectContent>
                     </Select>
-                    {(!existingTypes.includes(formData.type)) && (
-                      <Input
-                        placeholder="Neuen Typ eingeben"
-                        value={formData.type || newType}
-                        onChange={(e) => {
-                          setFormData({ ...formData, type: e.target.value })
-                          setNewType(e.target.value)
-                        }}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <Input
-                    placeholder="z.B. Pumpe, Schlauch"
-                    value={formData.type || newType}
-                    onChange={(e) => {
-                      setFormData({ ...formData, type: e.target.value })
-                      setNewType(e.target.value)
-                    }}
-                  />
-                )}
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="location">Standort</Label>
-                {existingLocations.length > 0 ? (
-                  <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <Input
+                    id="location"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="z.B. TLF, Pio, Depot"
+                    className="flex-1"
+                  />
+                  {existingLocations.filter(l => l !== formData.location).length > 0 && (
                     <Select
-                      value={existingLocations.includes(formData.location) ? formData.location : '__custom__'}
-                      onValueChange={(value) => {
-                        if (value === '__custom__') {
-                          setFormData({ ...formData, location: '' })
-                          setNewLocation('')
-                        } else {
-                          setFormData({ ...formData, location: value })
-                          setNewLocation('')
-                        }
-                      }}
+                      value=""
+                      onValueChange={(value) => setFormData({ ...formData, location: value })}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Standort auswählen" />
+                      <SelectTrigger className="w-10 px-0 justify-center flex-shrink-0">
+                        <ChevronDown className="h-4 w-4" />
                       </SelectTrigger>
                       <SelectContent>
-                        {existingLocations.map(l => (
+                        {existingLocations.filter(l => l !== formData.location).map(l => (
                           <SelectItem key={l} value={l}>{l}</SelectItem>
                         ))}
-                        <SelectItem value="__custom__">Andere...</SelectItem>
                       </SelectContent>
                     </Select>
-                    {(!existingLocations.includes(formData.location)) && (
-                      <Input
-                        placeholder="Neuen Standort eingeben"
-                        value={formData.location || newLocation}
-                        onChange={(e) => {
-                          setFormData({ ...formData, location: e.target.value })
-                          setNewLocation(e.target.value)
-                        }}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <Input
-                    placeholder="z.B. TLF, Pio, Depot"
-                    value={formData.location || newLocation}
-                    onChange={(e) => {
-                      setFormData({ ...formData, location: e.target.value })
-                      setNewLocation(e.target.value)
-                    }}
-                  />
-                )}
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="status">Status</Label>
