@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, ChevronDown, Infinity as InfinityIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, Infinity as InfinityIcon } from 'lucide-react';
 import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
@@ -286,8 +286,8 @@ export function MaterialSettings() {
                       value=""
                       onValueChange={(value) => setFormData({ ...formData, type: value })}
                     >
-                      <SelectTrigger className="w-10 px-0 justify-center flex-shrink-0">
-                        <ChevronDown className="h-4 w-4" />
+                      <SelectTrigger className="w-9 px-0 justify-center flex-shrink-0 [&>svg:first-child]:hidden">
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {existingTypes.filter(t => t !== formData.type).map(t => (
@@ -313,8 +313,8 @@ export function MaterialSettings() {
                       value=""
                       onValueChange={(value) => setFormData({ ...formData, location: value })}
                     >
-                      <SelectTrigger className="w-10 px-0 justify-center flex-shrink-0">
-                        <ChevronDown className="h-4 w-4" />
+                      <SelectTrigger className="w-9 px-0 justify-center flex-shrink-0 [&>svg:first-child]:hidden">
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {existingLocations.filter(l => l !== formData.location).map(l => (
