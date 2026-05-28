@@ -862,6 +862,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               description: "Ein anderer Benutzer hat diesen Einsatz geändert. Daten werden aktualisiert..."
             })
             await refreshOperations()
+          } else if (batchedUpdates.status !== undefined) {
+            // Status changes are usually drag-drops between columns. If the
+            // backend rejects the change, the card visually sits in the wrong
+            // column until the next poll — refresh now so it snaps back.
+            toast.error("Status nicht geändert", {
+              description: "Der Einsatz wurde auf den letzten Stand zurückgesetzt.",
+            })
+            await refreshOperations()
           } else {
             toast.error("Fehler beim Aktualisieren", { description: "Der Einsatz konnte nicht aktualisiert werden." })
           }
