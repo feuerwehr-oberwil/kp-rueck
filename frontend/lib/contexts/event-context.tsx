@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { apiClient, type ApiEvent } from '@/lib/api-client'
 import type { Event, EventCreate, EventUpdate } from '@/lib/types/incidents'
+import { isValidUUID } from '@/lib/utils/validation'
 import { useAuth } from './auth-context'
 
 interface EventContextType {
@@ -22,12 +23,6 @@ interface EventContextType {
 const EventContext = createContext<EventContextType | undefined>(undefined)
 
 const SELECTED_EVENT_KEY = 'kp-rueck-selected-event'
-
-// Simple UUID validation to prevent invalid IDs from being used
-const isValidUUID = (id: string): boolean => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(id)
-}
 
 /**
  * Convert API event to frontend Event type

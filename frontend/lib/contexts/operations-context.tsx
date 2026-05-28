@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
 import { apiClient, ApiError, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { formatLocationForDisplay } from "@/lib/utils"
+import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel, type Person, type PersonStatus } from "./personnel-context"
@@ -14,13 +15,6 @@ import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/webs
 export type { Person, PersonStatus } from "./personnel-context"
 export type { Material } from "./materials-context"
 export type PersonRole = string
-
-// Simple UUID validation to prevent invalid IDs from being used in API calls
-const isValidUUID = (id: string | undefined | null): id is string => {
-  if (!id) return false
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(id)
-}
 
 // Types
 export type OperationStatus = "incoming" | "ready" | "rekoDone" | "enroute" | "active" | "returning" | "complete"

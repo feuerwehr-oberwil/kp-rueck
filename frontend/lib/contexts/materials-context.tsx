@@ -2,15 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react"
 import { apiClient, type ApiMaterialResource, type ApiMaterialGroup } from "@/lib/api-client"
+import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
-
-// Simple UUID validation
-const isValidUUID = (id: string | undefined | null): id is string => {
-  if (!id) return false
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(id)
-}
 
 // Types
 export interface Material {

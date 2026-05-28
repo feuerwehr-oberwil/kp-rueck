@@ -6,6 +6,7 @@ import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
+import { isValidUUID } from '@/lib/utils/validation'
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 interface NotificationContextValue {
@@ -27,13 +28,6 @@ interface NotificationContextValue {
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
-
-// Simple UUID validation to prevent invalid IDs from being used in API calls
-const isValidUUID = (id: string | undefined | null): id is string => {
-  if (!id) return false
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(id)
-}
 
 export function useNotifications() {
   const context = useContext(NotificationContext)
