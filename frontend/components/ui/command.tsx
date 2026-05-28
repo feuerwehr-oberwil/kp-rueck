@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Command as CommandPrimitive } from 'cmdk'
-import { SearchIcon } from 'lucide-react'
+import { SearchIcon, XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import {
@@ -34,7 +35,7 @@ function CommandDialog({
   description = 'Search for a command to run...',
   children,
   className,
-  showCloseButton = true,
+  showCloseButton = false,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
   title?: string
@@ -62,8 +63,11 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  showClose = false,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  showClose?: boolean
+}) {
   return (
     <div
       data-slot="command-input-wrapper"
@@ -78,6 +82,15 @@ function CommandInput({
         )}
         {...props}
       />
+      {showClose && (
+        <DialogPrimitive.Close
+          data-slot="command-input-close"
+          className="ring-offset-background focus:ring-ring hover:bg-muted hover:text-foreground -mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md opacity-70 transition-colors hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden cursor-pointer"
+          aria-label="Schliessen"
+        >
+          <XIcon className="size-4" />
+        </DialogPrimitive.Close>
+      )}
     </div>
   )
 }
