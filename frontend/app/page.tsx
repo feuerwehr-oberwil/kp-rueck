@@ -26,6 +26,7 @@ import { useNotifications } from "@/lib/contexts/notification-context"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
+import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
@@ -77,6 +78,8 @@ export default function FireStationDashboard() {
     deleteOperation,
     isLoading
   } = useOperations()
+
+  const doubleBookedPersons = useDoubleBookedPersons(operations)
 
   const { materialGroups } = useMaterials()
   const { selectedEvent, isEventLoaded } = useEvent()
@@ -1328,6 +1331,7 @@ export default function FireStationDashboard() {
                               key={person.id}
                               person={person}
                               onClick={() => handlePersonClick(person)}
+                              assignmentCount={doubleBookedPersons.counts.get(person.name)}
                             />
                           ))}
                         </div>
@@ -1379,6 +1383,7 @@ export default function FireStationDashboard() {
                       onToggleZuFuss={handleToggleZuFuss}
                       showMeldung={showMeldung}
                       printerEnabled={printerEnabled}
+                      doubleBookedCrewNames={doubleBookedPersons.names}
                     />
                   )
                 })}

@@ -54,6 +54,8 @@ interface DraggableOperationProps {
   onToggleZuFuss?: () => void
   showMeldung?: boolean
   printerEnabled?: boolean
+  /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
+  doubleBookedCrewNames?: Set<string>
 }
 
 // Priority visual configuration - bold borders for quick scanning
@@ -99,6 +101,7 @@ function DraggableOperationBase({
   onToggleZuFuss,
   showMeldung,
   printerEnabled,
+  doubleBookedCrewNames,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -363,25 +366,37 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
-                    {operation.crew.map((crewName) => (
-                      <Badge
-                        key={crewName}
-                        variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
-                      >
-                        <span>{crewName}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onRemoveCrew(crewName)
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                          title={`${crewName} entfernen`}
+                    {operation.crew.map((crewName) => {
+                      const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
+                      return (
+                        <Badge
+                          key={crewName}
+                          variant="secondary"
+                          className={cn(
+                            "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default",
+                            isConflict && "border border-warning/60 text-warning bg-warning/10",
+                          )}
+                          title={
+                            isConflict
+                              ? `${crewName} ist auf mehreren Einsätzen — Doppelbelegung`
+                              : undefined
+                          }
                         >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
-                    ))}
+                          {isConflict && <AlertTriangle className="h-2.5 w-2.5" />}
+                          <span>{crewName}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onRemoveCrew(crewName)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
+                            title={`${crewName} entfernen`}
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </Badge>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -667,6 +682,9 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.index === nextProps.index &&
     prevProps.showMeldung === nextProps.showMeldung &&
     !rekoSummaryChanged &&
-    !assignedRekoChanged
+    !assignedRekoChanged &&
+    // Conflict set: identity check is enough — page.tsx memoizes the Set
+    // via useMemo, so a new reference means the underlying value changed.
+    prevProps.doubleBookedCrewNames === nextProps.doubleBookedCrewNames
   )
 })

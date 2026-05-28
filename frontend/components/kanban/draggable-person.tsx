@@ -6,16 +6,18 @@ import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
-import { Car, Binoculars, Package2, Check, Minus } from 'lucide-react'
+import { Car, Binoculars, Package2, Check, Minus, AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 interface DraggablePersonProps {
   person: Person
   onClick?: () => void
   disabled?: boolean
+  /** When > 1, this person is currently on multiple incidents — surface a conflict badge. */
+  assignmentCount?: number
 }
 
-function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps) {
+function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: DraggablePersonProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -84,6 +86,7 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
   }
 
   const specialFunctionBadges = renderSpecialFunctionBadges()
+  const isDoubleBooked = (assignmentCount ?? 0) > 1
 
   return (
     <PersonContextMenu
@@ -106,7 +109,9 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
           canDrag && person.isReko && person.status === "assigned" && "bg-muted/30 border-border/30",
           // Non-reko assigned personnel: clear visual indication they're not draggable
           !canDrag && person.status === "assigned" && "cursor-not-allowed opacity-60",
-          !canDrag && person.status !== "assigned" && "cursor-pointer"
+          !canDrag && person.status !== "assigned" && "cursor-pointer",
+          // Double-booked: warn-colored border so operators see the conflict before tooltip
+          isDoubleBooked && "border-warning/70 ring-1 ring-warning/30",
         )}
       >
         <div className="flex flex-col gap-2">
@@ -130,6 +135,16 @@ function DraggablePersonBase({ person, onClick, disabled }: DraggablePersonProps
 
             {/* Tags */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              {isDoubleBooked && (
+                <Badge
+                  variant="outline"
+                  className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning"
+                  title={`Auf ${assignmentCount} Einsätzen — Doppelbelegung`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  {assignmentCount}×
+                </Badge>
+              )}
               {person.tags && person.tags.length > 0 ? (
                 <div className="flex gap-1">
                   {person.tags.map((tag) => (
@@ -166,6 +181,7 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.person.driverVehicleName === nextProps.person.driverVehicleName &&
     prevProps.person.isMagazin === nextProps.person.isMagazin &&
     JSON.stringify(prevProps.person.tags) === JSON.stringify(nextProps.person.tags) &&
-    prevProps.disabled === nextProps.disabled
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.assignmentCount === nextProps.assignmentCount
   )
 })

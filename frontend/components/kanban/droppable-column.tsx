@@ -52,6 +52,7 @@ interface DroppableColumnProps {
   onToggleZuFuss?: (operationId: string) => void
   showMeldung?: boolean
   printerEnabled?: boolean
+  doubleBookedCrewNames?: Set<string>
 }
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -64,7 +65,8 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.hoveredOperationId !== next.hoveredOperationId ||
     prev.showMeldung !== next.showMeldung ||
     prev.printerEnabled !== next.printerEnabled ||
-    prev.materials !== next.materials
+    prev.materials !== next.materials ||
+    prev.doubleBookedCrewNames !== next.doubleBookedCrewNames
   ) {
     return false
   }
@@ -135,6 +137,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onToggleZuFuss,
   showMeldung,
   printerEnabled,
+  doubleBookedCrewNames,
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -291,6 +294,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onToggleZuFuss={onToggleZuFuss ? () => onToggleZuFuss(operation.id) : undefined}
                 showMeldung={showMeldung}
                 printerEnabled={printerEnabled}
+                doubleBookedCrewNames={doubleBookedCrewNames}
               />
             </div>
           ))}
