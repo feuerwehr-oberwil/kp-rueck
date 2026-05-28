@@ -104,7 +104,7 @@ Tactical firefighting operations dashboard for managing personnel, materials, an
 **Key Features:**
 - Kanban-style operations board with drag-and-drop status management
 - Interactive map view with operation locations (Leaflet + OpenStreetMap)
-- Real-time data sync via polling (≤5s interval, no WebSockets in MVP)
+- Real-time data sync via WebSockets (Socket.IO) with polling fallback (~5s interval)
 - Personnel, vehicle, and material resource tracking
 - Training mode vs. live operations (same database, filtered by flag)
 - Field reconnaissance (Reko) forms with photo upload
@@ -162,7 +162,7 @@ kp-rueck/
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
-- **Polling sync**: Client polls backend every ~5s for updates (configurable)
+- **WebSocket + polling sync**: Socket.IO pushes incident, driver, and assignment updates from `backend/app/websocket_manager.py`; client polls every ~5s as a fallback when the socket is down or for entities not yet wired to WS events
 
 ### Database Schema (Key Tables)
 
@@ -261,7 +261,7 @@ open http://localhost:8080
 - **Backend follows FastAPI best practices**: async operations, proper DI, type hints
 - **Frontend uses Next.js 15 patterns**: App Router, Server Components by default
 - **State management**: Centralized in React Context with API sync
-- **Polling over WebSockets**: Keep it simple in MVP (WebSockets are future enhancement)
+- **Real-time updates via WebSockets** (Socket.IO server in `backend/app/websocket_manager.py`, client in `frontend/lib/websocket-client.ts`). Polling remains as a fallback path. Originally polling-only in MVP; WebSockets were added in commit `b67360d` for live driver/assignment updates.
 - **Training vs Live**: Same database, filtered by `training_flag` on incidents
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 
