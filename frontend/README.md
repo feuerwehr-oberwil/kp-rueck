@@ -45,8 +45,10 @@ The application will be available at `http://localhost:3000`
 - `pnpm build` - Build for production
 - `pnpm start` - Start production server
 - `pnpm lint` - Run ESLint
-- `pnpm test` - Run Playwright tests
-- `pnpm test:ui` - Run Playwright tests with UI
+- `pnpm test` - Run Vitest unit tests
+- `pnpm test:watch` - Vitest in watch mode
+- `pnpm test:e2e` - Run Playwright E2E tests
+- `pnpm test:e2e:ui` - Playwright UI mode
 
 ## Environment Variables
 

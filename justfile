@@ -214,19 +214,22 @@ printer cmd="start":
 # Testing & Code Quality
 # ============================================
 
-# Run all tests (backend + E2E)
+# Run all tests (backend + frontend unit + E2E)
 test:
     @echo "\033[1;34m→ Running backend tests...\033[0m"
     cd backend && uv run pytest
     @echo ""
+    @echo "\033[1;34m→ Running frontend unit tests (Vitest)...\033[0m"
+    cd frontend && pnpm test
+    @echo ""
     @echo "\033[1;34m→ Running E2E tests...\033[0m"
     @echo "\033[1;34m→ Ensure services are running: just dev\033[0m"
-    cd frontend && pnpm test
+    cd frontend && pnpm test:e2e
 
 # Run E2E tests in interactive UI mode
 test-ui:
     @echo "\033[1;34m→ Starting Playwright UI mode...\033[0m"
-    cd frontend && pnpm test:ui
+    cd frontend && pnpm test:e2e:ui
 
 # Lint all code (backend + frontend)
 lint:

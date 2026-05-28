@@ -249,7 +249,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
   # ============================================
-  # E2E Tests - disabled in CI (run locally with: cd frontend && pnpm test)
+  # E2E Tests - disabled in CI (run locally with: cd frontend && pnpm test:e2e)
   # Playwright tests are too slow/flaky for CI (~25min with 300 tests)
   # ============================================
   e2e-tests:
@@ -326,7 +326,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: frontend
-        run: pnpm test
+        run: pnpm test:e2e
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
           CI: true

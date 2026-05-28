@@ -44,8 +44,10 @@ pnpm install                         # Install dependencies
 pnpm dev                             # Start dev server (port 3000)
 pnpm build                           # Build for production
 pnpm lint                            # Lint
-pnpm test                            # Run Playwright tests
-pnpm test:ui                         # Playwright UI mode
+pnpm test                            # Run Vitest unit tests
+pnpm test:watch                      # Vitest watch mode
+pnpm test:e2e                        # Run Playwright E2E tests
+pnpm test:e2e:ui                     # Playwright UI mode
 ```
 
 **Database:**
@@ -62,7 +64,7 @@ just db new "message"          # Create new migration
 
 **Quick Start (justfile):**
 ```bash
-# Run all tests (backend + E2E, ensure services are running first)
+# Run all tests (backend + frontend unit + E2E, ensure services are running first)
 just test
 
 # Run E2E tests in interactive UI mode
@@ -74,18 +76,20 @@ just test-ui
 # Backend
 cd backend && uv run pytest
 
-# Frontend E2E tests
-cd frontend && pnpm test                    # Run all tests
-cd frontend && pnpm test:ui                 # Interactive UI mode
-cd frontend && pnpm test tests/e2e/01-auth/ # Run specific test suite
+# Frontend unit tests (Vitest)
+cd frontend && pnpm test                       # Run all unit tests
+cd frontend && pnpm test:watch                 # Watch mode
+
+# Frontend E2E tests (Playwright)
+cd frontend && pnpm test:e2e                   # Run all E2E tests
+cd frontend && pnpm test:e2e:ui                # Interactive UI mode
+cd frontend && pnpm test:e2e tests/e2e/01-auth/ # Run specific test suite
 cd frontend && pnpm exec playwright test --headed  # Visible browser
 ```
 
 **Test Infrastructure:**
-- Framework: Playwright with TypeScript
-- Architecture: Page Object Model + Custom Fixtures
-- Test Data: Factory pattern + API helpers
-- Location: `frontend/tests/`
+- Unit tests: Vitest + React Testing Library + jsdom (config: `vitest.config.ts`, setup: `vitest.setup.ts`). Files: `**/*.{test,spec}.{ts,tsx}` outside `tests/`.
+- E2E: Playwright with TypeScript, Page Object Model + Custom Fixtures, Factory pattern + API helpers, located in `frontend/tests/`.
 
 ## Architecture Overview
 

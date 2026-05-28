@@ -94,9 +94,11 @@ uv run pytest tests/test_api/    # Run specific test suite
 ### Frontend E2E
 ```bash
 cd frontend
-pnpm test           # Run all E2E tests (Playwright)
-pnpm test:ui        # Interactive Playwright UI mode
-pnpm test:headed    # Run tests with visible browser
+pnpm test           # Run frontend unit tests (Vitest)
+pnpm test:watch     # Vitest watch mode
+pnpm test:e2e       # Run all E2E tests (Playwright)
+pnpm test:e2e:ui    # Interactive Playwright UI mode
+pnpm test:e2e:headed # Run E2E tests with visible browser
 ```
 
 Or via just:

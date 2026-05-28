@@ -8,7 +8,7 @@ import * as path from 'path';
  * This script captures screenshots of the application for use in help documentation.
  * Screenshots are saved to: frontend/public/help/images/
  *
- * Run with: pnpm test tests/capture-help-screenshots.spec.ts
+ * Run with: pnpm test:e2e tests/capture-help-screenshots.spec.ts
  */
 
 // Ensure screenshot directory exists
