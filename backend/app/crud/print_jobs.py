@@ -8,7 +8,15 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models import Incident, Material, Personnel, PrintJob, RekoReport, Vehicle
+from ..models import (
+    EventSpecialFunction,
+    Incident,
+    Material,
+    Personnel,
+    PrintJob,
+    RekoReport,
+    Vehicle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +65,7 @@ async def queue_assignment_print(
         raise ValueError(f"Incident {incident_id} not found")
 
     # Build payload
-    payload = await _build_assignment_payload(db, incident)
+    payload = await build_assignment_payload(db, incident)
 
     # Create print job
     job = PrintJob(
@@ -75,8 +83,13 @@ async def queue_assignment_print(
     return job
 
 
-async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dict:
-    """Build the payload for an assignment slip print job."""
+async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict:
+    """Build the payload for an assignment slip print job.
+
+    Shared between auto-print (on dispatch) and manual print (API endpoint).
+    Includes per-vehicle driver info, Reko summary, internal notes, and
+    Nachbarhilfe details so the printed slip carries full tactical context.
+    """
     # Get active assignments (unassigned_at is NULL)
     active_assignments = [a for a in incident.assignments if a.unassigned_at is None]
 
@@ -85,19 +98,63 @@ async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dic
     vehicle_ids = [a.resource_id for a in active_assignments if a.resource_type == "vehicle"]
     material_ids = [a.resource_id for a in active_assignments if a.resource_type == "material"]
 
-    # Fetch personnel
+    # Vehicle assignment lookup for driver_stay
+    vehicle_assignment_map = {a.resource_id: a for a in active_assignments if a.resource_type == "vehicle"}
+
+    # Reko personnel for this event — excluded from crew section (they're on Reko duty, not assigned crew)
+    reko_personnel_ids: set[uuid.UUID] = set()
+    if incident.event_id:
+        result = await db.execute(
+            select(EventSpecialFunction.personnel_id).where(
+                and_(
+                    EventSpecialFunction.event_id == incident.event_id,
+                    EventSpecialFunction.function_type == "reko",
+                )
+            )
+        )
+        reko_personnel_ids = {row[0] for row in result.all()}
+
+    # Drivers per vehicle for this event
+    driver_map: dict[uuid.UUID, str] = {}
+    if vehicle_ids and incident.event_id:
+        result = await db.execute(
+            select(EventSpecialFunction, Personnel)
+            .join(Personnel, EventSpecialFunction.personnel_id == Personnel.id)
+            .where(
+                and_(
+                    EventSpecialFunction.event_id == incident.event_id,
+                    EventSpecialFunction.function_type == "driver",
+                    EventSpecialFunction.vehicle_id.in_(vehicle_ids),
+                )
+            )
+        )
+        for sf, person in result.all():
+            if sf.vehicle_id:
+                driver_map[sf.vehicle_id] = person.name
+
+    # Fetch personnel (excluding Reko-tagged personnel from crew list)
     crew = []
     if personnel_ids:
         result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
         for p in result.scalars().all():
-            crew.append({"name": p.name, "role": p.role})
+            if p.id not in reko_personnel_ids:
+                crew.append({"name": p.name, "role": p.role})
 
-    # Fetch vehicles
+    # Fetch vehicles with driver info
     vehicles = []
     if vehicle_ids:
         result = await db.execute(select(Vehicle).where(Vehicle.id.in_(vehicle_ids)))
         for v in result.scalars().all():
-            vehicles.append({"name": v.name, "type": v.type, "radio_call_sign": v.radio_call_sign})
+            assignment = vehicle_assignment_map.get(v.id)
+            vehicles.append(
+                {
+                    "name": v.name,
+                    "type": v.type,
+                    "radio_call_sign": v.radio_call_sign,
+                    "driver": driver_map.get(v.id),
+                    "driver_stay": assignment.driver_stay if assignment else False,
+                }
+            )
 
     # Fetch materials
     materials = []
@@ -106,7 +163,7 @@ async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dic
         for m in result.scalars().all():
             materials.append({"name": m.name, "type": m.type})
 
-    # Fetch reko report if submitted
+    # Fetch most-recent submitted Reko report so crews get tactical context on the slip
     reko_summary = None
     reko_result = await db.execute(
         select(RekoReport)
@@ -120,8 +177,11 @@ async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dic
         dangers = []
         if reko.dangers_json:
             danger_labels = {
-                "fire": "Feuer", "explosion": "Explosion", "collapse": "Einsturz",
-                "chemical": "Gefahrstoffe", "electrical": "Elektrisch",
+                "fire": "Feuer",
+                "explosion": "Explosion",
+                "collapse": "Einsturz",
+                "chemical": "Gefahrstoffe",
+                "electrical": "Elektrisch",
             }
             for key, label in danger_labels.items():
                 if reko.dangers_json.get(key):
@@ -134,8 +194,7 @@ async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dic
             "summary_text": reko.summary_text,
         }
 
-    # Build payload
-    payload = {
+    return {
         "incident_id": str(incident.id),
         "title": incident.title,
         "type": incident.type,
@@ -153,5 +212,3 @@ async def _build_assignment_payload(db: AsyncSession, incident: Incident) -> dic
         "materials": materials,
         "created_at": incident.created_at.isoformat() if incident.created_at else None,
     }
-
-    return payload

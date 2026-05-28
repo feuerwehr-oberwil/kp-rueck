@@ -20,8 +20,9 @@ from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..crud.print_jobs import build_assignment_payload
 from ..database import get_db
-from ..models import Event, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
+from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import settings as settings_service
 
 logger = logging.getLogger(__name__)
@@ -29,107 +30,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/print", tags=["print"])
 
 
-async def _build_assignment_payload(db: AsyncSession, incident_id: uuid.UUID) -> dict:
-    """Build the payload for an assignment slip print job."""
-    # Get incident with assignments
+async def _load_incident_for_print(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
+    """Load an incident with its assignments, raising 404 if missing."""
     result = await db.execute(
         select(Incident).options(selectinload(Incident.assignments)).where(Incident.id == incident_id)
     )
     incident = result.scalar_one_or_none()
-
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
-
-    # Get active assignments (unassigned_at is NULL)
-    active_assignments = [a for a in incident.assignments if a.unassigned_at is None]
-
-    # Separate by type
-    personnel_ids = [a.resource_id for a in active_assignments if a.resource_type == "personnel"]
-    vehicle_ids = [a.resource_id for a in active_assignments if a.resource_type == "vehicle"]
-    material_ids = [a.resource_id for a in active_assignments if a.resource_type == "material"]
-
-    # Build vehicle assignment map for driver_stay
-    vehicle_assignment_map = {a.resource_id: a for a in active_assignments if a.resource_type == "vehicle"}
-
-    # Find reko personnel for this incident's event to exclude from crew
-    reko_personnel_ids: set[uuid.UUID] = set()
-    if incident.event_id:
-        result = await db.execute(
-            select(EventSpecialFunction.personnel_id).where(
-                and_(
-                    EventSpecialFunction.event_id == incident.event_id,
-                    EventSpecialFunction.function_type == "reko",
-                )
-            )
-        )
-        reko_personnel_ids = {row[0] for row in result.all()}
-
-    # Find drivers for vehicles in this event
-    driver_map: dict[uuid.UUID, str] = {}  # vehicle_id -> driver name
-    if vehicle_ids and incident.event_id:
-        result = await db.execute(
-            select(EventSpecialFunction, Personnel)
-            .join(Personnel, EventSpecialFunction.personnel_id == Personnel.id)
-            .where(
-                and_(
-                    EventSpecialFunction.event_id == incident.event_id,
-                    EventSpecialFunction.function_type == "driver",
-                    EventSpecialFunction.vehicle_id.in_(vehicle_ids),
-                )
-            )
-        )
-        for sf, person in result.all():
-            if sf.vehicle_id:
-                driver_map[sf.vehicle_id] = person.name
-
-    # Fetch personnel (exclude reko personnel from crew)
-    crew = []
-    if personnel_ids:
-        result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
-        for p in result.scalars().all():
-            if p.id not in reko_personnel_ids:
-                crew.append({"name": p.name, "role": p.role})
-
-    # Fetch vehicles with driver info
-    vehicles = []
-    if vehicle_ids:
-        result = await db.execute(select(Vehicle).where(Vehicle.id.in_(vehicle_ids)))
-        for v in result.scalars().all():
-            assignment = vehicle_assignment_map.get(v.id)
-            vehicles.append(
-                {
-                    "name": v.name,
-                    "type": v.type,
-                    "radio_call_sign": v.radio_call_sign,
-                    "driver": driver_map.get(v.id),
-                    "driver_stay": assignment.driver_stay if assignment else False,
-                }
-            )
-
-    # Fetch materials
-    materials = []
-    if material_ids:
-        result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
-        for m in result.scalars().all():
-            materials.append({"name": m.name, "type": m.type})
-
-    # Build payload
-    payload = {
-        "incident_id": str(incident.id),
-        "title": incident.title,
-        "type": incident.type,
-        "priority": incident.priority,
-        "location": incident.location_address or "",
-        "description": incident.description or "",
-        "contact": incident.contact or "",
-        "nachbarhilfe": incident.nachbarhilfe,
-        "crew": crew,
-        "vehicles": vehicles,
-        "materials": materials,
-        "created_at": incident.created_at.isoformat() if incident.created_at else None,
-    }
-
-    return payload
+    return incident
 
 
 async def _build_board_payload(
@@ -270,8 +179,6 @@ async def _build_board_payload(
         )
 
     # Get personnel summary (checked in for this event)
-    from ..models import EventAttendance
-
     result = await db.execute(
         select(func.count(EventAttendance.id)).where(
             and_(
@@ -408,12 +315,10 @@ async def queue_assignment_print(
     if enabled.lower() != "true":
         raise HTTPException(status_code=400, detail="Printer is not enabled")
 
-    # Build payload
-    payload = await _build_assignment_payload(db, incident_id)
-
-    # Get event_id from incident
-    result = await db.execute(select(Incident.event_id).where(Incident.id == incident_id))
-    event_id = result.scalar_one_or_none()
+    # Build payload via the shared builder (includes Reko summary, internal notes,
+    # Nachbarhilfe, zu_fuss, and per-vehicle driver info)
+    incident = await _load_incident_for_print(db, incident_id)
+    payload = await build_assignment_payload(db, incident)
 
     # Create print job
     job = PrintJob(
@@ -421,7 +326,7 @@ async def queue_assignment_print(
         status="pending",
         payload=payload,
         incident_id=incident_id,
-        event_id=event_id,
+        event_id=incident.event_id,
     )
     db.add(job)
     await db.commit()
