@@ -139,6 +139,48 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // Track known incident IDs for new high-priority alert sound
   const knownIncidentIdsRef = useRef<Set<string>>(new Set())
   const alertAudioRef = useRef<HTMLAudioElement | null>(null)
+  // Browsers block .play() until the user has interacted with the page. Track
+  // unlock state so we know whether the alert sound can actually fire and
+  // retry without spamming the console.
+  const alertAudioUnlockedRef = useRef<boolean>(false)
+
+  // Prime the alert audio element on the first user gesture so subsequent
+  // programmatic .play() calls aren't blocked by the browser autoplay policy.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const unlock = () => {
+      const audio = alertAudioRef.current
+      if (!audio) return
+      audio.volume = 0.7
+      const prime = audio.play()
+      if (prime && typeof prime.then === 'function') {
+        prime
+          .then(() => {
+            audio.pause()
+            audio.currentTime = 0
+            alertAudioUnlockedRef.current = true
+          })
+          .catch(() => {
+            // Some browsers still refuse — leave unlocked=false; we'll retry on the next gesture.
+          })
+      } else {
+        alertAudioUnlockedRef.current = true
+      }
+    }
+    const opts: AddEventListenerOptions = { once: false, passive: true }
+    const handler = () => {
+      if (alertAudioUnlockedRef.current) return
+      unlock()
+    }
+    window.addEventListener('pointerdown', handler, opts)
+    window.addEventListener('keydown', handler, opts)
+    window.addEventListener('touchstart', handler, opts)
+    return () => {
+      window.removeEventListener('pointerdown', handler, opts)
+      window.removeEventListener('keydown', handler, opts)
+      window.removeEventListener('touchstart', handler, opts)
+    }
+  }, [])
 
   // Sync version for lightweight polling optimization
   const lastSyncVersionRef = useRef<string | null>(null)
@@ -516,15 +558,27 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             op => op.priority === 'high' && !knownIncidentIdsRef.current.has(op.id)
           )
           if (newHighPriority.length > 0 && alertAudioRef.current) {
-            const playAttempt = () => {
-              alertAudioRef.current?.play().catch(() => {
-                // Browser autoplay blocked — retry once after a short delay
-                setTimeout(() => {
-                  alertAudioRef.current?.play().catch(() => {})
-                }, 500)
-              })
+            const audio = alertAudioRef.current
+            audio.volume = 0.7
+            audio.currentTime = 0
+            const retryDelays = [0, 500, 1500, 3000]
+            const tryPlay = (attempt: number) => {
+              if (attempt >= retryDelays.length) {
+                if (!alertAudioUnlockedRef.current) {
+                  console.warn(
+                    'Alert sound suppressed: waiting for first user interaction to unlock audio.',
+                  )
+                }
+                return
+              }
+              window.setTimeout(() => {
+                const playPromise = audio.play()
+                if (playPromise && typeof playPromise.catch === 'function') {
+                  playPromise.catch(() => tryPlay(attempt + 1))
+                }
+              }, retryDelays[attempt])
             }
-            playAttempt()
+            tryPlay(0)
           }
         }
         // Update known incident IDs
