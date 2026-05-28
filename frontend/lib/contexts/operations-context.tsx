@@ -656,13 +656,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     )
 
     const person = personnel.find((p) => p.name === crewName)
-    if (person) {
-      const stillAssigned = operations.some(op => op.id !== operationId && op.crew.includes(crewName))
-      if (!stillAssigned) {
-        setPersonnel((people) =>
-          people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p))
-        )
-      }
+    const personStatusSnapshot = person?.status ?? null
+    const personnelShouldRevert =
+      person !== undefined &&
+      !operations.some(op => op.id !== operationId && op.crew.includes(crewName))
+    if (personnelShouldRevert) {
+      setPersonnel((people) =>
+        people.map((p) => (p.id === person!.id ? { ...p, status: "available" as PersonStatus } : p))
+      )
     }
 
     if (isLoaded) {
@@ -670,6 +671,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         .catch(err => {
           console.error("Failed to unassign crew:", err)
           toast.error("Fehler beim Entfernen", { description: "Die Person konnte nicht entfernt werden." })
+          setOperations((ops) =>
+            ops.map((op) => (op.id === operationId ? operation : op))
+          )
+          if (personnelShouldRevert && person && personStatusSnapshot) {
+            setPersonnel((people) =>
+              people.map((p) => (p.id === person.id ? { ...p, status: personStatusSnapshot } : p))
+            )
+          }
         })
         .finally(() => {
           assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
@@ -737,13 +746,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     )
 
     const material = materials.find((m) => m.id === materialId)
-    if (material) {
-      const stillAssigned = operations.some(op => op.id !== operationId && op.materials.includes(materialId))
-      if (!stillAssigned) {
-        setMaterials((mats) =>
-          mats.map((m) => (m.id === material.id ? { ...m, status: "available" as Material["status"] } : m))
-        )
-      }
+    const materialStatusSnapshot = material?.status ?? null
+    const materialShouldRevert =
+      material !== undefined &&
+      !operations.some(op => op.id !== operationId && op.materials.includes(materialId))
+    if (materialShouldRevert) {
+      setMaterials((mats) =>
+        mats.map((m) => (m.id === material!.id ? { ...m, status: "available" as Material["status"] } : m))
+      )
     }
 
     if (isLoaded) {
@@ -751,6 +761,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         .catch(err => {
           console.error("Failed to unassign material:", err)
           toast.error("Fehler beim Entfernen", { description: "Das Material konnte nicht entfernt werden." })
+          setOperations((ops) =>
+            ops.map((op) => (op.id === operationId ? operation : op))
+          )
+          if (materialShouldRevert && material && materialStatusSnapshot) {
+            setMaterials((mats) =>
+              mats.map((m) => (m.id === material.id ? { ...m, status: materialStatusSnapshot } : m))
+            )
+          }
         })
         .finally(() => {
           assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
@@ -967,6 +985,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations((ops) => [newOperation, ...ops])
       } catch (error) {
         console.error("Failed to create operation:", error)
+        toast.error("Einsatz konnte nicht erstellt werden", {
+          description: "Bitte erneut versuchen. Wenn das Problem bestehen bleibt, prüfen Sie die Verbindung.",
+        })
       }
     } else {
       const newOperation: Operation = {
@@ -1235,6 +1256,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         .catch(err => {
           console.error("Failed to unassign vehicle:", err)
           toast.error("Fehler beim Entfernen", { description: "Das Fahrzeug konnte nicht entfernt werden." })
+          setOperations((ops) =>
+            ops.map((op) => (op.id === operationId ? operation : op))
+          )
         })
         .finally(() => {
           assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
