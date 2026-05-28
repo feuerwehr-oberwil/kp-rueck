@@ -28,7 +28,14 @@ interface PersonnelContextType {
   personnel: Person[]
   setPersonnel: React.Dispatch<React.SetStateAction<Person[]>>
   isLoading: boolean
-  refreshPersonnel: () => Promise<Person[]>
+  /**
+   * Fetch personnel from the API.
+   * @param options.skipStateUpdate When true, returns the list without writing
+   *   to local state — used by operations-context to avoid a flicker where
+   *   raw API personnel (availability-based) is briefly shown before the
+   *   reconciled event-scoped status is applied.
+   */
+  refreshPersonnel: (options?: { skipStateUpdate?: boolean }) => Promise<Person[]>
 }
 
 const PersonnelContext = createContext<PersonnelContextType | undefined>(undefined)
@@ -49,28 +56,31 @@ export function PersonnelProvider({ children }: { children: ReactNode }) {
   const [personnel, setPersonnel] = useState<Person[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  const refreshPersonnel = useCallback(async (): Promise<Person[]> => {
-    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
-      setPersonnel([])
-      return []
-    }
+  const refreshPersonnel = useCallback(
+    async (options?: { skipStateUpdate?: boolean }): Promise<Person[]> => {
+      if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
+        if (!options?.skipStateUpdate) setPersonnel([])
+        return []
+      }
 
-    try {
-      setIsLoading(true)
-      const apiPersonnel = await apiClient.getAllPersonnel({
-        checked_in_only: true,
-        event_id: selectedEvent.id,
-      })
-      const personnelList = apiPersonnel.map(apiPersonToPerson)
-      setPersonnel(personnelList)
-      return personnelList
-    } catch (error) {
-      console.error("Failed to load personnel:", error)
-      return []
-    } finally {
-      setIsLoading(false)
-    }
-  }, [selectedEvent])
+      try {
+        setIsLoading(true)
+        const apiPersonnel = await apiClient.getAllPersonnel({
+          checked_in_only: true,
+          event_id: selectedEvent.id,
+        })
+        const personnelList = apiPersonnel.map(apiPersonToPerson)
+        if (!options?.skipStateUpdate) setPersonnel(personnelList)
+        return personnelList
+      } catch (error) {
+        console.error("Failed to load personnel:", error)
+        return []
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [selectedEvent],
+  )
 
   // Load initial data
   useEffect(() => {

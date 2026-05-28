@@ -258,11 +258,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     try {
 
-      // Fetch all data in parallel
+      // Fetch all data in parallel. skipStateUpdate keeps the raw personnel/material
+      // list off the UI — we write reconciled, event-scoped state below in one go,
+      // avoiding a flicker where every person briefly reads as "available".
       const [apiIncidents, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
         apiClient.getIncidents(selectedEvent.id),
-        refreshPersonnel(),
-        refreshMaterials(),
+        refreshPersonnel({ skipStateUpdate: true }),
+        refreshMaterials({ skipStateUpdate: true }),
         apiClient.getAllSettings().catch(() => ({ home_city: "" })),
         apiClient.getVehicles(),
       ])
@@ -421,11 +423,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           setIsLoading(true)
         }
 
-        // Fetch all data in parallel
+        // Fetch all data in parallel. See refreshOperations for why we suppress
+        // intermediate personnel/material writes.
         const [apiIncidents, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
           apiClient.getIncidents(eventId),
-          refreshPersonnel(),
-          refreshMaterials(),
+          refreshPersonnel({ skipStateUpdate: true }),
+          refreshMaterials({ skipStateUpdate: true }),
           apiClient.getAllSettings().catch(() => ({ home_city: "" })),
           apiClient.getVehicles(),
         ])

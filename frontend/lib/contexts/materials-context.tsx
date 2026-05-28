@@ -30,7 +30,7 @@ interface MaterialsContextType {
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
   materialGroups: MaterialGroup[]
   isLoading: boolean
-  refreshMaterials: () => Promise<Material[]>
+  refreshMaterials: (options?: { skipStateUpdate?: boolean }) => Promise<Material[]>
   refreshMaterialGroups: () => Promise<void>
 }
 
@@ -62,25 +62,28 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
   const [materialGroups, setMaterialGroups] = useState<MaterialGroup[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  const refreshMaterials = useCallback(async (): Promise<Material[]> => {
-    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
-      setMaterials([])
-      return []
-    }
+  const refreshMaterials = useCallback(
+    async (options?: { skipStateUpdate?: boolean }): Promise<Material[]> => {
+      if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
+        if (!options?.skipStateUpdate) setMaterials([])
+        return []
+      }
 
-    try {
-      setIsLoading(true)
-      const apiMats = await apiClient.getAllMaterials()
-      const materialsList = apiMats.map(apiMaterialToMaterial)
-      setMaterials(materialsList)
-      return materialsList
-    } catch (error) {
-      console.error("Failed to load materials:", error)
-      return []
-    } finally {
-      setIsLoading(false)
-    }
-  }, [selectedEvent])
+      try {
+        setIsLoading(true)
+        const apiMats = await apiClient.getAllMaterials()
+        const materialsList = apiMats.map(apiMaterialToMaterial)
+        if (!options?.skipStateUpdate) setMaterials(materialsList)
+        return materialsList
+      } catch (error) {
+        console.error("Failed to load materials:", error)
+        return []
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [selectedEvent],
+  )
 
   const refreshMaterialGroups = useCallback(async () => {
     try {
