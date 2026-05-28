@@ -121,6 +121,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const assignmentCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const recentStatusUpdateRef = useRef<boolean>(false)
   const statusUpdateCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  // UI #2: queue-and-replay for WS/poll updates that arrive during a cooldown.
+  // When set, the next cooldown clear triggers a single loadData(false). Prevents
+  // silent loss of remote updates during rapid local dispatch.
+  const pendingReplayRef = useRef<boolean>(false)
+  const replayPendingUpdatesRef = useRef<(() => void) | null>(null)
+
+  const clearAssignmentCooldown = () => {
+    recentAssignmentRef.current = false
+    replayPendingUpdatesRef.current?.()
+  }
+  const clearStatusUpdateCooldown = () => {
+    recentStatusUpdateRef.current = false
+    replayPendingUpdatesRef.current?.()
+  }
 
   // Track known incident IDs for new high-priority alert sound
   const knownIncidentIdsRef = useRef<Set<string>>(new Set())
@@ -548,25 +562,31 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const shouldSkipUpdate = () =>
       criticalUpdateInProgress.current || recentAssignmentRef.current || recentStatusUpdateRef.current
 
-    const unsubscribeIncidentUpdate = wsClient.on('incident_update', () => {
-      if (!shouldSkipUpdate()) loadData(false)
-    })
-    const unsubscribePersonnelUpdate = wsClient.on('personnel_update', () => {
-      if (!shouldSkipUpdate()) loadData(false)
-    })
-    const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', () => {
-      if (!shouldSkipUpdate()) loadData(false)
-    })
-    const unsubscribeMaterialUpdate = wsClient.on('material_update', () => {
-      if (!shouldSkipUpdate()) loadData(false)
-    })
-    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', () => {
-      if (!shouldSkipUpdate()) loadData(false)
-    })
-    const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (update: WebSocketUpdate) => {
-      if (!shouldSkipUpdate()) {
-        loadData(false)
+    const handleRemoteUpdate = () => {
+      if (shouldSkipUpdate()) {
+        // Queue rather than drop — replay once the cooldown clears.
+        pendingReplayRef.current = true
+        return
       }
+      loadData(false)
+    }
+
+    // Expose replay so cooldown-clear timers (defined outside this useEffect)
+    // can trigger a coalesced reload when they fire.
+    replayPendingUpdatesRef.current = () => {
+      if (shouldSkipUpdate()) return
+      if (!pendingReplayRef.current) return
+      pendingReplayRef.current = false
+      loadData(false)
+    }
+
+    const unsubscribeIncidentUpdate = wsClient.on('incident_update', handleRemoteUpdate)
+    const unsubscribePersonnelUpdate = wsClient.on('personnel_update', handleRemoteUpdate)
+    const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', handleRemoteUpdate)
+    const unsubscribeMaterialUpdate = wsClient.on('material_update', handleRemoteUpdate)
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', handleRemoteUpdate)
+    const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (_update: WebSocketUpdate) => {
+      handleRemoteUpdate()
     })
 
     // Fallback polling
@@ -578,17 +598,26 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       const interval = getNextPollInterval(true)
       pollTimeout = setTimeout(async () => {
         if (!isPollingActive) return
-        if (!isLoading && !shouldSkipUpdate()) {
-          try {
-            // Lightweight version check before full reload
-            const { version } = await apiClient.getSyncVersion(eventId)
-            if (version !== lastSyncVersionRef.current) {
-              lastSyncVersionRef.current = version
-              await loadData(false)
-            }
-          } catch {
-            pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
+        if (isLoading) {
+          if (isPollingActive) schedulePoll()
+          return
+        }
+        if (shouldSkipUpdate()) {
+          // Queue a replay rather than skipping silently — the cooldown clear
+          // will pick this up. We still keep the polling cadence going.
+          pendingReplayRef.current = true
+          if (isPollingActive) schedulePoll()
+          return
+        }
+        try {
+          // Lightweight version check before full reload
+          const { version } = await apiClient.getSyncVersion(eventId)
+          if (version !== lastSyncVersionRef.current) {
+            lastSyncVersionRef.current = version
+            await loadData(false)
           }
+        } catch {
+          pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
         }
         if (isPollingActive) schedulePoll()
       }, interval)
@@ -681,10 +710,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           }
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -714,10 +743,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           )
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -771,10 +800,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           }
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -832,9 +861,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     if (updates.status !== undefined) {
       recentStatusUpdateRef.current = true
       if (statusUpdateCooldownTimerRef.current) clearTimeout(statusUpdateCooldownTimerRef.current)
-      statusUpdateCooldownTimerRef.current = setTimeout(() => {
-        recentStatusUpdateRef.current = false
-      }, 2000)
+      statusUpdateCooldownTimerRef.current = setTimeout(clearStatusUpdateCooldown, 2000)
     }
 
     // Guard against polling overwriting optimistic updates for field changes
@@ -898,7 +925,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         } finally {
           pendingUpdatesRef.current.delete(operationId)
           if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
-          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
         }
       }
 
@@ -916,7 +943,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         updateTimeoutRef.current = setTimeout(() => performUpdate(updates), 500)
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -1051,10 +1078,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
       } finally {
-        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -1110,10 +1137,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         )
       } finally {
-        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -1164,10 +1191,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
         )
       } finally {
-        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -1216,10 +1243,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } finally {
         // Clear cooldown after API response, with a small grace period
-        assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
@@ -1261,10 +1288,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           )
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 500)
+          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(() => { recentAssignmentRef.current = false }, 3000)
+      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
   }
 
