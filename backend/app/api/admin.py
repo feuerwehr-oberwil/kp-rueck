@@ -57,6 +57,13 @@ async def preview_excel_import(
 
     file_bytes = await file.read()
 
+    max_bytes = settings.max_excel_import_mb * 1024 * 1024
+    if len(file_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Excel-Datei zu gross. Maximale Grösse: {settings.max_excel_import_mb}MB",
+        )
+
     try:
         parsed_data = validate_and_parse_excel(file_bytes)
     except ExcelImportError:
@@ -102,6 +109,13 @@ async def execute_excel_import(
         raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
 
     file_bytes = await file.read()
+
+    max_bytes = settings.max_excel_import_mb * 1024 * 1024
+    if len(file_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Excel-Datei zu gross. Maximale Grösse: {settings.max_excel_import_mb}MB",
+        )
 
     try:
         parsed_data = validate_and_parse_excel(file_bytes)

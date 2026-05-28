@@ -170,9 +170,12 @@ class PhotoStorageService:
         # Read file content first (needed for all validations)
         content = await file.read()
 
-        # Validate file size
+        # Validate file size — 413 Payload Too Large is the semantic match per RFC 9110
         if len(content) > self.max_size_bytes:
-            raise HTTPException(status_code=400, detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB")
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
+            )
 
         # Validate file type (extension + MIME type)
         self._validate_file_type(content, file.filename)

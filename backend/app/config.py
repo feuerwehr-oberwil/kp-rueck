@@ -123,6 +123,7 @@ class Settings(BaseSettings):
     max_photo_size_mb: int = 10  # Maximum file size in megabytes
     max_photos_per_report: int = 20  # Maximum photos per Reko report
     allowed_photo_extensions: list[str] = [".jpg", ".jpeg", ".png", ".webp"]
+    max_excel_import_mb: int = 25  # Maximum size for Excel data imports
 
     # Sync Configuration
     railway_url: str = ""  # Railway production URL (empty = local mode, no sync)
