@@ -13,6 +13,7 @@ import { NotificationToasts } from '@/components/notifications/notification-toas
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
 import { AppShell } from '@/components/app-shell'
 import { DemoBanner } from '@/components/demo-banner'
+import { StaleDataBanner } from '@/components/stale-data-banner'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -59,6 +60,7 @@ export default function RootLayout({
                       <CommandPaletteProvider>
                         <div className="flex flex-col h-dvh overflow-hidden">
                           <DemoBanner />
+                          <StaleDataBanner />
                           <AppShell>
                             {children}
                           </AppShell>

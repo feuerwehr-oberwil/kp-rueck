@@ -75,7 +75,6 @@ describe("vehicleFormSchema", () => {
       ...vehicleFormDefaults,
       name: "TLF 1",
       radio_call_sign: "Omega 1",
-      // @ts-expect-error – deliberately wrong status value
       status: "maintenance",
     });
     expect(result.success).toBe(false);

@@ -39,7 +39,6 @@ describe("materialFormSchema", () => {
     const result = materialFormSchema.safeParse({
       ...materialFormDefaults,
       name: "Tauchpumpe",
-      // @ts-expect-error – deliberately wrong boolean value
       consumable: "yes",
     });
     expect(result.success).toBe(false);

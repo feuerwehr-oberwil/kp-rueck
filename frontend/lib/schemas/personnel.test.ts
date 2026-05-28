@@ -54,7 +54,6 @@ describe("personnelFormSchema", () => {
       ...personnelFormDefaults,
       name: "Müller Stefan",
       role: "Offizier",
-      // @ts-expect-error – deliberately wrong enum value
       availability: "checked_in",
     });
     expect(result.success).toBe(false);

@@ -76,6 +76,8 @@ interface OperationsContextType {
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   homeCity: string
   isLoading: boolean
+  /** Wall-clock time of the last successful operations load. null until the first load completes. */
+  lastSyncAt: Date | null
   formatLocation: (fullAddress: string) => string
   refreshOperations: () => Promise<void>
   removeCrew: (operationId: string, crewName: string) => void
@@ -108,6 +110,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [homeCity, setHomeCity] = useState<string>("")
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
 
   // Refs for debouncing and cooldowns
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
@@ -518,6 +521,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials(eventScopedMaterials)
         setHomeCity(settings.home_city || "")
         setIsLoaded(true)
+        setLastSyncAt(new Date())
         if (isInitialLoad) setIsInitialLoad(false)
 
         // Update sync version after successful full load
@@ -1298,6 +1302,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations,
         homeCity,
         isLoading,
+        lastSyncAt,
         formatLocation,
         refreshOperations,
         removeCrew,
