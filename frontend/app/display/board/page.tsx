@@ -6,8 +6,11 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { Clock, Truck, Users, Siren, Package, AlertTriangle, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck } from "lucide-react"
@@ -233,6 +236,9 @@ function IncidentDetailModal({
   onOpenChange: (open: boolean) => void
 }) {
   const { materials } = useMaterials()
+  const { personnel } = usePersonnel()
+  const { selectedEvent } = useEvent()
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id, open && !!operation)
 
   if (!operation) return null
 
@@ -240,6 +246,10 @@ function IncidentDetailModal({
     const mat = materials.find(m => m.id === id)
     return mat?.name ?? id
   })
+
+  const personnelRoleByName = new Map<string, string | undefined>(
+    personnel.map(p => [p.name, p.role]),
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -345,9 +355,15 @@ function IncidentDetailModal({
             </div>
             {operation.crew.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {operation.crew.map((name) => (
-                  <Badge key={name} variant="secondary" className="text-sm">{name}</Badge>
-                ))}
+                {operation.crew.map((name) => {
+                  const role = personnelRoleByName.get(name)
+                  return (
+                    <Badge key={name} variant="secondary" className="text-sm">
+                      {name}
+                      {role && <span className="ml-1 opacity-70">· {role}</span>}
+                    </Badge>
+                  )
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground/60 italic">Keine Mannschaft zugewiesen</p>
@@ -364,10 +380,12 @@ function IncidentDetailModal({
                 {operation.vehicles.map((vehicleName) => {
                   const callsign = operation.vehicleCallsigns.get(vehicleName)
                   const driverStay = operation.vehicleDriverStay.get(vehicleName)
+                  const driverName = vehicleDrivers.get(vehicleName)
                   return (
                     <Badge key={vehicleName} variant="default" className="text-sm gap-1">
                       {vehicleName}
                       {callsign && <span className="opacity-70">· {callsign}</span>}
+                      {driverName && <span className="opacity-70">· Fahrer: {driverName}</span>}
                       {driverStay !== undefined && (
                         <span className="opacity-70 ml-0.5">
                           {driverStay ? "(bleibt)" : "(zurück)"}
