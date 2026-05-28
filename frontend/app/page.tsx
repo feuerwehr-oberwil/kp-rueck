@@ -767,7 +767,14 @@ export default function FireStationDashboard() {
         // Only prevent default if no modifier keys are pressed
         // This allows cmd+r / ctrl+r to work normally for browser refresh
         e.preventDefault()
+        const toastId = toast.loading('Aktualisiere...')
         refreshOperations()
+          .then(() => {
+            toast.success('Aktualisiert', { id: toastId, duration: 1500 })
+          })
+          .catch(() => {
+            toast.error('Aktualisierung fehlgeschlagen', { id: toastId })
+          })
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         // Delete hovered operation with confirmation dialog
         if (hoveredOperationId) {
