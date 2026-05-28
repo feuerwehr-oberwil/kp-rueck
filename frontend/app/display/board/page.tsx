@@ -13,7 +13,8 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { Clock, Truck, Users, Siren, Package, AlertTriangle, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck } from "lucide-react"
+import { Clock, Truck, Users, Siren, Package, AlertTriangle, AlertCircle, Info, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck } from "lucide-react"
+import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function DisplayBoardPage() {
@@ -125,6 +126,15 @@ function BoardDisplay() {
   )
 }
 
+const priorityVisuals: Record<
+  Operation["priority"],
+  { Icon: LucideIcon; label: string; iconColor: string }
+> = {
+  high: { Icon: AlertTriangle, label: "Hoch", iconColor: "text-red-500" },
+  medium: { Icon: AlertCircle, label: "Mittel", iconColor: "text-yellow-500" },
+  low: { Icon: Info, label: "Niedrig", iconColor: "text-green-600 dark:text-green-500" },
+}
+
 function DisplayOperationCard({
   operation,
   isHighlighted,
@@ -136,12 +146,8 @@ function DisplayOperationCard({
   isFlashing: boolean
   onClick: () => void
 }) {
-  const priorityColor =
-    operation.priority === "high"
-      ? "bg-red-500"
-      : operation.priority === "medium"
-        ? "bg-yellow-500"
-        : "bg-green-500"
+  const { Icon: PriorityIcon, label: priorityLabel, iconColor: priorityIconColor } =
+    priorityVisuals[operation.priority]
 
   return (
     <Card
@@ -163,9 +169,17 @@ function DisplayOperationCard({
       `}</style>
       <div className="space-y-2">
         <div className="flex items-start gap-2">
-          <div className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1", priorityColor)} />
+          <PriorityIcon
+            className={cn("h-4 w-4 flex-shrink-0 mt-0.5", priorityIconColor)}
+            aria-label={`Priorität: ${priorityLabel}`}
+          />
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-sm leading-tight break-words">{operation.location}</h3>
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="font-bold text-sm leading-tight break-words">{operation.location}</h3>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex-shrink-0">
+                {priorityLabel}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -219,13 +233,6 @@ function DisplayOperationCard({
   )
 }
 
-const priorityLabels = { high: "Hoch", medium: "Mittel", low: "Niedrig" }
-const priorityColors = {
-  high: "bg-red-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
-}
-
 function IncidentDetailModal({
   operation,
   open,
@@ -242,6 +249,9 @@ function IncidentDetailModal({
 
   if (!operation) return null
 
+  const { Icon: PriorityIcon, label: priorityLabel, iconColor: priorityIconColor } =
+    priorityVisuals[operation.priority]
+
   const materialNames = operation.materials.map(id => {
     const mat = materials.find(m => m.id === id)
     return mat?.name ?? id
@@ -256,7 +266,10 @@ function IncidentDetailModal({
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className={cn("h-3 w-3 rounded-full flex-shrink-0", priorityColors[operation.priority])} />
+            <PriorityIcon
+              className={cn("h-5 w-5 flex-shrink-0", priorityIconColor)}
+              aria-label={`Priorität: ${priorityLabel}`}
+            />
             <span className="break-words">{operation.location}</span>
           </DialogTitle>
         </DialogHeader>
@@ -268,7 +281,7 @@ function IncidentDetailModal({
               <Siren className="h-4 w-4 text-muted-foreground" />
               <span>{getIncidentTypeLabel(operation.incidentType)}</span>
             </div>
-            <Badge variant="outline">{priorityLabels[operation.priority]}</Badge>
+            <Badge variant="outline">{priorityLabel}</Badge>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span className="font-mono">
