@@ -120,7 +120,7 @@ function SituationBoard() {
   const assignedMaterialCount = materials.filter((m) => m.status === "assigned").length
 
   return (
-    <div className="h-full grid grid-cols-4 bg-background overflow-hidden">
+    <div className="h-full grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 bg-background overflow-hidden">
       {/* ── Column 1: Vehicles ── */}
       <div className="flex flex-col border-r border-border overflow-hidden">
         <PanelHeader

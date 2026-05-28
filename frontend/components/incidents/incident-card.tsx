@@ -206,13 +206,13 @@ export function IncidentCard({
         {/* Transfer button */}
         {onTransfer && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={(e) => {
               e.stopPropagation()
               onTransfer()
             }}
-            className="w-full gap-2 mt-2 hover:bg-muted hover:text-foreground"
+            className="w-full gap-2 mt-2 border border-border"
           >
             <ArrowRightLeft className="h-4 w-4" />
             Ressourcen übertragen
