@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,31 +27,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, Infinity as InfinityIcon } from 'lucide-react';
 import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
+import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
+import {
+  materialFormDefaults,
+  materialFormSchema,
+  type MaterialFormValues,
+} from '@/lib/schemas/material';
 import { toast } from 'sonner';
 
 export function MaterialSettings() {
   const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<ApiMaterialResource | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    type: '',
-    status: 'available',
-    location: '',
-    consumable: false,
-  });
   const [materialGroups, setMaterialGroups] = useState<ApiMaterialGroup[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [materialToDelete, setMaterialToDelete] = useState<ApiMaterialResource | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [sortColumn, setSortColumn] = useState<'name' | 'location' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const form = useForm<MaterialFormValues>({
+    resolver: zodResolver(materialFormSchema),
+    defaultValues: materialFormDefaults,
+  });
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setEditingMaterial(null);
+    form.reset(materialFormDefaults);
+  };
+
+  const guard = useUnsavedChangesWarning({
+    isDirty: form.formState.isDirty,
+    isOpen: isDialogOpen,
+    onClose: closeDialog,
+  });
 
   useEffect(() => {
     loadMaterials();
@@ -74,36 +100,41 @@ export function MaterialSettings() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
+  const onSubmit = form.handleSubmit(async (values) => {
     try {
       if (editingMaterial) {
-        await apiClient.updateMaterialResource(editingMaterial.id, { ...formData });
+        await apiClient.updateMaterialResource(editingMaterial.id, values);
       } else {
-        await apiClient.createMaterialResource({ ...formData });
+        await apiClient.createMaterialResource(values);
       }
       await loadMaterials();
-      handleCloseDialog();
+      closeDialog();
     } catch (error) {
       console.error('Failed to save material:', error);
-      toast.error('Fehler beim Speichern des Materials', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
-    } finally {
-      setIsSaving(false);
+      toast.error('Fehler beim Speichern des Materials', {
+        description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.',
+      });
     }
-  };
+  });
 
   const handleEdit = (material: ApiMaterialResource) => {
     setEditingMaterial(material);
-    setFormData({
+    form.reset({
       name: material.name,
       type: material.type || '',
-      status: material.status,
+      status:
+        material.status === 'available' || material.status === 'unavailable'
+          ? material.status
+          : 'available',
       location: material.location || '',
       consumable: material.consumable ?? false,
     });
-    setNewType('');
-    setNewLocation('');
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingMaterial(null);
+    form.reset(materialFormDefaults);
     setIsDialogOpen(true);
   };
 
@@ -119,33 +150,24 @@ export function MaterialSettings() {
       await loadMaterials();
     } catch (error) {
       console.error('Failed to delete material:', error);
-      toast.error('Fehler beim Löschen des Materials', { description: 'Das Material konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
+      toast.error('Fehler beim Löschen des Materials', {
+        description: 'Das Material konnte nicht gelöscht werden. Versuchen Sie es erneut.',
+      });
     } finally {
       setMaterialToDelete(null);
     }
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setEditingMaterial(null);
-    setFormData({ name: '', type: '', status: 'available', location: '', consumable: false });
-    setNewType('');
-    setNewLocation('');
-  };
-
   // Derive unique types and locations from existing materials for dynamic selects
   const existingTypes = useMemo(() => {
-    const types = new Set(materials.map(m => m.type).filter(Boolean))
-    return Array.from(types).sort()
-  }, [materials])
+    const types = new Set(materials.map((m) => m.type).filter(Boolean));
+    return Array.from(types).sort();
+  }, [materials]);
 
   const existingLocations = useMemo(() => {
-    const locs = new Set(materials.map(m => m.location || '').filter(Boolean))
-    return Array.from(locs).sort()
-  }, [materials])
-
-  const [newType, setNewType] = useState('')
-  const [newLocation, setNewLocation] = useState('')
+    const locs = new Set(materials.map((m) => m.location || '').filter(Boolean));
+    return Array.from(locs).sort();
+  }, [materials]);
 
   // Handle column header click for sorting
   const handleSort = (column: 'name' | 'location' | 'status') => {
@@ -228,9 +250,12 @@ export function MaterialSettings() {
         sort_order: cat.sort_order,
       })),
     });
-    // Reload materials to reflect new sorting
     await loadMaterials();
   };
+
+  const isSaving = form.formState.isSubmitting;
+  const typeValue = form.watch('type');
+  const locationValue = form.watch('location');
 
   return (
     <div className="space-y-4">
@@ -243,202 +268,257 @@ export function MaterialSettings() {
 
         <TabsContent value="list" className="space-y-4">
           <div className="flex justify-end">
-        <Button onClick={() => {
-          setEditingMaterial(null);
-          setFormData({ name: '', type: '', status: 'available', location: '', consumable: false });
-          setNewType('');
-          setNewLocation('');
-          setIsDialogOpen(true);
-        }}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Material hinzufügen
-        </Button>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); else setIsDialogOpen(true); }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingMaterial ? 'Material bearbeiten' : 'Neues Material hinzufügen'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="z.B. Tauchpumpe Gr."
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="type">Typ</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="type"
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    placeholder="z.B. Pumpe, Schlauch"
-                    className="flex-1"
-                  />
-                  {existingTypes.filter(t => t !== formData.type).length > 0 && (
-                    <Select
-                      value=""
-                      onValueChange={(value) => setFormData({ ...formData, type: value })}
-                    >
-                      <SelectTrigger className="w-9 px-0 justify-center flex-shrink-0 [&>svg:first-child]:hidden">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {existingTypes.filter(t => t !== formData.type).map(t => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="location">Standort</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="z.B. TLF, Pio, Depot"
-                    className="flex-1"
-                  />
-                  {existingLocations.filter(l => l !== formData.location).length > 0 && (
-                    <Select
-                      value=""
-                      onValueChange={(value) => setFormData({ ...formData, location: value })}
-                    >
-                      <SelectTrigger className="w-9 px-0 justify-center flex-shrink-0 [&>svg:first-child]:hidden">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {existingLocations.filter(l => l !== formData.location).map(l => (
-                          <SelectItem key={l} value={l}>{l}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Verfügbar</SelectItem>
-                    <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div className="space-y-0.5">
-                  <Label htmlFor="consumable">Verbrauchsmaterial</Label>
-                  <p className="text-xs text-muted-foreground">Unbegrenzt verfügbar, keine Zuordnung nötig</p>
-                </div>
-                <Switch
-                  id="consumable"
-                  checked={formData.consumable}
-                  onCheckedChange={(checked) => setFormData({ ...formData, consumable: checked })}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
-                  Abbrechen
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingMaterial ? 'Aktualisieren' : 'Erstellen'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <Button onClick={handleOpenCreate}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Material hinzufügen
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingMaterial ? 'Material bearbeiten' : 'Neues Material hinzufügen'}
+                  </DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={onSubmit} className="space-y-3" noValidate>
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="z.B. Tauchpumpe Gr."
+                              autoFocus
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Typ</FormLabel>
+                          <div className="flex gap-2">
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="z.B. Pumpe, Schlauch"
+                                className="flex-1"
+                              />
+                            </FormControl>
+                            {existingTypes.filter((t) => t !== typeValue).length > 0 && (
+                              <Select
+                                value=""
+                                onValueChange={(value) =>
+                                  form.setValue('type', value, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="w-9 px-0 justify-center flex-shrink-0 [&>svg:first-child]:hidden">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {existingTypes
+                                    .filter((t) => t !== typeValue)
+                                    .map((t) => (
+                                      <SelectItem key={t} value={t}>
+                                        {t}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Standort</FormLabel>
+                          <div className="flex gap-2">
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="z.B. TLF, Pio, Depot"
+                                className="flex-1"
+                              />
+                            </FormControl>
+                            {existingLocations.filter((l) => l !== locationValue).length > 0 && (
+                              <Select
+                                value=""
+                                onValueChange={(value) =>
+                                  form.setValue('location', value, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="w-9 px-0 justify-center flex-shrink-0 [&>svg:first-child]:hidden">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {existingLocations
+                                    .filter((l) => l !== locationValue)
+                                    .map((l) => (
+                                      <SelectItem key={l} value={l}>
+                                        {l}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="available">Verfügbar</SelectItem>
+                              <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="consumable"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-3 space-y-0">
+                          <div className="space-y-0.5">
+                            <FormLabel>Verbrauchsmaterial</FormLabel>
+                            <p className="text-xs text-muted-foreground">
+                              Unbegrenzt verfügbar, keine Zuordnung nötig
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={guard.requestClose}
+                        disabled={isSaving}
+                      >
+                        Abbrechen
+                      </Button>
+                      <Button type="submit" disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {editingMaterial ? 'Aktualisieren' : 'Erstellen'}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50 select-none"
-              onClick={() => handleSort('name')}
-            >
-              Name<SortIndicator column="name" />
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50 select-none"
-              onClick={() => handleSort('location')}
-            >
-              Kategorie<SortIndicator column="location" />
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50 select-none"
-              onClick={() => handleSort('status')}
-            >
-              Status<SortIndicator column="status" />
-            </TableHead>
-            <TableHead className="text-right">Aktionen</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedMaterials.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                Kein Material vorhanden.
-              </TableCell>
-            </TableRow>
-          )}
-          {sortedMaterials.map((material) => (
-            <TableRow key={material.id}>
-              <TableCell className="font-medium">
-                {material.name}
-                {material.consumable && <InfinityIcon className="inline ml-1.5 h-3.5 w-3.5 text-muted-foreground" />}
-              </TableCell>
-              <TableCell>
-                <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
-                  {material.location || 'General'}
-                </span>
-              </TableCell>
-              <TableCell>
-                <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    material.status === 'available'
-                      ? 'bg-success/10 text-success'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('name')}
                 >
-                  {material.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
-                </span>
-              </TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEdit(material)}
+                  Name<SortIndicator column="name" />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('location')}
                 >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteClick(material)}
+                  Kategorie<SortIndicator column="location" />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('status')}
                 >
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                  Status<SortIndicator column="status" />
+                </TableHead>
+                <TableHead className="text-right">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedMaterials.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                    Kein Material vorhanden.
+                  </TableCell>
+                </TableRow>
+              )}
+              {sortedMaterials.map((material) => (
+                <TableRow key={material.id}>
+                  <TableCell className="font-medium">
+                    {material.name}
+                    {material.consumable && <InfinityIcon className="inline ml-1.5 h-3.5 w-3.5 text-muted-foreground" />}
+                  </TableCell>
+                  <TableCell>
+                    <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
+                      {material.location || 'General'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        material.status === 'available'
+                          ? 'bg-success/10 text-success'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {material.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(material)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteClick(material)}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </TabsContent>
 
         <TabsContent value="groups">
@@ -466,6 +546,8 @@ export function MaterialSettings() {
         description={`Sind Sie sicher, dass Sie das Material "${materialToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
         onConfirm={handleDeleteConfirm}
       />
+
+      <UnsavedChangesDialog {...guard.dialogProps} />
     </div>
   );
 }
@@ -488,8 +570,6 @@ function MaterialGroupSettings({
   const [isSaving, setIsSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<ApiMaterialGroup | null>(null)
-
-  const ungroupedMaterials = materials.filter(m => !m.group_id && !m.consumable)
 
   const existingLocations = useMemo(() => {
     const locs = new Set(materials.map(m => m.location || '').filter(Boolean))

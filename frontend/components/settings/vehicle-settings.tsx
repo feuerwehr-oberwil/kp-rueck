@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -25,27 +26,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { apiClient, ApiVehicle } from '@/lib/api-client';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
+import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
+import {
+  vehicleFormDefaults,
+  vehicleFormSchema,
+  type VehicleFormValues,
+} from '@/lib/schemas/vehicle';
 import { toast } from 'sonner';
+
+type SortColumn = 'display_order' | 'name' | 'radio_call_sign' | 'status';
 
 export function VehicleSettings() {
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<ApiVehicle | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    type: '',
-    display_order: 1,
-    status: 'available',
-    radio_call_sign: '',
-  });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<ApiVehicle | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [sortColumn, setSortColumn] = useState<'display_order' | 'name' | 'radio_call_sign' | 'status'>('display_order');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('display_order');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const form = useForm<VehicleFormValues>({
+    resolver: zodResolver(vehicleFormSchema),
+    defaultValues: vehicleFormDefaults,
+  });
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setEditingVehicle(null);
+    form.reset(vehicleFormDefaults);
+  };
+
+  const guard = useUnsavedChangesWarning({
+    isDirty: form.formState.isDirty,
+    isOpen: isDialogOpen,
+    onClose: closeDialog,
+  });
 
   useEffect(() => {
     loadVehicles();
@@ -60,8 +87,7 @@ export function VehicleSettings() {
     }
   };
 
-  // Handle column header click for sorting
-  const handleSort = (column: 'display_order' | 'name' | 'radio_call_sign' | 'status') => {
+  const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -70,11 +96,9 @@ export function VehicleSettings() {
     }
   };
 
-  // Sort vehicles based on current sort settings
   const sortedVehicles = useMemo(() => {
     return [...vehicles].sort((a, b) => {
       let comparison = 0;
-
       switch (sortColumn) {
         case 'display_order':
           comparison = a.display_order - b.display_order;
@@ -83,19 +107,19 @@ export function VehicleSettings() {
           comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
           break;
         case 'radio_call_sign':
-          comparison = a.radio_call_sign.toLowerCase().localeCompare(b.radio_call_sign.toLowerCase());
+          comparison = a.radio_call_sign
+            .toLowerCase()
+            .localeCompare(b.radio_call_sign.toLowerCase());
           break;
         case 'status':
           comparison = a.status.localeCompare(b.status);
           break;
       }
-
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [vehicles, sortColumn, sortDirection]);
 
-  // Render sort indicator
-  const SortIndicator = ({ column }: { column: 'display_order' | 'name' | 'radio_call_sign' | 'status' }) => {
+  const SortIndicator = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) return null;
     return sortDirection === 'asc' ? (
       <ArrowUp className="ml-1 h-3 w-3 inline" />
@@ -104,34 +128,44 @@ export function VehicleSettings() {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
+  const onSubmit = form.handleSubmit(async (values) => {
+    const payload = { ...values, type: values.type?.trim() || values.name };
     try {
-      const payload = { ...formData, type: formData.type || formData.name };
       if (editingVehicle) {
         await apiClient.updateVehicle(editingVehicle.id, payload);
       } else {
         await apiClient.createVehicle(payload);
       }
       await loadVehicles();
-      handleCloseDialog();
+      closeDialog();
     } catch (error) {
       console.error('Failed to save vehicle:', error);
-      toast.error('Fehler beim Speichern des Fahrzeugs', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
-    } finally {
-      setIsSaving(false);
+      toast.error('Fehler beim Speichern des Fahrzeugs', {
+        description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.',
+      });
     }
-  };
+  });
 
   const handleEdit = (vehicle: ApiVehicle) => {
     setEditingVehicle(vehicle);
-    setFormData({
+    form.reset({
       name: vehicle.name,
       type: vehicle.type,
       display_order: vehicle.display_order,
-      status: vehicle.status,
+      status:
+        vehicle.status === 'available' || vehicle.status === 'unavailable'
+          ? vehicle.status
+          : 'available',
       radio_call_sign: vehicle.radio_call_sign,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingVehicle(null);
+    form.reset({
+      ...vehicleFormDefaults,
+      display_order: vehicles.length + 1,
     });
     setIsDialogOpen(true);
   };
@@ -148,94 +182,124 @@ export function VehicleSettings() {
       await loadVehicles();
     } catch (error) {
       console.error('Failed to delete vehicle:', error);
-      toast.error('Fehler beim Löschen des Fahrzeugs', { description: 'Das Fahrzeug konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
+      toast.error('Fehler beim Löschen des Fahrzeugs', {
+        description: 'Das Fahrzeug konnte nicht gelöscht werden. Versuchen Sie es erneut.',
+      });
     } finally {
       setVehicleToDelete(null);
     }
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setEditingVehicle(null);
-    setFormData({ name: '', type: '', display_order: 1, status: 'available', radio_call_sign: '' });
-  };
+  const isSaving = form.formState.isSubmitting;
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={() => {
-          setEditingVehicle(null);
-          setFormData({ name: '', type: '', display_order: vehicles.length + 1, status: 'available', radio_call_sign: '' });
-          setIsDialogOpen(true);
-        }}>
+        <Button onClick={handleOpenCreate}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Fahrzeug hinzufügen
         </Button>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); else setIsDialogOpen(true); }}>
+        <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 {editingVehicle ? 'Fahrzeug bearbeiten' : 'Neues Fahrzeug hinzufügen'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="z.B. TLF, Pio, Mowa"
-                  required
+            <Form {...form}>
+              <form onSubmit={onSubmit} className="space-y-3" noValidate>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="z.B. TLF, Pio, Mowa"
+                          autoFocus
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="display_order">Reihenfolge (Tastaturkürzel)</Label>
-                <Input
-                  id="display_order"
-                  type="number"
-                  min="1"
-                  value={formData.display_order}
-                  onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) || 1 })}
-                  placeholder="z.B. 1, 2, 3"
-                  required
+                <FormField
+                  control={form.control}
+                  name="display_order"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reihenfolge (Tastaturkürzel)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={Number.isFinite(field.value) ? field.value : ''}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            field.onChange(raw === '' ? Number.NaN : Number(raw));
+                          }}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          placeholder="z.B. 1, 2, 3"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="radio_call_sign">Funkrufname</Label>
-                <Input
-                  id="radio_call_sign"
-                  value={formData.radio_call_sign}
-                  onChange={(e) => setFormData({ ...formData, radio_call_sign: e.target.value })}
-                  placeholder="z.B. Omega 1, Omega 2"
-                  required
+                <FormField
+                  control={form.control}
+                  name="radio_call_sign"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Funkrufname</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="z.B. Omega 1, Omega 2" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Verfügbar</SelectItem>
-                    <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
-                  Abbrechen
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingVehicle ? 'Aktualisieren' : 'Erstellen'}
-                </Button>
-              </div>
-            </form>
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="available">Verfügbar</SelectItem>
+                          <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={guard.requestClose}
+                    disabled={isSaving}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {editingVehicle ? 'Aktualisieren' : 'Erstellen'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -279,39 +343,33 @@ export function VehicleSettings() {
             </TableRow>
           )}
           {sortedVehicles.map((vehicle) => (
-              <TableRow key={vehicle.id}>
-                <TableCell className="font-mono text-sm text-muted-foreground">{vehicle.display_order}</TableCell>
-                <TableCell className="font-medium">{vehicle.name}</TableCell>
-                <TableCell className="text-muted-foreground">{vehicle.radio_call_sign}</TableCell>
-                <TableCell>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      vehicle.status === 'available'
-                        ? 'bg-success/10 text-success'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {vehicle.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(vehicle)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteClick(vehicle)}
-                  >
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            <TableRow key={vehicle.id}>
+              <TableCell className="font-mono text-sm text-muted-foreground">
+                {vehicle.display_order}
+              </TableCell>
+              <TableCell className="font-medium">{vehicle.name}</TableCell>
+              <TableCell className="text-muted-foreground">{vehicle.radio_call_sign}</TableCell>
+              <TableCell>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    vehicle.status === 'available'
+                      ? 'bg-success/10 text-success'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {vehicle.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
+                </span>
+              </TableCell>
+              <TableCell className="text-right">
+                <Button variant="ghost" size="sm" onClick={() => handleEdit(vehicle)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(vehicle)}>
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
 
@@ -322,6 +380,8 @@ export function VehicleSettings() {
         description={`Sind Sie sicher, dass Sie das Fahrzeug "${vehicleToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
         onConfirm={handleDeleteConfirm}
       />
+
+      <UnsavedChangesDialog {...guard.dialogProps} />
     </div>
   );
 }

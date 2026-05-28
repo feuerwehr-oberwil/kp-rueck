@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +28,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,22 +44,22 @@ import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, Chevr
 import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
+import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
+import {
+  personnelFormDefaults,
+  personnelFormSchema,
+  type PersonnelFormValues,
+} from '@/lib/schemas/personnel';
 import { toast } from 'sonner';
 
 export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) {
   const [personnel, setPersonnel] = useState<ApiPersonnel[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPersonnel, setEditingPersonnel] = useState<ApiPersonnel | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    role: '',
-    availability: 'available',
-    tags: [] as string[],
-  });
   const [newTag, setNewTag] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personnelToDelete, setPersonnelToDelete] = useState<ApiPersonnel | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'availability'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -60,6 +70,27 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   const [isSyncExecuting, setIsSyncExecuting] = useState(false);
   const [removeStale, setRemoveStale] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  const form = useForm<PersonnelFormValues>({
+    resolver: zodResolver(personnelFormSchema),
+    defaultValues: personnelFormDefaults,
+  });
+
+  const tags = form.watch('tags');
+  const roleValue = form.watch('role');
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setEditingPersonnel(null);
+    setNewTag('');
+    form.reset(personnelFormDefaults);
+  };
+
+  const guard = useUnsavedChangesWarning({
+    isDirty: form.formState.isDirty,
+    isOpen: isDialogOpen,
+    onClose: closeDialog,
+  });
 
   useEffect(() => {
     loadPersonnel();
@@ -85,53 +116,52 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
 
   // Extract unique tags across all personnel for quick-toggle
   const existingTags = useMemo(() => {
-    const tags = new Set<string>();
+    const tagSet = new Set<string>();
     personnel.forEach((p) => {
-      p.tags?.forEach((t) => tags.add(t));
+      p.tags?.forEach((t) => tagSet.add(t));
     });
-    return Array.from(tags).sort();
+    return Array.from(tagSet).sort();
   }, [personnel]);
 
   const handleOpenCreate = () => {
     setEditingPersonnel(null);
-    setFormData({ name: '', role: '', availability: 'available', tags: [] });
     setNewTag('');
+    form.reset(personnelFormDefaults);
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
+  const onSubmit = form.handleSubmit(async (values) => {
     try {
       if (editingPersonnel) {
-        const updated = await apiClient.updatePersonnel(editingPersonnel.id, formData);
-        // Optimistic update: replace the edited person in-place
+        const updated = await apiClient.updatePersonnel(editingPersonnel.id, values);
         setPersonnel((prev) =>
           prev.map((p) => (p.id === editingPersonnel.id ? updated : p))
         );
       } else {
-        const created = await apiClient.createPersonnel(formData);
-        // Optimistic update: append new person
+        const created = await apiClient.createPersonnel(values);
         setPersonnel((prev) => [...prev, created]);
       }
-      handleCloseDialog();
+      closeDialog();
     } catch (error) {
       console.error('Failed to save personnel:', error);
-      toast.error('Fehler beim Speichern', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
-    } finally {
-      setIsSaving(false);
+      toast.error('Fehler beim Speichern', {
+        description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.',
+      });
     }
-  };
+  });
 
   const handleEdit = (person: ApiPersonnel) => {
     setEditingPersonnel(person);
-    setFormData({
+    setNewTag('');
+    form.reset({
       name: person.name,
       role: person.role || '',
-      availability: person.availability,
+      availability:
+        person.availability === 'available' || person.availability === 'unavailable'
+          ? person.availability
+          : 'available',
       tags: person.tags || [],
     });
-    setNewTag('');
     setIsDialogOpen(true);
   };
 
@@ -144,36 +174,33 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
     if (!personnelToDelete) return;
     try {
       await apiClient.deletePersonnel(personnelToDelete.id);
-      // Optimistic update: remove the deleted person
       setPersonnel((prev) => prev.filter((p) => p.id !== personnelToDelete.id));
     } catch (error) {
       console.error('Failed to delete personnel:', error);
-      toast.error('Fehler beim Löschen', { description: 'Die Person konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
+      toast.error('Fehler beim Löschen', {
+        description: 'Die Person konnte nicht gelöscht werden. Versuchen Sie es erneut.',
+      });
     } finally {
       setPersonnelToDelete(null);
     }
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setEditingPersonnel(null);
-    setFormData({ name: '', role: '', availability: 'available', tags: [] });
-    setNewTag('');
-  };
-
   const toggleTag = (tag: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.includes(tag)
-        ? prev.tags.filter((t) => t !== tag)
-        : [...prev.tags, tag],
-    }));
+    const current = form.getValues('tags');
+    const next = current.includes(tag)
+      ? current.filter((t) => t !== tag)
+      : [...current, tag];
+    form.setValue('tags', next, { shouldDirty: true, shouldValidate: true });
   };
 
   const addCustomTag = () => {
     const trimmed = newTag.trim();
-    if (trimmed && !formData.tags.includes(trimmed)) {
-      setFormData((prev) => ({ ...prev, tags: [...prev.tags, trimmed] }));
+    const current = form.getValues('tags');
+    if (trimmed && !current.includes(trimmed)) {
+      form.setValue('tags', [...current, trimmed], {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
     }
     setNewTag('');
   };
@@ -259,7 +286,6 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         sort_order: cat.sort_order,
       })),
     });
-    // Reload personnel to reflect new sorting
     await loadPersonnel();
   };
 
@@ -300,6 +326,11 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       setIsSyncExecuting(false);
     }
   };
+
+  const isSaving = form.formState.isSubmitting;
+  const trimmedName = (form.watch('name') ?? '').trim();
+  const trimmedRole = (roleValue ?? '').trim();
+  const submitDisabled = isSaving || !trimmedName || !trimmedRole;
 
   return (
     <div className="space-y-4">
@@ -415,159 +446,210 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       </Tabs>
 
       {/* Edit / Create Personnel Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleCloseDialog(); }}>
+      <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {editingPersonnel ? 'Personal bearbeiten' : 'Neue Person hinzufügen'}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Nachname Vorname"
-                autoFocus
-                required
+          <Form {...form}>
+            <form onSubmit={onSubmit} className="space-y-3" noValidate>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Nachname Vorname"
+                        autoFocus
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="role">Rolle / Grad</Label>
-              {existingRoles.length > 0 ? (
-                <Select
-                  value={existingRoles.includes(formData.role) ? formData.role : '__custom__'}
-                  onValueChange={(value) => {
-                    if (value === '__custom__') {
-                      setFormData({ ...formData, role: '' });
-                    } else {
-                      setFormData({ ...formData, role: value });
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Rolle auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {existingRoles.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="__custom__">Andere...</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  id="role"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="z.B. Offiziere, Wachtmeister"
-                  required
-                />
-              )}
-              {existingRoles.length > 0 && (!existingRoles.includes(formData.role) || formData.role === '') && (
-                <Input
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="Neue Rolle eingeben"
-                  className="mt-1.5"
-                  required
-                />
-              )}
-            </div>
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => {
+                  const showCustomInput =
+                    existingRoles.length === 0 ||
+                    !existingRoles.includes(field.value) ||
+                    field.value === '';
+                  return (
+                    <FormItem>
+                      <FormLabel htmlFor="role">Rolle / Grad</FormLabel>
+                      {existingRoles.length > 0 ? (
+                        <>
+                          <Select
+                            value={
+                              existingRoles.includes(field.value)
+                                ? field.value
+                                : '__custom__'
+                            }
+                            onValueChange={(value) => {
+                              if (value === '__custom__') {
+                                form.setValue('role', '', {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                });
+                              } else {
+                                form.setValue('role', value, {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                });
+                              }
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Rolle auswählen" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {existingRoles.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {role}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="__custom__">Andere...</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {showCustomInput && (
+                            <Input
+                              value={field.value}
+                              onChange={(e) =>
+                                form.setValue('role', e.target.value, {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                })
+                              }
+                              onBlur={field.onBlur}
+                              placeholder="Neue Rolle eingeben"
+                              className="mt-1.5"
+                            />
+                          )}
+                        </>
+                      ) : (
+                        <FormControl>
+                          <Input
+                            {...field}
+                            id="role"
+                            placeholder="z.B. Offiziere, Wachtmeister"
+                          />
+                        </FormControl>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
 
-            <div className="space-y-1.5">
-              <Label htmlFor="availability">Verfügbarkeit</Label>
-              <Select
-                value={formData.availability}
-                onValueChange={(value) => setFormData({ ...formData, availability: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Verfügbar</SelectItem>
-                  <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <FormField
+                control={form.control}
+                name="availability"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Verfügbarkeit</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="available">Verfügbar</SelectItem>
+                        <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="space-y-1.5">
-              <Label>Tags</Label>
-              {/* Currently assigned tags */}
-              {formData.tags.length > 0 && (
-                <div className="flex gap-1.5 flex-wrap">
-                  {formData.tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="default"
-                      className="text-xs px-2 py-0.5 cursor-pointer gap-1"
-                      onClick={() => toggleTag(tag)}
-                    >
-                      {tag}
-                      <X className="h-3 w-3" />
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              {/* Quick-toggle existing tags not yet assigned */}
-              {existingTags.filter((t) => !formData.tags.includes(t)).length > 0 && (
-                <div className="flex gap-1.5 flex-wrap">
-                  {existingTags
-                    .filter((t) => !formData.tags.includes(t))
-                    .map((tag) => (
+              <div className="space-y-1.5">
+                <Label>Tags</Label>
+                {/* Currently assigned tags */}
+                {tags.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {tags.map((tag) => (
                       <Badge
                         key={tag}
-                        variant="outline"
-                        className="text-xs px-2 py-0.5 cursor-pointer text-muted-foreground"
+                        variant="default"
+                        className="text-xs px-2 py-0.5 cursor-pointer gap-1"
                         onClick={() => toggleTag(tag)}
                       >
-                        + {tag}
+                        {tag}
+                        <X className="h-3 w-3" />
                       </Badge>
                     ))}
+                  </div>
+                )}
+                {/* Quick-toggle existing tags not yet assigned */}
+                {existingTags.filter((t) => !tags.includes(t)).length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {existingTags
+                      .filter((t) => !tags.includes(t))
+                      .map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="outline"
+                          className="text-xs px-2 py-0.5 cursor-pointer text-muted-foreground"
+                          onClick={() => toggleTag(tag)}
+                        >
+                          + {tag}
+                        </Badge>
+                      ))}
+                  </div>
+                )}
+                {/* Add custom tag */}
+                <div className="flex gap-1.5">
+                  <Input
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomTag();
+                      }
+                    }}
+                    placeholder="Neuer Tag"
+                    className="h-8 text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCustomTag}
+                    disabled={!newTag.trim()}
+                    className="h-8 px-3"
+                  >
+                    Hinzufügen
+                  </Button>
                 </div>
-              )}
-              {/* Add custom tag */}
-              <div className="flex gap-1.5">
-                <Input
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addCustomTag();
-                    }
-                  }}
-                  placeholder="Neuer Tag"
-                  className="h-8 text-sm"
-                />
+              </div>
+
+              <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={addCustomTag}
-                  disabled={!newTag.trim()}
-                  className="h-8 px-3"
+                  onClick={guard.requestClose}
+                  disabled={isSaving}
                 >
-                  Hinzufügen
+                  Abbrechen
                 </Button>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isSaving}>
-                Abbrechen
-              </Button>
-              <Button type="submit" disabled={isSaving || !formData.name.trim() || !formData.role.trim()}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingPersonnel ? 'Speichern' : 'Erstellen'}
-              </Button>
-            </DialogFooter>
-          </form>
+                <Button type="submit" disabled={submitDisabled}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingPersonnel ? 'Speichern' : 'Erstellen'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -578,6 +660,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         description={`Sind Sie sicher, dass Sie "${personnelToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
         onConfirm={handleDeleteConfirm}
       />
+
+      <UnsavedChangesDialog {...guard.dialogProps} />
 
       {/* Divera Sync Dialog */}
       <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
