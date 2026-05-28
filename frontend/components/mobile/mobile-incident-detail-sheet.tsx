@@ -40,6 +40,7 @@ import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useEvent } from "@/lib/contexts/event-context"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
 
 interface MobileIncidentDetailSheetProps {
@@ -94,7 +95,7 @@ export function MobileIncidentDetailSheet({
 }: MobileIncidentDetailSheetProps) {
   const { selectedEvent } = useEvent()
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
-  const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [editingNotes, setEditingNotes] = useState(false)
   const [editingContact, setEditingContact] = useState(false)
   const [notesValue, setNotesValue] = useState("")
@@ -118,36 +119,7 @@ export function MobileIncidentDetailSheet({
     }
   }, [operation?.id, operation?.notes, operation?.contact])
 
-  // Load vehicle drivers when sheet opens
-  useEffect(() => {
-    const loadDrivers = async () => {
-      if (!open || !selectedEvent) return
-
-      try {
-        const vehicles = await apiClient.getVehicles()
-        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        const driverMap = new Map<string, string>()
-
-        const vehicleIdToName = new Map<string, string>()
-        vehicles.forEach(v => vehicleIdToName.set(v.id, v.name))
-
-        specialFunctions
-          .filter(f => f.function_type === "driver" && f.vehicle_id)
-          .forEach(f => {
-            const vehicleName = vehicleIdToName.get(f.vehicle_id!)
-            if (vehicleName) {
-              driverMap.set(vehicleName, f.personnel_name)
-            }
-          })
-
-        setVehicleDrivers(driverMap)
-      } catch (error) {
-        console.error("Failed to load drivers:", error)
-      }
-    }
-
-    loadDrivers()
-  }, [open, selectedEvent])
+  // Driver map (live-synced via WebSocket + custom event in useVehicleDrivers)
 
   const handleStatusChange = (newStatus: string) => {
     if (!operation || !onUpdateOperation) return

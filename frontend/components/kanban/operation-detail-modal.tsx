@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
@@ -63,7 +64,7 @@ export function OperationDetailModal({
   const { materialGroups } = useMaterials()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
-  const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
@@ -72,11 +73,27 @@ export function OperationDetailModal({
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [isCopyingRekoLink, setIsCopyingRekoLink] = useState(false)
   const [rekoCopied, setRekoCopied] = useState<'direct' | 'dashboard' | null>(null)
+  const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // When the modal opens, focus the Meldung textarea with the cursor at the
+  // end of any existing text so operators can keep typing without re-positioning.
+  useEffect(() => {
+    if (!open) return
+    const id = requestAnimationFrame(() => {
+      const el = notesTextareaRef.current
+      if (!el) return
+      el.focus()
+      const end = el.value.length
+      el.setSelectionRange(end, end)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [open])
 
   // Use assignedReko directly from the operation (kept in sync by operations context)
   const assignedRekoPersonnel = operation?.assignedReko ?? null
 
-  // Load vehicles and special functions when modal opens
+  // Load available vehicles list when modal opens. The driver map is
+  // handled by useVehicleDrivers above (live-synced).
   useEffect(() => {
     const loadVehicles = async () => {
       if (!open || !selectedEvent) return
@@ -86,26 +103,6 @@ export function OperationDetailModal({
         const vehicles = await apiClient.getVehicles()
         const sorted = [...vehicles].sort((a, b) => a.display_order - b.display_order)
         setAvailableVehicles(sorted.map((v) => ({ id: v.id, name: v.name, type: v.type })))
-
-        // Load special functions to get driver information
-        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        const driverMap = new Map<string, string>()
-
-        // Build vehicle ID to name mapping
-        const vehicleIdToName = new Map<string, string>()
-        vehicles.forEach(v => vehicleIdToName.set(v.id, v.name))
-
-        // Map vehicle names to driver names
-        specialFunctions
-          .filter(f => f.function_type === 'driver' && f.vehicle_id)
-          .forEach(f => {
-            const vehicleName = vehicleIdToName.get(f.vehicle_id!)
-            if (vehicleName) {
-              driverMap.set(vehicleName, f.personnel_name)
-            }
-          })
-
-        setVehicleDrivers(driverMap)
       } catch (error) {
         console.error('Failed to load vehicles:', error)
       } finally {
@@ -383,6 +380,7 @@ export function OperationDetailModal({
             <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">Meldung</Label>
             <Textarea
               id="notes"
+              ref={notesTextareaRef}
               placeholder="Eingegangene Meldung, Schadensbild..."
               value={operation.notes}
               onChange={(e) => onUpdate({ notes: e.target.value })}
@@ -967,10 +965,10 @@ export function OperationDetailModal({
             {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp kopieren'}
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleOpenTransfer}
-            className="hover:bg-muted hover:text-foreground"
+            className="border border-border"
           >
             <ArrowRightLeft className="h-4 w-4" />
             Ressourcen übertragen
