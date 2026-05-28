@@ -28,6 +28,7 @@ import { cn, copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
+import { IncidentTimelinePopover } from "@/components/kanban/incident-timeline-popover"
 import type { Incident } from "@/lib/types/incidents"
 
 interface OperationDetailModalProps {
@@ -349,11 +350,14 @@ export function OperationDetailModal({
             <MapPin className="h-5 w-5 text-muted-foreground" />
             {operation.location ? formatLocation(operation.location) : "Einsatz-Details"}
           </DialogTitle>
-          <DialogDescription className="text-sm flex items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
-            <span className="text-muted-foreground/40">·</span>
-            <span>{getTimeSince(operation.dispatchTime)} seit Alarmierung</span>
-          </DialogDescription>
+          <div className="flex items-center gap-1">
+            <DialogDescription className="text-sm flex items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span>{getTimeSince(operation.dispatchTime)} seit Alarmierung</span>
+            </DialogDescription>
+            <IncidentTimelinePopover incidentId={operation.id} />
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">

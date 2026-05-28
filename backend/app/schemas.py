@@ -1732,3 +1732,38 @@ class PrinterStatusResponse(BaseModel):
     pending_jobs: int = 0
     last_job_at: datetime | None = None
     last_error: str | None = None
+
+
+# ============================================
+# Incident Timeline Schemas
+# ============================================
+
+
+class IncidentTimelineEvent(BaseModel):
+    """A single event on the incident timeline.
+
+    Flat shape with optional fields differentiated by `event_type`:
+    - status_change → from_status, to_status, notes
+    - assignment    → assignment_action ('assigned' | 'unassigned'),
+                      resource_type, resource_name
+    """
+
+    event_type: str  # 'status_change' | 'assignment'
+    timestamp: datetime
+    actor_name: str | None = None
+
+    # status_change fields
+    from_status: str | None = None
+    to_status: str | None = None
+    notes: str | None = None
+
+    # assignment fields
+    assignment_action: str | None = None  # 'assigned' | 'unassigned'
+    resource_type: str | None = None      # 'personnel' | 'vehicle' | 'material'
+    resource_name: str | None = None
+
+
+class IncidentTimelineResponse(BaseModel):
+    """Timeline events for an incident, sorted oldest → newest."""
+
+    events: list[IncidentTimelineEvent]

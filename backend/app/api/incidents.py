@@ -240,6 +240,142 @@ async def get_status_history(
     return await crud.get_incident_status_history(db, incident_id)
 
 
+@router.get("/{incident_id}/timeline", response_model=schemas.IncidentTimelineResponse)
+async def get_incident_timeline(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+):
+    """Get the merged event timeline for an incident.
+
+    Combines status transitions and resource assignments (assign + unassign)
+    into a single chronologically sorted list. Used by the timeline popover
+    in the kanban operation detail modal.
+    """
+    # Verify incident exists
+    incident = await crud.get_incident(db, incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    # Load status transitions with the user who made each change
+    transitions_result = await db.execute(
+        select(models.StatusTransition, models.User)
+        .outerjoin(models.User, models.StatusTransition.user_id == models.User.id)
+        .where(models.StatusTransition.incident_id == incident_id)
+    )
+    transitions = transitions_result.all()
+
+    # Load assignments with the user who made each assignment
+    assignments_result = await db.execute(
+        select(models.IncidentAssignment, models.User)
+        .outerjoin(models.User, models.IncidentAssignment.assigned_by == models.User.id)
+        .where(models.IncidentAssignment.incident_id == incident_id)
+    )
+    assignments = assignments_result.all()
+
+    # Bulk-fetch resource names so we don't N+1 query
+    personnel_ids = {a.resource_id for a, _ in assignments if a.resource_type == "personnel"}
+    vehicle_ids = {a.resource_id for a, _ in assignments if a.resource_type == "vehicle"}
+    material_ids = {a.resource_id for a, _ in assignments if a.resource_type == "material"}
+
+    personnel_names: dict[uuid.UUID, str] = {}
+    if personnel_ids:
+        result = await db.execute(select(models.Personnel).where(models.Personnel.id.in_(personnel_ids)))
+        personnel_names = {p.id: p.name for p in result.scalars().all()}
+
+    vehicle_names: dict[uuid.UUID, str] = {}
+    if vehicle_ids:
+        result = await db.execute(select(models.Vehicle).where(models.Vehicle.id.in_(vehicle_ids)))
+        vehicle_names = {v.id: v.name for v in result.scalars().all()}
+
+    material_names: dict[uuid.UUID, str] = {}
+    if material_ids:
+        result = await db.execute(select(models.Material).where(models.Material.id.in_(material_ids)))
+        material_names = {m.id: m.name for m in result.scalars().all()}
+
+    def _resource_name(resource_type: str, resource_id: uuid.UUID) -> str | None:
+        if resource_type == "personnel":
+            return personnel_names.get(resource_id)
+        if resource_type == "vehicle":
+            return vehicle_names.get(resource_id)
+        if resource_type == "material":
+            return material_names.get(resource_id)
+        return None
+
+    def _actor(user: models.User | None) -> str | None:
+        if user is None:
+            return None
+        return user.display_name or user.username
+
+    events: list[schemas.IncidentTimelineEvent] = []
+
+    for transition, user in transitions:
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="status_change",
+                timestamp=transition.timestamp,
+                actor_name=_actor(user),
+                from_status=transition.from_status,
+                to_status=transition.to_status,
+                notes=transition.notes,
+            )
+        )
+
+    for assignment, user in assignments:
+        actor = _actor(user)
+        name = _resource_name(assignment.resource_type, assignment.resource_id)
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="assignment",
+                timestamp=assignment.assigned_at,
+                actor_name=actor,
+                assignment_action="assigned",
+                resource_type=assignment.resource_type,
+                resource_name=name,
+            )
+        )
+        if assignment.unassigned_at is not None:
+            # No `unassigned_by` field — actor unknown for unassign events
+            events.append(
+                schemas.IncidentTimelineEvent(
+                    event_type="assignment",
+                    timestamp=assignment.unassigned_at,
+                    actor_name=None,
+                    assignment_action="unassigned",
+                    resource_type=assignment.resource_type,
+                    resource_name=name,
+                )
+            )
+
+    events.sort(key=lambda e: e.timestamp)
+
+    # Collapse near-duplicate events: same payload within a short time window
+    # is treated as one event. Covers cascading unassigns on completion plus
+    # bursty re-clicks. Real re-assignments minutes apart are kept.
+    dedup_window_seconds = 10
+    last_seen: dict[tuple, datetime] = {}
+    deduped: list[schemas.IncidentTimelineEvent] = []
+    for event in events:
+        payload_key = (
+            event.event_type,
+            event.from_status,
+            event.to_status,
+            event.assignment_action,
+            event.resource_type,
+            event.resource_name,
+        )
+        prev_ts = last_seen.get(payload_key)
+        if prev_ts is not None and (event.timestamp - prev_ts).total_seconds() < dedup_window_seconds:
+            continue
+        last_seen[payload_key] = event.timestamp
+        deduped.append(event)
+
+    # Display order: newest first. Dedup happens on the ascending sort above so
+    # the "earliest of a near-duplicate cluster" is the one we keep.
+    deduped.reverse()
+    return schemas.IncidentTimelineResponse(events=deduped)
+
+
 @router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_incident(
     incident_id: uuid.UUID,

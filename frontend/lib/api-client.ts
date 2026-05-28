@@ -343,6 +343,24 @@ export interface ApiStatusTransition {
   notes: string | null
 }
 
+export interface ApiIncidentTimelineEvent {
+  event_type: 'status_change' | 'assignment'
+  timestamp: string
+  actor_name: string | null
+  // status_change fields
+  from_status?: string | null
+  to_status?: string | null
+  notes?: string | null
+  // assignment fields
+  assignment_action?: 'assigned' | 'unassigned' | null
+  resource_type?: 'personnel' | 'vehicle' | 'material' | null
+  resource_name?: string | null
+}
+
+export interface ApiIncidentTimelineResponse {
+  events: ApiIncidentTimelineEvent[]
+}
+
 // Reko Report Types
 export interface ApiDangersAssessment {
   fire: boolean
@@ -940,6 +958,10 @@ class ApiClient {
 
   async getIncidentStatusHistory(id: string): Promise<ApiStatusTransition[]> {
     return this.request<ApiStatusTransition[]>(`/api/incidents/${id}/history`)
+  }
+
+  async getIncidentTimeline(id: string): Promise<ApiIncidentTimelineResponse> {
+    return this.request<ApiIncidentTimelineResponse>(`/api/incidents/${id}/timeline`)
   }
 
   async deleteIncident(id: string): Promise<void> {
