@@ -29,6 +29,7 @@ import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
+import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
@@ -566,183 +567,74 @@ export default function FireStationDashboard() {
     }
   }, [highlightParam, scrollToCard, router])
 
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Esc to blur search input or cancel g-prefix mode
-      if (e.key === 'Escape') {
-        if (gPrefix.cancel()) return
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-          (e.target as HTMLElement).blur()
-          return
+  useKanbanShortcuts(
+    {
+      modalOpen:
+        detailModalOpen ||
+        newEmergencyModalOpen ||
+        assignmentDialogOpen ||
+        !!activeFooterSheet ||
+        deleteDialogOpen,
+      sidePanelOpen: sidePanelMode !== 'collapsed',
+      hoveredOperationId,
+      operations,
+      vehicleTypes,
+      gPrefix,
+    },
+    {
+      onToggleVehicle: (vehicle, opId, isAssigned) => {
+        if (isAssigned) {
+          removeVehicle(opId, vehicle.name)
+        } else {
+          assignVehicleToOperation(vehicle.id, vehicle.name, opId)
         }
-      }
-
-      // Ignore other shortcuts if typing in input/textarea/select/contentEditable
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement ||
-        (e.target as HTMLElement).isContentEditable ||
-        (e.target as HTMLElement).getAttribute?.('role') === 'combobox' ||
-        (e.target as HTMLElement).getAttribute?.('role') === 'listbox' ||
-        (e.target as HTMLElement).getAttribute?.('role') === 'option'
-      ) {
-        return
-      }
-
-      // Ignore ALL shortcuts when any modal is open (let dialogs handle their own focus)
-      if (detailModalOpen || newEmergencyModalOpen || assignmentDialogOpen || activeFooterSheet || deleteDialogOpen) {
-        return
-      }
-
-      // g-prefix navigation owns its own state machine; short-circuit when consumed.
-      if (gPrefix.handleKey(e)) return
-
-      // Zu Fuss shortcut (0) - toggle zu_fuss on hovered operation
-      if (e.key === '0' && hoveredOperationId && !e.shiftKey) {
-        e.preventDefault()
-        handleToggleZuFuss(hoveredOperationId)
-        return
-      }
-
-      // Vehicle assignment shortcuts (1-5) - works on hovered operation
-      // Toggle vehicle assignment: assign if not assigned, unassign if assigned
-      const vehicleShortcut = vehicleTypes.find(vt => vt.key === e.key)
-      if (vehicleShortcut && hoveredOperationId) {
-        const operation = operations.find(op => op.id === hoveredOperationId)
-        if (operation) {
-          // Check if vehicle is already assigned
-          const isAssigned = operation.vehicles.includes(vehicleShortcut.name)
-          if (isAssigned) {
-            // Unassign the vehicle
-            removeVehicle(hoveredOperationId, vehicleShortcut.name)
-          } else {
-            // Assign the vehicle
-            assignVehicleToOperation(vehicleShortcut.id, vehicleShortcut.name, hoveredOperationId)
-          }
-        }
-        return
-      }
-
-      // Priority assignment shortcuts (Shift+1-3) - works on hovered operation
-      if (e.shiftKey && hoveredOperationId) {
-        if (e.key === '1' || e.key === '!') {
-          e.preventDefault()
-          updateOperation(hoveredOperationId, { priority: 'low' })
-          return
-        } else if (e.key === '2' || e.key === '@') {
-          e.preventDefault()
-          updateOperation(hoveredOperationId, { priority: 'medium' })
-          return
-        } else if (e.key === '3' || e.key === '#') {
-          e.preventDefault()
-          updateOperation(hoveredOperationId, { priority: 'high' })
-          return
-        }
-      }
-
-      // Navigation shortcuts - works on hovered operation
-      if (e.key === '>' || e.key === '.') {
-        e.preventDefault()
-        if (hoveredOperationId) {
-          moveOperationRight(hoveredOperationId)
-        }
-      } else if (e.key === '<' || e.key === ',') {
-        e.preventDefault()
-        if (hoveredOperationId) {
-          moveOperationLeft(hoveredOperationId)
-        }
-      } else if (e.key === '/' || ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey)) {
-        // S for Suche (Swiss-German keyboard friendly alternative to /)
-        e.preventDefault()
-        document.getElementById('search-input')?.focus()
-      } else if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey) {
-        // Only prevent default if no modifier keys (allows cmd+p/ctrl+p for print)
-        e.preventDefault()
+      },
+      onUpdateOperation: updateOperation,
+      onMoveRight: moveOperationRight,
+      onMoveLeft: moveOperationLeft,
+      onToggleZuFuss: (opId) => {
+        const op = operations.find((o) => o.id === opId)
+        if (op) updateOperation(opId, { zuFuss: !op.zuFuss })
+      },
+      onRefresh: refreshOperations,
+      onOpenDetail: (op) => {
+        setSelectedOperationId(op.id)
+        setDetailModalOpen(true)
+      },
+      onRequestDelete: (op) => {
+        setOperationToDelete(op)
+        setDeleteDialogOpen(true)
+      },
+      onOpenNewEmergency: () => setNewEmergencyModalOpen(true),
+      onFocusSearch: () => document.getElementById('search-input')?.focus(),
+      onFocusPersonnel: () => {
         setShowLeftSidebar(true)
         setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 50)
-      } else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey) {
-        // Only prevent default if no modifier keys (allows cmd+m for minimize on Mac)
-        e.preventDefault()
+      },
+      onFocusMaterial: () => {
         setShowRightSidebar(true)
         setTimeout(() => document.getElementById('material-search-input')?.focus(), 50)
-      } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
-        // Toggle vehicle status sheet
-        e.preventDefault()
-        setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles')
-      } else if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
-        // Only prevent default if no modifier keys (allows cmd+n/ctrl+n for new window)
-        e.preventDefault()
-        setNewEmergencyModalOpen(true)
-      } else if (e.key === '[' || e.key === 'q' || e.key === 'Q') {
-        // Q as Swiss-German keyboard friendly alternative to [
-        e.preventDefault()
-        setShowLeftSidebar(prev => !prev)
-      } else if (e.key === ']' || e.key === 'w' || e.key === 'W') {
-        // W as Swiss-German keyboard friendly alternative to ]
-        e.preventDefault()
-        setShowRightSidebar(prev => !prev)
-      } else if (e.key === '\\' || e.key === 'i' || e.key === 'I') {
-        // I for Info panel - Swiss-German keyboard friendly alternative to \
-        e.preventDefault()
-        setSidePanelMode(prev => prev === 'collapsed' ? 'detail' : 'collapsed')
-      } else if ((e.key === 'd' || e.key === 'D') && !e.metaKey && !e.ctrlKey && sidePanelMode !== 'collapsed') {
-        // Switch side panel to Detail view (only when panel is open)
-        e.preventDefault()
-        setSidePanelMode('detail')
-      } else if ((e.key === 'k' || e.key === 'K') && !e.metaKey && !e.ctrlKey && sidePanelMode !== 'collapsed') {
-        // Switch side panel to Karte (map) view (only when panel is open)
-        e.preventDefault()
-        setSidePanelMode('map')
-      } else if ((e.key === 'b' || e.key === 'B') && !e.metaKey && !e.ctrlKey) {
-        // Toggle notification sidebar
-        e.preventDefault()
-        toggleNotificationSidebar()
-      } else if (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') {
-        // Open detail modal for hovered operation
-        // Only use 'e' if no modifier keys (Enter always works)
-        if (hoveredOperationId) {
-          const operation = operations.find(op => op.id === hoveredOperationId)
-          if (operation) {
-            e.preventDefault()
-            setSelectedOperationId(operation.id)
-            setDetailModalOpen(true)
-          }
-        }
-      } else if ((e.key === 'r' || e.key === 'R' || e.key === 'F5') && !e.metaKey && !e.ctrlKey) {
-        // Only prevent default if no modifier keys are pressed
-        // This allows cmd+r / ctrl+r to work normally for browser refresh
-        e.preventDefault()
-        const toastId = toast.loading('Aktualisiere...')
-        refreshOperations()
-          .then(() => {
-            toast.success('Aktualisiert', { id: toastId, duration: 1500 })
-          })
-          .catch(() => {
-            toast.error('Aktualisierung fehlgeschlagen', { id: toastId })
-          })
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Delete hovered operation with confirmation dialog
-        if (hoveredOperationId) {
-          const operation = operations.find(op => op.id === hoveredOperationId)
-          if (operation) {
-            e.preventDefault()
-            setOperationToDelete(operation)
-            setDeleteDialogOpen(true)
-          }
-        }
-      }
-    }
+      },
+      onToggleVehicleFooter: () =>
+        setActiveFooterSheet((prev) => (prev === 'vehicles' ? null : 'vehicles')),
+      onToggleLeftSidebar: () => setShowLeftSidebar((prev) => !prev),
+      onToggleRightSidebar: () => setShowRightSidebar((prev) => !prev),
+      onToggleSidePanel: () =>
+        setSidePanelMode((prev) => (prev === 'collapsed' ? 'detail' : 'collapsed')),
+      onSidePanelDetail: () => setSidePanelMode('detail'),
+      onSidePanelMap: () => setSidePanelMode('map'),
+      onToggleNotifications: toggleNotificationSidebar,
+    },
+  )
 
-    window.addEventListener('keydown', handleKeyPress)
+  // The highlight timer is cleaned up by its own scrollToCard effect; nothing else to do here.
+  useEffect(() => {
     return () => {
-      window.removeEventListener('keydown', handleKeyPress)
-      // useGPrefixNavigation cleans its own timeout; only the highlight timer left.
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current)
       }
     }
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefix, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, activeFooterSheet, deleteDialogOpen, sidePanelMode])
+  }, [])
 
   // Use shared drag-and-drop hook
   useKanbanDragDrop({
