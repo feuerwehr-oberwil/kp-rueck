@@ -102,16 +102,22 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
   })
 }
 
-// Create vehicle marker icon — simple square with device number
-function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
-  const isOnline = vehicle.status === 'online'
-  const size = 28
-  const name = vehicle.device_name
+// Pill dimensions for vehicle markers (used by icon + tooltip offset).
+const VEHICLE_PILL_HEIGHT = 24
+const VEHICLE_PILL_GAP = 3
+function vehiclePillWidth(name: string): number {
+  // 13px bold caps ≈ 8px/char + 16px horizontal padding. Floor at 28px.
+  return Math.max(28, name.length * 8 + 16)
+}
 
-  const html = `
+// Render a vehicle pill (used inside marker HTML).
+function vehiclePillHtml(vehicle: ApiVehiclePosition): string {
+  const isOnline = vehicle.status === 'online'
+  const width = vehiclePillWidth(vehicle.device_name)
+  return `
     <div style="
-      width: ${size}px;
-      height: ${size}px;
+      width: ${width}px;
+      height: ${VEHICLE_PILL_HEIGHT}px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -120,18 +126,88 @@ function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
       border: 2px solid white;
       border-radius: 4px;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       line-height: 1;
-    ">${name}</div>
+      white-space: nowrap;
+      padding: 0 8px;
+      box-sizing: border-box;
+    ">${vehicle.device_name}</div>
+  `
+}
+
+// Stack one or more vehicle pills vertically into a single divIcon.
+// When N vehicles share a GPS coord they fan out top→bottom so every
+// label stays legible; the stack gets wrapped in a subtle bordered
+// container so it reads as "these are all parked together".
+const VEHICLE_STACK_PADDING = 4
+const VEHICLE_STACK_BORDER = 1
+
+// Scale vehicle markers down at lower zoom levels so a 5-pill stack
+// doesn't dominate the town. Full size only when fully zoomed in
+// (zoom ≥ 15); at default Lagekarte zoom (13) the stack sits at ~0.68;
+// floored at 0.35 when fully zoomed out.
+function vehicleStackScale(zoom: number): number {
+  if (zoom >= 15) return 1
+  if (zoom <= 11) return 0.35
+  return 0.35 + ((zoom - 11) / 4) * 0.65
+}
+
+function createVehicleStackIcon(
+  vehicles: ApiVehiclePosition[],
+  scale = 1,
+): L.DivIcon {
+  const widths = vehicles.map((v) => vehiclePillWidth(v.device_name))
+  const pillsWidth = Math.max(...widths)
+  const pillsHeight =
+    vehicles.length * VEHICLE_PILL_HEIGHT + (vehicles.length - 1) * VEHICLE_PILL_GAP
+
+  const grouped = vehicles.length > 1
+  const chrome = grouped ? (VEHICLE_STACK_PADDING + VEHICLE_STACK_BORDER) * 2 : 0
+  const naturalWidth = pillsWidth + chrome
+  const naturalHeight = pillsHeight + chrome
+  const width = naturalWidth * scale
+  const totalHeight = naturalHeight * scale
+
+  const innerStack = `
+    <div style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: ${VEHICLE_PILL_GAP}px;
+    ">${vehicles.map(vehiclePillHtml).join("")}</div>
+  `
+
+  const inner = grouped
+    ? `
+      <div style="
+        padding: ${VEHICLE_STACK_PADDING}px;
+        background: rgba(255, 255, 255, 0.92);
+        border: ${VEHICLE_STACK_BORDER}px solid rgba(0, 0, 0, 0.2);
+        border-radius: 6px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        box-sizing: border-box;
+      ">${innerStack}</div>
+    `
+    : innerStack
+
+  // transform-origin top-left keeps the scaled box anchored to (0,0)
+  // so iconAnchor math works against scaled dimensions.
+  const html = `
+    <div style="
+      width: ${naturalWidth}px;
+      height: ${naturalHeight}px;
+      transform: scale(${scale});
+      transform-origin: 0 0;
+    ">${inner}</div>
   `
 
   return L.divIcon({
     html,
     className: "vehicle-marker",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconSize: [width, totalHeight],
+    iconAnchor: [width / 2, totalHeight / 2],
+    popupAnchor: [0, -totalHeight / 2],
   })
 }
 
@@ -384,6 +460,8 @@ export default function MapView({
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
     47.51637699933488, 7.561800450458299,
   ])
+  // Tracks live zoom so vehicle markers can shrink when zoomed out.
+  const [mapZoom, setMapZoom] = useState<number>(13)
 
   // Vehicle positions from Traccar GPS
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
@@ -528,6 +606,46 @@ export default function MapView({
     })
   }, [vehiclePositions, deviceNameToVehicleName])
 
+  // Cluster vehicles that share (roughly) the same GPS coord so their
+  // labels stack vertically instead of piling on top of each other.
+  // Epsilon ≈ 0.0005° ≈ ~50m, which is well below firestation-yard scale.
+  // Vehicles inside a cluster are sorted by `display_order` so the stack
+  // matches the order shown in the kanban / vehicle sheet / settings.
+  const vehicleClusters = useMemo(() => {
+    const EPSILON = 0.0005
+    const positions = mappedVehiclePositions
+    const used = new Set<number>()
+    const clusters: { centroid: [number, number]; vehicles: ApiVehiclePosition[] }[] = []
+
+    // device_name (already mapped to vehicle name) → display_order
+    const nameToOrder = new Map<string, number>(
+      vehicles.map(v => [v.name.toLowerCase(), v.display_order])
+    )
+    const orderFor = (v: ApiVehiclePosition) =>
+      nameToOrder.get(v.device_name.toLowerCase()) ?? Number.MAX_SAFE_INTEGER
+
+    for (let i = 0; i < positions.length; i++) {
+      if (used.has(i)) continue
+      const group = [positions[i]]
+      used.add(i)
+      for (let j = i + 1; j < positions.length; j++) {
+        if (used.has(j)) continue
+        if (
+          Math.abs(positions[i].latitude - positions[j].latitude) < EPSILON &&
+          Math.abs(positions[i].longitude - positions[j].longitude) < EPSILON
+        ) {
+          group.push(positions[j])
+          used.add(j)
+        }
+      }
+      group.sort((a, b) => orderFor(a) - orderFor(b))
+      const lat = group.reduce((s, v) => s + v.latitude, 0) / group.length
+      const lng = group.reduce((s, v) => s + v.longitude, 0) / group.length
+      clusters.push({ centroid: [lat, lng], vehicles: group })
+    }
+    return clusters
+  }, [mappedVehiclePositions, vehicles])
+
   // Filter incidents with valid coordinates and based on status filters
   const mappableIncidents = useMemo(
     () =>
@@ -663,28 +781,44 @@ export default function MapView({
           )
         })}
 
-        {/* Vehicle GPS Markers */}
-        {vehiclePositions.map((vehicle) => (
-          <Marker
-            key={`vehicle-${vehicle.device_id}`}
-            position={[vehicle.latitude, vehicle.longitude]}
-            icon={createVehicleIcon(vehicle)}
-          >
-            <Tooltip permanent={false} direction="top" offset={[0, -14]}>
-              <div className="text-sm">
-                <div className="font-semibold">{deviceNameToVehicleName.get(vehicle.device_name) || vehicle.device_name}</div>
-                {vehicle.speed !== null && vehicle.speed > 1 && (
-                  <div className="text-xs text-muted-foreground">
-                    {Math.round(vehicle.speed)} km/h
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground">
-                  {vehicle.status === 'online' ? 'Online' : 'Offline'}
+        {/* Vehicle GPS Markers — clustered when overlapping */}
+        {vehicleClusters.map((cluster, idx) => {
+          const grouped = cluster.vehicles.length > 1
+          const chrome = grouped ? (VEHICLE_STACK_PADDING + VEHICLE_STACK_BORDER) * 2 : 0
+          const scale = vehicleStackScale(mapZoom)
+          const totalHeight =
+            (cluster.vehicles.length * VEHICLE_PILL_HEIGHT +
+              (cluster.vehicles.length - 1) * VEHICLE_PILL_GAP +
+              chrome) *
+            scale
+          return (
+            <Marker
+              key={`vehicle-cluster-${idx}-${cluster.vehicles.map(v => v.device_id).join('-')}`}
+              position={cluster.centroid}
+              icon={createVehicleStackIcon(cluster.vehicles, scale)}
+            >
+              <Tooltip permanent={false} direction="top" offset={[0, -totalHeight / 2 - 4]}>
+                <div className="text-sm space-y-1">
+                  {cluster.vehicles.map((vehicle) => (
+                    <div key={vehicle.device_id}>
+                      <div className="font-semibold">
+                        {deviceNameToVehicleName.get(vehicle.device_name) || vehicle.device_name}
+                      </div>
+                      {vehicle.speed !== null && vehicle.speed > 1 && (
+                        <div className="text-xs text-muted-foreground">
+                          {Math.round(vehicle.speed)} km/h
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {vehicle.status === 'online' ? 'Online' : 'Offline'}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </Tooltip>
-          </Marker>
-        ))}
+              </Tooltip>
+            </Marker>
+          )
+        })}
 
         {/* Assignment lines (vehicle GPS → incident) */}
         <AssignmentLines
@@ -704,6 +838,9 @@ export default function MapView({
 
         {/* Reset zoom on trigger */}
         <ResetZoom trigger={resetZoomTrigger} incidents={mappableIncidents} />
+
+        {/* Track zoom so vehicle clusters can shrink at low zoom */}
+        <ZoomWatcher onZoomChange={setMapZoom} />
       </MapContainer>
 
       {/* Warning for incidents without location */}
