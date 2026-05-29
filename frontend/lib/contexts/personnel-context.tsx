@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react"
+import { toast } from "sonner"
 import { apiClient, type ApiPersonnel } from "@/lib/api-client"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
@@ -55,6 +56,11 @@ export function PersonnelProvider({ children }: { children: ReactNode }) {
   const { selectedEvent } = useEvent()
   const [personnel, setPersonnel] = useState<Person[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  // Deduplicate the "failed to load" toast across a single outage —
+  // refreshPersonnel is called by both the kanban polling loop AND
+  // WebSocket update handlers, so a real network outage can fire it
+  // dozens of times per minute.
+  const hasShownLoadErrorRef = useRef(false)
 
   const refreshPersonnel = useCallback(
     async (options?: { skipStateUpdate?: boolean }): Promise<Person[]> => {
@@ -71,9 +77,16 @@ export function PersonnelProvider({ children }: { children: ReactNode }) {
         })
         const personnelList = apiPersonnel.map(apiPersonToPerson)
         if (!options?.skipStateUpdate) setPersonnel(personnelList)
+        hasShownLoadErrorRef.current = false
         return personnelList
       } catch (error) {
         console.error("Failed to load personnel:", error)
+        if (!hasShownLoadErrorRef.current) {
+          hasShownLoadErrorRef.current = true
+          toast.error("Personal konnte nicht geladen werden", {
+            description: "Die Personalliste ist möglicherweise veraltet.",
+          })
+        }
         return []
       } finally {
         setIsLoading(false)

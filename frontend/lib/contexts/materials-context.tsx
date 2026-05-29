@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react"
+import { toast } from "sonner"
 import { apiClient, type ApiMaterialResource, type ApiMaterialGroup } from "@/lib/api-client"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
@@ -61,6 +62,9 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
   const [materials, setMaterials] = useState<Material[]>([])
   const [materialGroups, setMaterialGroups] = useState<MaterialGroup[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  // Toast deduplication across an outage; matches the personnel-context pattern.
+  const hasShownMaterialsErrorRef = useRef(false)
+  const hasShownGroupsErrorRef = useRef(false)
 
   const refreshMaterials = useCallback(
     async (options?: { skipStateUpdate?: boolean }): Promise<Material[]> => {
@@ -74,9 +78,16 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
         const apiMats = await apiClient.getAllMaterials()
         const materialsList = apiMats.map(apiMaterialToMaterial)
         if (!options?.skipStateUpdate) setMaterials(materialsList)
+        hasShownMaterialsErrorRef.current = false
         return materialsList
       } catch (error) {
         console.error("Failed to load materials:", error)
+        if (!hasShownMaterialsErrorRef.current) {
+          hasShownMaterialsErrorRef.current = true
+          toast.error("Material konnte nicht geladen werden", {
+            description: "Die Materialliste ist möglicherweise veraltet.",
+          })
+        }
         return []
       } finally {
         setIsLoading(false)
@@ -89,8 +100,13 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
     try {
       const apiGroups = await apiClient.getMaterialGroups()
       setMaterialGroups(apiGroups.map(apiGroupToGroup))
+      hasShownGroupsErrorRef.current = false
     } catch (error) {
       console.error("Failed to load material groups:", error)
+      if (!hasShownGroupsErrorRef.current) {
+        hasShownGroupsErrorRef.current = true
+        toast.error("Materialgruppen konnten nicht geladen werden")
+      }
     }
   }, [])
 
