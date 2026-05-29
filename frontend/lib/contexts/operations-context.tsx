@@ -15,6 +15,11 @@ import {
   decidePollTickAction,
   decideRemoteUpdateAction,
 } from "@/lib/sync-cooldown"
+import {
+  findRecentRemoval,
+  recordRemoval,
+  type RecentRemovals,
+} from "@/lib/recent-removals"
 
 // Re-export types for backward compatibility
 export type { Person, PersonStatus } from "./personnel-context"
@@ -131,6 +136,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // silent loss of remote updates during rapid local dispatch.
   const pendingReplayRef = useRef<boolean>(false)
   const replayPendingUpdatesRef = useRef<(() => void) | null>(null)
+  // B6: client-only memory of recent crew removals so we can warn on
+  // rapid re-assignment ("you took Müller off A 30s ago, now putting
+  // them on B"). Lives in a ref because it's purely informational
+  // and shouldn't trigger re-renders.
+  const recentRemovalsRef = useRef<RecentRemovals>(new Map())
 
   const clearAssignmentCooldown = () => {
     recentAssignmentRef.current = false
@@ -762,6 +772,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       )
     }
 
+    // B6: remember this removal so the next assignment can warn about rapid re-binding.
+    if (person) {
+      recordRemoval(recentRemovalsRef.current, person.id, operationId, operation.location)
+    }
+
     if (isLoaded) {
       apiClient.unassignResource(operationId, assignmentId)
         .catch(err => {
@@ -775,6 +790,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               people.map((p) => (p.id === person.id ? { ...p, status: personStatusSnapshot } : p))
             )
           }
+          // Removal failed → drop the memo so we don't warn about a phantom removal.
+          if (person) recentRemovalsRef.current.delete(person.id)
         })
         .finally(() => {
           assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
@@ -1108,6 +1125,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     if (!operation || !person || (person.status === "assigned" && !person.isReko) || operation.crew.includes(personName)) {
       return
+    }
+
+    // B6: warn (don't block) when re-assigning someone we just took off another incident.
+    const recentRemoval = findRecentRemoval(recentRemovalsRef.current, personId, operationId)
+    if (recentRemoval) {
+      const elapsedSec = Math.round((Date.now() - recentRemoval.removedAt) / 1000)
+      toast.warning(`${personName} war vor ${elapsedSec}s noch auf "${recentRemoval.incidentLabel}"`, {
+        description: "Doppelbelegung — bitte prüfen.",
+      })
+      // Don't repeat the warning if the same operator re-confirms the assignment.
+      recentRemovalsRef.current.delete(personId)
     }
 
     recentAssignmentRef.current = true
