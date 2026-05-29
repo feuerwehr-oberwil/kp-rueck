@@ -10,6 +10,11 @@ import { usePersonnel, type Person, type PersonStatus } from "./personnel-contex
 import { useMaterials, type Material } from "./materials-context"
 import { toast } from "sonner"
 import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
+import {
+  decideCooldownClearAction,
+  decidePollTickAction,
+  decideRemoteUpdateAction,
+} from "@/lib/sync-cooldown"
 
 // Re-export types for backward compatibility
 export type { Person, PersonStatus } from "./personnel-context"
@@ -616,11 +621,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // WebSocket setup
     wsClient.connect()
 
-    const shouldSkipUpdate = () =>
+    const inCooldown = () =>
       criticalUpdateInProgress.current || recentAssignmentRef.current || recentStatusUpdateRef.current
 
     const handleRemoteUpdate = () => {
-      if (shouldSkipUpdate()) {
+      const action = decideRemoteUpdateAction({ inCooldown: inCooldown() })
+      if (action === "queue") {
         // Queue rather than drop — replay once the cooldown clears.
         pendingReplayRef.current = true
         return
@@ -631,8 +637,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // Expose replay so cooldown-clear timers (defined outside this useEffect)
     // can trigger a coalesced reload when they fire.
     replayPendingUpdatesRef.current = () => {
-      if (shouldSkipUpdate()) return
-      if (!pendingReplayRef.current) return
+      const action = decideCooldownClearAction({
+        pendingReplay: pendingReplayRef.current,
+        stillInCooldown: inCooldown(),
+      })
+      if (action === "skip") return
       pendingReplayRef.current = false
       loadData(false)
     }
@@ -655,11 +664,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       const interval = getNextPollInterval(true)
       pollTimeout = setTimeout(async () => {
         if (!isPollingActive) return
-        if (isLoading) {
+        const tickAction = decidePollTickAction({ isLoading, inCooldown: inCooldown() })
+        if (tickAction === "skip") {
           if (isPollingActive) schedulePoll()
           return
         }
-        if (shouldSkipUpdate()) {
+        if (tickAction === "queue") {
           // Queue a replay rather than skipping silently — the cooldown clear
           // will pick this up. We still keep the polling cadence going.
           pendingReplayRef.current = true
