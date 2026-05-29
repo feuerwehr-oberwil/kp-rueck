@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, useMap, Tooltip } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { ApiIncident } from '@/lib/api-client'
+import { MAP_COLORS, PRIORITY_MARKER_COLORS } from '@/lib/map-colors'
 
 // Fix Leaflet default icon issue with Next.js
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -19,13 +20,6 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon
 
-// Priority color mapping
-const PRIORITY_COLORS: Record<string, string> = {
-  high: '#ef4444', // red-500
-  medium: '#eab308', // yellow-500
-  low: '#22c55e', // green-500
-}
-
 // Status opacity (completed = faded)
 const STATUS_OPACITY: Record<string, number> = {
   eingegangen: 1,
@@ -38,7 +32,8 @@ const STATUS_OPACITY: Record<string, number> = {
 
 // Create incident marker icon
 function createIncidentIcon(incident: ApiIncident, isHighlighted: boolean = false): L.DivIcon {
-  const priorityColor = PRIORITY_COLORS[incident.priority] || '#6b7280'
+  const priorityColor =
+    PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
   const size = isHighlighted ? 32 : 24
   const pulse = isHighlighted ? 'animation: pulse 0.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
   const opacity = STATUS_OPACITY[incident.status] || 1
@@ -64,7 +59,7 @@ function createIncidentIcon(incident: ApiIncident, isHighlighted: boolean = fals
         cy="${borderRadius}"
         r="${innerRadius}"
         fill="${priorityColor}"
-        stroke="${isHighlighted ? '#3b82f6' : 'white'}"
+        stroke="${isHighlighted ? MAP_COLORS.info : 'white'}"
         stroke-width="3"
         filter="url(#shadow-viewer-${incident.id})"
       />
@@ -119,15 +114,15 @@ function ViewerMapLegend() {
         </p>
         <div className="space-y-0.5">
           <div className="flex items-center gap-1.5">
-            <LegendMarker fillColor="#ef4444" />
+            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} />
             <span className="text-[11px]">Hoch</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <LegendMarker fillColor="#eab308" />
+            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} />
             <span className="text-[11px]">Mittel</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <LegendMarker fillColor="#22c55e" />
+            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} />
             <span className="text-[11px]">Niedrig</span>
           </div>
         </div>

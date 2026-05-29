@@ -10,6 +10,7 @@ import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incident
 import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
 import { AssignmentLines } from "./map/assignment-lines"
+import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
@@ -28,19 +29,13 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon
 
-// Priority color mapping - simplified to single color markers
-const PRIORITY_COLORS: Record<string, string> = {
-  high: "#ef4444", // red-500
-  medium: "#eab308", // yellow-500
-  low: "#22c55e", // green-500
-}
-
 // Status border color (dark gray for all statuses)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
 
 // Create priority-based marker icon with status-based border styling
 function createIncidentIcon(incident: Incident, isHighlighted: boolean = false): L.DivIcon {
-  const priorityColor = PRIORITY_COLORS[incident.priority] || "#6b7280"
+  const priorityColor =
+    PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
   const size = isHighlighted ? 32 : 24
   const pulse = isHighlighted ? 'animation: pulse 0.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
 
@@ -75,7 +70,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
         cy="${borderRadius}"
         r="${innerRadius}"
         fill="${priorityColor}"
-        stroke="${isHighlighted ? '#3b82f6' : 'white'}"
+        stroke="${isHighlighted ? MAP_COLORS.info : 'white'}"
         stroke-width="3"
         filter="url(#shadow-${incident.id})"
       />
@@ -115,7 +110,7 @@ function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
+      background-color: ${isOnline ? MAP_COLORS.info : MAP_COLORS.offline};
       color: white;
       border: 2px solid white;
       border-radius: 4px;

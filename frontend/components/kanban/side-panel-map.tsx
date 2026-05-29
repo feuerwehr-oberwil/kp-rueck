@@ -7,17 +7,12 @@ import "leaflet/dist/leaflet.css"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
-
-// Priority color mapping
-const PRIORITY_COLORS: Record<string, string> = {
-  high: "#ef4444", // red-500
-  medium: "#eab308", // yellow-500
-  low: "#22c55e", // green-500
-}
+import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 
 // Create simple priority-based marker icon
 function createOperationIcon(operation: Operation, isSelected: boolean = false): L.DivIcon {
-  const priorityColor = PRIORITY_COLORS[operation.priority] || "#6b7280"
+  const priorityColor =
+    PRIORITY_MARKER_COLORS[operation.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
   const size = isSelected ? 28 : 20
   const ringSize = size + 10
   const ringOffset = (ringSize - size) / 2
@@ -29,7 +24,7 @@ function createOperationIcon(operation: Operation, isSelected: boolean = false):
         left: -${ringOffset}px;
         width: ${ringSize}px;
         height: ${ringSize}px;
-        border: 2px solid #3b82f6;
+        border: 2px solid ${MAP_COLORS.info};
         border-radius: 50%;
         opacity: 0;
         animation: marker-highlight 1s ease-out forwards;
@@ -50,7 +45,7 @@ function createOperationIcon(operation: Operation, isSelected: boolean = false):
         width: ${size}px;
         height: ${size}px;
         background-color: ${priorityColor};
-        border: ${isSelected ? '3px' : '2px'} solid ${isSelected ? '#3b82f6' : 'white'};
+        border: ${isSelected ? '3px' : '2px'} solid ${isSelected ? MAP_COLORS.info : 'white'};
         border-radius: 50%;
         box-shadow: 0 ${isSelected ? 3 : 1}px ${isSelected ? 6 : 3}px oklch(0.18 0.01 60 / ${isSelected ? 0.4 : 0.25});
         transition: all 0.2s ease;
@@ -80,7 +75,7 @@ function createVehicleIcon(vehicle: ApiVehiclePosition): L.DivIcon {
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: ${isOnline ? '#3b82f6' : '#6b7280'};
+      background-color: ${isOnline ? MAP_COLORS.info : MAP_COLORS.offline};
       color: white;
       border: 2px solid white;
       border-radius: 3px;

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Polyline, Tooltip } from "react-leaflet"
 import { apiClient, type ApiVehicleTrail } from "@/lib/api-client"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
+import { MAP_COLORS } from "@/lib/map-colors"
 
 interface VehicleTrailsProps {
   /** Whether Traccar is configured and trails should be fetched */
@@ -92,7 +93,7 @@ export function VehicleTrails({
             key={`trail-${trail.device_id}`}
             positions={positions}
             pathOptions={{
-              color: "#3b82f6",
+              color: MAP_COLORS.info,
               weight: 2,
               opacity: 0.35,
               dashArray: "4, 8",

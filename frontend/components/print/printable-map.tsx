@@ -5,17 +5,12 @@ import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { Operation } from "@/lib/contexts/operations-context"
-
-// Priority color mapping
-const PRIORITY_COLORS: Record<string, string> = {
-  high: "#ef4444", // red-500
-  medium: "#eab308", // yellow-500
-  low: "#22c55e", // green-500
-}
+import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 
 // Create simple colored marker icon
 function createMarkerIcon(priority: string): L.DivIcon {
-  const color = PRIORITY_COLORS[priority] || "#6b7280"
+  const color =
+    PRIORITY_MARKER_COLORS[priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
   const size = 16
 
   const html = `

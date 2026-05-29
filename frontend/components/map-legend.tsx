@@ -1,6 +1,7 @@
 "use client"
 
 import { Truck } from "lucide-react"
+import { PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 
 // Status border color (matches map-view.tsx)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -56,15 +57,15 @@ export function MapLegend() {
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <LegendMarker fillColor="#ef4444" dasharray="none" />
+            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" />
             <span className="text-xs">Hohe Priorität</span>
           </div>
           <div className="flex items-center gap-2">
-            <LegendMarker fillColor="#eab308" dasharray="none" />
+            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" />
             <span className="text-xs">Mittlere Priorität</span>
           </div>
           <div className="flex items-center gap-2">
-            <LegendMarker fillColor="#22c55e" dasharray="none" />
+            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" />
             <span className="text-xs">Niedrige Priorität</span>
           </div>
         </div>
