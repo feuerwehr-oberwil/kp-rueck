@@ -27,6 +27,7 @@ import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
+import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
@@ -181,8 +182,7 @@ export default function FireStationDashboard() {
 
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
 
-  const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [isMounted, setIsMounted] = useState(false)
+  const { currentTime, isMounted } = useCurrentTime()
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
@@ -494,13 +494,6 @@ export default function FireStationDashboard() {
     removeVehicle,
     assignVehicleToOperation,
   ])
-
-  useEffect(() => {
-    setIsMounted(true)
-    setCurrentTime(new Date())
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
 
   // Hide sidebars on mobile by default
   useEffect(() => {
