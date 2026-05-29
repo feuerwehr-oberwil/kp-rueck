@@ -62,37 +62,40 @@
 
 /* Dark mode - Professional emergency services theme */
 .dark {
-  --background: oklch(0.1 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.14 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.14 0 0);
-  --popover-foreground: oklch(0.98 0 0);
+  /* Token rework (Option A): lift cards off bg, brighten muted text + borders.
+     Tuned to GitHub-dark (#0d1117 canvas, #161b22 subtle, #21262d overlay):
+     surfaces sit higher up the L scale, cool-grey hue (chroma ~0.01 / hue 250). */
+  --background: oklch(0.185 0.008 250);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.265 0.012 250);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.265 0.012 250);
+  --popover-foreground: oklch(0.96 0 0);
   --primary: oklch(0.50 0.16 25);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.2 0 0);
+  --secondary: oklch(0.30 0.012 250);
   --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.32 0 0);
-  --muted-foreground: oklch(0.72 0 0);
+  --muted: oklch(0.32 0.01 250);
+  --muted-foreground: oklch(0.60 0.01 250);
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.60 0.26 28);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.24 0 0);
-  --input: oklch(0.18 0 0);
+  --border: oklch(0.42 0.012 250);
+  --input: oklch(0.29 0.012 250);
   --ring: oklch(0.50 0.16 25);
   --chart-1: oklch(0.50 0.16 25);
   --chart-2: oklch(0.50 0.15 250);
   --chart-3: oklch(0.72 0.22 60);
   --chart-4: oklch(0.48 0.08 0);
   --chart-5: oklch(0.45 0.1 0);
-  --sidebar: oklch(0.12 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar: oklch(0.205 0.008 250);
+  --sidebar-foreground: oklch(0.96 0 0);
   --sidebar-primary: oklch(0.50 0.16 25);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.2 0 0);
+  --sidebar-accent: oklch(0.30 0.012 250);
   --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.24 0 0);
+  --sidebar-border: oklch(0.42 0.012 250);
   --sidebar-ring: oklch(0.50 0.16 25);
 
   /* Refined status colors - dark mode */
