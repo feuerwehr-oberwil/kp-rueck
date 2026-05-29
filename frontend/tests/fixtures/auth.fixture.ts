@@ -1,4 +1,5 @@
 import { test as base, expect, Page } from '@playwright/test';
+import type { Cookie } from '@playwright/test';
 import { LoginPage } from '../pages/login.page';
 import { DashboardPage } from '../pages/dashboard.page';
 
@@ -13,29 +14,47 @@ type AuthFixtures = {
   dashboardPage: DashboardPage;
 };
 
+type AuthWorkerFixtures = {
+  /**
+   * Auth cookies captured once per worker by performing exactly one
+   * UI login. Subsequent tests inject them into a fresh context
+   * instead of hitting POST /api/auth/login again — the dev backend
+   * rate-limits aggressive login bursts.
+   */
+  authCookies: Cookie[];
+};
+
 /**
  * Extended test with authentication fixtures
  */
-export const test = base.extend<AuthFixtures>({
+export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
+  authCookies: [
+    async ({ browser }, use) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const loginPage = new LoginPage(page);
+      await loginPage.goto();
+
+      const username = process.env.TEST_USERNAME || 'admin';
+      const password = process.env.TEST_PASSWORD || 'changeme123';
+
+      await loginPage.login(username, password);
+      await loginPage.waitForLoginSuccess();
+
+      const cookies = await context.cookies();
+      await context.close();
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      await use(cookies);
+    },
+    { scope: 'worker' },
+  ],
+
   /**
-   * Provides a page that is already authenticated
+   * Provides a page that is already authenticated by replaying the
+   * worker-scoped session cookies — no per-test login.
    */
-  authenticatedPage: async ({ page }, use) => {
-    const loginPage = new LoginPage(page);
-
-    // Navigate to login
-    await loginPage.goto();
-
-    // Login with test credentials
-    const username = process.env.TEST_USERNAME || 'admin';
-    const password = process.env.TEST_PASSWORD || 'changeme123';
-
-    await loginPage.login(username, password);
-
-    // Wait for successful login (redirect to events)
-    await loginPage.waitForLoginSuccess();
-
-    // Use the authenticated page
+  authenticatedPage: async ({ page, authCookies }, use) => {
+    await page.context().addCookies(authCookies);
     // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },

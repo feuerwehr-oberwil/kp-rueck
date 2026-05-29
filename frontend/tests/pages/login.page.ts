@@ -11,6 +11,7 @@ export class LoginPage extends BasePage {
   readonly loginButton: Locator;
   readonly errorMessage: Locator;
   readonly loadingText: Locator;
+  readonly passwordLoginToggle: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -19,6 +20,9 @@ export class LoginPage extends BasePage {
     this.loginButton = page.locator('button[type="submit"]');
     this.errorMessage = page.locator('.text-destructive');
     this.loadingText = page.locator('text=Wird angemeldet...');
+    // The password form is collapsed behind "Mit Passwort anmelden" when
+    // Microsoft auth is enabled. Clicking the toggle expands it.
+    this.passwordLoginToggle = page.locator('button', { hasText: /Mit Passwort anmelden/i });
   }
 
   /**
@@ -29,20 +33,36 @@ export class LoginPage extends BasePage {
   }
 
   /**
+   * Reveal the username/password form (no-op if it's already visible).
+   */
+  async revealPasswordForm() {
+    if (await this.usernameInput.isVisible().catch(() => false)) return;
+    if (await this.passwordLoginToggle.isVisible().catch(() => false)) {
+      await this.passwordLoginToggle.click();
+    }
+    await this.usernameInput.waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  /**
    * Perform login with credentials
    */
   async login(username: string, password: string) {
+    await this.revealPasswordForm();
     await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
     await this.loginButton.click();
   }
 
   /**
-   * Wait for login to complete
+   * Wait for login to complete. Accepts any post-auth landing — the app
+   * sends you to /events when you have an event picker, or to / if you
+   * don't, depending on the current selectedEvent cookie.
    */
   async waitForLoginSuccess() {
-    // Wait for redirect to events page
-    await this.page.waitForURL(/\/events/, { timeout: 10000 });
+    await this.page.waitForURL(
+      (url) => !url.pathname.startsWith('/login'),
+      { timeout: 10000 },
+    );
   }
 
   /**
