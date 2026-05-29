@@ -49,6 +49,11 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
   const strokeWidth = 2.5
   const borderOffset = strokeWidth / 2
 
+  // D8: tabbable + screen-reader-friendly marker. The Enter/Space →
+  // click delegation lives on the map container (see useEffect below).
+  const a11yLabel = incident.location_address
+    ? incident.location_address.split(',')[0].trim()
+    : incident.title
   const html = `
     <style>
       @keyframes pulse {
@@ -56,7 +61,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
         50% { opacity: 0.5; }
       }
     </style>
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="${pulse} transition: all 0.2s ease; opacity: ${borderStyle.opacity};">
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" tabindex="0" role="button" aria-label="Einsatz: ${a11yLabel}" style="${pulse} transition: all 0.2s ease; opacity: ${borderStyle.opacity}; outline: none;">
       <!-- Drop shadow filter -->
       <defs>
         <filter id="shadow-${incident.id}" x="-20%" y="-20%" width="140%" height="140%">
@@ -570,13 +575,40 @@ export default function MapView({
     }
   }, [selectedIncidentId, mappableIncidents])
 
+  // D8: delegate Enter/Space on a focused marker to its click handler.
+  // Leaflet doesn't expose a per-marker keypress hook; this listener
+  // intercepts at the map-wrapper level and dispatches a synthetic click
+  // when the focused element is a marker icon.
+  const mapWrapperRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const wrapper = mapWrapperRef.current
+    if (!wrapper) return
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" && event.key !== " ") return
+      const target = event.target as HTMLElement | null
+      if (!target?.closest?.(".leaflet-marker-icon")) return
+      const marker = target.closest(".leaflet-marker-icon") as HTMLElement
+      event.preventDefault()
+      marker.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+    }
+    wrapper.addEventListener("keydown", handler)
+    return () => wrapper.removeEventListener("keydown", handler)
+  }, [])
+
   return (
-    <div className="relative w-full h-full rounded-lg overflow-hidden">
+    <div
+      ref={mapWrapperRef}
+      className="relative w-full h-full rounded-lg overflow-hidden"
+      role="region"
+      aria-label="Einsatzkarte — Pfeiltasten zum Verschieben, Tab zum Markieren"
+    >
       <MapContainer
         center={center}
         zoom={13}
         className="w-full h-full z-0"
         zoomControl={true}
+        keyboard
+        keyboardPanDelta={80}
       >
         <TileLayer
           key={getTileUrl()}
