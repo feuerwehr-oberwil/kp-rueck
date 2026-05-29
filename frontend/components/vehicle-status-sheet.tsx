@@ -263,7 +263,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         hideCloseButton={!isMobile}
         overlayOffset={isMobile ? undefined : "42px"}
         nonModal={!isMobile}
-        className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4", isMobile ? "max-h-[70vh]" : "max-h-[45vh]")}
+        className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4", isMobile ? "max-h-[70vh]" : "max-h-[85vh]")}
         style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
         onInteractOutside={isMobile ? undefined : (e) => {
           // Prevent closing when clicking on footer buttons or dialogs

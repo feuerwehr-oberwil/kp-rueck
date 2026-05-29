@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface UserMenuProps {
   // Quick action callbacks (optional, for pages that support them)
@@ -289,9 +290,9 @@ export function UserMenu({
             </>
           )}
 
-          {/* CONNECTION STATUS - dots only, tooltip on hover */}
-          <Tooltip>
-            <TooltipTrigger asChild>
+          {/* CONNECTION STATUS - dots only, rich popover on hover */}
+          <HoverCard openDelay={80} closeDelay={120}>
+            <HoverCardTrigger asChild>
               <DropdownMenuItem asChild>
                 <Link href="/settings?section=sync" className="cursor-pointer">
                   <div className="flex items-center justify-between w-full">
@@ -307,9 +308,9 @@ export function UserMenu({
                   </div>
                 </Link>
               </DropdownMenuItem>
-            </TooltipTrigger>
-            <TooltipContent side="left" sideOffset={8} showArrow={false} className="bg-popover text-popover-foreground border border-border shadow-md">
-              <div className="flex flex-col gap-1.5 py-0.5">
+            </HoverCardTrigger>
+            <HoverCardContent side="left" sideOffset={8} align="start" className="w-56">
+              <div className="flex flex-col gap-2 text-sm">
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
                   <span>API: {getStatusText()}</span>
@@ -329,8 +330,8 @@ export function UserMenu({
                   <span>Drucker: {getPrinterStatusText()}</span>
                 </div>
               </div>
-            </TooltipContent>
-          </Tooltip>
+            </HoverCardContent>
+          </HoverCard>
 
           <DropdownMenuSeparator />
 

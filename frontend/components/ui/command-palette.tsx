@@ -35,6 +35,9 @@ import {
   Bell,
   AlertTriangle,
   BookOpen,
+  Settings,
+  PanelRight,
+  Footprints,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 
@@ -50,6 +53,9 @@ export function CommandPalette() {
     onToggleRightSidebar,
     onToggleVehicleStatus,
     onToggleNotifications,
+    onToggleSidePanel,
+    onSidePanelDetail,
+    onSidePanelMap,
     onSearchPersonnel,
     onSearchMaterial,
     onEditIncident,
@@ -58,8 +64,13 @@ export function CommandPalette() {
     onMoveStatusBackward,
     onAssignVehicle,
     onSetPriority,
+    onToggleZuFuss,
     hasSelectedIncident = false,
   } = useCommandPaletteHandlers()
+
+  // Helper: bind incident-bound handlers only when one is hovered/selected,
+  // otherwise the CommandItem stays visible but `disabled` greys it out.
+  const incidentOnly = (fn?: () => void) => (hasSelectedIncident ? fn : undefined)
 
   // Listen for Cmd/Ctrl+K and ? key
   useEffect(() => {
@@ -127,6 +138,13 @@ export function CommandPalette() {
                 <span>Hilfe & Dokumentation</span>
                 <span className="ml-auto text-xs text-muted-foreground">G H</span>
               </CommandItem>
+              <CommandItem
+                onSelect={() => runCommand(() => router.push("/settings"))}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Einstellungen</span>
+                <span className="ml-auto text-xs text-muted-foreground">G S</span>
+              </CommandItem>
             </CommandGroup>
 
             <CommandSeparator />
@@ -179,6 +197,27 @@ export function CommandPalette() {
                   <span className="ml-auto text-xs text-muted-foreground">B</span>
                 </CommandItem>
               )}
+              {onToggleSidePanel && (
+                <CommandItem onSelect={() => runCommand(onToggleSidePanel)}>
+                  <PanelRight className="mr-2 h-4 w-4" />
+                  <span>Seitenpanel umschalten</span>
+                  <span className="ml-auto text-xs text-muted-foreground">I / \</span>
+                </CommandItem>
+              )}
+              {onSidePanelDetail && (
+                <CommandItem onSelect={() => runCommand(onSidePanelDetail)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  <span>Seitenpanel: Detail</span>
+                  <span className="ml-auto text-xs text-muted-foreground">D</span>
+                </CommandItem>
+              )}
+              {onSidePanelMap && (
+                <CommandItem onSelect={() => runCommand(onSidePanelMap)}>
+                  <Map className="mr-2 h-4 w-4" />
+                  <span>Seitenpanel: Karte</span>
+                  <span className="ml-auto text-xs text-muted-foreground">K</span>
+                </CommandItem>
+              )}
             </CommandGroup>
 
             <CommandSeparator />
@@ -205,90 +244,95 @@ export function CommandPalette() {
               )}
             </CommandGroup>
 
-            {/* Incident-specific actions - only show when an incident is selected */}
-            {hasSelectedIncident && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Ausgewählter Einsatz">
-                  {onEditIncident && (
-                    <CommandItem onSelect={() => runCommand(onEditIncident)}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      <span>Details öffnen</span>
-                      <span className="ml-auto text-xs text-muted-foreground">E</span>
-                    </CommandItem>
-                  )}
-                  {onMoveStatusForward && (
-                    <CommandItem onSelect={() => runCommand(onMoveStatusForward)}>
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                      <span>Status vorwärts</span>
-                      <span className="ml-auto text-xs text-muted-foreground">&gt;</span>
-                    </CommandItem>
-                  )}
-                  {onMoveStatusBackward && (
-                    <CommandItem onSelect={() => runCommand(onMoveStatusBackward)}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      <span>Status zurück</span>
-                      <span className="ml-auto text-xs text-muted-foreground">&lt;</span>
-                    </CommandItem>
-                  )}
-                  {onSetPriority && (
-                    <>
-                      <CommandItem onSelect={() => runCommand(() => onSetPriority('low'))}>
-                        <AlertTriangle className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>Priorität: Niedrig</span>
-                        <span className="ml-auto text-xs text-muted-foreground">⇧1</span>
-                      </CommandItem>
-                      <CommandItem onSelect={() => runCommand(() => onSetPriority('medium'))}>
-                        <AlertTriangle className="mr-2 h-4 w-4 text-yellow-500" />
-                        <span>Priorität: Mittel</span>
-                        <span className="ml-auto text-xs text-muted-foreground">⇧2</span>
-                      </CommandItem>
-                      <CommandItem onSelect={() => runCommand(() => onSetPriority('high'))}>
-                        <AlertTriangle className="mr-2 h-4 w-4 text-red-500" />
-                        <span>Priorität: Hoch</span>
-                        <span className="ml-auto text-xs text-muted-foreground">⇧3</span>
-                      </CommandItem>
-                    </>
-                  )}
-                  {onAssignVehicle && (
-                    <>
-                      <CommandItem onSelect={() => runCommand(() => onAssignVehicle(1))}>
-                        <Truck className="mr-2 h-4 w-4" />
-                        <span>Fahrzeug 1 zuweisen/entfernen</span>
-                        <span className="ml-auto text-xs text-muted-foreground">1</span>
-                      </CommandItem>
-                      <CommandItem onSelect={() => runCommand(() => onAssignVehicle(2))}>
-                        <Truck className="mr-2 h-4 w-4" />
-                        <span>Fahrzeug 2 zuweisen/entfernen</span>
-                        <span className="ml-auto text-xs text-muted-foreground">2</span>
-                      </CommandItem>
-                      <CommandItem onSelect={() => runCommand(() => onAssignVehicle(3))}>
-                        <Truck className="mr-2 h-4 w-4" />
-                        <span>Fahrzeug 3 zuweisen/entfernen</span>
-                        <span className="ml-auto text-xs text-muted-foreground">3</span>
-                      </CommandItem>
-                      <CommandItem onSelect={() => runCommand(() => onAssignVehicle(4))}>
-                        <Truck className="mr-2 h-4 w-4" />
-                        <span>Fahrzeug 4 zuweisen/entfernen</span>
-                        <span className="ml-auto text-xs text-muted-foreground">4</span>
-                      </CommandItem>
-                      <CommandItem onSelect={() => runCommand(() => onAssignVehicle(5))}>
-                        <Truck className="mr-2 h-4 w-4" />
-                        <span>Fahrzeug 5 zuweisen/entfernen</span>
-                        <span className="ml-auto text-xs text-muted-foreground">5</span>
-                      </CommandItem>
-                    </>
-                  )}
-                  {onDeleteIncident && (
-                    <CommandItem onSelect={() => runCommand(onDeleteIncident)}>
-                      <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                      <span className="text-destructive">Einsatz löschen</span>
-                      <span className="ml-auto text-xs text-muted-foreground">Del</span>
-                    </CommandItem>
-                  )}
-                </CommandGroup>
-              </>
-            )}
+            {/* Incident-specific actions — always shown so operators see the
+                full shortcut list; entries are `disabled` (greyed out) when no
+                op is hovered/selected. */}
+            <CommandSeparator />
+            <CommandGroup heading={hasSelectedIncident ? "Ausgewählter Einsatz" : "Einsatz (Maus über einen Einsatz)"}>
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() => runCommand(() => incidentOnly(onEditIncident)?.())}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                <span>Details öffnen</span>
+                <span className="ml-auto text-xs text-muted-foreground">E</span>
+              </CommandItem>
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() => runCommand(() => incidentOnly(onMoveStatusForward)?.())}
+              >
+                <ArrowRight className="mr-2 h-4 w-4" />
+                <span>Status vorwärts</span>
+                <span className="ml-auto text-xs text-muted-foreground">&gt;</span>
+              </CommandItem>
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() => runCommand(() => incidentOnly(onMoveStatusBackward)?.())}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                <span>Status zurück</span>
+                <span className="ml-auto text-xs text-muted-foreground">&lt;</span>
+              </CommandItem>
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() =>
+                  runCommand(() => (hasSelectedIncident ? onSetPriority?.('low') : undefined))
+                }
+              >
+                <AlertTriangle className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>Priorität: Niedrig</span>
+                <span className="ml-auto text-xs text-muted-foreground">⇧1</span>
+              </CommandItem>
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() =>
+                  runCommand(() => (hasSelectedIncident ? onSetPriority?.('medium') : undefined))
+                }
+              >
+                <AlertTriangle className="mr-2 h-4 w-4 text-yellow-500" />
+                <span>Priorität: Mittel</span>
+                <span className="ml-auto text-xs text-muted-foreground">⇧2</span>
+              </CommandItem>
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() =>
+                  runCommand(() => (hasSelectedIncident ? onSetPriority?.('high') : undefined))
+                }
+              >
+                <AlertTriangle className="mr-2 h-4 w-4 text-red-500" />
+                <span>Priorität: Hoch</span>
+                <span className="ml-auto text-xs text-muted-foreground">⇧3</span>
+              </CommandItem>
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() => runCommand(() => incidentOnly(onToggleZuFuss)?.())}
+              >
+                <Footprints className="mr-2 h-4 w-4" />
+                <span>Zu Fuss umschalten</span>
+                <span className="ml-auto text-xs text-muted-foreground">0</span>
+              </CommandItem>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <CommandItem
+                  key={`assign-vehicle-${n}`}
+                  disabled={!hasSelectedIncident}
+                  onSelect={() =>
+                    runCommand(() => (hasSelectedIncident ? onAssignVehicle?.(n) : undefined))
+                  }
+                >
+                  <Truck className="mr-2 h-4 w-4" />
+                  <span>Fahrzeug {n} zuweisen/entfernen</span>
+                  <span className="ml-auto text-xs text-muted-foreground">{n}</span>
+                </CommandItem>
+              ))}
+              <CommandItem
+                disabled={!hasSelectedIncident}
+                onSelect={() => runCommand(() => incidentOnly(onDeleteIncident)?.())}
+              >
+                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                <span className="text-destructive">Einsatz löschen</span>
+                <span className="ml-auto text-xs text-muted-foreground">Del</span>
+              </CommandItem>
+            </CommandGroup>
           </CommandList>
         </Command>
       </DialogContent>

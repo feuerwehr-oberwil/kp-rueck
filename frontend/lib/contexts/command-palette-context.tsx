@@ -13,13 +13,19 @@ export interface CommandPaletteHandlers {
   // Search actions (open sidebar and focus input)
   onSearchPersonnel?: () => void
   onSearchMaterial?: () => void
-  // Incident actions (require a selected incident)
+  // Side panel
+  onToggleSidePanel?: () => void
+  onSidePanelDetail?: () => void
+  onSidePanelMap?: () => void
+  // Incident actions (require a selected incident — items are shown but
+  // disabled in the palette when nothing is hovered)
   onEditIncident?: () => void
   onDeleteIncident?: () => void
   onMoveStatusForward?: () => void
   onMoveStatusBackward?: () => void
   onAssignVehicle?: (vehicleNumber: number) => void
   onSetPriority?: (priority: 'low' | 'medium' | 'high') => void
+  onToggleZuFuss?: () => void
   // Navigation between incidents
   onSelectPreviousIncident?: () => void
   onSelectNextIncident?: () => void

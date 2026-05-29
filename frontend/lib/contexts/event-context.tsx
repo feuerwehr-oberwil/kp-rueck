@@ -62,10 +62,12 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      apiClient.getEvent(savedEventId)
+      // skipToast: this is a bootstrap probe; a stale event in localStorage
+      // shouldn't surface as an "API Fehler" toast — we just clear it.
+      apiClient.getEvent(savedEventId, { skipToast: true })
         .then(apiEvent => setSelectedEventState(apiEventToEvent(apiEvent)))
         .catch(err => {
-          console.error('Failed to load saved event:', err)
+          console.warn('Stale event in localStorage, clearing:', err)
           localStorage.removeItem(SELECTED_EVENT_KEY)
         })
         .finally(() => setIsEventLoaded(true))

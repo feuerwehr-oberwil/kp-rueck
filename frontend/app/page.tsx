@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -418,6 +418,16 @@ export default function FireStationDashboard() {
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
       onToggleVehicleStatus: () => setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles'),
       onToggleNotifications: toggleNotificationSidebar,
+      onToggleSidePanel: () =>
+        setSidePanelMode(prev => (prev === 'collapsed' ? 'detail' : 'collapsed')),
+      onSidePanelDetail: () => setSidePanelMode('detail'),
+      onSidePanelMap: () => setSidePanelMode('map'),
+      onToggleZuFuss: () => {
+        if (hoveredOperationId) {
+          const op = operations.find(o => o.id === hoveredOperationId)
+          if (op) updateOperation(hoveredOperationId, { zuFuss: !op.zuFuss })
+        }
+      },
       onSearchPersonnel: () => {
         setShowLeftSidebar(true)
         setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 50)
@@ -570,7 +580,8 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        !!activeFooterSheet ||
+        // Vehicle footer is non-modal: keep F able to toggle it off.
+        (!!activeFooterSheet && activeFooterSheet !== 'vehicles') ||
         deleteDialogOpen,
       sidePanelOpen: sidePanelMode !== 'collapsed',
       hoveredOperationId,
@@ -1692,6 +1703,17 @@ export default function FireStationDashboard() {
                         <Copy className="h-3.5 w-3.5" />
                       )}
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="flex-shrink-0 text-muted-foreground"
+                      title="In neuem Tab öffnen"
+                    >
+                      <a href={checkInUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Personal kann diesen QR-Code scannen um sich einzuchecken. Funktioniert ohne Anmeldung.
@@ -1762,6 +1784,17 @@ export default function FireStationDashboard() {
                         <Copy className="h-3.5 w-3.5" />
                       )}
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="flex-shrink-0 text-muted-foreground"
+                      title="In neuem Tab öffnen"
+                    >
+                      <a href={rekoDashboardUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.
@@ -1831,6 +1864,17 @@ export default function FireStationDashboard() {
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
                       )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="flex-shrink-0 text-muted-foreground"
+                      title="In neuem Tab öffnen"
+                    >
+                      <a href={viewerUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">

@@ -274,8 +274,8 @@ class ApiClient {
     return this.request<ApiEventListResponse>(endpoint)
   }
 
-  async getEvent(eventId: string): Promise<ApiEvent> {
-    return this.request<ApiEvent>(`/api/events/${eventId}`)
+  async getEvent(eventId: string, options?: { skipToast?: boolean }): Promise<ApiEvent> {
+    return this.request<ApiEvent>(`/api/events/${eventId}`, options)
   }
 
   async createEvent(data: ApiEventCreate): Promise<ApiEvent> {
