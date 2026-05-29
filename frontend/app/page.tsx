@@ -28,6 +28,7 @@ import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
+import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
@@ -214,8 +215,7 @@ export default function FireStationDashboard() {
     }).catch(() => {})
   }, [selectedEvent, personnel, checkInUrl, isLoading])
 
-  const [gPrefixActive, setGPrefixActive] = useState(false)
-  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const gPrefix = useGPrefixNavigation(router)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
   const [showMeldung, setShowMeldung] = useState(() => {
@@ -570,14 +570,7 @@ export default function FireStationDashboard() {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Esc to blur search input or cancel g-prefix mode
       if (e.key === 'Escape') {
-        if (gPrefixActive) {
-          setGPrefixActive(false)
-          if (gPrefixTimeoutRef.current) {
-            clearTimeout(gPrefixTimeoutRef.current)
-            gPrefixTimeoutRef.current = null
-          }
-          return
-        }
+        if (gPrefix.cancel()) return
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
           (e.target as HTMLElement).blur()
           return
@@ -602,48 +595,8 @@ export default function FireStationDashboard() {
         return
       }
 
-      // Handle g-prefix navigation
-      if (gPrefixActive) {
-        e.preventDefault()
-        setGPrefixActive(false)
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-          gPrefixTimeoutRef.current = null
-        }
-
-        if (e.key === 'k' || e.key === 'K') {
-          // Already on Kanban, do nothing (or could show a toast)
-          return
-        } else if (e.key === 'm' || e.key === 'M') {
-          router.push('/map')
-          return
-        } else if (e.key === 'e' || e.key === 'E') {
-          router.push('/events')
-          return
-        } else if (e.key === 's' || e.key === 'S') {
-          router.push('/settings')
-          return
-        } else if (e.key === 'h' || e.key === 'H') {
-          router.push('/help')
-          return
-        }
-        return
-      }
-
-      // Activate g-prefix mode
-      if (e.key === 'g' || e.key === 'G') {
-        e.preventDefault()
-        setGPrefixActive(true)
-        // Reset g-prefix mode after 1.5 seconds
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-        }
-        gPrefixTimeoutRef.current = setTimeout(() => {
-          setGPrefixActive(false)
-          gPrefixTimeoutRef.current = null
-        }, 1500)
-        return
-      }
+      // g-prefix navigation owns its own state machine; short-circuit when consumed.
+      if (gPrefix.handleKey(e)) return
 
       // Zu Fuss shortcut (0) - toggle zu_fuss on hovered operation
       if (e.key === '0' && hoveredOperationId && !e.shiftKey) {
@@ -784,15 +737,12 @@ export default function FireStationDashboard() {
     window.addEventListener('keydown', handleKeyPress)
     return () => {
       window.removeEventListener('keydown', handleKeyPress)
-      // Clean up timeouts on unmount
-      if (gPrefixTimeoutRef.current) {
-        clearTimeout(gPrefixTimeoutRef.current)
-      }
+      // useGPrefixNavigation cleans its own timeout; only the highlight timer left.
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current)
       }
     }
-  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefixActive, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, activeFooterSheet, deleteDialogOpen, sidePanelMode])
+  }, [hoveredOperationId, moveOperationLeft, moveOperationRight, operations, vehicleTypes, removeVehicle, assignVehicleToOperation, updateOperation, refreshOperations, gPrefix, router, deleteOperation, detailModalOpen, newEmergencyModalOpen, assignmentDialogOpen, activeFooterSheet, deleteDialogOpen, sidePanelMode])
 
   // Use shared drag-and-drop hook
   useKanbanDragDrop({
