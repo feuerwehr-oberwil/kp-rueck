@@ -19,6 +19,8 @@ import { getTimeSince } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
+import { useOperationDetailShortcuts } from "@/lib/hooks/use-operation-detail-shortcuts"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
@@ -72,9 +74,18 @@ export function OperationDetailModal({
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
-  const [isCopyingRekoLink, setIsCopyingRekoLink] = useState(false)
-  const [rekoCopied, setRekoCopied] = useState<'direct' | 'dashboard' | null>(null)
   const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const {
+    copied: rekoCopied,
+    isCopying: isCopyingRekoLink,
+    copyDirectLink: handleCopyDirectRekoLink,
+    copyDashboardLink: handleCopyDashboardLink,
+  } = useRekoLinkActions({
+    incidentId: operation?.id ?? null,
+    assignedReko: operation?.assignedReko ?? null,
+    eventId: selectedEvent?.id ?? null,
+  })
 
   // When the modal opens, focus the Meldung textarea with the cursor at the
   // end of any existing text so operators can keep typing without re-positioning.
@@ -166,56 +177,6 @@ export function OperationDetailModal({
       })
   }
 
-  // Handler for copying direct reko form link
-  const handleCopyDirectRekoLink = async () => {
-    if (!operation || !assignedRekoPersonnel) {
-      toast.error('Keine Reko-Person zugewiesen')
-      return
-    }
-
-    setIsCopyingRekoLink(true)
-    try {
-      const response = await apiClient.generateRekoLink(operation.id, assignedRekoPersonnel.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      await copyToClipboard(fullUrl)
-      setRekoCopied('direct')
-      toast.success('Direkt-Link kopiert', {
-        description: `Formular-Link für ${assignedRekoPersonnel.name}`
-      })
-      setTimeout(() => setRekoCopied(null), 2000)
-    } catch (error) {
-      console.error('Failed to copy direct reko link:', error)
-      toast.error('Fehler beim Kopieren')
-    } finally {
-      setIsCopyingRekoLink(false)
-    }
-  }
-
-  // Handler for copying dashboard link
-  const handleCopyDashboardLink = async () => {
-    if (!selectedEvent) {
-      toast.error('Kein Event ausgewählt')
-      return
-    }
-
-    setIsCopyingRekoLink(true)
-    try {
-      const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      await copyToClipboard(fullUrl)
-      setRekoCopied('dashboard')
-      toast.success('Dashboard-Link kopiert', {
-        description: 'Reko-Personal kann ihre Zuweisungen sehen'
-      })
-      setTimeout(() => setRekoCopied(null), 2000)
-    } catch (error) {
-      console.error('Failed to copy dashboard link:', error)
-      toast.error('Fehler beim Kopieren')
-    } finally {
-      setIsCopyingRekoLink(false)
-    }
-  }
-
   // Handler for opening transfer dialog
   const handleOpenTransfer = async () => {
     if (!operation || !selectedEvent) {
@@ -278,67 +239,14 @@ export function OperationDetailModal({
     }
   }
 
-  // Keyboard shortcuts for modal
-  useEffect(() => {
-    if (!open || !operation) return
-
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Ignore shortcuts if typing in input/textarea/select
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).getAttribute('role') === 'combobox'
-      ) {
-        return
-      }
-
-      // Priority shortcuts (Shift+1/2/3)
-      if (e.shiftKey) {
-        if (e.key === '1' || e.key === '!') {
-          e.preventDefault()
-          onUpdate({ priority: 'low' })
-          return
-        } else if (e.key === '2' || e.key === '@') {
-          e.preventDefault()
-          onUpdate({ priority: 'medium' })
-          return
-        } else if (e.key === '3' || e.key === '#') {
-          e.preventDefault()
-          onUpdate({ priority: 'high' })
-          return
-        }
-      }
-
-      // Zu Fuss shortcut (0)
-      if (e.key === '0' && !e.shiftKey) {
-        e.preventDefault()
-        onUpdate({ zuFuss: !operation.zuFuss })
-        return
-      }
-
-      // Vehicle assignment shortcuts (1-5)
-      const vehicleIndex = parseInt(e.key) - 1
-      if (!isNaN(vehicleIndex) && vehicleIndex >= 0 && vehicleIndex < 5 && vehicleIndex < availableVehicles.length) {
-        const vehicle = availableVehicles[vehicleIndex]
-        if (vehicle) {
-          e.preventDefault()
-          // Check if vehicle is already assigned
-          const isAssigned = operation.vehicles.includes(vehicle.name)
-          if (isAssigned) {
-            // Unassign the vehicle
-            onRemoveVehicle(operation.id, vehicle.name)
-          } else {
-            // Assign the vehicle
-            onAssignVehicle(vehicle.id, vehicle.name, operation.id)
-          }
-        }
-        return
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [open, operation, onUpdate, onAssignVehicle, onRemoveVehicle, availableVehicles])
+  useOperationDetailShortcuts({
+    enabled: open,
+    operation,
+    availableVehicles,
+    onUpdate,
+    onAssignVehicle,
+    onRemoveVehicle,
+  })
 
   if (!operation) return null
 
