@@ -256,7 +256,8 @@ class TestPhotoStorageService:
         with pytest.raises(HTTPException) as exc_info:
             await photo_service.save_photo(incident_id, MockUploadFile(), [])
 
-        assert exc_info.value.status_code == 400
+        # 413 Payload Too Large per RFC 9110 — bumped from 400 in A7
+        assert exc_info.value.status_code == 413
         assert "too large" in exc_info.value.detail
 
     @pytest.mark.asyncio
