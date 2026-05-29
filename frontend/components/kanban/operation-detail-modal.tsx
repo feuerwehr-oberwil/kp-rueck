@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
@@ -17,16 +17,16 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
-import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
+import { apiClient } from "@/lib/api-client"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useOperationDetailShortcuts } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { Kbd } from "@/components/ui/kbd"
-import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
-import { cn, copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
@@ -69,7 +69,6 @@ export function OperationDetailModal({
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
-  const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
@@ -125,57 +124,8 @@ export function OperationDetailModal({
     loadVehicles()
   }, [open, selectedEvent])
 
-  // Handler for copying WhatsApp message
-  // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
-  const handleCopyWhatsApp = () => {
-    if (!operation) return
-
-    setIsCopyingWhatsApp(true)
-
-    // Create a promise that fetches data and formats the message
-    const messagePromise = (async () => {
-      // Fetch the latest Reko report if one exists
-      let rekoReport: ApiRekoReportResponse | null = null
-      if (operation.hasCompletedReko) {
-        try {
-          const reports = await apiClient.getIncidentRekoReports(operation.id)
-          const completedReports = reports.filter(r => !r.is_draft)
-          if (completedReports.length > 0) {
-            // Use the most recent completed report
-            rekoReport = completedReports[completedReports.length - 1]
-          }
-        } catch (error) {
-          console.error('Failed to fetch Reko report:', error)
-          // Continue without Reko data
-        }
-      }
-
-      // Format and return the message
-      return formatWhatsAppMessage({
-        operation,
-        materials,
-        rekoReport,
-        vehicleDrivers,
-      })
-    })()
-
-    // Call synchronously with the promise - Safari will "reserve" clipboard access
-    copyToClipboardAsync(messagePromise)
-      .then(() => {
-        toast.success('In Zwischenablage kopiert', {
-          description: 'Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.',
-        })
-      })
-      .catch((error) => {
-        console.error('Failed to copy WhatsApp message:', error)
-        toast.error('Fehler beim Kopieren', {
-          description: 'Die Nachricht konnte nicht in die Zwischenablage kopiert werden.',
-        })
-      })
-      .finally(() => {
-        setIsCopyingWhatsApp(false)
-      })
-  }
+  const { isCopying: isCopyingWhatsApp, copy: handleCopyWhatsApp } =
+    useWhatsAppCopy({ operation, materials, vehicleDrivers })
 
   // Handler for opening transfer dialog
   const handleOpenTransfer = async () => {

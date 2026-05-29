@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { cn, copyToClipboard, copyToClipboardAsync } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type Operation, type Material, useOperations } from "@/lib/contexts/operations-context"
@@ -19,14 +19,15 @@ import { getIncidentTypeLabel, incidentTypeKeys } from "@/lib/incident-types"
 import { LocationInput } from "@/components/location/location-input"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { toast } from "sonner"
-import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
-import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
+import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
+import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import type { Incident } from "@/lib/types/incidents"
 import dynamic from "next/dynamic"
 
@@ -223,14 +224,11 @@ function SidePanelDetail({
   const { setOperations } = useOperations()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, !!operation)
-  const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
-  const [isCopyingRekoLink, setIsCopyingRekoLink] = useState(false)
-  const [rekoCopied, setRekoCopied] = useState<'direct' | 'dashboard' | null>(null)
   const { personnel } = usePersonnel()
 
   // Use assignedReko directly from the operation (kept in sync by operations context)
@@ -238,101 +236,19 @@ function SidePanelDetail({
 
   // vehicleDrivers above is live-synced via useVehicleDrivers (WebSocket + custom event)
 
-  // Handler for copying direct reko form link
-  const handleCopyDirectRekoLink = async () => {
-    if (!operation || !assignedRekoPersonnel) {
-      toast.error('Keine Reko-Person zugewiesen')
-      return
-    }
+  const {
+    copied: rekoCopied,
+    isCopying: isCopyingRekoLink,
+    copyDirectLink: handleCopyDirectRekoLink,
+    copyDashboardLink: handleCopyDashboardLink,
+  } = useRekoLinkActions({
+    incidentId: operation?.id ?? null,
+    assignedReko: assignedRekoPersonnel,
+    eventId: selectedEvent?.id ?? null,
+  })
 
-    setIsCopyingRekoLink(true)
-    try {
-      const response = await apiClient.generateRekoLink(operation.id, assignedRekoPersonnel.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      await copyToClipboard(fullUrl)
-      setRekoCopied('direct')
-      toast.success('Direkt-Link kopiert', {
-        description: `Formular-Link für ${assignedRekoPersonnel.name}`
-      })
-      setTimeout(() => setRekoCopied(null), 2000)
-    } catch (error) {
-      console.error('Failed to copy direct reko link:', error)
-      toast.error('Fehler beim Kopieren')
-    } finally {
-      setIsCopyingRekoLink(false)
-    }
-  }
-
-  // Handler for copying dashboard link
-  const handleCopyDashboardLink = async () => {
-    if (!selectedEvent) {
-      toast.error('Kein Event ausgewählt')
-      return
-    }
-
-    setIsCopyingRekoLink(true)
-    try {
-      const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      await copyToClipboard(fullUrl)
-      setRekoCopied('dashboard')
-      toast.success('Dashboard-Link kopiert', {
-        description: 'Reko-Personal kann ihre Zuweisungen sehen'
-      })
-      setTimeout(() => setRekoCopied(null), 2000)
-    } catch (error) {
-      console.error('Failed to copy dashboard link:', error)
-      toast.error('Fehler beim Kopieren')
-    } finally {
-      setIsCopyingRekoLink(false)
-    }
-  }
-
-  // Handler for copying WhatsApp message
-  // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
-  const handleCopyWhatsApp = () => {
-    if (!operation) return
-
-    setIsCopyingWhatsApp(true)
-
-    // Create a promise that fetches data and formats the message
-    const messagePromise = (async () => {
-      let rekoReport: ApiRekoReportResponse | null = null
-      if (operation.hasCompletedReko) {
-        try {
-          const reports = await apiClient.getIncidentRekoReports(operation.id)
-          const completedReports = reports.filter(r => !r.is_draft)
-          if (completedReports.length > 0) {
-            rekoReport = completedReports[completedReports.length - 1]
-          }
-        } catch (error) {
-          console.error('Failed to fetch Reko report:', error)
-        }
-      }
-
-      return formatWhatsAppMessage({
-        operation,
-        materials,
-        rekoReport,
-        vehicleDrivers,
-      })
-    })()
-
-    // Call synchronously with the promise - Safari will "reserve" clipboard access
-    copyToClipboardAsync(messagePromise)
-      .then(() => {
-        toast.success('In Zwischenablage kopiert', {
-          description: 'Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.',
-        })
-      })
-      .catch((error) => {
-        console.error('Failed to copy WhatsApp message:', error)
-        toast.error('Fehler beim Kopieren')
-      })
-      .finally(() => {
-        setIsCopyingWhatsApp(false)
-      })
-  }
+  const { isCopying: isCopyingWhatsApp, copy: handleCopyWhatsApp } =
+    useWhatsAppCopy({ operation, materials, vehicleDrivers })
 
   // Handler for opening transfer dialog
   const handleOpenTransfer = async () => {
