@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
-import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Siren, Users, Truck, Package, AlertTriangle, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2 } from "lucide-react"
+import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Users, Truck, Package, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type Operation, type Material, useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -38,7 +38,6 @@ interface SidePanelProps {
   operations: Operation[]
   materials: Material[]
   formatLocation: (address: string) => string
-  onOpenModal: () => void
   onSelectOperation: (operation: Operation) => void
   vehicleTypes: Array<{ key: string; name: string; id: string; type: string }>
   // Editing handlers
@@ -62,7 +61,6 @@ export function SidePanel({
   operations,
   materials,
   formatLocation,
-  onOpenModal,
   onSelectOperation,
   vehicleTypes,
   onUpdate,
@@ -188,13 +186,6 @@ export function SidePanel({
   )
 }
 
-// Priority visual configuration - subtle color for high priority
-const priorityStyles = {
-  high: { label: 'Hoch', color: 'text-red-400' },
-  medium: { label: 'Mittel', color: 'text-muted-foreground' },
-  low: { label: 'Niedrig', color: 'text-muted-foreground' },
-} as const
-
 function SidePanelDetail({
   operation,
   materials,
@@ -311,7 +302,6 @@ function SidePanelDetail({
   }
 
   const priority = operation.priority || 'low'
-  const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
   const timeInStatus = operation.statusChangedAt || operation.dispatchTime
 
   return (

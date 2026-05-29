@@ -599,7 +599,6 @@ export default function MapPage() {
           onUpdate={handleOperationUpdate}
           onDelete={handleOperationDelete}
           materials={materials}
-          vehicleTypes={vehicleTypes}
           onAssignVehicle={handleVehicleAssign}
           onRemoveVehicle={handleVehicleRemove}
         />

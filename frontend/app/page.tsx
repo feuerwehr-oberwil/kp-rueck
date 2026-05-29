@@ -13,11 +13,10 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
-import { useMaterials, type MaterialGroup } from "@/lib/contexts/materials-context"
+import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { QRCodeSVG } from 'qrcode.react'
@@ -33,7 +32,7 @@ import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
-import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
@@ -50,8 +49,6 @@ import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/ka
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { SidePanel } from "@/components/kanban/side-panel"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
@@ -660,7 +657,7 @@ export default function FireStationDashboard() {
   // Use shared resource filtering hook — sidebar search takes priority, top search also filters
   const effectivePersonnelQuery = personnelSearchQuery || searchQuery
   const effectiveMaterialQuery = materialSearchQuery || searchQuery
-  const { filteredPersonnel, filteredMaterials, groupedPersonnel, groupedMaterials } = useResourceFiltering(
+  const { groupedPersonnel, groupedMaterials } = useResourceFiltering(
     personnel,
     materials,
     effectivePersonnelQuery,
@@ -1241,12 +1238,6 @@ export default function FireStationDashboard() {
             operations={filteredOperations}
             materials={materials}
             formatLocation={formatLocation}
-            onOpenModal={() => {
-              if (panelSelectedOperation) {
-                setSelectedOperationId(panelSelectedOperation.id)
-                setDetailModalOpen(true)
-              }
-            }}
             onSelectOperation={(op) => {
               setPanelSelectedId(op.id)
               setHoveredOperationId(op.id)
@@ -1604,7 +1595,6 @@ export default function FireStationDashboard() {
         onUpdate={handleOperationUpdate}
         onDelete={handleOperationDelete}
         materials={materials}
-        vehicleTypes={vehicleTypes}
         onAssignVehicle={handleVehicleAssign}
         onRemoveVehicle={handleVehicleRemove}
         onAssignResource={handleOpenAssignmentDialog}

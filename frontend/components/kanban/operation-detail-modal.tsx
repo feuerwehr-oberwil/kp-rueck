@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, Keyboard, MessageCircle, ArrowRightLeft, Users, Package, Search, Copy, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers } from 'lucide-react'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -40,7 +40,6 @@ interface OperationDetailModalProps {
   onUpdate: (updates: Partial<Operation>) => void
   onDelete: (operationId: string) => void
   materials: Material[]
-  vehicleTypes: Array<{ key: string; name: string; id: string }>
   onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
@@ -55,7 +54,6 @@ export function OperationDetailModal({
   onUpdate,
   onDelete,
   materials,
-  vehicleTypes,
   onAssignVehicle,
   onRemoveVehicle,
   onAssignResource,
