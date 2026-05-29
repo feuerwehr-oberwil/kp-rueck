@@ -34,6 +34,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import {
   Settings2,
   Bell,
   RefreshCw,
@@ -181,6 +193,7 @@ export default function SettingsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ApiExcelImportPreview | null>(null);
   const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
+  const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
@@ -767,7 +780,16 @@ export default function SettingsPage() {
                       Vorschau anzeigen
                     </Button>
                     {preview && (
-                      <Button onClick={handleImport} disabled={importLoading}>
+                      <Button
+                        onClick={() => {
+                          if (importMode === 'replace') {
+                            setReplaceConfirmOpen(true);
+                          } else {
+                            handleImport();
+                          }
+                        }}
+                        disabled={importLoading}
+                      >
                         Jetzt importieren
                       </Button>
                     )}
@@ -1231,6 +1253,43 @@ export default function SettingsPage() {
 
         {/* Mobile Bottom Navigation */}
         <MobileBottomNavigation currentPage="settings" />
+
+        {/* UI #17 — confirm before replace-mode import wipes existing data. */}
+        <AlertDialog open={replaceConfirmOpen} onOpenChange={setReplaceConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Datenimport ersetzen?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Diese Aktion löscht alle bestehenden Personal-, Fahrzeug- und
+                Materialdaten und ersetzt sie durch den Inhalt der Excel-Datei.
+                {preview && (
+                  <span className="block mt-2">
+                    Importiert werden{' '}
+                    <strong>{preview.personnel_total}</strong> Personal,{' '}
+                    <strong>{preview.vehicles_total}</strong> Fahrzeuge,{' '}
+                    <strong>{preview.materials_total}</strong> Material.
+                  </span>
+                )}
+                <span className="block mt-2 text-destructive">
+                  Diese Aktion kann nicht rückgängig gemacht werden.
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  setReplaceConfirmOpen(false);
+                  handleImport();
+                }}
+                className={cn(buttonVariants({ variant: 'destructive' }))}
+              >
+                Daten ersetzen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </ProtectedRoute>
   );
