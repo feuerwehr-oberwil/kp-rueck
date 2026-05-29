@@ -213,7 +213,7 @@ async def test_submit_reko_report_final(client: AsyncClient, test_incident: Inci
     }
 
     # Mock the notification creation to avoid DB constraint issues
-    with patch("app.api.reko.create_reko_notification", new_callable=AsyncMock):
+    with patch("app.services.notification_service.create_reko_notification", new_callable=AsyncMock):
         response = await client.post("/api/reko/?submit=true", json=report_data)
         assert response.status_code == 200
         data = response.json()
@@ -248,7 +248,7 @@ async def test_submit_reko_report_updates_existing(
         "summary_text": "Updated summary after second visit",
     }
 
-    with patch("app.api.reko.create_reko_notification", new_callable=AsyncMock):
+    with patch("app.services.notification_service.create_reko_notification", new_callable=AsyncMock):
         response = await client.post("/api/reko/?submit=true", json=report_data)
         assert response.status_code == 200
         data = response.json()
@@ -614,7 +614,7 @@ async def test_complete_reko_workflow(client: AsyncClient, test_incident: Incide
         "power_supply": "available",
     }
 
-    with patch("app.api.reko.create_reko_notification", new_callable=AsyncMock):
+    with patch("app.services.notification_service.create_reko_notification", new_callable=AsyncMock):
         submit_response = await client.post("/api/reko/?submit=true", json=final_data)
         assert submit_response.status_code == 200
         data = submit_response.json()
@@ -698,7 +698,7 @@ async def test_submit_reko_report_with_personnel(
         "submitted_by_personnel_id": str(test_personnel.id),
     }
 
-    with patch("app.api.reko.create_reko_notification", new_callable=AsyncMock) as mock_notify:
+    with patch("app.services.notification_service.create_reko_notification", new_callable=AsyncMock) as mock_notify:
         response = await client.post("/api/reko/?submit=true", json=report_data)
         assert response.status_code == 200
 
@@ -723,7 +723,7 @@ async def test_submit_reko_report_with_is_relevant_false(
         "summary_text": "False alarm - no incident",
     }
 
-    with patch("app.api.reko.create_reko_notification", new_callable=AsyncMock) as mock_notify:
+    with patch("app.services.notification_service.create_reko_notification", new_callable=AsyncMock) as mock_notify:
         response = await client.post("/api/reko/?submit=true", json=report_data)
         assert response.status_code == 200
         data = response.json()

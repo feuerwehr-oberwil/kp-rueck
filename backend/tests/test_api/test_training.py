@@ -187,6 +187,8 @@ async def test_generate_emergencies_success(
             priority="medium",
             location_address="Test Street",
             nachbarhilfe=False,
+            am_warten=False,
+            zu_fuss=False,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -218,6 +220,8 @@ async def test_generate_emergencies_with_category(
             priority="high",
             location_address="Test Street",
             nachbarhilfe=False,
+            am_warten=False,
+            zu_fuss=False,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -282,6 +286,8 @@ async def test_generate_multiple_emergencies(
                 priority="medium",
                 location_address=f"Street {i}",
                 nachbarhilfe=False,
+                am_warten=False,
+                zu_fuss=False,
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
             )
