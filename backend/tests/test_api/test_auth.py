@@ -537,24 +537,29 @@ async def test_login_requires_form_data(client: AsyncClient, test_editor_user: U
 
 @pytest.mark.asyncio
 async def test_login_empty_username(client: AsyncClient):
-    """Test login with empty username."""
+    """Test login with empty username.
+
+    Starlette >=1.0 returns 422 for empty required form fields (was 401 via
+    the auth handler in 0.x). Both are "you can't log in this way" — 422 is
+    the FastAPI-standard validation response.
+    """
     response = await client.post(
         "/api/auth/login",
         data={"username": "", "password": "password"},
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_login_empty_password(client: AsyncClient, test_editor_user: User):
-    """Test login with empty password."""
+    """Test login with empty password. See test_login_empty_username re: 422."""
     response = await client.post(
         "/api/auth/login",
         data={"username": "editor", "password": ""},
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
