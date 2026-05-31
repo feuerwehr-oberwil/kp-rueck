@@ -17,6 +17,7 @@ from ..schemas import (
     EmergencyTemplateResponse,
     GenerateEmergencyRequest,
     IncidentResponse,
+    ManualDispatchRequest,
     RekoReportResponse,
     RekoReportUpdate,
     SimulateCheckinRequest,
@@ -24,7 +25,7 @@ from ..schemas import (
     TrainingLocationResponse,
 )
 from ..services.tokens import generate_form_token
-from ..services.training import generate_training_emergency
+from ..services.training import TrainingGenerator, generate_training_emergency
 from ..services.training_simulation_data import generate_reko_report_data
 from ..websocket_manager import broadcast_incident_update, broadcast_personnel_update
 
@@ -81,6 +82,60 @@ async def generate_emergencies(
         background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
 
     return responses
+
+
+@router.post("/events/{event_id}/dispatch/", response_model=IncidentResponse)
+async def manual_dispatch(
+    event_id: UUID,
+    request: ManualDispatchRequest,
+    current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trainer-driven dispatch: place a specific template at a specific location.
+
+    Unlike `/generate/` (random template, random location), the trainer picks
+    both — useful to inject a known scenario at a known address for exercise
+    realism (e.g. "BMA Schulhaus" at the actual local school).
+    """
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Übungsmodus ist im Demo-Modus nicht verfügbar",
+        )
+
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if not event.training_flag:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only dispatch emergencies for training events",
+        )
+
+    template = await db.get(EmergencyTemplate, request.template_id)
+    if not template or not template.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Emergency template not found")
+
+    generator = TrainingGenerator(db)
+
+    if request.location_id is not None:
+        location = await db.get(TrainingLocation, request.location_id)
+        if not location or not location.is_active:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Training location not found")
+        incident = await generator.dispatch_specific(event_id, template, location=location)
+    else:
+        # Ad-hoc map pin path — validator guarantees these fields are set.
+        assert request.latitude is not None and request.longitude is not None and request.address
+        incident = await generator.dispatch_specific(
+            event_id,
+            template,
+            location_override=(request.address, request.latitude, request.longitude),
+        )
+
+    response = IncidentResponse.model_validate(incident)
+    background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "create")
+    return response
 
 
 @router.get("/templates/", response_model=list[EmergencyTemplateResponse])
@@ -220,8 +275,14 @@ async def simulate_reko(
     # Get or create report
     report = await reko_crud.get_or_create_reko_report(db, incident_id, token)
 
-    # Generate and apply random reko data based on incident type and title
-    reko_data = generate_reko_report_data(incident.type, title=incident.title)
+    # Generate and apply random reko data based on incident type, title and dispatch description.
+    # Description carries keyword cues the title alone misses (e.g. "Heizöl im Keller" type=oelwehr
+    # → keller subcategory; "Brand Tiefgarage" type=brandbekaempfung → fahrzeug subcategory).
+    reko_data = generate_reko_report_data(
+        incident.type,
+        title=incident.title,
+        description=incident.description,
+    )
     update_data = RekoReportUpdate(**reko_data)
     updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
 

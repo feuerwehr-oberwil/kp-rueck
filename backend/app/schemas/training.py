@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
 
 
 # Excel import/export
@@ -37,6 +37,10 @@ class EmergencyTemplateBase(BaseModel):
     incident_type: str
     category: str  # 'normal' or 'critical'
     message_pattern: str
+    # Optional alternates — generator rotates between these and the *_pattern
+    # canonical values so spawns of the same template don't read identically.
+    title_variations: list[str] | None = None
+    message_variations: list[str] | None = None
 
 
 class EmergencyTemplateCreate(EmergencyTemplateBase):
@@ -53,6 +57,42 @@ class EmergencyTemplateResponse(EmergencyTemplateBase):
     id: UUID
     created_at: datetime
     is_active: bool
+
+
+class ManualDispatchRequest(BaseModel):
+    """Trainer-driven manual dispatch.
+
+    Pick a template, then choose the location in one of two ways:
+      - `location_id` — a pre-seeded `TrainingLocation`
+      - `latitude` + `longitude` + `address` — any point on the map
+        (trainer drops a pin, reverse-geocoded address is sent along)
+
+    Exactly one of the two paths must be provided.
+    """
+
+    template_id: UUID
+    location_id: UUID | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    address: str | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_location_source(self):
+        has_seeded = self.location_id is not None
+        has_pin = (
+            self.latitude is not None
+            and self.longitude is not None
+            and bool(self.address)
+        )
+        if has_seeded and has_pin:
+            raise ValueError(
+                "Provide either location_id OR (latitude, longitude, address), not both"
+            )
+        if not has_seeded and not has_pin:
+            raise ValueError(
+                "Provide either location_id OR (latitude, longitude, address)"
+            )
+        return self
 
 
 # Training locations
@@ -90,12 +130,15 @@ class TrainingLocationBase(BaseModel):
     @field_validator("postal_code")
     @classmethod
     def validate_postal_code(cls, v: str) -> str:
-        """Validate Swiss postal code."""
+        """Validate Swiss postal code shape (4 digits).
+
+        The Basel-Landschaft range check (4000-4499) is enforced only on the
+        Create schema below — Response must accept legacy/demo data that
+        predates the constraint (e.g. the '0000' demo placeholder), otherwise
+        the GET endpoint 500s through Pydantic.
+        """
         if not re.match(r"^\d{4}$", v):
             raise ValueError("Postal code must be 4 digits")
-        code = int(v)
-        if not (4000 <= code <= 4499):
-            raise ValueError("Postal code should be in Basel-Landschaft range (4000-4499)")
         return v
 
     @field_validator("latitude")
@@ -141,9 +184,19 @@ class TrainingLocationBase(BaseModel):
 
 
 class TrainingLocationCreate(TrainingLocationBase):
-    """Schema for creating training location."""
+    """Schema for creating training location.
 
-    pass
+    Adds the BL-range constraint on top of the base shape check — only
+    enforced on writes, not on reads (Response uses the base validator).
+    """
+
+    @field_validator("postal_code")
+    @classmethod
+    def validate_postal_code_range(cls, v: str) -> str:
+        code = int(v)
+        if not (4000 <= code <= 4499):
+            raise ValueError("Postal code should be in Basel-Landschaft range (4000-4499)")
+        return v
 
 
 class TrainingLocationResponse(TrainingLocationBase):

@@ -898,6 +898,27 @@ class ApiClient {
     return this.request<ApiTrainingLocation[]>('/api/training/locations/')
   }
 
+  async manualDispatch(
+    eventId: string,
+    templateId: string,
+    location:
+      | { kind: 'seeded'; locationId: string }
+      | { kind: 'pin'; latitude: number; longitude: number; address: string },
+  ): Promise<ApiIncident> {
+    const body: Record<string, unknown> = { template_id: templateId }
+    if (location.kind === 'seeded') {
+      body.location_id = location.locationId
+    } else {
+      body.latitude = location.latitude
+      body.longitude = location.longitude
+      body.address = location.address
+    }
+    return this.request<ApiIncident>(`/api/training/events/${eventId}/dispatch/`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
   async simulateCheckin(
     eventId: string,
     count: number

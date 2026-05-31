@@ -52,6 +52,56 @@ class TrainingGenerator:
 
         return 1.0
 
+    @staticmethod
+    def _pick_title(template: EmergencyTemplate) -> str:
+        """Pick a random title from the template's pattern + variations pool."""
+        pool = [template.title_pattern]
+        if template.title_variations:
+            pool.extend(template.title_variations)
+        return random.choice(pool)
+
+    @staticmethod
+    def _pick_message(template: EmergencyTemplate) -> str:
+        """Pick a random message from the template's pattern + variations pool."""
+        pool = [template.message_pattern]
+        if template.message_variations:
+            pool.extend(template.message_variations)
+        return random.choice(pool)
+
+    async def _create_incident_from(
+        self,
+        event_id: UUID,
+        template: EmergencyTemplate,
+        *,
+        address: str,
+        latitude: float | None,
+        longitude: float | None,
+    ) -> Incident:
+        """Materialize an incident from a template + raw location triple.
+
+        Picks random title + message from the template's variations pools so
+        repeated spawns of the same template don't read identically. Derives
+        priority from category (critical→high, normal→low). Location is given
+        as raw `(address, latitude, longitude)` so callers can use either a
+        seeded `TrainingLocation` or an ad-hoc map pin.
+        """
+        priority = "high" if template.category == "critical" else "low"
+        incident = Incident(
+            event_id=event_id,
+            title=self._pick_title(template),
+            type=template.incident_type,
+            priority=priority,
+            status="eingegangen",
+            location_address=address,
+            location_lat=latitude,
+            location_lng=longitude,
+            description=self._pick_message(template),
+        )
+        self.db.add(incident)
+        await self.db.commit()
+        await self.db.refresh(incident)
+        return incident
+
     async def generate_emergency(
         self,
         event_id: UUID,
@@ -95,29 +145,14 @@ class TrainingGenerator:
         template = random.choice(templates)
         location = random.choice(self._cache_locations)
 
-        # Build full address
-        full_address = location.get_full_address()
-
-        # Determine priority based on template category
-        # critical templates -> high priority, normal templates -> low priority
-        priority = "high" if category == "critical" else "low"
-
-        # Create incident
-        incident = Incident(
-            event_id=event_id,
-            title=template.title_pattern,
-            type=template.incident_type,
-            priority=priority,
-            status="eingegangen",
-            location_address=full_address,
-            location_lat=location.latitude,
-            location_lng=location.longitude,
-            description=template.message_pattern,
+        incident = await self._create_incident_from(
+            event_id,
+            template,
+            address=location.get_full_address(),
+            latitude=location.latitude,
+            longitude=location.longitude,
         )
-
-        self.db.add(incident)
-        await self.db.commit()
-        await self.db.refresh(incident)
+        full_address = incident.location_address
 
         # Create notification for new training incident
         notification = Notification(
@@ -135,6 +170,60 @@ class TrainingGenerator:
         # Log emergency creation
         logger.info("Training emergency created: %s at %s (category: %s)", incident.title, full_address, category)
 
+        return incident
+
+    async def dispatch_specific(
+        self,
+        event_id: UUID,
+        template: EmergencyTemplate,
+        *,
+        location: TrainingLocation | None = None,
+        location_override: tuple[str, float, float] | None = None,
+    ) -> Incident:
+        """Trainer-driven dispatch: a specific template at a chosen location.
+
+        Location can be either a pre-seeded `TrainingLocation` *or* an ad-hoc
+        map pin passed as `(address, latitude, longitude)`. Exactly one of
+        `location` / `location_override` must be provided; the API-level
+        Pydantic validator already enforces this on the request side.
+        """
+        if location is not None:
+            address = location.get_full_address()
+            latitude = location.latitude
+            longitude = location.longitude
+        elif location_override is not None:
+            address, latitude, longitude = location_override
+        else:
+            raise ValueError("Provide either location or location_override")
+
+        incident = await self._create_incident_from(
+            event_id,
+            template,
+            address=address,
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+        notification = Notification(
+            id=uuid4(),
+            type="training_emergency",
+            severity="critical" if template.category == "critical" else "warning",
+            message=f"Neuer Übungs-Einsatz: {incident.title} ({incident.location_address})",
+            incident_id=incident.id,
+            event_id=event_id,
+            dismissed=False,
+        )
+        self.db.add(notification)
+        await self.db.commit()
+
+        logger.info(
+            "Manual training dispatch: %s at %s (template=%s, category=%s, pin=%s)",
+            incident.title,
+            incident.location_address,
+            template.id,
+            template.category,
+            location is None,
+        )
         return incident
 
     async def start_auto_generation(self, event_id: UUID, settings: dict[str, str]):

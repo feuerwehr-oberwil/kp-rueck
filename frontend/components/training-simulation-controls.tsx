@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations } from '@/lib/contexts/operations-context';
-import { apiClient, type ApiIncident } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -15,22 +15,15 @@ import {
   ClipboardCheck,
   Bot,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 export function TrainingSimulationControls() {
   const { selectedEvent } = useEvent();
   const { operations } = useOperations();
   const [isCheckingIn, setIsCheckingIn] = useState(false);
-  const [isSubmittingReko, setIsSubmittingReko] = useState(false);
+  // Track per-incident submit state so each row's button can show its own
+  // loading spinner without locking out the others.
+  const [submittingRekoIds, setSubmittingRekoIds] = useState<Set<string>>(new Set());
   const [checkinCount, setCheckinCount] = useState(10);
-  const [rekoIncidents, setRekoIncidents] = useState<ApiIncident[]>([]);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string>('');
 
   if (!selectedEvent?.training_flag) {
     return null;
@@ -58,20 +51,21 @@ export function TrainingSimulationControls() {
     }
   };
 
-  const handleSimulateReko = async () => {
-    if (!selectedEvent || !selectedIncidentId) return;
-    setIsSubmittingReko(true);
+  const handleSimulateReko = async (incidentId: string) => {
+    if (!selectedEvent) return;
+    setSubmittingRekoIds((prev) => new Set(prev).add(incidentId));
     try {
-      const result = await apiClient.simulateReko(selectedEvent.id, selectedIncidentId);
-
-      // Clear selection since this incident is no longer in reko status
-      setSelectedIncidentId('');
-    } catch (error: any) {
+      await apiClient.simulateReko(selectedEvent.id, incidentId);
+    } catch (error: unknown) {
       console.error('Failed to simulate reko:', error);
-      const detail = error?.message || 'Reko-Simulation fehlgeschlagen';
+      const detail = error instanceof Error ? error.message : 'Reko-Simulation fehlgeschlagen';
       toast.error('Fehler', { description: detail });
     } finally {
-      setIsSubmittingReko(false);
+      setSubmittingRekoIds((prev) => {
+        const next = new Set(prev);
+        next.delete(incidentId);
+        return next;
+      });
     }
   };
 
@@ -108,6 +102,7 @@ export function TrainingSimulationControls() {
               onClick={handleSimulateCheckin}
               disabled={isCheckingIn}
               variant="outline"
+              size="sm"
               className="flex-1"
             >
               <Users className="mr-2 h-4 w-4" />
@@ -121,7 +116,8 @@ export function TrainingSimulationControls() {
 
         <Separator />
 
-        {/* Reko Report Simulation */}
+        {/* Reko Report Simulation — one button per Reko incident, single click
+            fills + submits (no dropdown, no confirmation step). */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4" />
@@ -130,39 +126,33 @@ export function TrainingSimulationControls() {
           {rekoOps.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               Keine Einsätze im Status &quot;Reko&quot; vorhanden.
-              Verschiebe einen Einsatz in den Reko-Status, um hier einen Bericht zu simulieren.
             </p>
           ) : (
             <>
-              <Select
-                value={selectedIncidentId}
-                onValueChange={setSelectedIncidentId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Einsatz auswählen..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {rekoOps.map(op => (
-                    <SelectItem key={op.id} value={op.id}>
-                      <span className="truncate">
-                        {op.incidentType} — {op.location || 'Kein Ort'}
+              <div className="space-y-1.5">
+                {rekoOps.map((op) => {
+                  const submitting = submittingRekoIds.has(op.id);
+                  return (
+                    <Button
+                      key={op.id}
+                      onClick={() => handleSimulateReko(op.id)}
+                      disabled={submitting}
+                      variant="outline"
+                      className="w-full justify-start text-left h-auto py-2"
+                    >
+                      <ClipboardCheck className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <span className="flex-1 truncate">
+                        {op.location || op.incidentType}
                       </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={handleSimulateReko}
-                disabled={isSubmittingReko || !selectedIncidentId}
-                variant="outline"
-                className="w-full"
-              >
-                <ClipboardCheck className="mr-2 h-4 w-4" />
-                {isSubmittingReko ? 'Wird ausgefüllt...' : 'Reko ausfüllen'}
-              </Button>
+                      {submitting && (
+                        <span className="ml-2 text-xs text-muted-foreground">…</span>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Simuliert Ankunft und füllt einen Reko-Bericht mit Zufallsdaten aus.
-                Der Einsatz wird automatisch auf &quot;Reko abgeschlossen&quot; gesetzt.
+                Klick füllt + reicht den Bericht ein. Einsatz geht auf &quot;Reko abgeschlossen&quot;.
               </p>
             </>
           )}

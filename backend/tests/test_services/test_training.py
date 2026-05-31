@@ -667,3 +667,141 @@ class TestCacheBehavior:
 
         # Cache should be same object (not reloaded)
         assert generator._cache_templates == original_templates
+
+
+# ============================================
+# Title + message variations (multi-variant spawn pool)
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def template_with_variations(db_session: AsyncSession) -> EmergencyTemplate:
+    """A template that has alternate titles + messages."""
+    tpl = EmergencyTemplate(
+        id=uuid4(),
+        title_pattern="Wohnungsbrand",
+        incident_type="brandbekaempfung",
+        category="normal",
+        message_pattern="Brand in MFH gemeldet, Wohnung 2. OG.",
+        title_variations=["Brand in Wohnung", "Rauch aus Wohnung"],
+        message_variations=[
+            "Starke Rauchentwicklung, Personen evtl. noch drin.",
+            "Bewohnerin meldet Brand, ist bereits draussen.",
+        ],
+        is_active=True,
+    )
+    db_session.add(tpl)
+    await db_session.commit()
+    await db_session.refresh(tpl)
+    return tpl
+
+
+class TestTitleAndMessageVariations:
+    def test_pick_title_includes_pattern_and_variations(self, template_with_variations: EmergencyTemplate):
+        # Run 200 picks and assert every value lands in the union pool, and
+        # both pattern + variations are represented (statistically certain).
+        seen = {TrainingGenerator._pick_title(template_with_variations) for _ in range(200)}
+        expected_pool = {"Wohnungsbrand", "Brand in Wohnung", "Rauch aus Wohnung"}
+        assert seen == expected_pool
+
+    def test_pick_message_includes_pattern_and_variations(self, template_with_variations: EmergencyTemplate):
+        seen = {TrainingGenerator._pick_message(template_with_variations) for _ in range(200)}
+        expected_pool = {
+            "Brand in MFH gemeldet, Wohnung 2. OG.",
+            "Starke Rauchentwicklung, Personen evtl. noch drin.",
+            "Bewohnerin meldet Brand, ist bereits draussen.",
+        }
+        assert seen == expected_pool
+
+    def test_pick_title_no_variations_returns_pattern(self):
+        # Backwards compat: template without variations always returns pattern.
+        tpl = EmergencyTemplate(
+            id=uuid4(),
+            title_pattern="Solo",
+            incident_type="oelwehr",
+            category="normal",
+            message_pattern="x",
+            title_variations=None,
+            message_variations=None,
+            is_active=True,
+        )
+        assert {TrainingGenerator._pick_title(tpl) for _ in range(20)} == {"Solo"}
+        assert {TrainingGenerator._pick_message(tpl) for _ in range(20)} == {"x"}
+
+
+class TestDispatchSpecific:
+    @pytest.mark.asyncio
+    async def test_dispatch_specific_uses_given_template_and_location(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        template_with_variations: EmergencyTemplate,
+        training_locations: list[TrainingLocation],
+    ):
+        chosen_location = training_locations[0]
+        generator = TrainingGenerator(db_session)
+
+        incident = await generator.dispatch_specific(
+            training_event.id, template_with_variations, location=chosen_location
+        )
+
+        assert incident.type == template_with_variations.incident_type
+        assert incident.location_address == chosen_location.get_full_address()
+        assert float(incident.location_lat) == pytest.approx(float(chosen_location.latitude), abs=1e-4)
+        # priority derived from category
+        assert incident.priority == ("high" if template_with_variations.category == "critical" else "low")
+        # title + message must come from the variations pool
+        assert incident.title in {"Wohnungsbrand", "Brand in Wohnung", "Rauch aus Wohnung"}
+
+    @pytest.mark.asyncio
+    async def test_dispatch_specific_with_map_pin_override(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        template_with_variations: EmergencyTemplate,
+    ):
+        """Trainer-dropped pin: free-form coords + address bypass TrainingLocation."""
+        generator = TrainingGenerator(db_session)
+
+        incident = await generator.dispatch_specific(
+            training_event.id,
+            template_with_variations,
+            location_override=("Bielstrasse 7, 4104 Oberwil", 47.5188, 7.5499),
+        )
+
+        assert incident.location_address == "Bielstrasse 7, 4104 Oberwil"
+        assert float(incident.location_lat) == pytest.approx(47.5188, abs=1e-4)
+        assert float(incident.location_lng) == pytest.approx(7.5499, abs=1e-4)
+        assert incident.type == template_with_variations.incident_type
+
+    @pytest.mark.asyncio
+    async def test_dispatch_specific_requires_one_location_source(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        template_with_variations: EmergencyTemplate,
+    ):
+        generator = TrainingGenerator(db_session)
+        with pytest.raises(ValueError, match="location"):
+            await generator.dispatch_specific(training_event.id, template_with_variations)
+
+    @pytest.mark.asyncio
+    async def test_dispatch_specific_emits_notification(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        template_with_variations: EmergencyTemplate,
+        training_locations: list[TrainingLocation],
+    ):
+        generator = TrainingGenerator(db_session)
+        await generator.dispatch_specific(
+            training_event.id, template_with_variations, location=training_locations[0]
+        )
+
+        result = await db_session.execute(
+            select(Notification).where(Notification.event_id == training_event.id)
+        )
+        notes = list(result.scalars().all())
+        assert len(notes) == 1
+        assert notes[0].type == "training_emergency"
+        assert training_locations[0].street in notes[0].message

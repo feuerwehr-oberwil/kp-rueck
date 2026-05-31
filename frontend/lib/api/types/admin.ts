@@ -31,6 +31,8 @@ export interface ApiEmergencyTemplate {
   incident_type: string
   category: 'normal' | 'critical'
   message_pattern: string
+  title_variations: string[] | null
+  message_variations: string[] | null
   created_at: string
   is_active: boolean
 }

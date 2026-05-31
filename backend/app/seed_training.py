@@ -19,12 +19,22 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Keller. Ca. 25cm Wasser, Heizung betroffen.",
+        "title_variations": ["Keller unter Wasser", "Wasserschaden EFH"],
+        "message_variations": [
+            "Bewohner meldet 20-30cm Wasser im UG. Heizung und Tank betroffen.",
+            "Wasser im Keller, Heizöltank steht teilweise unter Wasser. Strom abgestellt.",
+        ],
     },
     {
         "title_pattern": "Überflutung Tiefgarage",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Hochwasser, Tiefgarage. Ca. 40cm, mehrere Fahrzeuge drin.",
+        "title_variations": ["Tiefgarage geflutet", "Wasser in Tiefgarage"],
+        "message_variations": [
+            "Tiefgarage steht ca. 40cm unter Wasser. Mehrere Fahrzeuge betroffen, Tor nicht öffenbar.",
+            "Liegenschaftsverwaltung meldet Tiefgarage geflutet. Ablauf vermutlich verstopft.",
+        ],
     },
     {
         "title_pattern": "Wasserschaden Mehrfamilienhaus",
@@ -184,6 +194,11 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, Dachziegel lose. Absturzgefahr auf Gehweg.",
+        "title_variations": ["Lose Dachziegel", "Dachziegel droht zu fallen"],
+        "message_variations": [
+            "Anrufer meldet 2-3 lose Ziegel über Eingangsbereich. Wind nimmt zu.",
+            "Mehrere Ziegel sichtbar verrutscht, einer bereits auf Gehweg. Bereich absperren.",
+        ],
     },
     {
         "title_pattern": "Fassadenteile lose",
@@ -235,6 +250,11 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Baum auf Strasse, blockiert Fahrbahn komplett.",
+        "title_variations": ["Baum quer auf Fahrbahn", "Umgestürzter Baum blockiert Strasse"],
+        "message_variations": [
+            "Grosser Baum quer auf Hauptstrasse. Beide Fahrspuren blockiert, Verkehr stockt.",
+            "Polizei meldet Baum auf Fahrbahn. Motorsäge nötig, Stamm ca. 50cm.",
+        ],
     },
     {
         "title_pattern": "Ast auf parkiertes Auto",
@@ -361,54 +381,102 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Brand, Wohnung 2. OG. Starker Rauch, Personen evtl. noch drin.",
+        "title_variations": ["Brand in Wohnung", "Rauch aus Wohnung"],
+        "message_variations": [
+            "Brand in MFH, Wohnung 3. OG. Starke Rauchentwicklung, Treppenhaus verraucht.",
+            "Nachbarn melden Rauch aus Wohnung. Bewohner nicht erreichbar.",
+            "Brand in Wohnung gemeldet. Bewohnerin draussen, Hund noch drin.",
+        ],
     },
     {
         "title_pattern": "Fahrzeugbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Fahrzeugbrand auf Parkplatz. Flammen sichtbar.",
+        "title_variations": ["PKW in Brand", "Auto brennt"],
+        "message_variations": [
+            "PKW brennt im Motorraum, Fahrer hat Fahrzeug verlassen. Reifen platzen bereits.",
+            "Fahrzeugbrand am Strassenrand, schwarzer Rauch sichtbar weithin.",
+            "Autobrand auf Quartierparkplatz. Zwei weitere Fahrzeuge bereits angeschlagen.",
+        ],
     },
     {
         "title_pattern": "Brand Gartenhaus",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Brand, Gartenhütte in Vollbrand. Gasflaschen drin.",
+        "title_variations": ["Gartenhütte in Brand", "Vollbrand Gartenhaus"],
+        "message_variations": [
+            "Gartenhaus in Vollbrand, Gasflasche und Benzinkanister bekannt im Schopf.",
+            "Schopf brennt lichterloh, Funkenflug bedroht Nachbargrundstück.",
+        ],
     },
     {
         "title_pattern": "Küchenbrand",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Brand klein, Küche Fettbrand. Starker Rauch, Bewohner draussen.",
+        "title_variations": ["Fettbrand Küche", "Brand in Küche"],
+        "message_variations": [
+            "Fettbrand auf Herd, Bewohnerin hat Wasser draufgeschüttet. Stichflamme bis Decke.",
+            "Pfannenbrand, Küche stark verqualmt. Bewohner versucht zu löschen.",
+            "Backofen brennt, Bewohner haben Wohnung verlassen. Rauch aus geöffnetem Fenster.",
+        ],
     },
     {
         "title_pattern": "Brand Dachstock",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Brand, Dachstock MFH. Flammen durch Dach sichtbar.",
+        "title_variations": ["Dachstockbrand", "Brand Dachstuhl"],
+        "message_variations": [
+            "Dachstuhl in Vollbrand, Funkenflug auf Nachbargebäude. DLK-Einsatz angefordert.",
+            "Brand im Dachgeschoss MFH, Flammen schlagen aus Dachfenstern.",
+        ],
     },
     {
         "title_pattern": "Brand Tiefgarage",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Rauch aus Tiefgarage, vermutlich Fahrzeugbrand. Starke Verrauchung.",
+        "title_variations": ["Rauch aus Tiefgarage", "Fahrzeugbrand Tiefgarage"],
+        "message_variations": [
+            "Starker Rauch aus Tiefgaragenausfahrt. Brandmeldeanlage hat ausgelöst.",
+            "Vermutlich brennt PKW im UG. Lüftung läuft, Treppenhaus rauchfrei.",
+        ],
     },
     {
         "title_pattern": "Brand Abfallcontainer",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Brand klein, Abfallcontainer unter Vordach. Flammen schlagen hoch.",
+        "title_variations": ["Container brennt", "Mülltonne in Brand"],
+        "message_variations": [
+            "Abfallcontainer brennt, Vordach bereits angerusst. Übergreifen möglich.",
+            "Müllcontainer in Brand neben Hauseingang. Funken Richtung Hecke.",
+        ],
     },
     {
         "title_pattern": "Brand Werkstatt",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Brand, Schreinerei. Starke Flammen, viel Holz. Keine Personen.",
+        "title_variations": ["Werkstattbrand", "Brand Industriebetrieb"],
+        "message_variations": [
+            "Brand in Schreinerei, Sägespäne brennen, Sprinkler hat ausgelöst.",
+            "Industriehalle, Brand an Lackierstation. Lösungsmittel im Lager.",
+        ],
     },
     {
         "title_pattern": "E-Bike Brand Keller",
         "incident_type": "brandbekaempfung",
         "category": "critical",
         "message_pattern": "Brand, E-Bike-Akku im Veloraum. Rauch im Treppenhaus.",
+        "title_variations": ["Akkubrand Veloraum", "Brand E-Bike"],
+        "message_variations": [
+            "E-Bike-Akku in Brand im Veloraum, Stichflammen, Treppenhaus verraucht.",
+            "Akkubrand beim Laden, Bewohner hat Stecker gezogen, Akku qualmt weiter.",
+        ],
     },
     # ========================================
     # CRITICAL - BMA
@@ -418,36 +486,66 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
         "message_pattern": "BMA, Schulhaus. Evakuation läuft.",
+        "title_variations": ["BMA Schule", "Brandmeldeanlage Schulhaus"],
+        "message_variations": [
+            "BMA-Aufschaltung Schulhaus, Hauswart vor Ort, kein Rauch sichtbar.",
+            "BMA Schule, Sektor C ausgelöst. Klassen werden gesammelt.",
+        ],
     },
     {
         "title_pattern": "BMA Altersheim",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
         "message_pattern": "BMA, Pflegeheim. Melder 2. Stock Ost.",
+        "title_variations": ["BMA Pflegeheim", "Brandmeldeanlage Pflegeheim"],
+        "message_variations": [
+            "BMA Pflegeheim, Melder Demenzstation. Personal evakuiert bewegliche Bewohner.",
+            "BMA-Auslösung Altersheim, Melder Stationsküche. Kein sichtbarer Rauch.",
+        ],
     },
     {
         "title_pattern": "BMA Gewerbe",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
         "message_pattern": "BMA, Industriebetrieb. Melder Produktionshalle.",
+        "title_variations": ["BMA Industriebetrieb", "Brandmeldeanlage Gewerbe"],
+        "message_variations": [
+            "BMA Industriebetrieb, Sektor Lager. Sicherheitsbeauftragter vor Ort.",
+            "BMA-Auslösung Produktionshalle, Schweissarbeiten gemeldet.",
+        ],
     },
     {
         "title_pattern": "BMA Einkaufszentrum",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
         "message_pattern": "BMA, Einkaufszentrum. Melder Küche Food Court.",
+        "title_variations": ["BMA Shopping", "Brandmeldeanlage Einkaufszentrum"],
+        "message_variations": [
+            "BMA Einkaufszentrum, Melder Lager Möbelabteilung. Center-Manager unterwegs.",
+            "BMA Mall, Sektor 3 ausgelöst. Personal evakuiert Kunden.",
+        ],
     },
     {
         "title_pattern": "BMA Hallenbad",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
         "message_pattern": "BMA, Hallenbad. Melder Technikraum, Chloranlage in der Nähe.",
+        "title_variations": ["BMA Hallenbad", "Brandmeldeanlage Hallenbad"],
+        "message_variations": [
+            "BMA Hallenbad, Melder Saunabereich. Badegäste werden evakuiert.",
+            "BMA-Auslösung Hallenbad Technikraum, Chlordosieranlage in der Nähe.",
+        ],
     },
     {
         "title_pattern": "BMA Wohnheim",
         "incident_type": "bma_unechte_alarme",
         "category": "critical",
         "message_pattern": "BMA, Studentenwohnheim. Melder 3. OG Küche.",
+        "title_variations": ["BMA Studentenwohnheim", "Brandmeldeanlage Wohnheim"],
+        "message_variations": [
+            "BMA Studentenwohnheim, Etagenküche 3. OG. Studierende strömen ins Freie.",
+            "BMA-Auslösung Wohnheim, Melder Gemeinschaftsküche.",
+        ],
     },
     # ========================================
     # CRITICAL - Personenrettung
@@ -457,30 +555,55 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "strassenrettung",
         "category": "critical",
         "message_pattern": "Person in Lift eingeschlossen, 4. OG. Steht zwischen Stockwerken.",
+        "title_variations": ["Lift blockiert mit Person", "Person im Aufzug eingeschlossen"],
+        "message_variations": [
+            "Lift steht zwischen 3. und 4. OG, Person mit Kinderwagen drin. Spricht ruhig.",
+            "Personen in Lift eingeschlossen, Stromausfall. Liftnotruf hat ausgelöst.",
+        ],
     },
     {
         "title_pattern": "Verkehrsunfall eingeklemmt",
         "incident_type": "strassenrettung",
         "category": "critical",
         "message_pattern": "VU, 2 PKW. Eine Person eingeklemmt. Sanität vor Ort.",
+        "title_variations": ["VU mit Eingeklemmtem", "Frontalkollision mit Eingeklemmtem"],
+        "message_variations": [
+            "Frontalkollision Landstrasse, 1 Person eingeklemmt im Fahrzeug, Sanität versorgt.",
+            "VU 2 Fahrzeuge, Fahrerseite stark deformiert. Hydraulisches Gerät nötig.",
+        ],
     },
     {
         "title_pattern": "Absturz Baugerüst",
         "incident_type": "strassenrettung",
         "category": "critical",
         "message_pattern": "Person ab Gerüst gestürzt, ca. 3m. Bewusstlos.",
+        "title_variations": ["Absturz vom Gerüst", "Sturz Baustelle"],
+        "message_variations": [
+            "Maler vom Gerüst gestürzt, ca. 4m, Sanität reanimiert.",
+            "Bauarbeiter abgestürzt, hängt im Geschirr in 6m Höhe.",
+        ],
     },
     {
         "title_pattern": "Kind in Schacht",
         "incident_type": "strassenrettung",
         "category": "critical",
         "message_pattern": "Kind in Kanalschacht gefallen. Ansprechbar.",
+        "title_variations": ["Kind in Kanalschacht", "Kindrettung Schacht"],
+        "message_variations": [
+            "Kind in Kanalschacht gefallen, ansprechbar, weint. Eltern panisch.",
+            "Junge in offenem Schacht, ca. 2m tief. Ansprechbar, keine Verletzungen sichtbar.",
+        ],
     },
     {
         "title_pattern": "Auffahrunfall Kreuzung",
         "incident_type": "strassenrettung",
         "category": "critical",
         "message_pattern": "VU, Auffahrunfall 3 Fahrzeuge. Betriebsstoffe laufen aus.",
+        "title_variations": ["VU Auffahrunfall", "Mehrere Fahrzeuge Auffahrunfall"],
+        "message_variations": [
+            "Auffahrunfall an Ampel, 3 PKW, Kühlflüssigkeit auf Fahrbahn, keine Eingeklemmten.",
+            "Massenkarambolage Kreuzung, Sanität vor Ort, Strasse muss gesperrt werden.",
+        ],
     },
     # ========================================
     # CRITICAL - Andere
@@ -490,18 +613,33 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "chemiewehr",
         "category": "critical",
         "message_pattern": "Gasgeruch in MFH. Quelle unbekannt, Bewohner draussen.",
+        "title_variations": ["Gasgeruch MFH", "Gasalarm Wohnung"],
+        "message_variations": [
+            "Gasgeruch im Treppenhaus, Quelle unklar. EW informiert, Bewohner draussen.",
+            "Bewohnerin meldet starken Gasgeruch in Küche, Ventil bereits zugedreht.",
+        ],
     },
     {
         "title_pattern": "Chemikalienunfall Labor",
         "incident_type": "chemiewehr",
         "category": "critical",
         "message_pattern": "Chemie ausgelaufen, Schule Chemiesaal. Dämpfe, Gebäude wird geräumt.",
+        "title_variations": ["Chemieunfall Schule", "Laborchemie ausgelaufen"],
+        "message_variations": [
+            "Chemikalien im Chemiesaal ausgelaufen, Dämpfe sichtbar. Schule wird evakuiert.",
+            "Reaktion im Labor, Rauchentwicklung. Lehrperson hat Klasse ins Freie geführt.",
+        ],
     },
     {
         "title_pattern": "Chlorgeruch Hallenbad",
         "incident_type": "chemiewehr",
         "category": "critical",
         "message_pattern": "Chlorgeruch Hallenbad. Dosieranlage vermutlich defekt.",
+        "title_variations": ["Chlorgas Hallenbad", "Chloralarm Hallenbad"],
+        "message_variations": [
+            "Starker Chlorgeruch Hallenbad, Bademeister hat Becken geräumt.",
+            "Chlorgas-Verdacht Hallenbad Technikraum, Anlage abgeschaltet.",
+        ],
     },
 ]
 

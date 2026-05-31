@@ -619,6 +619,12 @@ class EmergencyTemplate(Base):
     # Scenario content
     message_pattern: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # Optional alternates: when populated, the auto-generator picks a random
+    # entry (including title_pattern / message_pattern itself) so two spawns
+    # of the same template don't read identically.
+    title_variations: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    message_variations: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+
     # Metadata
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

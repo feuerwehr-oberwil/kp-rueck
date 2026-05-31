@@ -93,12 +93,15 @@ export function MapPickerModal({
   // Default center (Basel-Landschaft)
   const defaultCenter: LatLngExpression = [47.51637699933488, 7.561800450458299]
 
-  // Memoize center to prevent unnecessary re-renders
+  // Memoize center to prevent unnecessary re-renders.
+  // Use loose `!= null` so we accept both `null` (explicit no-value) and
+  // `undefined` (prop omitted) — strict `!== null` made undefined fall
+  // through and Leaflet threw "Invalid LatLng object: (undefined, undefined)".
   const center: LatLngExpression = useMemo(() => {
-    if (selectedLat !== null && selectedLon !== null) {
+    if (selectedLat != null && selectedLon != null) {
       return [selectedLat, selectedLon] as LatLngExpression
     }
-    if (initialLat !== null && initialLon !== null) {
+    if (initialLat != null && initialLon != null) {
       return [initialLat, initialLon] as LatLngExpression
     }
     return defaultCenter
@@ -117,9 +120,9 @@ export function MapPickerModal({
 
   // Reverse geocode when location is selected
   useEffect(() => {
-    if (selectedLat !== null && selectedLon !== null) {
+    if (Number.isFinite(selectedLat) && Number.isFinite(selectedLon)) {
       setIsGeocoding(true)
-      reverseGeocode(selectedLat, selectedLon)
+      reverseGeocode(selectedLat as number, selectedLon as number)
         .then((address) => {
           setGeocodedAddress(address)
         })
@@ -134,15 +137,31 @@ export function MapPickerModal({
   }, [selectedLat, selectedLon])
 
   const handleMapClick = useCallback((lat: number, lon: number) => {
+    // Defensive: a malformed click event (undefined/NaN) would otherwise
+    // poison selectedLat/Lon and crash Leaflet's L.latLng() constructor.
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return
     setSelectedLat(lat)
     setSelectedLon(lon)
   }, [])
 
+  // Guard for any spot that hands coords to Leaflet — accepts only finite
+  // numbers, rejects null / undefined / NaN. Returning a narrowed tuple lets
+  // TS infer `number` (not `number | null`) at every consumer site.
+  const validPin: [number, number] | null = useMemo(
+    () =>
+      Number.isFinite(selectedLat) && Number.isFinite(selectedLon)
+        ? [selectedLat as number, selectedLon as number]
+        : null,
+    [selectedLat, selectedLon],
+  )
+  const hasValidPin = validPin !== null
+
   const handleConfirm = () => {
-    if (selectedLat !== null && selectedLon !== null) {
+    if (validPin) {
+      const [lat, lon] = validPin
       // Use geocoded address, or fall back to coordinate string if Nominatim is down
-      const address = geocodedAddress || `${selectedLat.toFixed(6)}, ${selectedLon.toFixed(6)}`
-      onLocationSelect(selectedLat, selectedLon, address)
+      const address = geocodedAddress || `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+      onLocationSelect(lat, lon, address)
       onOpenChange(false)
     }
   }
@@ -171,7 +190,7 @@ export function MapPickerModal({
         <MapContainer
           key={mapKey}
           center={center}
-          zoom={selectedLat !== null && selectedLon !== null ? 16 : 13}
+          zoom={hasValidPin ? 16 : 13}
           className="w-full h-full"
           zoomControl={true}
         >
@@ -185,13 +204,11 @@ export function MapPickerModal({
 
           <MapClickHandler onLocationClick={handleMapClick} />
 
-          {selectedLat !== null && selectedLon !== null && (
-            <Marker position={[selectedLat, selectedLon]} />
-          )}
+          {validPin && <Marker position={validPin} />}
         </MapContainer>
       </div>
     )
-  }, [isClient, mapKey, center, selectedLat, selectedLon, tileUrl, attribution, handleTileError, handleMapClick])
+  }, [isClient, mapKey, center, validPin, tileUrl, attribution, handleTileError, handleMapClick])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -211,7 +228,7 @@ export function MapPickerModal({
           {MapView}
 
           {/* Selected location info */}
-          {selectedLat !== null && selectedLon !== null && (
+          {validPin && (
             <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
               <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
@@ -223,7 +240,7 @@ export function MapPickerModal({
                   <div className="text-sm text-muted-foreground">Keine Adresse gefunden</div>
                 )}
                 <div className="text-xs text-muted-foreground font-mono mt-1">
-                  {selectedLat.toFixed(8)}, {selectedLon.toFixed(8)}
+                  {validPin[0].toFixed(8)}, {validPin[1].toFixed(8)}
                 </div>
               </div>
             </div>
