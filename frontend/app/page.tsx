@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { topLoading } from "@/components/ui/top-loading-bar"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -74,8 +75,18 @@ export default function FireStationDashboard() {
     assignMaterialToOperation,
     assignVehicleToOperation,
     deleteOperation,
-    isLoading
+    isLoading,
+    isLoaded
   } = useOperations()
+
+  // Keep the top progress bar visible for the whole pre-ready window — auth
+  // check, event resolution and the first data load — so there's never a blank
+  // gap without feedback and never a premature empty state before content lands.
+  useEffect(() => {
+    if (isLoaded) return
+    topLoading.start()
+    return () => topLoading.done()
+  }, [isLoaded])
 
   const doubleBookedPersons = useDoubleBookedPersons(operations)
 
@@ -1129,7 +1140,7 @@ export default function FireStationDashboard() {
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
-                {isLoading ? null : personnel.filter((p) => p.status === "available").length === 0 ? (
+                {!isLoaded ? null : personnel.filter((p) => p.status === "available").length === 0 ? (
                   /* Show QR code when no available personnel */
                   <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
                     <p className="text-sm text-muted-foreground text-center">
@@ -1197,7 +1208,7 @@ export default function FireStationDashboard() {
 
           {/* Main Kanban Board */}
           <main id="kanban-main" className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
-            {isLoading ? null : (
+            {!isLoaded ? null : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
                   const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
@@ -1291,7 +1302,7 @@ export default function FireStationDashboard() {
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
-                {isLoading ? null : (
+                {!isLoaded ? null : (
                   <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.entries(groupedMaterials).map(([category, items]) => {
                       // Separate grouped vs ungrouped materials

@@ -87,6 +87,10 @@ interface OperationsContextType {
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   homeCity: string
   isLoading: boolean
+  /** True once the first data load has resolved. Stays true afterwards.
+   * Gate empty states on this so they only show when data is genuinely empty,
+   * never during the initial blank-before-fetch window. */
+  isLoaded: boolean
   /** Wall-clock time of the last successful operations load. null until the first load completes. */
   lastSyncAt: Date | null
   formatLocation: (fullAddress: string) => string
@@ -109,7 +113,7 @@ const OperationsContext = createContext<OperationsContextType | undefined>(undef
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const { selectedEvent } = useEvent()
+  const { selectedEvent, isEventLoaded } = useEvent()
 
   // Get personnel and materials from their dedicated contexts
   const { personnel, setPersonnel, refreshPersonnel } = usePersonnel()
@@ -427,7 +431,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
       setIsLoading(false)
-      setIsLoaded(true)
+      // Only declare "loaded" once events have actually resolved. While the
+      // EventProvider is still figuring out which event is selected, stay
+      // unloaded so the board shows the progress bar — not a premature empty
+      // state (empty columns + "Keine Personen" + QR) that flashes before data.
+      if (isEventLoaded) setIsLoaded(true)
       return
     }
 
@@ -769,7 +777,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       stopPolling()
       wsClient.disconnect()
     }
-  }, [authLoading, isAuthenticated, selectedEvent, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials, isLoading, isInitialLoad])
+  }, [authLoading, isAuthenticated, selectedEvent, isEventLoaded, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials, isLoading, isInitialLoad])
 
   const removeCrew = (operationId: string, crewName: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -1482,6 +1490,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations,
         homeCity,
         isLoading,
+        isLoaded,
         lastSyncAt,
         formatLocation,
         refreshOperations,
@@ -1587,6 +1596,7 @@ export function useIncidents() {
     personnel: context.personnel,
     materials: context.materials,
     isLoading: context.isLoading,
+    isLoaded: context.isLoaded,
     error: null,
     trainingMode: false,
     homeCity: context.homeCity,
