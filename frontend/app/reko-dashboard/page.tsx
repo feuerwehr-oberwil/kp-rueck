@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiClient, type ApiRekoDashboardPersonnel, type ApiRekoDashboardAssignment } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
-import { User, Clock, FileText, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
+import { User, Clock, FileText, ArrowLeft, CheckCircle } from 'lucide-react'
+import { DelayedSpinner } from '@/components/ui/delayed-spinner'
 import { wsClient } from '@/lib/websocket-client'
 
 type ViewMode = 'list' | 'assignments'
@@ -229,9 +230,7 @@ export default function RekoDashboardPage() {
         {/* Personnel List */}
         <div className="max-w-md mx-auto space-y-3">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <DelayedSpinner fullHeight={false} className="py-12" />
           ) : sortedPersonnel.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               Keine Reko-Personen verfügbar
@@ -308,9 +307,7 @@ export default function RekoDashboardPage() {
       {/* Assignments */}
       <div className="max-w-md mx-auto space-y-3">
         {loadingAssignments ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
+          <DelayedSpinner fullHeight={false} className="py-12" />
         ) : assignments.length === 0 ? (
           <div className="py-16 text-center">
             <div className="h-12 w-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">

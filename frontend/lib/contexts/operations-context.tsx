@@ -10,6 +10,7 @@ import { usePersonnel, type Person, type PersonStatus } from "./personnel-contex
 import { useMaterials, type Material } from "./materials-context"
 import { toast } from "sonner"
 import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
+import { topLoading } from "@/components/ui/top-loading-bar"
 import {
   decideCooldownClearAction,
   decidePollTickAction,
@@ -433,6 +434,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const eventId = selectedEvent.id
 
     const loadData = async (showLoading = true) => {
+      // Drive the top progress bar only for the meaningful initial load — not
+      // the silent ~5s background polls — so the board's first paint feels fast
+      // without the bar flickering on every sync.
+      const driveBar = showLoading && isInitialLoad
+      if (driveBar) topLoading.start()
       try {
         if (showLoading && isInitialLoad) {
           setIsLoading(true)
@@ -623,6 +629,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (isInitialLoad) setIsInitialLoad(false)
       } finally {
         setIsLoading(false)
+        if (driveBar) topLoading.done()
       }
     }
 

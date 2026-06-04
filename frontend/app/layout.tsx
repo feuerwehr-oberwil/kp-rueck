@@ -14,6 +14,7 @@ import { PersistentNotificationSidebar } from '@/components/notifications/persis
 import { AppShell } from '@/components/app-shell'
 import { DemoBanner } from '@/components/demo-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
+import { TopLoadingBar } from '@/components/ui/top-loading-bar'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -45,6 +46,7 @@ export default function RootLayout({
   return (
     <html lang="de" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+        <TopLoadingBar />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
