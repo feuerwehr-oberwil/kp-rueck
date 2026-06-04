@@ -10,6 +10,7 @@ from ..database import get_db
 from ..models import Setting
 from ..services import settings as settings_service
 from ..services.audit import log_action
+from ..services.settings import DEFAULT_SETTINGS
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -41,6 +42,12 @@ async def update_setting(
     request: Request = None,
 ):
     """Update setting (editor only)."""
+    # Only allow updates to known settings keys. The underlying service creates a
+    # row for any key, so without this guard an editor could inject arbitrary keys
+    # or overwrite sensitive config (e.g. railway_database_url).
+    if key not in DEFAULT_SETTINGS:
+        raise HTTPException(status_code=404, detail="Unknown setting key")
+
     # Get old value for audit logging
     old_value = await settings_service.get_setting(db, key)
 

@@ -162,6 +162,15 @@ class TestUpdateSetting:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
+    async def test_update_unknown_key_rejected(self, editor_client: AsyncClient):
+        """Unknown setting keys are rejected, preventing arbitrary key injection."""
+        response = await editor_client.patch(
+            "/api/settings/railway_database_url_evil",
+            json={"value": "postgresql://attacker"},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
     async def test_update_setting_updates_timestamp(
         self,
         editor_client: AsyncClient,

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..auth.dependencies import CurrentEditor
 from ..config import settings
 from ..database import audit_engine, engine, get_db
 from ..websocket_manager import ws_manager
@@ -151,8 +152,12 @@ async def demo_status():
 
 
 @router.post("/api/demo/reset")
-async def demo_reset():
-    """Manually trigger a demo reset. Only available in demo mode."""
+async def demo_reset(current_user: CurrentEditor):
+    """Manually trigger a demo reset. Only available in demo mode, editor only.
+
+    Requires editor auth so an anonymous visitor can't wipe and reseed every
+    table (which would disrupt other people sharing the demo instance).
+    """
     if not settings.demo_mode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
