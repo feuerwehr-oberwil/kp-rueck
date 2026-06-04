@@ -656,11 +656,38 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       loadData(false)
     }
 
+    // Surgically apply a driver_stay ("bleibt vor Ort") toggle from another
+    // client — flip just that vehicle's flag instead of reloading the board.
+    // Matches the assignment by id within the incident; idempotent for the
+    // sender (it already applied the value optimistically).
+    const applyDriverStayUpdate = (data: { id?: string; incident_id?: string; driver_stay?: boolean }) => {
+      if (!data?.id || !data?.incident_id) return
+      setOperations((ops) =>
+        ops.map((op) => {
+          if (op.id !== data.incident_id) return op
+          let vehicleName: string | undefined
+          for (const [name, assignmentId] of op.vehicleAssignments) {
+            if (assignmentId === data.id) { vehicleName = name; break }
+          }
+          if (!vehicleName) return op
+          const newVehicleDriverStay = new Map(op.vehicleDriverStay)
+          newVehicleDriverStay.set(vehicleName, data.driver_stay ?? false)
+          return { ...op, vehicleDriverStay: newVehicleDriverStay }
+        })
+      )
+    }
+
     const unsubscribeIncidentUpdate = wsClient.on('incident_update', handleRemoteUpdate)
     const unsubscribePersonnelUpdate = wsClient.on('personnel_update', handleRemoteUpdate)
     const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', handleRemoteUpdate)
     const unsubscribeMaterialUpdate = wsClient.on('material_update', handleRemoteUpdate)
-    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', handleRemoteUpdate)
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate) => {
+      if (update?.action === 'driver_stay') {
+        applyDriverStayUpdate(update.data)
+        return
+      }
+      handleRemoteUpdate()
+    })
     const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (_update: WebSocketUpdate) => {
       handleRemoteUpdate()
     })

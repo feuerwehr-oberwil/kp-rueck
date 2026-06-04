@@ -8,7 +8,9 @@ import { getWsUrl } from './env'
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
 export interface WebSocketUpdate<T = any> {
-  action: 'create' | 'update' | 'delete'
+  // 'driver_stay' is a targeted assignment toggle that clients apply surgically
+  // (no full reload), unlike structural create/update/delete events.
+  action: 'create' | 'update' | 'delete' | 'driver_stay'
   data: T
 }
 

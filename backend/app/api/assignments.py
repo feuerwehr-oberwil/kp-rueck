@@ -112,10 +112,15 @@ async def update_assignment(
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
 
-    # Only broadcast for structural changes, not property toggles like driver_stay
-    # The client already does optimistic updates; broadcasting would cause
-    # unnecessary full reloads and UI flicker on other panels
-    return assignment
+    # Broadcast with a dedicated "driver_stay" action so other clients can apply
+    # the change surgically (just the on-site flag on the matching assignment)
+    # instead of a full board reload. The sender re-applies its own optimistic
+    # value idempotently, so there is no flicker.
+    response = schemas.AssignmentResponse.model_validate(assignment)
+    background_tasks.add_task(
+        broadcast_assignment_update, response.model_dump(mode="json"), "driver_stay"
+    )
+    return response
 
 
 @router.post("/{incident_id}/release-all", status_code=status.HTTP_204_NO_CONTENT)

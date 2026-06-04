@@ -9,6 +9,7 @@ Tests cover:
 - Conflict detection
 """
 
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -153,6 +154,33 @@ async def test_assign_vehicle_success(editor_client: AsyncClient, test_incident:
     data = response.json()
     assert data["resource_type"] == "vehicle"
     assert data["resource_id"] == str(test_vehicle.id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_driver_stay_broadcasts(
+    editor_client: AsyncClient, test_incident: Incident, test_vehicle: Vehicle
+):
+    """Toggling driver_stay persists and broadcasts a 'driver_stay' action for live sync."""
+    assign = await editor_client.post(
+        f"/api/incidents/{test_incident.id}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+    assignment_id = assign.json()["id"]
+
+    with patch(
+        "app.api.assignments.broadcast_assignment_update", new_callable=AsyncMock
+    ) as mock_broadcast:
+        response = await editor_client.patch(
+            f"/api/incidents/{test_incident.id}/assignments/{assignment_id}",
+            json={"driver_stay": True},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["driver_stay"] is True
+    mock_broadcast.assert_awaited_once()
+    # Second positional arg is the action — must be the surgical "driver_stay" signal
+    assert mock_broadcast.await_args.args[1] == "driver_stay"
 
 
 @pytest.mark.asyncio
