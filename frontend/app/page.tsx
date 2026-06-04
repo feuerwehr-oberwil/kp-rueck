@@ -44,8 +44,6 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
-import { KanbanLoading } from "@/components/kanban/kanban-loading"
-import { PersonnelSidebarLoading, MaterialSidebarLoading } from "@/components/kanban/sidebar-loading"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { SidePanel } from "@/components/kanban/side-panel"
@@ -1131,11 +1129,9 @@ export default function FireStationDashboard() {
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
-                {isLoading ? (
-                  <PersonnelSidebarLoading />
-                ) : personnel.filter((p) => p.status === "available").length === 0 ? (
+                {isLoading ? null : personnel.filter((p) => p.status === "available").length === 0 ? (
                   /* Show QR code when no available personnel */
-                  <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
                     <p className="text-sm text-muted-foreground text-center">
                       Keine Personen verfügbar
                     </p>
@@ -1171,7 +1167,7 @@ export default function FireStationDashboard() {
                     ) : null}
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.keys(groupedPersonnel).map((role) => (
                       <div key={role}>
                         <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{role}</h3>
@@ -1201,10 +1197,8 @@ export default function FireStationDashboard() {
 
           {/* Main Kanban Board */}
           <main id="kanban-main" className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
-            {isLoading ? (
-              <KanbanLoading />
-            ) : (
-              <div className="flex h-full gap-3">
+            {isLoading ? null : (
+              <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
                   const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
                   return (
@@ -1297,10 +1291,8 @@ export default function FireStationDashboard() {
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
-                {isLoading ? (
-                  <MaterialSidebarLoading />
-                ) : (
-                  <div className="space-y-4">
+                {isLoading ? null : (
+                  <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.entries(groupedMaterials).map(([category, items]) => {
                       // Separate grouped vs ungrouped materials
                       const ungroupedItems = items.filter(m => !m.groupId)

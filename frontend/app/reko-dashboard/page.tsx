@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { apiClient, type ApiRekoDashboardPersonnel, type ApiRekoDashboardAssignment } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { User, Clock, FileText, ArrowLeft, CheckCircle } from 'lucide-react'
-import { DelayedSpinner } from '@/components/ui/delayed-spinner'
+import { topLoading } from '@/components/ui/top-loading-bar'
 import { wsClient } from '@/lib/websocket-client'
 
 type ViewMode = 'list' | 'assignments'
@@ -42,6 +42,19 @@ export default function RekoDashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const restoredFromCookie = useRef(false)
+
+  // Surface load activity through the global top bar instead of inline spinners,
+  // so the page shows nothing-but-the-bar while loading, then content fades in.
+  useEffect(() => {
+    if (!loading) return
+    topLoading.start()
+    return () => topLoading.done()
+  }, [loading])
+  useEffect(() => {
+    if (!loadingAssignments) return
+    topLoading.start()
+    return () => topLoading.done()
+  }, [loadingAssignments])
 
   // Sort personnel alphabetically by name for stable ordering (no reordering when status changes)
   const sortedPersonnel = useMemo(() => {
@@ -229,10 +242,8 @@ export default function RekoDashboardPage() {
 
         {/* Personnel List */}
         <div className="max-w-md mx-auto space-y-3">
-          {loading ? (
-            <DelayedSpinner fullHeight={false} className="py-12" />
-          ) : sortedPersonnel.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+          {loading ? null : sortedPersonnel.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground animate-in fade-in duration-300">
               Keine Reko-Personen verfügbar
             </div>
           ) : (
@@ -306,10 +317,8 @@ export default function RekoDashboardPage() {
 
       {/* Assignments */}
       <div className="max-w-md mx-auto space-y-3">
-        {loadingAssignments ? (
-          <DelayedSpinner fullHeight={false} className="py-12" />
-        ) : assignments.length === 0 ? (
-          <div className="py-16 text-center">
+        {loadingAssignments ? null : assignments.length === 0 ? (
+          <div className="py-16 text-center animate-in fade-in duration-300">
             <div className="h-12 w-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
               <Clock className="h-6 w-6 text-muted-foreground" />
             </div>
