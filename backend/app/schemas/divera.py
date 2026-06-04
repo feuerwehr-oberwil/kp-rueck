@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
+from .incidents import IncidentResponse
+
 
 class DiveraWebhookPayload(BaseModel):
     """Divera 24/7 webhook payload structure (actual format from Divera PRO)."""
@@ -81,6 +83,17 @@ class BulkAttachEmergenciesRequest(BaseModel):
         if len(v) > 100:
             raise ValueError("Cannot attach more than 100 emergencies at once")
         return v
+
+
+class BulkAttachEmergenciesResponse(BaseModel):
+    """Result of a bulk attach: incidents created plus any per-emergency errors.
+
+    Exposing ``errors`` lets the client report partial failures instead of
+    silently treating a partial success as a full one.
+    """
+
+    created: list[IncidentResponse]
+    errors: list[str] = []
 
 
 class AutoAttachSettingRequest(BaseModel):

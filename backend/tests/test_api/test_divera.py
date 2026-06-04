@@ -491,7 +491,22 @@ async def test_bulk_attach_success(editor_client: AsyncClient, db_session: Async
         )
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 3  # All 3 incidents created
+        assert len(data["created"]) == 3  # All 3 incidents created
+        assert data["errors"] == []
+
+        # Re-attaching the same emergencies to the same event should surface
+        # per-item errors instead of silently reporting success.
+        response = await editor_client.post(
+            "/api/divera/emergencies/bulk-attach",
+            json={
+                "event_id": str(test_event.id),
+                "emergency_ids": [str(e.id) for e in emergencies],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["created"] == []
+        assert len(data["errors"]) == 3  # all already attached
 
 
 @pytest.mark.asyncio

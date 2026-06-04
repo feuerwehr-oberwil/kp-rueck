@@ -981,8 +981,11 @@ class ApiClient {
     })
   }
 
-  async bulkAttachEmergencies(emergencyIds: string[], eventId: string): Promise<ApiIncident[]> {
-    return this.request<ApiIncident[]>('/api/divera/emergencies/bulk-attach', {
+  async bulkAttachEmergencies(
+    emergencyIds: string[],
+    eventId: string,
+  ): Promise<{ created: ApiIncident[]; errors: string[] }> {
+    return this.request<{ created: ApiIncident[]; errors: string[] }>('/api/divera/emergencies/bulk-attach', {
       method: 'POST',
       body: JSON.stringify({
         emergency_ids: emergencyIds,

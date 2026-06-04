@@ -12,11 +12,11 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
 from ..crud import divera as divera_crud
-from ..middleware.rate_limit import RateLimits, limiter
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..services.divera_members import build_sync_preview, execute_sync, fetch_divera_members
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update, broadcast_message, get_divera_poller_stats
@@ -384,7 +384,7 @@ async def attach_emergency_to_event(
     return incident_response
 
 
-@router.post("/emergencies/bulk-attach", response_model=list[schemas.IncidentResponse])
+@router.post("/emergencies/bulk-attach", response_model=schemas.BulkAttachEmergenciesResponse)
 async def bulk_attach_emergencies(
     request_data: schemas.BulkAttachEmergenciesRequest,
     request: Request,
@@ -471,7 +471,10 @@ async def bulk_attach_emergencies(
 
     logger.info(f"Bulk attach completed: {len(created_incidents)} incidents created, {len(errors)} errors")
 
-    return [schemas.IncidentResponse.model_validate(i) for i in created_incidents]
+    return schemas.BulkAttachEmergenciesResponse(
+        created=[schemas.IncidentResponse.model_validate(i) for i in created_incidents],
+        errors=errors,
+    )
 
 
 @router.delete("/emergencies/{emergency_id}", status_code=status.HTTP_204_NO_CONTENT)

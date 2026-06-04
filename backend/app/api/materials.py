@@ -3,10 +3,9 @@
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy import update
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from sqlalchemy import select
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
@@ -230,4 +229,10 @@ async def delete_material_group(
     )
 
     await db.delete(db_group)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Something still references this group (unexpected — members were just
+        # unlinked). Roll back and return a clear conflict instead of a raw 500.
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Material group is still in use")

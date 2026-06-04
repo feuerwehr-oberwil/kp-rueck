@@ -141,13 +141,26 @@ export default function DiveraPoolPage() {
       const emergencyIds = Array.from(selectedEmergencies);
       if (emergencyIds.length === 1) {
         await apiClient.attachEmergencyToEvent(emergencyIds[0], selectedEventId);
+        toast({
+          title: 'Erfolgreich angehängt',
+          description: '1 Notfall wurde dem Ereignis zugewiesen',
+        });
       } else {
-        await apiClient.bulkAttachEmergencies(emergencyIds, selectedEventId);
+        const { created, errors } = await apiClient.bulkAttachEmergencies(emergencyIds, selectedEventId);
+        if (errors.length > 0) {
+          // Partial success — tell the operator exactly how many actually attached.
+          toast({
+            variant: 'destructive',
+            title: 'Teilweise angehängt',
+            description: `${created.length} von ${emergencyIds.length} zugewiesen, ${errors.length} fehlgeschlagen.`,
+          });
+        } else {
+          toast({
+            title: 'Erfolgreich angehängt',
+            description: `${created.length} Notfälle wurden dem Ereignis zugewiesen`,
+          });
+        }
       }
-      toast({
-        title: 'Erfolgreich angehängt',
-        description: `${emergencyIds.length} Notfall${emergencyIds.length > 1 ? 'e' : ''} wurde${emergencyIds.length > 1 ? 'n' : ''} dem Ereignis zugewiesen`,
-      });
       setShowAttachDialog(false);
       setSelectedEmergencies(new Set());
       setSelectedEventId('');
