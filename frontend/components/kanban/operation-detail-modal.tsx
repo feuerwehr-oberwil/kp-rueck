@@ -114,6 +114,9 @@ export function OperationDetailModal({
         setAvailableVehicles(sorted.map((v) => ({ id: v.id, name: v.name, type: v.type })))
       } catch (error) {
         console.error('Failed to load vehicles:', error)
+        toast.error('Fahrzeuge konnten nicht geladen werden', {
+          description: 'Bitte erneut versuchen oder das Fenster neu öffnen.',
+        })
       } finally {
         setIsLoadingVehicles(false)
       }

@@ -101,13 +101,10 @@ export function NotificationProvider({
 
     try {
       const apiUrl = getApiUrl()
-      console.log('[Notifications] Fetching from:', `${apiUrl}/api/notifications/?event_id=${selectedEvent.id}`)
-
+      // Runs on a ~5s poll — stay quiet on the happy path, surface only real failures.
       const response = await fetch(`${apiUrl}/api/notifications/?event_id=${selectedEvent.id}`, {
         credentials: 'include',
       })
-
-      console.log('[Notifications] Response status:', response.status, response.statusText)
 
       if (!response.ok) {
         console.error('[Notifications] Failed to fetch:', response.status, response.statusText)
@@ -115,7 +112,6 @@ export function NotificationProvider({
       }
 
       const data = await response.json()
-      console.log('[Notifications] Received', data.length, 'notifications')
 
       // Convert created_at strings to Date objects
       return data.map((n: any) => ({

@@ -9,6 +9,14 @@ import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// Verbose request tracing is opt-in via DEBUG_API_PROXY=1 so production logs stay
+// quiet and never echo cookie/token values. Errors are always logged.
+const PROXY_DEBUG = process.env.DEBUG_API_PROXY === '1'
+const debug = (...args: unknown[]) => {
+  // eslint-disable-next-line no-console -- opt-in diagnostic tracing only
+  if (PROXY_DEBUG) console.log(...args)
+}
+
 async function proxyRequest(request: NextRequest) {
   const backendUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
 
@@ -18,7 +26,7 @@ async function proxyRequest(request: NextRequest) {
   }
 
   // Log backend URL once per request (helps debug connectivity)
-  console.log(`[API Proxy] Backend URL: ${backendUrl}`)
+  debug(`[API Proxy] Backend URL: ${backendUrl}`)
 
   // Get the path after /backend-api/
   const url = new URL(request.url)
@@ -37,8 +45,8 @@ async function proxyRequest(request: NextRequest) {
   // Fallback to raw header if cookies() doesn't work
   const rawCookie = request.headers.get('cookie')
 
-  // Debug: Log cookie status for all requests
-  console.log(`[API Proxy] ${request.method} ${targetPath} | cookies(): access=${!!accessToken} refresh=${!!refreshToken} | raw: ${!!rawCookie}`)
+  // Debug: Log cookie *presence* only (never values) for all requests
+  debug(`[API Proxy] ${request.method} ${targetPath} | cookies(): access=${!!accessToken} refresh=${!!refreshToken} | raw: ${!!rawCookie}`)
 
   // Build headers
   const headers = new Headers()
@@ -52,7 +60,7 @@ async function proxyRequest(request: NextRequest) {
   } else if (rawCookie) {
     headers.set('Cookie', rawCookie)
   } else {
-    console.log(`[API Proxy] WARNING: No cookies found for ${targetPath}`)
+    debug(`[API Proxy] WARNING: No cookies found for ${targetPath}`)
   }
 
   // Forward other headers (excluding problematic ones)
@@ -87,7 +95,7 @@ async function proxyRequest(request: NextRequest) {
       if (!location) break
       // Ensure HTTPS (backend behind Railway proxy may emit http:// URLs)
       location = location.replace(/^http:\/\//, 'https://')
-      console.log(`[API Proxy] Following ${response.status} redirect to: ${location}`)
+      debug(`[API Proxy] Following ${response.status} redirect to: ${location}`)
       response = await fetch(location, {
         method: request.method,
         headers,
@@ -97,18 +105,18 @@ async function proxyRequest(request: NextRequest) {
       redirectCount++
     }
 
-    // Debug: Log backend response status
+    // Debug: Log backend response status (presence of a cookie header only — never its value)
     if (response.status === 401) {
-      console.log(`[API Proxy] Backend returned 401 for ${targetPath} - Cookie header sent: ${headers.get('Cookie')?.substring(0, 50)}...`)
+      debug(`[API Proxy] Backend returned 401 for ${targetPath} - cookie header sent: ${headers.has('Cookie')}`)
     }
 
     // Build response headers
     const responseHeaders = new Headers()
 
-    // Forward Set-Cookie headers
+    // Forward Set-Cookie headers (log count only — values contain session tokens)
     const responseCookies = response.headers.getSetCookie()
     if (responseCookies.length > 0) {
-      console.log(`[API Proxy] Set-Cookie from backend for ${targetPath}:`, responseCookies)
+      debug(`[API Proxy] Set-Cookie from backend for ${targetPath}: ${responseCookies.length} cookie(s)`)
     }
     responseCookies.forEach(cookie => {
       responseHeaders.append('Set-Cookie', cookie)
@@ -141,7 +149,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[API Proxy] POST handler called:', request.url)
+  debug('[API Proxy] POST handler called:', request.url)
   return proxyRequest(request)
 }
 
