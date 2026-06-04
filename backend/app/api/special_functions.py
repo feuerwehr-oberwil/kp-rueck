@@ -20,6 +20,41 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events/{event_id}/special-functions", tags=["special-functions"])
 
 
+async def _enrich_assignments(db: AsyncSession, assignments) -> list[schemas.EventSpecialFunctionResponse]:
+    """Build response objects, bulk-loading personnel and vehicle names.
+
+    Avoids an N+1 query pattern: instead of two lookups per assignment, fetch all
+    referenced personnel and vehicles in one query each and resolve names from a map.
+    """
+    personnel_ids = {a.personnel_id for a in assignments}
+    vehicle_ids = {a.vehicle_id for a in assignments if a.vehicle_id}
+
+    personnel_names: dict[uuid.UUID, str] = {}
+    if personnel_ids:
+        result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
+        personnel_names = {p.id: p.name for p in result.scalars().all()}
+
+    vehicle_names: dict[uuid.UUID, str] = {}
+    if vehicle_ids:
+        result = await db.execute(select(Vehicle).where(Vehicle.id.in_(vehicle_ids)))
+        vehicle_names = {v.id: v.name for v in result.scalars().all()}
+
+    return [
+        schemas.EventSpecialFunctionResponse(
+            id=a.id,
+            event_id=a.event_id,
+            personnel_id=a.personnel_id,
+            personnel_name=personnel_names.get(a.personnel_id, "Unknown"),
+            function_type=a.function_type,
+            vehicle_id=a.vehicle_id,
+            vehicle_name=vehicle_names.get(a.vehicle_id) if a.vehicle_id else None,
+            assigned_at=a.assigned_at,
+            assigned_by=a.assigned_by,
+        )
+        for a in assignments
+    ]
+
+
 @router.get("/", response_model=list[schemas.EventSpecialFunctionResponse])
 async def list_event_special_functions(
     event_id: uuid.UUID,
@@ -28,37 +63,7 @@ async def list_event_special_functions(
 ):
     """List all special function assignments for an event (all users)."""
     assignments = await crud.get_event_special_functions(db, event_id)
-
-    # Enrich with personnel and vehicle names
-    response = []
-    for assignment in assignments:
-        # Get personnel name
-        personnel_result = await db.execute(select(Personnel).where(Personnel.id == assignment.personnel_id))
-        personnel = personnel_result.scalar_one_or_none()
-
-        # Get vehicle name if it's a driver assignment
-        vehicle_name = None
-        if assignment.vehicle_id:
-            vehicle_result = await db.execute(select(Vehicle).where(Vehicle.id == assignment.vehicle_id))
-            vehicle = vehicle_result.scalar_one_or_none()
-            if vehicle:
-                vehicle_name = vehicle.name
-
-        response.append(
-            schemas.EventSpecialFunctionResponse(
-                id=assignment.id,
-                event_id=assignment.event_id,
-                personnel_id=assignment.personnel_id,
-                personnel_name=personnel.name if personnel else "Unknown",
-                function_type=assignment.function_type,
-                vehicle_id=assignment.vehicle_id,
-                vehicle_name=vehicle_name,
-                assigned_at=assignment.assigned_at,
-                assigned_by=assignment.assigned_by,
-            )
-        )
-
-    return response
+    return await _enrich_assignments(db, assignments)
 
 
 @router.get("/personnel/{personnel_id}", response_model=list[schemas.EventSpecialFunctionResponse])
@@ -70,37 +75,7 @@ async def list_personnel_special_functions(
 ):
     """List all special functions for a specific person in an event (all users)."""
     assignments = await crud.get_personnel_special_functions(db, event_id, personnel_id)
-
-    # Enrich with personnel and vehicle names
-    response = []
-    for assignment in assignments:
-        # Get personnel name
-        personnel_result = await db.execute(select(Personnel).where(Personnel.id == assignment.personnel_id))
-        personnel = personnel_result.scalar_one_or_none()
-
-        # Get vehicle name if it's a driver assignment
-        vehicle_name = None
-        if assignment.vehicle_id:
-            vehicle_result = await db.execute(select(Vehicle).where(Vehicle.id == assignment.vehicle_id))
-            vehicle = vehicle_result.scalar_one_or_none()
-            if vehicle:
-                vehicle_name = vehicle.name
-
-        response.append(
-            schemas.EventSpecialFunctionResponse(
-                id=assignment.id,
-                event_id=assignment.event_id,
-                personnel_id=assignment.personnel_id,
-                personnel_name=personnel.name if personnel else "Unknown",
-                function_type=assignment.function_type,
-                vehicle_id=assignment.vehicle_id,
-                vehicle_name=vehicle_name,
-                assigned_at=assignment.assigned_at,
-                assigned_by=assignment.assigned_by,
-            )
-        )
-
-    return response
+    return await _enrich_assignments(db, assignments)
 
 
 @router.post("/", response_model=schemas.EventSpecialFunctionResponse, status_code=status.HTTP_201_CREATED)

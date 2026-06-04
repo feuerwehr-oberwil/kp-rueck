@@ -518,6 +518,7 @@ export default function MapView({
 
   // Check Traccar status and use WebSocket + polling fallback for positions
   useEffect(() => {
+    let cancelled = false
     let pollInterval: NodeJS.Timeout | null = null
     let unsubscribePositions: (() => void) | null = null
     let unsubscribeStatus: (() => void) | null = null
@@ -525,10 +526,14 @@ export default function MapView({
     const checkTraccarStatus = async () => {
       try {
         const status = await apiClient.getTraccarStatus()
+        // Bail if the component unmounted during the await — otherwise we'd
+        // register WS subscriptions after cleanup already ran, leaking them.
+        if (cancelled) return
         setTraccarConfigured(status.configured)
 
         if (status.configured) {
           await fetchVehiclePositions()
+          if (cancelled) return
 
           // Listen for WebSocket position updates (server-side Traccar polling)
           unsubscribePositions = wsClient.on('vehicle_positions_update', (data: { data: ApiVehiclePosition[] }) => {
@@ -566,6 +571,7 @@ export default function MapView({
     checkTraccarStatus()
 
     return () => {
+      cancelled = true
       if (pollInterval) clearInterval(pollInterval)
       unsubscribePositions?.()
       unsubscribeStatus?.()
