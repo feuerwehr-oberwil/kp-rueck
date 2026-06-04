@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Loader2 } from "lucide-react"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -30,8 +30,9 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
-      <div className="text-muted-foreground">Karte wird geladen...</div>
+    <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-muted rounded-lg">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="text-sm text-muted-foreground">Karte wird geladen…</div>
     </div>
   ),
 })

@@ -83,6 +83,7 @@ import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
 import { UserSettings } from '@/components/settings/user-settings';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { useIsMobile } from '@/components/ui/use-mobile';
@@ -563,10 +564,10 @@ export default function SettingsPage() {
               {/* Other Settings */}
               {loading ? (
                 <div className="space-y-4">
-                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-                  <div className="h-10 w-full bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-                  <div className="h-10 w-full bg-muted animate-pulse rounded" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-10 w-full" />
                 </div>
               ) : error ? (
                 <div>
@@ -1010,9 +1011,9 @@ export default function SettingsPage() {
                 <div className="space-y-3">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="flex gap-3">
-                      <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-                      <div className="h-4 w-16 bg-muted animate-pulse rounded" />
-                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-20" />
                     </div>
                   ))}
                 </div>
