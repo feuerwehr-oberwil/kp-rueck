@@ -191,6 +191,18 @@ class TestPoolDefinitions:
                 assert sub_key in _SUMMARIES, f"{sub_key} declared but no pool defined"
                 assert len(_SUMMARIES[sub_key]) > 0, f"{sub_key} pool is empty"
 
+    def test_elementar_subcategories_have_effort_and_power_profiles(self):
+        # Every subcategory the elementar resolver can return must have tuned
+        # effort + power profiles, otherwise reko falls back to a generic mismatch.
+        from app.services.training_simulation_data import (
+            _EFFORT_PROFILES,
+            _POWER_SUPPLY_WEIGHTS,
+        )
+
+        for sub_key in ("elementar_water", "elementar_tree", "elementar_storm"):
+            assert sub_key in _EFFORT_PROFILES, f"{sub_key} missing effort profile"
+            assert sub_key in _POWER_SUPPLY_WEIGHTS, f"{sub_key} missing power profile"
+
 
 class TestGenerateSummary:
     """End-to-end: generate_summary picks from the correct pool."""
@@ -225,6 +237,21 @@ class TestGenerateRekoReportData:
                 description="Brand klein, Küche Fettbrand. Bewohner draussen.",
             )
             assert data["summary_text"] in _SUMMARIES["brand_kueche"]
+
+    def test_elementar_subcategory_drives_effort(self):
+        # Water uses the (3,9,..) profile, tree the (2,6,0.5,1.5) profile — so
+        # effort should respect those subcategory bounds, not the generic one.
+        for _ in range(50):
+            water = generate_reko_report_data(
+                "elementarereignis", title="Wasser im Keller", description="Hochwasser MFH."
+            )
+            assert water["effort_json"]["personnel_count"] >= 3
+
+            tree = generate_reko_report_data(
+                "elementarereignis", title="Baum auf Strasse", description="Ast blockiert Fahrbahn."
+            )
+            assert tree["effort_json"]["personnel_count"] <= 6
+            assert tree["effort_json"]["estimated_duration_hours"] <= 1.5
 
     def test_diverse_einsaetze_relevance_lowered(self):
         # 60% relevant baseline for diverse — over 200 samples the average

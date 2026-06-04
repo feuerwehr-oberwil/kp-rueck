@@ -95,6 +95,11 @@ _DANGER_PROFILES: dict[str, dict[str, float]] = {
 _EFFORT_PROFILES: dict[str, tuple[int, int, float, float]] = {
     "brandbekaempfung": (6, 12, 1.5, 4.0),
     "elementarereignis": (2, 8, 0.5, 2.5),
+    # Elementar subcategories: water = heavier/longer (pumping), tree = quick
+    # clearing with few hands, storm = moderate height work.
+    "elementar_water": (3, 9, 1.0, 4.0),
+    "elementar_tree": (2, 6, 0.5, 1.5),
+    "elementar_storm": (3, 8, 1.0, 3.0),
     "strassenrettung": (4, 10, 0.5, 2.0),
     "technische_hilfeleistung": (3, 8, 0.5, 3.0),
     "oelwehr": (4, 10, 1.0, 3.0),
@@ -366,6 +371,11 @@ _SUMMARIES: dict[str, list[str]] = {
 _POWER_SUPPLY_WEIGHTS: dict[str, dict[str, float]] = {
     "brandbekaempfung": {"unavailable": 0.4, "emergency_needed": 0.3, "available": 0.2, "unknown": 0.1},
     "elementarereignis": {"available": 0.4, "unavailable": 0.25, "emergency_needed": 0.15, "unknown": 0.2},
+    # Water near electrics → power often cut; downed-tree rarely affects supply;
+    # storm can knock out power.
+    "elementar_water": {"unavailable": 0.4, "emergency_needed": 0.2, "available": 0.2, "unknown": 0.2},
+    "elementar_tree": {"available": 0.5, "unknown": 0.25, "unavailable": 0.15, "emergency_needed": 0.1},
+    "elementar_storm": {"available": 0.35, "unavailable": 0.3, "emergency_needed": 0.2, "unknown": 0.15},
     "strassenrettung": {"available": 0.5, "unknown": 0.3, "unavailable": 0.1, "emergency_needed": 0.1},
     "chemiewehr": {"unavailable": 0.3, "emergency_needed": 0.3, "available": 0.2, "unknown": 0.2},
     "oelwehr": {"available": 0.5, "unknown": 0.3, "unavailable": 0.1, "emergency_needed": 0.1},
@@ -556,18 +566,19 @@ def generate_reko_report_data(
     else:
         is_relevant = random.random() > 0.1  # 90% relevant
 
-    # For elementarereignis, resolve subcategory for danger profiles (which
-    # still live at the elementar_water/_tree/_storm level)
-    danger_type = incident_type
+    # For elementarereignis, resolve the subcategory (water/tree/storm) so danger,
+    # effort and power-supply profiles all match the actual scene. Non-elementar
+    # types keep their incident_type, so their profiles are unchanged.
+    resolved_type = incident_type
     if incident_type == "elementarereignis":
         text = " ".join(filter(None, [title, description])).lower()
-        danger_type = _get_elementar_subcategory(text)
+        resolved_type = _get_elementar_subcategory(text)
 
     return {
         "is_relevant": is_relevant,
-        "dangers_json": generate_dangers(danger_type),
-        "effort_json": generate_effort(incident_type),
-        "power_supply": generate_power_supply(incident_type),
+        "dangers_json": generate_dangers(resolved_type),
+        "effort_json": generate_effort(resolved_type),
+        "power_supply": generate_power_supply(resolved_type),
         "summary_text": generate_summary(incident_type, title, description),
         "additional_notes": None,
         "is_draft": False,
