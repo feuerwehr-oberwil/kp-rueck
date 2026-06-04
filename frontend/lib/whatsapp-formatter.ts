@@ -82,7 +82,9 @@ export function formatWhatsAppMessage({ operation, materials, rekoReport, vehicl
         const category = material.category ? ` (${material.category})` : ''
         return `${material.name}${category}`
       }
-      return matId
+      // Material was deleted after assignment — show a readable placeholder
+      // rather than leaking a raw UUID into the WhatsApp message.
+      return 'Unbekanntes Material'
     })
     assignments.push(`🧰 ${materialList.join(', ')}`)
   }
