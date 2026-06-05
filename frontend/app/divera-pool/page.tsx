@@ -128,7 +128,9 @@ export default function DiveraPoolPage() {
 
   const handleAttachClick = () => {
     if (selectedEmergencies.size === 0) return;
-    if (currentEvent?.id) {
+    // Default to the currently selected event, but only if it's in the
+    // selectable (non-archived) list so the dropdown can display it.
+    if (currentEvent?.id && activeEvents.some((e) => e.id === currentEvent.id)) {
       setSelectedEventId(currentEvent.id);
     }
     setShowAttachDialog(true);
@@ -375,7 +377,17 @@ export default function DiveraPoolPage() {
           <div className="py-4">
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
               <SelectTrigger>
-                <SelectValue placeholder="Ereignis wählen..." />
+                {/* Render the label from our own state — Radix derives SelectValue's
+                    text from the lazily-mounted SelectItems, which aren't mounted
+                    until the dropdown is first opened, so a preset value would
+                    otherwise show the placeholder. */}
+                <SelectValue placeholder="Ereignis wählen...">
+                  {(() => {
+                    const selected = activeEvents.find((e) => e.id === selectedEventId);
+                    if (!selected) return undefined;
+                    return `${selected.name}${selected.training_flag ? ' (Übung)' : ''}`;
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {activeEvents.map((event) => (
