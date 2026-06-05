@@ -31,6 +31,11 @@ export interface CommandPaletteHandlers {
   onSelectNextIncident?: () => void
   // Whether an incident is currently selected
   hasSelectedIncident?: boolean
+  // Map view (Lagekarte) actions — only registered on the map page
+  onToggleMapLabels?: () => void
+  onToggleMapLines?: () => void
+  onFocusVehicle?: (vehicleNumber: number) => void
+  mapVehicleNames?: string[]
 }
 
 interface CommandPaletteContextValue {

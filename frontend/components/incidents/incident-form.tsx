@@ -308,38 +308,46 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
           </div>
 
           {/* Nachbarhilfe Toggle */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div
+            className="flex cursor-pointer select-none items-center justify-between rounded-lg border p-4"
+            onClick={() => setFormData({ ...formData, nachbarhilfe: !formData.nachbarhilfe })}
+          >
             <div className="flex items-center gap-3">
               <Building2 className="h-5 w-5 text-muted-foreground" />
               <div className="space-y-0.5">
-                <Label htmlFor="nachbarhilfe" className="text-sm font-semibold">Nachbarhilfe</Label>
+                <Label className="text-sm font-semibold pointer-events-none">Nachbarhilfe</Label>
                 <p className="text-xs text-muted-foreground">
                   Einsatz mit Nachbarfeuerwehr-Beteiligung
                 </p>
               </div>
             </div>
             <Switch
-              id="nachbarhilfe"
+              aria-label="Nachbarhilfe"
               checked={formData.nachbarhilfe || false}
               onCheckedChange={(checked) => setFormData({ ...formData, nachbarhilfe: checked })}
+              onClick={(e) => e.stopPropagation()}
             />
           </div>
 
           {/* Am Warten Toggle */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div
+            className="flex cursor-pointer select-none items-center justify-between rounded-lg border p-4"
+            onClick={() => setFormData({ ...formData, am_warten: !formData.am_warten })}
+          >
             <div className="flex items-center gap-3">
               <Timer className="h-5 w-5 text-muted-foreground" />
               <div className="space-y-0.5">
-                <Label htmlFor="am-warten" className="text-sm font-semibold">Am Warten</Label>
+                <Label className="text-sm font-semibold pointer-events-none">Am Warten</Label>
                 <p className="text-xs text-muted-foreground">
                   Einsatz verzögert / wartet auf Ressourcen
                 </p>
               </div>
             </div>
             <Switch
-              id="am-warten"
+              aria-label="Am Warten"
               checked={formData.am_warten || false}
               onCheckedChange={(checked) => setFormData({ ...formData, am_warten: checked })}
+              onClick={(e) => e.stopPropagation()}
             />
           </div>
 

@@ -38,6 +38,9 @@ import {
   Settings,
   PanelRight,
   Footprints,
+  Tag,
+  Route,
+  Crosshair,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 
@@ -65,6 +68,10 @@ export function CommandPalette() {
     onAssignVehicle,
     onSetPriority,
     onToggleZuFuss,
+    onToggleMapLabels,
+    onToggleMapLines,
+    onFocusVehicle,
+    mapVehicleNames = [],
     hasSelectedIncident = false,
   } = useCommandPaletteHandlers()
 
@@ -219,6 +226,39 @@ export function CommandPalette() {
                 </CommandItem>
               )}
             </CommandGroup>
+
+            {(onToggleMapLabels || onToggleMapLines || onFocusVehicle) && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Karte">
+                  {onToggleMapLabels && (
+                    <CommandItem onSelect={() => runCommand(onToggleMapLabels)}>
+                      <Tag className="mr-2 h-4 w-4" />
+                      <span>Labels umschalten</span>
+                      <span className="ml-auto text-xs text-muted-foreground">L</span>
+                    </CommandItem>
+                  )}
+                  {onToggleMapLines && (
+                    <CommandItem onSelect={() => runCommand(onToggleMapLines)}>
+                      <Route className="mr-2 h-4 w-4" />
+                      <span>Zuweisungslinien umschalten</span>
+                      <span className="ml-auto text-xs text-muted-foreground">I</span>
+                    </CommandItem>
+                  )}
+                  {onFocusVehicle &&
+                    [1, 2, 3, 4, 5].map((n) => (
+                      <CommandItem
+                        key={`focus-vehicle-${n}`}
+                        onSelect={() => runCommand(() => onFocusVehicle?.(n))}
+                      >
+                        <Crosshair className="mr-2 h-4 w-4" />
+                        <span>{mapVehicleNames[n - 1] ? `${mapVehicleNames[n - 1]} anzeigen` : `Fahrzeug ${n} anzeigen`}</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{n}</span>
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              </>
+            )}
 
             <CommandSeparator />
 

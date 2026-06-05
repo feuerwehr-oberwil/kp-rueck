@@ -37,7 +37,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
   const priorityColor =
     PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
   const size = isHighlighted ? 32 : 24
-  const pulse = isHighlighted ? 'animation: pulse 0.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''
+  const pulse = isHighlighted ? 'animation: pulse 2s ease-in-out infinite;' : ''
 
   // Get status group styling
   const statusGroup = STATUS_TO_GROUP[incident.status as IncidentStatus] || 'open'
@@ -58,7 +58,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
     <style>
       @keyframes pulse {
         0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        50% { opacity: 0.72; }
       }
     </style>
     <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" tabindex="0" role="button" aria-label="Einsatz: ${a11yLabel}" style="${pulse} transition: all 0.2s ease; opacity: ${borderStyle.opacity}; outline: none;">
@@ -304,6 +304,37 @@ function PanToSelected({ selectedIncidentId, incidents, trigger }: { selectedInc
   return null
 }
 
+// Component to zoom in on a specific vehicle by name (keyboard shortcuts 1-5)
+function PanToVehicle({
+  vehicleName,
+  trigger,
+  positions,
+}: {
+  vehicleName: string | null
+  trigger?: number
+  positions: ApiVehiclePosition[]
+}) {
+  const map = useMap()
+  const positionsRef = useRef(positions)
+
+  useEffect(() => {
+    positionsRef.current = positions
+  }, [positions])
+
+  useEffect(() => {
+    if (!vehicleName || !trigger) return
+
+    const vp = positionsRef.current.find(
+      (p) => p.device_name.toLowerCase() === vehicleName.toLowerCase()
+    )
+    if (!vp) return
+
+    map.flyTo([vp.latitude, vp.longitude], 17, { duration: 0.8 })
+  }, [vehicleName, trigger, map])
+
+  return null
+}
+
 // Component to reset zoom to show all incidents and handle map resize
 function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Incident[] }) {
   const map = useMap()
@@ -443,6 +474,8 @@ interface MapViewProps {
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
   showAssignmentLines?: boolean // Show animated lines from vehicles to assigned incidents
   showLabels?: boolean // Show permanent labels on incident markers
+  focusVehicleName?: string | null // Vehicle name to zoom to (keys 1-5)
+  focusVehicleTrigger?: number // Counter to re-trigger zoom to the same vehicle
 }
 
 export default function MapView({
@@ -454,6 +487,8 @@ export default function MapView({
   statusFilters = { open: true, active: true, completed: false },
   showAssignmentLines = true,
   showLabels = true,
+  focusVehicleName = null,
+  focusVehicleTrigger = 0,
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -841,6 +876,9 @@ export default function MapView({
 
         {/* Pan to selected incident */}
         <PanToSelected selectedIncidentId={selectedIncidentId ?? null} incidents={mappableIncidents} trigger={panTrigger} />
+
+        {/* Zoom to a vehicle by name (keyboard shortcuts 1-5) */}
+        <PanToVehicle vehicleName={focusVehicleName} trigger={focusVehicleTrigger} positions={mappedVehiclePositions} />
 
         {/* Reset zoom on trigger */}
         <ResetZoom trigger={resetZoomTrigger} incidents={mappableIncidents} />

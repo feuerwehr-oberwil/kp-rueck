@@ -25,6 +25,7 @@ import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
+import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -89,6 +90,8 @@ export default function MapPage() {
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [showLabels, setShowLabels] = useState(true)
+  const [focusVehicleName, setFocusVehicleName] = useState<string | null>(null)
+  const [focusVehicleTrigger, setFocusVehicleTrigger] = useState(0)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const mapRef = useRef<any>(null)
@@ -128,6 +131,29 @@ export default function MapPage() {
       setDetailModalOpen(true)
     }
   }
+
+  // Zoom in on a vehicle by its 1-5 shortcut number
+  const focusVehicleByNumber = (vehicleNumber: number) => {
+    const vehicle = vehicleTypes[vehicleNumber - 1]
+    if (vehicle) {
+      setFocusVehicleName(vehicle.name)
+      setFocusVehicleTrigger((prev) => prev + 1)
+    }
+  }
+
+  // Register command palette (Cmd+K) handlers for the map view
+  const { registerHandlers, clearHandlers } = useCommandPalette()
+  useEffect(() => {
+    registerHandlers({
+      onRefresh: () => refreshIncidents(),
+      onToggleMapLabels: () => setShowLabels((prev) => !prev),
+      onToggleMapLines: () => setShowAssignmentLines((prev) => !prev),
+      onFocusVehicle: focusVehicleByNumber,
+      mapVehicleNames: vehicleTypes.map((v) => v.name),
+    })
+    return () => clearHandlers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes])
 
   // Use shared operation handlers hook
   const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
@@ -317,6 +343,25 @@ export default function MapPage() {
         e.preventDefault()
         refreshIncidents()
       }
+      // 'l' key to toggle marker labels
+      else if ((e.key === 'l' || e.key === 'L') && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setShowLabels((prev) => !prev)
+      }
+      // 'i' key to toggle assignment lines
+      else if ((e.key === 'i' || e.key === 'I') && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setShowAssignmentLines((prev) => !prev)
+      }
+      // '1'-'5' keys to zoom in on the corresponding vehicle
+      else if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+        const vehicle = vehicleTypes.find((v) => v.key === e.key)
+        if (vehicle) {
+          e.preventDefault()
+          setFocusVehicleName(vehicle.name)
+          setFocusVehicleTrigger((prev) => prev + 1)
+        }
+      }
       // Arrow keys to pan map (placeholder - would need to integrate with Leaflet map)
       // Note: Actual map panning would require access to the Leaflet map instance
       // For now, this is documented but not fully implemented
@@ -330,7 +375,7 @@ export default function MapPage() {
         clearTimeout(gPrefixTimeoutRef.current)
       }
     }
-  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick])
+  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes])
 
   return (
     <ProtectedRoute>
@@ -370,6 +415,8 @@ export default function MapPage() {
               statusFilters={statusFilters}
               showAssignmentLines={showAssignmentLines}
               showLabels={showLabels}
+              focusVehicleName={focusVehicleName}
+              focusVehicleTrigger={focusVehicleTrigger}
             />
           </main>
 
@@ -406,10 +453,11 @@ export default function MapPage() {
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                   }`}
-                  title={showLabels ? 'Labels ausblenden' : 'Labels einblenden'}
+                  title={showLabels ? 'Labels ausblenden (L)' : 'Labels einblenden (L)'}
                 >
                   <Tag className="h-3 w-3" />
                   Labels
+                  {!isMobile && <Kbd className="text-[10px]">L</Kbd>}
                 </button>
                 <button
                   onClick={() => setShowAssignmentLines(!showAssignmentLines)}
@@ -418,10 +466,11 @@ export default function MapPage() {
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                   }`}
-                  title={showAssignmentLines ? 'Zuweisungslinien ausblenden' : 'Zuweisungslinien einblenden'}
+                  title={showAssignmentLines ? 'Zuweisungslinien ausblenden (I)' : 'Zuweisungslinien einblenden (I)'}
                 >
                   <Route className="h-3 w-3" />
                   Linien
+                  {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
                 </button>
               </div>
 
@@ -460,6 +509,7 @@ export default function MapPage() {
                             : ""
                         }`}
                         onClick={() => handleIncidentClick(incident.id)}
+                        onDoubleClick={() => handleDetailsClick(incident)}
                       >
                         <div className="space-y-3">
                           {/* Location and Details button */}

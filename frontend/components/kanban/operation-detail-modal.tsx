@@ -326,19 +326,23 @@ export function OperationDetailModal({
           </div>
 
           {/* Nachbarhilfe Toggle */}
-          <div className="rounded-lg border border-border p-4 space-y-3">
+          <div
+            className="rounded-lg border border-border p-4 space-y-3 cursor-pointer select-none"
+            onClick={() => onUpdate({ nachbarhilfe: !operation.nachbarhilfe })}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Building2 className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <Label htmlFor="modal-nachbarhilfe" className="text-sm font-semibold">Nachbarhilfe</Label>
+                  <Label className="text-sm font-semibold pointer-events-none">Nachbarhilfe</Label>
                   <p className="text-xs text-muted-foreground">Einsatz mit Nachbarfeuerwehr-Beteiligung</p>
                 </div>
               </div>
               <Switch
-                id="modal-nachbarhilfe"
+                aria-label="Nachbarhilfe"
                 checked={operation.nachbarhilfe || false}
                 onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
+                onClick={(e) => e.stopPropagation()}
               />
             </div>
             {operation.nachbarhilfe && (
@@ -346,25 +350,30 @@ export function OperationDetailModal({
                 placeholder="Feuerwehr, Kontakt..."
                 value={operation.nachbarhilfeNote || ''}
                 onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
-                className="text-sm"
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm cursor-text select-text"
               />
             )}
           </div>
 
           {/* Am Warten Toggle */}
-          <div className="rounded-lg border border-border p-4 space-y-3">
+          <div
+            className="rounded-lg border border-border p-4 space-y-3 cursor-pointer select-none"
+            onClick={() => onUpdate({ amWarten: !operation.amWarten })}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Timer className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <Label htmlFor="modal-am-warten" className="text-sm font-semibold">Am Warten</Label>
+                  <Label className="text-sm font-semibold pointer-events-none">Am Warten</Label>
                   <p className="text-xs text-muted-foreground">Einsatz verzögert / wartet auf Ressourcen</p>
                 </div>
               </div>
               <Switch
-                id="modal-am-warten"
+                aria-label="Am Warten"
                 checked={operation.amWarten || false}
                 onCheckedChange={(checked) => onUpdate({ amWarten: checked })}
+                onClick={(e) => e.stopPropagation()}
               />
             </div>
             {operation.amWarten && (
@@ -372,7 +381,8 @@ export function OperationDetailModal({
                 placeholder="Grund der Verzögerung..."
                 value={operation.amWartenNote || ''}
                 onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
-                className="text-sm"
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm cursor-text select-text"
               />
             )}
           </div>

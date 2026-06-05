@@ -8,12 +8,18 @@ Digitaler Ersatz für die Magnettafel im Kommandoposten. Verwalten Sie Einsätze
 Hauptansicht beim Laden der App. Zeigt alle Einsätze in Status-Spalten (Eingegangen → Archiv). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
 
 ### Kartenansicht (`G M`)
-Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot). Klick auf Marker öffnet Einsatzdetails.
+Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot).
+
+**Klick-Verhalten:**
+- **Marker / Listen-Karte (Einfach-Klick)**: Wählt den Einsatz aus und zoomt zum Marker
+- **Listen-Karte (Doppelklick)**: Öffnet den vollständigen Detail-Dialog (Modal)
 
 **Kartenlegende:**
 - **Priorität (Füllung):** Grün=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Beendet
 - **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
+
+**Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen — siehe [Tastaturkürzel](#tastaturkürzel).
 
 ### Seitenpanel (Kanban)
 Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel. Wechseln Sie zwischen **Details** (Einsatzbearbeitung) und **Karte** (Mini-Übersicht).
@@ -269,6 +275,17 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
 | `M` | Material suchen |
+
+### Kartenansicht (Lagekarte)
+| Shortcut | Aktion |
+|----------|--------|
+| `L` | Labels (Marker-Beschriftungen) ein/aus |
+| `I` | Zuweisungslinien ein/aus |
+| `1-5` | Auf das entsprechende Fahrzeug zoomen |
+| `E` / `Enter` | Details des ausgewählten Einsatzes öffnen |
+| `Z` | Zoom zurücksetzen / Auswahl aufheben |
+| `S` / `/` | Suche fokussieren |
+| Doppelklick | Auf Listen-Karte → Details öffnen |
 
 ---
 
