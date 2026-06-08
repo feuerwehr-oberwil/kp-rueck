@@ -687,7 +687,7 @@ class PrintJob(Base):
     __tablename__ = "print_jobs"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    job_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'assignment' or 'board'
+    job_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'assignment', 'board', or 'test'
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
@@ -709,7 +709,7 @@ class PrintJob(Base):
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     __table_args__ = (
-        CheckConstraint("job_type IN ('assignment', 'board')", name="valid_print_job_type"),
+        CheckConstraint("job_type IN ('assignment', 'board', 'test')", name="valid_print_job_type"),
         CheckConstraint("status IN ('pending', 'printing', 'completed', 'failed')", name="valid_print_job_status"),
         Index("idx_print_jobs_status", "status"),
         Index("idx_print_jobs_created_at", "created_at"),

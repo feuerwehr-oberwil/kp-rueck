@@ -208,6 +208,32 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     p.cut()
 
 
+# ── Test print ───────────────────────────────────────────────────────
+
+def format_test_print(p: Network, payload: dict) -> None:
+    """Format and print a test slip to verify the full printing chain."""
+    _sep(p)
+    p.set(font="a", bold=True, align="center")
+    _text(p, "TESTDRUCK\n")
+    p.set(font="b", bold=False, align="center")
+    _text(p, "KP Rueck Thermodruck\n")
+    _sep(p)
+
+    p.set(font="b", bold=False, align="left")
+    _text(p, "Drucker erfolgreich verbunden.\n")
+    _text(p, "Umlaute: aeoeue / ÄÖÜ äöü\n")
+
+    requested_by = payload.get("requested_by", "")
+    if requested_by:
+        for line in _wrap_text(f"Ausgeloest von: {requested_by}", WIDTH_B):
+            _text(p, f"{line}\n")
+
+    _sep(p, "-")
+    p.set(font="b", bold=False, align="center")
+    _text(p, f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
+    p.cut()
+
+
 # ── Board snapshot ───────────────────────────────────────────────────
 
 def format_board_snapshot(p: Network, payload: dict) -> None:

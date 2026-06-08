@@ -28,6 +28,7 @@ export function PrinterSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [testingPrint, setTestingPrint] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
 
   // Track saved values to detect changes on blur
@@ -90,15 +91,67 @@ export function PrinterSettings() {
 
       if (!status?.enabled || !status.ip) {
         toast.info('Drucker ist nicht aktiviert oder konfiguriert');
+      } else if (!status.agent_online) {
+        toast.error('Print-Service (Raspberry Pi) ist offline – er meldet sich nicht beim Backend.');
       } else if (status.last_error) {
         toast.error(`Letzter Druckauftrag fehlgeschlagen: ${status.last_error}`);
       } else {
-        toast.success('Drucker ist konfiguriert und bereit');
+        toast.success('Print-Service online und Drucker konfiguriert');
       }
     } catch (error) {
       toast.error('Verbindungstest fehlgeschlagen');
     } finally {
       setTestingConnection(false);
+    }
+  };
+
+  const handleTestDruck = async () => {
+    setTestingPrint(true);
+    try {
+      const job = await apiClient.queueTestPrint();
+      toast.info('Testdruck eingereiht – warte auf Drucker…');
+
+      // Poll the job until the agent reports completion or failure.
+      // The agent polls every 5s while active (up to 60s when idle), so allow time.
+      // If the job is never claimed AND the agent isn't sending heartbeats, the
+      // print-service itself is down — bail early with a distinct message.
+      const TIMEOUT_MS = 70000;
+      const POLL_MS = 2000;
+      const start = Date.now();
+      let result = job;
+      let bailedServiceOffline = false;
+
+      while (Date.now() - start < TIMEOUT_MS) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        result = await apiClient.getPrintJob(job.id);
+        if (result.status === 'completed' || result.status === 'failed') break;
+
+        // Still pending after a few seconds → check whether the agent is alive.
+        if (result.status === 'pending' && Date.now() - start > 6000) {
+          const status = await loadPrinterStatus();
+          if (status && !status.agent_online) {
+            bailedServiceOffline = true;
+            break;
+          }
+        }
+      }
+
+      if (result.status === 'completed') {
+        toast.success('Testdruck erfolgreich gedruckt – das System ist bereit.');
+      } else if (result.status === 'failed') {
+        // Job was claimed and failed → agent is alive, the printer is the problem.
+        toast.error(`Drucker-Fehler: ${result.error_message ?? 'Drucker nicht erreichbar'}`);
+      } else if (bailedServiceOffline) {
+        toast.error('Print-Service (Raspberry Pi) ist offline – der Auftrag wird nicht abgeholt.');
+      } else {
+        toast.warning('Testdruck noch in der Warteschlange – der Agent verarbeitet ihn in Kürze.');
+      }
+    } catch (error) {
+      console.error('Test print failed:', error);
+      toast.error('Testdruck konnte nicht gestartet werden');
+    } finally {
+      setTestingPrint(false);
+      loadPrinterStatus();
     }
   };
 
@@ -133,23 +186,42 @@ export function PrinterSettings() {
 
       {/* Status */}
       <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {printerStatus?.enabled ? (
-              <>
-                <CheckCircle className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium">Drucker aktiviert</span>
-                {printerStatus.ip && (
-                  <span className="text-sm text-muted-foreground">
-                    ({printerStatus.ip}:{printerStatus.port})
-                  </span>
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              {printerStatus?.enabled ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-success" />
+                  <span className="text-sm font-medium">Drucker aktiviert</span>
+                  {printerStatus.ip && (
+                    <span className="text-sm text-muted-foreground">
+                      ({printerStatus.ip}:{printerStatus.port})
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Drucker deaktiviert</span>
+                </>
+              )}
+            </div>
+            {/* Print-service (Raspberry Pi agent) liveness */}
+            {printerStatus?.enabled && (
+              <div className="flex items-center gap-2">
+                {printerStatus.agent_online ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span className="text-sm font-medium">Print-Service online</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <span className="text-sm text-destructive">Print-Service offline</span>
+                    <span className="text-xs text-muted-foreground">(Raspberry Pi meldet sich nicht)</span>
+                  </>
                 )}
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Drucker deaktiviert</span>
-              </>
+              </div>
             )}
           </div>
           <Button
@@ -252,20 +324,33 @@ export function PrinterSettings() {
             />
           </div>
 
-          {/* Test Button */}
-          <div className="flex justify-end pt-2">
+          {/* Test Buttons */}
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleTestPrint}
-              disabled={testingConnection || !isEnabled}
+              disabled={testingConnection || testingPrint || !isEnabled}
             >
               {testingConnection ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Printer className="h-4 w-4 mr-2" />
+                <CheckCircle className="h-4 w-4 mr-2" />
               )}
               Verbindung testen
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleTestDruck}
+              disabled={testingPrint || testingConnection || !isEnabled}
+            >
+              {testingPrint ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4 mr-2" />
+              )}
+              Testdruck
             </Button>
           </div>
         </div>

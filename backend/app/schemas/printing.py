@@ -12,6 +12,7 @@ class PrintJobType(str, Enum):
 
     ASSIGNMENT = "assignment"
     BOARD = "board"
+    TEST = "test"
 
 
 class PrintJobStatus(str, Enum):
@@ -90,3 +91,7 @@ class PrinterStatusResponse(BaseModel):
     pending_jobs: int = 0
     last_job_at: datetime | None = None
     last_error: str | None = None
+    # Print-service (Raspberry Pi agent) liveness — distinguishes a dead agent
+    # from a reachable agent that simply can't reach the printer.
+    agent_online: bool = False
+    agent_last_seen: datetime | None = None

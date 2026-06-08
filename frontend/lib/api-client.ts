@@ -1171,6 +1171,16 @@ class ApiClient {
     })
   }
 
+  async queueTestPrint(): Promise<ApiPrintJob> {
+    return this.request<ApiPrintJob>('/api/print/test/', {
+      method: 'POST',
+    })
+  }
+
+  async getPrintJob(jobId: string): Promise<ApiPrintJob> {
+    return this.request<ApiPrintJob>(`/api/print/jobs/${jobId}/`)
+  }
+
   async getPendingPrintJobs(): Promise<ApiPrintJob[]> {
     return this.request<ApiPrintJob[]>('/api/print/jobs/pending/')
   }
@@ -1263,11 +1273,13 @@ export interface ApiPrinterStatus {
   pending_jobs: number
   last_job_at: string | null
   last_error: string | null
+  agent_online: boolean
+  agent_last_seen: string | null
 }
 
 export interface ApiPrintJob {
   id: string
-  job_type: 'assignment' | 'board'
+  job_type: 'assignment' | 'board' | 'test'
   status: 'pending' | 'printing' | 'completed' | 'failed'
   payload: Record<string, unknown>
   incident_id?: string

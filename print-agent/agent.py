@@ -212,6 +212,8 @@ class PrintAgent:
             logger.info(f"  Vehicles: {len(payload.get('vehicle_status', []))}")
             personnel = payload.get('personnel_summary', {})
             logger.info(f"  Personnel: {personnel.get('present', 0)}/{personnel.get('total', 0)}")
+        elif job_type == "test":
+            logger.info(f"  Test print requested by: {payload.get('requested_by', 'N/A')}")
 
         logger.info("=" * 40)
         return True, None
@@ -230,7 +232,7 @@ class PrintAgent:
 
         try:
             from escpos.printer import Network
-            from formatters import format_assignment_slip, format_board_snapshot
+            from formatters import format_assignment_slip, format_board_snapshot, format_test_print
 
             # Create new connection for each job
             p = Network(self.printer_ip, port=self.printer_port)
@@ -241,6 +243,9 @@ class PrintAgent:
             elif job_type == "board":
                 format_board_snapshot(p, payload)
                 logger.info(f"Printed board snapshot: {payload.get('event_name', 'unknown')}")
+            elif job_type == "test":
+                format_test_print(p, payload)
+                logger.info("Printed test slip")
             else:
                 logger.warning(f"Unknown job type: {job_type}")
                 p.close()
@@ -250,8 +255,25 @@ class PrintAgent:
             return True, None
 
         except Exception as e:
-            error_msg = str(e)
-            logger.error(f"Print error: {error_msg}")
+            raw = str(e)
+            logger.error(f"Print error: {raw}")
+            # Distinguish "printer unreachable" (network/socket) from other print
+            # errors so the UI can tell it apart from the print-service being down.
+            lowered = raw.lower()
+            connection_markers = (
+                "could not open socket",
+                "no route to host",
+                "connection refused",
+                "timed out",
+                "timeout",
+                "network is unreachable",
+                "errno",
+                "broken pipe",
+            )
+            if isinstance(e, OSError) or any(m in lowered for m in connection_markers):
+                error_msg = f"Drucker nicht erreichbar unter {self.printer_ip}:{self.printer_port}"
+            else:
+                error_msg = raw
             return False, error_msg
 
     async def process_job(self, job: dict):

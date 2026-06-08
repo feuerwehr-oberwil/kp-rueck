@@ -29,6 +29,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/print", tags=["print"])
 
+# How long after the agent's last contact we still consider it "online".
+# The agent polls for pending jobs at least every 60s (idle), so 90s gives margin.
+AGENT_ONLINE_THRESHOLD_SECONDS = 90
+
+# In-memory heartbeat for the print agent. This is a single-instance local
+# deployment (the agent polls a backend on the same LAN), so module-level state
+# is sufficient and avoids a DB write on every poll. Resets on backend restart;
+# the agent repopulates it within one poll interval.
+_agent_last_seen: datetime | None = None
+
+
+def _touch_agent_heartbeat() -> None:
+    """Record that the print agent just contacted the backend."""
+    global _agent_last_seen
+    _agent_last_seen = datetime.now(UTC)
+
 
 async def _load_incident_for_print(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
     """Load an incident with its assignments, raising 404 if missing."""
@@ -257,6 +273,7 @@ async def get_printer_config(
     NOTE: This endpoint does NOT require authentication.
     It's intended for the local print agent which doesn't have credentials.
     """
+    _touch_agent_heartbeat()
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
     ip = await settings_service.get_setting_value(db, "printer.ip", "")
     port = await settings_service.get_setting_value(db, "printer.port", "9100")
@@ -292,6 +309,11 @@ async def get_printer_status(
     )
     last_job = result.scalar_one_or_none()
 
+    agent_online = bool(
+        _agent_last_seen
+        and (datetime.now(UTC) - _agent_last_seen).total_seconds() < AGENT_ONLINE_THRESHOLD_SECONDS
+    )
+
     return schemas.PrinterStatusResponse(
         enabled=enabled.lower() == "true",
         ip=ip,
@@ -300,6 +322,8 @@ async def get_printer_status(
         pending_jobs=pending_count,
         last_job_at=last_job.completed_at if last_job else None,
         last_error=last_job.error_message if last_job and last_job.status == "failed" else None,
+        agent_online=agent_online,
+        agent_last_seen=_agent_last_seen,
     )
 
 
@@ -372,6 +396,35 @@ async def queue_board_print(
     return job
 
 
+@router.post("/test/", response_model=schemas.PrintJobResponse, status_code=status.HTTP_201_CREATED)
+async def queue_test_print(
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Queue a test print to verify the whole printing chain end-to-end."""
+    # Check if printer is enabled (the agent only polls when enabled)
+    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
+    if enabled.lower() != "true":
+        raise HTTPException(status_code=400, detail="Printer is not enabled")
+
+    payload = {
+        "requested_by": current_user.display_name or current_user.username,
+        "printed_at": datetime.now(UTC).isoformat(),
+    }
+
+    job = PrintJob(
+        job_type="test",
+        status="pending",
+        payload=payload,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    logger.info(f"Queued test print job {job.id} by user {current_user.username}")
+    return job
+
+
 @router.get("/jobs/pending/", response_model=list[schemas.PrintJobResponse])
 async def get_pending_jobs(
     db: AsyncSession = Depends(get_db),
@@ -384,11 +437,28 @@ async def get_pending_jobs(
     It's intended for the local print agent which doesn't have credentials.
     Security is handled by network isolation (local network only).
     """
+    _touch_agent_heartbeat()
     result = await db.execute(
         select(PrintJob).where(PrintJob.status == "pending").order_by(PrintJob.created_at).limit(limit)
     )
     jobs = result.scalars().all()
     return jobs
+
+
+@router.get("/jobs/{job_id}/", response_model=schemas.PrintJobResponse)
+async def get_print_job(
+    job_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single print job by id (used by the frontend to poll test-print results)."""
+    result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
+    job = result.scalar_one_or_none()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Print job not found")
+
+    return job
 
 
 @router.patch("/jobs/{job_id}/claim/", response_model=schemas.PrintJobResponse)
@@ -402,6 +472,7 @@ async def claim_print_job(
     NOTE: This endpoint does NOT require authentication.
     It's intended for the local print agent.
     """
+    _touch_agent_heartbeat()
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
     job = result.scalar_one_or_none()
 
@@ -432,6 +503,7 @@ async def complete_print_job(
     NOTE: This endpoint does NOT require authentication.
     It's intended for the local print agent.
     """
+    _touch_agent_heartbeat()
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
     job = result.scalar_one_or_none()
 
