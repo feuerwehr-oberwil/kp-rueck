@@ -118,6 +118,9 @@ class Settings(BaseSettings):
     demo_mode: bool = False  # Set DEMO_MODE=true for public demo deployment
     demo_reset_hours: int = 2  # How often to reset demo data (hours)
 
+    # Print Agent
+    print_agent_token: str = ""  # Shared token for print agent endpoints (empty = no auth, LAN-only installs)
+
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)
     max_photo_size_mb: int = 10  # Maximum file size in megabytes
