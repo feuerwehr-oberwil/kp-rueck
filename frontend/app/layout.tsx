@@ -12,6 +12,7 @@ import { CommandPaletteProvider } from '@/lib/contexts/command-palette-context'
 import { NotificationToasts } from '@/components/notifications/notification-toasts'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
 import { AppShell } from '@/components/app-shell'
+import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { DemoBanner } from '@/components/demo-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
@@ -69,6 +70,7 @@ export default function RootLayout({
                         </div>
                         <NotificationToasts />
                         <PersistentNotificationSidebar />
+                        <VehicleDriverPrompt />
                       </CommandPaletteProvider>
                     </NotificationProvider>
                   </OperationsProvider>

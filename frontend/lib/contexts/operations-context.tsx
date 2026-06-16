@@ -106,6 +106,25 @@ interface OperationsContextType {
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
+  /** Set when a vehicle is assigned to an incident but has no driver yet, so the UI
+   * can prompt for driver selection. The user may dismiss the prompt to leave the
+   * vehicle without a driver. Cleared via clearVehicleNeedingDriver. */
+  vehicleNeedingDriver: { vehicleId: string; vehicleName: string } | null
+  clearVehicleNeedingDriver: () => void
+  /** Set when a vehicle is being assigned to an incident while it is still
+   * assigned to one or more other incidents. The UI prompts the operator to
+   * either move the vehicle (remove from the others) or keep the double
+   * booking. Resolved via resolveVehicleConflict / cancelVehicleConflict. */
+  vehicleConflict:
+    | {
+        vehicleId: string
+        vehicleName: string
+        targetOperationId: string
+        conflicts: { operationId: string; operationLabel: string }[]
+      }
+    | null
+  resolveVehicleConflict: (action: "move" | "keep") => void
+  cancelVehicleConflict: () => void
   deleteOperation: (operationId: string) => Promise<void>
 }
 
@@ -126,6 +145,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [homeCity, setHomeCity] = useState<string>("")
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
+  // When a vehicle is assigned to an incident with no driver yet, hold it here so the
+  // UI can open driver assignment. Null when there's nothing to prompt for.
+  const [vehicleNeedingDriver, setVehicleNeedingDriver] = useState<{ vehicleId: string; vehicleName: string } | null>(null)
+  const clearVehicleNeedingDriver = useCallback(() => setVehicleNeedingDriver(null), [])
+  const [vehicleConflict, setVehicleConflict] = useState<OperationsContextType["vehicleConflict"]>(null)
 
   // Refs for debouncing and cooldowns
   const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
@@ -1033,8 +1057,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           console.error("Failed to update operation:", err)
           if (ApiError.isConflictError(err)) {
-            toast.error("Konflikt bei Aktualisierung", {
-              description: "Ein anderer Benutzer hat diesen Einsatz geändert. Daten werden aktualisiert..."
+            toast.info("Von anderer Person geändert", {
+              description: "Dieser Einsatz wurde gerade von jemand anderem aktualisiert — die Ansicht wurde neu geladen."
             })
             await refreshOperations()
           } else if (batchedUpdates.status !== undefined) {
@@ -1348,6 +1372,26 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // A vehicle is a single physical asset — if it's still assigned elsewhere,
+    // ask the operator whether to move it here or keep the double booking,
+    // rather than silently double-booking it.
+    const conflicts = operations
+      .filter(op => op.id !== operationId && op.vehicles.includes(vehicleName))
+      .map(op => ({ operationId: op.id, operationLabel: op.location }))
+    if (conflicts.length > 0) {
+      setVehicleConflict({ vehicleId, vehicleName, targetOperationId: operationId, conflicts })
+      return
+    }
+
+    await performVehicleAssign(vehicleId, vehicleName, operationId)
+  }
+
+  const performVehicleAssign = async (vehicleId: string, vehicleName: string, operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation || operation.vehicles.includes(vehicleName)) {
+      return
+    }
+
     recentAssignmentRef.current = true
     if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
 
@@ -1373,6 +1417,24 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             return op
           })
         )
+
+        // Prompt for a driver if this vehicle doesn't have one yet. Drivers are
+        // event-scoped (EventSpecialFunction), so a vehicle that already has a
+        // driver from elsewhere in the event isn't prompted again. Non-fatal:
+        // if we can't determine the driver state, we simply skip the prompt.
+        if (selectedEvent?.id) {
+          try {
+            const functions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+            const hasDriver = functions.some(
+              (f) => f.function_type === "driver" && f.vehicle_id === vehicleId
+            )
+            if (!hasDriver) {
+              setVehicleNeedingDriver({ vehicleId, vehicleName })
+            }
+          } catch (err) {
+            console.error("Failed to check vehicle driver state:", err)
+          }
+        }
       } catch (err) {
         console.error("Failed to assign vehicle:", err)
         setOperations((ops) =>
@@ -1505,11 +1567,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         assignRekoPersonToOperation,
         assignMaterialToOperation,
         assignVehicleToOperation,
+        vehicleNeedingDriver,
+        clearVehicleNeedingDriver,
         deleteOperation,
       }}
     >
       {children}
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={alertAudioRef} src="/alerts/mixkit-digital-quick-tone-2866.wav" preload="auto" />
     </OperationsContext.Provider>
   )
