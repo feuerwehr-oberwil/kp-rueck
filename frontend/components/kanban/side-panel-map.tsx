@@ -131,17 +131,29 @@ function FitBounds({ operations, vehiclePositions = [] }: { operations: Operatio
 }
 
 // Component to pan to selected operation
-function PanToSelected({ selectedOperation }: { selectedOperation: Operation | null }) {
+function PanToSelected({
+  selectedOperation,
+  panToNonce,
+}: {
+  selectedOperation: Operation | null
+  panToNonce?: number
+}) {
   const map = useMap()
 
+  // Key on id + coordinates (primitives) rather than the operation object:
+  // the operations array is replaced on every poll/WebSocket update, so the
+  // object reference churns even when nothing changed. Depending on the object
+  // would re-fire flyTo every few seconds and fight the user's manual panning.
+  // panToNonce is bumped on every selection click so re-clicking the same
+  // alarm (after manually panning away) recenters it again.
+  const id = selectedOperation?.id ?? null
+  const lat = selectedOperation?.coordinates?.[0]
+  const lng = selectedOperation?.coordinates?.[1]
+
   useEffect(() => {
-    if (!selectedOperation || !selectedOperation.coordinates) return
-
-    const [lat, lng] = selectedOperation.coordinates
-    if (!lat || !lng) return
-
+    if (!id || !lat || !lng) return
     map.flyTo([lat, lng], 15, { duration: 0.5 })
-  }, [selectedOperation, map])
+  }, [id, lat, lng, panToNonce, map])
 
   return null
 }
@@ -149,6 +161,7 @@ function PanToSelected({ selectedOperation }: { selectedOperation: Operation | n
 interface SidePanelMapContentProps {
   operations: Operation[]
   selectedOperation: Operation | null
+  panToNonce?: number
   onSelectOperation: (operation: Operation) => void
   onSwitchToDetail?: (operation: Operation) => void
   formatLocation: (address: string) => string
@@ -157,6 +170,7 @@ interface SidePanelMapContentProps {
 export default function SidePanelMapContent({
   operations,
   selectedOperation,
+  panToNonce,
   onSelectOperation,
   onSwitchToDetail,
   formatLocation,
@@ -307,7 +321,7 @@ export default function SidePanelMapContent({
         <FitBounds operations={mappableOperations} vehiclePositions={assignedVehiclePositions} />
 
         {/* Pan to selected */}
-        <PanToSelected selectedOperation={selectedOperation} />
+        <PanToSelected selectedOperation={selectedOperation} panToNonce={panToNonce} />
       </MapContainer>
 
       {/* Mini legend */}

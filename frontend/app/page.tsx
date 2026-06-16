@@ -261,6 +261,9 @@ export default function FireStationDashboard() {
 
   // Side panel state for ultrawide monitors
   const [panelSelectedId, setPanelSelectedId] = useState<string | null>(null)
+  // Bumped on every side-panel selection click so the map recenters even when
+  // the same alarm is clicked again (e.g. after the user manually panned away)
+  const [panToNonce, setPanToNonce] = useState(0)
   const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'map' | 'collapsed'>('collapsed')
   // Derive selected operation for side panel
   const panelSelectedOperation = useMemo(() => {
@@ -785,6 +788,7 @@ export default function FireStationDashboard() {
   const handleCardSelect = (operation: Operation) => {
     // Select operation for side panel view
     setPanelSelectedId(operation.id)
+    setPanToNonce((n) => n + 1) // Recenter map even if the same alarm is re-clicked
     setHoveredOperationId(operation.id) // Also update hovered for keyboard shortcuts
     // Auto-open side panel in detail mode if collapsed
     if (sidePanelMode === 'collapsed') {
@@ -1251,11 +1255,13 @@ export default function FireStationDashboard() {
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
             selectedOperation={panelSelectedOperation}
+            panToNonce={panToNonce}
             operations={filteredOperations}
             materials={materials}
             formatLocation={formatLocation}
             onSelectOperation={(op) => {
               setPanelSelectedId(op.id)
+              setPanToNonce((n) => n + 1) // Recenter on every marker/list click too
               setHoveredOperationId(op.id)
             }}
             vehicleTypes={vehicleTypes}

@@ -39,6 +39,8 @@ interface SidePanelProps {
   materials: Material[]
   formatLocation: (address: string) => string
   onSelectOperation: (operation: Operation) => void
+  // Bumped on every selection click so the map recenters even when the same alarm is clicked again
+  panToNonce?: number
   vehicleTypes: Array<{ key: string; name: string; id: string; type: string }>
   // Editing handlers
   onUpdate: (updates: Partial<Operation>) => void
@@ -62,6 +64,7 @@ export function SidePanel({
   materials,
   formatLocation,
   onSelectOperation,
+  panToNonce,
   vehicleTypes,
   onUpdate,
   onDelete,
@@ -173,6 +176,7 @@ export function SidePanel({
           <SidePanelMap
             operations={operations}
             selectedOperation={selectedOperation}
+            panToNonce={panToNonce}
             onSelectOperation={onSelectOperation}
             onSwitchToDetail={(operation) => {
               onSelectOperation(operation)
@@ -916,12 +920,14 @@ const SidePanelMapContent = dynamic(
 function SidePanelMap({
   operations,
   selectedOperation,
+  panToNonce,
   onSelectOperation,
   onSwitchToDetail,
   formatLocation,
 }: {
   operations: Operation[]
   selectedOperation: Operation | null
+  panToNonce?: number
   onSelectOperation: (operation: Operation) => void
   onSwitchToDetail: (operation: Operation) => void
   formatLocation: (address: string) => string
@@ -931,6 +937,7 @@ function SidePanelMap({
       <SidePanelMapContent
         operations={operations}
         selectedOperation={selectedOperation}
+        panToNonce={panToNonce}
         onSelectOperation={onSelectOperation}
         onSwitchToDetail={onSwitchToDetail}
         formatLocation={formatLocation}
