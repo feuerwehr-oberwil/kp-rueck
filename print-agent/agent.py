@@ -15,6 +15,8 @@ Environment Variables:
     ACTIVE_DURATION: Seconds to stay in active mode after last job (default: 300)
     DRY_RUN: Set to "true" to simulate printing without a real printer
     LOG_LEVEL: Logging level (default: INFO)
+    AGENT_TOKEN: Shared token sent as X-Agent-Token header (must match the
+        backend's PRINT_AGENT_TOKEN; leave empty for LAN-only installs)
 
 Usage:
     python agent.py
@@ -43,6 +45,7 @@ POLL_INTERVAL_ACTIVE = int(os.getenv("POLL_INTERVAL_ACTIVE", "5"))
 ACTIVE_DURATION = int(os.getenv("ACTIVE_DURATION", "900"))
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+AGENT_TOKEN = os.getenv("AGENT_TOKEN", "")
 
 # Setup logging
 logging.basicConfig(
@@ -68,7 +71,8 @@ class PrintAgent:
     def __init__(self, backend_url: str, dry_run: bool = False):
         self.backend_url = backend_url.rstrip("/")
         self.dry_run = dry_run
-        self.client = httpx.AsyncClient(timeout=30.0, http2=False)
+        headers = {"X-Agent-Token": AGENT_TOKEN} if AGENT_TOKEN else {}
+        self.client = httpx.AsyncClient(timeout=30.0, http2=False, headers=headers)
         self.printer_ip = None
         self.printer_port = 9100
         self.printer_enabled = False
@@ -214,6 +218,9 @@ class PrintAgent:
             logger.info(f"  Personnel: {personnel.get('present', 0)}/{personnel.get('total', 0)}")
         elif job_type == "test":
             logger.info(f"  Test print requested by: {payload.get('requested_by', 'N/A')}")
+        elif job_type == "qr_code":
+            logger.info(f"  Title: {payload.get('title', 'N/A')}")
+            logger.info(f"  QR content: {payload.get('qr_content', 'N/A')}")
 
         logger.info("=" * 40)
         return True, None
@@ -232,7 +239,12 @@ class PrintAgent:
 
         try:
             from escpos.printer import Network
-            from formatters import format_assignment_slip, format_board_snapshot, format_test_print
+            from formatters import (
+                format_assignment_slip,
+                format_board_snapshot,
+                format_qr_code_slip,
+                format_test_print,
+            )
 
             # Create new connection for each job
             p = Network(self.printer_ip, port=self.printer_port)
@@ -246,6 +258,9 @@ class PrintAgent:
             elif job_type == "test":
                 format_test_print(p, payload)
                 logger.info("Printed test slip")
+            elif job_type == "qr_code":
+                format_qr_code_slip(p, payload)
+                logger.info(f"Printed QR-code slip: {payload.get('title', 'unknown')}")
             else:
                 logger.warning(f"Unknown job type: {job_type}")
                 p.close()

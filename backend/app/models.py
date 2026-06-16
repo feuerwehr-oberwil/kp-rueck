@@ -310,6 +310,12 @@ class Incident(Base):
     am_warten: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Delayed/waiting emergency
     am_warten_note: Mapped[str | None] = mapped_column(Text, nullable=True)  # Note for am_warten
     zu_fuss: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Personnel go by foot (not by vehicle)
+    # Where the alarm originated: "operator" (created in the dashboard by a logged-in user) or
+    # "intake" (created via the public token-gated alarm form by a phone operator / walk-in).
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="operator", server_default="operator")
+    # Manual sort order within a status column (lower = higher on the board). Operators
+    # reorder cards to prioritize alarms; this is the persisted, shared order.
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -357,6 +363,8 @@ class Incident(Base):
         Index("idx_incidents_event_status_deleted", "event_id", "status", "deleted_at"),
         Index("idx_incidents_priority", "priority"),
         Index("idx_incidents_created_at", "created_at"),
+        # Supports ORDER BY position within an event's status column.
+        Index("idx_incidents_event_status_position", "event_id", "status", "position"),
     )
 
 
@@ -687,7 +695,7 @@ class PrintJob(Base):
     __tablename__ = "print_jobs"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    job_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'assignment', 'board', or 'test'
+    job_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'assignment', 'board', 'test', or 'qr_code'
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
@@ -709,7 +717,7 @@ class PrintJob(Base):
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     __table_args__ = (
-        CheckConstraint("job_type IN ('assignment', 'board', 'test')", name="valid_print_job_type"),
+        CheckConstraint("job_type IN ('assignment', 'board', 'test', 'qr_code')", name="valid_print_job_type"),
         CheckConstraint("status IN ('pending', 'printing', 'completed', 'failed')", name="valid_print_job_status"),
         Index("idx_print_jobs_status", "status"),
         Index("idx_print_jobs_created_at", "created_at"),

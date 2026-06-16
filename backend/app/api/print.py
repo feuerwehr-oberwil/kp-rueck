@@ -10,16 +10,18 @@ The print agent runs on the command post computer and polls for jobs.
 """
 
 import logging
+import secrets
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..config import settings as app_settings
 from ..crud.print_jobs import build_assignment_payload
 from ..database import get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
@@ -28,6 +30,19 @@ from ..services import settings as settings_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/print", tags=["print"])
+
+
+async def require_print_agent(x_agent_token: str = Header(default="")) -> None:
+    """Authenticate the print agent via a shared token.
+
+    If PRINT_AGENT_TOKEN is unset, all requests are allowed (backwards
+    compatible for LAN-only installs where security is network isolation).
+    """
+    if not app_settings.print_agent_token:
+        return
+    if not secrets.compare_digest(x_agent_token, app_settings.print_agent_token):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid agent token")
+
 
 # How long after the agent's last contact we still consider it "online".
 # The agent polls for pending jobs at least every 60s (idle), so 90s gives margin.
@@ -263,15 +278,15 @@ async def _build_board_payload(
     return payload
 
 
-@router.get("/config/", response_model=schemas.PrinterConfigResponse)
+@router.get("/config/", response_model=schemas.PrinterConfigResponse, dependencies=[Depends(require_print_agent)])
 async def get_printer_config(
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get printer configuration for the print agent.
 
-    NOTE: This endpoint does NOT require authentication.
-    It's intended for the local print agent which doesn't have credentials.
+    Authenticated via the shared agent token (X-Agent-Token) when
+    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
     """
     _touch_agent_heartbeat()
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
@@ -310,8 +325,7 @@ async def get_printer_status(
     last_job = result.scalar_one_or_none()
 
     agent_online = bool(
-        _agent_last_seen
-        and (datetime.now(UTC) - _agent_last_seen).total_seconds() < AGENT_ONLINE_THRESHOLD_SECONDS
+        _agent_last_seen and (datetime.now(UTC) - _agent_last_seen).total_seconds() < AGENT_ONLINE_THRESHOLD_SECONDS
     )
 
     return schemas.PrinterStatusResponse(
@@ -425,7 +439,42 @@ async def queue_test_print(
     return job
 
 
-@router.get("/jobs/pending/", response_model=list[schemas.PrintJobResponse])
+@router.post("/qr-code/", response_model=schemas.PrintJobResponse, status_code=status.HTTP_201_CREATED)
+async def queue_qr_code_print(
+    request: schemas.PrintQRCodeRequest,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Queue a QR-code slip (shareable link as QR + text) for printing."""
+    # Check if printer is enabled (the agent only polls when enabled)
+    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
+    if enabled.lower() != "true":
+        raise HTTPException(status_code=400, detail="Printer is not enabled")
+
+    payload = {
+        "qr_content": request.qr_content,
+        "title": request.title,
+        "subtitle": request.subtitle,
+        "printed_at": datetime.now(UTC).isoformat(),
+    }
+
+    job = PrintJob(
+        job_type="qr_code",
+        status="pending",
+        payload=payload,
+        event_id=request.event_id,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    logger.info(f"Queued QR-code print job {job.id} by user {current_user.username}")
+    return job
+
+
+@router.get(
+    "/jobs/pending/", response_model=list[schemas.PrintJobResponse], dependencies=[Depends(require_print_agent)]
+)
 async def get_pending_jobs(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=10, ge=1, le=50),
@@ -433,9 +482,8 @@ async def get_pending_jobs(
     """
     Get pending print jobs for the print agent.
 
-    NOTE: This endpoint does NOT require authentication.
-    It's intended for the local print agent which doesn't have credentials.
-    Security is handled by network isolation (local network only).
+    Authenticated via the shared agent token (X-Agent-Token) when
+    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
     """
     _touch_agent_heartbeat()
     result = await db.execute(
@@ -461,7 +509,9 @@ async def get_print_job(
     return job
 
 
-@router.patch("/jobs/{job_id}/claim/", response_model=schemas.PrintJobResponse)
+@router.patch(
+    "/jobs/{job_id}/claim/", response_model=schemas.PrintJobResponse, dependencies=[Depends(require_print_agent)]
+)
 async def claim_print_job(
     job_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -469,8 +519,8 @@ async def claim_print_job(
     """
     Claim a print job (mark as printing).
 
-    NOTE: This endpoint does NOT require authentication.
-    It's intended for the local print agent.
+    Authenticated via the shared agent token (X-Agent-Token) when
+    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
     """
     _touch_agent_heartbeat()
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
@@ -491,7 +541,9 @@ async def claim_print_job(
     return job
 
 
-@router.patch("/jobs/{job_id}/complete/", response_model=schemas.PrintJobResponse)
+@router.patch(
+    "/jobs/{job_id}/complete/", response_model=schemas.PrintJobResponse, dependencies=[Depends(require_print_agent)]
+)
 async def complete_print_job(
     job_id: uuid.UUID,
     update: schemas.PrintJobUpdate,
@@ -500,8 +552,8 @@ async def complete_print_job(
     """
     Complete a print job (mark as completed or failed).
 
-    NOTE: This endpoint does NOT require authentication.
-    It's intended for the local print agent.
+    Authenticated via the shared agent token (X-Agent-Token) when
+    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
     """
     _touch_agent_heartbeat()
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))

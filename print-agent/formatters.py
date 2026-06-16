@@ -234,6 +234,44 @@ def format_test_print(p: Network, payload: dict) -> None:
     p.cut()
 
 
+# ── QR-code slip ─────────────────────────────────────────────────────
+
+def format_qr_code_slip(p: Network, payload: dict) -> None:
+    """Format and print a QR-code slip (shareable link as QR + text).
+
+    Used for the Check-In / Reko / Viewer / Walk-In slide-up links so an
+    operator can hand someone a paper slip with a scannable link.
+    """
+    qr_content = payload.get("qr_content", "")
+    title = payload.get("title", "")
+    subtitle = payload.get("subtitle", "")
+
+    _sep(p)
+    if title:
+        p.set(font="a", bold=True, align="center")
+        for line in _wrap_text(title, WIDTH_A):
+            _text(p, f"{line}\n")
+    _sep(p)
+
+    if subtitle:
+        p.set(font="b", bold=False, align="center")
+        for line in _wrap_text(subtitle, WIDTH_B):
+            _text(p, f"{line}\n")
+        _text(p, "\n")
+
+    if qr_content:
+        # ec defaults to QR_ECLEVEL_L; a small module size keeps the (long,
+        # JWT-bearing) URL within the paper width while staying scannable.
+        p.qr(qr_content, size=4, center=True)
+        p.set(font="b", bold=False, align="center")
+        _text(p, "\nScannen zum Oeffnen\n")
+
+    _sep(p, "-")
+    p.set(font="b", bold=False, align="center")
+    _text(p, f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
+    p.cut()
+
+
 # ── Board snapshot ───────────────────────────────────────────────────
 
 def format_board_snapshot(p: Network, payload: dict) -> None:

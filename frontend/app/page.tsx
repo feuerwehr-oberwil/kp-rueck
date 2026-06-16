@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink, Siren } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -68,6 +68,7 @@ export default function FireStationDashboard() {
     removeVehicle,
     removeReko,
     updateOperation,
+    reorderColumn,
     createOperation,
     getNextOperationId,
     assignPersonToOperation,
@@ -209,7 +210,7 @@ export default function FireStationDashboard() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'vehicles' | 'print' | 'thermo' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'alarm' | 'vehicles' | 'print' | 'thermo' | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -241,6 +242,8 @@ export default function FireStationDashboard() {
   const [rekoCopied, setRekoCopied] = useState(false)
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [viewerCopied, setViewerCopied] = useState(false)
+  const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
+  const [alarmCopied, setAlarmCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
 
@@ -312,6 +315,7 @@ export default function FireStationDashboard() {
   // Thermal printer state
   const [printerEnabled, setPrinterEnabled] = useState(false)
   const [isPrintingBoard, setIsPrintingBoard] = useState(false)
+  const [isPrintingQR, setIsPrintingQR] = useState(false)
   const [funkrufname, setFunkrufname] = useState("Omega")
 
   // Fetch Reko personnel names when the crew assignment dialog opens
@@ -383,6 +387,25 @@ export default function FireStationDashboard() {
       setIsPrintingBoard(false)
     }
   }, [selectedEvent, isPrintingBoard])
+
+  // Handle thermal QR-code slip print (Check-In / Reko / Viewer / Walk-In links)
+  const handlePrintQR = useCallback(async (qrContent: string, title: string, subtitle?: string) => {
+    if (!printerEnabled || !qrContent || isPrintingQR) return
+    setIsPrintingQR(true)
+    try {
+      await apiClient.queueQRCodePrint({
+        qr_content: qrContent,
+        title,
+        subtitle,
+        event_id: selectedEvent?.id,
+      })
+      toast.success('QR-Druckauftrag gesendet')
+    } catch {
+      toast.error('Drucken fehlgeschlagen')
+    } finally {
+      setIsPrintingQR(false)
+    }
+  }, [printerEnabled, isPrintingQR, selectedEvent])
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -662,6 +685,7 @@ export default function FireStationDashboard() {
     operations,
     setOperations,
     updateOperation,
+    reorderColumn,
     assignPersonToOperation,
     assignRekoPersonToOperation,
     assignMaterialToOperation,
@@ -800,6 +824,7 @@ export default function FireStationDashboard() {
   const qrDialogOpen = activeFooterSheet === 'checkin'
   const rekoQrDialogOpen = activeFooterSheet === 'reko'
   const viewerQrDialogOpen = activeFooterSheet === 'viewer'
+  const alarmQrDialogOpen = activeFooterSheet === 'alarm'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
   const thermoSheetOpen = activeFooterSheet === 'thermo'
@@ -925,6 +950,47 @@ export default function FireStationDashboard() {
       setViewerCopied(true)
       toast.success('Link kopiert')
       setTimeout(() => setViewerCopied(false), 2000)
+    } catch (error) {
+      toast.error('Fehler beim Kopieren')
+    }
+  }
+
+  const generateAlarmQR = async () => {
+    // Toggle behavior: if already open, just close
+    if (alarmQrDialogOpen) {
+      setActiveFooterSheet(null)
+      return
+    }
+
+    if (!selectedEvent) {
+      toast.error('Fehler', {
+        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      })
+      return
+    }
+
+    try {
+      const response = await apiClient.generateAlarmLink(selectedEvent.id)
+      const fullUrl = `${window.location.origin}${response.link}`
+      setAlarmUrl(fullUrl)
+      setActiveFooterSheet('alarm')
+    } catch (error) {
+      console.error('Failed to generate alarm link:', error)
+      toast.error('Fehler', {
+        description: 'Alarm-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      })
+    }
+  }
+
+  const copyAlarmUrlToClipboard = async () => {
+    if (!alarmUrl) return
+
+    try {
+      const { copyToClipboard } = await import('@/lib/utils')
+      await copyToClipboard(alarmUrl)
+      setAlarmCopied(true)
+      toast.success('Link kopiert')
+      setTimeout(() => setAlarmCopied(false), 2000)
     } catch (error) {
       toast.error('Fehler beim Kopieren')
     }
@@ -1464,6 +1530,22 @@ export default function FireStationDashboard() {
                   <Eye className="h-3.5 w-3.5" />
                   <span className="text-xs">Viewer</span>
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    alarmQrDialogOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    generateAlarmQR()
+                  }}
+                >
+                  <Siren className="h-3.5 w-3.5" />
+                  <span className="text-xs">Alarm</span>
+                </Button>
               </div>
 
               <div className="h-4 w-px bg-border mx-1" />
@@ -1723,6 +1805,18 @@ export default function FireStationDashboard() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
+                    {printerEnabled && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePrintQR(checkInUrl, 'Personal Check-In', 'Personal kann diesen QR-Code scannen um sich einzuchecken. Funktioniert ohne Anmeldung.')}
+                        disabled={isPrintingQR}
+                        className="flex-shrink-0"
+                        title="QR-Code drucken"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Personal kann diesen QR-Code scannen um sich einzuchecken. Funktioniert ohne Anmeldung.
@@ -1804,6 +1898,18 @@ export default function FireStationDashboard() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
+                    {printerEnabled && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePrintQR(rekoDashboardUrl, 'Reko Dashboard', 'Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.')}
+                        disabled={isPrintingQR}
+                        className="flex-shrink-0"
+                        title="QR-Code drucken"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.
@@ -1885,6 +1991,18 @@ export default function FireStationDashboard() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
+                    {printerEnabled && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePrintQR(viewerUrl, 'Viewer-Link', 'Jeder mit diesem Link kann die aktuelle Einsatzübersicht sehen. Funktioniert ohne Anmeldung, nur Lesen.')}
+                        disabled={isPrintingQR}
+                        className="flex-shrink-0"
+                        title="QR-Code drucken"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Jeder mit diesem Link kann die aktuelle Einsatzübersicht sehen. Funktioniert ohne Anmeldung, nur Lesen.

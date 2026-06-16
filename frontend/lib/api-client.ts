@@ -41,6 +41,8 @@ import {
   type ApiAssignmentCreate,
   type ApiTransferAssignmentsResponse,
   type IncidentStatus,
+  type IncidentType,
+  type IncidentPriority,
   type ApiIncident,
   type ApiIncidentCreate,
   type ApiIncidentUpdate,
@@ -381,6 +383,17 @@ class ApiClient {
     return this.request<ApiIncident>(`/api/incidents/${id}${queryParams}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    })
+  }
+
+  /**
+   * Persist the manual top-to-bottom order of one status column.
+   * `orderedIds` is the column's cards in their new order (204 No Content).
+   */
+  async reorderIncidents(eventId: string, orderedIds: string[]): Promise<void> {
+    await this.request<void>('/api/incidents/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds }),
     })
   }
 
@@ -1149,6 +1162,43 @@ class ApiClient {
     )
   }
 
+  // Alarm intake (public token-gated alarm creation)
+  async generateAlarmLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
+    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+      `/api/intake/generate-link?event_id=${encodeURIComponent(eventId)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getIntakeContext(token: string): Promise<{ event: { id: string; name: string; training_flag: boolean } }> {
+    return this.request<{ event: { id: string; name: string; training_flag: boolean } }>(
+      `/api/intake/context?token=${encodeURIComponent(token)}`,
+      { skipToast: true }
+    )
+  }
+
+  async createIntakeAlarm(token: string, data: {
+    title: string
+    type: IncidentType
+    priority: IncidentPriority
+    location_address?: string | null
+    location_lat?: string | null
+    location_lng?: string | null
+    description?: string | null
+    contact?: string | null
+  }): Promise<{ id: string }> {
+    return this.request<{ id: string }>(
+      `/api/intake/alarm?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+        skipToast: true,
+      }
+    )
+  }
+
   // Print Jobs (Thermal Printer)
   async getPrinterStatus(): Promise<ApiPrinterStatus> {
     return this.request<ApiPrinterStatus>('/api/print/status/')
@@ -1174,6 +1224,13 @@ class ApiClient {
   async queueTestPrint(): Promise<ApiPrintJob> {
     return this.request<ApiPrintJob>('/api/print/test/', {
       method: 'POST',
+    })
+  }
+
+  async queueQRCodePrint(payload: ApiQRCodePrintRequest): Promise<ApiPrintJob> {
+    return this.request<ApiPrintJob>('/api/print/qr-code/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     })
   }
 
@@ -1237,6 +1294,13 @@ class ApiClient {
       return null
     }
   }
+
+  async createDemoSandbox(): Promise<{ event_id: string; name: string; reused: boolean }> {
+    return this.request<{ event_id: string; name: string; reused: boolean }>('/api/demo/sandbox', {
+      method: 'POST',
+      skipToast: true,
+    })
+  }
 }
 
 // User Management Types
@@ -1277,9 +1341,16 @@ export interface ApiPrinterStatus {
   agent_last_seen: string | null
 }
 
+export interface ApiQRCodePrintRequest {
+  qr_content: string
+  title: string
+  subtitle?: string
+  event_id?: string
+}
+
 export interface ApiPrintJob {
   id: string
-  job_type: 'assignment' | 'board' | 'test'
+  job_type: 'assignment' | 'board' | 'test' | 'qr_code'
   status: 'pending' | 'printing' | 'completed' | 'failed'
   payload: Record<string, unknown>
   incident_id?: string

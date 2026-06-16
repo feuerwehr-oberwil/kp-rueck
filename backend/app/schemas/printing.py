@@ -13,6 +13,7 @@ class PrintJobType(str, Enum):
     ASSIGNMENT = "assignment"
     BOARD = "board"
     TEST = "test"
+    QR_CODE = "qr_code"
 
 
 class PrintJobStatus(str, Enum):
@@ -71,6 +72,15 @@ class PrintBoardRequest(BaseModel):
     include_completed: bool = False
     include_vehicles: bool = True
     include_personnel: bool = True
+
+
+class PrintQRCodeRequest(BaseModel):
+    """Request to print a QR-code slip (shareable link as QR + text)."""
+
+    qr_content: str  # full URL to encode in the QR code
+    title: str  # heading, e.g. "Personal Check-In"
+    subtitle: str | None = None  # one-line description of what the link is for
+    event_id: UUID | None = None
 
 
 class PrinterConfigResponse(BaseModel):

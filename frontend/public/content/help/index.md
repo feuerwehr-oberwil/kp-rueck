@@ -233,45 +233,50 @@ Erneuter Rechtsklick entfernt die Zuweisung.
 
 ## Tastaturkürzel
 
-Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
+Drücken Sie `Cmd/Ctrl+K` für die Befehlspalette — sie listet alle Befehle samt
+Tastaturkürzel und ist auch über das Benutzermenü ("Befehle & Tastaturkürzel")
+erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
-### Navigation
+### Global
 | Shortcut | Aktion |
 |----------|--------|
+| `Cmd/Ctrl+K` | Befehlspalette öffnen/schliessen |
 | `G K` | Kanban-Board |
 | `G M` | Kartenansicht |
 | `G E` | Ereignisse |
 | `G S` | Einstellungen |
 | `G H` | Hilfe |
+| `Esc` | Abbrechen / Eingabefeld verlassen / Dialog schliessen |
 
-### Aktionen
+### Kanban-Board — Aktionen
 | Shortcut | Aktion |
 |----------|--------|
 | `N` | Neuer Einsatz |
 | `S` / `/` | Suche fokussieren |
-| `R` | Aktualisieren |
+| `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |
 
-### Einsatz bearbeiten (vorher auswählen)
+### Kanban-Board — Einsatz (Maus über der Karte)
 | Shortcut | Aktion |
 |----------|--------|
 | `E` / `Enter` | Details öffnen |
 | `1-5` | Fahrzeug zuweisen/entfernen |
-| `Shift+1-3` | Priorität ändern |
+| `Shift+1-3` | Priorität: Niedrig / Mittel / Hoch |
+| `0` | Zu Fuss umschalten |
 | `>` / `.` | Status vorwärts |
 | `<` / `,` | Status zurück |
-| `Delete` | Löschen |
+| `Delete` / `Backspace` | Löschen (mit Bestätigung) |
 
-### Navigation & UI
+`Shift+1-3`, `0` und `1-5` funktionieren auch im geöffneten Detail-Dialog.
+
+### Kanban-Board — Ansicht
 | Shortcut | Aktion |
 |----------|--------|
-| `↑` / `↓` | Einsatz auswählen |
-| `Tab` | Durch Einsätze durchlaufen |
 | `Q` / `[` | Personal-Seitenleiste ein/aus |
 | `W` / `]` | Material-Seitenleiste ein/aus |
-| `I` / `\` | Detail-Panel ein/aus |
-| `D` | Panel: Details anzeigen |
-| `K` | Panel: Karte anzeigen |
+| `I` / `\` | Seitenpanel ein/aus |
+| `D` | Seitenpanel: Details anzeigen |
+| `K` | Seitenpanel: Karte anzeigen |
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
 | `M` | Material suchen |
@@ -284,6 +289,7 @@ Drücken Sie `?` oder `Cmd/Ctrl+K` für die Befehlspalette mit allen Befehlen.
 | `1-5` | Auf das entsprechende Fahrzeug zoomen |
 | `E` / `Enter` | Details des ausgewählten Einsatzes öffnen |
 | `Z` | Zoom zurücksetzen / Auswahl aufheben |
+| `R` / `F5` | Aktualisieren |
 | `S` / `/` | Suche fokussieren |
 | Doppelklick | Auf Listen-Karte → Details öffnen |
 
@@ -376,6 +382,11 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 |---------|----------|--------|
 | **Einsatzzettel** | Automatisch bei Status "Disponiert"/"Einsatz", oder Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
 | **Board-Snapshot** | "Thermo"-Button im Footer → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
+| **QR-Code-Zettel** | In den Slide-ups Check-In / Reko / Viewer → Drucker-Symbol | Titel, Kurzbeschreibung und scannbarer QR-Code des Links — zum Verteilen auf Papier |
+
+### QR-Code-Zettel
+
+Jedes Link-Slide-up (Personal Check-In, Reko Dashboard, Viewer-Link) hat neben "Kopieren" und "Öffnen" ein Drucker-Symbol (nur sichtbar, wenn der Drucker aktiviert ist). Damit wird ein kompakter Zettel mit dem QR-Code und einer kurzen Beschreibung gedruckt — praktisch, um jemandem den passenden Link in die Hand zu drücken, ohne ein Gerät teilen zu müssen.
 
 ### Board-Snapshot Optionen
 
