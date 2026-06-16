@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer } from 'lucide-react'
+import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, Eye } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -22,6 +22,8 @@ interface MobileBottomNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
   hasSelectedEvent?: boolean
   onCheckIn?: () => void
+  onReko?: () => void
+  onViewer?: () => void
   onPersonnel?: () => void
   onVehicleStatus?: () => void
   onPrint?: () => void
@@ -33,6 +35,8 @@ export function MobileBottomNavigation({
   currentPage,
   hasSelectedEvent = true,
   onCheckIn,
+  onReko,
+  onViewer,
   onPersonnel,
   onVehicleStatus,
   onPrint,
@@ -165,6 +169,36 @@ export function MobileBottomNavigation({
                     >
                       <QrCode className="h-5 w-5" />
                       <span>Check-In QR-Code</span>
+                    </Button>
+                  )}
+
+                  {/* Reko Dashboard QR/Link */}
+                  {onReko && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                      onClick={() => {
+                        setSheetOpen(false)
+                        setTimeout(() => onReko(), 350)
+                      }}
+                    >
+                      <Search className="h-5 w-5" />
+                      <span>Reko</span>
+                    </Button>
+                  )}
+
+                  {/* Viewer QR/Link */}
+                  {onViewer && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
+                      onClick={() => {
+                        setSheetOpen(false)
+                        setTimeout(() => onViewer(), 350)
+                      }}
+                    >
+                      <Eye className="h-5 w-5" />
+                      <span>Viewer</span>
                     </Button>
                   )}
 

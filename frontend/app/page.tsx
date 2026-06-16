@@ -1957,6 +1957,8 @@ export default function FireStationDashboard() {
         currentPage="kanban"
         hasSelectedEvent={!!selectedEvent}
         onCheckIn={generateCheckInQR}
+        onReko={generateRekoDashboardQR}
+        onViewer={generateViewerQR}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}
         onPrint={() => setActiveFooterSheet(printModalOpen ? null : 'print')}

@@ -266,15 +266,16 @@ export default function RekoDashboardPage() {
                   )}
                 </div>
 
-                {/* Status */}
+                {/* Status: green dot = open rekos still pending, grey = nothing open */}
                 <div className="flex-shrink-0">
                   {person.assignment_count > 0 ? (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-                      <span className="h-2 w-2 rounded-full bg-foreground/50" />
-                      {person.assignment_count}
+                      <span className="h-2.5 w-2.5 rounded-full bg-success" />
+                      {person.assignment_count} offen
                     </span>
                   ) : (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
                       Wartend
                     </span>
                   )}
