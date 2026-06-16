@@ -64,7 +64,10 @@ export function TransferIncidentDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent
+        className="max-w-2xl max-h-[80vh] flex flex-col"
+        overlayClassName="backdrop-blur-none"
+      >
         <DialogHeader>
           <DialogTitle>Ressourcen übertragen</DialogTitle>
           <DialogDescription>
