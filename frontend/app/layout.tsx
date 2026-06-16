@@ -13,6 +13,7 @@ import { NotificationToasts } from '@/components/notifications/notification-toas
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
 import { AppShell } from '@/components/app-shell'
 import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
+import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
 import { DemoBanner } from '@/components/demo-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
@@ -71,6 +72,7 @@ export default function RootLayout({
                         <NotificationToasts />
                         <PersistentNotificationSidebar />
                         <VehicleDriverPrompt />
+                        <VehicleConflictPrompt />
                       </CommandPaletteProvider>
                     </NotificationProvider>
                   </OperationsProvider>

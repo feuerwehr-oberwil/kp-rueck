@@ -1494,6 +1494,27 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const resolveVehicleConflict = async (action: "move" | "keep") => {
+    const conflict = vehicleConflict
+    if (!conflict) return
+    setVehicleConflict(null)
+
+    if (action === "move") {
+      // Remove the vehicle from every other incident before assigning it here.
+      for (const c of conflict.conflicts) {
+        removeVehicle(c.operationId, conflict.vehicleName)
+      }
+      const labels = conflict.conflicts.map(c => `"${c.operationLabel}"`).join(", ")
+      toast.info(`${conflict.vehicleName} verschoben`, {
+        description: `Von ${labels} entfernt.`,
+      })
+    }
+
+    await performVehicleAssign(conflict.vehicleId, conflict.vehicleName, conflict.targetOperationId)
+  }
+
+  const cancelVehicleConflict = useCallback(() => setVehicleConflict(null), [])
+
   const deleteOperation = async (operationId: string): Promise<void> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) {
@@ -1569,6 +1590,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         assignVehicleToOperation,
         vehicleNeedingDriver,
         clearVehicleNeedingDriver,
+        vehicleConflict,
+        resolveVehicleConflict,
+        cancelVehicleConflict,
         deleteOperation,
       }}
     >
