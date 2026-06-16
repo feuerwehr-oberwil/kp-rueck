@@ -2012,6 +2012,98 @@ export default function FireStationDashboard() {
         </SheetContent>
       </Sheet>
 
+      {/* Alarm Intake Link Sheet */}
+      <Sheet modal={false} open={alarmQrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'alarm' && setActiveFooterSheet(null)}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          overlayOffset="42px"
+          nonModal
+          className="max-w-3xl mx-auto px-6 py-4"
+          onInteractOutside={(e) => {
+            const target = e.target as HTMLElement
+            if (target.closest('footer')) {
+              e.preventDefault()
+            }
+          }}
+        >
+          <div className="flex items-start gap-6">
+            {/* QR Code */}
+            {alarmUrl && (
+              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
+                <QRCodeSVG
+                  value={alarmUrl}
+                  size={140}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <SheetHeader className="p-0 mb-3">
+                <SheetTitle>Alarm-Link</SheetTitle>
+                <SheetDescription>
+                  QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z.B. Telefon / Walk-in)
+                </SheetDescription>
+              </SheetHeader>
+
+              {alarmUrl && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={alarmUrl}
+                      readOnly
+                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyAlarmUrlToClipboard}
+                      className="flex-shrink-0"
+                    >
+                      {alarmCopied ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="flex-shrink-0 text-muted-foreground"
+                      title="In neuem Tab öffnen"
+                    >
+                      <a href={alarmUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                    {printerEnabled && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePrintQR(alarmUrl, 'Alarm-Link', 'Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.')}
+                        disabled={isPrintingQR}
+                        className="flex-shrink-0"
+                        title="QR-Code drucken"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Vehicle Status Sheet */}
       <VehicleStatusSheet
         open={vehicleStatusSheetOpen}
