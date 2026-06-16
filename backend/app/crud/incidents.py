@@ -44,7 +44,9 @@ async def get_incidents(
             selectinload(Incident.reko_reports),
         )
         .where(Incident.deleted_at.is_(None))
-        .order_by(Incident.created_at.desc())
+        # Manual board order first; created_at DESC breaks ties (e.g. brand-new
+        # cards that share the default position 0 — newest on top).
+        .order_by(Incident.position.asc(), Incident.created_at.desc())
     )
 
     # Filter by event if provided
@@ -113,9 +115,8 @@ async def get_incidents(
             )
 
     # Batch load reko completion status and arrived_at for all incidents
-    reko_query = (
-        select(RekoReport.incident_id, RekoReport.is_draft, RekoReport.arrived_at)
-        .where(RekoReport.incident_id.in_(incident_ids))
+    reko_query = select(RekoReport.incident_id, RekoReport.is_draft, RekoReport.arrived_at).where(
+        RekoReport.incident_id.in_(incident_ids)
     )
     reko_result = await db.execute(reko_query)
     incidents_with_completed_reko = set()
@@ -213,6 +214,49 @@ async def create_incident(
         resource_id=db_incident.id,
         user=current_user,
         changes={"created": incident.model_dump(mode="json")},
+        request=request,
+    )
+
+    # Update event activity timestamp
+    await events_crud.update_event_activity(db, db_incident.event_id)
+
+    await db.commit()
+    await db.refresh(db_incident)
+
+    return db_incident
+
+
+async def create_public_incident(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    incident: schemas.PublicIncidentCreate,
+    request: Request,
+) -> Incident:
+    """Create an incident from the public token-gated intake form.
+
+    No authenticated user: ``created_by`` is None and ``source`` is "intake" so
+    operators can see the alarm came from an untrusted source and verify it. The
+    audit log records the action with IP/user-agent but no user_id.
+    """
+    db_incident = Incident(
+        **incident.model_dump(),
+        event_id=event_id,
+        status="eingegangen",
+        source="intake",
+        created_by=None,
+    )
+
+    db.add(db_incident)
+    await db.flush()
+
+    # Log creation (no user — audit service captures IP/user-agent from request)
+    await log_action(
+        db=db,
+        action_type="create",
+        resource_type="incident",
+        resource_id=db_incident.id,
+        user=None,
+        changes={"created": incident.model_dump(mode="json"), "source": "intake"},
         request=request,
     )
 
@@ -466,6 +510,50 @@ async def delete_incident(
 
     await db.commit()
     return True
+
+
+async def reorder_incidents(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    ordered_ids: list[uuid.UUID],
+) -> int:
+    """Persist a manual board order for a status column.
+
+    `ordered_ids` is the target column's cards top-to-bottom; each card's
+    `position` is set to its index. Only incidents belonging to `event_id`
+    (and not soft-deleted) are touched — unknown ids are ignored so a stale
+    client can't corrupt another event's order. Status is intentionally NOT
+    changed here; a cross-column move persists status via the normal update
+    path, keeping its side effects (status transitions, auto-release) intact.
+
+    Returns the number of cards repositioned.
+    """
+    if not ordered_ids:
+        return 0
+
+    result = await db.execute(
+        select(Incident).where(
+            Incident.event_id == event_id,
+            Incident.id.in_(ordered_ids),
+            Incident.deleted_at.is_(None),
+        )
+    )
+    incidents_by_id = {incident.id: incident for incident in result.scalars().all()}
+
+    updated = 0
+    for index, incident_id in enumerate(ordered_ids):
+        incident = incidents_by_id.get(incident_id)
+        if incident is None:
+            continue
+        if incident.position != index:
+            incident.position = index
+        updated += 1
+
+    if updated:
+        await events_crud.update_event_activity(db, event_id)
+        await db.commit()
+
+    return updated
 
 
 async def get_incident_status_history(db: AsyncSession, incident_id: uuid.UUID) -> list[StatusTransition]:

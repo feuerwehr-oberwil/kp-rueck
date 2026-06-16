@@ -120,6 +120,31 @@ class IncidentCreate(IncidentBase):
     event_id: UUID
 
 
+class PublicIncidentCreate(BaseModel):
+    """Lean schema for alarms created via the public token-gated intake form.
+
+    Intentionally narrow: a phone operator / walk-in only provides the essentials.
+    The event comes from the token, status is forced to ``eingegangen`` and
+    operator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later
+    by an editor on the board. Validators mirror ``IncidentBase``.
+    """
+
+    title: str
+    type: IncidentType
+    priority: IncidentPriority
+    location_address: str | None = None
+    location_lat: str | Decimal | None = None
+    location_lng: str | Decimal | None = None
+    description: str | None = None
+    contact: str | None = None  # "Melder / Anrufer"
+
+    # Reuse the shared validators from IncidentBase.
+    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)
+    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)
+    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)
+    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)
+
+
 class IncidentUpdate(BaseModel):
     """Schema for updating incident."""
 
@@ -138,6 +163,13 @@ class IncidentUpdate(BaseModel):
     am_warten: bool | None = None
     am_warten_note: str | None = None
     zu_fuss: bool | None = None
+
+
+class IncidentReorder(BaseModel):
+    """Persist the manual top-to-bottom card order for one status column."""
+
+    event_id: UUID
+    ordered_ids: list[UUID]
 
 
 class AssignedVehicle(BaseModel):
@@ -160,6 +192,8 @@ class IncidentResponse(IncidentBase):
 
     id: UUID
     event_id: UUID
+    position: int = 0
+    source: str = "operator"
     created_at: datetime
     updated_at: datetime
     created_by: UUID | None = None

@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -262,6 +262,17 @@ function DraggableOperationBase({
             </div>
             {/* Non-draggable icons area */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {operation.source === 'intake' && (
+                <div
+                  className="flex items-center gap-1 rounded-md bg-sky-100 dark:bg-sky-900/30 px-1.5 py-1"
+                  title="Per Telefon / Walk-in erfasst – bitte prüfen"
+                >
+                  <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                    Telefon
+                  </span>
+                </div>
+              )}
               {operation.amWarten && (
                 <div
                   className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30"
@@ -668,6 +679,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.nachbarhilfe === nextProps.operation.nachbarhilfe &&
     prevProps.operation.amWarten === nextProps.operation.amWarten &&
     prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
+    prevProps.operation.source === nextProps.operation.source &&
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
     prevProps.operation.crew.every((c, i) => c === nextProps.operation.crew[i]) &&
     prevProps.operation.materials.length === nextProps.operation.materials.length &&

@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink, Siren } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -209,7 +209,7 @@ export default function FireStationDashboard() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'vehicles' | 'print' | 'thermo' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'alarm' | 'vehicles' | 'print' | 'thermo' | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -241,6 +241,8 @@ export default function FireStationDashboard() {
   const [rekoCopied, setRekoCopied] = useState(false)
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [viewerCopied, setViewerCopied] = useState(false)
+  const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
+  const [alarmCopied, setAlarmCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
 
@@ -820,6 +822,7 @@ export default function FireStationDashboard() {
   const qrDialogOpen = activeFooterSheet === 'checkin'
   const rekoQrDialogOpen = activeFooterSheet === 'reko'
   const viewerQrDialogOpen = activeFooterSheet === 'viewer'
+  const alarmQrDialogOpen = activeFooterSheet === 'alarm'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
   const thermoSheetOpen = activeFooterSheet === 'thermo'
@@ -945,6 +948,47 @@ export default function FireStationDashboard() {
       setViewerCopied(true)
       toast.success('Link kopiert')
       setTimeout(() => setViewerCopied(false), 2000)
+    } catch (error) {
+      toast.error('Fehler beim Kopieren')
+    }
+  }
+
+  const generateAlarmQR = async () => {
+    // Toggle behavior: if already open, just close
+    if (alarmQrDialogOpen) {
+      setActiveFooterSheet(null)
+      return
+    }
+
+    if (!selectedEvent) {
+      toast.error('Fehler', {
+        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      })
+      return
+    }
+
+    try {
+      const response = await apiClient.generateAlarmLink(selectedEvent.id)
+      const fullUrl = `${window.location.origin}${response.link}`
+      setAlarmUrl(fullUrl)
+      setActiveFooterSheet('alarm')
+    } catch (error) {
+      console.error('Failed to generate alarm link:', error)
+      toast.error('Fehler', {
+        description: 'Alarm-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      })
+    }
+  }
+
+  const copyAlarmUrlToClipboard = async () => {
+    if (!alarmUrl) return
+
+    try {
+      const { copyToClipboard } = await import('@/lib/utils')
+      await copyToClipboard(alarmUrl)
+      setAlarmCopied(true)
+      toast.success('Link kopiert')
+      setTimeout(() => setAlarmCopied(false), 2000)
     } catch (error) {
       toast.error('Fehler beim Kopieren')
     }
@@ -1483,6 +1527,22 @@ export default function FireStationDashboard() {
                 >
                   <Eye className="h-3.5 w-3.5" />
                   <span className="text-xs">Viewer</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    alarmQrDialogOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    generateAlarmQR()
+                  }}
+                >
+                  <Siren className="h-3.5 w-3.5" />
+                  <span className="text-xs">Alarm</span>
                 </Button>
               </div>
 

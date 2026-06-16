@@ -42,6 +42,10 @@ export interface ApiIncident {
   /** Decimal as string */
   location_lng: string | null
   status: IncidentStatus
+  /** Manual sort order within a status column (lower = higher on the board) */
+  position: number
+  /** Origin of the alarm: "operator" (dashboard) or "intake" (public token form) */
+  source: string
   description: string | null
   contact: string | null
   internal_notes: string | null

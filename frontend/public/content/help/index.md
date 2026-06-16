@@ -122,6 +122,10 @@ Zeigen, wie lange ein Einsatz bereits offen ist:
 
 Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" aktiviert werden. Rechtsklick auf Karte → "Nachbarhilfe" oder im Detail-Dialog. Markierte Einsätze zeigen ein Gebäude-Icon.
 
+### Telefon / Walk-in-Abzeichen
+
+Alarme, die über den [Alarm-Link](#alarm-link-telefon--walk-in) erfasst wurden, zeigen oben rechts ein blaues Abzeichen mit Telefon-Symbol und der Beschriftung „Telefon". Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
+
 ### Meldung anzeigen
 
 Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständigen Meldungstext direkt auf jeder Einsatzkarte an - praktisch für schnellen Überblick ohne jeden Einsatz zu öffnen.
@@ -306,6 +310,18 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
 Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gültigkeit. Zeigt Kanban-Board und Karte ohne Bearbeitungsmöglichkeit. Aktualisiert automatisch alle 5 Sekunden.
 
+### Alarm-Link (Telefon / Walk-in)
+
+Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis des restlichen Systems — z.B. jemand am Telefon oder am Schalter (Walk-in).
+
+**Erstellen:** Toolbar → "Alarm" (Sirenen-Symbol) generiert einen Link bzw. QR-Code, der pro Ereignis **30 Tage** gültig ist. Einmal generieren, beim Telefon-Arbeitsplatz aufhängen oder als Lesezeichen speichern.
+
+**Benutzen:** Wer den Link öffnet, sieht ein schlankes Formular (Titel, Einsatzart, Priorität, Standort mit Adresssuche, Beschreibung, Melder/Anrufer) und kann damit beliebig viele Alarme erfassen. Kein Login nötig.
+
+**Auf dem Board:** So erfasste Alarme landen in der Spalte "Eingegangen" und tragen ein blaues **„Telefon"-Abzeichen** — damit die Einsatzleitung erkennt, dass die Meldung von einer ungeprüften Quelle stammt, und sie prüfen kann. Adresse und Standort werden direkt mitgeschickt.
+
+> Der Link erlaubt nur das **Anlegen** von Alarmen (kein Lesen/Bearbeiten) und ist durch ein striktes Anfragelimit geschützt. Da er 30 Tage gültig ist: nur an vertrauenswürdige Stellen weitergeben.
+
 ### Offline (Localhost/Docker)
 - Vollständiges Kanban-Board verfügbar
 - QR-Codes funktionieren nur im lokalen Netzwerk
@@ -382,11 +398,11 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 |---------|----------|--------|
 | **Einsatzzettel** | Automatisch bei Status "Disponiert"/"Einsatz", oder Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
 | **Board-Snapshot** | "Thermo"-Button im Footer → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
-| **QR-Code-Zettel** | In den Slide-ups Check-In / Reko / Viewer → Drucker-Symbol | Titel, Kurzbeschreibung und scannbarer QR-Code des Links — zum Verteilen auf Papier |
+| **QR-Code-Zettel** | In den Slide-ups Check-In / Reko / Viewer / Alarm → Drucker-Symbol | Titel, Kurzbeschreibung und scannbarer QR-Code des Links — zum Verteilen auf Papier |
 
 ### QR-Code-Zettel
 
-Jedes Link-Slide-up (Personal Check-In, Reko Dashboard, Viewer-Link) hat neben "Kopieren" und "Öffnen" ein Drucker-Symbol (nur sichtbar, wenn der Drucker aktiviert ist). Damit wird ein kompakter Zettel mit dem QR-Code und einer kurzen Beschreibung gedruckt — praktisch, um jemandem den passenden Link in die Hand zu drücken, ohne ein Gerät teilen zu müssen.
+Jedes Link-Slide-up (Personal Check-In, Reko Dashboard, Viewer-Link, Alarm-Link) hat neben "Kopieren" und "Öffnen" ein Drucker-Symbol (nur sichtbar, wenn der Drucker aktiviert ist). Damit wird ein kompakter Zettel mit dem QR-Code und einer kurzen Beschreibung gedruckt — praktisch, um jemandem den passenden Link in die Hand zu drücken, ohne ein Gerät teilen zu müssen.
 
 ### Board-Snapshot Optionen
 

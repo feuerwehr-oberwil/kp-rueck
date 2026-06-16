@@ -59,6 +59,7 @@ export interface Operation {
   amWarten: boolean
   amWartenNote: string
   zuFuss: boolean
+  source?: string // Origin: "operator" (dashboard) or "intake" (public token form). Absent for locally-created ops.
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -279,6 +280,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       amWarten: incident.am_warten || false,
       amWartenNote: incident.am_warten_note || "",
       zuFuss: incident.zu_fuss || false,
+      source: incident.source || "operator",
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
@@ -1148,6 +1150,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           amWarten: apiIncident.am_warten || false,
           amWartenNote: apiIncident.am_warten_note || "",
           zuFuss: apiIncident.zu_fuss || false,
+          source: apiIncident.source || "operator",
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
           rekoArrivedAt: null,

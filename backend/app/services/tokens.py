@@ -243,3 +243,61 @@ def validate_viewer_token(token: str) -> UUID | None:
         return UUID(event_id_str)
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
         return None
+
+
+# ============================================
+# ALARM INTAKE TOKENS
+# ============================================
+
+
+def generate_alarm_token(event_id: UUID, expires_hours: int = 720) -> str:
+    """
+    Generate a JWT token for public alarm intake scoped to an event.
+
+    Long-lived by default (30 days) so a phone desk can post/bookmark the link
+    for the duration of an event. Grants write access (create incidents), so it
+    is paired with strict rate limiting and intake flagging on the endpoint side.
+
+    Args:
+        event_id: UUID of the event new alarms are created in
+        expires_hours: Token expiration time in hours (default: 720 = 30 days)
+
+    Returns:
+        JWT token string containing event_id and expiration
+    """
+    expiration = datetime.now(UTC) + timedelta(hours=expires_hours)
+
+    payload = {
+        "event_id": str(event_id),
+        "exp": expiration,
+        "type": "alarm",
+    }
+
+    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+    return token
+
+
+def validate_alarm_token(token: str) -> UUID | None:
+    """
+    Validate alarm intake token and extract event_id.
+
+    Args:
+        token: The JWT token string to validate
+
+    Returns:
+        UUID of the event if token is valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+
+        # Check token type
+        if payload.get("type") != "alarm":
+            return None
+
+        event_id_str = payload.get("event_id")
+        if not event_id_str:
+            return None
+
+        return UUID(event_id_str)
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
+        return None

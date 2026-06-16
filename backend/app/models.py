@@ -159,7 +159,9 @@ class Material(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="available")
     consumable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
-    group_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("material_groups.id", ondelete="SET NULL"), nullable=True)
+    group_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("material_groups.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -309,7 +311,9 @@ class Incident(Base):
     nachbarhilfe_note: Mapped[str | None] = mapped_column(Text, nullable=True)  # Note for nachbarhilfe
     am_warten: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Delayed/waiting emergency
     am_warten_note: Mapped[str | None] = mapped_column(Text, nullable=True)  # Note for am_warten
-    zu_fuss: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Personnel go by foot (not by vehicle)
+    zu_fuss: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # Personnel go by foot (not by vehicle)
     # Where the alarm originated: "operator" (created in the dashboard by a logged-in user) or
     # "intake" (created via the public token-gated alarm form by a phone operator / walk-in).
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="operator", server_default="operator")

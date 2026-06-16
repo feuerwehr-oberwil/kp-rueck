@@ -83,6 +83,9 @@ class RateLimits:
     # Webhooks - prevent flooding
     WEBHOOK = "10/minute"
 
+    # Public alarm intake - token-gated write endpoint, keep tight against abuse
+    INTAKE = "10/minute"
+
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """
