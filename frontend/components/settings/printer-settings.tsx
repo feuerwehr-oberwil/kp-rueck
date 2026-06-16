@@ -20,7 +20,18 @@ import {
   Info,
 } from 'lucide-react';
 import { apiClient, type ApiPrinterStatus } from '@/lib/api-client';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+
+// The Pi print-agent polls ~5s while "active" (within ACTIVE window of its last
+// job) and ~60s when idle. We estimate the pickup window the same way so the
+// Testdruck progress bar reflects the real refresh cadence instead of spinning
+// forever. Padded slightly to cover the print itself.
+const TESTDRUCK_ACTIVE_POLL_MS = 8000;
+const TESTDRUCK_IDLE_POLL_MS = 62000;
+const TESTDRUCK_AGENT_ACTIVE_WINDOW_MS = 15 * 60 * 1000;
+
+type TestDruckPhase = 'queued' | 'printing' | 'done' | null;
 
 export function PrinterSettings() {
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -31,12 +42,22 @@ export function PrinterSettings() {
   const [testingPrint, setTestingPrint] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
 
+  // Testdruck progress (time-based, driven by the Pi's expected poll cadence)
+  const [testPhase, setTestPhase] = useState<TestDruckPhase>(null);
+  const [testProgress, setTestProgress] = useState(0);
+  const [testEta, setTestEta] = useState<string | null>(null);
+
   // Track saved values to detect changes on blur
   const savedSettingsRef = useRef<Record<string, string>>({});
+  // Pending "reset the done bar" timer, so a quick re-run can cancel it.
+  const testResetTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     loadSettings();
     loadPrinterStatus();
+    return () => {
+      if (testResetTimerRef.current) clearTimeout(testResetTimerRef.current);
+    };
   }, []);
 
   const loadSettings = async () => {
@@ -106,24 +127,55 @@ export function PrinterSettings() {
   };
 
   const handleTestDruck = async () => {
+    if (testResetTimerRef.current) clearTimeout(testResetTimerRef.current);
     setTestingPrint(true);
+    setTestPhase('queued');
+    setTestProgress(0);
+    setTestEta(null);
+
+    const TIMEOUT_MS = 70000;
+    const POLL_MS = 2000;
+    let ticker: ReturnType<typeof setInterval> | undefined;
+    let phase: Exclude<TestDruckPhase, null> = 'queued';
+
     try {
       const job = await apiClient.queueTestPrint();
+      const start = Date.now();
       toast.info('Testdruck eingereiht – warte auf Drucker…');
 
-      // Poll the job until the agent reports completion or failure.
-      // The agent polls every 5s while active (up to 60s when idle), so allow time.
-      // If the job is never claimed AND the agent isn't sending heartbeats, the
-      // print-service itself is down — bail early with a distinct message.
-      const TIMEOUT_MS = 70000;
-      const POLL_MS = 2000;
-      const start = Date.now();
+      // Estimate how long until the Pi picks up the job, mirroring the agent's
+      // own active/idle decision: if it processed a job recently it's polling
+      // fast (~5s), otherwise it's idle (~60s). The progress bar fills over that
+      // window so the user sees a realistic wait instead of an endless spinner.
+      const preStatus = await loadPrinterStatus();
+      const lastJobAt = preStatus?.last_job_at ? new Date(preStatus.last_job_at).getTime() : 0;
+      const agentActive = lastJobAt > 0 && Date.now() - lastJobAt < TESTDRUCK_AGENT_ACTIVE_WINDOW_MS;
+      const expectedMs = agentActive ? TESTDRUCK_ACTIVE_POLL_MS : TESTDRUCK_IDLE_POLL_MS;
+      setTestEta(agentActive ? 'in ~5 s' : 'in ~60 s');
+
+      // Smooth fill toward the expected pickup window, capped at 90% while the
+      // job is still pending so it never claims completion early.
+      ticker = setInterval(() => {
+        if (phase !== 'queued') return;
+        setTestProgress(Math.min(90, ((Date.now() - start) / expectedMs) * 90));
+      }, 200);
+
+      // Poll the job until the agent reports completion or failure. If it's never
+      // claimed AND the agent isn't sending heartbeats, the print-service is down.
       let result = job;
       let bailedServiceOffline = false;
 
       while (Date.now() - start < TIMEOUT_MS) {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
         result = await apiClient.getPrintJob(job.id);
+
+        // The agent claimed the job → it's printing now; jump the bar forward.
+        if (phase === 'queued' && (result.status === 'printing' || result.claimed_at)) {
+          phase = 'printing';
+          setTestPhase('printing');
+          setTestProgress(94);
+        }
+
         if (result.status === 'completed' || result.status === 'failed') break;
 
         // Still pending after a few seconds → check whether the agent is alive.
@@ -137,6 +189,9 @@ export function PrinterSettings() {
       }
 
       if (result.status === 'completed') {
+        phase = 'done';
+        setTestPhase('done');
+        setTestProgress(100);
         toast.success('Testdruck erfolgreich gedruckt – das System ist bereit.');
       } else if (result.status === 'failed') {
         // Job was claimed and failed → agent is alive, the printer is the problem.
@@ -150,8 +205,22 @@ export function PrinterSettings() {
       console.error('Test print failed:', error);
       toast.error('Testdruck konnte nicht gestartet werden');
     } finally {
+      if (ticker) clearInterval(ticker);
       setTestingPrint(false);
       loadPrinterStatus();
+      // Let a completed bar linger briefly so the 100% reads as success; otherwise
+      // clear immediately.
+      if (phase === 'done') {
+        testResetTimerRef.current = setTimeout(() => {
+          setTestPhase(null);
+          setTestProgress(0);
+          setTestEta(null);
+        }, 1800);
+      } else {
+        setTestPhase(null);
+        setTestProgress(0);
+        setTestEta(null);
+      }
     }
   };
 
@@ -353,6 +422,26 @@ export function PrinterSettings() {
               Testdruck
             </Button>
           </div>
+
+          {/* Testdruck progress — fills over the Pi's expected pickup window */}
+          {testPhase && (
+            <div className="space-y-1.5" aria-live="polite">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  {testPhase === 'done' ? (
+                    <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-500" />
+                  ) : (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                  {testPhase === 'queued' && 'Warte auf Print-Agent (Pi)…'}
+                  {testPhase === 'printing' && 'Drucke…'}
+                  {testPhase === 'done' && 'Fertig gedruckt'}
+                </span>
+                {testPhase === 'queued' && testEta && <span>Abholung {testEta}</span>}
+              </div>
+              <Progress value={testProgress} />
+            </div>
+          )}
         </div>
       </Card>
 
