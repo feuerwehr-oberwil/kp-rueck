@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport
@@ -27,8 +27,7 @@ async def get_reko_personnel_for_event(
     """
     # Get all personnel who have 'reko' function for this event
     reko_functions = await db.execute(
-        select(EventSpecialFunction)
-        .where(
+        select(EventSpecialFunction).where(
             EventSpecialFunction.event_id == event_id,
             EventSpecialFunction.function_type == "reko",
         )
@@ -41,51 +40,72 @@ async def get_reko_personnel_for_event(
     personnel_ids = [ra.personnel_id for ra in reko_assignments]
 
     # Get personnel details
-    personnel_result = await db.execute(
-        select(Personnel).where(Personnel.id.in_(personnel_ids))
-    )
+    personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
     personnel_map = {p.id: p for p in personnel_result.scalars().all()}
 
     # Get active incident assignments for these personnel in this event
     # First, get all incidents for this event
     incidents_result = await db.execute(
-        select(Incident.id)
-        .where(
+        select(Incident.id).where(
             Incident.event_id == event_id,
             Incident.deleted_at.is_(None),
         )
     )
     incident_ids = [row[0] for row in incidents_result.all()]
 
-    # Get active assignments for reko personnel in these incidents
-    assignment_counts: dict[uuid.UUID, int] = {}
+    # Get active assignments for reko personnel in these incidents, then split
+    # each person's assignments into "open" (incident still needs a reko) and
+    # "done" (incident already has a completed reko, i.e. shown as "Beendet").
+    open_counts: dict[uuid.UUID, int] = {}
+    done_counts: dict[uuid.UUID, int] = {}
     if incident_ids:
         assignments_result = await db.execute(
-            select(IncidentAssignment.resource_id, func.count(IncidentAssignment.id))
-            .where(
+            select(IncidentAssignment.resource_id, IncidentAssignment.incident_id).where(
                 IncidentAssignment.incident_id.in_(incident_ids),
                 IncidentAssignment.resource_type == "personnel",
                 IncidentAssignment.resource_id.in_(personnel_ids),
                 IncidentAssignment.unassigned_at.is_(None),
             )
-            .group_by(IncidentAssignment.resource_id)
         )
-        assignment_counts = {row[0]: row[1] for row in assignments_result.all()}
+        active_assignments = assignments_result.all()
+
+        # Incidents that already have a completed (non-draft) reko report.
+        completed_result = await db.execute(
+            select(RekoReport.incident_id)
+            .where(
+                RekoReport.incident_id.in_(incident_ids),
+                RekoReport.is_draft == False,  # noqa: E712 - SQLAlchemy needs == not 'is'
+            )
+            .distinct()
+        )
+        completed_incident_ids = {row[0] for row in completed_result.all()}
+
+        for resource_id, incident_id in active_assignments:
+            if incident_id in completed_incident_ids:
+                done_counts[resource_id] = done_counts.get(resource_id, 0) + 1
+            else:
+                open_counts[resource_id] = open_counts.get(resource_id, 0) + 1
 
     # Build response
     result = []
     for p_id in personnel_ids:
         personnel = personnel_map.get(p_id)
         if personnel:
-            result.append({
-                "personnel_id": personnel.id,
-                "name": personnel.name,
-                "role": personnel.role,
-                "assignment_count": assignment_counts.get(personnel.id, 0),
-            })
+            open_count = open_counts.get(personnel.id, 0)
+            done_count = done_counts.get(personnel.id, 0)
+            result.append(
+                {
+                    "personnel_id": personnel.id,
+                    "name": personnel.name,
+                    "role": personnel.role,
+                    "assignment_count": open_count + done_count,
+                    "open_count": open_count,
+                    "done_count": done_count,
+                }
+            )
 
-    # Sort by assignment count (least assigned first), then by name
-    result.sort(key=lambda x: (x["assignment_count"], x["name"]))
+    # Sort by open work first (least loaded first), then by name
+    result.sort(key=lambda x: (x["open_count"], x["name"]))
 
     return result
 
@@ -111,8 +131,7 @@ async def get_reko_assignments_for_personnel(
     """
     # Verify personnel has reko function for this event
     reko_check = await db.execute(
-        select(EventSpecialFunction)
-        .where(
+        select(EventSpecialFunction).where(
             EventSpecialFunction.event_id == event_id,
             EventSpecialFunction.personnel_id == personnel_id,
             EventSpecialFunction.function_type == "reko",
@@ -123,8 +142,7 @@ async def get_reko_assignments_for_personnel(
 
     # Get all incident IDs for this event
     incidents_result = await db.execute(
-        select(Incident.id)
-        .where(
+        select(Incident.id).where(
             Incident.event_id == event_id,
             Incident.deleted_at.is_(None),
         )
@@ -136,8 +154,7 @@ async def get_reko_assignments_for_personnel(
 
     # Get active assignments for this personnel in these incidents
     assignments_result = await db.execute(
-        select(IncidentAssignment)
-        .where(
+        select(IncidentAssignment).where(
             IncidentAssignment.incident_id.in_(incident_ids),
             IncidentAssignment.resource_type == "personnel",
             IncidentAssignment.resource_id == personnel_id,
@@ -167,9 +184,7 @@ async def get_reko_assignments_for_personnel(
         return []
 
     # Get incident details
-    incidents_detail_result = await db.execute(
-        select(Incident).where(Incident.id.in_(all_relevant_incident_ids))
-    )
+    incidents_detail_result = await db.execute(select(Incident).where(Incident.id.in_(all_relevant_incident_ids)))
     incidents = {i.id: i for i in incidents_detail_result.scalars().all()}
 
     # Get reko report status for each incident (check if non-draft report exists)
@@ -190,26 +205,30 @@ async def get_reko_assignments_for_personnel(
         if incident:
             assignment = assignment_map.get(incident_id)
             is_active = incident_id in active_incident_ids
-            result.append({
-                "incident_id": incident.id,
-                "incident_title": incident.title or incident.location_address or "Unbekannt",
-                "incident_type": incident.type,
-                "incident_status": incident.status,
-                "location_address": incident.location_address,
-                "location_lat": str(incident.location_lat) if incident.location_lat else None,
-                "location_lng": str(incident.location_lng) if incident.location_lng else None,
-                "assignment_id": assignment.id if assignment else None,
-                "assigned_at": assignment.assigned_at if assignment else None,
-                "has_completed_reko": incident_id in completed_reko_incidents,
-                "is_active_assignment": is_active,
-            })
+            result.append(
+                {
+                    "incident_id": incident.id,
+                    "incident_title": incident.title or incident.location_address or "Unbekannt",
+                    "incident_type": incident.type,
+                    "incident_status": incident.status,
+                    "location_address": incident.location_address,
+                    "location_lat": str(incident.location_lat) if incident.location_lat else None,
+                    "location_lng": str(incident.location_lng) if incident.location_lng else None,
+                    "assignment_id": assignment.id if assignment else None,
+                    "assigned_at": assignment.assigned_at if assignment else None,
+                    "has_completed_reko": incident_id in completed_reko_incidents,
+                    "is_active_assignment": is_active,
+                }
+            )
 
     # Sort: active first, then by has_completed_reko (incomplete first), then by title
-    result.sort(key=lambda x: (
-        not x["is_active_assignment"],  # Active first
-        x["has_completed_reko"],  # Incomplete first within each group
-        x["incident_title"],
-    ))
+    result.sort(
+        key=lambda x: (
+            not x["is_active_assignment"],  # Active first
+            x["has_completed_reko"],  # Incomplete first within each group
+            x["incident_title"],
+        )
+    )
 
     return result
 
@@ -234,8 +253,7 @@ async def unassign_reko_personnel_from_incident(
     """
     # Find the active assignment
     result = await db.execute(
-        select(IncidentAssignment)
-        .where(
+        select(IncidentAssignment).where(
             IncidentAssignment.incident_id == incident_id,
             IncidentAssignment.resource_type == "personnel",
             IncidentAssignment.resource_id == personnel_id,
@@ -276,9 +294,7 @@ async def get_available_reko_personnel_for_incident(
         Tuple of (list of personnel with assignment counts, currently_assigned_id or None)
     """
     # Get the incident's event_id
-    incident_result = await db.execute(
-        select(Incident).where(Incident.id == incident_id)
-    )
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = incident_result.scalar_one_or_none()
 
     if not incident:
@@ -288,8 +304,7 @@ async def get_available_reko_personnel_for_incident(
 
     # Get all Reko personnel IDs for this event
     reko_functions = await db.execute(
-        select(EventSpecialFunction.personnel_id)
-        .where(
+        select(EventSpecialFunction.personnel_id).where(
             EventSpecialFunction.event_id == event_id,
             EventSpecialFunction.function_type == "reko",
         )
@@ -301,8 +316,7 @@ async def get_available_reko_personnel_for_incident(
 
     # Check if this incident already has a Reko person assigned
     existing_reko_assignment = await db.execute(
-        select(IncidentAssignment)
-        .where(
+        select(IncidentAssignment).where(
             IncidentAssignment.incident_id == incident_id,
             IncidentAssignment.resource_type == "personnel",
             IncidentAssignment.resource_id.in_(reko_personnel_ids),

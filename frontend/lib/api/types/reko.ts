@@ -83,6 +83,10 @@ export interface ApiRekoDashboardPersonnel {
   name: string
   role: string | null
   assignment_count: number
+  /** Active assignments whose incident still needs a reko (actively open work). */
+  open_count: number
+  /** Active assignments whose incident already has a completed reko ("Beendet"). */
+  done_count: number
 }
 
 export interface ApiRekoDashboardPersonnelListResponse {

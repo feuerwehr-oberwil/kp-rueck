@@ -111,6 +111,10 @@ class RekoDashboardPersonnel(BaseModel):
     name: str
     role: str | None = None
     assignment_count: int = 0
+    # Active assignments whose incident still needs a reko (actively open work).
+    open_count: int = 0
+    # Active assignments whose incident already has a completed reko ("Beendet").
+    done_count: int = 0
 
 
 class RekoDashboardPersonnelListResponse(BaseModel):
