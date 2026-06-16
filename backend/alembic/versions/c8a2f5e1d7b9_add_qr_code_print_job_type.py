@@ -1,7 +1,7 @@
 """add qr_code print job type
 
 Revision ID: c8a2f5e1d7b9
-Revises: a1c4f7d2e9b3
+Revises: f7e3a9c2b1d4
 Create Date: 2026-06-16 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "c8a2f5e1d7b9"
-down_revision: str | Sequence[str] | None = "a1c4f7d2e9b3"
+down_revision: str | Sequence[str] | None = "f7e3a9c2b1d4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
