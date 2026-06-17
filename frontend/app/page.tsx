@@ -54,6 +54,14 @@ import { PrintOptionsModal } from "@/components/print/print-options-modal"
 import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function FireStationDashboard() {
   const {
@@ -245,6 +253,10 @@ export default function FireStationDashboard() {
   const [alarmCopied, setAlarmCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
+  // When disponieren is triggered for an incident that's missing resources
+  // (Personal, Fahrzeuge or Mittel), hold it here to make the operator
+  // acknowledge what's missing before dispatching.
+  const [missingResourcesAckOp, setMissingResourcesAckOp] = useState<Operation | null>(null)
 
   // Persist showMeldung to localStorage
   useEffect(() => {
@@ -409,11 +421,29 @@ export default function FireStationDashboard() {
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
 
-  // Show disponiert transition dialog when moving to enroute
+  // Returns the resource categories (Personal / Fahrzeuge / Mittel) an incident
+  // is still missing. Vehicles are skipped for "zu Fuss" incidents, which by
+  // definition rück without apparatus.
+  const getMissingResources = useCallback((op: Operation): string[] => {
+    const missing: string[] = []
+    if (op.crew.length === 0) missing.push("Personal")
+    if (!op.zuFuss && op.vehicles.length === 0) missing.push("Fahrzeuge")
+    if (op.materials.length === 0) missing.push("Mittel")
+    return missing
+  }, [])
+
+  // Show disponiert transition dialog when moving to enroute. If the incident is
+  // missing any resources (Personal, Fahrzeuge or Mittel), gate behind an
+  // acknowledgment first so the operator doesn't silently dispatch it underequipped.
   const triggerDisponiertDialog = useCallback((operationId: string) => {
     const op = operations.find(o => o.id === operationId)
-    if (op) setDisponiertDialogOp(op)
-  }, [operations])
+    if (!op) return
+    if (getMissingResources(op).length > 0) {
+      setMissingResourcesAckOp(op)
+    } else {
+      setDisponiertDialogOp(op)
+    }
+  }, [operations, getMissingResources])
 
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -2147,6 +2177,42 @@ export default function FireStationDashboard() {
         onPrint={handlePrintBoard}
         isPrinting={isPrintingBoard}
       />
+
+      {/* Missing-resources acknowledgment — gate before disponieren */}
+      <AlertDialog
+        open={!!missingResourcesAckOp}
+        onOpenChange={(open) => !open && setMissingResourcesAckOp(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Ressourcen fehlen
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{missingResourcesAckOp?.location}</span> wird disponiert,
+              es {missingResourcesAckOp && getMissingResources(missingResourcesAckOp).length === 1 ? "fehlt" : "fehlen"} aber noch{" "}
+              <span className="font-medium text-foreground">
+                {missingResourcesAckOp ? getMissingResources(missingResourcesAckOp).join(", ") : ""}
+              </span>
+              . Möchten Sie zuerst zuweisen oder trotzdem fortfahren?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-between">
+            <Button variant="outline" onClick={() => setMissingResourcesAckOp(null)}>
+              Zuweisen
+            </Button>
+            <Button
+              onClick={() => {
+                setDisponiertDialogOp(missingResourcesAckOp)
+                setMissingResourcesAckOp(null)
+              }}
+            >
+              Trotzdem disponieren
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Disponiert Transition Dialog */}
       <DisponierTransitionDialog
