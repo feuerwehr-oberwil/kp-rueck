@@ -92,26 +92,8 @@ const SHIFT_PRIORITY_KEYS: Record<string, Operation["priority"]> = {
  * state directly — that makes the hook unit-testable without mounting
  * the entire dashboard.
  *
- * Key map:
- *   Esc       — cancel g-prefix or blur input
- *   G then X  — Vim-style nav (handled by gPrefix hook)
- *   0         — toggle zu_fuss on hovered op
- *   1..N      — toggle vehicleType[N-1] on hovered op
- *   Shift+1/2/3 — set priority low/medium/high on hovered op
- *   < / >     — move hovered op back/forward through status columns
- *   / or S    — focus search
- *   P         — focus personnel sidebar
- *   M         — focus material sidebar
- *   F         — toggle vehicle footer sheet
- *   N         — open new-emergency modal
- *   Q / [     — toggle left (personnel) sidebar
- *   W / ]     — toggle right (material) sidebar
- *   I / \\    — toggle side panel
- *   D / K     — side panel detail / map view (when open)
- *   B         — toggle notifications
- *   E / Enter — open detail modal for hovered op
- *   R / F5    — refresh operations
- *   Del / BS  — delete hovered op (with confirmation)
+ * The full key map is rendered by the command palette (Cmd/Ctrl+K,
+ * `components/ui/command-palette.tsx`) — keep its hints in sync.
  */
 export function useKanbanShortcuts(
   state: KanbanShortcutsState,

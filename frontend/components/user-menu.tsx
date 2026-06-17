@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3 } from 'lucide-react';
+import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard } from 'lucide-react';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -19,6 +19,7 @@ import { apiClient } from '@/lib/api-client';
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
 import type { SyncConfig } from '@/types/sync';
 import { RoleBadge } from '@/components/auth/role-badge';
+import { openCommandPalette } from '@/components/ui/command-palette';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -387,6 +388,12 @@ export function UserMenu({
               <Radio className="mr-2 h-4 w-4" />
               <span>Divera Notfälle</span>
             </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={openCommandPalette} className="cursor-pointer">
+            <Keyboard className="mr-2 h-4 w-4" />
+            <span>Befehle &amp; Tastaturkürzel</span>
+            <span className="ml-auto text-xs text-muted-foreground">⌘K</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

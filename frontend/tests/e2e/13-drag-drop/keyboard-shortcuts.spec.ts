@@ -75,3 +75,46 @@ test.describe('Kanban shortcuts (live)', () => {
     ).toHaveCount(0);
   });
 });
+
+test.describe('Command palette (live)', () => {
+  test.beforeEach(async ({ authenticatedPage, request }) => {
+    const cookies = await authenticatedPage.context().cookies();
+    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+
+    const eventResp = await request.post('http://localhost:8000/api/events/', {
+      headers: { 'Content-Type': 'application/json', cookie: cookieHeader },
+      data: { name: `CmdPalette ${Date.now()}`, training_flag: true },
+    });
+    expect(eventResp.ok()).toBeTruthy();
+    const event = await eventResp.json();
+
+    await authenticatedPage.goto('/');
+    await authenticatedPage.evaluate(
+      ([key, id]) => window.localStorage.setItem(key, id),
+      ['kp-rueck-selected-event', event.id] as const,
+    );
+    await authenticatedPage.reload();
+    await authenticatedPage.waitForLoadState('networkidle');
+    await authenticatedPage.waitForTimeout(800);
+  });
+
+  test('Cmd+K opens the palette with shortcut hints, Esc closes it', async ({ authenticatedPage }) => {
+    await authenticatedPage.keyboard.press('Meta+k');
+
+    const input = authenticatedPage.getByPlaceholder('Befehl suchen...');
+    await expect(input).toBeVisible({ timeout: 3000 });
+    // Shortcut hints are folded into the palette entries
+    await expect(
+      authenticatedPage.getByRole('dialog').getByText('Neuer Einsatz'),
+    ).toBeVisible();
+
+    await authenticatedPage.keyboard.press('Escape');
+    await expect(input).not.toBeVisible({ timeout: 3000 });
+  });
+
+  test('? no longer opens anything', async ({ authenticatedPage }) => {
+    await authenticatedPage.keyboard.press('?');
+    await authenticatedPage.waitForTimeout(500);
+    await expect(authenticatedPage.getByPlaceholder('Befehl suchen...')).toHaveCount(0);
+  });
+});

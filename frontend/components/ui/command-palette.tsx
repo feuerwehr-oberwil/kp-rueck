@@ -44,6 +44,13 @@ import {
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 
+/** Window event that opens the palette (for mouse entry points like the welcome card). */
+export const OPEN_COMMAND_PALETTE_EVENT = "kp:open-command-palette"
+
+export function openCommandPalette() {
+  window.dispatchEvent(new CustomEvent(OPEN_COMMAND_PALETTE_EVENT))
+}
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
@@ -71,7 +78,9 @@ export function CommandPalette() {
     onToggleMapLabels,
     onToggleMapLines,
     onFocusVehicle,
+    onMapResetZoom,
     mapVehicleNames = [],
+    onFocusIncidentSearch,
     hasSelectedIncident = false,
   } = useCommandPaletteHandlers()
 
@@ -79,24 +88,22 @@ export function CommandPalette() {
   // otherwise the CommandItem stays visible but `disabled` greys it out.
   const incidentOnly = (fn?: () => void) => (hasSelectedIncident ? fn : undefined)
 
-  // Listen for Cmd/Ctrl+K and ? key
+  // Listen for Cmd/Ctrl+K and the programmatic open event
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      // Check if user is typing in an input
-      const target = e.target as HTMLElement
-      const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
-
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setOpen((open) => !open)
-      } else if (e.key === "?" && !isTyping) {
-        e.preventDefault()
-        setOpen(true)
       }
     }
+    const openFromEvent = () => setOpen(true)
 
     document.addEventListener("keydown", down)
-    return () => document.removeEventListener("keydown", down)
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, openFromEvent)
+    return () => {
+      document.removeEventListener("keydown", down)
+      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, openFromEvent)
+    }
   }, [])
 
   const runCommand = useCallback((command: () => void) => {
@@ -245,6 +252,13 @@ export function CommandPalette() {
                       <span className="ml-auto text-xs text-muted-foreground">I</span>
                     </CommandItem>
                   )}
+                  {onMapResetZoom && (
+                    <CommandItem onSelect={() => runCommand(onMapResetZoom)}>
+                      <Crosshair className="mr-2 h-4 w-4" />
+                      <span>Zoom zurücksetzen / Auswahl aufheben</span>
+                      <span className="ml-auto text-xs text-muted-foreground">Z</span>
+                    </CommandItem>
+                  )}
                   {onFocusVehicle &&
                     [1, 2, 3, 4, 5].map((n) => (
                       <CommandItem
@@ -263,7 +277,11 @@ export function CommandPalette() {
             <CommandSeparator />
 
             <CommandGroup heading="Suche">
-              <CommandItem onSelect={() => runCommand(() => document.getElementById('search-input')?.focus())}>
+              <CommandItem
+                onSelect={() =>
+                  runCommand(onFocusIncidentSearch ?? (() => document.getElementById('search-input')?.focus()))
+                }
+              >
                 <Search className="mr-2 h-4 w-4" />
                 <span>Einsätze durchsuchen</span>
                 <span className="ml-auto text-xs text-muted-foreground">S / /</span>

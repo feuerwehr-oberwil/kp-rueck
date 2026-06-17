@@ -35,7 +35,10 @@ export interface CommandPaletteHandlers {
   onToggleMapLabels?: () => void
   onToggleMapLines?: () => void
   onFocusVehicle?: (vehicleNumber: number) => void
+  onMapResetZoom?: () => void
   mapVehicleNames?: string[]
+  // Incident search focus (page-specific input; falls back to #search-input)
+  onFocusIncidentSearch?: () => void
 }
 
 interface CommandPaletteContextValue {

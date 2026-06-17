@@ -149,7 +149,12 @@ export default function MapPage() {
       onToggleMapLabels: () => setShowLabels((prev) => !prev),
       onToggleMapLines: () => setShowAssignmentLines((prev) => !prev),
       onFocusVehicle: focusVehicleByNumber,
+      onMapResetZoom: () => {
+        setResetZoomTrigger((prev) => prev + 1)
+        setSelectedIncidentId(null)
+      },
       mapVehicleNames: vehicleTypes.map((v) => v.name),
+      onFocusIncidentSearch: () => document.getElementById('map-search-input')?.focus(),
     })
     return () => clearHandlers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
