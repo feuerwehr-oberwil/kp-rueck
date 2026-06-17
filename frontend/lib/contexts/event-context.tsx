@@ -27,7 +27,7 @@ const SELECTED_EVENT_KEY = 'kp-rueck-selected-event'
 /**
  * Convert API event to frontend Event type
  */
-const apiEventToEvent = (apiEvent: ApiEvent): Event => ({
+export const apiEventToEvent = (apiEvent: ApiEvent): Event => ({
   id: apiEvent.id,
   name: apiEvent.name,
   training_flag: apiEvent.training_flag,

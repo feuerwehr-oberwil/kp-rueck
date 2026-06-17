@@ -10,6 +10,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useEvent, apiEventToEvent } from '@/lib/contexts/event-context';
 import { apiClient } from '@/lib/api-client';
 import { getMicrosoftAuthConfig, MicrosoftAuthConfig } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ export default function LoginPage() {
   const [configLoading, setConfigLoading] = useState(true);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { login } = useAuth();
+  const { setSelectedEvent } = useEvent();
   const router = useRouter();
 
   useEffect(() => {
@@ -93,6 +95,20 @@ export default function LoginPage() {
 
     try {
       await login(demoUsername, 'demo123');
+
+      // Editors get their own sandbox event so simultaneous demo visitors
+      // don't fight over the same board. Best-effort: any failure falls
+      // back to the normal post-login flow.
+      if (role === 'editor') {
+        try {
+          const sandbox = await apiClient.createDemoSandbox();
+          const apiEvent = await apiClient.getEvent(sandbox.event_id, { skipToast: true });
+          setSelectedEvent(apiEventToEvent(apiEvent));
+        } catch (sandboxErr) {
+          console.warn('Demo-Sandbox konnte nicht erstellt werden:', sandboxErr);
+        }
+      }
+
       router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Demo-Anmeldung fehlgeschlagen.');

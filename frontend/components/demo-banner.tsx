@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { apiClient } from '@/lib/api-client'
+import { useEvent } from '@/lib/contexts/event-context'
 import { X } from 'lucide-react'
+
+const SANDBOX_EVENT_PREFIX = 'Demo-Lage #'
 
 interface DemoStatus {
   demo: boolean
@@ -12,6 +15,7 @@ interface DemoStatus {
 }
 
 export function DemoBanner() {
+  const { selectedEvent } = useEvent()
   const [demoStatus, setDemoStatus] = useState<DemoStatus | null>(null)
   const [secondsLeft, setSecondsLeft] = useState<number>(0)
   const [dismissed, setDismissed] = useState(false)
@@ -108,10 +112,14 @@ export function DemoBanner() {
     timeText = `${secondsLeft}s`
   }
 
+  const isSandbox = selectedEvent?.name.startsWith(SANDBOX_EVENT_PREFIX) ?? false
+
   return (
     <div className="flex-shrink-0 z-50 flex items-center justify-center gap-2 bg-amber-500/90 px-4 py-1.5 text-sm font-medium text-amber-950 backdrop-blur-sm">
       <span>
-        Demo-Modus — wird in {timeText} zurückgesetzt
+        {isSandbox
+          ? `Demo-Modus — dies ist deine persönliche Übungslage · Reset in ${timeText}`
+          : `Demo-Modus — wird in ${timeText} zurückgesetzt`}
       </span>
       <button
         onClick={() => setDismissed(true)}
