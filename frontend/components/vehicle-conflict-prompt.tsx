@@ -61,7 +61,7 @@ export function VehicleConflictPrompt() {
           </Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => resolveVehicleConflict("keep")}>
-              Trotzdem zuweisen
+              Mehrfach zuweisen
             </Button>
             <Button onClick={() => resolveVehicleConflict("move")}>
               Hierher verschieben

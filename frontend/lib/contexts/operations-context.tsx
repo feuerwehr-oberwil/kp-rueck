@@ -141,6 +141,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // Operations state (only operations-specific state here)
   const [operations, setOperations] = useState<Operation[]>([])
+  // Always-current mirror of `operations` for reads inside async callbacks that
+  // would otherwise close over a stale snapshot (e.g. the post-assign driver prompt).
+  const operationsRef = useRef<Operation[]>([])
+  operationsRef.current = operations
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
@@ -1431,7 +1435,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             const hasDriver = functions.some(
               (f) => f.function_type === "driver" && f.vehicle_id === vehicleId
             )
-            if (!hasDriver) {
+            // Guard against the assign→remove race: this runs two network
+            // round-trips after the assignment, so the operator may have already
+            // unassigned the vehicle. Only prompt if it's still on this incident,
+            // otherwise the prompt appears to fire on *un*assignment.
+            const stillAssigned = operationsRef.current
+              .find((op) => op.id === operationId)
+              ?.vehicles.includes(vehicleName)
+            if (!hasDriver && stillAssigned) {
               setVehicleNeedingDriver({ vehicleId, vehicleName })
             }
           } catch (err) {
