@@ -72,6 +72,8 @@ class RateLimits:
 
     # Demo mode - tighter limits
     DEMO_DEFAULT = "60/minute"
+    DEMO_RESET = "2/hour"
+    DEMO_SANDBOX = "10/hour"
 
     # Resource-intensive endpoints
     EXPORT = "10/minute"

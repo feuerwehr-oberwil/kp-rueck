@@ -195,6 +195,32 @@ async def update_incident(
     return incident_response
 
 
+@router.post("/reorder", status_code=status.HTTP_204_NO_CONTENT)
+async def reorder_incidents(
+    reorder: schemas.IncidentReorder,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """Persist the manual top-to-bottom card order for a status column (editor only).
+
+    `ordered_ids` lists the column's cards in their new order; each card's
+    position is set to its index. Broadcasts so other boards pick up the order.
+    """
+    updated = await crud.reorder_incidents(
+        db=db,
+        event_id=reorder.event_id,
+        ordered_ids=reorder.ordered_ids,
+    )
+
+    if updated:
+        background_tasks.add_task(
+            broadcast_incident_update,
+            {"event_id": str(reorder.event_id), "ordered_ids": [str(i) for i in reorder.ordered_ids]},
+            "reorder",
+        )
+
+
 @router.post("/{incident_id}/status", response_model=schemas.IncidentResponse)
 async def update_status(
     incident_id: uuid.UUID,

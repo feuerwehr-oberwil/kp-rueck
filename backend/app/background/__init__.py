@@ -20,3 +20,17 @@ def stop_demo_reset_scheduler():
     from .demo_reset import stop_demo_reset_scheduler as _stop
 
     _stop()
+
+
+def start_audit_cleanup_scheduler():
+    """Start the audit cleanup scheduler (lazy import to avoid circular deps)."""
+    from .audit_cleanup import start_audit_cleanup_scheduler as _start
+
+    _start()
+
+
+def stop_audit_cleanup_scheduler():
+    """Stop the audit cleanup scheduler (lazy import to avoid circular deps)."""
+    from .audit_cleanup import stop_audit_cleanup_scheduler as _stop
+
+    _stop()

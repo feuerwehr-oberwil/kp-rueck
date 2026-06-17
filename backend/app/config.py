@@ -118,8 +118,15 @@ class Settings(BaseSettings):
     demo_mode: bool = False  # Set DEMO_MODE=true for public demo deployment
     demo_reset_hours: int = 2  # How often to reset demo data (hours)
 
+    # Audit Log Retention
+    audit_retention_days: int = 90  # Delete audit_log rows older than this (capped at 7 in demo mode)
+    audit_cleanup_interval_hours: int = 24  # How often the cleanup job runs (hours)
+
     # Print Agent
     print_agent_token: str = ""  # Shared token for print agent endpoints (empty = no auth, LAN-only installs)
+
+    # WebSocket
+    ws_require_auth: bool = False  # Reject WebSocket connects without a valid JWT (strict mode, off for now)
 
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)
@@ -151,7 +158,12 @@ class Settings(BaseSettings):
     @property
     def microsoft_auth_enabled(self) -> bool:
         """Check if Microsoft Entra ID auth is configured."""
-        return bool(self.microsoft_client_id and self.microsoft_tenant_id and self.microsoft_client_secret and self.microsoft_redirect_uri)
+        return bool(
+            self.microsoft_client_id
+            and self.microsoft_tenant_id
+            and self.microsoft_client_secret
+            and self.microsoft_redirect_uri
+        )
 
     # Divera API Integration (for polling as webhook fallback)
     divera_access_key: str = ""  # Divera247 API access key (empty = polling disabled)

@@ -9,14 +9,17 @@ Tests cover:
 """
 
 import time
+from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.auth.security import create_access_token
 from app.websocket_manager import (
     CLEANUP_INTERVAL_SECONDS,
     STALE_SESSION_TIMEOUT_SECONDS,
     WebSocketManager,
+    get_role_from_environ,
     broadcast_assignment_update,
     broadcast_incident_update,
     broadcast_material_update,
@@ -437,6 +440,8 @@ class TestEdgeCases:
         environ = {}
 
         await manager.connect(sid, environ)
+        # Admin room requires an editor/admin role
+        manager.user_sessions[sid]["role"] = "editor"
         await manager.join_room(sid, "operations")
         await manager.join_room(sid, "admin")
 
@@ -476,3 +481,149 @@ class TestEdgeCases:
 
             # Should not raise exception
             await manager.send_to_client("sid123", "test_event", {"data": "test"})
+
+
+# ============================================
+# Room Access Control Tests (Part C, plan 03)
+# ============================================
+
+
+class TestRoomAccessControl:
+    """Tests for role-based room access (admin room gating)."""
+
+    @pytest.fixture
+    def manager(self):
+        return WebSocketManager()
+
+    @pytest.mark.asyncio
+    async def test_admin_room_denied_without_role(self, manager):
+        sid = "acl_sid_1"
+        await manager.connect(sid, {})
+
+        result = await manager.join_room(sid, "admin")
+
+        assert result is False
+        assert sid not in manager.active_connections["admin"]
+
+    @pytest.mark.asyncio
+    async def test_admin_room_allowed_for_editor(self, manager):
+        sid = "acl_sid_2"
+        await manager.connect(sid, {})
+        manager.user_sessions[sid]["role"] = "editor"
+
+        result = await manager.join_room(sid, "admin")
+
+        assert result is True
+        assert sid in manager.active_connections["admin"]
+
+    @pytest.mark.asyncio
+    async def test_admin_room_allowed_for_admin(self, manager):
+        sid = "acl_sid_3"
+        await manager.connect(sid, {})
+        manager.user_sessions[sid]["role"] = "admin"
+
+        assert await manager.join_room(sid, "admin") is True
+
+    @pytest.mark.asyncio
+    async def test_admin_room_denied_for_viewer(self, manager):
+        sid = "acl_sid_4"
+        await manager.connect(sid, {})
+        manager.user_sessions[sid]["role"] = "viewer"
+
+        assert await manager.join_room(sid, "admin") is False
+
+    @pytest.mark.asyncio
+    async def test_operations_room_open_without_role(self, manager):
+        """Phase 1: operations stays open to all connected clients."""
+        sid = "acl_sid_5"
+        await manager.connect(sid, {})
+
+        assert await manager.join_room(sid, "operations") is True
+
+
+# ============================================
+# Cookie/JWT Role Extraction Tests
+# ============================================
+
+
+class TestGetRoleFromEnviron:
+    """Tests for the JWT cookie parsing helper."""
+
+    def test_valid_token_extracts_role(self):
+        token = create_access_token(data={"sub": "some-user-id", "role": "editor"})
+        environ = {"HTTP_COOKIE": f"access_token={token}"}
+
+        assert get_role_from_environ(environ) == "editor"
+
+    def test_missing_cookie_header(self):
+        assert get_role_from_environ({}) is None
+
+    def test_cookie_without_access_token(self):
+        assert get_role_from_environ({"HTTP_COOKIE": "other=value"}) is None
+
+    def test_garbage_token(self):
+        assert get_role_from_environ({"HTTP_COOKIE": "access_token=not.a.jwt"}) is None
+
+    def test_expired_token(self):
+        token = create_access_token(data={"sub": "u", "role": "editor"}, expires_delta=timedelta(seconds=-10))
+        environ = {"HTTP_COOKIE": f"access_token={token}"}
+
+        assert get_role_from_environ(environ) is None
+
+    def test_garbage_cookie_header(self):
+        assert get_role_from_environ({"HTTP_COOKIE": ";;;=;;;"}) is None
+
+
+# ============================================
+# Strict Mode (ws_require_auth) Tests
+# ============================================
+
+
+class TestWsRequireAuth:
+    """Tests for the strict-mode connect rejection flag."""
+
+    @pytest.mark.asyncio
+    async def test_rejects_unauthenticated_when_strict(self, monkeypatch):
+        from app.websocket_manager import connect as connect_handler
+        from app.websocket_manager import settings
+
+        monkeypatch.setattr(settings, "ws_require_auth", True)
+
+        result = await connect_handler("strict_sid_1", {})
+
+        assert result is False
+        assert "strict_sid_1" not in ws_manager.user_sessions
+
+    @pytest.mark.asyncio
+    async def test_accepts_authenticated_when_strict(self, monkeypatch):
+        from app.websocket_manager import connect as connect_handler
+        from app.websocket_manager import settings
+
+        monkeypatch.setattr(settings, "ws_require_auth", True)
+        token = create_access_token(data={"sub": "u", "role": "editor"})
+        environ = {"HTTP_COOKIE": f"access_token={token}"}
+
+        with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock):
+            result = await connect_handler("strict_sid_2", environ)
+
+        try:
+            assert result is True
+            assert ws_manager.user_sessions["strict_sid_2"]["role"] == "editor"
+        finally:
+            await ws_manager.disconnect("strict_sid_2")
+
+    @pytest.mark.asyncio
+    async def test_accepts_unauthenticated_when_not_strict(self, monkeypatch):
+        from app.websocket_manager import connect as connect_handler
+        from app.websocket_manager import settings
+
+        monkeypatch.setattr(settings, "ws_require_auth", False)
+
+        with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock):
+            result = await connect_handler("strict_sid_3", {})
+
+        try:
+            assert result is True
+            assert ws_manager.user_sessions["strict_sid_3"]["role"] is None
+        finally:
+            await ws_manager.disconnect("strict_sid_3")

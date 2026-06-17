@@ -2,6 +2,10 @@
 
 Creates realistic demo data for the public demo deployment.
 Called by seed.py when DEMO_MODE=true.
+
+seed_demo_event_content() is shared between the full seed/reset and the
+per-session sandbox endpoint (POST /api/demo/sandbox): it fills an existing
+event with the demo scenario, looking up the shared resources by name.
 """
 
 from datetime import datetime, timedelta
@@ -9,9 +13,352 @@ from uuid import uuid4
 
 import bcrypt
 from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models
 from .database import async_session_maker
+
+
+async def seed_demo_shared_resources(db: AsyncSession) -> None:
+    """Create the shared demo resources (vehicles, personnel, materials).
+
+    Flushes but does not commit; the caller controls the transaction.
+    """
+    vehicles_data = [
+        {"name": "TLF", "type": "TLF", "display_order": 1, "status": "available", "radio_call_sign": "Omega 1"},
+        {"name": "Pio", "type": "RW", "display_order": 2, "status": "available", "radio_call_sign": "Omega 2"},
+        {"name": "Mowa", "type": "MTW", "display_order": 3, "status": "available", "radio_call_sign": "Omega 3"},
+        {"name": "Trawa", "type": "MTW", "display_order": 4, "status": "available", "radio_call_sign": "Omega 4"},
+        {"name": "Mawa", "type": "MTW", "display_order": 5, "status": "available", "radio_call_sign": "Omega 5"},
+    ]
+    for v in vehicles_data:
+        db.add(models.Vehicle(id=uuid4(), **v))
+
+    personnel_data = [
+        # Offiziere
+        {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
+        {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
+        {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
+        {"name": "Fischer Thomas", "role": "Offiziere", "availability": "available", "tags": []},
+        # Wachtmeister
+        {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Koch René", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
+        {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
+        # Korporal
+        {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
+        {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
+        {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
+        # Mannschaft
+        {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Künzli Klara", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+        {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
+    ]
+    for p in personnel_data:
+        db.add(models.Personnel(id=uuid4(), **p))
+
+    materials_data = [
+        # Tauchpumpen
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+        {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+        # Wassersauger
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Pio", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+        # Generatoren
+        {"name": "Generator", "type": "Generatoren", "location": "TLF", "status": "available"},
+        {"name": "Generator", "type": "Generatoren", "location": "MoWa", "status": "available"},
+        # Sägen
+        {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Pio", "status": "available"},
+        {"name": "Motorsäge Kl.", "type": "Sägen", "location": "Pio", "status": "available"},
+        # Spannungsprüfer
+        {"name": "Spannungsprüfer", "type": "Elektrowerkzeug", "location": "MoWa", "status": "available"},
+    ]
+    for m in materials_data:
+        db.add(models.Material(id=uuid4(), **m))
+
+    await db.flush()
+
+
+async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None:
+    """Fill an existing event with the demo scenario content.
+
+    Creates incidents, assignments, special functions, and status transitions
+    for the given event. Shared resources (vehicles/personnel/materials) are
+    looked up by name from the DB — they are NOT created here.
+
+    Flushes but does not commit; the caller controls the transaction.
+    """
+    # Editor user for created_by/assigned_by (fall back to any user, e.g. in tests)
+    result = await db.execute(select(models.User).where(models.User.username == "demo-editor"))
+    editor_user = result.scalar_one_or_none()
+    if editor_user is None:
+        result = await db.execute(select(models.User).limit(1))
+        editor_user = result.scalars().first()
+    editor_id = editor_user.id if editor_user else None
+
+    # Look up shared resources by name (materials by name + location, names repeat)
+    result = await db.execute(select(models.Vehicle))
+    vehicle = {v.name: v for v in result.scalars().all()}
+
+    result = await db.execute(select(models.Personnel))
+    person = {p.name: p for p in result.scalars().all()}
+
+    result = await db.execute(select(models.Material))
+    material = {(m.name, m.location): m for m in result.scalars().all()}
+
+    now = datetime.now()
+
+    # ============================================
+    # INCIDENTS (~12, all statuses, Oberwil BL flood scenario)
+    # ============================================
+    incidents_data = [
+        # --- eingegangen (3) ---
+        {
+            "title": "Wasserschaden Keller",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Mühlegasse 12, 4104 Oberwil",
+            "location_lat": 47.5148,
+            "location_lng": 7.6125,
+            "status": "eingegangen",
+            "description": "Wasser im Keller nach Starkregen. Bewohner melden ca. 20cm Wasser.",
+        },
+        {
+            "title": "Wassereintritt Schulhaus",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Schulgasse 10, 4104 Oberwil",
+            "location_lat": 47.5170,
+            "location_lng": 7.6135,
+            "status": "eingegangen",
+            "description": "Wasser dringt durch Lichtschächte ins Untergeschoss des Schulhauses ein. Hauswart vor Ort.",
+        },
+        {
+            "title": "Verstopfter Bachdurchlass",
+            "type": "elementarereignis",
+            "priority": "low",
+            "location_address": "Marbachweg 3, 4104 Oberwil",
+            "location_lat": 47.5105,
+            "location_lng": 7.6090,
+            "status": "eingegangen",
+            "description": "Durchlass am Marbach mit Geschwemmsel verstopft, Wasser staut sich Richtung Wohnquartier.",
+        },
+        # --- reko (2) ---
+        {
+            "title": "Überflutung Tiefgarage",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Hauptstrasse 95, 4104 Oberwil",
+            "location_lat": 47.5162,
+            "location_lng": 7.6152,
+            "status": "reko",
+            "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
+        },
+        {
+            "title": "Hangrutsch droht",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Bielstrasse 18, 4104 Oberwil",
+            "location_lat": 47.5200,
+            "location_lng": 7.6075,
+            "status": "reko",
+            "description": "Durchnässter Hang oberhalb der Liegenschaft in Bewegung. Anwohner besorgt, Abklärung nötig.",
+        },
+        # --- reko_done (1) ---
+        {
+            "title": "Unterführung überflutet",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Bahnhofstrasse 4, 4104 Oberwil",
+            "location_lat": 47.5143,
+            "location_lng": 7.6189,
+            "status": "reko_done",
+            "description": "Fussgängerunterführung beim Bahnhof unter Wasser. Reko abgeschlossen: Pumpeneinsatz nötig.",
+        },
+        # --- disponiert (2) ---
+        {
+            "title": "Keller auspumpen Gewerbebetrieb",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Bottmingerstrasse 40, 4104 Oberwil",
+            "location_lat": 47.5175,
+            "location_lng": 7.6098,
+            "status": "disponiert",
+            "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
+        },
+        {
+            "title": "Wasser in Arztpraxis",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Konsumstrasse 9, 4104 Oberwil",
+            "location_lat": 47.5158,
+            "location_lng": 7.6118,
+            "status": "disponiert",
+            "description": "Wassereintritt in Praxisräume im Hochparterre. Medizinische Geräte gefährdet.",
+        },
+        # --- einsatz (2) ---
+        {
+            "title": "Wasser im Keller EFH",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Langegasse 28, 4104 Oberwil",
+            "location_lat": 47.5139,
+            "location_lng": 7.6167,
+            "status": "einsatz",
+            "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
+        },
+        {
+            "title": "Pumpeneinsatz Mehrfamilienhaus",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Therwilerstrasse 25, 4104 Oberwil",
+            "location_lat": 47.5132,
+            "location_lng": 7.6103,
+            "status": "einsatz",
+            "description": "Waschküche und Keller von MFH überflutet. Zwei Pumpen im Einsatz, Wasserstand sinkt.",
+        },
+        # --- einsatz_beendet (1) ---
+        {
+            "title": "Baum auf Strasse",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Allschwilerstrasse 61, 4104 Oberwil",
+            "location_lat": 47.5188,
+            "location_lng": 7.6112,
+            "status": "einsatz_beendet",
+            "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
+            "completed_at": now - timedelta(minutes=45),
+        },
+        # --- abschluss (1) ---
+        {
+            "title": "Ölspur Industriegebiet",
+            "type": "oelwehr",
+            "priority": "low",
+            "location_address": "Im Käppeli 5, 4104 Oberwil",
+            "location_lat": 47.5121,
+            "location_lng": 7.6183,
+            "status": "abschluss",
+            "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
+            "completed_at": now - timedelta(minutes=90),
+        },
+    ]
+
+    incidents: dict[str, models.Incident] = {}
+    for inc in incidents_data:
+        incident = models.Incident(id=uuid4(), created_by=editor_id, event_id=event.id, **inc)
+        db.add(incident)
+        incidents[incident.title] = incident
+
+    await db.flush()
+
+    # ============================================
+    # INCIDENT ASSIGNMENTS
+    # ============================================
+    def assign(incident_title: str, resource_type: str, resource, unassigned_at: datetime | None = None):
+        return models.IncidentAssignment(
+            id=uuid4(),
+            incident_id=incidents[incident_title].id,
+            resource_type=resource_type,
+            resource_id=resource.id,
+            assigned_by=editor_id,
+            unassigned_at=unassigned_at,
+        )
+
+    completed_at = now - timedelta(minutes=45)
+    assignments = [
+        # Disponiert: vehicles on the way
+        assign("Keller auspumpen Gewerbebetrieb", "vehicle", vehicle["Pio"]),
+        assign("Wasser in Arztpraxis", "vehicle", vehicle["Trawa"]),
+        # Einsatz: full crews on site
+        assign("Wasser im Keller EFH", "vehicle", vehicle["TLF"]),
+        assign("Wasser im Keller EFH", "personnel", person["Müller Hans"]),
+        assign("Wasser im Keller EFH", "personnel", person["Hoffmann Lisa"]),
+        assign("Wasser im Keller EFH", "personnel", person["Zimmermann Fabian"]),
+        assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Gr.", "TLF")]),
+        assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Kl.", "TLF")]),
+        assign("Pumpeneinsatz Mehrfamilienhaus", "vehicle", vehicle["Mawa"]),
+        assign("Pumpeneinsatz Mehrfamilienhaus", "personnel", person["Koch René"]),
+        assign("Pumpeneinsatz Mehrfamilienhaus", "personnel", person["Wyss Fabio"]),
+        assign("Pumpeneinsatz Mehrfamilienhaus", "material", material[("Tauchpumpe Gr.", "Pio")]),
+        assign("Pumpeneinsatz Mehrfamilienhaus", "material", material[("Wassersauger", "Pio")]),
+        # Einsatz beendet: had resources, now unassigned
+        assign("Baum auf Strasse", "vehicle", vehicle["Mowa"], unassigned_at=completed_at),
+        assign("Baum auf Strasse", "personnel", person["Schmidt Daniel"], unassigned_at=completed_at),
+        assign("Baum auf Strasse", "material", material[("Motorsäge Gr.", "Pio")], unassigned_at=completed_at),
+    ]
+    for assignment in assignments:
+        db.add(assignment)
+
+    # ============================================
+    # SPECIAL FUNCTIONS
+    # ============================================
+    special_functions_data = [
+        (person["Müller Hans"], "driver", vehicle["TLF"]),
+        (person["Weber Martin"], "driver", vehicle["Pio"]),
+        (person["Hoffmann Lisa"], "driver", vehicle["Mowa"]),
+        (person["Fischer Thomas"], "reko", None),
+        (person["Steiner Lukas"], "magazin", None),
+    ]
+    special_functions = [
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=event.id,
+            personnel_id=p.id,
+            function_type=function_type,
+            vehicle_id=v.id if v else None,
+            assigned_by=editor_id,
+        )
+        for p, function_type, v in special_functions_data
+    ]
+    for sf in special_functions:
+        db.add(sf)
+
+    # ============================================
+    # STATUS TRANSITIONS
+    # ============================================
+    def transition(incident_title: str, from_status: str, to_status: str, notes: str | None = None):
+        return models.StatusTransition(
+            id=uuid4(),
+            incident_id=incidents[incident_title].id,
+            from_status=from_status,
+            to_status=to_status,
+            user_id=editor_id,
+            notes=notes,
+        )
+
+    transitions = [
+        # Unterführung (reko_done)
+        transition("Unterführung überflutet", "eingegangen", "reko", "Reko-Trupp aufgeboten"),
+        transition("Unterführung überflutet", "reko", "reko_done", "Pumpeneinsatz nötig, kein Personenrisiko"),
+        # Pumpeneinsatz MFH (einsatz)
+        transition("Pumpeneinsatz Mehrfamilienhaus", "eingegangen", "disponiert", "Mawa disponiert"),
+        transition("Pumpeneinsatz Mehrfamilienhaus", "disponiert", "einsatz", "Vor Ort, Pumpen laufen"),
+        # Baum auf Strasse (einsatz_beendet)
+        transition("Baum auf Strasse", "eingegangen", "disponiert", "Mowa disponiert"),
+        transition("Baum auf Strasse", "disponiert", "einsatz", "Vor Ort eingetroffen"),
+        transition("Baum auf Strasse", "einsatz", "einsatz_beendet", "Baum beseitigt, Strasse frei"),
+        # Ölspur (abschluss)
+        transition("Ölspur Industriegebiet", "eingegangen", "disponiert"),
+        transition("Ölspur Industriegebiet", "disponiert", "einsatz"),
+        transition("Ölspur Industriegebiet", "einsatz", "einsatz_beendet", "Ölspur beseitigt"),
+        transition("Ölspur Industriegebiet", "einsatz_beendet", "abschluss", "Rapport erstellt"),
+    ]
+    for t in transitions:
+        db.add(t)
+
+    await db.flush()
 
 
 async def seed_demo_database() -> None:
@@ -98,420 +445,16 @@ async def seed_demo_database() -> None:
             await db.flush()
 
             # ============================================
-            # 4. VEHICLES
+            # 4-6. SHARED RESOURCES (vehicles, personnel, materials)
             # ============================================
-            print("Creating vehicles...")
-
-            vehicles_data = [
-                {"name": "TLF", "type": "TLF", "display_order": 1, "status": "available", "radio_call_sign": "Omega 1"},
-                {"name": "Pio", "type": "RW", "display_order": 2, "status": "available", "radio_call_sign": "Omega 2"},
-                {
-                    "name": "Mowa",
-                    "type": "MTW",
-                    "display_order": 3,
-                    "status": "available",
-                    "radio_call_sign": "Omega 3",
-                },
-                {
-                    "name": "Trawa",
-                    "type": "MTW",
-                    "display_order": 4,
-                    "status": "available",
-                    "radio_call_sign": "Omega 4",
-                },
-                {
-                    "name": "Mawa",
-                    "type": "MTW",
-                    "display_order": 5,
-                    "status": "available",
-                    "radio_call_sign": "Omega 5",
-                },
-            ]
-
-            vehicles = []
-            for v in vehicles_data:
-                vehicle = models.Vehicle(id=uuid4(), **v)
-                db.add(vehicle)
-                vehicles.append(vehicle)
+            print("Creating shared resources...")
+            await seed_demo_shared_resources(db)
 
             # ============================================
-            # 5. PERSONNEL
-            # ============================================
-            print("Creating personnel...")
-
-            personnel_data = [
-                # Offiziere
-                {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-                {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-                {"name": "Fischer Thomas", "role": "Offiziere", "availability": "available", "tags": []},
-                # Wachtmeister
-                {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Koch René", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
-                {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
-                # Korporal
-                {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
-                {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
-                # Mannschaft
-                {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Künzli Klara", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
-                {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
-            ]
-
-            personnel = []
-            for p in personnel_data:
-                person = models.Personnel(id=uuid4(), **p)
-                db.add(person)
-                personnel.append(person)
-
-            # ============================================
-            # 6. MATERIALS
-            # ============================================
-            print("Creating materials...")
-
-            materials_data = [
-                # Tauchpumpen
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-                {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
-                # Wassersauger
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "Pio", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
-                # Generatoren
-                {"name": "Generator", "type": "Generatoren", "location": "TLF", "status": "available"},
-                {"name": "Generator", "type": "Generatoren", "location": "MoWa", "status": "available"},
-                # Sägen
-                {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Pio", "status": "available"},
-                {"name": "Motorsäge Kl.", "type": "Sägen", "location": "Pio", "status": "available"},
-                # Spannungsprüfer
-                {"name": "Spannungsprüfer", "type": "Elektrowerkzeug", "location": "MoWa", "status": "available"},
-            ]
-
-            materials = []
-            for m in materials_data:
-                material = models.Material(id=uuid4(), **m)
-                db.add(material)
-                materials.append(material)
-
-            # ============================================
-            # 7. INCIDENTS
+            # 7. EVENT CONTENT (incidents, assignments, ...)
             # ============================================
             print("Creating demo incidents...")
-            now = datetime.now()
-
-            incidents_data = [
-                {
-                    "title": "Wasserschaden Keller",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Mühlegasse 12, 4104 Oberwil",
-                    "location_lat": 47.5148,
-                    "location_lng": 7.6125,
-                    "status": "eingegangen",
-                    "description": "Wasser im Keller nach Starkregen. Bewohner melden ca. 20cm Wasser.",
-                    "created_by": editor_user.id,
-                    "event_id": event.id,
-                },
-                {
-                    "title": "Überflutung Tiefgarage",
-                    "type": "elementarereignis",
-                    "priority": "high",
-                    "location_address": "Hauptstrasse 95, 4104 Oberwil",
-                    "location_lat": 47.5162,
-                    "location_lng": 7.6152,
-                    "status": "reko",
-                    "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
-                    "created_by": editor_user.id,
-                    "event_id": event.id,
-                },
-                {
-                    "title": "Keller auspumpen Gewerbebetrieb",
-                    "type": "elementarereignis",
-                    "priority": "high",
-                    "location_address": "Bottmingerstrasse 40, 4104 Oberwil",
-                    "location_lat": 47.5175,
-                    "location_lng": 7.6098,
-                    "status": "disponiert",
-                    "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
-                    "created_by": editor_user.id,
-                    "event_id": event.id,
-                },
-                {
-                    "title": "Wasser im Keller EFH",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Langegasse 28, 4104 Oberwil",
-                    "location_lat": 47.5139,
-                    "location_lng": 7.6167,
-                    "status": "einsatz",
-                    "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
-                    "created_by": editor_user.id,
-                    "event_id": event.id,
-                },
-                {
-                    "title": "Baum auf Strasse",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Allschwilerstrasse 61, 4104 Oberwil",
-                    "location_lat": 47.5188,
-                    "location_lng": 7.6112,
-                    "status": "einsatz_beendet",
-                    "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
-                    "created_by": editor_user.id,
-                    "completed_at": now - timedelta(minutes=45),
-                    "event_id": event.id,
-                },
-                {
-                    "title": "Ölspur Industriegebiet",
-                    "type": "oelwehr",
-                    "priority": "low",
-                    "location_address": "Im Käppeli 5, 4104 Oberwil",
-                    "location_lat": 47.5121,
-                    "location_lng": 7.6183,
-                    "status": "abschluss",
-                    "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
-                    "created_by": editor_user.id,
-                    "completed_at": now - timedelta(minutes=90),
-                    "event_id": event.id,
-                },
-            ]
-
-            incidents = []
-            for inc in incidents_data:
-                incident = models.Incident(id=uuid4(), **inc)
-                db.add(incident)
-                incidents.append(incident)
-
-            await db.flush()
-
-            # ============================================
-            # 8. INCIDENT ASSIGNMENTS
-            # ============================================
-            print("Creating incident assignments...")
-
-            # Incident 3 (disponiert) - vehicle assigned
-            assignments = [
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[2].id,
-                    resource_type="vehicle",
-                    resource_id=vehicles[1].id,  # Pio
-                    assigned_by=editor_user.id,
-                ),
-            ]
-
-            # Incident 4 (einsatz) - full crew assigned
-            assignments.extend(
-                [
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[3].id,
-                        resource_type="vehicle",
-                        resource_id=vehicles[0].id,  # TLF
-                        assigned_by=editor_user.id,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[3].id,
-                        resource_type="personnel",
-                        resource_id=personnel[0].id,  # Müller Hans
-                        assigned_by=editor_user.id,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[3].id,
-                        resource_type="personnel",
-                        resource_id=personnel[4].id,  # Hoffmann Lisa
-                        assigned_by=editor_user.id,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[3].id,
-                        resource_type="personnel",
-                        resource_id=personnel[14].id,  # Zimmermann Fabian
-                        assigned_by=editor_user.id,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[3].id,
-                        resource_type="material",
-                        resource_id=materials[0].id,  # Tauchpumpe Gr. TLF
-                        assigned_by=editor_user.id,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[3].id,
-                        resource_type="material",
-                        resource_id=materials[1].id,  # Tauchpumpe Kl. TLF
-                        assigned_by=editor_user.id,
-                    ),
-                ]
-            )
-
-            # Incident 5 (einsatz_beendet) - had vehicle+personnel, now unassigned
-            completed_at = now - timedelta(minutes=45)
-            assignments.extend(
-                [
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[4].id,
-                        resource_type="vehicle",
-                        resource_id=vehicles[2].id,  # Mowa
-                        assigned_by=editor_user.id,
-                        unassigned_at=completed_at,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[4].id,
-                        resource_type="personnel",
-                        resource_id=personnel[5].id,  # Schmidt Daniel
-                        assigned_by=editor_user.id,
-                        unassigned_at=completed_at,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[4].id,
-                        resource_type="material",
-                        resource_id=materials[12].id,  # Motorsäge Gr.
-                        assigned_by=editor_user.id,
-                        unassigned_at=completed_at,
-                    ),
-                ]
-            )
-
-            for assignment in assignments:
-                db.add(assignment)
-
-            # ============================================
-            # 9. SPECIAL FUNCTIONS
-            # ============================================
-            print("Creating special function assignments...")
-
-            special_functions = [
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=event.id,
-                    personnel_id=personnel[0].id,  # Müller Hans - driver TLF
-                    function_type="driver",
-                    vehicle_id=vehicles[0].id,
-                    assigned_by=editor_user.id,
-                ),
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=event.id,
-                    personnel_id=personnel[2].id,  # Weber Martin - driver Pio
-                    function_type="driver",
-                    vehicle_id=vehicles[1].id,
-                    assigned_by=editor_user.id,
-                ),
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=event.id,
-                    personnel_id=personnel[4].id,  # Hoffmann Lisa - driver Mowa
-                    function_type="driver",
-                    vehicle_id=vehicles[2].id,
-                    assigned_by=editor_user.id,
-                ),
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=event.id,
-                    personnel_id=personnel[3].id,  # Fischer Thomas - reko
-                    function_type="reko",
-                    vehicle_id=None,
-                    assigned_by=editor_user.id,
-                ),
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=event.id,
-                    personnel_id=personnel[10].id,  # Steiner Lukas - magazin
-                    function_type="magazin",
-                    vehicle_id=None,
-                    assigned_by=editor_user.id,
-                ),
-            ]
-
-            for sf in special_functions:
-                db.add(sf)
-
-            # ============================================
-            # 10. STATUS TRANSITIONS
-            # ============================================
-            print("Creating status transitions...")
-
-            transitions = [
-                # Baum auf Strasse (einsatz_beendet) transitions
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[4].id,
-                    from_status="eingegangen",
-                    to_status="disponiert",
-                    user_id=editor_user.id,
-                    notes="Mowa disponiert",
-                ),
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[4].id,
-                    from_status="disponiert",
-                    to_status="einsatz",
-                    user_id=editor_user.id,
-                    notes="Vor Ort eingetroffen",
-                ),
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[4].id,
-                    from_status="einsatz",
-                    to_status="einsatz_beendet",
-                    user_id=editor_user.id,
-                    notes="Baum beseitigt, Strasse frei",
-                ),
-                # Ölspur (abschluss) transitions
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[5].id,
-                    from_status="eingegangen",
-                    to_status="disponiert",
-                    user_id=editor_user.id,
-                ),
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[5].id,
-                    from_status="disponiert",
-                    to_status="einsatz",
-                    user_id=editor_user.id,
-                ),
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[5].id,
-                    from_status="einsatz",
-                    to_status="einsatz_beendet",
-                    user_id=editor_user.id,
-                    notes="Ölspur beseitigt",
-                ),
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[5].id,
-                    from_status="einsatz_beendet",
-                    to_status="abschluss",
-                    user_id=editor_user.id,
-                    notes="Rapport erstellt",
-                ),
-            ]
-
-            for t in transitions:
-                db.add(t)
+            await seed_demo_event_content(db, event)
 
             # ============================================
             # COMMIT
@@ -522,14 +465,8 @@ async def seed_demo_database() -> None:
             print("  Demo users:")
             print("    - demo-editor / demo123 (editor)")
             print("    - demo-viewer / demo123 (viewer)")
-            print(f"  - {len(vehicles)} vehicles")
-            print(f"  - {len(personnel)} personnel")
-            print(f"  - {len(materials)} materials")
             print(f"  - 1 event: {event.name}")
-            print(f"  - {len(incidents)} incidents across all statuses")
-            print(f"  - {len(assignments)} resource assignments")
-            print(f"  - {len(special_functions)} special function assignments")
-            print(f"  - {len(transitions)} status transitions")
+            print("  - 12 incidents across all statuses")
 
         except Exception as e:
             print(f"❌ Error seeding demo database: {e}")

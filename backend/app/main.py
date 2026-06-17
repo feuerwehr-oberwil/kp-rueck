@@ -5,8 +5,9 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import socketio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
 from .logging_config import get_logger, setup_logging
@@ -51,11 +52,19 @@ from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
 from .auth.token_blocklist import token_blocklist
-from .background import start_demo_reset_scheduler, start_sync_scheduler, stop_demo_reset_scheduler, stop_sync_scheduler
+from .background import (
+    start_audit_cleanup_scheduler,
+    start_demo_reset_scheduler,
+    start_sync_scheduler,
+    stop_audit_cleanup_scheduler,
+    stop_demo_reset_scheduler,
+    stop_sync_scheduler,
+)
 from .config import settings
 from .database import Base, engine, get_db
 from .middleware.audit import AuditMiddleware
 from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
+from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
@@ -189,8 +198,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.warning(f"Demo reset scheduler failed to start: {e}")
 
+    # Start audit log cleanup scheduler (demo and production)
+    logger.info("Starting audit cleanup scheduler...")
+    try:
+        start_audit_cleanup_scheduler()
+    except Exception as e:
+        logger.warning(f"Audit cleanup scheduler failed to start: {e}")
+
+    if settings.is_production and not settings.print_agent_token:
+        logger.warning(
+            "PRINT_AGENT_TOKEN is not set in production - print agent endpoints "
+            "(/api/print/config/, jobs/pending/, claim/, complete/) are unauthenticated"
+        )
+
     logger.info("Application startup complete")
     yield
+
+    # Shutdown: Stop audit cleanup scheduler
+    logger.info("Stopping audit cleanup scheduler...")
+    try:
+        stop_audit_cleanup_scheduler()
+    except Exception as e:
+        logger.warning(f"Audit cleanup scheduler shutdown failed: {e}")
 
     # Shutdown: Stop demo reset scheduler
     if settings.demo_mode:
@@ -250,6 +279,30 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Log unhandled exceptions with traceback + request ID, return a generic 500.
+
+    Note: this response is produced by ServerErrorMiddleware, outside the CORS
+    middleware, so it lacks CORS headers — browsers surface it as a network
+    error. That's acceptable; the frontend already shows a connection toast.
+    """
+    request_id = get_request_id() or request.scope.get("state", {}).get("request_id")
+    # Re-set the ContextVar (already reset by the middleware's finally) so the
+    # ERROR record below carries the request ID via RequestIdFilter
+    token = request_id_var.set(request_id)
+    try:
+        logger.error("Unhandled exception on %s %s", request.method, request.url.path, exc_info=exc)
+    finally:
+        request_id_var.reset(token)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Interner Serverfehler", "request_id": request_id},
+    )
+
+
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
+
 # CORS middleware with explicit domain whitelist
 def get_cors_origins() -> list[str]:
     """
@@ -300,6 +353,10 @@ app.add_middleware(AuditMiddleware)
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Add request-ID middleware last so it runs first (outermost) and the
+# audit/rate-limit middlewares' logs carry the request ID
+app.add_middleware(RequestIDMiddleware)
 
 # Rate limiting is handled by @limiter.limit() decorators on routes
 # + rate_limit_exceeded_handler for 429 responses. No middleware needed.

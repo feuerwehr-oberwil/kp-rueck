@@ -250,3 +250,70 @@ async def test_detailed_health_check_json_format(client: AsyncClient):
     data = response.json()
     assert isinstance(data, dict)
     assert isinstance(data["components"], dict)
+
+
+# ============================================
+# Demo Reset Endpoint Auth Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_demo_reset_unauthenticated(client: AsyncClient, monkeypatch):
+    """Unauthenticated callers get 401."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "demo_mode", True)
+    response = await client.post("/api/demo/reset")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_demo_reset_editor_forbidden(editor_client: AsyncClient, monkeypatch):
+    """Editors (= every demo visitor via demo-editor) get 403."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "demo_mode", True)
+    response = await editor_client.post("/api/demo/reset")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_demo_reset_master_token_allowed(client: AsyncClient, monkeypatch):
+    """Master token (admin) can trigger a reset; reset internals are mocked."""
+    from unittest.mock import patch
+
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "demo_mode", True)
+    monkeypatch.setattr(app_settings, "master_token", "test-master-token-for-reset")
+
+    with (
+        patch("app.background.demo_reset._truncate_all_tables", new_callable=AsyncMock),
+        patch("app.background.demo_reset._clear_photos"),
+        patch("app.seed_demo.seed_demo_database", new_callable=AsyncMock),
+    ):
+        response = await client.post(
+            "/api/demo/reset",
+            headers={"Authorization": "Bearer test-master-token-for-reset"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "reset_complete"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_demo_reset_404_outside_demo_mode(client: AsyncClient, monkeypatch):
+    """Outside demo mode the endpoint does not exist (404), even for admins."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "demo_mode", False)
+    monkeypatch.setattr(app_settings, "master_token", "test-master-token-for-reset")
+    response = await client.post(
+        "/api/demo/reset",
+        headers={"Authorization": "Bearer test-master-token-for-reset"},
+    )
+    assert response.status_code == 404

@@ -6,6 +6,16 @@ import sys
 from datetime import UTC, datetime
 
 
+class RequestIdFilter(logging.Filter):
+    """Attach the current request ID (from the request-ID middleware) to every record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        from app.middleware.request_id import get_request_id
+
+        record.request_id = get_request_id() or "-"
+        return True
+
+
 class JSONFormatter(logging.Formatter):
     """JSON formatter for structured logging in production."""
 
@@ -16,6 +26,10 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+
+        request_id = getattr(record, "request_id", "-")
+        if request_id != "-":
+            log_record["request_id"] = request_id
 
         # Add extra fields if present
         if hasattr(record, "extra"):
@@ -43,7 +57,9 @@ class ConsoleFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         color = self.COLORS.get(record.levelname, "")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        return f"{color}[{timestamp}] {record.levelname:8}{self.RESET} {record.name}: {record.getMessage()}"
+        request_id = getattr(record, "request_id", "-")
+        rid_prefix = f"[{request_id}] " if request_id != "-" else ""
+        return f"{color}[{timestamp}] {record.levelname:8}{self.RESET} {rid_prefix}{record.name}: {record.getMessage()}"
 
 
 def setup_logging(
@@ -67,6 +83,7 @@ def setup_logging(
     # Create console handler
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(getattr(logging, level.upper()))
+    handler.addFilter(RequestIdFilter())
 
     # Use appropriate formatter
     if json_format:

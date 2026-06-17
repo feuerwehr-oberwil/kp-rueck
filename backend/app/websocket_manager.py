@@ -4,7 +4,9 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from http.cookies import SimpleCookie
+from typing import Any
 
 import socketio
 
@@ -18,6 +20,38 @@ _on_divera_poll_alarm: Callable | None = None
 # Session timeout constants
 STALE_SESSION_TIMEOUT_SECONDS = 300  # 5 minutes without activity
 CLEANUP_INTERVAL_SECONDS = 60  # Run cleanup every minute
+
+# Roles allowed to join the admin room
+ADMIN_ROOM_ROLES = ("admin", "editor")
+
+
+def get_role_from_environ(environ: dict) -> str | None:
+    """Extract the user role from the JWT access_token cookie.
+
+    Returns None for missing/invalid/expired tokens — never raises.
+    Display/viewer pages may legitimately connect without a JWT (Phase 1).
+    """
+    try:
+        cookie_header = environ.get("HTTP_COOKIE")
+        if not cookie_header:
+            return None
+
+        cookies = SimpleCookie()
+        cookies.load(cookie_header)
+        morsel = cookies.get("access_token")
+        if not morsel:
+            return None
+
+        # Reuse the auth module's decode logic (lazy import, matches the
+        # lazy-import style used elsewhere in this module)
+        from .auth.security import decode_token
+
+        payload = decode_token(morsel.value)
+        if payload.get("type") != "access":
+            return None
+        return payload.get("role")
+    except Exception:
+        return None
 
 
 def _is_production() -> bool:
@@ -138,10 +172,20 @@ class WebSocketManager:
 
     async def connect(self, sid: str, environ: dict):
         """Handle new WebSocket connection."""
-        logger.info(f"Client {sid} connected")
+        role = get_role_from_environ(environ)
+        if role is None:
+            # Logged so post-launch logs show whether strict mode (WS_REQUIRE_AUTH) is feasible
+            logger.info(f"Client {sid} connected unauthenticated (origin: {environ.get('HTTP_ORIGIN', 'unknown')})")
+        else:
+            logger.info(f"Client {sid} connected (role: {role})")
         current_time = time.time()
         # Store basic session info with activity tracking
-        self.user_sessions[sid] = {"connected_at": current_time, "last_activity": current_time, "rooms": set()}
+        self.user_sessions[sid] = {
+            "connected_at": current_time,
+            "last_activity": current_time,
+            "rooms": set(),
+            "role": role,
+        }
 
         # Start pollers when first user connects
         await self._maybe_start_divera_polling()
@@ -166,6 +210,7 @@ class WebSocketManager:
             # Lazy import to avoid circular dependencies
             try:
                 from .services.divera_poller import divera_poller
+
                 self._divera_poller = divera_poller
             except ImportError:
                 logger.debug("Divera poller not available")
@@ -218,13 +263,18 @@ class WebSocketManager:
 
     async def join_room(self, sid: str, room: str):
         """Add a client to a room for targeted updates."""
-        if room in self.active_connections:
-            self.active_connections[room].add(sid)
-            if sid in self.user_sessions:
-                self.user_sessions[sid]["rooms"].add(room)
-            logger.info(f"Client {sid} joined room {room}")
-            return True
-        return False
+        if room not in self.active_connections:
+            return False
+        if room == "admin":
+            role = self.user_sessions.get(sid, {}).get("role")
+            if role not in ADMIN_ROOM_ROLES:
+                logger.warning(f"Client {sid} denied join to admin room (role: {role})")
+                return False
+        self.active_connections[room].add(sid)
+        if sid in self.user_sessions:
+            self.user_sessions[sid]["rooms"].add(room)
+        logger.info(f"Client {sid} joined room {room}")
+        return True
 
     async def leave_room(self, sid: str, room: str):
         """Remove a client from a room."""
@@ -273,8 +323,14 @@ ws_manager = WebSocketManager()
 @sio.event
 async def connect(sid, environ):
     """Handle client connection."""
+    if settings.ws_require_auth and get_role_from_environ(environ) is None:
+        logger.info(
+            f"Rejected unauthenticated WebSocket connect: {sid} (origin: {environ.get('HTTP_ORIGIN', 'unknown')})"
+        )
+        return False
     await ws_manager.connect(sid, environ)
     await sio.emit("connected", {"message": "Connected to KP Rück WebSocket"}, to=sid)
+    return True
 
 
 @sio.event
@@ -351,7 +407,9 @@ async def broadcast_assignment_update(assignment_data: dict, action: str = "upda
 
 async def broadcast_notification_update(notification_data: dict, action: str = "create"):
     """Broadcast notification updates to all clients in operations room."""
-    await ws_manager.broadcast_update("notification_update", {"action": action, "data": notification_data}, room="operations")
+    await ws_manager.broadcast_update(
+        "notification_update", {"action": action, "data": notification_data}, room="operations"
+    )
 
 
 async def broadcast_special_function_update(data: dict, action: str = "update"):
@@ -421,6 +479,7 @@ def get_divera_poller_stats() -> dict | None:
     """Get Divera poller statistics, or None if not available."""
     try:
         from .services.divera_poller import divera_poller
+
         return divera_poller.stats
     except ImportError:
         return None

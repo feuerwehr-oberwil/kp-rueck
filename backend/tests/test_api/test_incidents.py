@@ -507,3 +507,88 @@ async def test_create_incident_all_priorities(editor_client: AsyncClient, test_e
         }
         response = await editor_client.post("/api/incidents/", json=incident_data)
         assert response.status_code == 201, f"Failed for priority: {priority}"
+
+
+# ============================================
+# Reorder Tests (manual board ordering)
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def three_incidents(db_session: AsyncSession, test_event: Event, test_editor: User) -> list[Incident]:
+    """Three incidents in the same status column, positions 0,1,2."""
+    incidents = []
+    for i in range(3):
+        incident = Incident(
+            id=uuid4(),
+            event_id=test_event.id,
+            title=f"Incident {i}",
+            type="brandbekaempfung",
+            priority="medium",
+            status="eingegangen",
+            position=i,
+            created_by=test_editor.id,
+        )
+        db_session.add(incident)
+        incidents.append(incident)
+    await db_session.commit()
+    for incident in incidents:
+        await db_session.refresh(incident)
+    return incidents
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_reorder_incidents_persists_order(
+    editor_client: AsyncClient, test_event: Event, three_incidents: list[Incident]
+):
+    """Reordering writes positions so the next GET reproduces the new order."""
+    # Reverse the column order: [2, 1, 0]
+    new_order = [str(three_incidents[2].id), str(three_incidents[1].id), str(three_incidents[0].id)]
+    response = await editor_client.post(
+        "/api/incidents/reorder",
+        json={"event_id": str(test_event.id), "ordered_ids": new_order},
+    )
+    assert response.status_code == 204
+
+    listed = await editor_client.get(f"/api/incidents/?event_id={test_event.id}")
+    returned_ids = [inc["id"] for inc in listed.json()]
+    assert returned_ids == new_order
+    # Positions are 0,1,2 in the new order.
+    by_id = {inc["id"]: inc["position"] for inc in listed.json()}
+    assert [by_id[i] for i in new_order] == [0, 1, 2]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_reorder_incidents_viewer_forbidden(
+    viewer_client: AsyncClient, test_event: Event, three_incidents: list[Incident]
+):
+    """Viewers cannot reorder the board."""
+    response = await viewer_client.post(
+        "/api/incidents/reorder",
+        json={"event_id": str(test_event.id), "ordered_ids": [str(three_incidents[0].id)]},
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_reorder_incidents_ignores_foreign_ids(
+    editor_client: AsyncClient, test_event: Event, three_incidents: list[Incident]
+):
+    """Unknown / other-event ids are ignored rather than corrupting order."""
+    response = await editor_client.post(
+        "/api/incidents/reorder",
+        json={
+            "event_id": str(test_event.id),
+            "ordered_ids": [str(three_incidents[1].id), str(uuid4()), str(three_incidents[0].id)],
+        },
+    )
+    assert response.status_code == 204
+
+    listed = await editor_client.get(f"/api/incidents/?event_id={test_event.id}")
+    by_id = {inc["id"]: inc["position"] for inc in listed.json()}
+    # Index 0 and 2 in the request → positions 0 and 2; the stray uuid at index 1 is skipped.
+    assert by_id[str(three_incidents[1].id)] == 0
+    assert by_id[str(three_incidents[0].id)] == 2
