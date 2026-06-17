@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { LocationInput } from '@/components/location/location-input'
@@ -180,20 +179,51 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         )}
       </header>
 
-      {/* Title */}
+      {/* Location — first, so the address isn't repeated in the message */}
+      <LocationInput
+        address={address}
+        latitude={lat}
+        longitude={lng}
+        onAddressChange={setAddress}
+        onCoordinatesChange={(la, lo) => {
+          setLat(la)
+          setLng(lo)
+        }}
+        disabled={submitting}
+      />
+
+      {/* Meldung — what was reported (not the address, that's the location above) */}
       <div>
         <Label htmlFor="title" className="text-sm font-semibold text-muted-foreground">
-          Titel / Einsatzbezeichnung *
+          Meldung *
         </Label>
         <Input
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="z.B. Wohnungsbrand Hauptstrasse 45"
+          placeholder="z.B. Brennt im Keller, starke Rauchentwicklung"
           className="mt-2 h-12 text-base"
           required
           autoFocus
         />
+      </div>
+
+      {/* Priority — three quick buttons (mobile-friendly, like the Reko form) */}
+      <div>
+        <Label className="text-sm font-semibold text-muted-foreground">Priorität *</Label>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
+            <Button
+              key={key}
+              type="button"
+              variant={priority === key ? 'default' : 'outline'}
+              onClick={() => setPriority(key)}
+              className="h-12 text-base"
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Type */}
@@ -238,46 +268,16 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         </Popover>
       </div>
 
-      {/* Priority */}
-      <div>
-        <Label className="text-sm font-semibold text-muted-foreground">Priorität *</Label>
-        <Select value={priority} onValueChange={(v) => setPriority(v as IncidentPriority)}>
-          <SelectTrigger className="mt-2 h-12 text-base">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
-              <SelectItem key={key} value={key}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Location */}
-      <LocationInput
-        address={address}
-        latitude={lat}
-        longitude={lng}
-        onAddressChange={setAddress}
-        onCoordinatesChange={(la, lo) => {
-          setLat(la)
-          setLng(lo)
-        }}
-        disabled={submitting}
-      />
-
       {/* Description */}
       <div>
         <Label htmlFor="description" className="text-sm font-semibold text-muted-foreground">
-          Beschreibung / Notizen
+          Weitere Hinweise
         </Label>
         <Textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Zusätzliche Informationen, Besonderheiten, Gefahren..."
+          placeholder="Besonderheiten, Gefahren, Anzahl betroffener Personen..."
           className="mt-2 min-h-[100px] text-base"
         />
       </div>

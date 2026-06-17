@@ -264,13 +264,10 @@ function DraggableOperationBase({
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {operation.source === 'intake' && (
                 <div
-                  className="flex items-center gap-1 rounded-md bg-sky-100 dark:bg-sky-900/30 px-1.5 py-1"
+                  className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30"
                   title="Per Telefon / Walk-in erfasst – bitte prüfen"
                 >
                   <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
-                    Telefon
-                  </span>
                 </div>
               )}
               {operation.amWarten && (
