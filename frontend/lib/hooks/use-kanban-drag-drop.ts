@@ -8,6 +8,7 @@ interface UseKanbanDragDropProps {
   operations: Operation[]
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   updateOperation: (id: string, updates: Partial<Operation>) => void
+  reorderColumn: (orderedIds: string[]) => void
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
@@ -27,6 +28,7 @@ export function useKanbanDragDrop({
   operations,
   setOperations,
   updateOperation,
+  reorderColumn,
   assignPersonToOperation,
   assignRekoPersonToOperation,
   assignMaterialToOperation,
@@ -129,64 +131,67 @@ export function useKanbanDragDrop({
 
             // Same column - reorder
             if (draggedOp.status === targetOp.status) {
-              setOperations((ops) => {
-                const sameColumnOps = ops.filter(op => op.status === draggedOp.status)
-                const otherOps = ops.filter(op => op.status !== draggedOp.status)
+              const sameColumnOps = operations.filter(op => op.status === draggedOp.status)
+              const otherOps = operations.filter(op => op.status !== draggedOp.status)
 
-                // Remove dragged operation
-                const filtered = sameColumnOps.filter(op => op.id !== draggedOp.id)
+              // Remove dragged operation
+              const filtered = sameColumnOps.filter(op => op.id !== draggedOp.id)
 
-                // Calculate new index based on edge
-                let newIndex = targetIndex
-                if (edge === 'bottom') {
-                  newIndex = targetIndex + 1
-                }
+              // Calculate new index based on edge
+              let newIndex = targetIndex
+              if (edge === 'bottom') {
+                newIndex = targetIndex + 1
+              }
 
-                // Adjust index if we're moving down in the same list
-                if (sourceIndex < targetIndex) {
-                  newIndex = newIndex - 1
-                }
+              // Adjust index if we're moving down in the same list
+              if (sourceIndex < targetIndex) {
+                newIndex = newIndex - 1
+              }
 
-                // Insert at new position
-                const reordered = [
-                  ...filtered.slice(0, newIndex),
-                  draggedOp,
-                  ...filtered.slice(newIndex)
-                ]
+              // Insert at new position
+              const reordered = [
+                ...filtered.slice(0, newIndex),
+                draggedOp,
+                ...filtered.slice(newIndex)
+              ]
 
-                return [...otherOps, ...reordered]
-              })
+              setOperations([...otherOps, ...reordered])
+
+              // Persist the new manual order so the next sync reproduces it
+              // instead of snapping the card back to its created_at slot.
+              reorderColumn(reordered.map(op => op.id))
             } else {
               // Different column - move to new column with position
-              setOperations((ops) => {
-                // Update status
-                const updatedOp = { ...draggedOp, status: targetOp.status }
+              const updatedOp = { ...draggedOp, status: targetOp.status }
 
-                // Remove from old position
-                const withoutDragged = ops.filter(op => op.id !== draggedOp.id)
+              // Remove from old position
+              const withoutDragged = operations.filter(op => op.id !== draggedOp.id)
 
-                // Get operations in target column
-                const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
-                const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
+              // Get operations in target column
+              const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
+              const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
 
-                // Calculate insert index
-                let insertIndex = targetIndex
-                if (edge === 'bottom') {
-                  insertIndex = targetIndex + 1
-                }
+              // Calculate insert index
+              let insertIndex = targetIndex
+              if (edge === 'bottom') {
+                insertIndex = targetIndex + 1
+              }
 
-                // Insert at position
-                const reordered = [
-                  ...targetColOps.slice(0, insertIndex),
-                  updatedOp,
-                  ...targetColOps.slice(insertIndex)
-                ]
+              // Insert at position
+              const reordered = [
+                ...targetColOps.slice(0, insertIndex),
+                updatedOp,
+                ...targetColOps.slice(insertIndex)
+              ]
 
-                return [...otherOps, ...reordered]
-              })
+              setOperations([...otherOps, ...reordered])
 
-              // Persist status change to backend
+              // Persist status change to backend (keeps status-transition side effects)
               updateOperation(draggedOp.id, { status: targetOp.status as OperationStatus })
+
+              // Persist the dropped card's position within the target column so the
+              // next sync keeps it where the user dropped it.
+              reorderColumn(reordered.map(op => op.id))
 
               // Auto-select the dropped card
               onOperationDrop?.(draggedOp.id)
@@ -210,5 +215,5 @@ export function useKanbanDragDrop({
         }
       },
     })
-  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, setDraggingItem, onOperationDrop, onStatusChange])
+  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, setDraggingItem, onOperationDrop, onStatusChange])
 }

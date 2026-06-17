@@ -72,6 +72,7 @@ export interface Incident {
   location_lng: number | null
   status: IncidentStatus
   description: string | null
+  source?: string // Origin: "operator" (dashboard) or "intake" (public token form). Absent on locally-built incidents.
   nachbarhilfe: boolean // Neighboring station assistance flag
   am_warten: boolean // Delayed/waiting emergency
   zu_fuss: boolean // Personnel go by foot (not by vehicle)

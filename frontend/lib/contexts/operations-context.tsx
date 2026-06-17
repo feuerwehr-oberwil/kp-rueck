@@ -101,6 +101,8 @@ interface OperationsContextType {
   removeVehicle: (operationId: string, vehicleName: string) => void
   removeReko: (operationId: string) => void
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
+  /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
+  reorderColumn: (orderedIds: string[]) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   getNextOperationId: () => string
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
@@ -1103,6 +1105,31 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Persist the manual order of a status column. The optimistic reorder already
+  // happened in the drag handler; this writes the new positions so the next
+  // reconciliation reload reproduces the same order instead of snapping the
+  // card back to its old (created_at) slot. Guards reconciliation with the same
+  // assignment cooldown updateOperation uses, so a poll/WS reload mid-write
+  // can't clobber the optimistic order before the POST lands.
+  const reorderColumn = (orderedIds: string[]) => {
+    if (!isLoaded || !selectedEvent || !isValidUUID(selectedEvent.id) || orderedIds.length === 0) return
+
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+
+    void (async () => {
+      try {
+        await apiClient.reorderIncidents(selectedEvent.id, orderedIds)
+      } catch (err) {
+        console.error("Failed to persist column order:", err)
+        // The optimistic order isn't saved — pull the authoritative order back.
+        await refreshOperations()
+      } finally {
+        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+      }
+    })()
+  }
+
   const getNextOperationId = () => {
     const maxId = Math.max(...operations.map(op => parseInt(op.id) || 0))
     return String(maxId + 1)
@@ -1596,6 +1623,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         removeVehicle,
         removeReko,
         updateOperation,
+        reorderColumn,
         createOperation,
         getNextOperationId,
         assignPersonToOperation,
