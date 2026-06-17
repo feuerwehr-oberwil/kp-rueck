@@ -16,6 +16,7 @@ import {
   Sparkles,
   Target,
   MapPin,
+  Phone,
   X,
 } from 'lucide-react';
 import {
@@ -85,11 +86,11 @@ export function TrainingControls() {
   const handleGenerateNormal = async () => {
     setIsGenerating(true);
     try {
-      console.log('🚀 Generating normal training emergency...');
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'normal', count: 1 });
       const incident = incidents[0];
-      console.log('✓ Normal training emergency created:', incident.title, 'at', incident.location_address);
-
+      toast.success('Einsatz generiert', {
+        description: `${incident.title} @ ${incident.location_address}`,
+      });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
       toast.error('Fehler', {
@@ -103,15 +104,33 @@ export function TrainingControls() {
   const handleGenerateCritical = async () => {
     setIsGenerating(true);
     try {
-      console.log('🚀 Generating critical training emergency...');
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'critical', count: 1 });
       const incident = incidents[0];
-      console.log('✓ Critical training emergency created:', incident.title, 'at', incident.location_address);
-
+      toast.success('Kritischer Einsatz generiert', {
+        description: `${incident.title} @ ${incident.location_address}`,
+      });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
       toast.error('Fehler', {
         description: 'Einsatz konnte nicht generiert werden',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateTelefon = async () => {
+    setIsGenerating(true);
+    try {
+      const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { count: 1, source: 'intake' });
+      const incident = incidents[0];
+      toast.success('Telefon-Alarm generiert', {
+        description: `${incident.title} @ ${incident.location_address}`,
+      });
+    } catch (error) {
+      console.error('❌ Failed to generate telefon alarm:', error);
+      toast.error('Fehler', {
+        description: 'Telefon-Alarm konnte nicht generiert werden',
       });
     } finally {
       setIsGenerating(false);
@@ -160,10 +179,10 @@ export function TrainingControls() {
   const handleGenerateBurst = async () => {
     setIsGenerating(true);
     try {
-      console.log('🚀 Generating burst of 5 training emergencies...');
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: null, count: 5 });
-      console.log(`✓ ${incidents.length} training emergencies created:`, incidents.map(i => i.title).join(', '));
-
+      toast.success(`${incidents.length} Einsätze generiert`, {
+        description: incidents.map(i => i.title).join(', '),
+      });
     } catch (error) {
       console.error('❌ Failed to generate burst:', error);
       toast.error('Fehler', {
@@ -211,8 +230,17 @@ export function TrainingControls() {
               Kritisch
             </Button>
           </div>
+          <Button
+            onClick={handleGenerateTelefon}
+            disabled={isGenerating}
+            variant="outline"
+            className="w-full"
+          >
+            <Phone className="mr-2 h-4 w-4 text-sky-600" />
+            Telefon-Alarm
+          </Button>
           <p className="text-xs text-muted-foreground">
-            Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung
+            Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung | Telefon: simuliert eine Meldung über den Alarm-Link
           </p>
         </div>
 

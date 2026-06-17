@@ -894,7 +894,7 @@ class ApiClient {
   // Training Automation
   async generateTrainingEmergency(
     eventId: string,
-    request: { category?: 'normal' | 'critical' | null; count?: number }
+    request: { category?: 'normal' | 'critical' | null; count?: number; source?: 'operator' | 'intake' }
   ): Promise<ApiIncident[]> {
     return this.request<ApiIncident[]>(`/api/training/events/${eventId}/generate/`, {
       method: 'POST',

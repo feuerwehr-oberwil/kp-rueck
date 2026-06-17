@@ -76,6 +76,7 @@ class TrainingGenerator:
         address: str,
         latitude: float | None,
         longitude: float | None,
+        source: str = "operator",
     ) -> Incident:
         """Materialize an incident from a template + raw location triple.
 
@@ -83,7 +84,9 @@ class TrainingGenerator:
         repeated spawns of the same template don't read identically. Derives
         priority from category (critical→high, normal→low). Location is given
         as raw `(address, latitude, longitude)` so callers can use either a
-        seeded `TrainingLocation` or an ad-hoc map pin.
+        seeded `TrainingLocation` or an ad-hoc map pin. `source` defaults to
+        "operator"; pass "intake" to simulate a phone/walk-in alarm (shows the
+        Telefon badge) for added training realism.
         """
         priority = "high" if template.category == "critical" else "low"
         incident = Incident(
@@ -96,6 +99,7 @@ class TrainingGenerator:
             location_lat=latitude,
             location_lng=longitude,
             description=self._pick_message(template),
+            source=source,
         )
         self.db.add(incident)
         await self.db.commit()
@@ -107,6 +111,7 @@ class TrainingGenerator:
         event_id: UUID,
         category: Literal["normal", "critical"] | None = None,
         settings: dict[str, str] | None = None,
+        source: str = "operator",
     ) -> Incident:
         """
         Generate a random training emergency.
@@ -115,6 +120,7 @@ class TrainingGenerator:
             event_id: Training event to add incident to
             category: Force specific category, or None for weighted random
             settings: Auto-gen settings (weights, etc.)
+            source: "operator" (normal) or "intake" (simulated phone/walk-in)
 
         Returns:
             Created incident
@@ -151,6 +157,7 @@ class TrainingGenerator:
             address=location.get_full_address(),
             latitude=location.latitude,
             longitude=location.longitude,
+            source=source,
         )
         full_address = incident.location_address
 
@@ -274,7 +281,11 @@ class TrainingGenerator:
 
 
 async def generate_training_emergency(
-    db: AsyncSession, event_id: UUID, category: Literal["normal", "critical"] | None = None, count: int = 1
+    db: AsyncSession,
+    event_id: UUID,
+    category: Literal["normal", "critical"] | None = None,
+    count: int = 1,
+    source: str = "operator",
 ) -> list[Incident]:
     """
     Generate one or more training emergencies.
@@ -284,6 +295,7 @@ async def generate_training_emergency(
         event_id: Training event ID
         category: Optional category filter
         count: Number of emergencies to generate (for burst)
+        source: "operator" (normal) or "intake" (simulated phone/walk-in alarm)
 
     Returns:
         List of created incidents
@@ -297,7 +309,7 @@ async def generate_training_emergency(
     incidents = []
 
     for _ in range(count):
-        incident = await generator.generate_emergency(event_id, category, settings)
+        incident = await generator.generate_emergency(event_id, category, settings, source=source)
         incidents.append(incident)
 
     return incidents

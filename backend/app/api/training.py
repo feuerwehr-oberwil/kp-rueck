@@ -70,8 +70,14 @@ async def generate_emergencies(
     if request.category and request.category not in ["normal", "critical"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category must be 'normal' or 'critical'")
 
+    # Validate source
+    if request.source not in ["operator", "intake"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source must be 'operator' or 'intake'")
+
     # Generate emergencies
-    incidents = await generate_training_emergency(db, event_id, category=request.category, count=request.count)
+    incidents = await generate_training_emergency(
+        db, event_id, category=request.category, count=request.count, source=request.source
+    )
 
     # Convert to response models and broadcast WebSocket updates
     responses = []

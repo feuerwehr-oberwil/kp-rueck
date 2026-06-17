@@ -228,6 +228,7 @@ class GenerateEmergencyRequest(BaseModel):
 
     category: str | None = None  # 'normal', 'critical', or None for random
     count: int = 1  # For burst generation (1-10)
+    source: str = "operator"  # 'operator' (normal) or 'intake' (simulated phone/walk-in alarm)
 
 
 class SimulateCheckinRequest(BaseModel):
