@@ -554,6 +554,37 @@ class TestModuleFunctions:
             assert incident.priority == "high"
 
     @pytest.mark.asyncio
+    async def test_generate_training_emergency_intake_is_noncritical_with_caller(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        emergency_templates: list[EmergencyTemplate],
+        training_locations: list[TrainingLocation],
+        training_settings: list[Setting],
+    ):
+        """Telefon (intake) alarms are non-critical and carry a fake caller.
+
+        Citizens phone in the non-critical stuff; a real fire goes to official
+        dispatch. So intake forces normal scenarios and attaches a Melder
+        (contact) plus a context line on the description for realism.
+        """
+        incidents = await generate_training_emergency(
+            db_session, training_event.id, count=5, source="intake"
+        )
+
+        assert len(incidents) == 5
+        for incident in incidents:
+            assert incident.source == "intake"
+            # Non-critical only -> normal templates -> low priority
+            assert incident.priority == "low"
+            # Caller info present: "Name Surname, 07x xxx xx xx"
+            assert incident.contact is not None
+            assert "," in incident.contact
+            assert any(ch.isdigit() for ch in incident.contact)
+            # A context line was appended to the scenario description
+            assert incident.description
+
+    @pytest.mark.asyncio
     async def test_generate_training_emergency_loads_settings(
         self,
         db_session: AsyncSession,

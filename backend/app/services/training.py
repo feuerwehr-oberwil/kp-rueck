@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import EmergencyTemplate, Event, Incident, Notification, Setting, TrainingLocation
+from app.services.training_simulation_data import generate_intake_caller
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,14 @@ class TrainingGenerator:
         Telefon badge) for added training realism.
         """
         priority = "high" if template.category == "critical" else "low"
+        description = self._pick_message(template)
+        contact = None
+        # A simulated phone/walk-in alarm gets a fake caller (Melder) plus a short
+        # citizen-perspective context line, so it reads like a real report.
+        if source == "intake":
+            caller = generate_intake_caller()
+            contact = caller["contact"]
+            description = f"{description} {caller['context']}"
         incident = Incident(
             event_id=event_id,
             title=self._pick_title(template),
@@ -98,7 +107,8 @@ class TrainingGenerator:
             location_address=address,
             location_lat=latitude,
             location_lng=longitude,
-            description=self._pick_message(template),
+            description=description,
+            contact=contact,
             source=source,
         )
         self.db.add(incident)
@@ -135,6 +145,12 @@ class TrainingGenerator:
             raise ValueError("No emergency templates available. Please run seed_training.py first.")
         if not self._cache_locations:
             raise ValueError("No training locations available. Please run seed_training.py first.")
+
+        # Phone/walk-in alarms are non-critical by definition: for a real fire,
+        # citizens call the official dispatch, not the command post. Keep the
+        # intake path to normal scenarios (water, fallen tree, stuck lift, ...).
+        if source == "intake":
+            category = "normal"
 
         # Determine category (weighted random if not specified)
         if category is None:

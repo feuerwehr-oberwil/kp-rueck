@@ -583,3 +583,45 @@ def generate_reko_report_data(
         "additional_notes": None,
         "is_draft": False,
     }
+
+
+# Caller (Melder) pools for simulated phone/walk-in alarms. Citizens phone in
+# the non-critical stuff (water, fallen tree, stuck lift, wasp nest); for a real
+# fire they call the official dispatch, so the intake path stays non-critical.
+_INTAKE_CALLER_FIRST_NAMES = [
+    "Maria", "Peter", "Anna", "Thomas", "Ursula", "Daniel", "Brigitte", "Markus",
+    "Ruth", "Stefan", "Esther", "Andreas", "Claudia", "Martin", "Sandra", "Beat",
+    "Nadia", "Reto", "Heidi", "Patrick",
+]
+_INTAKE_CALLER_LAST_NAMES = [
+    "Keller", "Meier", "Müller", "Schmid", "Huber", "Steiner", "Brunner", "Frei",
+    "Gerber", "Widmer", "Baumann", "Graf", "Wyss", "Roth", "Suter", "Kuhn",
+    "Bachmann", "Hofer", "Lüthi", "Marti",
+]
+# Non-critical, citizen-perspective context lines appended to the description.
+_INTAKE_CALLER_CONTEXTS = [
+    "Melder hat telefonisch gemeldet und wartet vor Ort.",
+    "Anruferin beobachtet die Lage vom Nachbarhaus aus.",
+    "Passant hat die Situation gemeldet und ist weitergegangen.",
+    "Melder bittet um Rückruf für die genaue Ortsangabe.",
+    "Anwohnerin hat den Vorfall vom Balkon aus bemerkt.",
+    "Anrufer wirkt etwas aufgeregt, Lage aber stabil.",
+    "Meldung kam über die Geschäftsstelle herein, Melder ist erreichbar.",
+    "Melder steht beim Hauseingang und winkt die Einsatzkräfte ein.",
+]
+
+
+def generate_intake_caller() -> dict:
+    """Fake caller (Melder) for a simulated phone/walk-in training alarm.
+
+    Returns a ``contact`` string (name + Swiss mobile number) and a short
+    non-critical ``context`` line, so Telefon training alarms read like a real
+    citizen report instead of a bare template.
+    """
+    first = random.choice(_INTAKE_CALLER_FIRST_NAMES)
+    last = random.choice(_INTAKE_CALLER_LAST_NAMES)
+    number = f"07{random.choice('6789')} {random.randint(100, 999)} {random.randint(10, 99)} {random.randint(10, 99)}"
+    return {
+        "contact": f"{first} {last}, {number}",
+        "context": random.choice(_INTAKE_CALLER_CONTEXTS),
+    }

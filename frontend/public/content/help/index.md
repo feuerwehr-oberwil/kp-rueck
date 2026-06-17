@@ -323,7 +323,7 @@ Bei Trainings-Ereignissen erscheint in den Einstellungen die **Übungs-Steuerung
 |-------|---------|
 | **Normal** | Ein zufälliger Alltags-Einsatz (Wasser, Sturm, Baum) |
 | **Kritisch** | Ein zufälliger kritischer Einsatz (Brand, BMA, Personenrettung) |
-| **Telefon-Alarm** | Simuliert eine Meldung über den Alarm-Link — der Einsatz erhält das **Telefon-Abzeichen**, für mehr Realismus bei der Übung |
+| **Telefon-Alarm** | Simuliert eine Bürgermeldung über den Alarm-Link — der Einsatz erhält das **Telefon-Abzeichen**, einen erfundenen Melder (Name + Nummer) und eine kurze Kontext-Notiz. Bewusst nur **unkritische** Lagen (Wasser, Baum, Lift o.ä.) — für einen echten Brand ruft man die offizielle Alarmzentrale, nicht den KP |
 | **Burst (5×)** | Fünf zufällige Einsätze auf einmal |
 | **Gezielter Einsatz** | Bestimmtes Szenario an einer gewählten Adresse oder einem Karten-Pin |
 
