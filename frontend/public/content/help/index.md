@@ -39,7 +39,7 @@ Diese Dokumentationsseite.
 
 **Echt vs. Training:** Events können als "Training" markiert werden. Badge "Übung" erscheint, Daten werden separat geführt. Echte Events kommen von Divera.
 
-**Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung.
+**Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
 
 **Drucken (PDF):** Footer → "Drucken" öffnet Druckvorschau mit Optionen:
 - Einsätze nach Status filtern
@@ -124,7 +124,7 @@ Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" akt
 
 ### Telefon / Walk-in-Abzeichen
 
-Alarme, die über den [Alarm-Link](#alarm-link-telefon--walk-in) erfasst wurden, zeigen oben rechts ein blaues Abzeichen mit Telefon-Symbol und der Beschriftung „Telefon". Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
+Alarme, die über den [Alarm-Link](#alarm-link-telefon--walk-in) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
 
 ### Meldung anzeigen
 
@@ -209,6 +209,8 @@ Einsätze durchlaufen 6 Phasen: **Eingegangen** → **Reko** → **Disponiert** 
 
 **Verschieben:** Karte in neue Spalte ziehen, oder `>` / `<` Tasten nutzen.
 
+**Reihenfolge innerhalb einer Spalte:** Karten lassen sich innerhalb derselben Spalte per Drag & Drop sortieren. Die manuelle Reihenfolge bleibt erhalten und wird auch nach einem Reload bzw. auf anderen Geräten gleich angezeigt (sie springt nicht mehr in die ursprüngliche Reihenfolge zurück).
+
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
 
 ---
@@ -232,6 +234,16 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden.
 | **Magazin** | Feldweibel im Magazin. Koordiniert Retablierung und Reinigung der Ausrüstung. |
 
 Erneuter Rechtsklick entfernt die Zuweisung.
+
+### Sicherheitsabfragen beim Zuweisen
+
+Um Flüchtigkeitsfehler in hektischen Momenten zu vermeiden, fragt das System in drei Fällen nach:
+
+| Situation | Abfrage |
+|-----------|---------|
+| **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl. „Schliessen" lässt das Fahrzeug ohne Fahrer. |
+| **Fahrzeug bereits im Einsatz** (Doppelbuchung) | Ein Fahrzeug ist nur einmal physisch vorhanden — beim erneuten Zuweisen fragt das System: **Hierher verschieben** (von den anderen Einsätzen entfernen) oder **Mehrfach zuweisen** (Doppelbuchung bewusst behalten). |
+| **Disponieren ohne Ressourcen** | Wird ein Einsatz nach „Disponiert" verschoben, ohne dass **Personal, Fahrzeuge oder Mittel** zugewiesen sind (Fahrzeuge entfallen bei „zu Fuss"), erscheint „Ressourcen fehlen" mit der Wahl **Zuweisen** oder **Trotzdem disponieren**. |
 
 ---
 
@@ -299,6 +311,30 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
 ---
 
+## Übungsmodus & Demo
+
+Ereignisse können als **Training** markiert werden (Badge „Übung"). Übungsdaten werden separat geführt und vermischen sich nicht mit echten Einsätzen.
+
+### Übungs-Steuerung
+
+Bei Trainings-Ereignissen erscheint in den Einstellungen die **Übungs-Steuerung** zum Generieren von Übungs-Einsätzen:
+
+| Knopf | Wirkung |
+|-------|---------|
+| **Normal** | Ein zufälliger Alltags-Einsatz (Wasser, Sturm, Baum) |
+| **Kritisch** | Ein zufälliger kritischer Einsatz (Brand, BMA, Personenrettung) |
+| **Telefon-Alarm** | Simuliert eine Meldung über den Alarm-Link — der Einsatz erhält das **Telefon-Abzeichen**, für mehr Realismus bei der Übung |
+| **Burst (5×)** | Fünf zufällige Einsätze auf einmal |
+| **Gezielter Einsatz** | Bestimmtes Szenario an einer gewählten Adresse oder einem Karten-Pin |
+
+Jede Generierung bestätigt mit einer kurzen Meldung (Toast), welcher Einsatz erzeugt wurde — so ist sofort sichtbar, dass etwas passiert ist, und man klickt nicht versehentlich mehrfach (z.B. auf „Burst") und erzeugt zu viele Einsätze.
+
+### Demo-Sandbox
+
+Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **persönliche Übungslage** (eigene „Demo-Lage"), damit sich gleichzeitige Demo-Besucher nicht dasselbe Board teilen. Das Demo-Banner kennzeichnet eine solche Sandbox und zeigt die verbleibende Zeit bis zum Reset.
+
+---
+
 ## Online vs. Offline
 
 ### Online (Railway)
@@ -316,7 +352,7 @@ Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis
 
 **Erstellen:** Toolbar → "Alarm" (Sirenen-Symbol) generiert einen Link bzw. QR-Code, der pro Ereignis **30 Tage** gültig ist. Einmal generieren, beim Telefon-Arbeitsplatz aufhängen oder als Lesezeichen speichern.
 
-**Benutzen:** Wer den Link öffnet, sieht ein schlankes Formular (Titel, Einsatzart, Priorität, Standort mit Adresssuche, Beschreibung, Melder/Anrufer) und kann damit beliebig viele Alarme erfassen. Kein Login nötig.
+**Benutzen:** Wer den Link öffnet, sieht ein schlankes, mobil-optimiertes Formular und kann damit beliebig viele Alarme erfassen — kein Login nötig. Reihenfolge der Felder: zuerst der **Standort** (mit Adresssuche), dann die **Meldung** (was gemeldet wurde — die Adresse steht ja schon oben, also nicht doppelt eingeben), die **Priorität** als drei Schnellauswahl-Tasten (Niedrig / Mittel / Hoch), Einsatzart, weitere Hinweise und Melder/Anrufer.
 
 **Auf dem Board:** So erfasste Alarme landen in der Spalte "Eingegangen" und tragen ein blaues **„Telefon"-Abzeichen** — damit die Einsatzleitung erkennt, dass die Meldung von einer ungeprüften Quelle stammt, und sie prüfen kann. Adresse und Standort werden direkt mitgeschickt.
 
@@ -391,6 +427,8 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 1. Drucker per Ethernet ans lokale Netzwerk anschliessen
 2. Raspberry Pi einrichten (siehe `docs/PRINT_AGENT.md` im Repository)
 3. Einstellungen → Drucker → IP-Adresse und Port konfigurieren, Drucker aktivieren
+
+> **Hinweis (Betrieb):** Die Print-Agent-Endpunkte lassen sich mit einem geteilten Token absichern (`PRINT_AGENT_TOKEN`). Wird er auf dem Server gesetzt, muss derselbe Wert auch in der systemd-Unit des Pi hinterlegt werden — sonst erhält der Agent 401-Fehler. Ohne Token sind die Endpunkte offen (nur für reine LAN-Installationen gedacht); in der Produktion wird dann eine Warnung geloggt.
 
 ### Druckaufträge
 
