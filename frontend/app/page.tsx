@@ -44,6 +44,7 @@ import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
+import { summarizeEventChecklist } from "@/lib/checklist-tasks"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
@@ -583,25 +584,44 @@ export default function FireStationDashboard() {
   //   }
   // }, [isMounted, isEventLoaded, selectedEvent, router])
 
-  // Checklist popover state and completion tracking
+  // Checklist popover state and live readiness progress (persistent reference)
   const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
-  const [allChecklistTasksComplete, setAllChecklistTasksComplete] = useState(false)
-  const [checklistLoaded, setChecklistLoaded] = useState(false)
+  const [checklistProgress, setChecklistProgress] = useState({ completed: 0, total: 0 })
+  const autoOpenedEventRef = useRef<string | null>(null)
 
-  // Auto-open checklist for events < 2 hours old (every time, no localStorage)
+  // Poll readiness progress so the persistent "Bereitschaft" badge stays live
+  // even while the popover is closed. Rare users forget the steps, not the app —
+  // keeping "what still needs doing" visible at a glance, every callout.
   useEffect(() => {
-    if (!selectedEvent || !isMounted || allChecklistTasksComplete) return
-
-    // Check if event is less than 2 hours old
-    const eventCreatedAt = new Date(selectedEvent.created_at)
-    const now = new Date()
-    const ageInMinutes = (now.getTime() - eventCreatedAt.getTime()) / (1000 * 60)
-
-    if (ageInMinutes < 120) {
-      // Auto-open checklist for new events (< 2 hours)
-      setChecklistPopoverOpen(true)
+    if (!selectedEvent || !isMounted) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const summary = await summarizeEventChecklist(selectedEvent.id)
+        if (!cancelled) setChecklistProgress(summary)
+      } catch {
+        // ignore — badge keeps its last-known value
+      }
     }
-  }, [selectedEvent, isMounted, allChecklistTasksComplete])
+    load()
+    const interval = setInterval(load, 5000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [selectedEvent, isMounted])
+
+  // Auto-open the checklist once per event whenever setup is still incomplete
+  // (regardless of event age), then hand off to the persistent button so it
+  // never re-nags after the user has dismissed it.
+  useEffect(() => {
+    if (!selectedEvent || !isMounted) return
+    if (checklistProgress.total === 0) return
+    if (checklistProgress.completed >= checklistProgress.total) return
+    if (autoOpenedEventRef.current === selectedEvent.id) return
+    autoOpenedEventRef.current = selectedEvent.id
+    setChecklistPopoverOpen(true)
+  }, [selectedEvent, isMounted, checklistProgress])
 
   // Load vehicles from API to populate vehicle types for shortcuts
   useEffect(() => {
@@ -1476,34 +1496,31 @@ export default function FireStationDashboard() {
                 Neuer Einsatz
               </Button>
 
-              {/* Event Setup Checklist Popover - only show if loaded and not all complete */}
-              {checklistLoaded && !allChecklistTasksComplete && (
+              {/* Event Setup Checklist — shown only while setup is incomplete; disappears once done */}
+              {selectedEvent && checklistProgress.total > 0 && checklistProgress.completed < checklistProgress.total && (
                 <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-2" disabled={!selectedEvent}>
+                    <Button size="sm" variant="outline" className="gap-2">
                       <ClipboardCheck className="h-4 w-4" />
                       Bereitschaft
+                      <Badge variant="secondary" className="h-5 px-1.5 text-xs font-medium tabular-nums">
+                        {checklistProgress.completed}/{checklistProgress.total}
+                      </Badge>
                     </Button>
                   </PopoverTrigger>
-                  {selectedEvent && (
-                    <PopoverContent
-                      className="w-[600px] p-0"
-                      align="start"
-                      side="top"
-                      sideOffset={10}
-                    >
-                      <EventSetupChecklist
-                        eventId={selectedEvent.id}
-                        eventName={selectedEvent.name}
-                        onDismiss={() => setChecklistPopoverOpen(false)}
-                        onAllTasksComplete={() => {
-                          setAllChecklistTasksComplete(true)
-                          setChecklistPopoverOpen(false)
-                        }}
-                        onChecklistLoaded={() => setChecklistLoaded(true)}
-                      />
-                    </PopoverContent>
-                  )}
+                  <PopoverContent
+                    className="w-[600px] p-0"
+                    align="start"
+                    side="top"
+                    sideOffset={10}
+                  >
+                    <EventSetupChecklist
+                      eventId={selectedEvent.id}
+                      eventName={selectedEvent.name}
+                      onDismiss={() => setChecklistPopoverOpen(false)}
+                      onAllTasksComplete={() => setChecklistPopoverOpen(false)}
+                    />
+                  </PopoverContent>
                 </Popover>
               )}
             </div>

@@ -15,6 +15,13 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  WHATSAPP_MESSAGE_1_KEY,
+  WHATSAPP_MESSAGE_2_KEY,
+  DEFAULT_WHATSAPP_MESSAGE_1,
+  DEFAULT_WHATSAPP_MESSAGE_2,
+} from '@/lib/checklist-tasks';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -601,8 +608,69 @@ export default function SettingsPage() {
           </div>
         );
 
-      case 'notifications':
-        return <NotificationSettingsCard />;
+      case 'notifications': {
+        const whatsappFields = [
+          {
+            key: WHATSAPP_MESSAGE_1_KEY,
+            label: 'Nachricht 1 · Standby',
+            hint: 'Erste Info: KP-Rück aktiv, Telefon mitnehmen, Ablauf.',
+            fallback: DEFAULT_WHATSAPP_MESSAGE_1,
+          },
+          {
+            key: WHATSAPP_MESSAGE_2_KEY,
+            label: 'Nachricht 2 · Einrücken',
+            hint: 'Direkter Aufruf: ins Magazin einrücken.',
+            fallback: DEFAULT_WHATSAPP_MESSAGE_2,
+          },
+        ];
+        return (
+          <div className="space-y-6">
+            <NotificationSettingsCard />
+            <Card className="p-6 space-y-5">
+              <div>
+                <h3 className="font-medium">WhatsApp-Nachrichten</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Vorlagen für die Info-WhatsApp aus der Setup-Checkliste. Beim Senden wird die
+                  gewählte Nachricht in die Zwischenablage kopiert.
+                </p>
+              </div>
+              {whatsappFields.map((field) => {
+                const value = settings[field.key] !== undefined ? settings[field.key] : field.fallback;
+                const isCurrentlySaving = saving === field.key;
+                return (
+                  <div key={field.key} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="font-medium">{field.label}</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-muted-foreground"
+                        disabled={!isEditor || isCurrentlySaving || value === field.fallback}
+                        onClick={() => updateSetting(field.key, field.fallback)}
+                      >
+                        Zurücksetzen
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{field.hint}</p>
+                    <Textarea
+                      value={value}
+                      rows={6}
+                      className="font-mono text-xs"
+                      onChange={(e) => setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      onBlur={(e) => {
+                        if (e.target.value !== (serverSettings[field.key] ?? field.fallback)) {
+                          updateSetting(field.key, e.target.value);
+                        }
+                      }}
+                      disabled={!isEditor || isCurrentlySaving}
+                    />
+                  </div>
+                );
+              })}
+            </Card>
+          </div>
+        );
+      }
 
       case 'sync':
         return demoMode ? (

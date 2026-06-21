@@ -1,17 +1,28 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { X, ClipboardCheck, Rocket, Copy, Check, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { X, ClipboardCheck, Check, MessageCircle, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
-import { generateChecklistTasks, ChecklistTaskState } from '@/lib/checklist-tasks'
-import { ChecklistTaskItem } from '@/components/checklist-task-item'
-import { QRCodeSVG } from 'qrcode.react'
+import {
+  generateChecklistTasks,
+  ChecklistTaskState,
+  isTaskComplete,
+  checklistOverridesKey,
+  resolveWhatsAppMessage,
+  WHATSAPP_MESSAGE_1_KEY,
+  WHATSAPP_MESSAGE_2_KEY,
+  DEFAULT_WHATSAPP_MESSAGE_1,
+  DEFAULT_WHATSAPP_MESSAGE_2,
+} from '@/lib/checklist-tasks'
 import { cn, copyToClipboard } from '@/lib/utils'
 
 interface EventSetupChecklistProps {
@@ -22,97 +33,107 @@ interface EventSetupChecklistProps {
   onChecklistLoaded?: () => void
 }
 
-export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksComplete, onChecklistLoaded }: EventSetupChecklistProps) {
+export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, onChecklistLoaded }: EventSetupChecklistProps) {
   const [tasks, setTasks] = useState<ChecklistTaskState[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [showCheckInQR, setShowCheckInQR] = useState(false)
-  const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [firstWhatsAppSent, setFirstWhatsAppSent] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [manualCompletions, setManualCompletions] = useState<Record<string, boolean>>({})
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({})
+  const [whatsappMessages, setWhatsappMessages] = useState({
+    m1: DEFAULT_WHATSAPP_MESSAGE_1,
+    m2: DEFAULT_WHATSAPP_MESSAGE_2,
+  })
 
-  // Action handlers
-  const handleCopyCheckInLink = async () => {
+  // --- Link helpers: generate the public link, then copy it or print its QR ---
+  const toFullUrl = (link: string) => `${window.location.origin}${link}`
+
+  const shareLink = useCallback(
+    async (
+      generate: () => Promise<{ link: string }>,
+      mode: 'copy' | 'print',
+      meta: { title: string; subtitle: string; copyLabel: string }
+    ) => {
+      try {
+        const { link } = await generate()
+        const url = toFullUrl(link)
+        if (mode === 'copy') {
+          await copyToClipboard(url)
+          toast.success(`${meta.copyLabel} kopiert`, {
+            description: 'Der Link wurde in die Zwischenablage kopiert.',
+          })
+        } else {
+          await apiClient.queueQRCodePrint({
+            qr_content: url,
+            title: meta.title,
+            subtitle: meta.subtitle,
+            event_id: eventId,
+          })
+          toast.info('QR-Code wird gedruckt…', {
+            description: 'Der Auftrag wurde an den Drucker gesendet.',
+          })
+        }
+      } catch (error) {
+        console.error('Link share failed:', error)
+        toast.error(mode === 'copy' ? 'Link konnte nicht kopiert werden' : 'Druck fehlgeschlagen')
+      }
+    },
+    [eventId]
+  )
+
+  const checkInMeta = {
+    title: 'Personal Check-In',
+    subtitle: 'QR scannen zum Einchecken — funktioniert ohne Anmeldung.',
+    copyLabel: 'Check-In Link',
+  }
+  const rekoMeta = {
+    title: 'Reko-Dashboard',
+    subtitle: 'Reko-Personal sieht Zuweisungen und füllt Formulare aus — ohne Anmeldung.',
+    copyLabel: 'Reko-Link',
+  }
+  const alarmMeta = {
+    title: 'Alarm-Link',
+    subtitle: 'Neue Alarme erfassen (Telefon/Walk-in) — ohne Anmeldung.',
+    copyLabel: 'Alarm-Link',
+  }
+
+  const handleCopyCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
+  const handlePrintCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
+  const handleCopyRekoLink = () => shareLink(() => apiClient.generateRekoDashboardLink(eventId), 'copy', rekoMeta)
+  const handlePrintRekoLink = () => shareLink(() => apiClient.generateRekoDashboardLink(eventId), 'print', rekoMeta)
+  const handleCopyAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
+  const handlePrintAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
+
+  const handleTestPrint = async () => {
     try {
-      const response = await apiClient.generateCheckInLink(eventId)
-      const fullUrl = `${window.location.origin}${response.link}`
-      await copyToClipboard(fullUrl)
-      toast.success('Check-In Link kopiert', {
-        description: 'Der Link wurde in die Zwischenablage kopiert.'
+      await apiClient.queueTestPrint()
+      toast.info('Testdruck eingereiht – warte auf Drucker…', {
+        description: 'Der Drucker-Status wird automatisch aktualisiert.',
       })
     } catch (error) {
-      console.error('Failed to copy check-in link:', error)
-      toast.error('Fehler', {
-        description: 'Link konnte nicht kopiert werden.'
-      })
+      console.error('Failed to queue test print:', error)
+      toast.error('Testdruck konnte nicht gestartet werden')
     }
   }
-
-  const handleShowCheckInQR = async () => {
-    try {
-      const response = await apiClient.generateCheckInLink(eventId)
-      const fullUrl = `${window.location.origin}${response.link}`
-      setCheckInUrl(fullUrl)
-      setShowCheckInQR(true)
-    } catch (error) {
-      console.error('Failed to generate QR code:', error)
-      toast.error('Fehler', {
-        description: 'QR-Code konnte nicht generiert werden.'
-      })
-    }
-  }
-
-  const handleAutoAssignDrivers = async () => {
-    toast.info('Auto-Zuweisung noch nicht implementiert', {
-      description: 'Diese Funktion wird in einem zukünftigen Update verfügbar sein.'
-    })
-  }
-
-  const handleSendWhatsApp = useCallback(() => {
-    // Mark as sent in localStorage
-    const whatsappKey = `first-whatsapp-sent-${eventId}`
-    localStorage.setItem(whatsappKey, 'true')
-    setFirstWhatsAppSent(true)
-
-    // Generate basic event notification message
-    const message = `🚨 EREIGNIS GESTARTET\n\n` +
-      `Ereignis: ${eventName}\n` +
-      `Zeit: ${new Date().toLocaleString('de-CH')}\n\n` +
-      `Bitte zur Einsatzzentrale begeben und einchecken.\n\n` +
-      `📱 Check-In Link wird separat gesendet.`
-
-    // Copy to clipboard
-    copyToClipboard(message).then(() => {
-      toast.success('WhatsApp-Nachricht kopiert', {
-        description: 'Die Nachricht wurde in die Zwischenablage kopiert. Fügen Sie sie in WhatsApp ein.'
-      })
-    }).catch(() => {
-      toast.error('Fehler beim Kopieren')
-    })
-  }, [eventId, eventName])
 
   const handleShowTileSetup = () => {
     toast.info('Tile-Setup', {
       description: 'Öffnen Sie die Hilfe-Seite für Anleitungen zur Offline-Karten-Einrichtung.',
       action: {
         label: 'Zur Hilfe',
-        onClick: () => window.open('/help#offline-maps', '_blank')
-      }
+        onClick: () => window.open('/help#offline-maps', '_blank'),
+      },
     })
   }
 
-  const copyCheckInUrlToClipboard = async () => {
-    if (!checkInUrl) return
-
-    try {
-      await copyToClipboard(checkInUrl)
-      setCopied(true)
-      toast.success('Link kopiert')
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
-      toast.error('Fehler beim Kopieren')
-    }
+  const handleSendWhatsApp = (which: 1 | 2) => {
+    // Copy only — never auto-tick, so the operator can re-copy and checks it off
+    // manually once it's actually sent.
+    const message = which === 1 ? whatsappMessages.m1 : whatsappMessages.m2
+    copyToClipboard(message)
+      .then(() =>
+        toast.success(`WhatsApp-Nachricht ${which} kopiert`, {
+          description: 'In WhatsApp einfügen und senden, danach manuell abhaken.',
+        })
+      )
+      .catch(() => toast.error('Fehler beim Kopieren'))
   }
 
   // Load checklist state
@@ -120,53 +141,47 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
     try {
       setIsLoading(true)
 
-      // Fetch all data needed for checklist
-      const [attendance, specialFunctions, vehicles, settings] = await Promise.all([
+      const [attendance, specialFunctions, vehicles, settings, printerStatus] = await Promise.all([
         apiClient.getEventAttendance(eventId).catch(() => []),
         apiClient.getEventSpecialFunctions(eventId).catch(() => []),
         apiClient.getVehicles().catch(() => []),
-        apiClient.getAllSettings().catch(() => ({}))
+        apiClient.getAllSettings().catch(() => ({})),
+        apiClient.getPrinterStatus().catch(() => null),
       ])
 
-      const checkedInCount = attendance.filter((a) => a.checked_in).length
-      const driverCount = specialFunctions.filter((f) => f.function_type === 'driver').length
-      const rekoCount = specialFunctions.filter((f) => f.function_type === 'reko').length
-      const magazinCount = specialFunctions.filter((f) => f.function_type === 'magazin').length
+      setWhatsappMessages({
+        m1: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_1_KEY, DEFAULT_WHATSAPP_MESSAGE_1),
+        m2: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_2_KEY, DEFAULT_WHATSAPP_MESSAGE_2),
+      })
 
-      // Check if map tiles are available
       let mapTilesAvailable = false
       try {
-        const response = await fetch('http://localhost:8080/health')
-        mapTilesAvailable = response.ok
+        mapTilesAvailable = (await fetch('http://localhost:8080/health')).ok
       } catch {
         mapTilesAvailable = false
       }
 
-      // Check localStorage for first WhatsApp sent state
-      const whatsappKey = `first-whatsapp-sent-${eventId}`
-      const whatsappSent = localStorage.getItem(whatsappKey) === 'true'
-      setFirstWhatsAppSent(whatsappSent)
-
-      // Generate tasks
       const updatedTasks = generateChecklistTasks({
         eventId,
-        checkedInPersonnel: checkedInCount,
+        checkedInPersonnel: attendance.filter((a) => a.checked_in).length,
         totalVehicles: vehicles.length,
-        driverAssignments: driverCount,
-        rekoOfficers: rekoCount,
-        magazinStaff: magazinCount,
+        driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
+        rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
+        magazinStaff: specialFunctions.filter((f) => f.function_type === 'magazin').length,
         mapTilesAvailable,
-        firstWhatsAppSent: whatsappSent,
+        printerEnabled: printerStatus?.enabled ?? false,
+        printerAgentOnline: printerStatus?.agent_online ?? false,
         onCopyCheckInLink: handleCopyCheckInLink,
-        onShowCheckInQR: handleShowCheckInQR,
-        onAutoAssignDrivers: handleAutoAssignDrivers,
-        onSendWhatsApp: handleSendWhatsApp,
-        onShowTileSetup: handleShowTileSetup
+        onPrintCheckInLink: handlePrintCheckInLink,
+        onCopyRekoLink: handleCopyRekoLink,
+        onPrintRekoLink: handlePrintRekoLink,
+        onCopyAlarmLink: handleCopyAlarmLink,
+        onPrintAlarmLink: handlePrintAlarmLink,
+        onShowTileSetup: handleShowTileSetup,
+        onTestPrint: handleTestPrint,
       })
 
       setTasks(updatedTasks)
-
-      // Notify parent that checklist has loaded
       onChecklistLoaded?.()
     } catch (error) {
       console.error('Failed to load checklist state:', error)
@@ -174,212 +189,179 @@ export function EventSetupChecklist({ eventId, eventName, onDismiss, onAllTasksC
     } finally {
       setIsLoading(false)
     }
-  }, [eventId, handleSendWhatsApp, onChecklistLoaded])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, onChecklistLoaded])
 
   useEffect(() => {
     loadChecklistState()
-
-    // Refresh every 5 seconds to update completion status
     const interval = setInterval(loadChecklistState, 5000)
     return () => clearInterval(interval)
   }, [loadChecklistState])
 
-  // Calculate progress including manual completions
-  const tasksWithManualState = tasks.map(t => ({
-    ...t,
-    completed: t.completed || manualCompletions[t.id] || false
-  }))
-
-  const completedTasks = tasksWithManualState.filter((t) => t.completed).length
-  const criticalTasks = tasksWithManualState.filter((t) => t.priority === 'critical')
-  const criticalCompleted = criticalTasks.filter((t) => t.completed).length
-  const allCriticalComplete = criticalCompleted === criticalTasks.length && criticalTasks.length > 0
-
-  const progressPercent = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0
-
-  // Sort tasks: incomplete first, then completed
-  const sortedTasks = [...tasksWithManualState].sort((a, b) => {
-    if (a.completed === b.completed) return 0
-    return a.completed ? 1 : -1
-  })
-
-  // Load manual completions from localStorage
+  // Load tick/un-tick overrides from localStorage
   useEffect(() => {
     if (!eventId) return
-    const key = `manual-completions-${eventId}`
-    const stored = localStorage.getItem(key)
-    if (stored) {
-      setManualCompletions(JSON.parse(stored))
+    try {
+      const stored = localStorage.getItem(checklistOverridesKey(eventId))
+      setOverrides(stored ? JSON.parse(stored) : {})
+    } catch {
+      setOverrides({})
     }
   }, [eventId])
 
-  // Notify parent when all tasks are complete
+  const toggleTask = (task: ChecklistTaskState) => {
+    const next = { ...overrides, [task.id]: !isTaskComplete(task, overrides) }
+    setOverrides(next)
+    localStorage.setItem(checklistOverridesKey(eventId), JSON.stringify(next))
+  }
+
+  // Derived progress (effective completion = override ?? auto-detected)
+  const completedTasks = tasks.filter((t) => isTaskComplete(t, overrides)).length
+  const allComplete = tasks.length > 0 && completedTasks === tasks.length
+  const progressPercent = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const ac = isTaskComplete(a, overrides)
+    const bc = isTaskComplete(b, overrides)
+    if (ac === bc) return 0
+    return ac ? 1 : -1
+  })
+
   useEffect(() => {
     if (tasks.length === 0) return
-
-    const allComplete = tasksWithManualState.every(t => t.completed)
-    if (allComplete && onAllTasksComplete) {
-      onAllTasksComplete()
-    }
-  }, [tasksWithManualState, onAllTasksComplete, tasks.length])
-
-  const toggleManualCompletion = (taskId: string) => {
-    const key = `manual-completions-${eventId}`
-    const newCompletions = {
-      ...manualCompletions,
-      [taskId]: !manualCompletions[taskId]
-    }
-    setManualCompletions(newCompletions)
-    localStorage.setItem(key, JSON.stringify(newCompletions))
-  }
+    if (allComplete) onAllTasksComplete?.()
+  }, [allComplete, tasks.length, onAllTasksComplete])
 
   if (isLoading && tasks.length === 0) {
     return (
-      <Card className="border-l-4 border-l-primary bg-primary/5">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <span className="text-muted-foreground">Checkliste wird geladen...</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-muted-foreground">Checkliste wird geladen...</span>
+        </div>
+      </div>
     )
   }
 
   return (
-    <div className="w-full max-w-2xl">
-      <Card className="border shadow-lg">
-        <CardContent className="p-5">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <ClipboardCheck className="h-5 w-5 text-primary" />
-              <h3 className="text-base font-semibold">Setup-Checkliste</h3>
-              {allCriticalComplete && (
-                <Badge variant="default" className="bg-success text-xs h-5 px-2">
-                  <Rocket className="h-3.5 w-3.5 mr-1" />
-                  Bereit
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
-                {completedTasks}/{tasks.length}
-              </span>
-              <Progress value={progressPercent} className="h-2 w-20" />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={onDismiss}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+    <div className="p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5">
+            <ClipboardCheck className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-semibold">Setup-Checkliste</h3>
           </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {completedTasks}/{tasks.length}
+            </span>
+            <Progress value={progressPercent} className="h-2 w-20" />
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDismiss}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-          {/* Task List - Compact */}
-          <div className="space-y-2">
-            {sortedTasks.map((task) => {
-              // Only show action button for specific tasks
-              const shouldShowAction = task.id === 'send-first-whatsapp' || task.id === 'personnel-checkin'
-              const firstAction = shouldShowAction ? task.actionButtons?.[0] : null
-              const ActionIcon = firstAction?.icon
-              const isCompleted = task.completed
+        {/* Task list */}
+        <div className="space-y-1">
+          {sortedTasks.map((task) => {
+            const isCompleted = isTaskComplete(task, overrides)
+            const action = task.actionButtons?.[0]
+            const ActionIcon = action?.icon
 
-              return (
-                <div
-                  key={task.id}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                    isCompleted ? "bg-muted/30" : "bg-muted/50"
+            return (
+              <div
+                key={task.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleTask(task)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    toggleTask(task)
+                  }
+                }}
+                aria-pressed={isCompleted}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors',
+                  isCompleted ? 'bg-muted/30 hover:bg-muted/50' : 'bg-muted/50 hover:bg-muted/70'
+                )}
+              >
+                {/* Checkbox — whole row toggles, this is just the indicator */}
+                <div className="flex-shrink-0">
+                  {isCompleted ? (
+                    <div className="h-[18px] w-[18px] rounded-full bg-success flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
+                  ) : (
+                    <div className="h-[18px] w-[18px] rounded-full border-2 border-muted-foreground/50" />
                   )}
-                >
-                  {/* Checkbox - clickable */}
-                  <button
-                    onClick={() => toggleManualCompletion(task.id)}
-                    className="flex-shrink-0 hover:opacity-80 transition-opacity"
-                  >
-                    {isCompleted ? (
-                      <div className="h-4.5 w-4.5 rounded-full bg-success flex items-center justify-center">
-                        <Check className="h-3 w-3 text-white" />
-                      </div>
-                    ) : (
-                      <div className="h-4.5 w-4.5 rounded-full border-2 border-muted-foreground/50 hover:border-muted-foreground transition-colors" />
-                    )}
-                  </button>
+                </div>
 
-                  {/* Task title */}
-                  <span className={cn(
-                    "flex-1 min-w-0",
-                    isCompleted && "text-muted-foreground line-through"
-                  )}>
+                {/* Title + status detail */}
+                <div className="flex-1 min-w-0">
+                  <span className={cn('block truncate', isCompleted && 'text-muted-foreground line-through')}>
                     {task.title}
                   </span>
+                  {task.metadata?.details && !isCompleted && (
+                    <span className="block text-xs text-muted-foreground/80 truncate">
+                      {task.metadata.details}
+                    </span>
+                  )}
+                </div>
 
-                  {/* Action button - only for WhatsApp and Personnel check-in */}
-                  {!isCompleted && firstAction && ActionIcon && (
+                {/* Action — clicks here must NOT toggle the row */}
+                <div
+                  className="flex-shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  {!isCompleted && task.isWhatsApp ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
+                          <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                          WhatsApp senden
+                          <ChevronDown className="h-3.5 w-3.5 ml-1.5 opacity-60" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-64">
+                        <DropdownMenuItem onClick={() => handleSendWhatsApp(1)} className="flex-col items-start gap-0.5">
+                          <span className="font-medium">Nachricht 1 · Standby</span>
+                          <span className="text-xs text-muted-foreground line-clamp-2">{whatsappMessages.m1}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSendWhatsApp(2)} className="flex-col items-start gap-0.5">
+                          <span className="font-medium">Nachricht 2 · Einrücken</span>
+                          <span className="text-xs text-muted-foreground line-clamp-2">{whatsappMessages.m2}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : !isCompleted && action && ActionIcon ? (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 px-2.5 text-xs"
-                      onClick={firstAction.onClick || undefined}
-                      asChild={!!firstAction.href}
+                      className="h-8 px-3 text-xs"
+                      onClick={action.onClick || undefined}
+                      asChild={!!action.href}
                     >
-                      {firstAction.href ? (
-                        <a href={firstAction.href}>
+                      {action.href ? (
+                        <a href={action.href}>
                           <ActionIcon className="h-3.5 w-3.5 mr-1.5" />
-                          {firstAction.label}
+                          {action.label}
                         </a>
                       ) : (
                         <>
                           <ActionIcon className="h-3.5 w-3.5 mr-1.5" />
-                          {firstAction.label}
+                          {action.label}
                         </>
                       )}
                     </Button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* QR Code Dialog */}
-      <Dialog open={showCheckInQR} onOpenChange={setShowCheckInQR}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Personal Check-In</DialogTitle>
-            <DialogDescription>QR-Code scannen oder Link teilen für mobilen Zugriff</DialogDescription>
-          </DialogHeader>
-          {checkInUrl && (
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="rounded-lg border p-4 bg-white">
-                <QRCodeSVG value={checkInUrl} size={200} level="M" includeMargin />
-              </div>
-
-              <div className="w-full">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={checkInUrl}
-                    readOnly
-                    className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
-                  />
-                  <Button variant="outline" size="icon" onClick={copyCheckInUrlToClipboard}>
-                    {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+                  ) : null}
                 </div>
               </div>
-
-              <p className="text-xs text-muted-foreground text-center">
-                Dieser Link ermöglicht den Zugriff auf das Check-In ohne Anmeldung
-              </p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )
+          })}
+        </div>
     </div>
   )
 }
