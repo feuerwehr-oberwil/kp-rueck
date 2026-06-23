@@ -286,6 +286,8 @@ Railway volumes are persistent but not automatically backed up:
 2. **S3 integration**: Consider migrating to S3 for automatic backups (future enhancement)
 3. **Snapshot**: Railway may offer volume snapshots (check current features)
 
+Do not treat `PHOTOS_DIR=/mnt/data/photos` as a backup by itself. It only ensures uploaded photos survive normal container restarts and redeploys; an operational deployment still needs a tested export or snapshot process for the Railway volume.
+
 ## Future Enhancements
 
 - [ ] S3/CloudFlare R2 backend for better scalability

@@ -52,6 +52,10 @@ Railway will deploy three separate services:
    DATABASE_URL=${{Postgres.DATABASE_URL}}
    CORS_ORIGINS=https://your-frontend-url.railway.app
    PHOTOS_DIR=/mnt/data/photos
+   SECRET_KEY=<openssl rand -hex 32>
+   AUTH_SECRET_KEY=<openssl rand -hex 32>
+   ADMIN_SEED_PASSWORD=<strong initial admin password>
+   EDITOR_PASSWORD=<strong shared editor password, or disable this user after first login>
    PORT=8000
    ```
 
@@ -116,10 +120,22 @@ railway add --database postgresql
 |----------|-------|-------------|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Auto-linked from PostgreSQL service |
 | `CORS_ORIGINS` | `https://your-frontend.railway.app` | Frontend URL for CORS |
-| `PHOTOS_DIR` | `/mnt/data/photos` | Photo storage directory (requires volume) |
+| `PHOTOS_DIR` | `/mnt/data/photos` | Photo storage directory. Must point inside the mounted Railway volume |
+| `SECRET_KEY` | Generated 32-byte hex string | Signs public check-in, Reko, viewer, and alarm-intake tokens |
+| `AUTH_SECRET_KEY` | Generated 32-byte hex string | Signs login access and refresh JWTs |
+| `ADMIN_SEED_PASSWORD` | Strong password, 12+ characters | Required for the initial `admin` user when the database is first seeded |
+| `EDITOR_PASSWORD` | Strong password, 12+ characters | Password for the seeded shared `editor` account. Set this explicitly or disable the account after first login |
 | `PORT` | `8000` | Port (Railway sets automatically) |
 
 **Important**: The `PHOTOS_DIR` environment variable must point to the volume mount path. Without this, photos will be stored in ephemeral container storage and lost on restart.
+
+Generate secrets locally with:
+
+```bash
+openssl rand -hex 32
+```
+
+`SECRET_KEY` and `AUTH_SECRET_KEY` protect different token families in the backend. They can be generated the same way, but should be stored as separate Railway variables.
 
 ### Frontend (`frontend` service)
 
@@ -341,9 +357,11 @@ See `docs/PHOTO_STORAGE.md` for comprehensive photo storage documentation, inclu
 - [ ] Set strong PostgreSQL password
 - [ ] Enable Railway's built-in DDoS protection
 - [ ] Set up custom domain with SSL
-- [ ] Configure environment variables
+- [ ] Configure backend environment variables: `DATABASE_URL`, `CORS_ORIGINS`, `PHOTOS_DIR`, `SECRET_KEY`, `AUTH_SECRET_KEY`, `ADMIN_SEED_PASSWORD`, `EDITOR_PASSWORD`
+- [ ] Configure frontend environment variables: `NEXT_PUBLIC_API_URL` and, if needed, `NEXT_PUBLIC_WS_URL`
 - [ ] **Attach volume for photo storage (`/mnt/data`)**
 - [ ] **Set `PHOTOS_DIR=/mnt/data/photos` environment variable**
+- [ ] Verify backend startup logs show `Photo storage directory: /mnt/data/photos` and `Photos directory ready: /mnt/data/photos`
 - [ ] Enable automatic deployments from `main` branch
 - [ ] Set up monitoring and alerts
 - [ ] Configure backups retention policy
