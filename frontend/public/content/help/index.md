@@ -188,8 +188,8 @@ Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **
 
 - **Wo:** Button **"Divera-Alarm"** im Einsatz-Detail-Dialog und im Disponiert-Dialog.
 - **Empfänger:** die dem Einsatz zugewiesene Mannschaft (vorausgewählt) sowie die **Fahrer** der zugewiesenen Fahrzeuge (gelistet, aber nicht vorausgewählt). Vor dem Senden bestätigen.
-- **Verknüpfung:** Nur mit Divera **verknüpfte** Personen können alarmiert werden — nicht verknüpfte sind ausgegraut. Verknüpft wird über den Personen-Sync (Einstellungen → Divera).
-- **Aktivieren:** Einstellungen → Benachrichtigungen → "Divera-Ausalarmierung" einschalten (benötigt Divera-Zugangsschlüssel). Dort gibt es auch einen **Testalarm** an eine einzelne Person.
+- **Verknüpfung:** Nur mit Divera **verknüpfte** Personen können alarmiert werden — nicht verknüpfte sind ausgegraut. Verknüpft wird über den Divera-Personen-Sync (Einstellungen → Personal).
+- **Aktivieren:** Einstellungen → Alarmierung → "Divera-Ausalarmierung" einschalten (benötigt Divera-Zugangsschlüssel). Dort gibt es auch einen **Testalarm** an eine einzelne Person.
 - Wird im **Trainings- und Demo-Modus nicht** ausgelöst; der Pager wird bewusst nicht angesteuert (Push/keine Doppel-Alarmierung).
 
 ### Personal Check-In

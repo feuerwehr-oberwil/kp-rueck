@@ -76,6 +76,7 @@ import {
   Printer,
   Shield,
   Info,
+  Megaphone,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -100,6 +101,7 @@ import { useIsMobile } from '@/components/ui/use-mobile';
 const SECTIONS = [
   { id: 'general', label: 'Allgemein', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
+  { id: 'alerting', label: 'Alarmierung', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'users', label: 'Benutzer', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
@@ -610,6 +612,14 @@ export default function SettingsPage() {
         );
 
       case 'notifications': {
+        return (
+          <div className="space-y-6">
+            <NotificationSettingsCard />
+          </div>
+        );
+      }
+
+      case 'alerting': {
         const whatsappFields = [
           {
             key: WHATSAPP_MESSAGE_1_KEY,
@@ -626,7 +636,6 @@ export default function SettingsPage() {
         ];
         return (
           <div className="space-y-6">
-            <NotificationSettingsCard />
             <Card className="p-6 space-y-5">
               <div>
                 <h3 className="font-medium">WhatsApp-Nachrichten</h3>

@@ -82,10 +82,10 @@ export function DiveraAlarmSettingsCard({ settings, updateSetting, isEditor, sav
             Divera-Ausalarmierung
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Schickt beim Disponieren einen Divera-Alarm an die zugewiesenen, mit Divera verknüpften
-            Personen. Die Nachricht wird wie die WhatsApp-Meldung aus dem Einsatz erzeugt; Kanäle
-            (Push/SMS/Anruf/Mail) werden pro Versand gewählt. Benötigt einen Divera-Zugangsschlüssel.
-            Personen werden über den Member-Sync verknüpft.
+            Schickt beim Disponieren einen Divera-Push-Alarm an die zugewiesenen, mit Divera
+            verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort,
+            Details als Text). Benötigt einen Divera-Zugangsschlüssel; Personen werden über den
+            Member-Sync verknüpft.
           </p>
         </div>
         <Switch
