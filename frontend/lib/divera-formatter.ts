@@ -66,16 +66,6 @@ export function formatDiveraMessage({ operation, materials }: FormatDiveraMessag
     }
   }
 
-  // Footer timestamp (no markdown).
-  const timestamp = new Date().toLocaleString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-  if (lines.length > 0) lines.push("")
-  lines.push(`Erstellt: ${timestamp}`)
-
+  // No timestamp footer — Divera stamps the alarm itself.
   return lines.join("\n")
 }
