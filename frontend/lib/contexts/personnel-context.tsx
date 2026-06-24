@@ -23,6 +23,8 @@ export interface Person {
   driverVehicleName?: string
   isMagazin?: boolean
   roleSortOrder: number
+  /** Divera user_cluster_relation id — present only when linked to Divera. */
+  diveraUserId?: number | null
 }
 
 interface PersonnelContextType {
@@ -49,6 +51,7 @@ const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
   status: apiPerson.availability as PersonStatus,
   tags: apiPerson.tags || [],
   roleSortOrder: apiPerson.role_sort_order,
+  diveraUserId: apiPerson.divera_user_id ?? null,
 })
 
 export function PersonnelProvider({ children }: { children: ReactNode }) {

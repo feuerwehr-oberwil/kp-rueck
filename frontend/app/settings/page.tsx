@@ -82,6 +82,7 @@ import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
+import { DiveraAlarmSettingsCard } from '@/components/divera/divera-alarm-settings-card';
 import { SyncStatusCard } from '@/components/sync/sync-status-card';
 import { SyncConfigCard } from '@/components/sync/sync-config-card';
 import { SyncHistoryCard } from '@/components/sync/sync-history-card';
@@ -668,6 +669,14 @@ export default function SettingsPage() {
                 );
               })}
             </Card>
+            <DiveraAlarmSettingsCard
+              settings={settings}
+              setSettings={setSettings}
+              serverSettings={serverSettings}
+              updateSetting={updateSetting}
+              isEditor={isEditor}
+              saving={saving}
+            />
           </div>
         );
       }

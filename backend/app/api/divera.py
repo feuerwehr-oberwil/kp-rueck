@@ -11,12 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
+from ..crud import assignments as assignments_crud
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
+from ..services import divera_alarm
+from ..services import settings as settings_service
+from ..services.audit import log_action
 from ..services.divera_members import build_sync_preview, execute_sync, fetch_divera_members
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update, broadcast_message, get_divera_poller_stats
@@ -595,6 +599,248 @@ async def execute_personnel_sync(
     )
 
     return schemas.DiveraSyncResult(**result)
+
+
+# Outbound alarm (ausalarmierung)
+DEFAULT_ALARM_TITLE = "KP-Rück: {title}"
+DEFAULT_ALARM_TEXT = "Alarm – {title} ({location})"
+
+
+def _render_alarm_template(template: str, incident) -> str:
+    """Fill the alarm title/text template with incident fields.
+
+    Token-replace (not str.format) so an operator-edited template with a stray
+    brace can't raise.
+    """
+    tokens = {
+        "{title}": incident.title or "",
+        "{type}": incident.type or "",
+        "{location}": incident.location_address or "",
+        "{priority}": incident.priority or "",
+    }
+    out = template
+    for token, value in tokens.items():
+        out = out.replace(token, value)
+    return out
+
+
+@router.post("/incidents/{incident_id}/alarm", response_model=schemas.DiveraAlarmResponse)
+async def send_incident_alarm(
+    incident_id: UUID,
+    request_data: schemas.DiveraAlarmRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """Send an outbound Divera alarm to selected personnel assigned to an incident.
+
+    Editor role. Off by default: requires ``divera.alarm_enabled = true`` and a
+    configured access key. Never sends for training events or in demo mode.
+    Recipients are restricted to personnel actually assigned to the incident;
+    anyone not linked to Divera is skipped and reported, not silently dropped.
+    """
+    if not settings.divera_access_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Divera access key not configured",
+        )
+    enabled = await settings_service.get_setting_value(db, "divera.alarm_enabled", "false")
+    if enabled.lower() != "true":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Divera-Ausalarmierung ist deaktiviert",
+        )
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Divera-Ausalarmierung ist im Demo-Modus deaktiviert",
+        )
+
+    incident = await incidents_crud.get_incident(db, incident_id)
+    if not incident:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+
+    # Hard safety gate: training events must never trigger a real alarm.
+    event = await events_crud.get_event_by_id(db, incident.event_id)
+    if event is not None and event.training_flag:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Training: es wird kein echter Divera-Alarm gesendet",
+        )
+
+    # Recipients must be personnel actually assigned to this incident.
+    assignments = await assignments_crud.get_incident_assignments(db, incident_id)
+    assigned_personnel_ids = {
+        a.resource_id for a in assignments if a.resource_type == "personnel"
+    }
+
+    sent: list[schemas.DiveraAlarmRecipient] = []
+    skipped: list[schemas.DiveraAlarmRecipient] = []
+    for pid in request_data.personnel_ids:
+        person = await personnel_crud.get_personnel(db, pid)
+        if person is None:
+            continue
+        if pid not in assigned_personnel_ids:
+            skipped.append(
+                schemas.DiveraAlarmRecipient(
+                    personnel_id=pid, name=person.name, reason="nicht diesem Einsatz zugewiesen"
+                )
+            )
+            continue
+        if not person.divera_user_id:
+            skipped.append(
+                schemas.DiveraAlarmRecipient(
+                    personnel_id=pid, name=person.name, reason="nicht mit Divera verknüpft"
+                )
+            )
+            continue
+        sent.append(
+            schemas.DiveraAlarmRecipient(
+                personnel_id=pid, name=person.name, divera_user_id=person.divera_user_id
+            )
+        )
+
+    foreign_id = f"kprueck-{incident_id}"
+
+    if not sent:
+        return schemas.DiveraAlarmResponse(
+            success=False,
+            foreign_id=foreign_id,
+            sent=[],
+            skipped=skipped,
+            error="Keine mit Divera verknüpften Empfänger — nichts gesendet",
+        )
+
+    title = request_data.title or _render_alarm_template(
+        await settings_service.get_setting_value(db, "divera.alarm_title_template", DEFAULT_ALARM_TITLE),
+        incident,
+    )
+    text = request_data.text or _render_alarm_template(
+        await settings_service.get_setting_value(db, "divera.alarm_text_template", DEFAULT_ALARM_TEXT),
+        incident,
+    )
+
+    try:
+        data = await divera_alarm.send_alarm(
+            user_cluster_relation=[r.divera_user_id for r in sent],
+            title=title,
+            text=text,
+            foreign_id=foreign_id,
+            priority=request_data.priority,
+            address=incident.location_address,
+            lat=float(incident.location_lat) if incident.location_lat is not None else None,
+            lng=float(incident.location_lng) if incident.location_lng is not None else None,
+            send_push=request_data.send_push,
+            send_sms=request_data.send_sms,
+            send_call=request_data.send_call,
+            send_mail=request_data.send_mail,
+        )
+    except divera_alarm.DiveraAlarmError as e:
+        logger.error("Divera alarm failed for incident %s: %s", incident_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    await log_action(
+        db=db,
+        action_type="divera_alarm",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={
+            "recipients": [str(r.personnel_id) for r in sent],
+            "channels": {
+                "push": request_data.send_push,
+                "sms": request_data.send_sms,
+                "call": request_data.send_call,
+                "mail": request_data.send_mail,
+            },
+            "divera_alarm_id": data.get("id"),
+        },
+        request=request,
+    )
+
+    return schemas.DiveraAlarmResponse(
+        success=True,
+        foreign_id=foreign_id,
+        divera_alarm_id=data.get("id"),
+        sent=sent,
+        skipped=skipped,
+        count_recipients=data.get("count_recipients"),
+    )
+
+
+@router.post("/test-alarm", response_model=schemas.DiveraAlarmResponse)
+async def send_test_alarm(
+    request_data: schemas.DiveraTestAlarmRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """Send a setup test alarm (push only) to a single selected person.
+
+    Used from Settings to verify the Divera connection. Same gating as a real
+    alarm minus the incident/training checks (there is no incident). Targets only
+    the chosen person.
+    """
+    if not settings.divera_access_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Divera access key not configured",
+        )
+    enabled = await settings_service.get_setting_value(db, "divera.alarm_enabled", "false")
+    if enabled.lower() != "true":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Divera-Ausalarmierung ist deaktiviert",
+        )
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Divera-Ausalarmierung ist im Demo-Modus deaktiviert",
+        )
+
+    person = await personnel_crud.get_personnel(db, request_data.personnel_id)
+    if person is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
+    if not person.divera_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{person.name} ist nicht mit Divera verknüpft",
+        )
+
+    foreign_id = f"kprueck-test-{person.divera_user_id}"
+    try:
+        data = await divera_alarm.send_alarm(
+            user_cluster_relation=[person.divera_user_id],
+            title="KP-Rück Test",
+            text="Testalarm – bitte ignorieren. Verifiziert die Divera-Anbindung.",
+            foreign_id=foreign_id,
+            send_push=True,
+        )
+    except divera_alarm.DiveraAlarmError as e:
+        logger.error("Divera test alarm failed: %s", e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    await log_action(
+        db=db,
+        action_type="divera_test_alarm",
+        resource_type="personnel",
+        resource_id=person.id,
+        user=current_user,
+        changes={"divera_alarm_id": data.get("id")},
+        request=request,
+    )
+
+    return schemas.DiveraAlarmResponse(
+        success=True,
+        foreign_id=foreign_id,
+        divera_alarm_id=data.get("id"),
+        sent=[
+            schemas.DiveraAlarmRecipient(
+                personnel_id=person.id, name=person.name, divera_user_id=person.divera_user_id
+            )
+        ],
+        count_recipients=data.get("count_recipients"),
+    )
 
 
 @router.get("/polling/status")

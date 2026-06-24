@@ -117,6 +117,9 @@ class DiveraSyncPreviewItem(BaseModel):
     member: DiveraMemberPreview
     status: str  # "new" | "unchanged" | "not_in_divera"
     existing_id: UUID | None = None
+    # For "unchanged" matches: whether the local person already has the Divera id
+    # stored (i.e. is addressable for outbound alarms). Backfilled on sync if False.
+    divera_linked: bool = False
 
 
 class DiveraSyncPreview(BaseModel):
@@ -139,3 +142,60 @@ class DiveraSyncResult(BaseModel):
     created: int
     deleted: int
     unchanged: int
+    linked: int = 0  # existing people backfilled with their Divera id
+
+
+# Outbound alarm (ausalarmierung)
+class DiveraAlarmRequest(BaseModel):
+    """Request to send an outbound Divera alarm for an incident.
+
+    Recipients are the incident's assigned personnel that the operator selected
+    in the confirmation sheet. The backend resolves each to its Divera id and
+    skips anyone not linked to Divera.
+    """
+
+    personnel_ids: list[UUID]
+    title: str | None = None  # falls back to the divera.alarm_title_template setting
+    text: str | None = None  # falls back to the divera.alarm_text_template setting
+    priority: bool = False
+    send_push: bool = True
+    send_sms: bool = False
+    send_call: bool = False
+    send_mail: bool = False
+
+    @field_validator("personnel_ids")
+    @classmethod
+    def validate_personnel_ids(cls, v: list[UUID]) -> list[UUID]:
+        """At least one recipient, capped to a sane upper bound."""
+        if not v:
+            raise ValueError("Must select at least one recipient")
+        if len(v) > 200:
+            raise ValueError("Cannot alarm more than 200 people at once")
+        return v
+
+
+class DiveraTestAlarmRequest(BaseModel):
+    """Request to send a setup test alarm to a single selected person."""
+
+    personnel_id: UUID
+
+
+class DiveraAlarmRecipient(BaseModel):
+    """One resolved recipient in the alarm result."""
+
+    personnel_id: UUID
+    name: str
+    divera_user_id: int | None = None
+    reason: str | None = None  # why skipped, if skipped (e.g. "not linked to Divera")
+
+
+class DiveraAlarmResponse(BaseModel):
+    """Result of an outbound alarm send."""
+
+    success: bool
+    foreign_id: str
+    divera_alarm_id: int | None = None
+    sent: list[DiveraAlarmRecipient] = []
+    skipped: list[DiveraAlarmRecipient] = []
+    count_recipients: int | None = None
+    error: str | None = None

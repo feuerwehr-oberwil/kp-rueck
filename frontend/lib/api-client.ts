@@ -60,6 +60,8 @@ import {
   type ApiDiveraEmergencyListResponse,
   type ApiDiveraSyncPreview,
   type ApiDiveraSyncResult,
+  type ApiDiveraAlarmResult,
+  type SendDiveraAlarmOptions,
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
   type ApiAvailableRekoPersonnelResponse,
@@ -1021,6 +1023,30 @@ class ApiClient {
     return this.request<ApiDiveraSyncResult>('/api/divera/personnel-sync/execute', {
       method: 'POST',
       body: JSON.stringify(options),
+    })
+  }
+
+  /**
+   * Send an outbound Divera alarm to selected personnel assigned to an incident.
+   * Returns per-recipient results (sent vs skipped). A 200 with `success: false`
+   * means nothing was sent (e.g. no linked recipients); gating failures
+   * (disabled / training / demo / no key) reject with a 4xx.
+   */
+  async sendIncidentDiveraAlarm(
+    incidentId: string,
+    options: SendDiveraAlarmOptions,
+  ): Promise<ApiDiveraAlarmResult> {
+    return this.request<ApiDiveraAlarmResult>(`/api/divera/incidents/${incidentId}/alarm`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+    })
+  }
+
+  /** Send a setup test alarm (push only) to a single selected person. */
+  async sendDiveraTestAlarm(personnelId: string): Promise<ApiDiveraAlarmResult> {
+    return this.request<ApiDiveraAlarmResult>('/api/divera/test-alarm', {
+      method: 'POST',
+      body: JSON.stringify({ personnel_id: personnelId }),
     })
   }
 

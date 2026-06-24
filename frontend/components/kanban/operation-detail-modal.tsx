@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren } from 'lucide-react'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -45,6 +45,8 @@ interface OperationDetailModalProps {
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onRemoveCrew?: (operationId: string, crewName: string) => void
   onRemoveMaterial?: (operationId: string, materialId: string) => void
+  diveraEnabled?: boolean
+  onSendDivera?: (operation: Operation) => void
 }
 
 export function OperationDetailModal({
@@ -59,6 +61,8 @@ export function OperationDetailModal({
   onAssignResource,
   onRemoveCrew,
   onRemoveMaterial,
+  diveraEnabled,
+  onSendDivera,
 }: OperationDetailModalProps) {
   const { formatLocation, setOperations } = useOperations()
   const { selectedEvent } = useEvent()
@@ -837,6 +841,17 @@ export function OperationDetailModal({
             <MessageCircle className="h-4 w-4" />
             {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp kopieren'}
           </Button>
+          {diveraEnabled && onSendDivera && operation && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSendDivera(operation)}
+              className="border border-border"
+            >
+              <Siren className="h-4 w-4" />
+              Divera-Alarm
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

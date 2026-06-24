@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Copy, Check, Printer, X, Radio } from "lucide-react"
+import { Copy, Check, Printer, X, Radio, Siren } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,8 @@ interface DisponiertTransitionDialogProps {
   printerEnabled?: boolean
   vehicleDrivers?: Map<string, string>
   funkrufname?: string
+  diveraEnabled?: boolean
+  onSendDivera?: (operation: Operation) => void
 }
 
 export function DisponierTransitionDialog({
@@ -34,6 +36,8 @@ export function DisponierTransitionDialog({
   printerEnabled,
   vehicleDrivers,
   funkrufname = "Omega",
+  diveraEnabled,
+  onSendDivera,
 }: DisponiertTransitionDialogProps) {
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
@@ -130,6 +134,17 @@ export function DisponierTransitionDialog({
               >
                 <Printer className="h-4 w-4" />
                 Einsatzzettel drucken
+              </Button>
+            )}
+
+            {diveraEnabled && onSendDivera && (
+              <Button
+                variant="outline"
+                className="justify-start gap-2"
+                onClick={() => onSendDivera(operation)}
+              >
+                <Siren className="h-4 w-4" />
+                Divera-Alarm senden
               </Button>
             )}
 

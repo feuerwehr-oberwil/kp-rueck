@@ -134,6 +134,9 @@ def build_sync_preview(divera_members: list[dict], existing_personnel: list) -> 
                 "member": member,
                 "status": "unchanged",
                 "existing_id": str(matched_person.id),
+                # Whether this person already has the Divera id stored locally.
+                # False here means execute_sync will backfill it.
+                "divera_linked": getattr(matched_person, "divera_user_id", None) is not None,
             })
 
     # Find personnel not in Divera
@@ -163,21 +166,42 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
 
     Returns dict with created, deleted, unchanged counts.
     """
+    from uuid import UUID
+
     from .. import schemas
     from ..crud import personnel as personnel_crud
 
     created = 0
     deleted = 0
+    linked = 0  # existing people backfilled with their Divera id
 
-    # Create new personnel
+    # Create new personnel, storing the Divera user_cluster_relation id so they
+    # can be targeted directly by outbound alarms.
     for item in preview["new"]:
         member = item["member"]
         personnel_data = schemas.PersonnelCreate(
             name=member["name"],
             availability="available",
         )
-        await personnel_crud.create_personnel(db, personnel_data, current_user, request)
-        created += 1
+        person = await personnel_crud.create_personnel(db, personnel_data, current_user, request)
+        divera_id = member.get("divera_id")
+        if divera_id:
+            person.divera_user_id = divera_id
+            await db.commit()
+            linked += 1
+
+    # Backfill the Divera id on existing matches that don't have it yet. The id
+    # is what makes a person addressable for outbound alarms.
+    for item in preview["unchanged"]:
+        divera_id = item["member"].get("divera_id")
+        existing_id = item.get("existing_id")
+        if not divera_id or not existing_id:
+            continue
+        person = await personnel_crud.get_personnel(db, UUID(existing_id))
+        if person is not None and person.divera_user_id != divera_id:
+            person.divera_user_id = divera_id
+            await db.commit()
+            linked += 1
 
     # Delete stale personnel
     if remove_stale:
@@ -189,5 +213,6 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
     return {
         "created": created,
         "deleted": deleted,
+        "linked": linked,
         "unchanged": len(preview["unchanged"]),
     }

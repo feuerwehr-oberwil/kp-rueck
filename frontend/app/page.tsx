@@ -55,6 +55,7 @@ import { PrintOptionsModal } from "@/components/print/print-options-modal"
 import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
+import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -255,6 +256,7 @@ export default function FireStationDashboard() {
   const [alarmCopied, setAlarmCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
+  const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
   // When disponieren is triggered for an incident that's missing resources
   // (Personal, Fahrzeuge or Mittel), hold it here to make the operator
   // acknowledge what's missing before dispatching.
@@ -327,6 +329,7 @@ export default function FireStationDashboard() {
 
   // Thermal printer state
   const [printerEnabled, setPrinterEnabled] = useState(false)
+  const [diveraEnabled, setDiveraEnabled] = useState(false)
   const [isPrintingBoard, setIsPrintingBoard] = useState(false)
   const [isPrintingQR, setIsPrintingQR] = useState(false)
   const [funkrufname, setFunkrufname] = useState("Omega")
@@ -376,6 +379,7 @@ export default function FireStationDashboard() {
       try {
         const settings = await apiClient.getAllSettings()
         if (settings.funkrufname) setFunkrufname(settings.funkrufname)
+        setDiveraEnabled(settings['divera.alarm_enabled'] === 'true')
       } catch { /* ignore */ }
     }
     fetchPrinterStatus()
@@ -1749,6 +1753,8 @@ export default function FireStationDashboard() {
         onAssignResource={handleOpenAssignmentDialog}
         onRemoveCrew={removeCrew}
         onRemoveMaterial={removeMaterial}
+        diveraEnabled={diveraEnabled}
+        onSendDivera={(op) => setDiveraDialogOp(op)}
       />
 
       <NewEmergencyModal
@@ -2241,6 +2247,17 @@ export default function FireStationDashboard() {
         materials={materials}
         printerEnabled={printerEnabled}
         funkrufname={funkrufname}
+        diveraEnabled={diveraEnabled}
+        onSendDivera={(op) => {
+          setDisponiertDialogOp(null)
+          setDiveraDialogOp(op)
+        }}
+      />
+
+      <DiveraSendDialog
+        open={!!diveraDialogOp}
+        onOpenChange={(open) => !open && setDiveraDialogOp(null)}
+        operation={diveraDialogOp}
       />
 
       {/* Mobile Personnel Sheet */}

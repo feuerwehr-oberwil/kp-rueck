@@ -102,6 +102,10 @@ class Personnel(Base):
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
 
+    # Divera 24/7 link: user_cluster_relation id used to target this person in
+    # outbound alarms. Nullable — only set when synced from / matched to Divera.
+    divera_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+
     # Check-in tracking
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

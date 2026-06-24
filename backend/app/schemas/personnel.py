@@ -64,6 +64,7 @@ class PersonnelUpdate(BaseModel):
     role_sort_order: int | None = None
     availability: str | None = None
     tags: list[str] | None = None
+    divera_user_id: int | None = None
 
 
 class Personnel(PersonnelBase):
@@ -72,6 +73,7 @@ class Personnel(PersonnelBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    divera_user_id: int | None = None
     checked_in: bool = False
     checked_in_at: datetime | None = None
     checked_out_at: datetime | None = None
