@@ -16,6 +16,7 @@ from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
+from ..crud import special_functions as special_functions_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import divera_alarm
@@ -668,11 +669,21 @@ async def send_incident_alarm(
             detail="Training: es wird kein echter Divera-Alarm gesendet",
         )
 
-    # Recipients must be personnel actually assigned to this incident.
+    # Valid recipients = personnel assigned to this incident, plus the drivers of
+    # the incident's assigned vehicles (drivers are event-scoped special functions,
+    # not personnel assignments).
     assignments = await assignments_crud.get_incident_assignments(db, incident_id)
     assigned_personnel_ids = {
         a.resource_id for a in assignments if a.resource_type == "personnel"
     }
+    assigned_vehicle_ids = {
+        a.resource_id for a in assignments if a.resource_type == "vehicle"
+    }
+    if assigned_vehicle_ids:
+        functions = await special_functions_crud.get_event_special_functions(db, incident.event_id)
+        for fn in functions:
+            if fn.function_type == "driver" and fn.vehicle_id in assigned_vehicle_ids:
+                assigned_personnel_ids.add(fn.personnel_id)
 
     sent: list[schemas.DiveraAlarmRecipient] = []
     skipped: list[schemas.DiveraAlarmRecipient] = []

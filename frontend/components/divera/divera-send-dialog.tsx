@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Siren, Loader2, Link2Off } from "lucide-react"
 import {
   Dialog,
@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
-import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { formatDiveraMessage, formatDiveraTitle } from "@/lib/divera-formatter"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -29,16 +29,34 @@ interface DiveraSendDialogProps {
   materials: Material[]
 }
 
+interface Recipient {
+  person: Person
+  isDriverRow: boolean
+}
+
 export function DiveraSendDialog({ open, onOpenChange, operation, materials }: DiveraSendDialogProps) {
   const { personnel } = usePersonnel()
 
-  // Resolve this incident's crew (names) to full Person objects so we know who
-  // is linked to Divera and who isn't.
-  const recipients = useMemo(() => {
+  // Recipients = the incident's assigned crew (pre-selected) plus the drivers of
+  // its assigned vehicles (listed, but NOT pre-selected).
+  const recipients = useMemo<Recipient[]>(() => {
     if (!operation) return []
-    return operation.crew
+    const crew = operation.crew
       .map((name) => personnel.find((p) => p.name === name))
-      .filter((p): p is NonNullable<typeof p> => Boolean(p))
+      .filter((p): p is Person => Boolean(p))
+    const crewIds = new Set(crew.map((p) => p.id))
+    const vehicleSet = new Set(operation.vehicles)
+    const drivers = personnel.filter(
+      (p) =>
+        p.isDriver &&
+        p.driverVehicleName &&
+        vehicleSet.has(p.driverVehicleName) &&
+        !crewIds.has(p.id),
+    )
+    return [
+      ...crew.map((person) => ({ person, isDriverRow: false })),
+      ...drivers.map((person) => ({ person, isDriverRow: true })),
+    ]
   }, [operation, personnel])
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -46,17 +64,24 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const [text, setText] = useState("")
   const [priority, setPriority] = useState(false)
   const [isSending, setIsSending] = useState(false)
-  const [initialisedFor, setInitialisedFor] = useState<string | null>(null)
 
-  // Prefill once per opened incident: pre-tick the linked recipients and compose
-  // a default message from the incident. Operator can edit everything.
-  if (open && operation && initialisedFor !== operation.id) {
-    setInitialisedFor(operation.id)
-    setSelected(new Set(recipients.filter((p) => p.diveraUserId).map((p) => p.id)))
+  // Re-prefill every time the dialog opens, so it reflects the current
+  // assignments (changing the crew while closed and reopening shows the new set).
+  // Pre-select all linked crew; leave drivers unticked.
+  useEffect(() => {
+    if (!open || !operation) return
+    setSelected(
+      new Set(
+        recipients
+          .filter((r) => !r.isDriverRow && r.person.diveraUserId)
+          .map((r) => r.person.id),
+      ),
+    )
     setTitle(formatDiveraTitle(operation).slice(0, 50))
     setText(formatDiveraMessage({ operation, materials }))
     setPriority(false)
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, operation?.id])
 
   if (!operation) return null
 
@@ -70,13 +95,13 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   }
 
   const selectedLinkedCount = recipients.filter(
-    (p) => selected.has(p.id) && p.diveraUserId,
+    (r) => selected.has(r.person.id) && r.person.diveraUserId,
   ).length
 
   const handleSend = async () => {
     const personnelIds = recipients
-      .filter((p) => selected.has(p.id) && p.diveraUserId)
-      .map((p) => p.id)
+      .filter((r) => selected.has(r.person.id) && r.person.diveraUserId)
+      .map((r) => r.person.id)
     if (personnelIds.length === 0) {
       toast.error("Keine mit Divera verknüpften Empfänger ausgewählt")
       return
@@ -128,22 +153,27 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                 Diesem Einsatz ist keine Person zugewiesen.
               </p>
             ) : (
-              <div className="max-h-44 overflow-y-auto rounded-lg border border-border divide-y divide-border">
-                {recipients.map((p) => {
-                  const linked = Boolean(p.diveraUserId)
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+                {recipients.map((r) => {
+                  const linked = Boolean(r.person.diveraUserId)
                   return (
                     <label
-                      key={p.id}
+                      key={r.person.id}
                       className={`flex items-center gap-2.5 px-3 py-2 text-sm ${
                         linked ? "cursor-pointer" : "cursor-not-allowed opacity-60"
                       }`}
                     >
                       <Checkbox
-                        checked={selected.has(p.id)}
-                        onCheckedChange={() => linked && toggle(p.id)}
+                        checked={selected.has(r.person.id)}
+                        onCheckedChange={() => linked && toggle(r.person.id)}
                         disabled={!linked}
                       />
-                      <span className="flex-1 truncate">{p.name}</span>
+                      <span className="flex-1 truncate">{r.person.name}</span>
+                      {r.isDriverRow && (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          Fahrer
+                        </Badge>
+                      )}
                       {linked ? (
                         <Badge variant="secondary" className="text-[10px]">
                           verknüpft
