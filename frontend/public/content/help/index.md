@@ -179,7 +179,18 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 2. Personal und Material auf Einsatzkarte ziehen (Drag & Drop)
 3. Einsatz in "Disponiert" verschieben
 4. "WhatsApp kopieren" klicken → Einsatzdetails in Gruppenchat senden
-5. Bei Rückmeldung, dass vor Ort → in "Einsatz" verschieben
+5. Optional: "Divera-Alarm" klicken → zugewiesene Personen direkt via Divera-Push alarmieren
+6. Bei Rückmeldung, dass vor Ort → in "Einsatz" verschieben
+
+### Divera-Alarmierung
+
+Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **Divera 24/7** (Push) alarmiert werden. Der Alarm enthält als **Stichwort** den Einsatztyp (z. B. "KP: Elementarereignis") und als Text die Einsatzdetails (Meldung, Fahrzeuge, Mannschaft, Material); die Adresse wird als Divera-Feld mitgegeben.
+
+- **Wo:** Button **"Divera-Alarm"** im Einsatz-Detail-Dialog und im Disponiert-Dialog.
+- **Empfänger:** die dem Einsatz zugewiesene Mannschaft (vorausgewählt) sowie die **Fahrer** der zugewiesenen Fahrzeuge (gelistet, aber nicht vorausgewählt). Vor dem Senden bestätigen.
+- **Verknüpfung:** Nur mit Divera **verknüpfte** Personen können alarmiert werden — nicht verknüpfte sind ausgegraut. Verknüpft wird über den Personen-Sync (Einstellungen → Divera).
+- **Aktivieren:** Einstellungen → Benachrichtigungen → "Divera-Ausalarmierung" einschalten (benötigt Divera-Zugangsschlüssel). Dort gibt es auch einen **Testalarm** an eine einzelne Person.
+- Wird im **Trainings- und Demo-Modus nicht** ausgelöst; der Pager wird bewusst nicht angesteuert (Push/keine Doppel-Alarmierung).
 
 ### Personal Check-In
 
