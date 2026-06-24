@@ -2258,6 +2258,7 @@ export default function FireStationDashboard() {
         open={!!diveraDialogOp}
         onOpenChange={(open) => !open && setDiveraDialogOp(null)}
         operation={diveraDialogOp}
+        materials={materials}
       />
 
       {/* Mobile Personnel Sheet */}

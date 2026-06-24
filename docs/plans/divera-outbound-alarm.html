@@ -83,9 +83,10 @@
   <ul class="tasks" style="margin-top:10px">
     <li><input type="checkbox" checked><label>Phase 1–6 umgesetzt: <code>divera_user_id</code> an Personnel (+Migration), Sync-Backfill, Outbound-Service (<span class="file">services/divera_alarm.py</span>), Endpoints <code>POST /divera/incidents/{id}/alarm</code> + <code>POST /divera/test-alarm</code>, Settings-Defaults, Bestätigungs-Dialog (Incident-Modal + Dispatch-Modal), Settings-Karte mit Einzel-Empfänger-Testalarm.</label></li>
     <li><input type="checkbox" checked><label>Phase 7 (Backend): 12 Tests — Gating (aus/Demo/Training/kein Key), verknüpft/nicht-verknüpft-Skip, nur-zugewiesene, <code>notification_type:4</code> + <code>send_pager:false</code>, 200+<code>success:false</code>.</label></li>
-    <li><input type="checkbox"><label><b>Offen — Cross-Repo:</b> <code>kprueck-</code>-Skip in <span class="file">fwo-divera/src/api/ecall.py</span> (sonst pagt die e-Call-Brücke doppelt).</label></li>
-    <li><input type="checkbox"><label><b>Offen — Live-Verify:</b> ob v2 bei gleicher <code>foreign_id</code> mergt oder dupliziert (Re-Alarm); ggf. GET→PUT-Pfad.</label></li>
-    <li><input type="checkbox"><label><b>Offen — Backfill:</b> bestehende Personen brauchen einen Member-Sync-Lauf, damit <code>divera_user_id</code> gesetzt wird.</label></li>
+    <li><input type="checkbox" checked><label><b>Cross-Repo erledigt:</b> <code>kprueck-</code>-Skip in <span class="file">fwo-divera/src/api/ecall.py</span> (16 Tests grün, deployed) — kein Doppel-Paging.</label></li>
+    <li><input type="checkbox" checked><label><b>Live verifiziert:</b> v2 <b>dupliziert</b> bei gleicher <code>foreign_id</code> → Service macht jetzt GET→PUT-oder-POST; zweimal senden ergibt 1 Alarm (live bestätigt).</label></li>
+    <li><input type="checkbox" checked><label><b>Deployed:</b> kp-rueck (backend+frontend) und fwo-divera auf <code>main</code> gepusht → Railway; Migration via <code>start.sh</code> angewandt. Bestehender <code>DIVERA_ACCESS_KEY</code> wiederverwendet, keine neue Env-Var.</label></li>
+    <li><input type="checkbox"><label><b>Noch zu tun (durch Nutzer):</b> in Einstellungen einschalten + <b>Member-Sync laufen lassen</b> (backfillt <code>divera_user_id</code> auf bestehende Personen).</label></li>
     <li><input type="checkbox"><label>Optional: Frontend-Vitest fürs Sheet; „verknüpft"-Indikator in der Sync-Preview-UI.</label></li>
   </ul>
 </div>

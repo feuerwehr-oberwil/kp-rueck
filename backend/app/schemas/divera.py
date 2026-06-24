@@ -175,15 +175,20 @@ class DiveraAlarmRequest(BaseModel):
 
 
 class DiveraTestAlarmRequest(BaseModel):
-    """Request to send a setup test alarm to a single selected person."""
+    """Request to send a setup test alarm to a single Divera member.
 
-    personnel_id: UUID
+    Targets a Divera user directly (by user_cluster_relation id), so the test
+    works even before any local personnel are linked.
+    """
+
+    divera_user_id: int
+    name: str | None = None
 
 
 class DiveraAlarmRecipient(BaseModel):
     """One resolved recipient in the alarm result."""
 
-    personnel_id: UUID
+    personnel_id: UUID | None = None  # None for the settings test alarm (no local person)
     name: str
     divera_user_id: int | None = None
     reason: str | None = None  # why skipped, if skipped (e.g. "not linked to Divera")

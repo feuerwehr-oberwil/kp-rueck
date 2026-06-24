@@ -16,8 +16,9 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { type Operation } from "@/lib/contexts/operations-context"
+import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
@@ -25,6 +26,7 @@ interface DiveraSendDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   operation: Operation | null
+  materials: Material[]
 }
 
 const CHANNELS = [
@@ -36,7 +38,7 @@ const CHANNELS = [
 
 type ChannelKey = (typeof CHANNELS)[number]["key"]
 
-export function DiveraSendDialog({ open, onOpenChange, operation }: DiveraSendDialogProps) {
+export function DiveraSendDialog({ open, onOpenChange, operation, materials }: DiveraSendDialogProps) {
   const { personnel } = usePersonnel()
 
   // Resolve this incident's crew (names) to full Person objects so we know who
@@ -66,10 +68,9 @@ export function DiveraSendDialog({ open, onOpenChange, operation }: DiveraSendDi
   if (open && operation && initialisedFor !== operation.id) {
     setInitialisedFor(operation.id)
     setSelected(new Set(recipients.filter((p) => p.diveraUserId).map((p) => p.id)))
-    setTitle(`KP-Rück: ${operation.incidentType || operation.location}`.slice(0, 50))
-    setText(
-      `Alarm – ${operation.location}${operation.notes ? ` – ${operation.notes}` : ""}`.slice(0, 1000),
-    )
+    setTitle(`KP-Rück: ${operation.location}`.slice(0, 50))
+    // Same rich message as the WhatsApp share (incident, vehicles, crew, materials, reko).
+    setText(formatWhatsAppMessage({ operation, materials }))
     setPriority(false)
     setChannels({ send_push: true, send_sms: false, send_call: false, send_mail: false })
   }
@@ -190,14 +191,19 @@ export function DiveraSendDialog({ open, onOpenChange, operation }: DiveraSendDi
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="divera-text" className="text-xs uppercase tracking-wide text-muted-foreground">
-              Text
-            </Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="divera-text" className="text-xs uppercase tracking-wide text-muted-foreground">
+                Text
+              </Label>
+              <span className={`text-[11px] ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}>
+                {text.length}/1000{text.length > 1000 ? " · wird gekürzt" : ""}
+              </span>
+            </div>
             <Textarea
               id="divera-text"
               value={text}
-              maxLength={1000}
-              rows={3}
+              rows={8}
+              className="text-xs"
               onChange={(e) => setText(e.target.value)}
             />
           </div>

@@ -364,16 +364,16 @@ async def test_service_errors_without_access_key(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_test_alarm_success_single_person(
+async def test_test_alarm_success_targets_divera_user(
     editor_client: AsyncClient, db_session, configured_key
 ):
     await _enable_alarm(db_session)
-    person = await _make_person(db_session, "Self Tester", divera_user_id=999001)
 
     mock_send = AsyncMock(return_value={"id": 42, "count_recipients": 1})
     with patch.object(divera_alarm, "send_alarm", new=mock_send):
         resp = await editor_client.post(
-            "/api/divera/test-alarm", json={"personnel_id": str(person.id)}
+            "/api/divera/test-alarm",
+            json={"divera_user_id": 999001, "name": "Self Tester"},
         )
 
     assert resp.status_code == 200
@@ -388,16 +388,13 @@ async def test_test_alarm_success_single_person(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_test_alarm_rejects_unlinked_person(
-    editor_client: AsyncClient, db_session, configured_key
+async def test_test_alarm_blocked_when_disabled(
+    editor_client: AsyncClient, configured_key
 ):
-    await _enable_alarm(db_session)
-    person = await _make_person(db_session, "Unlinked", divera_user_id=None)
-
+    # divera.alarm_enabled defaults to false (no Setting row created)
     with patch.object(divera_alarm, "send_alarm", new=AsyncMock()) as mock_send:
         resp = await editor_client.post(
-            "/api/divera/test-alarm", json={"personnel_id": str(person.id)}
+            "/api/divera/test-alarm", json={"divera_user_id": 999001}
         )
-
-    assert resp.status_code == 400
+    assert resp.status_code == 403
     mock_send.assert_not_called()

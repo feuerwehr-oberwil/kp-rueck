@@ -61,6 +61,7 @@ import {
   type ApiDiveraSyncPreview,
   type ApiDiveraSyncResult,
   type ApiDiveraAlarmResult,
+  type ApiDiveraMemberPreview,
   type SendDiveraAlarmOptions,
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
@@ -1042,11 +1043,16 @@ class ApiClient {
     })
   }
 
-  /** Send a setup test alarm (push only) to a single selected person. */
-  async sendDiveraTestAlarm(personnelId: string): Promise<ApiDiveraAlarmResult> {
+  /** List Divera members (id + name) — for picking a test-alarm recipient. */
+  async getDiveraMembers(): Promise<ApiDiveraMemberPreview[]> {
+    return this.request<ApiDiveraMemberPreview[]>('/api/divera/members')
+  }
+
+  /** Send a setup test alarm (push only) directly to a Divera member. */
+  async sendDiveraTestAlarm(diveraUserId: number, name?: string): Promise<ApiDiveraAlarmResult> {
     return this.request<ApiDiveraAlarmResult>('/api/divera/test-alarm', {
       method: 'POST',
-      body: JSON.stringify({ personnel_id: personnelId }),
+      body: JSON.stringify({ divera_user_id: diveraUserId, name }),
     })
   }
 

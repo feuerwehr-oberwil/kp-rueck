@@ -5,9 +5,7 @@ import { Siren, Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -16,57 +14,38 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { apiClient } from "@/lib/api-client"
-import type { ApiPersonnel } from "@/lib/api/types"
+import type { ApiDiveraMemberPreview } from "@/lib/api/types"
 import { toast } from "sonner"
 
 const ENABLED_KEY = "divera.alarm_enabled"
-const TITLE_KEY = "divera.alarm_title_template"
-const TEXT_KEY = "divera.alarm_text_template"
-const DEFAULT_TITLE = "KP-Rück: {title}"
-const DEFAULT_TEXT = "Alarm – {title} ({location})"
-
-const CHANNEL_FIELDS = [
-  { key: "divera.send_push", label: "Push" },
-  { key: "divera.send_sms", label: "SMS" },
-  { key: "divera.send_call", label: "Anruf" },
-  { key: "divera.send_mail", label: "E-Mail" },
-] as const
 
 interface Props {
   settings: Record<string, string>
-  setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>
-  serverSettings: Record<string, string>
   updateSetting: (key: string, value: string) => void | Promise<void>
   isEditor: boolean
   saving: string | null
 }
 
-export function DiveraAlarmSettingsCard({
-  settings,
-  setSettings,
-  serverSettings,
-  updateSetting,
-  isEditor,
-  saving,
-}: Props) {
+export function DiveraAlarmSettingsCard({ settings, updateSetting, isEditor, saving }: Props) {
   const enabled = settings[ENABLED_KEY] === "true"
 
-  // Linked personnel for the test-alarm recipient picker.
-  const [linkedPersonnel, setLinkedPersonnel] = useState<ApiPersonnel[]>([])
-  const [testPersonId, setTestPersonId] = useState<string>("")
+  // Divera members for the test-alarm recipient picker (live from Divera, so the
+  // test works even before any local personnel are linked).
+  const [members, setMembers] = useState<ApiDiveraMemberPreview[]>([])
+  const [membersError, setMembersError] = useState(false)
+  const [testId, setTestId] = useState<string>("")
   const [isTesting, setIsTesting] = useState(false)
 
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
     apiClient
-      .getAllPersonnel()
-      .then((people) => {
-        if (cancelled) return
-        setLinkedPersonnel(people.filter((p) => p.divera_user_id))
+      .getDiveraMembers()
+      .then((list) => {
+        if (!cancelled) setMembers(list)
       })
       .catch(() => {
-        /* ignore — picker just stays empty */
+        if (!cancelled) setMembersError(true)
       })
     return () => {
       cancelled = true
@@ -74,15 +53,16 @@ export function DiveraAlarmSettingsCard({
   }, [enabled])
 
   const handleTest = async () => {
-    if (!testPersonId) {
+    const member = members.find((m) => String(m.divera_id) === testId)
+    if (!member) {
       toast.error("Bitte eine Person auswählen")
       return
     }
     setIsTesting(true)
     try {
-      const result = await apiClient.sendDiveraTestAlarm(testPersonId)
+      const result = await apiClient.sendDiveraTestAlarm(member.divera_id, member.name)
       if (result.success) {
-        toast.success(`Testalarm gesendet an ${result.sent[0]?.name ?? "Person"}`)
+        toast.success(`Testalarm gesendet an ${member.name}`)
       } else {
         toast.error(result.error || "Testalarm fehlgeschlagen")
       }
@@ -93,11 +73,6 @@ export function DiveraAlarmSettingsCard({
     }
   }
 
-  const templateFields = [
-    { key: TITLE_KEY, label: "Titel-Vorlage", fallback: DEFAULT_TITLE, rows: 1 },
-    { key: TEXT_KEY, label: "Text-Vorlage", fallback: DEFAULT_TEXT, rows: 2 },
-  ]
-
   return (
     <Card className="p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
@@ -107,8 +82,10 @@ export function DiveraAlarmSettingsCard({
             Divera-Ausalarmierung
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Sendet beim Disponieren einen Divera-Alarm an die zugewiesenen, mit Divera verknüpften
-            Personen. Benötigt einen konfigurierten Divera-Zugangsschlüssel. Standardmässig aus.
+            Schickt beim Disponieren einen Divera-Alarm an die zugewiesenen, mit Divera verknüpften
+            Personen. Die Nachricht wird wie die WhatsApp-Meldung aus dem Einsatz erzeugt; Kanäle
+            (Push/SMS/Anruf/Mail) werden pro Versand gewählt. Benötigt einen Divera-Zugangsschlüssel.
+            Personen werden über den Member-Sync verknüpft.
           </p>
         </div>
         <Switch
@@ -119,101 +96,38 @@ export function DiveraAlarmSettingsCard({
       </div>
 
       {enabled && (
-        <>
-          {/* Message templates */}
-          {templateFields.map((field) => {
-            const value = settings[field.key] !== undefined ? settings[field.key] : field.fallback
-            return (
-              <div key={field.key} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="font-medium">{field.label}</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-muted-foreground"
-                    disabled={!isEditor || saving === field.key || value === field.fallback}
-                    onClick={() => updateSetting(field.key, field.fallback)}
-                  >
-                    Zurücksetzen
-                  </Button>
-                </div>
-                <Textarea
-                  value={value}
-                  rows={field.rows}
-                  className="font-mono text-xs"
-                  onChange={(e) =>
-                    setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))
-                  }
-                  onBlur={(e) => {
-                    if (e.target.value !== (serverSettings[field.key] ?? field.fallback)) {
-                      updateSetting(field.key, e.target.value)
-                    }
-                  }}
-                  disabled={!isEditor || saving === field.key}
-                />
-              </div>
-            )
-          })}
+        <div className="space-y-1.5 border-t pt-4">
+          <Label className="font-medium">Testalarm</Label>
           <p className="text-xs text-muted-foreground">
-            Platzhalter: <code>{"{title}"}</code> <code>{"{type}"}</code>{" "}
-            <code>{"{location}"}</code> <code>{"{priority}"}</code>
+            Sendet einen Push-Testalarm an eine einzelne Divera-Person (zur Verbindungsprüfung).
           </p>
-
-          {/* Default channels */}
-          <div className="space-y-1.5">
-            <Label className="font-medium">Standard-Kanäle</Label>
-            <div className="flex flex-wrap gap-3">
-              {CHANNEL_FIELDS.map((c) => {
-                // Push defaults to on; others off.
-                const fallback = c.key === "divera.send_push"
-                const checked =
-                  settings[c.key] !== undefined ? settings[c.key] === "true" : fallback
-                return (
-                  <label key={c.key} className="flex items-center gap-1.5 text-sm">
-                    <Checkbox
-                      checked={checked}
-                      disabled={!isEditor || saving === c.key}
-                      onCheckedChange={(v) => updateSetting(c.key, v ? "true" : "false")}
-                    />
-                    {c.label}
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Test alarm to a single selectable person */}
-          <div className="space-y-1.5 border-t pt-4">
-            <Label className="font-medium">Testalarm</Label>
-            <p className="text-xs text-muted-foreground">
-              Sendet einen Push-Testalarm an eine einzelne, mit Divera verknüpfte Person.
+          {membersError ? (
+            <p className="text-sm text-destructive">
+              Divera-Mitglieder konnten nicht geladen werden (Zugangsschlüssel prüfen).
             </p>
+          ) : (
             <div className="flex items-center gap-2">
-              <Select value={testPersonId} onValueChange={setTestPersonId} disabled={!isEditor}>
+              <Select value={testId} onValueChange={setTestId} disabled={!isEditor}>
                 <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Person wählen…" />
+                  <SelectValue
+                    placeholder={members.length ? "Person wählen…" : "Lade Divera-Mitglieder…"}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {linkedPersonnel.length === 0 ? (
-                    <SelectItem value="__none" disabled>
-                      Keine verknüpften Personen
+                  {members.map((m) => (
+                    <SelectItem key={m.divera_id} value={String(m.divera_id)}>
+                      {m.name}
                     </SelectItem>
-                  ) : (
-                    linkedPersonnel.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
-              <Button onClick={handleTest} disabled={!isEditor || isTesting || !testPersonId}>
+              <Button onClick={handleTest} disabled={!isEditor || isTesting || !testId}>
                 {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Siren className="h-4 w-4" />}
                 Testalarm senden
               </Button>
             </div>
-          </div>
-        </>
+          )}
+        </div>
       )}
     </Card>
   )

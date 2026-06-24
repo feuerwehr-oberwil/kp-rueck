@@ -768,6 +768,31 @@ async def send_incident_alarm(
     )
 
 
+@router.get("/members", response_model=list[schemas.DiveraMemberPreview])
+async def list_divera_members(
+    current_user: CurrentEditor,
+):
+    """List Divera members (id + name) — used to pick a test-alarm recipient.
+
+    Reads live from Divera (pull/all); independent of local personnel linking.
+    """
+    if not settings.divera_access_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Divera access key not configured",
+        )
+    try:
+        members = await fetch_divera_members()
+    except Exception as e:
+        logger.error("Failed to fetch Divera members: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch members from Divera: {e}",
+        )
+    members.sort(key=lambda m: m["name"].lower())
+    return [schemas.DiveraMemberPreview(**m) for m in members]
+
+
 @router.post("/test-alarm", response_model=schemas.DiveraAlarmResponse)
 async def send_test_alarm(
     request_data: schemas.DiveraTestAlarmRequest,
@@ -775,11 +800,11 @@ async def send_test_alarm(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ):
-    """Send a setup test alarm (push only) to a single selected person.
+    """Send a setup test alarm (push only) to a single Divera member.
 
     Used from Settings to verify the Divera connection. Same gating as a real
-    alarm minus the incident/training checks (there is no incident). Targets only
-    the chosen person.
+    alarm minus the incident/training checks. Targets the chosen Divera user
+    directly, so it works before any local personnel are linked.
     """
     if not settings.divera_access_key:
         raise HTTPException(
@@ -798,19 +823,11 @@ async def send_test_alarm(
             detail="Divera-Ausalarmierung ist im Demo-Modus deaktiviert",
         )
 
-    person = await personnel_crud.get_personnel(db, request_data.personnel_id)
-    if person is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
-    if not person.divera_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{person.name} ist nicht mit Divera verknüpft",
-        )
-
-    foreign_id = f"kprueck-test-{person.divera_user_id}"
+    name = request_data.name or "Testperson"
+    foreign_id = f"kprueck-test-{request_data.divera_user_id}"
     try:
         data = await divera_alarm.send_alarm(
-            user_cluster_relation=[person.divera_user_id],
+            user_cluster_relation=[request_data.divera_user_id],
             title="KP-Rück Test",
             text="Testalarm – bitte ignorieren. Verifiziert die Divera-Anbindung.",
             foreign_id=foreign_id,
@@ -823,10 +840,10 @@ async def send_test_alarm(
     await log_action(
         db=db,
         action_type="divera_test_alarm",
-        resource_type="personnel",
-        resource_id=person.id,
+        resource_type="settings",
+        resource_id=None,
         user=current_user,
-        changes={"divera_alarm_id": data.get("id")},
+        changes={"divera_user_id": request_data.divera_user_id, "divera_alarm_id": data.get("id")},
         request=request,
     )
 
@@ -836,7 +853,9 @@ async def send_test_alarm(
         divera_alarm_id=data.get("id"),
         sent=[
             schemas.DiveraAlarmRecipient(
-                personnel_id=person.id, name=person.name, divera_user_id=person.divera_user_id
+                personnel_id=None,  # no local person — direct Divera target
+                name=name,
+                divera_user_id=request_data.divera_user_id,
             )
         ],
         count_recipients=data.get("count_recipients"),

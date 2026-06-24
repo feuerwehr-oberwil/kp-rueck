@@ -671,8 +671,6 @@ export default function SettingsPage() {
             </Card>
             <DiveraAlarmSettingsCard
               settings={settings}
-              setSettings={setSettings}
-              serverSettings={serverSettings}
               updateSetting={updateSetting}
               isEditor={isEditor}
               saving={saving}
