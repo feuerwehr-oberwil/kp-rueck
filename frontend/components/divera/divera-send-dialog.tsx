@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
-import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
+import { formatDiveraMessage, formatDiveraTitle } from "@/lib/divera-formatter"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
@@ -28,15 +28,6 @@ interface DiveraSendDialogProps {
   operation: Operation | null
   materials: Material[]
 }
-
-const CHANNELS = [
-  { key: "send_push", label: "Push" },
-  { key: "send_sms", label: "SMS" },
-  { key: "send_call", label: "Anruf" },
-  { key: "send_mail", label: "E-Mail" },
-] as const
-
-type ChannelKey = (typeof CHANNELS)[number]["key"]
 
 export function DiveraSendDialog({ open, onOpenChange, operation, materials }: DiveraSendDialogProps) {
   const { personnel } = usePersonnel()
@@ -54,12 +45,6 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const [title, setTitle] = useState("")
   const [text, setText] = useState("")
   const [priority, setPriority] = useState(false)
-  const [channels, setChannels] = useState<Record<ChannelKey, boolean>>({
-    send_push: true,
-    send_sms: false,
-    send_call: false,
-    send_mail: false,
-  })
   const [isSending, setIsSending] = useState(false)
   const [initialisedFor, setInitialisedFor] = useState<string | null>(null)
 
@@ -68,11 +53,9 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   if (open && operation && initialisedFor !== operation.id) {
     setInitialisedFor(operation.id)
     setSelected(new Set(recipients.filter((p) => p.diveraUserId).map((p) => p.id)))
-    setTitle(`KP-Rück: ${operation.location}`.slice(0, 50))
-    // Same rich message as the WhatsApp share (incident, vehicles, crew, materials, reko).
-    setText(formatWhatsAppMessage({ operation, materials }))
+    setTitle(formatDiveraTitle(operation).slice(0, 50))
+    setText(formatDiveraMessage({ operation, materials }))
     setPriority(false)
-    setChannels({ send_push: true, send_sms: false, send_call: false, send_mail: false })
   }
 
   if (!operation) return null
@@ -105,7 +88,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
         title,
         text,
         priority,
-        ...channels,
+        send_push: true, // push only — no SMS/call/mail
       })
       if (result.success) {
         const skippedNote = result.skipped.length > 0 ? `, ${result.skipped.length} übersprungen` : ""
@@ -206,24 +189,6 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
               className="text-xs"
               onChange={(e) => setText(e.target.value)}
             />
-          </div>
-
-          {/* Channels */}
-          <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Kanäle</Label>
-            <div className="flex flex-wrap gap-3">
-              {CHANNELS.map((c) => (
-                <label key={c.key} className="flex items-center gap-1.5 text-sm">
-                  <Checkbox
-                    checked={channels[c.key]}
-                    onCheckedChange={(v) =>
-                      setChannels((prev) => ({ ...prev, [c.key]: Boolean(v) }))
-                    }
-                  />
-                  {c.label}
-                </label>
-              ))}
-            </div>
           </div>
 
           {/* Priority */}
