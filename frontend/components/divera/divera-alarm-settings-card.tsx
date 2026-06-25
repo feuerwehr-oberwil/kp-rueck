@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -18,16 +19,47 @@ import type { ApiDiveraMemberPreview } from "@/lib/api/types"
 import { toast } from "sonner"
 
 const ENABLED_KEY = "divera.alarm_enabled"
+const TITLE_KEY = "divera.alarm_title_template"
+const TEXT_KEY = "divera.alarm_text_template"
+// Keep in sync with DEFAULT_SETTINGS (backend) / DEFAULT_ALARM_* in api/divera.py.
+const DEFAULT_TITLE = "KP-Rück: {title}"
+const DEFAULT_TEXT = "Alarm – {title} ({location})"
 
 interface Props {
   settings: Record<string, string>
+  serverSettings: Record<string, string>
+  setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>
   updateSetting: (key: string, value: string) => void | Promise<void>
   isEditor: boolean
   saving: string | null
 }
 
-export function DiveraAlarmSettingsCard({ settings, updateSetting, isEditor, saving }: Props) {
+export function DiveraAlarmSettingsCard({
+  settings,
+  serverSettings,
+  setSettings,
+  updateSetting,
+  isEditor,
+  saving,
+}: Props) {
   const enabled = settings[ENABLED_KEY] === "true"
+
+  const templateFields = [
+    {
+      key: TITLE_KEY,
+      label: "Stichwort (Titel)",
+      hint: "Push-Titel. Kurz halten — erscheint als Stichwort.",
+      fallback: DEFAULT_TITLE,
+      rows: 2,
+    },
+    {
+      key: TEXT_KEY,
+      label: "Alarmtext",
+      hint: "Push-Text mit den Einsatzdetails.",
+      fallback: DEFAULT_TEXT,
+      rows: 3,
+    },
+  ]
 
   // Divera members for the test-alarm recipient picker (live from Divera, so the
   // test works even before any local personnel are linked).
@@ -96,7 +128,57 @@ export function DiveraAlarmSettingsCard({ settings, updateSetting, isEditor, sav
       </div>
 
       {enabled && (
-        <div className="space-y-1.5 border-t pt-4">
+        <div className="space-y-4">
+          <div>
+            <Label className="font-medium">Vorlagen</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Titel und Text werden beim Disponieren aus dem Einsatz erzeugt. Platzhalter:{" "}
+              <code className="font-mono">{"{title}"}</code>,{" "}
+              <code className="font-mono">{"{type}"}</code>,{" "}
+              <code className="font-mono">{"{location}"}</code>,{" "}
+              <code className="font-mono">{"{priority}"}</code>.
+            </p>
+          </div>
+          {templateFields.map((field) => {
+            const value = settings[field.key] !== undefined ? settings[field.key] : field.fallback
+            const isCurrentlySaving = saving === field.key
+            return (
+              <div key={field.key} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="font-medium">{field.label}</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground"
+                    disabled={!isEditor || isCurrentlySaving || value === field.fallback}
+                    onClick={() => updateSetting(field.key, field.fallback)}
+                  >
+                    Zurücksetzen
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{field.hint}</p>
+                <Textarea
+                  value={value}
+                  rows={field.rows}
+                  className="font-mono text-xs"
+                  onChange={(e) =>
+                    setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))
+                  }
+                  onBlur={(e) => {
+                    if (e.target.value !== (serverSettings[field.key] ?? field.fallback)) {
+                      updateSetting(field.key, e.target.value)
+                    }
+                  }}
+                  disabled={!isEditor || isCurrentlySaving}
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {enabled && (
+        <div className="space-y-1.5">
           <Label className="font-medium">Testalarm</Label>
           <p className="text-xs text-muted-foreground">
             Sendet einen Push-Testalarm an eine einzelne Divera-Person (zur Verbindungsprüfung).

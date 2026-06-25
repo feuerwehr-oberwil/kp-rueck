@@ -78,6 +78,20 @@ export interface ApiDiveraAlarmResult {
   error?: string | null
 }
 
+// Polling / connection status (for the Verbindung indicator)
+export interface ApiDiveraPollingStatus {
+  /** True when an access key is set (alarms + inbound polling can work). */
+  configured: boolean
+  /** True while the polling fallback task is running (users connected). */
+  polling?: boolean
+  /** ISO timestamp of the last successful poll, if any. */
+  last_poll?: string | null
+  poll_count?: number
+  error_count?: number
+  /** Present only when the poller service is unavailable. */
+  message?: string
+}
+
 export interface SendDiveraAlarmOptions {
   personnel_ids: string[]
   title?: string

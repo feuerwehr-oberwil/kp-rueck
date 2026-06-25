@@ -16,6 +16,7 @@ import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { apiClient } from '@/lib/api-client';
+import type { ApiDiveraPollingStatus } from '@/lib/api/types';
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
 import type { SyncConfig } from '@/types/sync';
 import { RoleBadge } from '@/components/auth/role-badge';
@@ -54,6 +55,7 @@ export function UserMenu({
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>('disconnected');
   const [printerStatus, setPrinterStatus] = useState<{ enabled: boolean; ip: string; last_error: string | null } | null>(null);
+  const [diveraStatus, setDiveraStatus] = useState<ApiDiveraPollingStatus | null>(null);
 
   // Sync status
   const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
@@ -96,6 +98,23 @@ export function UserMenu({
     fetchPrinterStatus();
     // Refresh printer status every 30 seconds
     const interval = setInterval(fetchPrinterStatus, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  // Fetch Divera connection status
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchDiveraStatus = async () => {
+      try {
+        setDiveraStatus(await apiClient.getDiveraPollingStatus());
+      } catch {
+        // Divera API might not be available — leave status unknown.
+        setDiveraStatus(null);
+      }
+    };
+    fetchDiveraStatus();
+    const interval = setInterval(fetchDiveraStatus, 30000);
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
@@ -233,6 +252,19 @@ export function UserMenu({
     return "Bereit";
   };
 
+  const getDiveraStatusColor = () => {
+    if (!diveraStatus?.configured) return "bg-muted-foreground";
+    // Errors with no successful poll yet = the connection is genuinely broken.
+    if (diveraStatus.error_count && !diveraStatus.poll_count) return "bg-destructive";
+    return "bg-success";
+  };
+
+  const getDiveraStatusText = () => {
+    if (!diveraStatus?.configured) return "Nicht konfiguriert";
+    if (diveraStatus.error_count && !diveraStatus.poll_count) return "Fehler";
+    return "Verbunden";
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -305,6 +337,7 @@ export function UserMenu({
                         <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
                       )}
                       <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
+                      <div className={`h-2 w-2 rounded-full ${getDiveraStatusColor()}`} />
                     </div>
                   </div>
                 </Link>
@@ -329,6 +362,10 @@ export function UserMenu({
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
                   <span>Drucker: {getPrinterStatusText()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${getDiveraStatusColor()}`} />
+                  <span>Divera: {getDiveraStatusText()}</span>
                 </div>
               </div>
             </HoverCardContent>

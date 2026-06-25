@@ -34,10 +34,13 @@ DEFAULT_SETTINGS = {
     "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
     # Divera outbound alarm (ausalarmierung) — optional, OFF by default. Only takes
     # effect when a DIVERA_ACCESS_KEY is also configured. Installations that don't
-    # use Divera leave this off and see no Divera send UI. The alarm message is
-    # composed from the incident (same format as the WhatsApp message) and channels
-    # are chosen per send, so no templates/channel defaults are stored here.
+    # use Divera leave this off and see no Divera send UI. Channels are push-only,
+    # chosen per send. The alarm title/text are rendered from these templates with
+    # incident tokens ({title}, {type}, {location}, {priority}); defaults mirror
+    # DEFAULT_ALARM_TITLE / DEFAULT_ALARM_TEXT in api/divera.py.
     "divera.alarm_enabled": "false",  # Master toggle for sending alarms to Divera
+    "divera.alarm_title_template": "KP-Rück: {title}",  # Push title (Stichwort)
+    "divera.alarm_text_template": "Alarm – {title} ({location})",  # Push body
 }
 
 

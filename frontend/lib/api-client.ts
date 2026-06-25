@@ -62,6 +62,7 @@ import {
   type ApiDiveraSyncResult,
   type ApiDiveraAlarmResult,
   type ApiDiveraMemberPreview,
+  type ApiDiveraPollingStatus,
   type SendDiveraAlarmOptions,
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
@@ -1054,6 +1055,11 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ divera_user_id: diveraUserId, name }),
     })
+  }
+
+  /** Divera polling/connection status — for the Verbindung indicator. */
+  async getDiveraPollingStatus(): Promise<ApiDiveraPollingStatus> {
+    return this.request<ApiDiveraPollingStatus>('/api/divera/polling/status')
   }
 
   // Sync endpoints
