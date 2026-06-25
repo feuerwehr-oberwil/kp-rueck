@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { formatDiveraMessage, formatDiveraTitle } from "@/lib/divera-formatter"
+import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 
@@ -77,9 +78,17 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           .map((r) => r.person.id),
       ),
     )
-    setTitle(formatDiveraTitle(operation).slice(0, 50))
-    setText(formatDiveraMessage({ operation, materials }))
     setPriority(false)
+    // Prefill title/text from the editable templates (fetched async).
+    let cancelled = false
+    getMessageTemplates().then(({ diveraTitle, diveraText }) => {
+      if (cancelled) return
+      setTitle(formatDiveraTitle(operation, diveraTitle).slice(0, 50))
+      setText(formatDiveraMessage({ operation, materials, template: diveraText }))
+    })
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, operation?.id])
 

@@ -16,14 +16,15 @@ import {
 } from "@/components/ui/select"
 import { apiClient } from "@/lib/api-client"
 import type { ApiDiveraMemberPreview } from "@/lib/api/types"
+import {
+  DIVERA_ALARM_TITLE_KEY,
+  DIVERA_ALARM_TEXT_KEY,
+  DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE,
+  DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE,
+} from "@/lib/message-template"
 import { toast } from "sonner"
 
 const ENABLED_KEY = "divera.alarm_enabled"
-const TITLE_KEY = "divera.alarm_title_template"
-const TEXT_KEY = "divera.alarm_text_template"
-// Keep in sync with DEFAULT_SETTINGS (backend) / DEFAULT_ALARM_* in api/divera.py.
-const DEFAULT_TITLE = "KP-Rück: {title}"
-const DEFAULT_TEXT = "Alarm – {title} ({location})"
 
 interface Props {
   settings: Record<string, string>
@@ -46,18 +47,18 @@ export function DiveraAlarmSettingsCard({
 
   const templateFields = [
     {
-      key: TITLE_KEY,
+      key: DIVERA_ALARM_TITLE_KEY,
       label: "Stichwort (Titel)",
-      hint: "Push-Titel. Kurz halten — erscheint als Stichwort.",
-      fallback: DEFAULT_TITLE,
+      hint: "Push-Titel. Kurz halten. Platzhalter: {type}, {location}, {priority}.",
+      fallback: DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE,
       rows: 2,
     },
     {
-      key: TEXT_KEY,
+      key: DIVERA_ALARM_TEXT_KEY,
       label: "Alarmtext",
-      hint: "Push-Text mit den Einsatzdetails.",
-      fallback: DEFAULT_TEXT,
-      rows: 3,
+      hint: "Push-Text. Platzhalter: {notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}.",
+      fallback: DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE,
+      rows: 8,
     },
   ]
 
@@ -106,7 +107,7 @@ export function DiveraAlarmSettingsCard({
   }
 
   return (
-    <Card className="p-6 space-y-5">
+    <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="font-medium flex items-center gap-2">
@@ -132,11 +133,9 @@ export function DiveraAlarmSettingsCard({
           <div>
             <Label className="font-medium">Vorlagen</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              Titel und Text werden beim Disponieren aus dem Einsatz erzeugt. Platzhalter:{" "}
-              <code className="font-mono">{"{title}"}</code>,{" "}
-              <code className="font-mono">{"{type}"}</code>,{" "}
-              <code className="font-mono">{"{location}"}</code>,{" "}
-              <code className="font-mono">{"{priority}"}</code>.
+              Titel und Text werden beim Disponieren aus dem Einsatz erzeugt. Reihenfolge ändern =
+              Zeilen verschieben. Eine Zeile, deren Platzhalter alle leer sind, fällt weg (z.&nbsp;B.{" "}
+              <code className="font-mono">🚒 {"{vehicles}"}</code> ohne Fahrzeuge).
             </p>
           </div>
           {templateFields.map((field) => {

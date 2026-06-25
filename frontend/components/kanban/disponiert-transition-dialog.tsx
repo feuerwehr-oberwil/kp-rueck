@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
+import { getMessageTemplates } from "@/lib/message-template"
 import { copyToClipboard } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
@@ -45,10 +46,12 @@ export function DisponierTransitionDialog({
   if (!operation) return null
 
   const handleCopyWhatsApp = async () => {
+    const { whatsappIncident } = await getMessageTemplates()
     const message = formatWhatsAppMessage({
       operation,
       materials,
       vehicleDrivers,
+      template: whatsappIncident,
     })
     await copyToClipboard(message)
     setWhatsappCopied(true)

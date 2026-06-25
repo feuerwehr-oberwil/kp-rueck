@@ -1,6 +1,7 @@
 """Divera 24/7 webhook integration API endpoints."""
 
 import logging
+import re
 from typing import Annotated
 from uuid import UUID
 
@@ -602,27 +603,50 @@ async def execute_personnel_sync(
     return schemas.DiveraSyncResult(**result)
 
 
-# Outbound alarm (ausalarmierung)
-DEFAULT_ALARM_TITLE = "KP-Rück: {title}"
-DEFAULT_ALARM_TEXT = "Alarm – {title} ({location})"
+# Outbound alarm (ausalarmierung). Defaults live in DEFAULT_SETTINGS so the
+# settings editor, the GET response and this fallback all agree.
+DEFAULT_ALARM_TITLE = settings_service.DEFAULT_SETTINGS["divera.alarm_title_template"]
+DEFAULT_ALARM_TEXT = settings_service.DEFAULT_SETTINGS["divera.alarm_text_template"]
+
+_TOKEN_RE = re.compile(r"\{(\w+)\}")
 
 
 def _render_alarm_template(template: str, incident) -> str:
-    """Fill the alarm title/text template with incident fields.
+    """Render an alarm title/text template against an incident.
 
-    Token-replace (not str.format) so an operator-edited template with a stray
-    brace can't raise.
+    Same section engine as the frontend (message-template.ts): a line whose tokens
+    all resolve empty is dropped, unknown tokens become empty, blank runs collapse.
+    Token-replace (not str.format) so a stray brace can't raise.
+
+    NOTE: this is only a fallback. The send dialog renders the message client-side
+    (with crew/vehicle/material names) and sends it as an override, so tokens the
+    backend can't fill here (vehicles/crew/materials/reko/...) just drop their line.
     """
-    tokens = {
-        "{title}": incident.title or "",
-        "{type}": incident.type or "",
-        "{location}": incident.location_address or "",
-        "{priority}": incident.priority or "",
+    values = {
+        "title": incident.title or "",
+        "type": incident.type or "",
+        "location": incident.location_address or "",
+        "priority": incident.priority or "",
+        "notes": incident.description or "",
     }
-    out = template
-    for token, value in tokens.items():
-        out = out.replace(token, value)
-    return out
+    out: list[str] = []
+    for line in template.split("\n"):
+        line_tokens = _TOKEN_RE.findall(line)
+        if not line_tokens:
+            out.append(line)
+            continue
+        if all(not values.get(t, "") for t in line_tokens):
+            continue
+        out.append(_TOKEN_RE.sub(lambda m: values.get(m.group(1), ""), line))
+    # Collapse blank runs and trim trailing blanks.
+    collapsed: list[str] = []
+    for line in out:
+        if not line.strip() and (not collapsed or not collapsed[-1].strip()):
+            continue
+        collapsed.append(line)
+    while collapsed and not collapsed[-1].strip():
+        collapsed.pop()
+    return "\n".join(collapsed)
 
 
 @router.post("/incidents/{incident_id}/alarm", response_model=schemas.DiveraAlarmResponse)

@@ -37,6 +37,7 @@ import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
+import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -176,11 +177,13 @@ export function MobileIncidentDetailSheet({
         }
       }
 
+      const { whatsappIncident } = await getMessageTemplates()
       return formatWhatsAppMessage({
         operation,
         materials,
         rekoReport,
         vehicleDrivers,
+        template: whatsappIncident,
       })
     })()
 

@@ -22,6 +22,10 @@ import {
   DEFAULT_WHATSAPP_MESSAGE_1,
   DEFAULT_WHATSAPP_MESSAGE_2,
 } from '@/lib/checklist-tasks';
+import {
+  WHATSAPP_INCIDENT_TEMPLATE_KEY,
+  DEFAULT_WHATSAPP_INCIDENT_TEMPLATE,
+} from '@/lib/message-template';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -636,7 +640,7 @@ export default function SettingsPage() {
         ];
         return (
           <div className="space-y-6">
-            <Card className="p-6 space-y-5">
+            <Card className="p-6 space-y-4">
               <div>
                 <h3 className="font-medium">WhatsApp-Nachrichten</h3>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -678,6 +682,59 @@ export default function SettingsPage() {
                 );
               })}
             </Card>
+            {(() => {
+              const key = WHATSAPP_INCIDENT_TEMPLATE_KEY;
+              const fallback = DEFAULT_WHATSAPP_INCIDENT_TEMPLATE;
+              const value = settings[key] !== undefined ? settings[key] : fallback;
+              const isCurrentlySaving = saving === key;
+              return (
+                <Card className="p-6 space-y-4">
+                  <div>
+                    <h3 className="font-medium">WhatsApp-Einsatznachricht</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Vorlage für die aus einem Einsatz kopierte WhatsApp-Meldung. Reihenfolge
+                      ändern = Zeilen verschieben. Eine Zeile, deren Platzhalter alle leer sind,
+                      fällt weg. Platzhalter: <code className="font-mono">{'{type}'}</code>,{' '}
+                      <code className="font-mono">{'{location}'}</code>,{' '}
+                      <code className="font-mono">{'{notes}'}</code>,{' '}
+                      <code className="font-mono">{'{contact}'}</code>,{' '}
+                      <code className="font-mono">{'{internal_notes}'}</code>,{' '}
+                      <code className="font-mono">{'{vehicles}'}</code>,{' '}
+                      <code className="font-mono">{'{crew}'}</code>,{' '}
+                      <code className="font-mono">{'{materials}'}</code>,{' '}
+                      <code className="font-mono">{'{reko}'}</code>,{' '}
+                      <code className="font-mono">{'{timestamp}'}</code>.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="font-medium">Vorlage</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-muted-foreground"
+                        disabled={!isEditor || isCurrentlySaving || value === fallback}
+                        onClick={() => updateSetting(key, fallback)}
+                      >
+                        Zurücksetzen
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={value}
+                      rows={14}
+                      className="font-mono text-xs"
+                      onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
+                      onBlur={(e) => {
+                        if (e.target.value !== (serverSettings[key] ?? fallback)) {
+                          updateSetting(key, e.target.value);
+                        }
+                      }}
+                      disabled={!isEditor || isCurrentlySaving}
+                    />
+                  </div>
+                </Card>
+              );
+            })()}
             <DiveraAlarmSettingsCard
               settings={settings}
               serverSettings={serverSettings}

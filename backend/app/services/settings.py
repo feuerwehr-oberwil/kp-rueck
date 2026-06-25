@@ -32,15 +32,43 @@ DEFAULT_SETTINGS = {
     "printer.port": "9100",  # Printer port (default ESC/POS port)
     "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "einsatz"
     "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
+    # Incident message templates. Section-based: {token} placeholders are filled
+    # from the incident, a line whose tokens are all empty is dropped, blank runs
+    # collapse. Rendered CLIENT-SIDE (see frontend/lib/message-template.ts) — the
+    # defaults here must match the DEFAULT_* constants there. Stored in the DB so
+    # they sync across devices and are editable from Settings → Alarmierung.
+    "whatsapp.incident_template": (
+        "🚨 *{type}*\n"
+        "📍 {location}\n"
+        "📝 {notes}\n"
+        "☎️ {contact}\n"
+        "📋 {internal_notes}\n"
+        "\n"
+        "🚒 {vehicles}\n"
+        "👤 {crew}\n"
+        "🧰 {materials}\n"
+        "\n"
+        "{reko}\n"
+        "\n"
+        "_Erstellt: {timestamp}_"
+    ),
     # Divera outbound alarm (ausalarmierung) — optional, OFF by default. Only takes
     # effect when a DIVERA_ACCESS_KEY is also configured. Installations that don't
-    # use Divera leave this off and see no Divera send UI. Channels are push-only,
-    # chosen per send. The alarm title/text are rendered from these templates with
-    # incident tokens ({title}, {type}, {location}, {priority}); defaults mirror
-    # DEFAULT_ALARM_TITLE / DEFAULT_ALARM_TEXT in api/divera.py.
+    # use Divera leave this off and see no Divera send UI. Channels are push-only.
+    # The alarm title/text are rendered from these templates (same engine as the
+    # WhatsApp template). The dialog renders client-side and sends the result; the
+    # backend only renders these as a fallback (see _render_alarm_template).
     "divera.alarm_enabled": "false",  # Master toggle for sending alarms to Divera
-    "divera.alarm_title_template": "KP-Rück: {title}",  # Push title (Stichwort)
-    "divera.alarm_text_template": "Alarm – {title} ({location})",  # Push body
+    "divera.alarm_title_template": "KP: {type}",  # Push title (Stichwort)
+    "divera.alarm_text_template": (
+        "📝 {notes}\n"
+        "☎️ {contact}\n"
+        "📋 {internal_notes}\n"
+        "\n"
+        "🚒 {vehicles}\n"
+        "👤 {crew}\n"
+        "🧰 {materials}"
+    ),
 }
 
 

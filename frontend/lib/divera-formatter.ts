@@ -4,68 +4,72 @@
  * Like the WhatsApp message but tuned for Divera: plain text (Divera does not
  * render markdown, so no '*'/'_'), no location line (the address is sent as a
  * structured field), and materials rendered as a list. Emojis are kept.
+ *
+ * Order, emojis and labels live in editable templates (settings); this builder
+ * only renders each section's content into token values. See message-template.ts.
  */
 
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import {
+  renderMessageTemplate,
+  DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE,
+  DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE,
+} from "@/lib/message-template"
 
 interface FormatDiveraMessageOptions {
   operation: Operation
   materials: Material[]
+  /** Editable template; falls back to the built-in default when omitted. */
+  template?: string
 }
 
-/** Alarm title (Stichwort): the emergency type, e.g. "KP: Elementarereignis". */
-export function formatDiveraTitle(operation: Operation): string {
-  return `KP: ${getIncidentTypeLabel(operation.incidentType)}`
+/** Alarm title (Stichwort), e.g. "KP: Elementarereignis". */
+export function formatDiveraTitle(operation: Operation, template?: string): string {
+  const values: Record<string, string> = {
+    type: getIncidentTypeLabel(operation.incidentType),
+    location: operation.location?.trim() || "",
+    priority: operation.priority || "",
+  }
+  return renderMessageTemplate(template || DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE, values)
+}
+
+/** Render the assigned-vehicles section content (callsign + stay/return, no driver). */
+function buildVehicles(operation: Operation): string {
+  if (operation.vehicles.length === 0) return ""
+  const vehicleLines = operation.vehicles.map((vehicleName) => {
+    const callsign = operation.vehicleCallsigns?.get(vehicleName)
+    const driverStay = operation.vehicleDriverStay?.get(vehicleName)
+    const displayName = callsign ? `${vehicleName} · ${callsign}` : vehicleName
+    if (driverStay === undefined) return displayName
+    return `${displayName} (${driverStay ? "bleibt vor Ort" : "kehrt zurück"})`
+  })
+  return vehicleLines.join(", ")
+}
+
+/** Render the materials section content as a "Material:\n- item" list, or "". */
+function buildMaterials(operation: Operation, materials: Material[]): string {
+  if (operation.materials.length === 0) return ""
+  const lines = ["Material:"]
+  for (const matId of operation.materials) {
+    const material = materials.find((m) => m.id === matId)
+    const name = material
+      ? `${material.name}${material.category ? ` (${material.category})` : ""}`
+      : "Unbekanntes Material"
+    lines.push(`- ${name}`)
+  }
+  return lines.join("\n")
 }
 
 /** Plain-text alarm body for Divera. */
-export function formatDiveraMessage({ operation, materials }: FormatDiveraMessageOptions): string {
-  const lines: string[] = []
-
-  // === HEADER === (no location — it's in the alarm's address field)
-  if (operation.notes && operation.notes.trim()) {
-    lines.push(`📝 ${operation.notes}`)
+export function formatDiveraMessage({ operation, materials, template }: FormatDiveraMessageOptions): string {
+  const values: Record<string, string> = {
+    notes: operation.notes?.trim() || "",
+    contact: operation.contact?.trim() || "",
+    internal_notes: operation.internalNotes?.trim() || "",
+    vehicles: buildVehicles(operation),
+    crew: operation.crew.length > 0 ? operation.crew.join(", ") : "",
+    materials: buildMaterials(operation, materials),
   }
-  if (operation.contact && operation.contact.trim()) {
-    lines.push(`☎️ ${operation.contact}`)
-  }
-  if (operation.internalNotes && operation.internalNotes.trim()) {
-    lines.push(`📋 ${operation.internalNotes}`)
-  }
-
-  if (lines.length > 0) lines.push("")
-
-  // === ASSIGNMENTS ===
-  // Vehicles (with callsign + stay/return), one line.
-  if (operation.vehicles.length > 0) {
-    const vehicleLines = operation.vehicles.map((vehicleName) => {
-      const callsign = operation.vehicleCallsigns?.get(vehicleName)
-      const driverStay = operation.vehicleDriverStay?.get(vehicleName)
-      const displayName = callsign ? `${vehicleName} · ${callsign}` : vehicleName
-      if (driverStay === undefined) return displayName
-      return `${displayName} (${driverStay ? "bleibt vor Ort" : "kehrt zurück"})`
-    })
-    lines.push(`🚒 ${vehicleLines.join(", ")}`)
-  }
-
-  // Crew, one line.
-  if (operation.crew.length > 0) {
-    lines.push(`👤 ${operation.crew.join(", ")}`)
-  }
-
-  // Materials, as a list (one per line).
-  if (operation.materials.length > 0) {
-    lines.push("🧰 Material:")
-    for (const matId of operation.materials) {
-      const material = materials.find((m) => m.id === matId)
-      const name = material
-        ? `${material.name}${material.category ? ` (${material.category})` : ""}`
-        : "Unbekanntes Material"
-      lines.push(`- ${name}`)
-    }
-  }
-
-  // No timestamp footer — Divera stamps the alarm itself.
-  return lines.join("\n")
+  return renderMessageTemplate(template || DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE, values)
 }

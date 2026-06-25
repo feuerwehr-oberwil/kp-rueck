@@ -10,6 +10,7 @@ import {
 import type { Material, Operation } from "@/lib/contexts/operations-context"
 import { copyToClipboardAsync } from "@/lib/utils"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
+import { getMessageTemplates } from "@/lib/message-template"
 
 interface UseWhatsAppCopyParams {
   operation: Operation | null
@@ -59,11 +60,13 @@ export function useWhatsAppCopy({
         }
       }
 
+      const { whatsappIncident } = await getMessageTemplates()
       return formatWhatsAppMessage({
         operation,
         materials,
         rekoReport,
         vehicleDrivers,
+        template: whatsappIncident,
       })
     })()
 
