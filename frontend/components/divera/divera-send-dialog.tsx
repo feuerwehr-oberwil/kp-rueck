@@ -65,6 +65,9 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   const [text, setText] = useState("")
   const [priority, setPriority] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  // True once the async template fetch has populated title/text. Guards against
+  // sending while the editable fields are still empty (the fetch hadn't resolved).
+  const [templatesReady, setTemplatesReady] = useState(false)
 
   // Re-prefill every time the dialog opens, so it reflects the current
   // assignments (changing the crew while closed and reopening shows the new set).
@@ -79,12 +82,16 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       ),
     )
     setPriority(false)
-    // Prefill title/text from the editable templates (fetched async).
+    setTemplatesReady(false)
+    // Prefill title/text from the editable templates (fetched async). Until this
+    // resolves, the fields stay empty and the send button is disabled, so we can
+    // never POST a blank message just because the fetch hadn't finished.
     let cancelled = false
     getMessageTemplates().then(({ diveraTitle, diveraText }) => {
       if (cancelled) return
       setTitle(formatDiveraTitle(operation, diveraTitle).slice(0, 50))
       setText(formatDiveraMessage({ operation, materials, template: diveraText }))
+      setTemplatesReady(true)
     })
     return () => {
       cancelled = true
@@ -126,7 +133,13 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       })
       if (result.success) {
         const skippedNote = result.skipped.length > 0 ? `, ${result.skipped.length} übersprungen` : ""
-        toast.success(`Divera-Alarm gesendet an ${result.sent.length} Person(en)${skippedNote}`)
+        if (result.simulated) {
+          toast.success("Übung: Alarm simuliert", {
+            description: "In der Übung wird kein echter Alarm an Divera gesendet.",
+          })
+        } else {
+          toast.success(`Divera-Alarm gesendet an ${result.sent.length} Person(en)${skippedNote}`)
+        }
         onOpenChange(false)
       } else {
         toast.error(result.error || "Divera-Alarm konnte nicht gesendet werden")
@@ -243,7 +256,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSending}>
               Abbrechen
             </Button>
-            <Button onClick={handleSend} disabled={isSending || selectedLinkedCount === 0}>
+            <Button onClick={handleSend} disabled={isSending || selectedLinkedCount === 0 || !templatesReady}>
               {isSending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

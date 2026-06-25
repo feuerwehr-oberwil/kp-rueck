@@ -76,6 +76,8 @@ export interface ApiDiveraAlarmResult {
   skipped: ApiDiveraAlarmRecipient[]
   count_recipients?: number | null
   error?: string | null
+  /** True for a training run: the flow ran but nothing was sent to Divera. */
+  simulated?: boolean
 }
 
 // Polling / connection status (for the Verbindung indicator)

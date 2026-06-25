@@ -685,13 +685,11 @@ async def send_incident_alarm(
     if not incident:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
-    # Hard safety gate: training events must never trigger a real alarm.
+    # Training events run the full flow but never reach Divera — recipients are
+    # still resolved so the simulated result can report how many WOULD be alarmed,
+    # but no external request is made (see the `is_training` short-circuit below).
     event = await events_crud.get_event_by_id(db, incident.event_id)
-    if event is not None and event.training_flag:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Training: es wird kein echter Divera-Alarm gesendet",
-        )
+    is_training = event is not None and event.training_flag
 
     # Valid recipients = personnel assigned to this incident, plus the drivers of
     # the incident's assigned vehicles (drivers are event-scoped special functions,
@@ -746,14 +744,43 @@ async def send_incident_alarm(
             error="Keine mit Divera verknüpften Empfänger — nichts gesendet",
         )
 
-    title = request_data.title or _render_alarm_template(
-        await settings_service.get_setting_value(db, "divera.alarm_title_template", DEFAULT_ALARM_TITLE),
-        incident,
-    )
-    text = request_data.text or _render_alarm_template(
-        await settings_service.get_setting_value(db, "divera.alarm_text_template", DEFAULT_ALARM_TEXT),
-        incident,
-    )
+    # Prefer the client-rendered override (it can fill crew/vehicle/material names
+    # the backend can't), but never let an empty body reach Divera: if the override
+    # is blank/whitespace, render the configured template; if that's empty too,
+    # fall back to the built-in default so the alarm always has a title and text.
+    title = (request_data.title or "").strip()
+    if not title:
+        title = _render_alarm_template(
+            await settings_service.get_setting_value(db, "divera.alarm_title_template", DEFAULT_ALARM_TITLE),
+            incident,
+        ).strip()
+    if not title:
+        title = _render_alarm_template(DEFAULT_ALARM_TITLE, incident).strip() or "KP-Rück Alarm"
+
+    text = (request_data.text or "").strip()
+    if not text:
+        text = _render_alarm_template(
+            await settings_service.get_setting_value(db, "divera.alarm_text_template", DEFAULT_ALARM_TEXT),
+            incident,
+        ).strip()
+    if not text:
+        text = _render_alarm_template(DEFAULT_ALARM_TEXT, incident).strip() or (incident.title or "Alarm")
+
+    # Training: simulate the send end-to-end but make NO external Divera request.
+    if is_training:
+        logger.info(
+            "Training: simulating Divera alarm for incident %s (%d recipient(s), no external call)",
+            incident_id,
+            len(sent),
+        )
+        return schemas.DiveraAlarmResponse(
+            success=True,
+            foreign_id=foreign_id,
+            sent=sent,
+            skipped=skipped,
+            count_recipients=len(sent),
+            simulated=True,
+        )
 
     try:
         data = await divera_alarm.send_alarm(

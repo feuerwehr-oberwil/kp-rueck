@@ -204,3 +204,7 @@ class DiveraAlarmResponse(BaseModel):
     skipped: list[DiveraAlarmRecipient] = []
     count_recipients: int | None = None
     error: str | None = None
+    # True when this was a training run: the flow ran end-to-end but nothing was
+    # actually sent to Divera (no external request). Lets the UI show a clearly
+    # different "simulated" confirmation instead of a real-send success.
+    simulated: bool = False

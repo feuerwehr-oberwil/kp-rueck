@@ -136,9 +136,10 @@ async def test_alarm_blocked_in_demo_mode(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_alarm_blocked_for_training_event(
+async def test_alarm_simulated_for_training_event(
     editor_client: AsyncClient, db_session, configured_key
 ):
+    """Training: run the full flow but send NOTHING to Divera (simulated result)."""
     await _enable_alarm(db_session)
     event = Event(id=uuid4(), name="Übung", training_flag=True, created_at=datetime.now(UTC))
     db_session.add(event)
@@ -157,7 +158,13 @@ async def test_alarm_blocked_for_training_event(
             f"/api/divera/incidents/{incident.id}/alarm",
             json={"personnel_ids": [str(person.id)]},
         )
-    assert resp.status_code == 409  # training must never send
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["simulated"] is True
+    assert [r["name"] for r in body["sent"]] == ["Linked"]
+    assert body["count_recipients"] == 1
+    # The hard guarantee: no external Divera request for a training event.
     mock_send.assert_not_called()
 
 
@@ -194,6 +201,30 @@ async def test_alarm_success_sends_linked_only(
     # Only the linked person's Divera id is targeted.
     _, kwargs = mock_send.call_args
     assert kwargs["user_cluster_relation"] == [999001]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_never_sends_empty_title_or_text(
+    editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key
+):
+    """Guard: a blank client override must never reach Divera as an empty body."""
+    await _enable_alarm(db_session)
+    linked = await _make_person(db_session, "Linked Person", divera_user_id=999002)
+    await _assign(db_session, alarm_incident, linked)
+
+    mock_send = AsyncMock(return_value={"id": 1})
+    with patch.object(divera_alarm, "send_alarm", new=mock_send):
+        resp = await editor_client.post(
+            f"/api/divera/incidents/{alarm_incident.id}/alarm",
+            # Empty/whitespace override — the dialog rendered nothing.
+            json={"personnel_ids": [str(linked.id)], "title": "   ", "text": ""},
+        )
+
+    assert resp.status_code == 200
+    _, kwargs = mock_send.call_args
+    assert kwargs["title"].strip()  # fell back to a non-empty default
+    assert kwargs["text"].strip()
 
 
 @pytest.mark.asyncio
