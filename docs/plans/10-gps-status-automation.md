@@ -33,30 +33,41 @@ asked about — auto-advancing `disponiert → einsatz` on arrival, and auto-rel
 vehicle when it returns to the station — are **not** implemented. Only arrival *alerts*
 exist.
 
-## Proposed ruleset (for review — not yet built)
+## Agreed ruleset (decided 2026-06-25 — implementation still gated on master switch)
+
+Decisions: **Rule A = silent auto-advance** (operator's call, over the recommended
+confirm-prompt); **Rule B = confirm-release**. Both gated behind the opt-in master
+switch (default off) and the safeguards below. The auto-advance choice puts extra weight
+on the anti-jitter guards, because GPS is intermittent here (the live Traccar feed returns
+frequent `404`/no-fix responses) and a single bad fix must never mis-advance an incident.
 
 Vehicle↔incident link: a vehicle is associated with an incident via its active
 `IncidentAssignment` (`resource_type='vehicle'`). Its driver's device is the GPS source.
 
-### Rule A — Arrival: `disponiert → einsatz`
-- **Trigger:** an assigned vehicle's device stays within `geofence_radius_meters` of the
-  incident location for **≥ N seconds** (debounce, suggest N=60) **and** speed < ~5 km/h.
+### Rule A — Arrival: `disponiert → einsatz` (SILENT auto-advance)
+- **Trigger:** an assigned vehicle's device is within `geofence_radius_meters` of the
+  incident location, **stationary-ish** (speed < ~5 km/h), confirmed across **≥ N
+  consecutive valid fixes over ≥ 60 s** (suggest N=3) — not a single reading.
 - **Action:** transition the incident `disponiert → einsatz`, write a `StatusTransition`
-  with a synthetic system user and note `"Automatisch: Fahrzeug am Einsatzort (GPS)"`.
-- **Guards:** only if status is exactly `disponiert`; never downgrade; never in training
-  (`event.training_flag`) or demo mode; require ≥1 confirmed in-radius reading after the
-  debounce window (not a single noisy fix).
+  attributed to a system actor with note `"Automatisch: Fahrzeug am Einsatzort (GPS)"`.
+- **Hard safeguards (because this is silent):**
+  - Only fires when status is **exactly `disponiert`**; never downgrades, never re-fires.
+  - **Stale/missing fixes don't count** — ignore positions whose `last_update` is older
+    than a freshness window (suggest 60 s) and any `404`/no-position device; the debounce
+    counter resets on any gap, so spotty coverage can't accumulate a false positive.
+  - Per-incident **one-shot**: once auto-advanced, it won't auto-act on that incident again.
+  - Trivially reversible — the operator can drag it back exactly like a manual move.
 
-### Rule B — Return to station: release vehicle / `→ abschluss`
-- **Station geofence:** a configurable home-base coordinate + radius (new setting, e.g.
+### Rule B — Return to station: confirm-release (never auto-close)
+- **Station geofence:** a configurable home-base coordinate + radius (new settings
   `gps.station_lat`, `gps.station_lng`, `gps.station_radius_meters`).
-- **Trigger:** an assigned vehicle's device enters the station geofence for ≥ N seconds.
-- **Action (conservative):** mark that vehicle's assignment as returned and **notify**
-  the operator with a one-click "Fahrzeug zurück – freigeben?" action, rather than
-  auto-releasing. Auto-release only if a future `gps.auto_release` setting is enabled.
-- **Do NOT** auto-move the incident to `abschluss` from this rule — closing an incident
-  is an operator decision (see plan for "Einsatz abschliessen"). A returning vehicle ≠
-  finished incident (could be a relief/rotation).
+- **Trigger:** an assigned vehicle's device enters the station geofence for ≥ N seconds
+  (same freshness/consecutive-fix guards as Rule A).
+- **Action:** **prompt** the operator with a one-click "Fahrzeug zurück — freigeben?" to
+  release that vehicle's assignment. No silent release. (A future `gps.auto_release`
+  setting could make it automatic, default off.)
+- **Never** auto-moves the incident to `abschluss` — closing is an operator action; a
+  returning vehicle can be a rotation/relief, not a finished job.
 
 ### Cross-cutting requirements
 - **Opt-in master switch:** `gps.automation_enabled` setting (default **false**). With it
@@ -77,8 +88,14 @@ Vehicle↔incident link: a vehicle is associated with an incident via its active
 - Add the new settings to `DEFAULT_SETTINGS` (`backend/app/services/settings.py`).
 - Add a station-geofence config UI in the existing Traccar/GPS settings area.
 
-## Open questions for review
-1. Confirm the station home-base coordinate(s) and radius (single station Oberwil?).
-2. For Rule A, is auto-advance to `einsatz` desired at all, or only an *upgraded* alert
-   ("Fahrzeug am Einsatzort – jetzt auf Einsatz setzen?") the operator confirms?
-3. For Rule B, is one-click-confirm release acceptable, or fully automatic once enabled?
+## Remaining input needed before build
+1. **Station coordinate + radius** (only blocker for Rule B): the home-base lat/lng and a
+   radius. Suggest a tight radius (~80–120 m) so vehicles merely driving past the station
+   don't trigger a release. Single station in Oberwil assumed unless told otherwise.
+2. Confirm the tuning constants are acceptable: geofence radius for arrival (reuse existing
+   `geofence_radius_meters`, default 200 m), debounce N=3 consecutive fixes / ≥60 s,
+   freshness window 60 s, speed gate ~5 km/h.
+
+Decided: Rule A = silent auto-advance (with the hard safeguards above); Rule B =
+confirm-release. Implementation is still gated on `gps.automation_enabled` (default off)
+and remains unbuilt until you give the go-ahead.
