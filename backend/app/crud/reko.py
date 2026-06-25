@@ -133,9 +133,8 @@ async def update_reko_report(
     if not report:
         raise ValueError("Report not found")
 
-    # Update fields. "request_closure" is a transient intent flag (handled by the
-    # caller via process_reko_submission), not a column on RekoReport — never setattr it.
-    for field, value in update_data.model_dump(exclude_unset=True, exclude={"request_closure"}).items():
+    # Update fields
+    for field, value in update_data.model_dump(exclude_unset=True).items():
         setattr(report, field, value)
 
     # Mark as submitted if requested
@@ -333,68 +332,24 @@ async def process_reko_submission(
     db: AsyncSession,
     incident: Incident,
     report: RekoReport,
-    request_closure: bool = False,
 ) -> None:
     """
     Handle post-submission side effects for a reko report.
 
-    - If the reko person requested closure (incident judged not relevant),
-      move the incident straight to "abschluss" and release personnel/vehicles.
-    - Otherwise auto-transition incident status reko → reko_done
+    - Auto-transition incident status reko → reko_done
     - Bump priority low → medium if dangers detected
     - Create reko notification
+
+    The reko link is read/report-only: it never closes or otherwise mutates the
+    incident beyond recording the report and the standard reko → reko_done step.
+    Closing a not-relevant incident is an operator action on the board.
 
     Args:
         db: Database session
         incident: The incident the report belongs to
         report: The submitted reko report
-        request_closure: When True and the report marks the incident not relevant,
-            close the incident (status → abschluss). The reko person is physically
-            on site and the token is scoped to this incident, so direct closure is
-            safe and mirrors dragging the card to ABGESCHLOSSEN.
     """
     from ..services.notification_service import create_reko_notification
-
-    # Reko person closed it out (not relevant). Move straight to abschluss and
-    # release personnel + vehicles, keeping materials (may be left on site) —
-    # same side effects as the kanban drag-to-complete path.
-    if request_closure and report.is_relevant is False and incident.status != "abschluss":
-        from . import assignments as assignments_crud
-
-        old_status = incident.status
-        incident.status = "abschluss"
-        if not incident.completed_at:
-            incident.completed_at = datetime.now(UTC)
-        transition = StatusTransition(
-            incident_id=incident.id,
-            from_status=old_status,
-            to_status="abschluss",
-            notes="Reko-Meldung: nicht relevant — Einsatz abgeschlossen",
-        )
-        db.add(transition)
-        await assignments_crud.auto_release_incident_resources(
-            db=db,
-            incident_id=incident.id,
-            current_user=None,
-            request=None,
-            exclude_materials=True,
-        )
-        await db.commit()
-        await db.refresh(incident)
-
-        # Still create the reko notification below, then return early so we don't
-        # also run the reko_done transition / priority bump on a closed incident.
-        if incident.event_id:
-            await create_reko_notification(
-                db=db,
-                incident_id=incident.id,
-                event_id=incident.event_id,
-                incident_title=incident.title or incident.location_address or "Unbekannt",
-                is_relevant=False,
-                submitted_by_name=None,
-                incident_address=incident.location_address,
-            )
-        return
 
     # Auto-transition reko → reko_done
     if incident.status == "reko":

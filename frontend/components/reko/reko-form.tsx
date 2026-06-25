@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Send, Loader2, Binoculars, MapPin, Check, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, Send, Loader2, Binoculars, MapPin, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
@@ -70,7 +70,6 @@ export default function RekoForm() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isClosing, setIsClosing] = useState(false)
   const [isMarkingArrived, setIsMarkingArrived] = useState(false)
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -391,42 +390,6 @@ export default function RekoForm() {
     }
   }
 
-  // Reko person judged the incident not relevant (false alarm / already handled)
-  // and closes it directly from the field. Submits the report with request_closure
-  // so the backend moves the incident to "abschluss" — it lands in the ABGESCHLOSSEN
-  // pile on the board (which syncs via websocket/poll).
-  async function handleCloseIncident() {
-    if (!incidentId || !token || formData.is_relevant !== false) return
-
-    setIsClosing(true)
-    try {
-      await apiClient.submitRekoReport(incidentId, token, {
-        ...formData,
-        incident_id: incidentId,
-        token,
-        is_draft: false,
-        request_closure: true,
-      })
-
-      clearLocalStorage()
-      toast.success('Einsatz abgeschlossen')
-
-      setTimeout(() => {
-        const params = new URLSearchParams()
-        params.set('id', incidentId!)
-        if (returnTo) {
-          params.set('return_to', returnTo)
-        }
-        router.push(`/reko/success?${params.toString()}`)
-      }, 1000)
-    } catch (error) {
-      console.error('Close failed:', error)
-      toast.error('Einsatz konnte nicht abgeschlossen werden. Bitte erneut versuchen.')
-    } finally {
-      setIsClosing(false)
-    }
-  }
-
   function updateFormData<K extends keyof RekoFormData>(
     key: K,
     value: RekoFormData[K]
@@ -537,34 +500,6 @@ export default function RekoForm() {
             Nein
           </Button>
         </div>
-
-        {/* Not relevant → offer to close the incident directly from the field */}
-        {formData.is_relevant === false && (
-          <div className="rounded-lg border border-border bg-secondary/40 p-3 space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Einsatz nicht relevant? Sie können ihn direkt abschliessen.
-            </p>
-            <Button
-              type="button"
-              onClick={handleCloseIncident}
-              disabled={isClosing || isSubmitting}
-              variant="secondary"
-              className="w-full h-12"
-            >
-              {isClosing ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Schliesse ab...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-5 w-5" />
-                  Einsatz abschliessen
-                </>
-              )}
-            </Button>
-          </div>
-        )}
       </div>
 
       <Separator />

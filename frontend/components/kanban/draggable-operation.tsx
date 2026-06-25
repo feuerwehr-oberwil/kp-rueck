@@ -590,6 +590,28 @@ function DraggableOperationBase({
                   <span>{operation.rekoSummary.estimatedDuration}h</span>
                 )}
               </div>
+
+              {/* Reko reported the incident not relevant — let the operator close it
+                  straight from the card (the field/reko link can never do this). */}
+              {operation.rekoSummary.isRelevant === false && (
+                <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2 py-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Reko: nicht relevant</span>
+                  {onRequestComplete && operation.status !== "complete" && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 px-2 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRequestComplete()
+                      }}
+                    >
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                      Abschliessen
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -675,7 +697,8 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     (prevProps.operation.rekoSummary?.hasDangers !== nextProps.operation.rekoSummary?.hasDangers) ||
     (prevProps.operation.rekoSummary?.dangerTypes.length !== nextProps.operation.rekoSummary?.dangerTypes.length) ||
     (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
-    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
+    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration) ||
+    (prevProps.operation.rekoSummary?.isRelevant !== nextProps.operation.rekoSummary?.isRelevant)
 
   // Check if assigned reko has changed
   const assignedRekoChanged =

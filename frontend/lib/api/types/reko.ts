@@ -33,8 +33,6 @@ export interface ApiRekoReportBase {
 export interface ApiRekoReportCreate extends ApiRekoReportBase {
   incident_id: string
   token: string
-  /** When true and the incident is marked not relevant, the backend closes it (status → abschluss). */
-  request_closure?: boolean
 }
 
 export interface ApiRekoReportResponse extends ApiRekoReportBase {
