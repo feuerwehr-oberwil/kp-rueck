@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { apiClient, type ApiIncident, type ApiEvent } from '@/lib/api-client'
+import { useAuth } from '@/lib/contexts/auth-context'
+import { useEvent, apiEventToEvent } from '@/lib/contexts/event-context'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone } from 'lucide-react'
+import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone } from 'lucide-react'
 import { columns, getTimeSince } from '@/lib/kanban-utils'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
@@ -249,9 +251,19 @@ function ViewerColumn({ column, incidents }: ViewerColumnProps) {
 export default function ViewerPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const { user, loading: authLoading } = useAuth()
+  const { selectedEvent, setSelectedEvent } = useEvent()
+
+  // Two ways to reach this board:
+  //  - link token (public, event-scoped) — original behaviour
+  //  - logged-in viewer (cookie auth, no token) — for shared/kiosk PCs
+  const isAuthMode = !token && !!user
+  const authEventId = selectedEvent?.id ?? null
 
   const [event, setEvent] = useState<ApiEvent | null>(null)
   const [incidents, setIncidents] = useState<ApiIncident[]>([])
+  const [availableEvents, setAvailableEvents] = useState<ApiEvent[]>([])
+  const [showCompleted, setShowCompleted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
@@ -266,40 +278,83 @@ export default function ViewerPage() {
   }, [])
 
   const loadData = useCallback(async () => {
-    if (!token) return
-
     try {
-      const data = await apiClient.getViewerData(token)
+      const data = token
+        ? await apiClient.getViewerData(token)
+        : authEventId
+          ? await apiClient.getViewerDataAuthenticated(authEventId)
+          : null
+      if (!data) return
       setEvent(data.event)
       setIncidents(data.incidents)
       setError(null)
       setLastRefresh(new Date())
     } catch (err) {
       console.error('Failed to load viewer data:', err)
-      setError('Ungültiger oder abgelaufener Link. Bitte fordern Sie einen neuen Link an.')
+      setError(
+        token
+          ? 'Ungültiger oder abgelaufener Link. Bitte fordern Sie einen neuen Link an.'
+          : 'Daten konnten nicht geladen werden.'
+      )
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, authEventId])
+
+  // Authenticated mode: load events for the selector and ensure one is selected.
+  useEffect(() => {
+    if (!isAuthMode) return
+    let cancelled = false
+    apiClient
+      .getEvents(false)
+      .then((res) => {
+        if (cancelled) return
+        const events = res.events ?? []
+        setAvailableEvents(events)
+        if (!selectedEvent) {
+          // Prefer a live (non-training) event, else fall back to the first.
+          const preferred = events.find((e) => !e.training_flag) ?? events[0]
+          if (preferred) {
+            setSelectedEvent(apiEventToEvent(preferred))
+          } else {
+            setError('Keine Ereignisse verfügbar.')
+            setLoading(false)
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Ereignisse konnten nicht geladen werden.')
+          setLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthMode, selectedEvent, setSelectedEvent])
 
   // Initial load
   useEffect(() => {
-    if (!token) {
-      setError('Zugriffscode fehlt. Bitte fordern Sie einen Link vom Editor an.')
-      setLoading(false)
+    if (!token && !isAuthMode) {
+      // No link token and not logged in.
+      if (!authLoading) {
+        setError('Zugriffscode fehlt. Bitte fordern Sie einen Link vom Editor an oder melden Sie sich an.')
+        setLoading(false)
+      }
       return
     }
-
-    loadData()
-  }, [token, loadData])
+    if (token || authEventId) {
+      loadData()
+    }
+  }, [token, isAuthMode, authEventId, authLoading, loadData])
 
   // Auto-refresh every 5 seconds
   useEffect(() => {
-    if (!token || error) return
-
+    if (error) return
+    if (!token && !authEventId) return
     const interval = setInterval(loadData, 5000)
     return () => clearInterval(interval)
-  }, [token, error, loadData])
+  }, [token, authEventId, error, loadData])
 
   // Group incidents by column status
   const incidentsByColumn = useMemo(() => {
@@ -361,6 +416,26 @@ export default function ViewerPage() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
+          {/* Event selector (only for a logged-in viewer on a shared/kiosk PC) */}
+          {isAuthMode && availableEvents.length > 0 && (
+            <select
+              value={selectedEvent?.id ?? ''}
+              onChange={(e) => {
+                const ev = availableEvents.find((x) => x.id === e.target.value)
+                if (ev) setSelectedEvent(apiEventToEvent(ev))
+              }}
+              className="h-8 max-w-[12rem] rounded-lg border border-border bg-muted/50 px-2 text-sm"
+              aria-label="Ereignis wählen"
+            >
+              {availableEvents.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.name}
+                  {ev.training_flag ? ' (Übung)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+
           {/* View Toggle */}
           <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
             <Button
@@ -413,13 +488,36 @@ export default function ViewerPage() {
       {viewMode === 'kanban' ? (
         <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
           <div className="flex h-full gap-3">
-            {columns.map((column) => (
+            {/* Active columns get the full height; the completed pile is collapsed by default */}
+            {columns.filter((c) => !c.collapsible).map((column) => (
               <ViewerColumn
                 key={column.id}
                 column={column}
                 incidents={incidentsByColumn[column.id] || []}
               />
             ))}
+            {(() => {
+              const completeCol = columns.find((c) => c.collapsible)
+              if (!completeCol) return null
+              const completeIncidents = incidentsByColumn[completeCol.id] || []
+              return (
+                <>
+                  <button
+                    onClick={() => setShowCompleted((v) => !v)}
+                    className="flex w-10 flex-shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 text-xs font-semibold tracking-wide text-muted-foreground transition-colors hover:bg-muted/50"
+                    title={showCompleted ? 'Abgeschlossen ausblenden' : 'Abgeschlossen anzeigen'}
+                  >
+                    {showCompleted ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                    <span className="[writing-mode:vertical-rl] rotate-180">
+                      ABGESCHLOSSEN ({completeIncidents.length})
+                    </span>
+                  </button>
+                  {showCompleted && (
+                    <ViewerColumn column={completeCol} incidents={completeIncidents} />
+                  )}
+                </>
+              )
+            })()}
           </div>
         </main>
       ) : (

@@ -61,6 +61,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
           router.push('/login');
         }
       });
+    } else if (!loading && user?.role === 'viewer') {
+      // Viewer accounts only ever see the read-only board
+      router.push('/viewer');
     }
   }, [user, loading, router]);
 
@@ -108,6 +111,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return null;
+  // Redirecting viewers to /viewer — don't flash the editor board
+  if (user.role === 'viewer') return null;
 
   return <>{children}</>;
 }

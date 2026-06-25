@@ -11,11 +11,12 @@ import { getCurrentUser, login as apiLogin, microsoftLogin as apiMicrosoftLogin,
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<User>;
   microsoftLogin: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
   isEditor: boolean;  // true for both editor and admin roles
+  isViewer: boolean;  // read-only viewer role
   isAuthenticated: boolean;
 }
 
@@ -81,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (username: string, password: string) => {
     const loggedInUser = await apiLogin(username, password);
     setUser(loggedInUser);
+    return loggedInUser;
   };
 
   const microsoftLogin = async (code: string) => {
@@ -102,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       isAdmin: user?.role === 'admin',
       isEditor: user?.role === 'editor' || user?.role === 'admin',  // admin has editor privileges
+      isViewer: user?.role === 'viewer',
       isAuthenticated: !!user,
     }}>
       {children}

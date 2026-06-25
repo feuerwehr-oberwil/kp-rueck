@@ -34,8 +34,9 @@ class User(Base):
     Roles:
         - admin: Full access including user management
         - editor: Full operational access (incidents, events, resources)
+        - viewer: Read-only access (login + cookie, no mutations) for shared/kiosk PCs
 
-    Note: Viewer access is token-based only (no DB user required).
+    Note: A public, login-free viewer is also available via signed link tokens.
     """
 
     __tablename__ = "users"
@@ -59,7 +60,7 @@ class User(Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
     setting_updates: Mapped[list["Setting"]] = relationship("Setting", back_populates="updater")
 
-    __table_args__ = (CheckConstraint("role IN ('admin', 'editor')", name="valid_user_role"),)
+    __table_args__ = (CheckConstraint("role IN ('admin', 'editor', 'viewer')", name="valid_user_role"),)
 
 
 # ============================================

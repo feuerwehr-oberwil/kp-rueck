@@ -79,8 +79,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(username, password);
-      router.push('/');
+      const loggedInUser = await login(username, password);
+      // Viewer-role accounts get the read-only board (kiosk/shared PCs)
+      router.push(loggedInUser.role === 'viewer' ? '/viewer' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Benutzername und Passwort.');
     } finally {
@@ -109,7 +110,7 @@ export default function LoginPage() {
         }
       }
 
-      router.push('/');
+      router.push(role === 'viewer' ? '/viewer' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Demo-Anmeldung fehlgeschlagen.');
     } finally {

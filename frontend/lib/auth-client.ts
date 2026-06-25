@@ -8,7 +8,7 @@ import { getApiUrl } from './env';
 export interface User {
   id: string;
   username: string;
-  role: 'admin' | 'editor';
+  role: 'admin' | 'editor' | 'viewer';
   display_name: string;
   is_active: boolean;
   created_at: string;

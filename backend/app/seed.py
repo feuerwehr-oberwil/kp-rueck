@@ -120,6 +120,20 @@ async def seed_database() -> None:
                 is_active=True,
             )
             db.add(editor_user)
+
+            # Create shared read-only viewer account for shared/kiosk PCs
+            viewer_password = os.getenv("VIEWER_PASSWORD", "viewer")  # Default for dev, override in prod
+            viewer_password_hash = bcrypt.hashpw(viewer_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+            viewer_user = models.User(
+                id=uuid4(),
+                username="viewer",
+                password_hash=viewer_password_hash,
+                role="viewer",
+                display_name="Betrachter",
+                is_active=True,
+            )
+            db.add(viewer_user)
             await db.flush()  # Get the ID for foreign key references
 
             # ============================================
@@ -686,6 +700,8 @@ async def seed_database() -> None:
             else:
                 print(f"  - Created dev-user (for auth bypass) and admin user: admin / {password}")
                 print("  ⚠️  Save this password - it was randomly generated for development")
+            print("  - Created shared editor account: editor / [EDITOR_PASSWORD, default 'editor']")
+            print("  - Created read-only viewer account: viewer / [VIEWER_PASSWORD, default 'viewer']")
             print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")
