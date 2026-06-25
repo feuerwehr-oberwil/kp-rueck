@@ -114,7 +114,9 @@ async def submit_reko_report(
 
     # Handle post-submission side effects (status transition, priority bump, notification)
     if submit and incident:
-        await crud.process_reko_submission(db, incident, updated)
+        await crud.process_reko_submission(
+            db, incident, updated, request_closure=report_data.request_closure
+        )
         # Broadcast incident update so other clients see reko completion and status change
         background_tasks.add_task(
             broadcast_incident_update,

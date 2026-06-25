@@ -264,6 +264,12 @@ export default function FireStationDashboard() {
   // Moving a card into REKO without a reko person assigned holds it here so the
   // operator can assign someone (who then receives the reko form) or proceed anyway.
   const [rekoMissingAckOp, setRekoMissingAckOp] = useState<Operation | null>(null)
+  // When an incident is completed while it still has materials assigned, hold it
+  // here so the operator decides: release the materials ("Material zurück") or
+  // leave them on site ("Vor Ort gelassen"). Completion itself has already
+  // happened (status → complete, which keeps materials) — this only decides
+  // whether to additionally release them. Cancel/dismiss keeps them (safe default).
+  const [materialDecisionOp, setMaterialDecisionOp] = useState<Operation | null>(null)
 
   // Persist showMeldung to localStorage
   useEffect(() => {
@@ -461,6 +467,25 @@ export default function FireStationDashboard() {
     if (op && !op.assignedReko) setRekoMissingAckOp(op)
   }, [operations])
 
+  // After an incident is completed, prompt the operator to decide what to do with
+  // any materials that are still assigned (completion keeps them by default). Called
+  // from every completion path: drag-to-ABGESCHLOSSEN, move-right, and the card's
+  // "Einsatz abschliessen" context-menu item.
+  const promptMaterialDecision = useCallback((operationId: string) => {
+    const op = operations.find(o => o.id === operationId)
+    if (op && op.materials.length > 0) setMaterialDecisionOp(op)
+  }, [operations])
+
+  // Archive an incident immediately (status → complete). Mirrors dragging the card
+  // to ABGESCHLOSSEN: updateOperation auto-releases personnel + vehicles and keeps
+  // materials, then we prompt for the material decision.
+  const requestCompletion = useCallback((operationId: string) => {
+    const operation = operations.find(op => op.id === operationId)
+    if (!operation || operation.status === "complete") return
+    updateOperation(operationId, { status: "complete" })
+    promptMaterialDecision(operationId)
+  }, [operations, updateOperation, promptMaterialDecision])
+
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
@@ -472,8 +497,9 @@ export default function FireStationDashboard() {
       updateOperation(operationId, { status: newStatus })
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
       if (newStatus === "ready") triggerRekoCheck(operationId)
+      if (newStatus === "complete") promptMaterialDecision(operationId)
     }
-  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck])
+  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck, promptMaterialDecision])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -764,6 +790,9 @@ export default function FireStationDashboard() {
     onStatusChange: (operationId, newStatus) => {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
       if (newStatus === "ready") triggerRekoCheck(operationId)
+      // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
+      // (which keeps materials). Just prompt the material decision here.
+      if (newStatus === "complete") promptMaterialDecision(operationId)
     },
   })
 
@@ -1372,6 +1401,7 @@ export default function FireStationDashboard() {
                       onToggleNachbarhilfe={handleToggleNachbarhilfe}
                       onToggleAmWarten={handleToggleAmWarten}
                       onToggleZuFuss={handleToggleZuFuss}
+                      onRequestComplete={isEditor ? requestCompletion : undefined}
                       showMeldung={showMeldung}
                       printerEnabled={printerEnabled}
                       doubleBookedCrewNames={doubleBookedPersons.names}
@@ -2299,6 +2329,52 @@ export default function FireStationDashboard() {
             </Button>
             <Button variant="ghost" onClick={() => setRekoMissingAckOp(null)}>
               Trotzdem fortfahren
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Material decision on completion — release the materials or leave them on site.
+          Completion already happened (materials kept by default); this only decides
+          whether to additionally release them. Dismiss/cancel keeps them (safe default). */}
+      <AlertDialog
+        open={!!materialDecisionOp}
+        onOpenChange={(open) => !open && setMaterialDecisionOp(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Material vor Ort gelassen?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{materialDecisionOp?.location}</span> wurde
+              abgeschlossen und hat noch{" "}
+              <span className="font-medium text-foreground">
+                {materialDecisionOp?.materials.length}
+              </span>{" "}
+              {materialDecisionOp?.materials.length === 1 ? "Mittel" : "Mittel"} zugewiesen. Wurde das
+              Material vor Ort gelassen oder kommt es zurück ins Magazin?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const op = materialDecisionOp
+                setMaterialDecisionOp(null)
+                if (op) {
+                  for (const materialId of [...op.materials]) {
+                    removeMaterial(op.id, materialId)
+                  }
+                  toast.success("Material zurückgegeben")
+                }
+              }}
+            >
+              Material zurück
+            </Button>
+            <Button variant="ghost" onClick={() => setMaterialDecisionOp(null)}>
+              Vor Ort gelassen
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

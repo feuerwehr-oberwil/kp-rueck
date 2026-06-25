@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Send, Loader2, Binoculars, MapPin, Check } from 'lucide-react'
+import { AlertCircle, Send, Loader2, Binoculars, MapPin, Check, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
@@ -70,6 +70,7 @@ export default function RekoForm() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
   const [isMarkingArrived, setIsMarkingArrived] = useState(false)
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -117,50 +118,58 @@ export default function RekoForm() {
     }
   }, [localStorageKey])
 
-  // Dummy data generation functions for training mode
-  const generateRandomDangers = (): Partial<ApiDangersAssessment> => {
-    const allDangers: Array<keyof ApiDangersAssessment> = ['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'];
-    const selectedCount = Math.floor(Math.random() * 3) + 1; // 1-3 dangers
-    const selected: Partial<ApiDangersAssessment> = {};
+  // Dummy data generation for training mode. The whole report is generated as one
+  // coherent picture: a NOT-relevant incident reads like a false alarm (no people,
+  // ~no time, no dangers), while a relevant one scales personnel/duration with how
+  // many dangers were found. See handleGenerateDummyData for the orchestration.
+  const ALL_DANGERS: Array<keyof ApiDangersAssessment> = ['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical']
 
-    // Randomly select dangers
-    const shuffled = [...allDangers].sort(() => Math.random() - 0.5);
-    shuffled.slice(0, selectedCount).forEach(danger => {
-      if (danger !== 'other_notes') {
-        (selected as any)[danger] = true;
-      }
-    });
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
 
-    return selected;
-  };
+  // Choose a coherent set of dangers given a target severity (number of dangers).
+  const generateDangers = (count: number): Partial<ApiDangersAssessment> => {
+    const selected: Partial<ApiDangersAssessment> = {}
+    const shuffled = [...ALL_DANGERS].sort(() => Math.random() - 0.5)
+    shuffled.slice(0, count).forEach(danger => {
+      (selected as Record<string, boolean>)[danger] = true
+    })
+    return selected
+  }
 
-  const generateRandomEffort = (): Partial<ApiEffortEstimation> => {
+  // Personnel + duration scale with danger severity, within realistic ranges.
+  const generateEffort = (dangerCount: number): Partial<ApiEffortEstimation> => {
+    // Base crew of 4-6, plus ~3-5 extra per danger found. Capped at a sane max.
+    const base = 4 + Math.floor(Math.random() * 3) // 4-6
+    const perDanger = dangerCount * (3 + Math.floor(Math.random() * 3)) // 3-5 each
+    const personnel = Math.min(base + perDanger, 24)
+    // Duration grows with severity: 1h base + ~0.75h per danger, with jitter.
+    const duration = Math.round((1 + dangerCount * 0.75 + Math.random()) * 2) / 2
     return {
-      personnel_count: Math.floor(Math.random() * 20) + 5, // 5-25 people
-      estimated_duration_hours: (Math.random() * 4) + 0.5, // 0.5-4.5 hours
+      personnel_count: personnel,
+      estimated_duration_hours: duration,
       vehicles_needed: [],
-      equipment_needed: []
-    };
-  };
+      equipment_needed: [],
+    }
+  }
 
-  const generateRandomPowerSupply = (): string => {
-    const options = ['available', 'unavailable', 'emergency_needed', 'unknown'];
-    return options[Math.floor(Math.random() * options.length)];
-  };
-
-  const generateRandomSummary = (): string => {
-    const summaries = [
-      'Situation unter Kontrolle. Einsatz kann wie geplant durchgeführt werden.',
-      'Zugang erschwert. Zusätzliches Material benötigt.',
-      'Lage stabil. Keine besonderen Vorkommnisse.',
-      'Mehrere Gebäudeteile betroffen. Einsatz wird länger dauern.',
-      'Bewohner kooperativ. Gute Zusammenarbeit vor Ort.',
-      'Zufahrt blockiert. Alternative Route notwendig.',
-      'Stromversorgung ausgefallen. Notstrom erforderlich.',
-      'Einsatzstelle gut zugänglich. Optimale Arbeitsbedingungen.'
-    ];
-    return summaries[Math.floor(Math.random() * summaries.length)];
-  };
+  // Summaries that match the situation, kept generic but natural.
+  const NOT_RELEVANT_SUMMARIES = [
+    'Fehlalarm. Vor Ort keine Gefahr und kein Handlungsbedarf festgestellt.',
+    'Lage bereits durch Anwohner geklärt. Kein Einsatz der Feuerwehr nötig.',
+    'Vermeintlicher Rauch war Wasserdampf. Keine weiteren Massnahmen erforderlich.',
+    'Bei Eintreffen nichts vorgefunden. Einsatz kann abgeschlossen werden.',
+    'Meldung hat sich nicht bestätigt. Keine Einsatzkräfte erforderlich.',
+  ]
+  const LOW_SEVERITY_SUMMARIES = [
+    'Lage übersichtlich und stabil. Einsatz mit kleinem Aufgebot durchführbar.',
+    'Geringe Beeinträchtigung. Situation gut unter Kontrolle.',
+    'Einsatzstelle gut zugänglich, überschaubarer Aufwand.',
+  ]
+  const HIGH_SEVERITY_SUMMARIES = [
+    'Mehrere Gefahren festgestellt. Verstärkung und zusätzliches Material nötig.',
+    'Ausgedehnte Lage, mehrere Bereiche betroffen. Längerer Einsatz zu erwarten.',
+    'Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich.',
+  ]
 
   const handleMarkArrived = async () => {
     if (!incidentId || !token || arrivedAt) return
@@ -180,32 +189,59 @@ export default function RekoForm() {
   }
 
   const handleGenerateDummyData = () => {
-    const dummyData: RekoFormData = {
-      is_relevant: Math.random() > 0.2, // 80% relevant
-      dangers_json: {
-        fire: false, // Not shown in form - if there's fire, reko isn't needed
-        fire_danger: false,
-        explosion: false,
-        collapse: false,
-        chemical: false,
-        electrical: false,
-        other_notes: '',
-        ...generateRandomDangers()
-      },
-      effort_json: {
-        personnel_count: null,
-        vehicles_needed: [],
-        equipment_needed: [],
-        estimated_duration_hours: null,
-        ...generateRandomEffort()
-      },
-      power_supply: generateRandomPowerSupply(),
-      photos_json: formData.photos_json, // Keep existing photos
-      summary_text: generateRandomSummary(),
-      additional_notes: Math.random() > 0.5 ? 'Automatisch generierte Übungsdaten' : ''
-    };
+    const isRelevant = Math.random() > 0.25 // ~75% relevant
 
-    setFormData(dummyData);
+    const emptyDangers: ApiDangersAssessment = {
+      fire: false, // Not shown in form - if there's fire, reko isn't needed
+      fire_danger: false,
+      explosion: false,
+      collapse: false,
+      chemical: false,
+      electrical: false,
+      other_notes: '',
+    }
+
+    let dummyData: RekoFormData
+
+    if (!isRelevant) {
+      // Not relevant: no people, no time, no dangers, "nothing to do" summary.
+      dummyData = {
+        is_relevant: false,
+        dangers_json: { ...emptyDangers },
+        effort_json: {
+          personnel_count: 0,
+          vehicles_needed: [],
+          equipment_needed: [],
+          estimated_duration_hours: 0,
+        },
+        power_supply: 'unknown',
+        photos_json: formData.photos_json,
+        summary_text: pick(NOT_RELEVANT_SUMMARIES),
+        additional_notes: '',
+      }
+    } else {
+      // Relevant: pick a severity (0-3 dangers), then scale effort + summary to it.
+      const dangerCount = Math.floor(Math.random() * 4) // 0-3 dangers
+      const summaryBank = dangerCount >= 2 ? HIGH_SEVERITY_SUMMARIES : LOW_SEVERITY_SUMMARIES
+      dummyData = {
+        is_relevant: true,
+        dangers_json: { ...emptyDangers, ...generateDangers(dangerCount) },
+        effort_json: {
+          personnel_count: null,
+          vehicles_needed: [],
+          equipment_needed: [],
+          estimated_duration_hours: null,
+          ...generateEffort(dangerCount),
+        },
+        // More dangers more likely to need power; otherwise usually available.
+        power_supply: dangerCount >= 2 ? pick(['emergency_needed', 'unavailable', 'available']) : pick(['available', 'available', 'unknown']),
+        photos_json: formData.photos_json,
+        summary_text: pick(summaryBank),
+        additional_notes: '',
+      }
+    }
+
+    setFormData(dummyData)
   };
 
   // Validate access and load existing data
@@ -355,6 +391,42 @@ export default function RekoForm() {
     }
   }
 
+  // Reko person judged the incident not relevant (false alarm / already handled)
+  // and closes it directly from the field. Submits the report with request_closure
+  // so the backend moves the incident to "abschluss" — it lands in the ABGESCHLOSSEN
+  // pile on the board (which syncs via websocket/poll).
+  async function handleCloseIncident() {
+    if (!incidentId || !token || formData.is_relevant !== false) return
+
+    setIsClosing(true)
+    try {
+      await apiClient.submitRekoReport(incidentId, token, {
+        ...formData,
+        incident_id: incidentId,
+        token,
+        is_draft: false,
+        request_closure: true,
+      })
+
+      clearLocalStorage()
+      toast.success('Einsatz abgeschlossen')
+
+      setTimeout(() => {
+        const params = new URLSearchParams()
+        params.set('id', incidentId!)
+        if (returnTo) {
+          params.set('return_to', returnTo)
+        }
+        router.push(`/reko/success?${params.toString()}`)
+      }, 1000)
+    } catch (error) {
+      console.error('Close failed:', error)
+      toast.error('Einsatz konnte nicht abgeschlossen werden. Bitte erneut versuchen.')
+    } finally {
+      setIsClosing(false)
+    }
+  }
+
   function updateFormData<K extends keyof RekoFormData>(
     key: K,
     value: RekoFormData[K]
@@ -465,6 +537,34 @@ export default function RekoForm() {
             Nein
           </Button>
         </div>
+
+        {/* Not relevant → offer to close the incident directly from the field */}
+        {formData.is_relevant === false && (
+          <div className="rounded-lg border border-border bg-secondary/40 p-3 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Einsatz nicht relevant? Sie können ihn direkt abschliessen.
+            </p>
+            <Button
+              type="button"
+              onClick={handleCloseIncident}
+              disabled={isClosing || isSubmitting}
+              variant="secondary"
+              className="w-full h-12"
+            >
+              {isClosing ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Schliesse ab...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  Einsatz abschliessen
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       <Separator />

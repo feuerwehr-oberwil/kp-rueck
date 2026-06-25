@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2 } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -52,6 +52,8 @@ interface DraggableOperationProps {
   onToggleNachbarhilfe?: () => void
   onToggleAmWarten?: () => void
   onToggleZuFuss?: () => void
+  /** Editor-only: archive the incident (status → complete) directly from the card. */
+  onRequestComplete?: () => void
   showMeldung?: boolean
   printerEnabled?: boolean
   /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
@@ -99,6 +101,7 @@ function DraggableOperationBase({
   onToggleNachbarhilfe,
   onToggleAmWarten,
   onToggleZuFuss,
+  onRequestComplete,
   showMeldung,
   printerEnabled,
   doubleBookedCrewNames,
@@ -637,6 +640,17 @@ function DraggableOperationBase({
             Auf Karte zeigen
           </Link>
         </ContextMenuItem>
+        {/* Editor-only: archive an incident that turned out not to be relevant.
+            Same completion path as dragging to ABGESCHLOSSEN (incl. material decision). */}
+        {onRequestComplete && operation.status !== "complete" && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onRequestComplete()}>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Einsatz abschliessen
+            </ContextMenuItem>
+          </>
+        )}
         {printerEnabled && (
           <>
             <ContextMenuSeparator />

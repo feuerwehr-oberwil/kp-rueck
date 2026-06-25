@@ -50,6 +50,8 @@ interface DroppableColumnProps {
   onToggleNachbarhilfe?: (operationId: string) => void
   onToggleAmWarten?: (operationId: string) => void
   onToggleZuFuss?: (operationId: string) => void
+  /** Editor-only: archive the incident (status → complete) directly from the card. */
+  onRequestComplete?: (operationId: string) => void
   showMeldung?: boolean
   printerEnabled?: boolean
   doubleBookedCrewNames?: Set<string>
@@ -135,6 +137,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onToggleNachbarhilfe,
   onToggleAmWarten,
   onToggleZuFuss,
+  onRequestComplete,
   showMeldung,
   printerEnabled,
   doubleBookedCrewNames,
@@ -292,6 +295,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onToggleNachbarhilfe={onToggleNachbarhilfe ? () => onToggleNachbarhilfe(operation.id) : undefined}
                 onToggleAmWarten={onToggleAmWarten ? () => onToggleAmWarten(operation.id) : undefined}
                 onToggleZuFuss={onToggleZuFuss ? () => onToggleZuFuss(operation.id) : undefined}
+                onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
                 showMeldung={showMeldung}
                 printerEnabled={printerEnabled}
                 doubleBookedCrewNames={doubleBookedCrewNames}

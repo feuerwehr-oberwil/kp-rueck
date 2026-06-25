@@ -37,6 +37,10 @@ class RekoReportBase(BaseModel):
     summary_text: str | None = None
     additional_notes: str | None = None
     is_draft: bool = False
+    # When the reko person on site judges the incident not relevant (false alarm /
+    # already handled), they may request the incident be closed. The backend moves
+    # it to "abschluss" on submit. Token-scoped to the incident, so it is safe.
+    request_closure: bool = False
 
 
 class RekoReportCreate(RekoReportBase):

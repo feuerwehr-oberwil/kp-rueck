@@ -218,17 +218,30 @@ async def get_reko_assignments_for_personnel(
                     "assigned_at": assignment.assigned_at if assignment else None,
                     "has_completed_reko": incident_id in completed_reko_incidents,
                     "is_active_assignment": is_active,
+                    # Kanban order the operator arranged on the board (Incident.position).
+                    # Kept off the response schema, used only for sorting below.
+                    "_position": incident.position,
+                    "_created_at": incident.created_at,
                 }
             )
 
-    # Sort: active first, then by has_completed_reko (incomplete first), then by title
+    # Sort so the reko person sees the SAME priority order the operator arranged
+    # on the kanban board: active first, incomplete-reko first, then by the
+    # operator's manual kanban order (Incident.position), then created_at as a
+    # stable tiebreaker.
     result.sort(
         key=lambda x: (
             not x["is_active_assignment"],  # Active first
             x["has_completed_reko"],  # Incomplete first within each group
-            x["incident_title"],
+            x["_position"],  # Operator's kanban priority order
+            x["_created_at"],  # Stable tiebreaker
         )
     )
+
+    # Strip the internal sort-only keys so they don't leak into the API response.
+    for row in result:
+        row.pop("_position", None)
+        row.pop("_created_at", None)
 
     return result
 
