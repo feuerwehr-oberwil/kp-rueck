@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink, Siren } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink, Siren, Binoculars } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -261,6 +261,9 @@ export default function FireStationDashboard() {
   // (Personal, Fahrzeuge or Mittel), hold it here to make the operator
   // acknowledge what's missing before dispatching.
   const [missingResourcesAckOp, setMissingResourcesAckOp] = useState<Operation | null>(null)
+  // Moving a card into REKO without a reko person assigned holds it here so the
+  // operator can assign someone (who then receives the reko form) or proceed anyway.
+  const [rekoMissingAckOp, setRekoMissingAckOp] = useState<Operation | null>(null)
 
   // Persist showMeldung to localStorage
   useEffect(() => {
@@ -451,6 +454,13 @@ export default function FireStationDashboard() {
     }
   }, [operations, getMissingResources])
 
+  // When a card enters REKO without a reko person assigned, prompt the operator
+  // to assign one (mirrors the missing-resources gate before disponieren).
+  const triggerRekoCheck = useCallback((operationId: string) => {
+    const op = operations.find(o => o.id === operationId)
+    if (op && !op.assignedReko) setRekoMissingAckOp(op)
+  }, [operations])
+
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
@@ -461,8 +471,9 @@ export default function FireStationDashboard() {
       const newStatus = nextColumn.status[0] as OperationStatus
       updateOperation(operationId, { status: newStatus })
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
+      if (newStatus === "ready") triggerRekoCheck(operationId)
     }
-  }, [operations, updateOperation, triggerDisponiertDialog])
+  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -752,6 +763,7 @@ export default function FireStationDashboard() {
     },
     onStatusChange: (operationId, newStatus) => {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
+      if (newStatus === "ready") triggerRekoCheck(operationId)
     },
   })
 
@@ -2224,7 +2236,25 @@ export default function FireStationDashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
-            <Button variant="outline" onClick={() => setMissingResourcesAckOp(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const op = missingResourcesAckOp
+                setMissingResourcesAckOp(null)
+                if (!op) return
+                // Open the assignment dialog on the first still-missing category so
+                // the operator can fill the gap instead of just acknowledging it.
+                const typeMap: Record<string, 'crew' | 'vehicles' | 'materials'> = {
+                  Personal: 'crew',
+                  Fahrzeuge: 'vehicles',
+                  Mittel: 'materials',
+                }
+                const firstMissing = getMissingResources(op)
+                  .map(label => typeMap[label])
+                  .find(Boolean)
+                if (firstMissing) handleOpenAssignmentDialog(firstMissing, op.id)
+              }}
+            >
               Zuweisen
             </Button>
             <Button
@@ -2234,6 +2264,41 @@ export default function FireStationDashboard() {
               }}
             >
               Trotzdem disponieren
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reko-person missing — gate when moving a card into the REKO column */}
+      <AlertDialog
+        open={!!rekoMissingAckOp}
+        onOpenChange={(open) => !open && setRekoMissingAckOp(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Binoculars className="h-5 w-5 text-primary" />
+              Keine Reko-Person zugewiesen
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{rekoMissingAckOp?.location}</span> wurde in die
+              Reko-Spalte verschoben, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält
+              niemand das Reko-Formular. Möchten Sie jetzt jemanden zuweisen oder trotzdem fortfahren?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const op = rekoMissingAckOp
+                setRekoMissingAckOp(null)
+                if (op) handleOpenRekoAssignDialog(op.id)
+              }}
+            >
+              Reko-Person zuweisen
+            </Button>
+            <Button variant="ghost" onClick={() => setRekoMissingAckOp(null)}>
+              Trotzdem fortfahren
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

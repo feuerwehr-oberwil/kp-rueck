@@ -201,7 +201,7 @@ export const KANBAN_COLUMNS = [
   },
   {
     id: 'disponiert',
-    title: 'DISPONIERT',
+    title: 'DISPONIERT / ANFAHRT',
     status: ['disponiert'] as IncidentStatus[],
     color: 'bg-blue-100/80 dark:bg-blue-900/30',
   },

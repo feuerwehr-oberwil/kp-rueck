@@ -12,7 +12,7 @@ export const columns: Array<{
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-slate-200/80 dark:bg-slate-800/70" },
   { id: "ready", title: "REKO", status: ["ready"], color: "bg-emerald-100/80 dark:bg-emerald-950/70" },
   { id: "rekoDone", title: "REKO ABGESCHLOSSEN", status: ["rekoDone"], color: "bg-teal-100/80 dark:bg-teal-950/70" },
-  { id: "enroute", title: "DISPONIERT", status: ["enroute"], color: "bg-blue-100/80 dark:bg-blue-950/70" },
+  { id: "enroute", title: "DISPONIERT / ANFAHRT", status: ["enroute"], color: "bg-blue-100/80 dark:bg-blue-950/70" },
   { id: "active", title: "EINSATZ", status: ["active"], color: "bg-orange-100/80 dark:bg-orange-950/70" },
   { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: "bg-sky-100/80 dark:bg-sky-950/70" },
   { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: "bg-gray-200/80 dark:bg-zinc-900/70", collapsible: true },
