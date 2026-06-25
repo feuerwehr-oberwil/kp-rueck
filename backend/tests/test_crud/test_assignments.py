@@ -11,26 +11,23 @@ Tests cover:
 - transfer_assignments: Transfer assignments between incidents
 """
 
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import assignments as assignment_crud
 from app.models import (
     Event,
+    EventSpecialFunction,
     Incident,
-    IncidentAssignment,
     Material,
     Personnel,
     User,
     Vehicle,
 )
-
 
 # ============================================
 # Fixtures
@@ -944,6 +941,85 @@ class TestTransferAssignments:
                 current_user=test_user,
                 request=mock_request,
             )
+
+    async def test_transfer_ignores_reko_personnel(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_incident: Incident,
+        second_incident: Incident,
+        test_vehicle: Vehicle,
+        test_personnel: Personnel,
+        test_user: User,
+        mock_request,
+    ):
+        """A reko person on source + target must not block (or be part of) the transfer."""
+        # Mark test_personnel as the event's reko person.
+        db_session.add(
+            EventSpecialFunction(
+                id=uuid4(),
+                event_id=test_event.id,
+                personnel_id=test_personnel.id,
+                function_type="reko",
+            )
+        )
+        await db_session.commit()
+
+        # Reko person is assigned to BOTH source and target (as a normal personnel
+        # assignment) — without the exclusion this would raise a conflict.
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=second_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        # A real (non-reko) resource to actually transfer.
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        result = await assignment_crud.transfer_assignments(
+            db=db_session,
+            source_incident_id=test_incident.id,
+            target_incident_id=second_incident.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        # Only the vehicle was transferred; the reko person was ignored.
+        assert result["transferred_count"] == 1
+
+        # Reko person remains assigned to the source (not unassigned by the transfer).
+        source_assignments = await assignment_crud.get_incident_assignments(
+            db=db_session,
+            incident_id=test_incident.id,
+        )
+        source_personnel_ids = {a.resource_id for a in source_assignments if a.resource_type == "personnel"}
+        assert test_personnel.id in source_personnel_ids
+
+        # Target received the vehicle.
+        target_assignments = await assignment_crud.get_incident_assignments(
+            db=db_session,
+            incident_id=second_incident.id,
+        )
+        target_vehicle_ids = {a.resource_id for a in target_assignments if a.resource_type == "vehicle"}
+        assert test_vehicle.id in target_vehicle_ids
 
 
 # ============================================

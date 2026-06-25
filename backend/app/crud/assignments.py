@@ -341,7 +341,7 @@ async def transfer_assignments(
     Raises:
         ValueError: If source has no assignments or if conflicts exist
     """
-    from ..models import Incident
+    from ..models import EventSpecialFunction, Incident
 
     # Verify both incidents exist
     source_result = await db.execute(select(Incident).where(Incident.id == source_incident_id))
@@ -356,6 +356,25 @@ async def transfer_assignments(
 
     # Get all active assignments from source
     source_assignments = await get_incident_assignments(db, source_incident_id)
+
+    # Exclude reko personnel: a reko person is stored as a normal personnel
+    # IncidentAssignment, but their reko role belongs to the event (not the incident).
+    # They must neither be transferred nor block the transfer as a conflict.
+    reko_result = await db.execute(
+        select(EventSpecialFunction.personnel_id).where(
+            and_(
+                EventSpecialFunction.event_id == source_incident.event_id,
+                EventSpecialFunction.function_type == "reko",
+            )
+        )
+    )
+    reko_personnel_ids = set(reko_result.scalars().all())
+    if reko_personnel_ids:
+        source_assignments = [
+            a
+            for a in source_assignments
+            if not (a.resource_type == "personnel" and a.resource_id in reko_personnel_ids)
+        ]
 
     if not source_assignments:
         raise ValueError("Quell-Einsatz hat keine aktiven Ressourcen zum Übertragen.")
