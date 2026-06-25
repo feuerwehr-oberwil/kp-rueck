@@ -1046,9 +1046,11 @@ export default function SettingsPage() {
             <Card className="p-5">
               <div className="space-y-4">
                 <div>
-                  <p className="font-medium">Audit-Export für Abrechnung</p>
+                  <p className="font-medium">Einsatz-Protokoll exportieren (Excel)</p>
                   <p className="text-sm text-muted-foreground">
-                    Vollständige Zuweisungshistorie mit Zeitstempeln für Abrechnungszwecke.
+                    Vollständiges Protokoll eines Ereignisses zur Archivierung und Abrechnung: alle
+                    Einsätze, die komplette Zuweisungshistorie von Personal, Fahrzeugen und Material
+                    mit Zeitstempeln (zugewiesen/freigegeben), Status-Verlauf und Reko-Berichte.
                   </p>
                 </div>
 

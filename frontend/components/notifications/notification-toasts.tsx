@@ -131,6 +131,7 @@ export function NotificationToasts() {
       position="bottom-right"
       closeButton
       expand={false}
+      duration={5000}
       toastOptions={{
         classNames: {
           toast: 'group shadow-lg',
