@@ -13,7 +13,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { Clock, Truck, Users, Siren, Package, AlertTriangle, AlertCircle, Info, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck } from "lucide-react"
+import { Clock, Truck, Users, Siren, Package, AlertTriangle, AlertCircle, Info, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck, ChevronRight } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -33,6 +33,11 @@ function BoardDisplay() {
   const { operations } = useOperations()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
+  // Collapsible columns (ABGESCHLOSSEN) start collapsed so the active columns reclaim
+  // the full board width. Click the thin bar to expand/collapse.
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(
+    () => new Set(columns.filter(c => c.collapsible).map(c => c.id))
+  )
 
   // Track status changes for flash animation
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set())
@@ -88,13 +93,55 @@ function BoardDisplay() {
     return grouped
   }, [operations])
 
+  const toggleColumn = (columnId: string) => {
+    setCollapsedColumns(prev => {
+      const next = new Set(prev)
+      if (next.has(columnId)) next.delete(columnId)
+      else next.add(columnId)
+      return next
+    })
+  }
+
   return (
-    <div className="grid h-full grid-cols-6 gap-2 p-3">
+    <div className="flex h-full gap-2 p-3">
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
+        const isCollapsed = column.collapsible && collapsedColumns.has(column.id)
+
+        // Collapsed: thin vertical toggle bar showing the count, reclaiming width.
+        if (isCollapsed) {
+          return (
+            <button
+              key={column.id}
+              type="button"
+              onClick={() => toggleColumn(column.id)}
+              className={cn(
+                "flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5",
+                column.color
+              )}
+              title={`${column.title} – ${ops.length} – zum Aufklappen klicken`}
+            >
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+                {ops.length}
+              </span>
+              <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
+                {column.title}
+              </span>
+            </button>
+          )
+        }
+
         return (
-          <div key={column.id} className="flex flex-col min-w-0 overflow-hidden">
-            <div className={cn("mb-2 rounded-lg border border-border px-3 py-3", column.color)}>
+          <div key={column.id} className="flex flex-1 flex-col min-w-0 overflow-hidden">
+            <div
+              className={cn(
+                "mb-2 rounded-lg border border-border px-3 py-3",
+                column.color,
+                column.collapsible && "cursor-pointer"
+              )}
+              onClick={column.collapsible ? () => toggleColumn(column.id) : undefined}
+            >
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{column.title}</h2>
                 <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">

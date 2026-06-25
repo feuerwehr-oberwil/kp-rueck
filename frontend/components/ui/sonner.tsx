@@ -1,6 +1,7 @@
 'use client'
 
 import { useTheme } from 'next-themes'
+import { X } from 'lucide-react'
 import { Toaster as Sonner, ToasterProps, useSonner, toast } from 'sonner'
 
 const Toaster = ({ ...props }: ToasterProps) => {
@@ -32,8 +33,9 @@ const DismissAllToasts = () => {
     <button
       type="button"
       onClick={() => toast.dismiss()}
-      className="fixed bottom-2 right-4 z-[9999] rounded-md border border-border bg-popover px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+      className="fixed bottom-1 right-4 z-[9999] inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/80 transition-colors hover:text-foreground"
     >
+      <X className="h-3 w-3" />
       Alle schliessen
     </button>
   )

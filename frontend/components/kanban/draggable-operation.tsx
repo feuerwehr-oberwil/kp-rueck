@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, memo } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,7 +11,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2 } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -54,6 +53,8 @@ interface DraggableOperationProps {
   onToggleZuFuss?: () => void
   /** Editor-only: archive the incident (status → complete) directly from the card. */
   onRequestComplete?: () => void
+  /** Editor-only: open the "Ressourcen übertragen" dialog for this incident. */
+  onTransfer?: () => void
   showMeldung?: boolean
   printerEnabled?: boolean
   /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
@@ -102,6 +103,7 @@ function DraggableOperationBase({
   onToggleAmWarten,
   onToggleZuFuss,
   onRequestComplete,
+  onTransfer,
   showMeldung,
   printerEnabled,
   doubleBookedCrewNames,
@@ -590,28 +592,6 @@ function DraggableOperationBase({
                   <span>{operation.rekoSummary.estimatedDuration}h</span>
                 )}
               </div>
-
-              {/* Reko reported the incident not relevant — let the operator close it
-                  straight from the card (the field/reko link can never do this). */}
-              {operation.rekoSummary.isRelevant === false && (
-                <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">Reko: nicht relevant</span>
-                  {onRequestComplete && operation.status !== "complete" && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 px-2 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRequestComplete()
-                      }}
-                    >
-                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                      Abschliessen
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -664,6 +644,15 @@ function DraggableOperationBase({
         </ContextMenuItem>
         {/* Editor-only: archive an incident that turned out not to be relevant.
             Same completion path as dragging to ABGESCHLOSSEN (incl. material decision). */}
+        {onTransfer && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onTransfer()}>
+              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              Ressourcen übertragen
+            </ContextMenuItem>
+          </>
+        )}
         {onRequestComplete && operation.status !== "complete" && (
           <>
             <ContextMenuSeparator />
@@ -697,8 +686,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     (prevProps.operation.rekoSummary?.hasDangers !== nextProps.operation.rekoSummary?.hasDangers) ||
     (prevProps.operation.rekoSummary?.dangerTypes.length !== nextProps.operation.rekoSummary?.dangerTypes.length) ||
     (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
-    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration) ||
-    (prevProps.operation.rekoSummary?.isRelevant !== nextProps.operation.rekoSummary?.isRelevant)
+    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
 
   // Check if assigned reko has changed
   const assignedRekoChanged =

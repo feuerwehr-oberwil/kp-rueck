@@ -54,6 +54,8 @@ import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
 import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
+import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
+import type { Incident } from "@/lib/types/incidents"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import {
@@ -261,6 +263,15 @@ export default function FireStationDashboard() {
   // (Personal, Fahrzeuge or Mittel), hold it here to make the operator
   // acknowledge what's missing before dispatching.
   const [missingResourcesAckOp, setMissingResourcesAckOp] = useState<Operation | null>(null)
+  // When the operator clicks "Zuweisen" from the missing-resources gate, we open the
+  // assignment dialog and remember the incident id here. When that dialog closes, we
+  // open the DisponierTransitionDialog for this incident so the Funk/Divera step isn't
+  // skipped. Only set on the missing-resources path — normal assignments are unaffected.
+  const [disponiertAfterAssignOpId, setDisponiertAfterAssignOpId] = useState<string | null>(null)
+  // Resource transfer ("Ressourcen übertragen") opened from the card context menu.
+  const [transferSourceOp, setTransferSourceOp] = useState<Operation | null>(null)
+  const [transferAvailableIncidents, setTransferAvailableIncidents] = useState<Incident[]>([])
+  const [isTransferring, setIsTransferring] = useState(false)
   // Moving a card into REKO without a reko person assigned holds it here so the
   // operator can assign someone (who then receives the reko form) or proceed anyway.
   const [rekoMissingAckOp, setRekoMissingAckOp] = useState<Operation | null>(null)
@@ -485,6 +496,55 @@ export default function FireStationDashboard() {
     updateOperation(operationId, { status: "complete" })
     promptMaterialDecision(operationId)
   }, [operations, updateOperation, promptMaterialDecision])
+
+  // Open the "Ressourcen übertragen" dialog from the card context menu. Loads the
+  // event's incidents as transfer targets (mirrors side-panel's handleOpenTransfer).
+  const handleOpenTransfer = useCallback(async (operationId: string) => {
+    const op = operations.find(o => o.id === operationId)
+    if (!op || !selectedEvent) {
+      toast.error("Fehler", { description: "Kein Event ausgewählt." })
+      return
+    }
+    try {
+      const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
+      const incidents: Incident[] = apiIncidents.map(inc => {
+        const { location_lat, location_lng, created_at, updated_at, status_changed_at, completed_at, reko_arrived_at, assigned_vehicles, ...rest } = inc
+        return {
+          ...rest,
+          location_lat: location_lat !== null ? parseFloat(location_lat) : null,
+          location_lng: location_lng !== null ? parseFloat(location_lng) : null,
+          created_at: new Date(created_at),
+          updated_at: new Date(updated_at),
+          status_changed_at: status_changed_at ? new Date(status_changed_at) : null,
+          completed_at: completed_at ? new Date(completed_at) : null,
+          reko_arrived_at: reko_arrived_at ? new Date(reko_arrived_at) : null,
+          assigned_vehicles: assigned_vehicles.map(v => ({ ...v, assigned_at: new Date(v.assigned_at) })),
+        }
+      })
+      setTransferAvailableIncidents(incidents)
+      setTransferSourceOp(op)
+    } catch (error) {
+      console.error("Failed to load incidents:", error)
+      toast.error("Fehler beim Laden")
+    }
+  }, [operations, selectedEvent])
+
+  // Perform the transfer. The backend returns a specific German reason on failure.
+  const handleTransfer = useCallback(async (targetIncidentId: string) => {
+    if (!transferSourceOp) return
+    try {
+      setIsTransferring(true)
+      await apiClient.transferAssignments(transferSourceOp.id, targetIncidentId)
+      setTransferSourceOp(null)
+      toast.success("Ressourcen übertragen")
+    } catch (error: any) {
+      toast.error("Fehler beim Übertragen", {
+        description: error?.message || "Die Ressourcen konnten nicht übertragen werden.",
+      })
+    } finally {
+      setIsTransferring(false)
+    }
+  }, [transferSourceOp])
 
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -1402,6 +1462,7 @@ export default function FireStationDashboard() {
                       onToggleAmWarten={handleToggleAmWarten}
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
+                      onTransfer={isEditor ? handleOpenTransfer : undefined}
                       showMeldung={showMeldung}
                       printerEnabled={printerEnabled}
                       doubleBookedCrewNames={doubleBookedPersons.names}
@@ -1446,6 +1507,7 @@ export default function FireStationDashboard() {
             onAssignResource={handleOpenAssignmentDialog}
             onRemoveCrew={removeCrew}
             onRemoveMaterial={removeMaterial}
+            onRequestComplete={isEditor ? requestCompletion : undefined}
           />
 
           {showRightSidebar && (
@@ -1797,6 +1859,7 @@ export default function FireStationDashboard() {
         onRemoveMaterial={removeMaterial}
         diveraEnabled={diveraEnabled}
         onSendDivera={(op) => setDiveraDialogOp(op)}
+        onRequestComplete={isEditor ? requestCompletion : undefined}
       />
 
       <NewEmergencyModal
@@ -1809,7 +1872,18 @@ export default function FireStationDashboard() {
       {/* Resource Assignment Dialog */}
       <ResourceAssignmentDialog
         open={assignmentDialogOpen}
-        onOpenChange={setAssignmentDialogOpen}
+        onOpenChange={(open) => {
+          setAssignmentDialogOpen(open)
+          // If this assignment dialog was opened from the missing-resources
+          // "Zuweisen" path, open the disponiert info modal on close so the
+          // Funk/Divera step still happens.
+          if (!open && disponiertAfterAssignOpId) {
+            const opId = disponiertAfterAssignOpId
+            setDisponiertAfterAssignOpId(null)
+            const op = operations.find(o => o.id === opId)
+            if (op) setDisponiertDialogOp(op)
+          }
+        }}
         resourceType={assignmentResourceType}
         operationId={assignmentOperationId}
         personnel={personnel}
@@ -2282,7 +2356,12 @@ export default function FireStationDashboard() {
                 const firstMissing = getMissingResources(op)
                   .map(label => typeMap[label])
                   .find(Boolean)
-                if (firstMissing) handleOpenAssignmentDialog(firstMissing, op.id)
+                if (firstMissing) {
+                  // Remember to open the disponiert info modal once assigning is done,
+                  // so the Funk/WhatsApp/Print/Divera step is never skipped.
+                  setDisponiertAfterAssignOpId(op.id)
+                  handleOpenAssignmentDialog(firstMissing, op.id)
+                }
               }}
             >
               Zuweisen
@@ -2401,6 +2480,18 @@ export default function FireStationDashboard() {
         operation={diveraDialogOp}
         materials={materials}
       />
+
+      {/* Resource transfer dialog — opened from the card context menu */}
+      {transferSourceOp && (
+        <TransferIncidentDialog
+          open={!!transferSourceOp}
+          onOpenChange={(open) => !open && setTransferSourceOp(null)}
+          sourceIncident={transferSourceOp as unknown as Incident}
+          availableIncidents={transferAvailableIncidents}
+          onTransfer={handleTransfer}
+          isTransferring={isTransferring}
+        />
+      )}
 
       {/* Mobile Personnel Sheet */}
       <MobilePersonnelSheet

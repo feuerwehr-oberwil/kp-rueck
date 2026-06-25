@@ -50,6 +50,9 @@ interface SidePanelProps {
   onAssignResource: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onRemoveCrew: (operationId: string, crewName: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
+  /** Editor-only: archive the incident (status → complete) via the shared
+      completion + material-decision flow. Surfaced in the Reko-Meldung card. */
+  onRequestComplete?: (operationId: string) => void
 }
 
 // Breakpoint for side panel visibility (in pixels)
@@ -73,6 +76,7 @@ export function SidePanel({
   onAssignResource,
   onRemoveCrew,
   onRemoveMaterial,
+  onRequestComplete,
 }: SidePanelProps) {
   const [isWideEnough, setIsWideEnough] = useState(false)
 
@@ -170,6 +174,7 @@ export function SidePanel({
             onAssignResource={onAssignResource}
             onRemoveCrew={onRemoveCrew}
             onRemoveMaterial={onRemoveMaterial}
+            onRequestComplete={onRequestComplete}
           />
         )}
         {mode === 'map' && (
@@ -202,6 +207,7 @@ function SidePanelDetail({
   onAssignResource,
   onRemoveCrew,
   onRemoveMaterial,
+  onRequestComplete,
 }: {
   operation: Operation | null
   materials: Material[]
@@ -214,6 +220,7 @@ function SidePanelDetail({
   onAssignResource: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onRemoveCrew: (operationId: string, crewName: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
+  onRequestComplete?: (operationId: string) => void
 }) {
   const { selectedEvent } = useEvent()
   const { setOperations } = useOperations()
@@ -468,7 +475,10 @@ function SidePanelDetail({
       <div>
         <Label className="text-xs font-semibold text-muted-foreground">Rekognoszierungs-Meldungen</Label>
         <div className="mt-1">
-          <RekoReportSection incidentId={operation.id} />
+          <RekoReportSection
+            incidentId={operation.id}
+            onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
+          />
         </div>
       </div>
 

@@ -47,6 +47,9 @@ interface OperationDetailModalProps {
   onRemoveMaterial?: (operationId: string, materialId: string) => void
   diveraEnabled?: boolean
   onSendDivera?: (operation: Operation) => void
+  /** Editor-only: archive the incident (status → complete) via the shared
+      completion + material-decision flow. Surfaced in the Reko-Meldung card. */
+  onRequestComplete?: (operationId: string) => void
 }
 
 export function OperationDetailModal({
@@ -63,6 +66,7 @@ export function OperationDetailModal({
   onRemoveMaterial,
   diveraEnabled,
   onSendDivera,
+  onRequestComplete,
 }: OperationDetailModalProps) {
   const { formatLocation, setOperations } = useOperations()
   const { selectedEvent } = useEvent()
@@ -401,7 +405,10 @@ export function OperationDetailModal({
               Rekognoszierungs-Meldungen
             </Label>
             <div className="mt-1.5">
-              <RekoReportSection incidentId={operation.id} />
+              <RekoReportSection
+                incidentId={operation.id}
+                onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
+              />
             </div>
           </div>
 

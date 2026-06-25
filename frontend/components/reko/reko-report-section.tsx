@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History, MapPin } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History, MapPin, CheckCheck } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
@@ -12,11 +13,14 @@ import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 interface RekoReportSectionProps {
   incidentId: string
+  /** Editor-only: archive the incident (status → complete). When provided and the
+      latest report is "nicht relevant", a "Einsatz abschliessen" button is shown. */
+  onRequestComplete?: () => void
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
 
-export default function RekoReportSection({ incidentId }: RekoReportSectionProps) {
+export default function RekoReportSection({ incidentId, onRequestComplete }: RekoReportSectionProps) {
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [arrivedAt, setArrivedAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -117,6 +121,7 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
       <RekoReportCard
         report={latestReport}
         incidentId={incidentId}
+        onRequestComplete={onRequestComplete}
       />
 
       {/* Previous Reports - Collapsible */}
@@ -145,9 +150,10 @@ export default function RekoReportSection({ incidentId }: RekoReportSectionProps
 interface RekoReportCardProps {
   report: ApiRekoReportResponse
   incidentId: string
+  onRequestComplete?: () => void
 }
 
-function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
+function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCardProps) {
   function getPhotoUrl(filename: string): string {
     const apiUrl = getApiUrl()
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
@@ -163,16 +169,31 @@ function RekoReportCard({ report, incidentId }: RekoReportCardProps) {
             <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           )}
           <div className="flex-1">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="font-medium">
                 {report.is_relevant ? 'Einsatz relevant' : 'Kein Einsatz nötig'}
               </span>
-              {report.submitted_by_personnel_name && (
-                <Badge variant="secondary" className="gap-1">
-                  <Binoculars className="h-3 w-3" />
-                  {report.submitted_by_personnel_name}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {report.submitted_by_personnel_name && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Binoculars className="h-3 w-3" />
+                    {report.submitted_by_personnel_name}
+                  </Badge>
+                )}
+                {/* Reko reported the incident not relevant — let the operator close it
+                    straight from the Reko-Meldung card. */}
+                {!report.is_relevant && onRequestComplete && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2 text-xs"
+                    onClick={onRequestComplete}
+                  >
+                    <CheckCheck className="mr-1 h-3.5 w-3.5" />
+                    Einsatz abschliessen
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
