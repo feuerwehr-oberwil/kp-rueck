@@ -454,16 +454,17 @@ async def transfer_assignments(
             request=request,
         )
     except ValueError as e:
-        # Handle validation errors (no assignments, conflicts, etc.)
-        # Log the actual error for debugging
+        # Surface the specific reason (which resource conflicts / nothing to transfer)
+        # so the operator sees why it failed instead of a generic message.
         logger.warning("Assignment transfer failed for incident %s: %s", incident_id, e)
-        error_str = str(e).lower()
-        if "not found" in error_str:
+        msg = str(e)
+        low = msg.lower()
+        if "not found" in low or "nicht gefunden" in low:
             raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
-        elif "already assigned" in error_str or "conflict" in error_str:
-            raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED)
+        elif "bereits zugewiesen" in low or "already assigned" in low or "conflict" in low:
+            raise HTTPException(status_code=409, detail=msg)
         else:
-            raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
+            raise HTTPException(status_code=400, detail=msg)
 
     # Get event_id for WebSocket broadcast
     incident_result = await db.execute(select(crud.Incident).where(crud.Incident.id == incident_id))

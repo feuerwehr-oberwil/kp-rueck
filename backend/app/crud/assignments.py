@@ -295,6 +295,20 @@ async def auto_release_incident_resources(
         await unassign_resource(db, assignment.id, current_user, request)
 
 
+_RESOURCE_TYPE_LABELS = {"personnel": "Person", "vehicle": "Fahrzeug", "material": "Material"}
+
+
+async def _resolve_resource_label(db: AsyncSession, resource_type: str, resource_id: uuid.UUID) -> str:
+    """Human-readable 'Typ Name' for a resource, for user-facing error messages."""
+    model = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}.get(resource_type)
+    type_label = _RESOURCE_TYPE_LABELS.get(resource_type, resource_type)
+    if model is None:
+        return f"{type_label} {resource_id}"
+    result = await db.execute(select(model).where(model.id == resource_id))
+    obj = result.scalar_one_or_none()
+    return f"{type_label} {obj.name}" if obj is not None else f"{type_label} {resource_id}"
+
+
 async def transfer_assignments(
     db: AsyncSession,
     source_incident_id: uuid.UUID,
@@ -344,7 +358,7 @@ async def transfer_assignments(
     source_assignments = await get_incident_assignments(db, source_incident_id)
 
     if not source_assignments:
-        raise ValueError("Source incident has no active assignments to transfer")
+        raise ValueError("Quell-Einsatz hat keine aktiven Ressourcen zum Übertragen.")
 
     # Check for conflicts - resources already assigned to target
     target_assignments = await get_incident_assignments(db, target_incident_id)
@@ -354,10 +368,10 @@ async def transfer_assignments(
     for assignment in source_assignments:
         resource_key = (assignment.resource_type, assignment.resource_id)
         if resource_key in target_resources:
-            conflicts.append(f"{assignment.resource_type} {assignment.resource_id}")
+            conflicts.append(await _resolve_resource_label(db, assignment.resource_type, assignment.resource_id))
 
     if conflicts:
-        raise ValueError(f"Cannot transfer: Resources already assigned to target incident: {', '.join(conflicts)}")
+        raise ValueError("Übertragen nicht möglich – im Ziel-Einsatz bereits zugewiesen: " + ", ".join(conflicts))
 
     # Transfer assignments
     new_assignment_ids = []
