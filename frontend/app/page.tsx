@@ -259,6 +259,18 @@ export default function FireStationDashboard() {
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
   const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
+  // These dialogs hold a snapshot of the operation; derive the LIVE operation so a
+  // resource assigned while the dialog is open (e.g. via the missing-resources
+  // "Zuweisen" flow) shows up in the radio text and Divera recipients instead of
+  // a stale "keine Person zugewiesen".
+  const disponiertDialogOpLive = useMemo(
+    () => (disponiertDialogOp ? operations.find(o => o.id === disponiertDialogOp.id) ?? disponiertDialogOp : null),
+    [disponiertDialogOp, operations]
+  )
+  const diveraDialogOpLive = useMemo(
+    () => (diveraDialogOp ? operations.find(o => o.id === diveraDialogOp.id) ?? diveraDialogOp : null),
+    [diveraDialogOp, operations]
+  )
   // When disponieren is triggered for an incident that's missing resources
   // (Personal, Fahrzeuge or Mittel), hold it here to make the operator
   // acknowledge what's missing before dispatching.
@@ -2463,7 +2475,7 @@ export default function FireStationDashboard() {
       <DisponierTransitionDialog
         open={!!disponiertDialogOp}
         onOpenChange={(open) => !open && setDisponiertDialogOp(null)}
-        operation={disponiertDialogOp}
+        operation={disponiertDialogOpLive}
         materials={materials}
         printerEnabled={printerEnabled}
         funkrufname={funkrufname}
@@ -2477,7 +2489,7 @@ export default function FireStationDashboard() {
       <DiveraSendDialog
         open={!!diveraDialogOp}
         onOpenChange={(open) => !open && setDiveraDialogOp(null)}
-        operation={diveraDialogOp}
+        operation={diveraDialogOpLive}
         materials={materials}
       />
 

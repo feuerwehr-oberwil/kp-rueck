@@ -379,6 +379,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         console.error(`Failed to load assignments:`, error)
       }
 
+      // Show vehicles in their configured display order everywhere (radio text,
+      // Divera/WhatsApp messages, cards) instead of assignment order.
+      {
+        const vehicleOrder = new Map(vehiclesList.map(v => [v.name, v.display_order]))
+        ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a) ?? 0) - (vehicleOrder.get(b) ?? 0)))
+      }
+
       // Fetch reko summaries
       try {
         const rekoSummaries = await apiClient.getEventRekoSummaries(selectedEvent.id)
@@ -561,6 +568,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         } else {
           console.error('Failed to load assignments:', assignmentsResult.reason)
+        }
+
+        // Show vehicles in their configured display order everywhere (radio text,
+        // Divera/WhatsApp messages, cards) instead of assignment order.
+        {
+          const vehicleOrder = new Map(vehiclesList.map(v => [v.name, v.display_order]))
+          ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a) ?? 0) - (vehicleOrder.get(b) ?? 0)))
         }
 
         // Process reko summaries
