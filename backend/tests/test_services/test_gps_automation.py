@@ -52,9 +52,12 @@ async def _set(db: AsyncSession, key: str, value: str) -> None:
     await db.commit()
 
 
-async def _enable_arrival(db: AsyncSession) -> None:
+async def _enable_arrival(db: AsyncSession, *, silent: bool = True) -> None:
     await _set(db, "gps.automation_enabled", "true")
     await _set(db, "gps.rule_arrival_enabled", "true")
+    # Default behaviour is confirm-by-default; most existing tests assert the silent
+    # auto-advance path, so they opt into it explicitly.
+    await _set(db, "gps.rule_arrival_silent", "true" if silent else "false")
     await _set(db, "geofence_radius_meters", "200")
     await _set(db, "gps.debounce_count", "3")
     await _set(db, "gps.freshness_seconds", "60")
@@ -178,6 +181,46 @@ async def test_arrival_advances_after_n_fixes(
     assert any(t.to_status == "einsatz" and t.notes == gps_automation.ARRIVAL_NOTE for t in transitions)
     actor = await db_session.execute(select(User).where(User.id == gps_automation.GPS_SYSTEM_USER_ID))
     assert actor.scalar_one().username == gps_automation.GPS_SYSTEM_USERNAME
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_arrival_confirm_default_prompts_without_advancing(
+    _bc, bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+):
+    """Default (silent=false): arrival emits a confirm prompt and does NOT change status."""
+    vehicle, _assignment = assigned_vehicle
+    await _enable_arrival(db_session, silent=False)
+    clock = _Clock(datetime.now(UTC))
+
+    await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=30)
+    await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    bc_msg.assert_not_called()
+    await _tick(db_session, clock, _fresh_at_incident(clock.now()))
+
+    # Prompt broadcast once; status untouched (operator must confirm).
+    bc_msg.assert_awaited_once()
+    payload = bc_msg.await_args.args[0]
+    assert payload["type"] == "gps_arrival_prompt"
+    assert payload["incident_id"] == str(disponiert_incident.id)
+    assert payload["vehicle_name"] == "TLF-1"
+    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_arrival_silent_opt_in_advances(
+    _bc, bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+):
+    """Opt-in (silent=true): arrival advances disponiert -> einsatz with no prompt."""
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    bc_msg.assert_not_called()
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Truck } from "lucide-react"
 import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
+import { useAuth } from "@/lib/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -24,19 +25,22 @@ interface ReleasePrompt {
 
 /**
  * GPS Rule B (plan 10) — confirm-release. When the backend GPS automation detects an
- * assigned vehicle back at the station geofence, it broadcasts a `gps_release_prompt`
+ * assigned vehicle back at the magazin geofence, it broadcasts a `gps_release_prompt`
  * WebSocket event. This globally-mounted component shows a one-click confirm dialog:
- * "Fahrzeug zurück — freigeben?". On confirm it releases that vehicle's assignment via
- * the existing unassign endpoint. The incident is never auto-closed; declining leaves
- * everything as it was.
+ * "Fahrzeug zurück im Magazin — freigeben?". On confirm it releases that vehicle's
+ * assignment via the existing unassign endpoint. The incident is never auto-closed;
+ * declining leaves everything as it was.
  *
+ * Editors only — a viewer would be 403'd on the unassign, so they get no prompt.
  * Mounted once in the root layout so it covers every page (board, map, settings).
  */
 export function GpsReleasePrompt() {
+  const { isEditor } = useAuth()
   const [prompt, setPrompt] = useState<ReleasePrompt | null>(null)
   const [releasing, setReleasing] = useState(false)
 
   useEffect(() => {
+    if (!isEditor) return
     const unsubscribe = wsClient.on("gps_release_prompt", (payload: Record<string, string>) => {
       if (!payload?.assignment_id || !payload?.incident_id) return
       // Last prompt wins; the operator handles one at a time. A re-broadcast for the
@@ -49,9 +53,9 @@ export function GpsReleasePrompt() {
       })
     })
     return () => unsubscribe()
-  }, [])
+  }, [isEditor])
 
-  if (!prompt) return null
+  if (!isEditor || !prompt) return null
 
   const handleRelease = async () => {
     setReleasing(true)
@@ -72,11 +76,11 @@ export function GpsReleasePrompt() {
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary" />
-            Fahrzeug zurück — freigeben?
+            Fahrzeug zurück im Magazin — freigeben?
           </AlertDialogTitle>
           <AlertDialogDescription>
             <span className="font-medium text-foreground">{prompt.vehicleName}</span> ist laut GPS
-            wieder bei der Station. Soll die Zuweisung zu »{prompt.incidentLabel}« jetzt freigegeben
+            wieder im Magazin. Soll die Zuweisung zu »{prompt.incidentLabel}« jetzt freigegeben
             werden? Der Einsatz bleibt offen und wird nicht abgeschlossen.
           </AlertDialogDescription>
         </AlertDialogHeader>

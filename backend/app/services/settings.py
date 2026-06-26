@@ -74,10 +74,11 @@ DEFAULT_SETTINGS = {
     # master switch and survive jitter via the debounce/freshness/speed guards below.
     # Never acts in training events or demo mode. See app/services/gps_automation.py.
     "gps.automation_enabled": "false",  # Master switch for all GPS automation
-    "gps.rule_arrival_enabled": "false",  # Rule A: silent disponiert -> einsatz on arrival
-    "gps.rule_return_enabled": "false",  # Rule B: prompt to release a vehicle back at station
-    "gps.station_lat": "",  # Station/home-base latitude (Rule B geofence centre)
-    "gps.station_lng": "",  # Station/home-base longitude (Rule B geofence centre)
+    "gps.rule_arrival_enabled": "false",  # Rule A: arrival at incident -> advance to einsatz
+    "gps.rule_arrival_silent": "false",  # Rule A opt-in: advance SILENTLY (no operator confirm)
+    "gps.rule_return_enabled": "false",  # Rule B: prompt to release a vehicle back at magazin
+    "gps.station_lat": "",  # Magazin/home-base latitude (Rule B geofence centre)
+    "gps.station_lng": "",  # Magazin/home-base longitude (Rule B geofence centre)
     "gps.station_radius_meters": "100",  # Tight radius so passing vehicles don't trigger
     # Tuning constants (shared by both rules). Arrival radius reuses geofence_radius_meters.
     "gps.debounce_count": "3",  # N consecutive confirming fixes required

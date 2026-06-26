@@ -81,6 +81,7 @@ import {
   Shield,
   Info,
   Megaphone,
+  Navigation,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -107,6 +108,7 @@ const SECTIONS = [
   { id: 'general', label: 'Allgemein', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'alerting', label: 'Alarmierung', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'gps', label: 'GPS', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'users', label: 'Benutzer', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
@@ -744,6 +746,13 @@ export default function SettingsPage() {
               isEditor={isEditor}
               saving={saving}
             />
+          </div>
+        );
+      }
+
+      case 'gps': {
+        return (
+          <div className="space-y-6">
             <GpsSettingsCard
               settings={settings}
               serverSettings={serverSettings}

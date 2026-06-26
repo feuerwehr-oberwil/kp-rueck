@@ -3,15 +3,16 @@
 Runs once per Traccar poll tick (invoked from ``traccar_poller``) and implements
 two rules, both opt-in behind ``gps.automation_enabled`` (default OFF):
 
-- **Rule A — Arrival (SILENT auto-advance):** when an assigned vehicle's GPS device
-  is confirmed at the incident location, advance the incident ``disponiert → einsatz``
-  automatically. Because this is silent, the anti-jitter guards are hard:
-  ``N`` consecutive FRESH fixes over ``>= 60 s``, speed gate, stale/404 fixes are
+- **Rule A — Arrival:** when an assigned vehicle's GPS device is confirmed at the
+  incident location, advance the incident ``disponiert → einsatz``. By DEFAULT this only
+  PROMPTS the operator to confirm (``gps_arrival_prompt``); silent auto-advance is an
+  explicit opt-in via ``gps.rule_arrival_silent``. The anti-jitter guards are hard either
+  way: ``N`` consecutive FRESH fixes over ``>= 60 s``, speed gate, stale/404 fixes are
   ignored and RESET the debounce counter, only from status exactly ``disponiert``,
   one-shot per incident, fully reversible (an operator can drag it back).
 
-- **Rule B — Return to station (CONFIRM-release):** when an assigned vehicle's device
-  enters the station geofence (confirmed with the same guards), PROMPT the operator
+- **Rule B — Return to magazin (CONFIRM-release):** when an assigned vehicle's device
+  enters the magazin geofence (confirmed with the same guards), PROMPT the operator
   to release that vehicle's assignment. Never silent-release, never auto-close.
 
 All automated actions go through ``crud.update_incident_status`` so status-transition
@@ -67,6 +68,7 @@ class _AutomationConfig:
 
     enabled: bool
     rule_arrival_enabled: bool
+    rule_arrival_silent: bool
     rule_return_enabled: bool
     arrival_radius_m: float
     station_lat: float | None
@@ -144,6 +146,7 @@ async def _load_config(db: AsyncSession) -> _AutomationConfig:
     """Read and validate the gps.* settings for this tick."""
     enabled = (await get_setting_value(db, "gps.automation_enabled", "false")).lower() == "true"
     rule_arrival = (await get_setting_value(db, "gps.rule_arrival_enabled", "false")).lower() == "true"
+    rule_arrival_silent = (await get_setting_value(db, "gps.rule_arrival_silent", "false")).lower() == "true"
     rule_return = (await get_setting_value(db, "gps.rule_return_enabled", "false")).lower() == "true"
 
     arrival_radius = _parse_float(await get_setting_value(db, "geofence_radius_meters", "200")) or 200.0
@@ -158,6 +161,7 @@ async def _load_config(db: AsyncSession) -> _AutomationConfig:
     return _AutomationConfig(
         enabled=enabled,
         rule_arrival_enabled=rule_arrival,
+        rule_arrival_silent=rule_arrival_silent,
         rule_return_enabled=rule_return,
         arrival_radius_m=arrival_radius,
         station_lat=station_lat,
@@ -312,8 +316,15 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                 arrival_keys.add(a_key)
                 if _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now):
                     if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
-                        actor = actor or await _get_system_actor(db)
-                        await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
+                        if cfg.rule_arrival_silent:
+                            # Dangerous opt-in: silently advance without operator confirm.
+                            actor = actor or await _get_system_actor(db)
+                            await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
+                        else:
+                            # Default: prompt the operator to confirm; do NOT change status.
+                            await _fire_arrival_prompt(
+                                t["incident_id"], t["vehicle_name"], t["incident_label"],
+                            )
                 else:
                     # Any missing/stale/too-far/too-fast fix resets the counter so a
                     # single bad reading can never mis-advance a live incident.
@@ -389,6 +400,32 @@ async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: 
         notes=ARRIVAL_NOTE,
     )
     await broadcast_incident_update({"id": str(incident_id), "status": "einsatz"}, "update")
+
+
+async def _fire_arrival_prompt(
+    incident_id: uuid.UUID,
+    vehicle_name: str,
+    incident_label: str,
+) -> None:
+    """Emit an operator prompt (WebSocket) to confirm advancing the incident to einsatz.
+
+    No DB mutation — the status change happens only if the operator confirms, via the
+    existing status-transition endpoint the frontend board already uses. This is the
+    DEFAULT for Rule A; silent auto-advance is an explicit opt-in (``rule_arrival_silent``).
+    """
+    logger.info(
+        "GPS automation: vehicle %s at incident location — prompting advance of incident %s",
+        vehicle_name,
+        incident_id,
+    )
+    await broadcast_message(
+        {
+            "type": "gps_arrival_prompt",
+            "incident_id": str(incident_id),
+            "vehicle_name": vehicle_name,
+            "incident_label": incident_label,
+        }
+    )
 
 
 async def _fire_return_prompt(

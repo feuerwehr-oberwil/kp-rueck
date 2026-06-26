@@ -16,6 +16,7 @@ import { AppShell } from '@/components/app-shell'
 import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
+import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { DemoBanner } from '@/components/demo-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
@@ -77,6 +78,7 @@ export default function RootLayout({
                         <VehicleDriverPrompt />
                         <VehicleConflictPrompt />
                         <GpsReleasePrompt />
+                        <GpsArrivalPrompt />
                       </CommandPaletteProvider>
                     </NotificationProvider>
                   </OperationsProvider>

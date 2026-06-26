@@ -138,7 +138,8 @@ export function NotificationSettingsCard() {
           <div className="min-w-0">
             <Label htmlFor="geofence-alerts" className="font-medium">Geofence-Ankunft</Label>
             <p className="text-xs text-muted-foreground">
-              Benachrichtigung wenn ein Fahrzeug am Einsatzort eintrifft (GPS)
+              Benachrichtigung wenn ein Fahrzeug am Einsatzort eintrifft (GPS). Der Ankunftsradius
+              wird unter Einstellungen → GPS festgelegt.
             </p>
           </div>
           <Switch
@@ -148,33 +149,6 @@ export function NotificationSettingsCard() {
             disabled={savingKey === 'enabled_geofence_alerts'}
           />
         </div>
-
-        {settings.enabled_geofence_alerts && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="geofence-radius" className="font-medium">Radius (Meter)</Label>
-              <p className="text-xs text-muted-foreground">
-                Entfernung zum Einsatzort für Ankunftsmeldung
-              </p>
-            </div>
-            <Input
-              id="geofence-radius"
-              type="number"
-              className="w-24"
-              value={settings.geofence_radius_meters}
-              min={50}
-              max={1000}
-              step={50}
-              onChange={(e) => {
-                const value = parseInt(e.target.value)
-                if (!isNaN(value) && value >= 50 && value <= 1000) {
-                  updateSetting('geofence_radius_meters', value)
-                }
-              }}
-              disabled={savingKey === 'geofence_radius_meters'}
-            />
-          </div>
-        )}
       </div>
       </Card>
 
