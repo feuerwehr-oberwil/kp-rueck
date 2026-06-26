@@ -69,6 +69,20 @@ DEFAULT_SETTINGS = {
         "👤 {crew}\n"
         "🧰 {materials}"
     ),
+    # GPS-driven status automation (plan 10) — opt-in, OFF by default. GPS is noisy
+    # here (the Traccar feed returns frequent 404/no-fix), so all rules are gated on the
+    # master switch and survive jitter via the debounce/freshness/speed guards below.
+    # Never acts in training events or demo mode. See app/services/gps_automation.py.
+    "gps.automation_enabled": "false",  # Master switch for all GPS automation
+    "gps.rule_arrival_enabled": "false",  # Rule A: silent disponiert -> einsatz on arrival
+    "gps.rule_return_enabled": "false",  # Rule B: prompt to release a vehicle back at station
+    "gps.station_lat": "",  # Station/home-base latitude (Rule B geofence centre)
+    "gps.station_lng": "",  # Station/home-base longitude (Rule B geofence centre)
+    "gps.station_radius_meters": "100",  # Tight radius so passing vehicles don't trigger
+    # Tuning constants (shared by both rules). Arrival radius reuses geofence_radius_meters.
+    "gps.debounce_count": "3",  # N consecutive confirming fixes required
+    "gps.freshness_seconds": "60",  # Ignore fixes older than this; also the min enter-duration
+    "gps.speed_gate_kmh": "5",  # Treat as stationary only below this speed
 }
 
 

@@ -81,6 +81,10 @@ class TraccarPoller:
                     for p in positions
                 ]
                 await broadcast_vehicle_positions(positions_data)
+                # GPS-driven status automation (plan 10) — opt-in, off by default. Runs
+                # on the same positions we just fetched (no extra Traccar calls) and can
+                # never break the broadcast above (it swallows its own errors).
+                await self._run_automation(positions)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -90,6 +94,17 @@ class TraccarPoller:
                 await asyncio.sleep(POSITIONS_INTERVAL_SECONDS)
             except asyncio.CancelledError:
                 break
+
+    async def _run_automation(self, positions: list) -> None:
+        """Run the GPS automation rules in their own DB session, per tick."""
+        from ..database import async_session_maker
+        from .gps_automation import run_automation_tick
+
+        try:
+            async with async_session_maker() as db:
+                await run_automation_tick(db, positions)
+        except Exception as e:
+            logger.debug("GPS automation invocation failed: %s", e)
 
     async def _poll_trails(self):
         """Poll vehicle trails and broadcast."""
