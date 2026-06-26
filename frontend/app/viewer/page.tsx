@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { apiClient, type ApiIncident, type ApiEvent } from '@/lib/api-client'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -9,7 +9,7 @@ import { useEvent, apiEventToEvent } from '@/lib/contexts/event-context'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone } from 'lucide-react'
+import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone, LogOut } from 'lucide-react'
 import { columns, getTimeSince } from '@/lib/kanban-utils'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
@@ -251,7 +251,8 @@ function ViewerColumn({ column, incidents }: ViewerColumnProps) {
 export default function ViewerPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, logout } = useAuth()
+  const router = useRouter()
   const { selectedEvent, setSelectedEvent } = useEvent()
 
   // Two ways to reach this board:
@@ -481,6 +482,22 @@ export default function ViewerPage() {
               {currentTime.toLocaleTimeString('de-DE')}
             </span>
           </div>
+
+          {/* Logout (only for a logged-in viewer — token guests have no session) */}
+          {isAuthMode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={async () => {
+                await logout()
+                router.push('/login')
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Abmelden</span>
+            </Button>
+          )}
         </div>
       </header>
 

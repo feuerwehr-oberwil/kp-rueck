@@ -246,15 +246,19 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden.
 
 Erneuter Rechtsklick entfernt die Zuweisung.
 
-### Sicherheitsabfragen beim Zuweisen
+### Sicherheitsabfragen — das Auffangnetz
 
-Um Flüchtigkeitsfehler in hektischen Momenten zu vermeiden, fragt das System in drei Fällen nach:
+Damit in hektischen Momenten kein Schritt vergessen geht, blendet das System bei den folgenden Situationen automatisch eine Rückfrage ein. Sie sind als **Fallback** gedacht: der normale Ablauf funktioniert auch ohne sie — aber falls man etwas vergisst, fängt die Abfrage es auf. Der empfohlene (sichere) Knopf ist jeweils hervorgehoben.
 
 | Situation | Abfrage |
 |-----------|---------|
-| **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl. „Schliessen" lässt das Fahrzeug ohne Fahrer. |
-| **Fahrzeug bereits im Einsatz** (Doppelbuchung) | Ein Fahrzeug ist nur einmal physisch vorhanden — beim erneuten Zuweisen fragt das System: **Hierher verschieben** (von den anderen Einsätzen entfernen) oder **Mehrfach zuweisen** (Doppelbuchung bewusst behalten). |
-| **Disponieren ohne Ressourcen** | Wird ein Einsatz nach „Disponiert" verschoben, ohne dass **Personal, Fahrzeuge oder Mittel** zugewiesen sind (Fahrzeuge entfallen bei „zu Fuss"), erscheint „Ressourcen fehlen" mit der Wahl **Zuweisen** oder **Trotzdem disponieren**. |
+| **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl. „Schliessen" lässt das Fahrzeug bewusst ohne Fahrer. |
+| **Fahrzeug bereits im Einsatz** (Doppelbuchung) | Ein Fahrzeug ist nur einmal physisch vorhanden — beim erneuten Zuweisen: **Hierher verschieben** (von den anderen Einsätzen entfernen) oder **Mehrfach zuweisen** (Doppelbuchung bewusst behalten). |
+| **In die Reko-Spalte ohne Reko-Person** | Wird ein Einsatz nach „Reko" verschoben, ohne dass eine Reko-Person zugewiesen ist, erscheint „Keine Reko-Person zugewiesen": **Reko-Person zuweisen** (sie erhält dann das Reko-Formular) oder „Trotzdem fortfahren". |
+| **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach „Disponiert" **Personal, Fahrzeuge oder Mittel** (Fahrzeuge entfallen bei „zu Fuss"), erscheint „Ressourcen fehlen". Empfohlen ist **Zuweisen** — das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter; „Trotzdem disponieren" fährt bewusst unterbestückt los. |
+| **Abschliessen mit zugewiesenem Material** | Wird ein Einsatz abgeschlossen, während noch Material zugewiesen ist, fragt das System: **Material zurück** (freigeben) oder „Vor Ort gelassen" (zugewiesen lassen, z. B. wenn es vor Ort bleibt). |
+
+Personal und Fahrzeuge werden beim Abschliessen automatisch freigegeben; nur Material wird abgefragt, weil es bewusst vor Ort bleiben kann.
 
 ---
 
