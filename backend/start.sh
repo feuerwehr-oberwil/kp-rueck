@@ -30,6 +30,11 @@ uv run alembic upgrade head
 echo "Seeding database..."
 uv run python -m app.seed
 
+# Ensure shared accounts exist even on an already-seeded DB (no-op unless the
+# corresponding env vars are set). Creates/rotates the read-only viewer login.
+echo "Ensuring service accounts..."
+uv run python -m app.ensure_accounts
+
 # Start the application
 echo "Starting Uvicorn server on 0.0.0.0:${PORT:-8000}..."
 exec uv run uvicorn app.main:app --host "0.0.0.0" --port "${PORT:-8000}"
