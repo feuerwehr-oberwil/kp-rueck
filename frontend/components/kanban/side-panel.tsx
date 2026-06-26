@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { cn } from "@/lib/utils"
 import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Users, Truck, Package, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -854,28 +854,13 @@ function SidePanelDetail({
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Einsatz wirklich löschen?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "{formatLocation(operation.location)}" wird permanent gelöscht.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                onDelete(operation.id)
-                setShowDeleteConfirm(false)
-              }}
-            >
-              Löschen
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Einsatz wirklich löschen?"
+        description={`Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "${formatLocation(operation.location)}" wird permanent gelöscht.`}
+        onConfirm={() => onDelete(operation.id)}
+      />
 
       {/* Transfer Incident Dialog */}
       <TransferIncidentDialog

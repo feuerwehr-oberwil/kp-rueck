@@ -2298,8 +2298,8 @@ export default function FireStationDashboard() {
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Einsatz löschen"
-        description={`Sind Sie sicher, dass Sie den Einsatz "${operationToDelete?.location}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        title="Einsatz wirklich löschen?"
+        description={`Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "${operationToDelete?.location}" wird permanent gelöscht.`}
         onConfirm={handleDeleteOperationConfirm}
       />
 
@@ -2353,7 +2353,15 @@ export default function FireStationDashboard() {
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
             <Button
-              variant="outline"
+              variant="ghost"
+              onClick={() => {
+                setDisponiertDialogOp(missingResourcesAckOp)
+                setMissingResourcesAckOp(null)
+              }}
+            >
+              Trotzdem disponieren
+            </Button>
+            <Button
               onClick={() => {
                 const op = missingResourcesAckOp
                 setMissingResourcesAckOp(null)
@@ -2378,14 +2386,6 @@ export default function FireStationDashboard() {
             >
               Zuweisen
             </Button>
-            <Button
-              onClick={() => {
-                setDisponiertDialogOp(missingResourcesAckOp)
-                setMissingResourcesAckOp(null)
-              }}
-            >
-              Trotzdem disponieren
-            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2408,8 +2408,10 @@ export default function FireStationDashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
+            <Button variant="ghost" onClick={() => setRekoMissingAckOp(null)}>
+              Trotzdem fortfahren
+            </Button>
             <Button
-              variant="outline"
               onClick={() => {
                 const op = rekoMissingAckOp
                 setRekoMissingAckOp(null)
@@ -2417,9 +2419,6 @@ export default function FireStationDashboard() {
               }}
             >
               Reko-Person zuweisen
-            </Button>
-            <Button variant="ghost" onClick={() => setRekoMissingAckOp(null)}>
-              Trotzdem fortfahren
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

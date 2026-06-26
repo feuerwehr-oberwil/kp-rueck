@@ -28,7 +28,7 @@ export function UnsavedChangesDialog({
   onOpenChange,
   onConfirm,
   title = "Ungespeicherte Änderungen",
-  description = "Sie haben Änderungen vorgenommen, die nicht gespeichert wurden. Wenn Sie schließen, gehen diese Änderungen verloren.",
+  description = "Sie haben Änderungen vorgenommen, die nicht gespeichert wurden. Wenn Sie schliessen, gehen diese Änderungen verloren.",
   confirmText = "Verwerfen",
   cancelText = "Weiter bearbeiten",
 }: UnsavedChangesDialogProps) {

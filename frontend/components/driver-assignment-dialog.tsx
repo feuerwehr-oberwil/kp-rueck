@@ -437,7 +437,10 @@ export function DriverAssignmentDialog({
       <AlertDialog open={conflictDialog.open} onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Person ist einem Einsatz zugewiesen</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              Person ist einem Einsatz zugewiesen
+            </AlertDialogTitle>
             <AlertDialogDescription>
               <strong>{conflictDialog.person?.name}</strong> ist aktuell{' '}
               {conflictDialog.conflictingOperations.length === 1

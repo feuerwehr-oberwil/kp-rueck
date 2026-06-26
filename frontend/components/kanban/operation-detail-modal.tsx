@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -885,29 +885,16 @@ export function OperationDetailModal({
         </div>
       </DialogContent>
 
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Einsatz wirklich löschen?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "{operation.location}" wird permanent gelöscht.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                onDelete(operation.id)
-                setShowDeleteConfirm(false)
-                onOpenChange(false)
-              }}
-            >
-              Löschen
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Einsatz wirklich löschen?"
+        description={`Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "${operation.location}" wird permanent gelöscht.`}
+        onConfirm={() => {
+          onDelete(operation.id)
+          onOpenChange(false)
+        }}
+      />
 
       {/* Transfer Incident Dialog */}
       <TransferIncidentDialog
