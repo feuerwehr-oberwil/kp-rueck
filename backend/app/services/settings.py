@@ -76,7 +76,7 @@ DEFAULT_SETTINGS = {
     "gps.automation_enabled": "false",  # Master switch for all GPS automation
     "gps.rule_arrival_enabled": "false",  # Rule A: arrival at incident -> advance to einsatz
     "gps.rule_arrival_silent": "false",  # Rule A opt-in: advance SILENTLY (no operator confirm)
-    "gps.rule_return_enabled": "false",  # Rule B: prompt to release a vehicle back at magazin
+    "gps.rule_return_enabled": "true",  # Rule B: prompt to release a vehicle back at magazin (confirm-only, safe default ON)
     "gps.station_lat": "",  # Magazin/home-base latitude (Rule B geofence centre)
     "gps.station_lng": "",  # Magazin/home-base longitude (Rule B geofence centre)
     "gps.station_radius_meters": "100",  # Tight radius so passing vehicles don't trigger
