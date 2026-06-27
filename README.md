@@ -115,7 +115,9 @@ Contributions are welcome: bug fixes, integrations, translations, or ideas. See 
 
 ## License
 
-[AGPL-3.0](LICENSE) — free to use, modify, and deploy. Modified versions served over a network must share their source under the same license.
+[AGPL-3.0-or-later](LICENSE) — free to use, modify, and deploy. Modified versions served over a network must share their source under the same license.
+
+Copyright © 2026 Bastian Eichenberger.
 
 ## Acknowledgments
 
