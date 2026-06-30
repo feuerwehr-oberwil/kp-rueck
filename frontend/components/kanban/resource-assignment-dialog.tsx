@@ -539,6 +539,8 @@ export function ResourceAssignmentDialog({
                     const selectedCount = groupMatIds.filter(id => selectedMaterials.has(id)).length
                     const isExpanded = expandedGroups.has(groupId)
                     const wasJustAssigned = justAssigned === `group-${groupMatIds[0]}`
+                    // Origin(s) of the module's items — distinct depots/locations.
+                    const groupOrigins = [...new Set(groupMats.map(m => m.category).filter(Boolean))].join(", ")
                     return (
                       <div key={`group-${groupId}`} className="space-y-1">
                         {/* Group header row */}
@@ -582,7 +584,10 @@ export function ResourceAssignmentDialog({
                                   <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                                   {groupName}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{selectedCount}/{groupMats.length} ausgewählt</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {groupOrigins && <span>{groupOrigins} · </span>}
+                                  {selectedCount}/{groupMats.length} ausgewählt
+                                </p>
                               </div>
                             </div>
                             {allSelected && (
@@ -593,36 +598,40 @@ export function ResourceAssignmentDialog({
                             )}
                           </button>
                         </div>
-                        {/* Expanded individual materials */}
-                        {isExpanded && groupMats.map((material) => {
-                          const isSelected = isMaterialSelected(material.id)
-                          const matJustAssigned = justAssigned === material.id
-                          return (
-                            <button
-                              key={material.id}
-                              onClick={() => handleToggleMaterialSelection(material)}
-                              className={cn(
-                                "w-full flex items-center justify-between p-3 pl-10 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                                isSelected && "border-primary/30 bg-primary/5"
-                              )}
-                            >
-                              <div className="flex items-center gap-3">
-                                {isSelected ? (
-                                  <CheckCircle className={cn(
-                                    "h-5 w-5 text-emerald-500 flex-shrink-0",
-                                    matJustAssigned && "animate-checkmark-spring"
-                                  )} />
-                                ) : (
-                                  <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                                )}
-                                <p className="font-medium text-sm">{material.name}</p>
-                              </div>
-                              {isSelected && (
-                                <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
-                              )}
-                            </button>
-                          )
-                        })}
+                        {/* Expanded individual materials — same 3-col card grid as
+                            ungrouped items, slightly inset so they read as the
+                            module's contents. */}
+                        {isExpanded && (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-4 border-l-2 border-border/40 ml-3">
+                            {groupMats.map((material) => {
+                              const isSelected = isMaterialSelected(material.id)
+                              const matJustAssigned = justAssigned === material.id
+                              return (
+                                <button
+                                  key={material.id}
+                                  onClick={() => handleToggleMaterialSelection(material)}
+                                  className={cn(
+                                    "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                                    isSelected && "border-primary/30 bg-primary/5"
+                                  )}
+                                >
+                                  {isSelected ? (
+                                    <CheckCircle className={cn(
+                                      "h-5 w-5 text-emerald-500 flex-shrink-0",
+                                      matJustAssigned && "animate-checkmark-spring"
+                                    )} />
+                                  ) : (
+                                    <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-sm truncate">{material.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{material.category}</p>
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
