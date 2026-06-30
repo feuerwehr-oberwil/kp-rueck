@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { formatDiveraMessage, formatDiveraTitle } from "@/lib/divera-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
@@ -37,6 +38,7 @@ interface Recipient {
 
 export function DiveraSendDialog({ open, onOpenChange, operation, materials }: DiveraSendDialogProps) {
   const { personnel } = usePersonnel()
+  const { selectedEvent } = useEvent()
 
   // Recipients = the incident's assigned crew (pre-selected) plus the drivers of
   // its assigned vehicles (listed, but NOT pre-selected).
@@ -89,8 +91,13 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
     let cancelled = false
     getMessageTemplates().then(({ diveraTitle, diveraText }) => {
       if (cancelled) return
-      setTitle(formatDiveraTitle(operation, diveraTitle).slice(0, 50))
-      setText(formatDiveraMessage({ operation, materials, template: diveraText }))
+      const isTraining = selectedEvent?.training_flag ?? false
+      const baseTitle = formatDiveraTitle(operation, diveraTitle)
+      const body = formatDiveraMessage({ operation, materials, template: diveraText })
+      // In a training event no real alarm is sent (the backend simulates it). Make
+      // that unmistakable in the message itself so nobody mistakes it for a callout.
+      setTitle((isTraining ? `ÜBUNG: ${baseTitle}` : baseTitle).slice(0, 50))
+      setText(isTraining ? `🔶 ÜBUNG – PROBEALARM, es wird NICHT real alarmiert.\n\n${body}` : body)
       setTemplatesReady(true)
     })
     return () => {

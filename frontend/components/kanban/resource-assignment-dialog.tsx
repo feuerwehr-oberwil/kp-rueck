@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -60,27 +60,41 @@ export function ResourceAssignmentDialog({
   const [searchFocused, setSearchFocused] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  // Quick category filter (null = all): rank for crew, depot/location for
+  // material, type for vehicles. Sits as chips below the search.
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
 
   // Local selection state for crew and materials (deferred assignment)
   // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
   const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string>>(new Set())
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set())
 
-  // Initialize selection state from assigned state when dialog opens
+  // Snapshot the assigned state into the local selection ONLY on the open
+  // transition. Re-snapshotting whenever assignedPersonnel/assignedMaterials
+  // change (a background poll, WS push, or optimistic revert that lands while the
+  // dialog is open) was wiping the user's in-progress ticks — boxes appeared to
+  // untick themselves. Guarding on the false→true edge keeps selections stable.
+  const wasOpenRef = useRef(false)
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
       setSelectedPersonnel(new Set(assignedPersonnel))
       setSelectedMaterials(new Set(assignedMaterials))
     }
+    wasOpenRef.current = open
   }, [open, assignedPersonnel, assignedMaterials])
 
-  // Reset search on close
+  // Reset search + category filter on close, and clear the category filter
+  // whenever the resource type changes (its categories no longer apply).
   useEffect(() => {
     if (!open) {
       setSearchQuery("")
       setSearchFocused(false)
+      setCategoryFilter(null)
     }
   }, [open])
+  useEffect(() => {
+    setCategoryFilter(null)
+  }, [resourceType])
 
   // Get resources that can be shown in the dialog
   // For crew: show available personnel OR personnel already assigned to THIS operation (for deselection)
@@ -111,25 +125,41 @@ export function ResourceAssignmentDialog({
     return materials.filter(m => m.status === 'available' || assignedMaterials.includes(m.id))
   }, [materials, assignedMaterials])
 
-  // Filter resources by search query
+  // Quick-filter categories for the active resource type (rank / location / type).
+  const categories = useMemo(() => {
+    const source =
+      resourceType === 'crew'
+        ? selectablePersonnel.map(p => p.role).filter((r): r is string => Boolean(r))
+        : resourceType === 'vehicles'
+          ? availableVehicles.map(v => v.type)
+          : resourceType === 'materials'
+            ? selectableMaterials.map(m => m.category)
+            : []
+    return [...new Set(source)].sort((a, b) => a.localeCompare(b))
+  }, [resourceType, selectablePersonnel, availableVehicles, selectableMaterials])
+
+  // Filter resources by search query + quick category filter
   const filteredPersonnel = useMemo(() => {
-    if (!searchQuery.trim()) return selectablePersonnel
-    const query = searchQuery.toLowerCase()
-    return selectablePersonnel.filter(p => p.name.toLowerCase().includes(query))
-  }, [selectablePersonnel, searchQuery])
+    const query = searchQuery.trim().toLowerCase()
+    return selectablePersonnel.filter(p =>
+      (!query || p.name.toLowerCase().includes(query)) &&
+      (!categoryFilter || p.role === categoryFilter)
+    )
+  }, [selectablePersonnel, searchQuery, categoryFilter])
 
   const filteredVehicles = useMemo(() => {
-    if (!searchQuery.trim()) return availableVehicles
-    const query = searchQuery.toLowerCase()
+    const query = searchQuery.trim().toLowerCase()
     return availableVehicles.filter(v =>
-      v.name.toLowerCase().includes(query) || v.type.toLowerCase().includes(query)
+      (!query || v.name.toLowerCase().includes(query) || v.type.toLowerCase().includes(query)) &&
+      (!categoryFilter || v.type === categoryFilter)
     )
-  }, [availableVehicles, searchQuery])
+  }, [availableVehicles, searchQuery, categoryFilter])
 
   const filteredMaterials = useMemo(() => {
-    if (!searchQuery.trim()) return selectableMaterials
-    const query = searchQuery.toLowerCase()
+    const query = searchQuery.trim().toLowerCase()
     return selectableMaterials.filter(m => {
+      if (categoryFilter && m.category !== categoryFilter) return false
+      if (!query) return true
       // Match material name or category
       if (m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)) return true
       // Match group name
@@ -139,7 +169,7 @@ export function ResourceAssignmentDialog({
       }
       return false
     })
-  }, [selectableMaterials, searchQuery, materialGroups])
+  }, [selectableMaterials, searchQuery, materialGroups, categoryFilter])
 
   // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
   const isPersonSelected = (personName: string) => selectedPersonnel.has(personName)
@@ -347,7 +377,12 @@ export function ResourceAssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      {/* Fixed (definite) height: gives flex-1 a real basis so the list scrolls
+          internally instead of overflowing, and keeps the dialog the same size as
+          you switch quick filters so the top doesn't jump. overflow-hidden clips. */}
+      {/* sm:max-w-6xl is required — the DialogContent base sets sm:max-w-lg (512px),
+          a responsive variant that an unprefixed max-w-* does NOT override. */}
+      <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon className="h-5 w-5" />
@@ -356,7 +391,7 @@ export function ResourceAssignmentDialog({
           <DialogDescription>{getDialogDescription()}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex flex-col min-h-0 flex-1 gap-4">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -374,99 +409,125 @@ export function ResourceAssignmentDialog({
             />
           </div>
 
-          {/* Resource List */}
-          <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-2">
-              {resourceType === 'crew' && filteredPersonnel.map((person, index) => {
-                const isSelected = isPersonSelected(person.name)
-                const wasJustAssigned = justAssigned === person.id
-                return (
-                  <button
-                    key={person.id}
-                    onClick={() => handleTogglePersonSelection(person)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                      isSelected && "border-primary/30 bg-primary/5"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      {isSelected ? (
-                        <CheckCircle className={cn(
-                          "h-5 w-5 text-emerald-500 flex-shrink-0",
-                          wasJustAssigned && "animate-checkmark-spring"
-                        )} />
-                      ) : (
-                        <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      )}
-                      <div>
-                        <p className="font-medium text-sm">{person.name}</p>
-                        {person.role && (
-                          <p className="text-xs text-muted-foreground">{person.role}</p>
-                        )}
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
-                    )}
-                  </button>
-                )
-              })}
-
-              {resourceType === 'vehicles' && onToggleZuFuss && (
+          {/* Quick category filter — rank (crew), depot (material), type (vehicles) */}
+          {categories.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setCategoryFilter(null)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                  categoryFilter === null
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                Alle
+              </button>
+              {categories.map((cat) => (
                 <button
-                  onClick={onToggleZuFuss}
+                  key={cat}
+                  onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
                   className={cn(
-                    "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                    zuFuss && "border-primary/30 bg-primary/5"
+                    "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                    categoryFilter === cat
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    {zuFuss ? (
-                      <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <div>
-                      <p className="font-medium text-sm">Zu Fuss</p>
-                      <p className="text-xs text-muted-foreground">Kein Fahrzeug</p>
-                    </div>
-                  </div>
-                  <Footprints className="h-4 w-4 text-muted-foreground" />
+                  {cat}
                 </button>
+              ))}
+            </div>
+          )}
+
+          {/* Resource List — flexes to fill the space between chips and footer,
+              so the list scrolls internally and the dialog never exceeds 85dvh. */}
+          <ScrollArea className="flex-1 min-h-0 pr-4">
+            <div className="space-y-2">
+              {resourceType === 'crew' && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {filteredPersonnel.map((person) => {
+                    const isSelected = isPersonSelected(person.name)
+                    const wasJustAssigned = justAssigned === person.id
+                    return (
+                      <button
+                        key={person.id}
+                        onClick={() => handleTogglePersonSelection(person)}
+                        className={cn(
+                          "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                          isSelected && "border-primary/30 bg-primary/5"
+                        )}
+                      >
+                        {isSelected ? (
+                          <CheckCircle className={cn(
+                            "h-5 w-5 text-emerald-500 flex-shrink-0",
+                            wasJustAssigned && "animate-checkmark-spring"
+                          )} />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{person.name}</p>
+                          {person.role && (
+                            <p className="text-xs text-muted-foreground truncate">{person.role}</p>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               )}
 
-              {resourceType === 'vehicles' && filteredVehicles.map((vehicle, index) => {
-                const isAssigned = isVehicleAssigned(vehicle.name)
-                const wasJustAssigned = justAssigned === vehicle.id
-                return (
-                  <button
-                    key={vehicle.id}
-                    onClick={() => handleToggleVehicle(vehicle)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                      isAssigned && "border-primary/30 bg-primary/5"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      {isAssigned ? (
-                        <CheckCircle className={cn(
-                          "h-5 w-5 text-emerald-500 flex-shrink-0",
-                          wasJustAssigned && "animate-checkmark-spring"
-                        )} />
-                      ) : (
-                        <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              {resourceType === 'vehicles' && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {onToggleZuFuss && (
+                    <button
+                      onClick={onToggleZuFuss}
+                      className={cn(
+                        "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                        zuFuss && "border-primary/30 bg-primary/5"
                       )}
-                      <div>
-                        <p className="font-medium text-sm">{vehicle.name}</p>
-                        <p className="text-xs text-muted-foreground">{vehicle.type}</p>
+                    >
+                      {zuFuss ? (
+                        <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                      ) : (
+                        <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">Zu Fuss</p>
+                        <p className="text-xs text-muted-foreground truncate">Kein Fahrzeug</p>
                       </div>
-                    </div>
-                    {isAssigned && (
-                      <Badge variant="secondary" className="text-xs animate-scale-in">Zugewiesen</Badge>
-                    )}
-                  </button>
-                )
-              })}
+                    </button>
+                  )}
+                  {filteredVehicles.map((vehicle) => {
+                    const isAssigned = isVehicleAssigned(vehicle.name)
+                    const wasJustAssigned = justAssigned === vehicle.id
+                    return (
+                      <button
+                        key={vehicle.id}
+                        onClick={() => handleToggleVehicle(vehicle)}
+                        className={cn(
+                          "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                          isAssigned && "border-primary/30 bg-primary/5"
+                        )}
+                      >
+                        {isAssigned ? (
+                          <CheckCircle className={cn(
+                            "h-5 w-5 text-emerald-500 flex-shrink-0",
+                            wasJustAssigned && "animate-checkmark-spring"
+                          )} />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{vehicle.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
               {resourceType === 'materials' && (
                 <>
@@ -566,38 +627,37 @@ export function ResourceAssignmentDialog({
                     )
                   })}
                   {/* Ungrouped materials */}
-                  {groupedFilteredMaterials.ungrouped.map((material) => {
-                    const isSelected = isMaterialSelected(material.id)
-                    const wasJustAssigned = justAssigned === material.id
-                    return (
-                      <button
-                        key={material.id}
-                        onClick={() => handleToggleMaterialSelection(material)}
-                        className={cn(
-                          "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                          isSelected && "border-primary/30 bg-primary/5"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          {isSelected ? (
-                            <CheckCircle className={cn(
-                              "h-5 w-5 text-emerald-500 flex-shrink-0",
-                              wasJustAssigned && "animate-checkmark-spring"
-                            )} />
-                          ) : (
-                            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                          )}
-                          <div>
-                            <p className="font-medium text-sm">{material.name}</p>
-                            <p className="text-xs text-muted-foreground">{material.category}</p>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <Badge variant="secondary" className="text-xs animate-scale-in">Ausgewählt</Badge>
-                        )}
-                      </button>
-                    )
-                  })}
+                  {groupedFilteredMaterials.ungrouped.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {groupedFilteredMaterials.ungrouped.map((material) => {
+                        const isSelected = isMaterialSelected(material.id)
+                        const wasJustAssigned = justAssigned === material.id
+                        return (
+                          <button
+                            key={material.id}
+                            onClick={() => handleToggleMaterialSelection(material)}
+                            className={cn(
+                              "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                              isSelected && "border-primary/30 bg-primary/5"
+                            )}
+                          >
+                            {isSelected ? (
+                              <CheckCircle className={cn(
+                                "h-5 w-5 text-emerald-500 flex-shrink-0",
+                                wasJustAssigned && "animate-checkmark-spring"
+                              )} />
+                            ) : (
+                              <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{material.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{material.category}</p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </>
               )}
 

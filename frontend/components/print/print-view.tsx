@@ -12,6 +12,7 @@ const PrintableMapInner = dynamic(() => import("./printable-map"), {
 })
 
 export interface PrintOptions {
+  includeIncidents: boolean
   includeCompleted: boolean
   includePersonnel: boolean
   includeVehicles: boolean
@@ -133,7 +134,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         )}
 
         {/* Incidents by Status */}
-        {sortedStatuses.map((status) => {
+        {options.includeIncidents && sortedStatuses.map((status) => {
           const statusOps = operationsByStatus[status]
           const statusInfo = STATUS_ORDER[status]
 

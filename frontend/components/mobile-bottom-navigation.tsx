@@ -151,14 +151,18 @@ export function MobileBottomNavigation({
             </SheetHeader>
 
             <div className="space-y-6 pb-4">
-              {/* Quick Actions Section */}
+              {/* Quick Actions Section — viewing-first: the QR/print/personnel
+                  actions are editor-only, so viewers get a decluttered sheet.
+                  The training link stays visible (spawning is the main mobile task). */}
+              {(isEditor || selectedEvent?.training_flag) && (
+              <>
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">
                   Schnellzugriff
                 </h3>
                 <div className="space-y-2">
                   {/* Check-In Button */}
-                  {onCheckIn && (
+                  {isEditor && onCheckIn && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
@@ -173,7 +177,7 @@ export function MobileBottomNavigation({
                   )}
 
                   {/* Reko Dashboard QR/Link */}
-                  {onReko && (
+                  {isEditor && onReko && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
@@ -188,7 +192,7 @@ export function MobileBottomNavigation({
                   )}
 
                   {/* Viewer QR/Link */}
-                  {onViewer && (
+                  {isEditor && onViewer && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
@@ -203,7 +207,7 @@ export function MobileBottomNavigation({
                   )}
 
                   {/* Personnel */}
-                  {onPersonnel && (
+                  {isEditor && onPersonnel && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
@@ -218,7 +222,7 @@ export function MobileBottomNavigation({
                   )}
 
                   {/* Vehicle Status */}
-                  {onVehicleStatus && (
+                  {isEditor && onVehicleStatus && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
@@ -233,7 +237,7 @@ export function MobileBottomNavigation({
                   )}
 
                   {/* Print */}
-                  {onPrint && (
+                  {isEditor && onPrint && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
@@ -248,7 +252,7 @@ export function MobileBottomNavigation({
                   )}
 
                   {/* Thermo Print */}
-                  {onThermo && printerEnabled && (
+                  {isEditor && onThermo && printerEnabled && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
@@ -278,6 +282,8 @@ export function MobileBottomNavigation({
               </div>
 
               <Separator />
+              </>
+              )}
 
               {/* Navigation Section (Events) */}
               <div className="animate-category-fade">

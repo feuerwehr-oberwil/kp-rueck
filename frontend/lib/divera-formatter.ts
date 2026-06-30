@@ -36,7 +36,9 @@ export function formatDiveraTitle(operation: Operation, template?: string): stri
 
 /** Render the assigned-vehicles section content (callsign + stay/return, no driver). */
 function buildVehicles(operation: Operation): string {
-  if (operation.vehicles.length === 0) return ""
+  // A "zu Fuss" incident has no vehicle on purpose — surface that explicitly
+  // instead of leaving the section blank, so the crew knows they go on foot.
+  if (operation.vehicles.length === 0) return operation.zuFuss ? "Zu Fuss" : ""
   const vehicleLines = operation.vehicles.map((vehicleName) => {
     const callsign = operation.vehicleCallsigns?.get(vehicleName)
     const driverStay = operation.vehicleDriverStay?.get(vehicleName)
@@ -63,7 +65,11 @@ function buildMaterials(operation: Operation, materials: Material[]): string {
 
 /** Plain-text alarm body for Divera. */
 export function formatDiveraMessage({ operation, materials, template }: FormatDiveraMessageOptions): string {
+  const type = getIncidentTypeLabel(operation.incidentType)
+  const location = operation.location?.trim() || ""
   const values: Record<string, string> = {
+    type,
+    location,
     notes: operation.notes?.trim() || "",
     contact: operation.contact?.trim() || "",
     internal_notes: operation.internalNotes?.trim() || "",
@@ -71,5 +77,10 @@ export function formatDiveraMessage({ operation, materials, template }: FormatDi
     crew: operation.crew.length > 0 ? operation.crew.join(", ") : "",
     materials: buildMaterials(operation, materials),
   }
-  return renderMessageTemplate(template || DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE, values)
+  const rendered = renderMessageTemplate(template || DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE, values)
+  if (rendered.trim().length > 0) return rendered
+  // The default body is all optional sections (notes/crew/vehicles/materials); a
+  // minimal incident leaves every line empty and the renderer drops them all,
+  // producing a blank alarm. Never send an empty body — fall back to type + place.
+  return location ? `${type}\n${location}` : type
 }

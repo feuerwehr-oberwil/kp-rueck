@@ -75,6 +75,7 @@ async def _load_incident_for_print(db: AsyncSession, incident_id: uuid.UUID) -> 
 async def _build_board_payload(
     db: AsyncSession,
     event_id: uuid.UUID,
+    include_incidents: bool = True,
     include_completed: bool = False,
     include_vehicles: bool = True,
     include_personnel: bool = True,
@@ -262,13 +263,17 @@ async def _build_board_payload(
         "event_id": str(event.id),
         "event_name": event.name,
         "training_flag": event.training_flag,
-        "incidents": incidents_data,
+        # When the incident list is excluded, emit an empty list so the agent
+        # prints just the personnel/vehicle overview. We still compute incidents
+        # above so personnel "assigned" status and vehicle availability are right.
+        "incidents": incidents_data if include_incidents else [],
         "vehicle_status": vehicle_status,
         "personnel_summary": {
             "total": total_personnel,
             "present": checked_in_count,
         },
         "personnel_list": personnel_list,
+        "include_incidents": include_incidents,
         "include_completed": include_completed,
         "include_vehicles": include_vehicles,
         "include_personnel": include_personnel,
@@ -390,6 +395,7 @@ async def queue_board_print(
     payload = await _build_board_payload(
         db,
         request.event_id,
+        include_incidents=request.include_incidents,
         include_completed=request.include_completed,
         include_vehicles=request.include_vehicles,
         include_personnel=request.include_personnel,

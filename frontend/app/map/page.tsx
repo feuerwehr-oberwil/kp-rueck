@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Loader2 } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Loader2, Palette, Check } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { colorGroupFor, COLOR_BY_LABELS, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -90,6 +92,16 @@ export default function MapPage() {
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [showLabels, setShowLabels] = useState(true)
+  // Marker coloring ("Färben nach") — defaults to priority (the original styling).
+  const [colorBy, setColorBy] = useState<ColorByDimension>('priority')
+  useEffect(() => {
+    const saved = localStorage.getItem(COLOR_BY_STORAGE_KEY)
+    if (saved === 'reko' || saved === 'vehicle' || saved === 'type' || saved === 'priority') setColorBy(saved)
+  }, [])
+  const setColorByPersisted = (value: ColorByDimension) => {
+    setColorBy(value)
+    if (typeof window !== 'undefined') localStorage.setItem(COLOR_BY_STORAGE_KEY, value)
+  }
   const [focusVehicleName, setFocusVehicleName] = useState<string | null>(null)
   const [focusVehicleTrigger, setFocusVehicleTrigger] = useState(0)
   const [gPrefixActive, setGPrefixActive] = useState(false)
@@ -178,6 +190,36 @@ export default function MapPage() {
     })
     return counts
   }, [incidents])
+
+  // "Färben nach": map each incident id → accent colour, plus a legend. Uses the
+  // full operations (which carry reko/vehicle/type) rather than the lighter
+  // incident markers.
+  const markerAccents = useMemo(() => {
+    // Priority uses the markers' built-in priority fill — no override.
+    if (colorBy === 'priority') return undefined
+    const m = new Map<string, string>()
+    for (const op of operations) {
+      const g = colorGroupFor(op, colorBy)
+      m.set(op.id, g ? g.color : COLOR_NONE) // grey when nothing assigned yet
+    }
+    return m
+  }, [operations, colorBy])
+
+  const colorLegend = useMemo<ColorGroup[]>(() => {
+    // Priority falls back to the static legend section in MapLegend.
+    if (colorBy === 'priority') return []
+    const map = new Map<string, ColorGroup>()
+    let hasNone = false
+    for (const op of operations) {
+      const g = colorGroupFor(op, colorBy)
+      if (g) { if (!map.has(g.key)) map.set(g.key, g) }
+      else hasNone = true
+    }
+    const arr = [...map.values()]
+    // Empty/none state: surface incidents without a value in this dimension.
+    if (hasNone) arr.push({ key: '__none__', label: 'Ohne Zuweisung', color: COLOR_NONE })
+    return arr
+  }, [operations, colorBy])
 
   // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(
@@ -422,6 +464,9 @@ export default function MapPage() {
               showLabels={showLabels}
               focusVehicleName={focusVehicleName}
               focusVehicleTrigger={focusVehicleTrigger}
+              markerAccents={markerAccents}
+              colorBy={colorBy}
+              colorGroups={colorLegend}
             />
           </main>
 
@@ -477,6 +522,51 @@ export default function MapPage() {
                   Linien
                   {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
                 </button>
+
+                {/* Färben nach — re-colors incident markers by a chosen dimension */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
+                        colorBy !== 'priority'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                      }`}
+                      title="Marker einfärben nach"
+                    >
+                      <Palette className="h-3 w-3" />
+                      Färben: {COLOR_BY_LABELS[colorBy]}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-52">
+                    <DropdownMenuLabel>Färben nach</DropdownMenuLabel>
+                    {(['priority', 'reko', 'vehicle', 'type'] as ColorByDimension[]).map((dim) => (
+                      <DropdownMenuItem
+                        key={dim}
+                        // Keep the menu open on select so the legend below updates
+                        // live as you switch dimensions (e.g. to Einsatzart).
+                        onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
+                        className="cursor-pointer justify-between"
+                      >
+                        {COLOR_BY_LABELS[dim]}
+                        {colorBy === dim && <Check className="h-3.5 w-3.5" />}
+                      </DropdownMenuItem>
+                    ))}
+                    {colorLegend.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto">
+                          {colorLegend.map((g) => (
+                            <div key={g.key} className="flex items-center gap-2 text-xs">
+                              <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
+                              <span className="truncate">{g.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Search bar */}

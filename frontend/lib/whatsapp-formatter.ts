@@ -30,7 +30,9 @@ function buildVehicles(
   vehicleDrivers?: Map<string, string>,
   vehicleCallsigns?: Map<string, string>,
 ): string {
-  if (operation.vehicles.length === 0) return ""
+  // A "zu Fuss" incident has no vehicle on purpose — surface that explicitly
+  // instead of leaving the section blank, so the crew knows they go on foot.
+  if (operation.vehicles.length === 0) return operation.zuFuss ? "🚶 Zu Fuss" : ""
   const vehicleLines = operation.vehicles.map((vehicleName) => {
     const callsign = vehicleCallsigns?.get(vehicleName) || operation.vehicleCallsigns?.get(vehicleName)
     const driverName = vehicleDrivers?.get(vehicleName)

@@ -9,6 +9,7 @@ import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incident
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
+import type { ColorByDimension, ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { VehicleTrails } from "./map/vehicle-trails"
@@ -33,9 +34,12 @@ L.Marker.prototype.options.icon = DefaultIcon
 const STATUS_BORDER_COLOR = "#374151" // gray-700
 
 // Create priority-based marker icon with status-based border styling
-function createIncidentIcon(incident: Incident, isHighlighted: boolean = false): L.DivIcon {
+function createIncidentIcon(incident: Incident, isHighlighted: boolean = false, accentColor?: string | null): L.DivIcon {
+  // When a "Färben nach" dimension is active, the marker fill is overridden with
+  // that group's colour; otherwise it falls back to the priority colour.
   const priorityColor =
     PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
+  const fillColor = accentColor || priorityColor
   const size = isHighlighted ? 32 : 24
   const pulse = isHighlighted ? 'animation: pulse 2s ease-in-out infinite;' : ''
 
@@ -74,7 +78,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false):
         cx="${borderRadius}"
         cy="${borderRadius}"
         r="${innerRadius}"
-        fill="${priorityColor}"
+        fill="${fillColor}"
         stroke="${isHighlighted ? MAP_COLORS.info : 'white'}"
         stroke-width="3"
         filter="url(#shadow-${incident.id})"
@@ -476,6 +480,9 @@ interface MapViewProps {
   showLabels?: boolean // Show permanent labels on incident markers
   focusVehicleName?: string | null // Vehicle name to zoom to (keys 1-5)
   focusVehicleTrigger?: number // Counter to re-trigger zoom to the same vehicle
+  markerAccents?: Map<string, string> // incidentId -> fill colour ("Färben nach")
+  colorBy?: ColorByDimension // active "Färben nach" dimension (for the legend)
+  colorGroups?: ColorGroup[] // legend entries for the active dimension
 }
 
 export default function MapView({
@@ -489,6 +496,9 @@ export default function MapView({
   showLabels = true,
   focusVehicleName = null,
   focusVehicleTrigger = 0,
+  markerAccents,
+  colorBy = "priority",
+  colorGroups = [],
 }: MapViewProps) {
   const { incidents, formatLocation } = useIncidents()
   const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
@@ -800,7 +810,7 @@ export default function MapView({
             <Marker
               key={incident.id}
               position={[incident.location_lat!, incident.location_lng!]}
-              icon={createIncidentIcon(incident, isHighlighted)}
+              icon={createIncidentIcon(incident, isHighlighted, markerAccents?.get(incident.id) ?? null)}
               eventHandlers={{
                 click: () => onMarkerClick?.(incident.id),
               }}
@@ -894,7 +904,7 @@ export default function MapView({
       />
 
       {/* Map Legend */}
-      <MapLegend />
+      <MapLegend colorBy={colorBy} colorGroups={colorGroups} />
     </div>
   )
 }

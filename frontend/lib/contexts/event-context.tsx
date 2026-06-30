@@ -76,6 +76,16 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authLoading, isAuthenticated])
 
+  // On logout, drop the selected event (state + localStorage) so the next user
+  // on a shared command-post machine doesn't land inside the previous operator's
+  // event. Guarded by authLoading so it only fires on a real sign-out, not during
+  // the initial auth probe.
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return
+    setSelectedEventState(null)
+    localStorage.removeItem(SELECTED_EVENT_KEY)
+  }, [authLoading, isAuthenticated])
+
   // Save selected event to localStorage when it changes
   const setSelectedEvent = useCallback((event: Event | null) => {
     if (event) {

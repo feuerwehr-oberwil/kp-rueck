@@ -9,7 +9,7 @@ import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, 
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
-import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
+import { wsClient } from '@/lib/websocket-client'
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -41,45 +41,29 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
     }
   }, [incidentId])
 
-  // WebSocket + polling fallback for reko updates
+  // WebSocket for instant updates + an always-on safety-net poll.
+  //
+  // This section only mounts while a detail modal is open (per-incident, tiny
+  // payload), so a low-frequency poll is cheap. We keep it running even while the
+  // WebSocket is connected: the very first report often submits during the gap
+  // between this component mounting and the single `reko_update` event arriving,
+  // and with no fallback poll a missed event meant the report never showed until
+  // the modal was reopened ("first emergency doesn't show right away").
   useEffect(() => {
     loadReports()
 
-    // Listen for reko updates matching this incident
+    // Listen for reko updates matching this incident (instant refresh)
     const unsubscribeReko = wsClient.on('reko_update', (data: { data: { incident_id?: string } }) => {
       if (data.data?.incident_id === incidentId) {
         loadReports()
       }
     })
 
-    // Fallback polling when WebSocket is disconnected
-    let pollInterval: NodeJS.Timeout | undefined
-
-    const startPolling = () => {
-      if (!pollInterval) {
-        pollInterval = setInterval(loadReports, POLL_INTERVAL_MS)
-      }
-    }
-
-    const stopPolling = () => {
-      if (pollInterval) {
-        clearInterval(pollInterval)
-        pollInterval = undefined
-      }
-    }
-
-    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
-      if (status === 'disconnected' || status === 'error') {
-        startPolling()
-      } else if (status === 'connected') {
-        stopPolling()
-      }
-    })
+    const pollInterval = setInterval(loadReports, POLL_INTERVAL_MS)
 
     return () => {
       unsubscribeReko()
-      unsubscribeStatus()
-      stopPolling()
+      clearInterval(pollInterval)
     }
   }, [loadReports, incidentId])
 

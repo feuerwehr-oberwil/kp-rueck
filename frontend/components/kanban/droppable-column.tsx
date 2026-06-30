@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, memo, useSyncExternalStore } from "react"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
-import { columns } from "@/lib/kanban-utils"
 import { DraggableOperation } from "./draggable-operation"
 import { cn } from "@/lib/utils"
 

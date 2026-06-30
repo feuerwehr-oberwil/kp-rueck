@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink, Siren, Binoculars } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -16,6 +16,7 @@ import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -104,7 +105,7 @@ export default function FireStationDashboard() {
   const doubleBookedPersons = useDoubleBookedPersons(operations)
 
   const { materialGroups } = useMaterials()
-  const { selectedEvent, isEventLoaded } = useEvent()
+  const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
   const { registerHandlers, clearHandlers } = useCommandPalette()
@@ -424,6 +425,7 @@ export default function FireStationDashboard() {
     setIsPrintingBoard(true)
     try {
       await apiClient.queueBoardPrint(selectedEvent.id, options ? {
+        include_incidents: options.includeIncidents,
         include_completed: options.includeCompleted,
         include_vehicles: options.includeVehicles,
         include_personnel: options.includePersonnel,
@@ -1291,16 +1293,47 @@ export default function FireStationDashboard() {
       <div className="flex h-full flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            {selectedEvent ? (
-              <>
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight truncate">{selectedEvent.name}</h1>
-                {selectedEvent.training_flag && (
+            {/* Event title doubles as an event switcher: switch events or create a
+                new one without first hunting through the user menu → Ereignisse. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-2 min-w-0 -ml-2 rounded-lg px-2 py-1 hover:bg-secondary/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                <h1 className={`text-xl md:text-2xl font-bold tracking-tight truncate ${selectedEvent ? "" : "text-muted-foreground"}`}>
+                  {selectedEvent ? selectedEvent.name : "Kein Ereignis ausgewählt"}
+                </h1>
+                {selectedEvent?.training_flag && (
                   <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">Übung</Badge>
                 )}
-              </>
-            ) : (
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-muted-foreground truncate">Kein Ereignis ausgewählt</h1>
-            )}
+                <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuLabel>Ereignis wechseln</DropdownMenuLabel>
+                {events
+                  .filter((e) => !e.archived_at && e.id !== selectedEvent?.id)
+                  .sort((a, b) => b.last_activity_at.getTime() - a.last_activity_at.getTime())
+                  .slice(0, 6)
+                  .map((event) => (
+                    <DropdownMenuItem
+                      key={event.id}
+                      onClick={() => setSelectedEvent(event)}
+                      className="cursor-pointer"
+                    >
+                      <span className="truncate">{event.name}</span>
+                      {event.training_flag && (
+                        <Badge variant="secondary" className="ml-auto text-[10px]">Übung</Badge>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push("/events?action=create")} className="cursor-pointer">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Neues Ereignis
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/events")} className="cursor-pointer">
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Alle Ereignisse
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Desktop Navigation */}

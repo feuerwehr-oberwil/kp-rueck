@@ -30,10 +30,12 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
   const printRef = useRef<HTMLDivElement>(null)
 
   const [options, setOptions] = useState<PrintOptions>({
-    includeCompleted: false,
+    includeIncidents: true,
+    includeCompleted: true,
     includePersonnel: true,
     includeVehicles: true,
-    includeMaterials: false,
+    includeMaterials: true,
+    // Map is a heavy, deliberately-chosen artifact — left off by default.
     includeMap: false,
   })
 
@@ -120,6 +122,19 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
             </SheetHeader>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeIncidents"
+                  checked={options.includeIncidents}
+                  onCheckedChange={(checked) =>
+                    updateOption("includeIncidents", checked === true)
+                  }
+                />
+                <Label htmlFor="includeIncidents" className="cursor-pointer text-sm">
+                  Einsatzliste
+                </Label>
+              </div>
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="includeCompleted"

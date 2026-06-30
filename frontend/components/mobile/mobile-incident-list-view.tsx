@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search } from "lucide-react"
+import { Search, Sparkles } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { MobileIncidentCard } from "./mobile-incident-card"
@@ -120,6 +121,18 @@ export function MobileIncidentListView({
     <div className="flex flex-col h-full">
       {/* Fixed Header with Search */}
       <div className="flex-shrink-0 px-4 pt-4 pb-2 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b border-border/50">
+        {/* Primary mobile task for training events: spawn a new training incident.
+            Surfaced prominently here so it's one tap away instead of buried in
+            the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights). */}
+        {isTraining && isEditor && (
+          <Link href="/training" className="mb-3 block">
+            <Button className="w-full min-h-[48px] gap-2 bg-orange-600 text-white hover:bg-orange-700">
+              <Sparkles className="h-4 w-4" />
+              Übungs-Einsatz erstellen
+            </Button>
+          </Link>
+        )}
+
         {/* Search Bar */}
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

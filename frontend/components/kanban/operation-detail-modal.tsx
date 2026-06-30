@@ -15,7 +15,7 @@ import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, P
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { getTimeSince } from "@/lib/kanban-utils"
+import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -68,7 +68,7 @@ export function OperationDetailModal({
   onSendDivera,
   onRequestComplete,
 }: OperationDetailModalProps) {
-  const { formatLocation, setOperations } = useOperations()
+  const { formatLocation, setOperations, changeStatusToTop } = useOperations()
   const { selectedEvent } = useEvent()
   const { materialGroups } = useMaterials()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -802,13 +802,20 @@ export function OperationDetailModal({
                             </Badge>
                           )
                         })}
-                        {ungrouped.map((matId) => (
+                        {ungrouped.map((matId) => {
+                          const mat = materials.find(m => m.id === matId)
+                          return (
                           <Badge
                             key={matId}
                             variant="outline"
                             className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
                           >
-                            {materials.find(m => m.id === matId)?.name || matId}
+                            {mat?.name || matId}
+                            {/* Origin/depot, e.g. "(Pio)" — shown here in the modal but
+                                deliberately omitted on the kanban card to keep it clean. */}
+                            {mat?.category && (
+                              <span className="text-xs text-muted-foreground">({mat.category})</span>
+                            )}
                             {onRemoveMaterial && (
                               <button
                                 onClick={(e) => {
@@ -823,13 +830,40 @@ export function OperationDetailModal({
                               </button>
                             )}
                           </Badge>
-                        ))}
+                          )
+                        })}
                       </>
                     )
                   })()
                 ) : (
                   <p className="text-sm text-muted-foreground/60 italic">Kein Material zugewiesen</p>
                 )}
+              </div>
+            </div>
+
+            {/* Status quick-change — one-click move across the board (drops the
+                card at the top of the target column) instead of drag & drop. */}
+            <div className="mt-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Status ändern</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {columns.map((col) => {
+                  const isCurrent = col.status.includes(operation.status)
+                  return (
+                    <Button
+                      key={col.id}
+                      size="sm"
+                      variant={isCurrent ? "default" : "outline"}
+                      disabled={isCurrent}
+                      onClick={() => changeStatusToTop(operation.id, col.status[0])}
+                      className="h-7 px-2.5 text-xs"
+                    >
+                      {col.title}
+                    </Button>
+                  )
+                })}
               </div>
             </div>
           </div>

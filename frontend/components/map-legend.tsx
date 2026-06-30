@@ -2,6 +2,7 @@
 
 import { Truck } from "lucide-react"
 import { PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { COLOR_BY_LABELS, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
 // Status border color (matches map-view.tsx)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -45,29 +46,50 @@ function LegendMarker({
   )
 }
 
-export function MapLegend() {
+export function MapLegend({
+  colorBy = "priority",
+  colorGroups = [],
+}: {
+  colorBy?: ColorByDimension
+  colorGroups?: ColorGroup[]
+}) {
+  // For priority the markers use the built-in priority colours (static legend
+  // below). For reko/vehicle/type the fill encodes that dimension, so swap the
+  // Priorität section for the active grouping's colours.
+  const coloring = colorBy !== "priority" && colorGroups.length > 0
   return (
-    <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-30">
+    <div className="absolute bottom-4 right-4 max-h-[calc(100%-2rem)] overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-30">
       <h3 className="font-bold mb-3 text-sm">Legende</h3>
 
-      {/* Priority Legend */}
+      {/* Fill Legend — "Färben nach" groups when active, else priority */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Priorität
+          {coloring ? COLOR_BY_LABELS[colorBy] : "Priorität"}
         </p>
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" />
-            <span className="text-xs">Hohe Priorität</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" />
-            <span className="text-xs">Mittlere Priorität</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" />
-            <span className="text-xs">Niedrige Priorität</span>
-          </div>
+          {coloring ? (
+            colorGroups.map((g) => (
+              <div key={g.key} className="flex items-center gap-2">
+                <LegendMarker fillColor={g.color} dasharray="none" />
+                <span className="text-xs">{g.label}</span>
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" />
+                <span className="text-xs">Hohe Priorität</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" />
+                <span className="text-xs">Mittlere Priorität</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" />
+                <span className="text-xs">Niedrige Priorität</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

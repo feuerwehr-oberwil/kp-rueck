@@ -103,6 +103,9 @@ interface OperationsContextType {
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
   reorderColumn: (orderedIds: string[]) => void
+  /** Change an incident's status and move it to the TOP of the target column —
+   *  the one-click equivalent of dragging it across (mirrors the reko auto-move). */
+  changeStatusToTop: (operationId: string, newStatus: OperationStatus) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   getNextOperationId: () => string
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
@@ -1144,6 +1147,29 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     })()
   }
 
+  // One-click status change that drops the card at the TOP of its new column,
+  // mirroring how the reko auto-advance surfaces freshly-moved incidents. Saves
+  // the operator a drag across the board.
+  const changeStatusToTop = (operationId: string, newStatus: OperationStatus) => {
+    // Persist the status (debounced backend update + completion side effects).
+    updateOperation(operationId, { status: newStatus })
+    // Optimistically move the card to the front of the array so it renders at the
+    // top of its (single-status) column immediately.
+    setOperations((ops) => {
+      const target = ops.find((o) => o.id === operationId)
+      if (!target) return ops
+      return [target, ...ops.filter((o) => o.id !== operationId)]
+    })
+    // Persist the new in-column order with this card first.
+    const ids = [
+      operationId,
+      ...operations
+        .filter((o) => o.id !== operationId && o.status === newStatus)
+        .map((o) => o.id),
+    ]
+    reorderColumn(ids)
+  }
+
   const getNextOperationId = () => {
     const maxId = Math.max(...operations.map(op => parseInt(op.id) || 0))
     return String(maxId + 1)
@@ -1638,6 +1664,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         removeReko,
         updateOperation,
         reorderColumn,
+        changeStatusToTop,
         createOperation,
         getNextOperationId,
         assignPersonToOperation,

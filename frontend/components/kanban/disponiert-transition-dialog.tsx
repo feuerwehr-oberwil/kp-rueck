@@ -77,11 +77,24 @@ export function DisponierTransitionDialog({
     : null
   const isZuFuss = operation.zuFuss || false
   const vehicleList = !isZuFuss && operation.vehicles.length > 0
-    ? operation.vehicles.join(", ")
+    ? operation.vehicles
+        .map(name => {
+          // Spell out whether each vehicle stays on scene or returns, so the
+          // radio call matches what WhatsApp/Divera already announce.
+          const stay = operation.vehicleDriverStay?.get(name)
+          if (stay === undefined) return name
+          return `${name} (${stay ? "bleibt vor Ort" : "kehrt zurück"})`
+        })
+        .join(", ")
     : null
   const materialNames = operation.materials.length > 0
     ? operation.materials
-        .map(id => materials.find(m => m.id === id)?.name)
+        .map(id => {
+          // Include the material's origin/depot, e.g. "Tauchpumpe Gr. (Pio)".
+          const m = materials.find(m => m.id === id)
+          if (!m) return null
+          return m.category ? `${m.name} (${m.category})` : m.name
+        })
         .filter(Boolean)
         .join(", ")
     : null

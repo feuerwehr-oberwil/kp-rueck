@@ -1262,6 +1262,7 @@ class ApiClient {
   }
 
   async queueBoardPrint(eventId: string, options?: {
+    include_incidents?: boolean
     include_completed?: boolean
     include_vehicles?: boolean
     include_personnel?: boolean

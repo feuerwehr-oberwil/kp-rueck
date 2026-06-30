@@ -282,7 +282,7 @@ export function TrainingControls() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setPinLocation(null)}
-                className="h-7 w-7 p-0"
+                className="h-9 w-9 sm:h-7 sm:w-7 p-0"
                 title="Pin entfernen"
               >
                 <X className="h-3.5 w-3.5" />
@@ -308,6 +308,7 @@ export function TrainingControls() {
                 variant="outline"
                 size="icon-sm"
                 onClick={() => setPickerOpen(true)}
+                className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] flex-shrink-0"
                 title="Pin auf Karte setzen"
               >
                 <MapPin className="h-4 w-4" />

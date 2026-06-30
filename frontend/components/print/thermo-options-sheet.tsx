@@ -15,6 +15,7 @@ import { Printer } from "lucide-react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 
 export interface ThermoPrintOptions {
+  includeIncidents: boolean
   includeCompleted: boolean
   includeVehicles: boolean
   includePersonnel: boolean
@@ -30,7 +31,8 @@ interface ThermoOptionsSheetProps {
 export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: ThermoOptionsSheetProps) {
   const isMobile = useIsMobile()
   const [options, setOptions] = useState<ThermoPrintOptions>({
-    includeCompleted: false,
+    includeIncidents: true,
+    includeCompleted: true,
     includeVehicles: true,
     includePersonnel: true,
   })
@@ -69,7 +71,20 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
             </SheetDescription>
           </SheetHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="thermoIncludeIncidents"
+                checked={options.includeIncidents}
+                onCheckedChange={(checked) =>
+                  updateOption("includeIncidents", checked === true)
+                }
+              />
+              <Label htmlFor="thermoIncludeIncidents" className="cursor-pointer text-sm">
+                Einsatzliste
+              </Label>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="thermoIncludeCompleted"

@@ -92,25 +92,28 @@ _DANGER_PROFILES: dict[str, dict[str, float]] = {
 }
 
 # Effort ranges per incident type: (min_personnel, max_personnel, min_hours, max_hours)
+# (min_personnel, max_personnel, min_hours, max_hours). Personnel ranges are kept
+# small — a Reko estimates the handful needed at the scene, not full callout
+# strength — and tightened so the numbers don't swing wildly between reports.
 _EFFORT_PROFILES: dict[str, tuple[int, int, float, float]] = {
-    "brandbekaempfung": (6, 12, 1.5, 4.0),
-    "elementarereignis": (2, 8, 0.5, 2.5),
+    "brandbekaempfung": (4, 8, 1.5, 4.0),
+    "elementarereignis": (2, 5, 0.5, 2.5),
     # Elementar subcategories: water = heavier/longer (pumping), tree = quick
     # clearing with few hands, storm = moderate height work.
-    "elementar_water": (3, 9, 1.0, 4.0),
-    "elementar_tree": (2, 6, 0.5, 1.5),
-    "elementar_storm": (3, 8, 1.0, 3.0),
-    "strassenrettung": (4, 10, 0.5, 2.0),
-    "technische_hilfeleistung": (3, 8, 0.5, 3.0),
-    "oelwehr": (4, 10, 1.0, 3.0),
-    "chemiewehr": (6, 14, 2.0, 5.0),
-    "strahlenwehr": (6, 14, 2.0, 6.0),
-    "einsatz_bahnanlagen": (6, 12, 1.0, 3.0),
-    "bma_unechte_alarme": (4, 6, 0.5, 1.0),
-    "dienstleistungen": (2, 4, 0.5, 1.5),
-    "diverse_einsaetze": (2, 6, 0.5, 2.0),
-    "gerettete_menschen": (4, 10, 0.5, 2.0),
-    "gerettete_tiere": (2, 6, 0.5, 1.5),
+    "elementar_water": (2, 5, 1.0, 4.0),
+    "elementar_tree": (2, 4, 0.5, 1.5),
+    "elementar_storm": (2, 5, 1.0, 3.0),
+    "strassenrettung": (3, 6, 0.5, 2.0),
+    "technische_hilfeleistung": (2, 5, 0.5, 3.0),
+    "oelwehr": (3, 6, 1.0, 3.0),
+    "chemiewehr": (4, 8, 2.0, 5.0),
+    "strahlenwehr": (4, 8, 2.0, 6.0),
+    "einsatz_bahnanlagen": (4, 7, 1.0, 3.0),
+    "bma_unechte_alarme": (2, 4, 0.5, 1.0),
+    "dienstleistungen": (1, 3, 0.5, 1.5),
+    "diverse_einsaetze": (2, 4, 0.5, 2.0),
+    "gerettete_menschen": (3, 6, 0.5, 2.0),
+    "gerettete_tiere": (2, 4, 0.5, 1.5),
 }
 
 # Summaries grouped by incident type category.
@@ -505,17 +508,25 @@ def _pick_weighted(weights: dict[str, float]) -> str:
     return random.choices(keys, weights=w, k=1)[0]
 
 
+# Global dampening on danger probabilities so simulated Reko reports don't read
+# as a wall of hazards — most scenes have one danger at most, many have none.
+_DANGER_PROBABILITY_SCALE = 0.6
+
+
 def generate_dangers(incident_type: str | None = None) -> dict:
     """Generate danger flags based on incident type probabilities."""
     profile = _DANGER_PROFILES.get(incident_type or "", _DANGER_PROFILES["elementarereignis"])
 
+    def hits(key: str, default: float) -> bool:
+        return random.random() < profile.get(key, default) * _DANGER_PROBABILITY_SCALE
+
     return {
         "fire": False,
-        "fire_danger": random.random() < profile.get("fire_danger", 0.1),
-        "explosion": random.random() < profile.get("explosion", 0.05),
-        "collapse": random.random() < profile.get("collapse", 0.1),
-        "chemical": random.random() < profile.get("chemical", 0.05),
-        "electrical": random.random() < profile.get("electrical", 0.1),
+        "fire_danger": hits("fire_danger", 0.1),
+        "explosion": hits("explosion", 0.05),
+        "collapse": hits("collapse", 0.1),
+        "chemical": hits("chemical", 0.05),
+        "electrical": hits("electrical", 0.1),
         "other_notes": None,
     }
 
@@ -523,14 +534,16 @@ def generate_dangers(incident_type: str | None = None) -> dict:
 def generate_effort(incident_type: str | None = None) -> dict:
     """Generate effort estimation scaled to incident type."""
     min_p, max_p, min_h, max_h = _EFFORT_PROFILES.get(
-        incident_type or "", (2, 8, 0.5, 2.0)
+        incident_type or "", (2, 6, 0.5, 2.0)
     )
 
     return {
         "personnel_count": random.randint(min_p, max_p),
         "vehicles_needed": [],
         "equipment_needed": [],
-        "estimated_duration_hours": round(random.uniform(min_h, max_h), 1),
+        # Whole hours only — fractional estimates (1.3 h) read as false precision
+        # on a command-post board. Floor at 1 so nothing shows "0 Stunden".
+        "estimated_duration_hours": max(1, round(random.uniform(min_h, max_h))),
     }
 
 

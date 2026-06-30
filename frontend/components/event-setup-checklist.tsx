@@ -141,25 +141,38 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
     try {
       setIsLoading(true)
 
-      const [attendance, specialFunctions, vehicles, settings, printerStatus] = await Promise.all([
-        apiClient.getEventAttendance(eventId).catch(() => []),
-        apiClient.getEventSpecialFunctions(eventId).catch(() => []),
-        apiClient.getVehicles().catch(() => []),
-        apiClient.getAllSettings().catch(() => ({})),
-        apiClient.getPrinterStatus().catch(() => null),
-      ])
+      // The tile-server health probe points at the operator's own localhost, which
+      // has no tile server on most setups (incl. prod) — a bare fetch there has no
+      // timeout and stalls the whole checklist open. Bound it and run it alongside
+      // the API calls instead of sequentially after them.
+      const checkMapTiles = async () => {
+        try {
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 1500)
+          try {
+            return (await fetch('http://localhost:8080/health', { signal: controller.signal })).ok
+          } finally {
+            clearTimeout(timer)
+          }
+        } catch {
+          return false
+        }
+      }
+
+      const [attendance, specialFunctions, vehicles, settings, printerStatus, mapTilesAvailable] =
+        await Promise.all([
+          apiClient.getEventAttendance(eventId).catch(() => []),
+          apiClient.getEventSpecialFunctions(eventId).catch(() => []),
+          apiClient.getVehicles().catch(() => []),
+          apiClient.getAllSettings().catch(() => ({})),
+          apiClient.getPrinterStatus().catch(() => null),
+          checkMapTiles(),
+        ])
 
       setWhatsappMessages({
         m1: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_1_KEY, DEFAULT_WHATSAPP_MESSAGE_1),
         m2: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_2_KEY, DEFAULT_WHATSAPP_MESSAGE_2),
       })
-
-      let mapTilesAvailable = false
-      try {
-        mapTilesAvailable = (await fetch('http://localhost:8080/health')).ok
-      } catch {
-        mapTilesAvailable = false
-      }
 
       const updatedTasks = generateChecklistTasks({
         eventId,
@@ -220,12 +233,9 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
   const allComplete = tasks.length > 0 && completedTasks === tasks.length
   const progressPercent = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0
 
-  const sortedTasks = [...tasks].sort((a, b) => {
-    const ac = isTaskComplete(a, overrides)
-    const bc = isTaskComplete(b, overrides)
-    if (ac === bc) return 0
-    return ac ? 1 : -1
-  })
+  // Keep tasks in their natural order — don't float completed ones to the bottom.
+  // Reordering on tick makes un-ticking harder (the row jumps away).
+  const sortedTasks = tasks
 
   useEffect(() => {
     if (tasks.length === 0) return

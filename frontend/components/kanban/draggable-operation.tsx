@@ -599,60 +599,78 @@ function DraggableOperationBase({
           {closestEdge === 'bottom' && <DropIndicator edge="bottom" gap="4px" />}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-52">
+      <ContextMenuContent
+        className="w-52 max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
+        collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
+      >
+        {/* Bearbeiten */}
         <ContextMenuItem onClick={() => isLargeScreen ? onSelect?.() : onClick()}>
           <PenLine className="mr-2 h-4 w-4" />
           Bearbeiten
         </ContextMenuItem>
-        <ContextMenuSeparator />
-        {onAssignReko && (
-          <ContextMenuItem onClick={() => onAssignReko()}>
-            <Binoculars className="mr-2 h-4 w-4" />
-            {operation.assignedReko ? 'Reko ändern' : 'Reko zuweisen'}
-          </ContextMenuItem>
-        )}
-        {onAssignResource && (
-          <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
-            <Truck className="mr-2 h-4 w-4" />
-            Fahrzeug zuweisen
-          </ContextMenuItem>
-        )}
-        {onToggleZuFuss && (
-          <ContextMenuItem onClick={() => onToggleZuFuss()}>
-            <Footprints className="mr-2 h-4 w-4" />
-            {operation.zuFuss ? 'Zu Fuss entfernen' : 'Zu Fuss markieren'}
-          </ContextMenuItem>
-        )}
-        {onToggleNachbarhilfe && (
-          <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
-            <Building2 className="mr-2 h-4 w-4" />
-            {operation.nachbarhilfe ? 'Nachbarhilfe entfernen' : 'Als Nachbarhilfe markieren'}
-          </ContextMenuItem>
-        )}
-        {onToggleAmWarten && (
-          <ContextMenuItem onClick={() => onToggleAmWarten()}>
-            <Timer className="mr-2 h-4 w-4" />
-            {operation.amWarten ? 'Am Warten entfernen' : 'Als Am Warten markieren'}
-          </ContextMenuItem>
-        )}
-        <ContextMenuSeparator />
-        <ContextMenuItem asChild>
-          <Link href={`/map?highlight=${operation.id}`}>
-            <Map className="mr-2 h-4 w-4" />
-            Auf Karte zeigen
-          </Link>
-        </ContextMenuItem>
-        {/* Editor-only: archive an incident that turned out not to be relevant.
-            Same completion path as dragging to ABGESCHLOSSEN (incl. material decision). */}
-        {onTransfer && (
+
+        {/* Zuweisen — reko, crew, vehicle, material, and resource transfer */}
+        {(onAssignReko || onAssignResource || onTransfer) && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={() => onTransfer()}>
-              <ArrowRightLeft className="mr-2 h-4 w-4" />
-              Ressourcen übertragen
-            </ContextMenuItem>
+            {onAssignReko && (
+              <ContextMenuItem onClick={() => onAssignReko()}>
+                <Binoculars className="mr-2 h-4 w-4" />
+                {operation.assignedReko ? 'Reko ändern' : 'Reko zuweisen'}
+              </ContextMenuItem>
+            )}
+            {onAssignResource && (
+              <>
+                <ContextMenuItem onClick={() => onAssignResource('crew', operation.id)}>
+                  <Users className="mr-2 h-4 w-4" />
+                  Mannschaft zuweisen
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
+                  <Truck className="mr-2 h-4 w-4" />
+                  Fahrzeug zuweisen
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => onAssignResource('materials', operation.id)}>
+                  <Package className="mr-2 h-4 w-4" />
+                  Material zuweisen
+                </ContextMenuItem>
+              </>
+            )}
+            {onTransfer && (
+              <ContextMenuItem onClick={() => onTransfer()}>
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Ressourcen übertragen
+              </ContextMenuItem>
+            )}
           </>
         )}
+
+        {/* Markieren — quick status flags */}
+        {(onToggleZuFuss || onToggleNachbarhilfe || onToggleAmWarten) && (
+          <>
+            <ContextMenuSeparator />
+            {onToggleZuFuss && (
+              <ContextMenuItem onClick={() => onToggleZuFuss()}>
+                <Footprints className="mr-2 h-4 w-4" />
+                {operation.zuFuss ? 'Zu Fuss entfernen' : 'Zu Fuss markieren'}
+              </ContextMenuItem>
+            )}
+            {onToggleNachbarhilfe && (
+              <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
+                <Building2 className="mr-2 h-4 w-4" />
+                {operation.nachbarhilfe ? 'Nachbarhilfe entfernen' : 'Als Nachbarhilfe markieren'}
+              </ContextMenuItem>
+            )}
+            {onToggleAmWarten && (
+              <ContextMenuItem onClick={() => onToggleAmWarten()}>
+                <Timer className="mr-2 h-4 w-4" />
+                {operation.amWarten ? 'Am Warten entfernen' : 'Als Am Warten markieren'}
+              </ContextMenuItem>
+            )}
+          </>
+        )}
+
+        {/* Status — lifecycle. Editor-only: archive an incident that turned out
+            not to be relevant (same completion path as dragging to ABGESCHLOSSEN). */}
         {onRequestComplete && operation.status !== "complete" && (
           <>
             <ContextMenuSeparator />
@@ -662,14 +680,20 @@ function DraggableOperationBase({
             </ContextMenuItem>
           </>
         )}
+
+        {/* Ansicht & Druck */}
+        <ContextMenuSeparator />
+        <ContextMenuItem asChild>
+          <Link href={`/map?highlight=${operation.id}`}>
+            <Map className="mr-2 h-4 w-4" />
+            Auf Karte zeigen
+          </Link>
+        </ContextMenuItem>
         {printerEnabled && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
-              <Printer className="mr-2 h-4 w-4" />
-              {isPrinting ? 'Drucke...' : 'Einsatzzettel drucken'}
-            </ContextMenuItem>
-          </>
+          <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
+            <Printer className="mr-2 h-4 w-4" />
+            {isPrinting ? 'Drucke...' : 'Einsatzzettel drucken'}
+          </ContextMenuItem>
         )}
       </ContextMenuContent>
     </ContextMenu>

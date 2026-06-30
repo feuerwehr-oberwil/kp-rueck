@@ -163,9 +163,16 @@ class TrainingGenerator:
         if not templates:
             raise ValueError(f"No templates found for category: {category}")
 
-        # Select random template and location
+        # Select random template and location. Avoid addresses already used by a
+        # still-active incident in this event so two open alarms don't share an
+        # address (the seeded location pool is small, so plain random.choice
+        # collided often). Fall back to the full pool once it's exhausted.
         template = random.choice(templates)
-        location = random.choice(self._cache_locations)
+        used_addresses = await self._active_addresses(event_id)
+        free_locations = [
+            loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses
+        ]
+        location = random.choice(free_locations or self._cache_locations)
 
         incident = await self._create_incident_from(
             event_id,
@@ -288,6 +295,16 @@ class TrainingGenerator:
             except Exception as e:
                 logger.error("Error generating emergency: %s", e)
                 continue
+
+    async def _active_addresses(self, event_id: UUID) -> set[str]:
+        """Addresses of still-active (not yet completed) incidents in the event."""
+        result = await self.db.execute(
+            select(Incident.location_address).where(
+                Incident.event_id == event_id,
+                Incident.completed_at.is_(None),
+            )
+        )
+        return {addr for (addr,) in result.all() if addr}
 
     async def _get_setting(self, key: str) -> str | None:
         """Helper to get setting value."""

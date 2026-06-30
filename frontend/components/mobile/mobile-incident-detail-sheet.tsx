@@ -32,7 +32,7 @@ import {
   Minus,
   Pencil,
 } from "lucide-react"
-import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
@@ -95,6 +95,7 @@ export function MobileIncidentDetailSheet({
   isEditor = false,
 }: MobileIncidentDetailSheetProps) {
   const { selectedEvent } = useEvent()
+  const { changeStatusToTop } = useOperations()
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [editingNotes, setEditingNotes] = useState(false)
@@ -124,7 +125,9 @@ export function MobileIncidentDetailSheet({
 
   const handleStatusChange = (newStatus: string) => {
     if (!operation || !onUpdateOperation) return
-    onUpdateOperation(operation.id, { status: newStatus as OperationStatus })
+    // Move the card to the top of its new column (parity with the desktop modal),
+    // so a one-tap status change surfaces it the same way the reko auto-move does.
+    changeStatusToTop(operation.id, newStatus as OperationStatus)
   }
 
   const handleNotesSave = () => {
@@ -249,7 +252,7 @@ export function MobileIncidentDetailSheet({
           <div className="flex items-center gap-3 flex-wrap">
             {canEdit ? (
               <Select value={operation.status} onValueChange={handleStatusChange}>
-                <SelectTrigger size="sm" className="w-auto h-7 text-sm gap-1.5">
+                <SelectTrigger size="sm" className="w-auto min-h-[44px] text-sm gap-1.5">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

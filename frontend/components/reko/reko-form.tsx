@@ -135,14 +135,16 @@ export default function RekoForm() {
     return selected
   }
 
-  // Personnel + duration scale with danger severity, within realistic ranges.
+  // Personnel + duration scale with danger severity, kept small and tidy: a Reko
+  // estimates the handful needed at the scene, and whole hours read cleaner on the
+  // board than fractional "false precision" estimates.
   const generateEffort = (dangerCount: number): Partial<ApiEffortEstimation> => {
-    // Base crew of 4-6, plus ~3-5 extra per danger found. Capped at a sane max.
-    const base = 4 + Math.floor(Math.random() * 3) // 4-6
-    const perDanger = dangerCount * (3 + Math.floor(Math.random() * 3)) // 3-5 each
-    const personnel = Math.min(base + perDanger, 24)
-    // Duration grows with severity: 1h base + ~0.75h per danger, with jitter.
-    const duration = Math.round((1 + dangerCount * 0.75 + Math.random()) * 2) / 2
+    // Base crew of 2-3, plus ~1-2 extra per danger found. Capped at a sane max.
+    const base = 2 + Math.floor(Math.random() * 2) // 2-3
+    const perDanger = dangerCount * (1 + Math.floor(Math.random() * 2)) // 1-2 each
+    const personnel = Math.min(base + perDanger, 10)
+    // Whole hours only: 1h base + ~0.5h per danger, with jitter, floored at 1.
+    const duration = Math.max(1, Math.round(1 + dangerCount * 0.5 + Math.random()))
     return {
       personnel_count: personnel,
       estimated_duration_hours: duration,
@@ -219,8 +221,9 @@ export default function RekoForm() {
         additional_notes: '',
       }
     } else {
-      // Relevant: pick a severity (0-3 dangers), then scale effort + summary to it.
-      const dangerCount = Math.floor(Math.random() * 4) // 0-3 dangers
+      // Relevant: pick a severity, weighted toward few/no dangers so reports don't
+      // all read as multi-hazard scenes. Mostly 0-1, occasionally 2, rarely 3.
+      const dangerCount = pick([0, 0, 0, 1, 1, 1, 2, 3])
       const summaryBank = dangerCount >= 2 ? HIGH_SEVERITY_SUMMARIES : LOW_SEVERITY_SUMMARIES
       dummyData = {
         is_relevant: true,

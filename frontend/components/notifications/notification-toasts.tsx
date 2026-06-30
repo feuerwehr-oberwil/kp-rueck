@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { useIsMobile } from '@/components/ui/use-mobile'
 import type { Notification } from '@/lib/types/notification'
 
 // Helper to get stored toast IDs with timestamps
@@ -55,14 +56,34 @@ function cleanupOldToastIds(): Set<string> {
 
 export function NotificationToasts() {
   const { notifications, dismissNotification, isSidebarOpen } = useNotifications()
+  const isMobile = useIsMobile()
 
   // Initialize with previously shown notification IDs from localStorage
   // Clean up IDs older than 24 hours on component mount
   const shownToastIds = useRef<Set<string>>(cleanupOldToastIds())
 
+  // Mobile is a viewing-first surface (mainly used to spawn training incidents),
+  // so it should stay quiet: suppress non-critical toasts app-wide while small.
+  // Genuine action failures (toast.error) still surface; the notification→toast
+  // mapping below is skipped entirely on mobile.
   useEffect(() => {
-    // Don't show toasts when sidebar is open - notifications are visible there
-    if (isSidebarOpen) {
+    if (!isMobile) return
+    const t = toast as unknown as Record<string, (...args: unknown[]) => unknown>
+    const noop = () => ''
+    const originals: Record<string, (...args: unknown[]) => unknown> = {}
+    for (const key of ['success', 'info', 'warning', 'loading', 'message']) {
+      originals[key] = t[key]
+      t[key] = noop
+    }
+    return () => {
+      for (const key of Object.keys(originals)) t[key] = originals[key]
+    }
+  }, [isMobile])
+
+  useEffect(() => {
+    // Don't show toasts when sidebar is open - notifications are visible there.
+    // On mobile, don't surface incident/notification toasts at all.
+    if (isSidebarOpen || isMobile) {
       return
     }
 
