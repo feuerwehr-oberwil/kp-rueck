@@ -1290,8 +1290,9 @@ export default function SettingsPage() {
           {!isMobile && <PageNavigation currentPage="settings" />}
         </header>
 
-        {/* Main content with sidebar */}
-        <div className="flex flex-1 overflow-hidden">
+        {/* Main content with sidebar — stack on mobile (selector above content),
+            side-by-side sidebar on desktop. */}
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
           {/* Sidebar - Desktop */}
           {!isMobile && (
             <aside className="w-56 border-r bg-muted/30 p-4 overflow-y-auto">
@@ -1407,8 +1408,9 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Content area */}
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          {/* Content area — min-h-0 so it scrolls inside the flex column on
+              mobile; extra bottom padding so content clears the bottom nav. */}
+          <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">
             <div className="max-w-4xl">
               {renderContent()}
             </div>

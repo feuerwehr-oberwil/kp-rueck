@@ -11,6 +11,7 @@ import { useEvent } from '@/lib/contexts/event-context';
 import { apiClient, type ApiDiveraEmergency, type ApiEvent } from '@/lib/api-client';
 import { wsClient } from '@/lib/websocket-client';
 import { PageNavigation } from '@/components/page-navigation';
+import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -256,7 +257,7 @@ export default function DiveraPoolPage() {
       </div>
 
       {/* List */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto pb-20 md:pb-0">
         {loading ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
             Lädt...
@@ -363,6 +364,8 @@ export default function DiveraPoolPage() {
           </div>
         )}
       </main>
+
+      <MobileBottomNavigation currentPage="divera" hasSelectedEvent={true} />
 
       {/* Attach Dialog */}
       <Dialog open={showAttachDialog} onOpenChange={setShowAttachDialog}>

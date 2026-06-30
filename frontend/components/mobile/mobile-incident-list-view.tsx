@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Sparkles } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
@@ -56,6 +57,7 @@ export function MobileIncidentListView({
   isTraining = false,
   isLoading = false,
 }: MobileIncidentListViewProps) {
+  const { selectedEvent } = useEvent()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
@@ -121,6 +123,17 @@ export function MobileIncidentListView({
     <div className="flex flex-col h-full">
       {/* Fixed Header with Search */}
       <div className="flex-shrink-0 px-4 pt-4 pb-2 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b border-border/50">
+        {/* Current event as context — the top navbar is hidden on mobile, so the
+            event name lives here; switching happens via the bottom nav. */}
+        {selectedEvent && (
+          <div className="flex items-center gap-2 mb-3 min-w-0">
+            <h1 className="text-lg font-bold tracking-tight truncate">{selectedEvent.name}</h1>
+            {selectedEvent.training_flag && (
+              <Badge variant="secondary" className="flex-shrink-0">Übung</Badge>
+            )}
+          </div>
+        )}
+
         {/* Primary mobile task for training events: spawn a new training incident.
             Surfaced prominently here so it's one tap away instead of buried in
             the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights). */}

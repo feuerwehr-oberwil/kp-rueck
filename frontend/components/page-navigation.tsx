@@ -35,7 +35,8 @@ export function PageNavigation({
   onPrint,
 }: PageNavigationProps) {
   return (
-    <nav aria-label="Hauptnavigation" className="flex items-center gap-1 md:gap-2">
+    // Desktop only — on mobile navigation lives in the bottom navbar.
+    <nav aria-label="Hauptnavigation" className="hidden md:flex items-center gap-1 md:gap-2">
         {/* Kanban Icon */}
         <Link href="/" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button

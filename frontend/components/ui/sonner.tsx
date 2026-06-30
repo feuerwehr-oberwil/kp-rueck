@@ -30,12 +30,14 @@ const DismissAllToasts = () => {
   if (toasts.length <= 1) return null
 
   return (
+    // Lifted clear of the bottom footer/nav and styled as a solid pill so it
+    // reads as a button instead of floating muted text over the footer.
     <button
       type="button"
       onClick={() => toast.dismiss()}
-      className="fixed bottom-1 right-4 z-[9999] inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground/80 transition-colors hover:text-foreground"
+      className="fixed bottom-16 right-4 z-[9999] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur-sm transition-colors hover:text-foreground hover:bg-card"
     >
-      <X className="h-3 w-3" />
+      <X className="h-3.5 w-3.5" />
       Alle schliessen
     </button>
   )

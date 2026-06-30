@@ -1,7 +1,9 @@
 "use client"
 
-import { Truck } from "lucide-react"
+import { useState } from "react"
+import { Truck, ChevronDown, Info } from "lucide-react"
 import { PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { COLOR_BY_LABELS, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
 // Status border color (matches map-view.tsx)
@@ -57,9 +59,36 @@ export function MapLegend({
   // below). For reko/vehicle/type the fill encodes that dimension, so swap the
   // Priorität section for the active grouping's colours.
   const coloring = colorBy !== "priority" && colorGroups.length > 0
+
+  // Collapsible: until the user toggles it, default to collapsed on mobile
+  // (the panel otherwise covers half the map) and expanded on desktop.
+  const isMobile = useIsMobile()
+  const [open, setOpen] = useState<boolean | null>(null)
+  const expanded = open ?? !isMobile
+
+  if (!expanded) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="absolute bottom-4 right-4 z-30 flex items-center gap-1.5 rounded-full bg-card/95 backdrop-blur-sm border border-border px-3 py-1.5 text-xs font-medium shadow-lg hover:bg-card"
+        aria-label="Legende anzeigen"
+      >
+        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+        Legende
+      </button>
+    )
+  }
+
   return (
-    <div className="absolute bottom-4 right-4 max-h-[calc(100%-2rem)] overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-30">
-      <h3 className="font-bold mb-3 text-sm">Legende</h3>
+    <div className="absolute bottom-4 right-4 max-h-[calc(100%-2rem)] w-52 overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-30">
+      <button
+        onClick={() => setOpen(false)}
+        className="flex items-center justify-between w-full mb-3"
+        aria-label="Legende ausblenden"
+      >
+        <h3 className="font-bold text-sm">Legende</h3>
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+      </button>
 
       {/* Fill Legend — "Färben nach" groups when active, else priority */}
       <div className="space-y-2">

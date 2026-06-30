@@ -7,8 +7,9 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, Eye } from 'lucide-react'
+import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, Eye, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -44,9 +45,17 @@ export function MobileBottomNavigation({
   printerEnabled = false,
 }: MobileBottomNavigationProps) {
   const { isEditor, logout } = useAuth()
-  const { selectedEvent } = useEvent()
+  const { selectedEvent, events, setSelectedEvent } = useEvent()
+  const router = useRouter()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [tapAnimation, setTapAnimation] = useState<string | null>(null)
+
+  // Other active events the operator can quick-switch to (mobile has no top bar,
+  // so event switching lives here in the bottom nav).
+  const otherEvents = events
+    .filter((e) => !e.archived_at && e.id !== selectedEvent?.id)
+    .sort((a, b) => b.last_activity_at.getTime() - a.last_activity_at.getTime())
+    .slice(0, 5)
 
   const tabs = [
     {
@@ -65,9 +74,9 @@ export function MobileBottomNavigation({
     },
   ]
 
-  // Secondary navigation items for "More" sheet
+  // Secondary navigation items for "More" sheet (event switching is handled in
+  // its own section below since it needs the live event list).
   const secondaryItems = [
-    { id: 'events', label: 'Events', icon: Calendar, href: '/events', category: 'Navigation' },
     { id: 'settings', label: 'Einstellungen', icon: Settings, href: '/settings', category: 'Verwaltung' },
     { id: 'divera', label: 'Divera Notfälle', icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
     { id: 'help', label: 'Hilfe & Dokumentation', icon: HelpCircle, href: '/help', category: 'Support' },
@@ -143,29 +152,83 @@ export function MobileBottomNavigation({
               paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)'
             }}
           >
-            <SheetHeader className="mb-6 -mx-6 px-6 pb-4 border-b">
+            <SheetHeader className="mb-4 -mx-6 px-6 pb-3 border-b">
               <SheetTitle>Weitere Funktionen</SheetTitle>
               <div className="flex items-center gap-2 pt-2">
                 <RoleBadge />
               </div>
             </SheetHeader>
 
-            <div className="space-y-6 pb-4">
+            <div className="space-y-4 pb-4">
+              {/* Ereignis Section — current event + quick switch (replaces the
+                  top-bar event switcher, which is hidden on mobile). */}
+              <div className="animate-category-fade">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                  Ereignis
+                </h3>
+                <div className="space-y-2">
+                  <div className="px-3 py-2 rounded-lg bg-muted/50">
+                    <p className="text-sm font-semibold truncate">
+                      {selectedEvent ? selectedEvent.name : 'Kein Ereignis ausgewählt'}
+                    </p>
+                    {selectedEvent?.training_flag && (
+                      <span className="text-xs text-orange-600 dark:text-orange-400">Übung</span>
+                    )}
+                  </div>
+                  {otherEvents.map((event) => (
+                    <Button
+                      key={event.id}
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight"
+                      onClick={() => {
+                        setSelectedEvent(event)
+                        setSheetOpen(false)
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      <span className="truncate">{event.name}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight"
+                    onClick={() => {
+                      router.push('/events?action=create')
+                      setSheetOpen(false)
+                    }}
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>Neues Ereignis</span>
+                  </Button>
+                  <Link href="/events" onClick={() => setSheetOpen(false)}>
+                    <Button
+                      variant={currentPage === 'events' ? 'secondary' : 'ghost'}
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight"
+                    >
+                      <Calendar className="h-5 w-5" />
+                      <span>Alle Ereignisse</span>
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* Quick Actions Section — viewing-first: the QR/print/personnel
                   actions are editor-only, so viewers get a decluttered sheet.
                   The training link stays visible (spawning is the main mobile task). */}
               {(isEditor || selectedEvent?.training_flag) && (
               <>
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
                   Schnellzugriff
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {/* Check-In Button */}
                   {isEditor && onCheckIn && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onCheckIn(), 350)
@@ -180,7 +243,7 @@ export function MobileBottomNavigation({
                   {isEditor && onReko && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onReko(), 350)
@@ -195,7 +258,7 @@ export function MobileBottomNavigation({
                   {isEditor && onViewer && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onViewer(), 350)
@@ -210,7 +273,7 @@ export function MobileBottomNavigation({
                   {isEditor && onPersonnel && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onPersonnel(), 350)
@@ -225,7 +288,7 @@ export function MobileBottomNavigation({
                   {isEditor && onVehicleStatus && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onVehicleStatus(), 350)
@@ -240,7 +303,7 @@ export function MobileBottomNavigation({
                   {isEditor && onPrint && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onPrint(), 350)
@@ -255,7 +318,7 @@ export function MobileBottomNavigation({
                   {isEditor && onThermo && printerEnabled && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
+                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onThermo(), 350)
@@ -271,7 +334,7 @@ export function MobileBottomNavigation({
                     <Link href="/training" onClick={() => setSheetOpen(false)}>
                       <Button
                         variant="ghost"
-                        className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                        className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       >
                         <Sparkles className="h-5 w-5 text-orange-500" />
                         <span>Übungs-Steuerung</span>
@@ -285,38 +348,9 @@ export function MobileBottomNavigation({
               </>
               )}
 
-              {/* Navigation Section (Events) */}
-              <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">
-                  Navigation
-                </h3>
-                <div className="space-y-2">
-                  {secondaryItems.filter(item => item.category === 'Navigation').map((item, index) => {
-                    const Icon = item.icon
-                    const isActive = currentPage === item.id
-                    return (
-                      <Link key={item.id} href={item.href} onClick={() => setSheetOpen(false)}>
-                        <Button
-                          variant={isActive ? "secondary" : "ghost"}
-                          className={cn(
-                            "w-full justify-start gap-3 h-12 touch-manipulation hover-delight",
-                            `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
-                          )}
-                        >
-                          <Icon className="h-5 w-5" />
-                          <span>{item.label}</span>
-                        </Button>
-                      </Link>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <Separator />
-
               {/* Verwaltung Section */}
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
                   Verwaltung
                 </h3>
                 <div className="space-y-2">
@@ -328,7 +362,7 @@ export function MobileBottomNavigation({
                         <Button
                           variant={isActive ? "secondary" : "ghost"}
                           className={cn(
-                            "w-full justify-start gap-3 h-12 touch-manipulation hover-delight",
+                            "w-full justify-start gap-3 h-11 touch-manipulation hover-delight",
                             `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
                           )}
                         >
@@ -345,7 +379,7 @@ export function MobileBottomNavigation({
 
               {/* Support Section */}
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
                   Support
                 </h3>
                 <div className="space-y-2">
@@ -357,7 +391,7 @@ export function MobileBottomNavigation({
                         <Button
                           variant={isActive ? "secondary" : "ghost"}
                           className={cn(
-                            "w-full justify-start gap-3 h-12 touch-manipulation hover-delight",
+                            "w-full justify-start gap-3 h-11 touch-manipulation hover-delight",
                             `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
                           )}
                         >
@@ -373,13 +407,13 @@ export function MobileBottomNavigation({
               {/* Account Section */}
               <Separator />
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
                   Konto
                 </h3>
                 <div className="space-y-2">
                   <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 h-12 touch-manipulation hover-delight text-destructive hover:text-destructive hover:bg-destructive/10"
+                    className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => {
                       logout()
                       setSheetOpen(false)
