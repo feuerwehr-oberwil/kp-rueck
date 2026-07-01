@@ -11,7 +11,9 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard } from 'lucide-react';
+import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { toast } from 'sonner';
+import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -28,6 +30,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -49,7 +54,38 @@ export function UserMenu({
   onPrint,
 }: UserMenuProps = {}) {
   const { user, logout, isEditor, isAuthenticated } = useAuth();
+  const { selectedEvent } = useEvent();
   const router = useRouter();
+
+  // Quick per-event export of the currently selected event (Verwaltung → Export).
+  const downloadEventExport = async (kind: 'pdf' | 'xlsx') => {
+    if (!selectedEvent) return;
+    try {
+      const blob = kind === 'pdf'
+        ? await apiClient.exportEventReport(selectedEvent.id)
+        : await apiClient.exportEventAudit(selectedEvent.id);
+      // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
+      const slug = selectedEvent.name
+        .toLowerCase()
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'ereignis';
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = kind === 'pdf'
+        ? `einsatzbericht-${slug}-${date}.pdf`
+        : `audit-${slug}-${date}.xlsx`;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : (kind === 'pdf' ? 'Bericht-Export fehlgeschlagen' : 'Audit-Export fehlgeschlagen'));
+    }
+  };
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
@@ -426,6 +462,38 @@ export function UserMenu({
               <span>Divera Notfälle</span>
             </Link>
           </DropdownMenuItem>
+
+          {isEditor && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <Download className="mr-2 h-4 w-4" />
+                <span>Export</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {!selectedEvent && (
+                  <DropdownMenuItem disabled>
+                    <span className="text-muted-foreground">Kein Ereignis ausgewählt</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => downloadEventExport('pdf')}
+                  disabled={!selectedEvent}
+                  className="cursor-pointer"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>Bericht (PDF)</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => downloadEventExport('xlsx')}
+                  disabled={!selectedEvent}
+                  className="cursor-pointer"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  <span>Audit-Export (XLSX)</span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
 
           <DropdownMenuItem onClick={openCommandPalette} className="cursor-pointer">
             <Keyboard className="mr-2 h-4 w-4" />

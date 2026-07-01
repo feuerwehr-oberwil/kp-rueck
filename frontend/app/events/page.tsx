@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
+import { apiClient } from '@/lib/api-client'
 import type { Event } from '@/lib/types/incidents'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2, Siren } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet } from 'lucide-react'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -38,6 +40,8 @@ export default function EventsPage() {
   const [newEventAutoAttachDivera, setNewEventAutoAttachDivera] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
+  const [auditLoadingId, setAuditLoadingId] = useState<string | null>(null)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -118,6 +122,58 @@ export default function EventsPage() {
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to delete event:', error)
+    }
+  }
+
+  const handleReportExport = async (event: Event) => {
+    setReportLoadingId(event.id)
+    try {
+      const blob = await apiClient.exportEventReport(event.id)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
+      const slug = event.name
+        .toLowerCase()
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'ereignis'
+      const date = new Date().toISOString().slice(0, 10)
+      a.download = `einsatzbericht-${slug}-${date}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Bericht-Export fehlgeschlagen')
+    } finally {
+      setReportLoadingId(null)
+    }
+  }
+
+  const handleAuditExport = async (event: Event) => {
+    setAuditLoadingId(event.id)
+    try {
+      const blob = await apiClient.exportEventAudit(event.id)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
+      const slug = event.name
+        .toLowerCase()
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'ereignis'
+      const date = new Date().toISOString().slice(0, 10)
+      a.download = `audit-${slug}-${date}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Audit-Export fehlgeschlagen')
+    } finally {
+      setAuditLoadingId(null)
     }
   }
 
@@ -305,7 +361,7 @@ export default function EventsPage() {
                               <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
                             </div>
 
-                            <div className="mt-4">
+                            <div className="mt-4 space-y-2">
                               <div className="flex gap-2">
                                 <Button
                                   className="flex-1"
@@ -322,6 +378,36 @@ export default function EventsPage() {
                                   }}
                                 >
                                   <Archive className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  disabled={reportLoadingId === event.id}
+                                  onClick={() => handleReportExport(event)}
+                                >
+                                  {reportLoadingId === event.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <FileText className="mr-2 h-4 w-4" />
+                                  )}
+                                  Bericht (PDF)
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  disabled={auditLoadingId === event.id}
+                                  onClick={() => handleAuditExport(event)}
+                                >
+                                  {auditLoadingId === event.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                  )}
+                                  Audit (XLSX)
                                 </Button>
                               </div>
                             </div>
@@ -357,7 +443,7 @@ export default function EventsPage() {
                               <div>Archiviert: {new Date(event.archived_at!).toLocaleDateString('de-CH')}</div>
                             </div>
 
-                            <div className="mt-4">
+                            <div className="mt-4 space-y-2">
                               <div className="flex gap-2">
                                 <Button
                                   variant="outline"
@@ -376,6 +462,36 @@ export default function EventsPage() {
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  disabled={reportLoadingId === event.id}
+                                  onClick={() => handleReportExport(event)}
+                                >
+                                  {reportLoadingId === event.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <FileText className="mr-2 h-4 w-4" />
+                                  )}
+                                  Bericht (PDF)
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  disabled={auditLoadingId === event.id}
+                                  onClick={() => handleAuditExport(event)}
+                                >
+                                  {auditLoadingId === event.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                  )}
+                                  Audit (XLSX)
                                 </Button>
                               </div>
                             </div>

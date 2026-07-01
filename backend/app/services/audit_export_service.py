@@ -2,6 +2,7 @@
 
 import re
 import uuid
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from io import BytesIO
 
@@ -23,6 +24,29 @@ from ..models import (
 )
 
 
+@dataclass
+class EventReportData:
+    """Fully-loaded event data shared by the Excel and PDF report builders.
+
+    Populated by :func:`collect_event_report_data`. Holds the event, its
+    (non-deleted) incidents ordered by ``created_at``, the full assignment
+    history, status transitions, reko reports, plus lookup maps keyed by id so
+    a consumer can resolve incident/resource/user references without extra
+    queries.
+    """
+
+    event: Event
+    incidents: list[Incident]
+    assignments: list[IncidentAssignment]
+    transitions: list[StatusTransition]
+    reko_reports: list[RekoReport]
+    incident_map: dict[uuid.UUID, Incident] = field(default_factory=dict)
+    personnel_map: dict[uuid.UUID, Personnel] = field(default_factory=dict)
+    vehicle_map: dict[uuid.UUID, Vehicle] = field(default_factory=dict)
+    material_map: dict[uuid.UUID, Material] = field(default_factory=dict)
+    user_map: dict[uuid.UUID, User] = field(default_factory=dict)
+
+
 def format_timestamp(dt: datetime | None) -> str:
     """Format datetime to ISO 8601 with timezone."""
     if dt is None:
@@ -32,28 +56,23 @@ def format_timestamp(dt: datetime | None) -> str:
     return dt.isoformat()
 
 
-async def export_event_audit_excel(db: AsyncSession, event_id: uuid.UUID, current_user: User) -> tuple[BytesIO, dict]:
-    """
-    Export complete event audit data for payment processing.
+async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> EventReportData:
+    """Load an event and all data needed to render a report (Excel or PDF).
 
-    Unlike the regular export which only shows currently-assigned resources,
-    this export includes the full assignment history with timestamps showing
-    when each resource was assigned and released.
+    This is the single source of truth for the report queries. Both
+    :func:`export_event_audit_excel` and the PDF report builder consume the
+    returned :class:`EventReportData` so the two exports never drift apart.
 
     Args:
         db: Database session
-        event_id: Event ID to export
-        current_user: User performing the export
+        event_id: Event ID to load
 
     Returns:
-        Tuple of (BytesIO buffer containing the Excel file, metadata dict)
+        A populated :class:`EventReportData`.
 
     Raises:
-        ValueError: If event not found
+        ValueError: If the event does not exist.
     """
-    wb = Workbook()
-    wb.remove(wb.active)  # Remove default sheet
-
     # ========== 1. Load event ==========
     event_result = await db.execute(select(Event).where(Event.id == event_id))
     event = event_result.scalar_one_or_none()
@@ -138,6 +157,55 @@ async def export_event_audit_excel(db: AsyncSession, event_id: uuid.UUID, curren
     if user_ids:
         user_result = await db.execute(select(User).where(User.id.in_(user_ids)))
         user_map = {u.id: u for u in user_result.scalars().all()}
+
+    return EventReportData(
+        event=event,
+        incidents=incidents,
+        assignments=assignments,
+        transitions=transitions,
+        reko_reports=reko_reports,
+        incident_map=incident_map,
+        personnel_map=personnel_map,
+        vehicle_map=vehicle_map,
+        material_map=material_map,
+        user_map=user_map,
+    )
+
+
+async def export_event_audit_excel(db: AsyncSession, event_id: uuid.UUID, current_user: User) -> tuple[BytesIO, dict]:
+    """
+    Export complete event audit data for payment processing.
+
+    Unlike the regular export which only shows currently-assigned resources,
+    this export includes the full assignment history with timestamps showing
+    when each resource was assigned and released.
+
+    Args:
+        db: Database session
+        event_id: Event ID to export
+        current_user: User performing the export
+
+    Returns:
+        Tuple of (BytesIO buffer containing the Excel file, metadata dict)
+
+    Raises:
+        ValueError: If event not found
+    """
+    wb = Workbook()
+    wb.remove(wb.active)  # Remove default sheet
+
+    # Shared data collection (queries live in collect_event_report_data).
+    data = await collect_event_report_data(db, event_id)
+    event = data.event
+    incidents = data.incidents
+    assignments = data.assignments
+    transitions = data.transitions
+    reko_reports = data.reko_reports
+    incident_map = data.incident_map
+    personnel_map = data.personnel_map
+    vehicle_map = data.vehicle_map
+    material_map = data.material_map
+    user_map = data.user_map
 
     # ========== Sheet 1: Event Overview ==========
     ws_overview = wb.create_sheet("Ereignis Übersicht")
