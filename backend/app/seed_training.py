@@ -41,150 +41,275 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, MFH. Wasser durch Kellerfenster, Waschküche betroffen.",
+        "title_variations": ["Wasser im Keller MFH", "Kellerüberflutung Mehrfamilienhaus"],
+        "message_variations": [
+            "Hauswart meldet Wasser über Kellerfenster eingedrungen. Waschküche und Trocknungsraum betroffen.",
+            "Wasser läuft durch Lichtschacht in UG. Ca. 15cm, Waschküche steht unter Wasser.",
+        ],
     },
     {
         "title_pattern": "Keller auspumpen Gewerbebetrieb",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser im Keller, Gewerbebetrieb. Ca. 35cm, Lagerware gefährdet.",
+        "title_variations": ["Keller Gewerbe geflutet", "Wasser im Firmenkeller"],
+        "message_variations": [
+            "Geschäftsführer meldet ca. 30cm Wasser im Lagerkeller. Ware auf Paletten gefährdet.",
+            "Wassereinbruch Gewerbekeller, ca. 40cm. Kartons und Elektronik betroffen, Strom noch an.",
+        ],
     },
     {
         "title_pattern": "Wassereinbruch nach Rohrbruch",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Rohrbruch, Keller. Haupthahn abgestellt, Wasser steht noch.",
+        "title_variations": ["Rohrbruch im Keller", "Wasserleitung geplatzt"],
+        "message_variations": [
+            "Bewohner meldet geplatzte Leitung im UG. Haupthahn zu, ca. 10cm Wasser steht.",
+            "Wasserleitung im Keller gebrochen, Sanitär nicht erreichbar. Haupthahn bereits abgestellt.",
+        ],
     },
     {
         "title_pattern": "Keller geflutet Reihenhaussiedlung",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Hochwasser, Reihenhaussiedlung. Mehrere Keller, ca. 20-30cm.",
+        "title_variations": ["Keller Reihenhäuser geflutet", "Hochwasser Siedlung"],
+        "message_variations": [
+            "Mehrere Anwohner melden Wasser im Keller. Betroffen ca. 4 Häuser, 20-30cm.",
+            "Ganze Reihenhauszeile betroffen, ca. 25cm in den Kellern. Strasse steht ebenfalls unter Wasser.",
+        ],
     },
     {
         "title_pattern": "Wasserschaden Schule",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Turnhalle UG. Sportgeräte im Wasser.",
+        "title_variations": ["Wasser in Turnhalle", "Keller Schulhaus geflutet"],
+        "message_variations": [
+            "Hauswart meldet Wasser in Turnhalle UG. Ca. 10cm, Matten und Geräte betroffen.",
+            "Wassereinbruch Untergeschoss Schule, Geräteraum steht unter Wasser. Ca. 15cm.",
+        ],
     },
     {
         "title_pattern": "Wasser in Liftschacht",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser im Liftschacht, MFH. Lift ausser Betrieb.",
+        "title_variations": ["Liftschacht überflutet", "Wasser in Aufzugschacht"],
+        "message_variations": [
+            "Hauswart meldet Wasser im Liftschacht. Ca. 20cm auf Grube, Lift steht.",
+            "Wasser in Aufzugschacht eingedrungen, Lift ausser Betrieb. Liftfirma informiert.",
+        ],
     },
     {
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Hochwasser, Parkplatz. Abfluss verstopft, Fahrzeuge stehen im Wasser.",
+        "title_variations": ["Parkplatz geflutet", "Wasser auf Parkplatz"],
+        "message_variations": [
+            "Parkplatz steht ca. 20cm unter Wasser, Ablauf verstopft. Mehrere Fahrzeuge betroffen.",
+            "Anwohner melden überfluteten Parkplatz, Wasser steigt. Schacht vermutlich verstopft.",
+        ],
     },
     {
         "title_pattern": "Wasserschaden Arztpraxis",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Keller Arztpraxis. Medizinische Geräte im Lager.",
+        "title_variations": ["Wasser Keller Arztpraxis", "Praxiskeller geflutet"],
+        "message_variations": [
+            "Praxisleitung meldet Wasser im UG. Ca. 12cm, medizinisches Material im Lager gefährdet.",
+            "Wassereinbruch Kellerlager Arztpraxis, ca. 15cm. Geräte und Verbrauchsmaterial betroffen.",
+        ],
     },
     {
         "title_pattern": "Rückstau Kanalisation",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Kanalrückstau, Abwasser im Keller. Geruchsbelästigung.",
+        "title_variations": ["Abwasser im Keller", "Kanalrückstau UG"],
+        "message_variations": [
+            "Bewohner meldet Rückstau, Abwasser drückt durch Bodenablauf. Ca. 5cm, starker Geruch.",
+            "Kanalisation staut zurück, Fäkalwasser im Keller. Ca. 8cm, Bewohner meidet UG.",
+        ],
     },
     {
         "title_pattern": "Wasser im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser im Keller nach Regen. Ca. 5cm, ein Raum.",
+        "title_variations": ["Wasser im Keller nach Regen", "Leichter Wassereintritt Keller"],
+        "message_variations": [
+            "Nach Starkregen ca. 5cm Wasser in einem Kellerraum. Steigt langsam.",
+            "Bewohner meldet Wasser im UG nach Gewitter. Ein Raum betroffen, ca. 6cm.",
+        ],
     },
     {
         "title_pattern": "Keller feucht",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Keller. Ca. 10cm, nur ein Abteil.",
+        "title_variations": ["Feuchter Keller", "Wasser in Kellerabteil"],
+        "message_variations": [
+            "Bewohner meldet ca. 10cm Wasser in einem Kellerabteil. Ursache unklar.",
+            "Wasser in einem Kellerabteil, ca. 8cm. Nachbarabteile trocken.",
+        ],
     },
     {
         "title_pattern": "Wasser in Waschküche",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser in Waschküche. Ca. 3cm, Maschine steht im Wasser.",
+        "title_variations": ["Waschküche unter Wasser", "Wasser in der Waschküche"],
+        "message_variations": [
+            "Bewohnerin meldet ca. 3cm Wasser in Waschküche. Waschmaschine steht im Wasser, Strom noch an.",
+            "Wasser in gemeinschaftlicher Waschküche, ca. 4cm. Ablauf verstopft.",
+        ],
     },
     {
         "title_pattern": "Keller vollgelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Keller komplett unter Wasser. Ca. 50cm, mehrere Räume.",
+        "title_variations": ["Keller komplett geflutet", "Ganzer Keller unter Wasser"],
+        "message_variations": [
+            "Bewohner meldet ca. 50cm Wasser im ganzen Keller. Mehrere Räume, Heizung betroffen.",
+            "Keller vollständig geflutet, ca. 55cm. Wasser steigt weiter, Strom im UG abstellen.",
+        ],
     },
     {
         "title_pattern": "Wasserschaden Hobbyraum",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Hobbyraum UG. Ca. 15cm. Bewohner sehr aufgelöst wegen Modelleisenbahn.",
+        "title_variations": ["Wasser im Hobbyraum", "Hobbyraum geflutet"],
+        "message_variations": [
+            "Bewohner meldet ca. 15cm Wasser im Hobbyraum. Modelleisenbahn im Wasser, Melder sehr aufgeregt.",
+            "Wasser im Bastelkeller, ca. 12cm. Anrufer bittet dringend, seine Modellanlage zu retten.",
+        ],
     },
     {
         "title_pattern": "Wasser im Veloraum",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser im Veloraum. Ca. 8cm, 12 E-Bikes im Wasser.",
+        "title_variations": ["Veloraum unter Wasser", "Wasser im Veloraum MFH"],
+        "message_variations": [
+            "Hauswart meldet ca. 8cm Wasser im Veloraum. Rund 10 E-Bikes betroffen, Akkus im Wasser.",
+            "Wasser im Fahrradkeller, ca. 10cm. Mehrere E-Bikes stehen im Wasser.",
+        ],
     },
     {
         "title_pattern": "Pfütze im Keller",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser im Keller, kleine Pfütze. Ca. 2cm, Ursache unklar.",
+        "title_variations": ["Kleine Pfütze im Keller", "Wasseraustritt Keller"],
+        "message_variations": [
+            "Bewohner meldet kleine Pfütze im Keller, ca. 2cm. Ursache nicht ersichtlich.",
+            "Etwas Wasser im UG, ca. 3cm in einer Ecke. Herkunft unklar, kein Rohrbruch sichtbar.",
+        ],
     },
     {
         "title_pattern": "Keller halb voll",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Keller. Ca. 30cm, Heizraum betroffen.",
+        "title_variations": ["Keller halb voll", "Wasser im Heizraum"],
+        "message_variations": [
+            "Bewohner meldet ca. 30cm Wasser im Keller. Heizraum betroffen, Brenner aus.",
+            "Wasser im UG, ca. 35cm. Heizung steht im Wasser, Strom im Heizraum abstellen.",
+        ],
     },
     {
         "title_pattern": "Garage unter Wasser",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser in Garage. Ca. 12cm, Auto steht drin.",
+        "title_variations": ["Garage geflutet", "Wasser in Einzelgarage"],
+        "message_variations": [
+            "Besitzer meldet ca. 12cm Wasser in Garage. PKW steht im Wasser.",
+            "Wasser in Garage eingedrungen, ca. 15cm. Auto und Gartengeräte betroffen.",
+        ],
     },
     {
         "title_pattern": "Wasser im Lagerraum",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasser im Keller, Lagerraum. Ca. 6cm, Kartons betroffen.",
+        "title_variations": ["Wasser im Lagerraum", "Lagerraum feucht"],
+        "message_variations": [
+            "Bewohner meldet ca. 6cm Wasser im Kellerlager. Kartons stehen im Wasser.",
+            "Wasser in Lagerraum UG, ca. 5cm. Gelagerte Ware am Boden betroffen.",
+        ],
     },
     {
         "title_pattern": "Wasser im Keller Restaurant",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Restaurant-Lager. Ca. 25cm, Lebensmittel gefährdet.",
+        "title_variations": ["Wasser Restaurantkeller", "Restaurant-Lager geflutet"],
+        "message_variations": [
+            "Wirt meldet ca. 25cm Wasser im Kellerlager. Kühlgut und Vorräte gefährdet.",
+            "Wassereinbruch Restaurantkeller, ca. 30cm. Tiefkühler steht im Wasser, Strom im UG aus.",
+        ],
     },
     {
         "title_pattern": "Überschwemmung Garageneinfahrt",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Hochwasser, Tiefgarageneinfahrt. Wasser läuft rein, Ablauf verstopft.",
+        "title_variations": ["Wasser Garageneinfahrt", "Tiefgarageneinfahrt überflutet"],
+        "message_variations": [
+            "Wasser läuft über die Rampe in die Tiefgarage. Ablauf verstopft, ca. 20cm an Einfahrt.",
+            "Hausverwaltung meldet Wasser fliesst in TG-Einfahrt. Rinne verstopft, UG gefährdet.",
+        ],
     },
     {
         "title_pattern": "Wasserschaden Kindergarten",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Keller Kindergarten. Spielsachen und Material betroffen.",
+        "title_variations": ["Wasser Kindergartenkeller", "Kindergarten UG geflutet"],
+        "message_variations": [
+            "Leiterin meldet ca. 10cm Wasser im Kellerlager. Spielmaterial und Bastelsachen betroffen.",
+            "Wassereinbruch Kindergarten UG, ca. 12cm. Materialdepot steht unter Wasser.",
+        ],
     },
     {
         "title_pattern": "Waschmaschine ausgelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Wasserschaden, Waschmaschine defekt. Ca. 3cm im Keller. Melder etwas aufgeregt.",
+        "title_variations": ["Waschmaschine defekt", "Wasser aus Waschmaschine"],
+        "message_variations": [
+            "Bewohnerin meldet defekte Waschmaschine, ca. 3cm Wasser im Keller. Melderin sehr aufgeregt.",
+            "Waschmaschine ausgelaufen, ca. 4cm im UG. Anrufer hat Gerät bereits vom Strom genommen.",
+        ],
     },
     {
         "title_pattern": "Pool übergelaufen",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Gartenpool läuft über, Wasser in Nachbars Keller. Nachbarschaftsstreit.",
+        "title_variations": ["Pool übergelaufen", "Wasser aus Gartenpool"],
+        "message_variations": [
+            "Anrufer meldet übergelaufenen Gartenpool, Wasser läuft in Nachbarkeller. Die zwei streiten sich lautstark.",
+            "Pool übergelaufen, ca. 8cm Wasser in Nachbars UG. Melder und Nachbar im Wortgefecht.",
+        ],
     },
     {
         "title_pattern": "Dachentwässerung verstopft",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Dachrinne verstopft, Wasser läuft an Fassade runter.",
+        "title_variations": ["Dachrinne verstopft", "Verstopfte Dachentwässerung"],
+        "message_variations": [
+            "Anwohner meldet verstopfte Dachrinne, Wasser läuft die Fassade runter. Laub im Ablauf.",
+            "Dachentwässerung dicht, Wasser tritt am Fallrohr aus und läuft an Wand. Feuchte dringt ein.",
+        ],
     },
     # ========================================
     # NORMAL - Sturmschaden
@@ -205,42 +330,77 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, Fassadenteile lose. Über Gehweg.",
+        "title_variations": ["Lose Fassadenteile", "Fassade droht zu fallen"],
+        "message_variations": [
+            "Passant meldet lose Fassadenverkleidung über Gehweg. Teile drohen zu fallen, Wind stark.",
+            "Sturmschaden, Fassadenplatten haben sich gelöst und hängen über Eingang. Bereich sichern.",
+        ],
     },
     {
         "title_pattern": "Fenster eingeschlagen",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, Fenster eingeschlagen. Wasser dringt ein.",
+        "title_variations": ["Fenster eingeschlagen", "Sturm hat Fenster zerstört"],
+        "message_variations": [
+            "Bewohner meldet vom Sturm eingeschlagenes Fenster, Regen dringt in Wohnung. Notabdeckung nötig.",
+            "Sturmschaden, Fensterscheibe zerbrochen im OG. Wasser läuft rein, Fenster provisorisch schliessen.",
+        ],
     },
     {
         "title_pattern": "Gerüst beschädigt",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, Baugerüst instabil. Einsturzgefahr.",
+        "title_variations": ["Gerüst instabil", "Baugerüst droht einzustürzen"],
+        "message_variations": [
+            "Anwohner meldet wackelndes Baugerüst nach Sturm. Teile lose, Einsturzgefahr über Gehweg.",
+            "Sturmschaden, Gerüst hat sich gelöst und schwankt stark. Bereich absperren, Baufirma alarmieren.",
+        ],
     },
     {
         "title_pattern": "Werbetafel gefährdet",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, grosse Werbetafel droht zu fallen.",
+        "title_variations": ["Werbetafel droht zu fallen", "Lose Reklametafel"],
+        "message_variations": [
+            "Passant meldet grosse Werbetafel, die im Wind schwingt und sich löst. Über Gehweg.",
+            "Sturmschaden, Reklametafel an Fassade lose. Droht auf Parkplatz zu stürzen.",
+        ],
     },
     {
         "title_pattern": "Dach abgedeckt",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, Dach teilweise abgedeckt. Regen dringt ein.",
+        "title_variations": ["Dach abgedeckt", "Sturm hat Dach abgedeckt"],
+        "message_variations": [
+            "Bewohner meldet abgedecktes Dach nach Sturm. Ziegel fehlen, Regen dringt in Estrich.",
+            "Sturmschaden, Teil der Dachhaut weggerissen. Wasser läuft in oberste Wohnung, Notdach nötig.",
+        ],
     },
     {
         "title_pattern": "Trampolin auf Strasse",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, Trampolin auf Fahrbahn. Blockiert eine Spur.",
+        "title_variations": ["Trampolin auf Strasse", "Gartentrampolin auf Fahrbahn"],
+        "message_variations": [
+            "Autofahrer meldet Trampolin auf Strasse, vom Wind über Zaun getragen. Blockiert eine Spur.",
+            "Sturmschaden, Trampolin liegt auf Fahrbahn. Verkehrsbehinderung, Polizei unterwegs.",
+        ],
     },
     {
         "title_pattern": "Sonnenstoren lose",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Sturmschaden, Storen hängt lose. Schlägt gegen Fenster.",
+        "title_variations": ["Storen lose", "Sonnenstore hängt lose"],
+        "message_variations": [
+            "Bewohner meldet lose Sonnenstore, die im Wind gegen die Scheibe schlägt. Droht abzureissen.",
+            "Sturmschaden, Storenkasten teils gelöst. Store hängt über Balkon, Absturzgefahr.",
+        ],
     },
     # ========================================
     # NORMAL - Baum
@@ -261,36 +421,66 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Grosser Ast auf parkiertes Auto. Keine Verletzten.",
+        "title_variations": ["Ast auf Auto", "Ast auf parkiertes Fahrzeug"],
+        "message_variations": [
+            "Anwohner meldet grossen Ast auf parkiertem PKW. Keine Personen, Dach eingedellt.",
+            "Ast abgebrochen und auf Auto gefallen. Fahrzeug beschädigt, niemand verletzt.",
+        ],
     },
     {
         "title_pattern": "Baum droht zu fallen",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Baum instabil nach Sturm. Kippt Richtung Gebäude.",
+        "title_variations": ["Baum droht zu fallen", "Instabiler Baum am Haus"],
+        "message_variations": [
+            "Bewohner meldet stark geneigten Baum nach Sturm. Kippt Richtung Hausfassade, Wurzeln lose.",
+            "Baum instabil, neigt sich bedenklich über Wohnhaus. Umsturzgefahr, Bereich räumen.",
+        ],
     },
     {
         "title_pattern": "Äste auf Oberleitung",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Baum auf Stromleitung. EW informiert.",
+        "title_variations": ["Ast auf Stromleitung", "Baum in Oberleitung"],
+        "message_variations": [
+            "Anwohner meldet Ast in Stromleitung nach Sturm. EW informiert, Bereich nicht betreten.",
+            "Baum auf Freileitung gestürzt, Leitung hängt durch. EW alarmiert, Absperrung nötig.",
+        ],
     },
     {
         "title_pattern": "Baum blockiert Gehweg",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Baum auf Fussgängerweg, Schulweg betroffen.",
+        "title_variations": ["Baum auf Gehweg", "Umgestürzter Baum Schulweg"],
+        "message_variations": [
+            "Passant meldet umgestürzten Baum auf Fussweg. Schulweg blockiert, Motorsäge nötig.",
+            "Baum quer über Gehweg, Durchgang gesperrt. Betrifft Schulweg, rasch räumen.",
+        ],
     },
     {
         "title_pattern": "Wurzelwerk gelockert",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Grosse Eiche instabil, Wurzeln aus Boden. Umsturzgefahr.",
+        "title_variations": ["Wurzeln gelockert", "Eiche droht umzustürzen"],
+        "message_variations": [
+            "Anwohner meldet grosse Eiche mit angehobenem Wurzelteller. Boden reisst auf, Umsturzgefahr.",
+            "Baum stark geneigt, Wurzeln teils aus Erde. Neigt sich über Weg, Bereich sichern.",
+        ],
     },
     {
         "title_pattern": "Ast auf Spielplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Ast auf Spielplatz gefallen. Spielplatz gesperrt.",
+        "title_variations": ["Ast auf Spielplatz", "Astbruch Spielplatz"],
+        "message_variations": [
+            "Anwohnerin meldet grossen Ast auf Spielplatz. Keine Kinder verletzt, Bereich abgesperrt.",
+            "Ast abgebrochen und auf Spielgeräte gefallen. Spielplatz gesperrt, Astbruch weiterer Äste möglich.",
+        ],
     },
     # ========================================
     # NORMAL - Öl / Technisch / Divers
@@ -300,78 +490,143 @@ EMERGENCY_TEMPLATES = [
         "incident_type": "oelwehr",
         "category": "normal",
         "message_pattern": "Ölwehr, Heizöltank leckt. Ca. 50 Liter im Keller.",
+        "title_variations": ["Heizöl im Keller", "Öltank leckt"],
+        "message_variations": [
+            "Bewohner meldet lecken Heizöltank, ca. 50 Liter ausgelaufen. Starker Geruch, Ölbindemittel nötig.",
+            "Ölwehr, Tank im UG undicht, ca. 40 Liter im Auffangraum. Keine Ausbreitung in Kanal.",
+        ],
     },
     {
         "title_pattern": "Ölspur Hauptstrasse",
         "incident_type": "oelwehr",
         "category": "normal",
         "message_pattern": "Ölspur auf Fahrbahn. Ca. 100m lang.",
+        "title_variations": ["Ölspur Strasse", "Ölspur auf Hauptstrasse"],
+        "message_variations": [
+            "Autofahrer meldet Ölspur auf Hauptstrasse, ca. 100m. Rutschgefahr, Ölbindemittel nötig.",
+            "Ölspur über ca. 120m auf Fahrbahn. Verursacher unbekannt, Strasse abstumpfen.",
+        ],
     },
     {
         "title_pattern": "Ölspur Kreisel",
         "incident_type": "oelwehr",
         "category": "normal",
         "message_pattern": "Ölspur im Kreisel, LKW verliert Hydrauliköl. Ca. 30m.",
+        "title_variations": ["Ölspur Kreisel", "Hydrauliköl im Kreisel"],
+        "message_variations": [
+            "Polizei meldet Ölspur im Kreisel, LKW verliert Hydrauliköl. Ca. 30m, rutschig.",
+            "Ölspur im Kreisel über ca. 40m. Verursacher weitergefahren, Bindemittel und Reinigung nötig.",
+        ],
     },
     {
         "title_pattern": "Lichtmast beschädigt",
         "incident_type": "technische_hilfeleistung",
         "category": "normal",
         "message_pattern": "Strassenlaterne schief nach Sturm. Droht umzufallen.",
+        "title_variations": ["Lichtmast schief", "Strassenlaterne droht zu fallen"],
+        "message_variations": [
+            "Passant meldet schiefen Lichtmast nach Sturm. Neigt sich über Gehweg, Umsturzgefahr.",
+            "Strassenlaterne stark geneigt, Fundament gelockert. Bereich absperren, EW informieren.",
+        ],
     },
     {
         "title_pattern": "Überfluteter Parkplatz",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Hochwasser, Parkplatz unter Wasser. Zufahrt gesperrt.",
+        "title_variations": ["Parkplatz überflutet", "Hochwasser Parkplatz"],
+        "message_variations": [
+            "Anwohner meldet überfluteten Parkplatz, ca. 25cm. Zufahrt gesperrt, Fahrzeuge stehen im Wasser.",
+            "Parkplatz unter Wasser nach Starkregen. Ablauf verstopft, ca. 20cm, Zufahrt nicht passierbar.",
+        ],
     },
     {
         "title_pattern": "Kanaldeckel hochgedrückt",
         "incident_type": "elementarereignis",
         "category": "normal",
         "message_pattern": "Kanaldeckel angehoben durch Wasserdruck. Stolpergefahr.",
+        "title_variations": ["Kanaldeckel hoch", "Angehobener Schachtdeckel"],
+        "message_variations": [
+            "Passant meldet angehobenen Kanaldeckel, durch Wasserdruck hochgedrückt. Stolpergefahr auf Gehweg.",
+            "Schachtdeckel steht schräg, Wasser drückt hoch. Sturzgefahr, Stelle sichern.",
+        ],
     },
     {
         "title_pattern": "Tiefgaragentor klemmt",
         "incident_type": "technische_hilfeleistung",
         "category": "normal",
         "message_pattern": "Tiefgaragentor blockiert, 6 Fahrzeuge eingeschlossen.",
+        "title_variations": ["TG-Tor klemmt", "Garagentor blockiert"],
+        "message_variations": [
+            "Bewohner meldet blockiertes Tiefgaragentor, 6 Fahrzeuge eingeschlossen. Motor defekt.",
+            "TG-Tor klemmt und lässt sich nicht öffnen. Rund 5 Autos können nicht raus, Notentriegelung nötig.",
+        ],
     },
     {
         "title_pattern": "Bagger reisst Wasserleitung",
         "incident_type": "technische_hilfeleistung",
         "category": "normal",
         "message_pattern": "Baustelle, Bagger hat Wasserleitung erwischt. Wasser spritzt.",
+        "title_variations": ["Wasserleitung angebaggert", "Leitungsschaden Baustelle"],
+        "message_variations": [
+            "Baupolier meldet angebaggerte Wasserleitung, Wasser spritzt aus Grube. Ca. 2m hoch, Schieber suchen.",
+            "Bagger hat Hauptleitung erwischt, Baugrube läuft voll. Wasser drückt stark, IWB informiert.",
+        ],
     },
     {
         "title_pattern": "Wespennest am Schulhaus",
         "incident_type": "diverse_einsaetze",
         "category": "normal",
         "message_pattern": "Wespennest beim Eingang Schule. Schädlingsbekämpfer erst morgen verfügbar.",
+        "title_variations": ["Wespennest Schule", "Wespen beim Schuleingang"],
+        "message_variations": [
+            "Hauswart meldet grosses Wespennest über Schuleingang. Kinder gestochen, Kammerjäger erst morgen frei.",
+            "Wespennest an Fassade beim Pausenplatz. Betrieb gestört, Schädlingsbekämpfer nicht verfügbar.",
+        ],
     },
     {
         "title_pattern": "Katze auf Baum",
         "incident_type": "gerettete_tiere",
         "category": "normal",
         "message_pattern": "Katze auf Baum, seit 2 Tagen. Besitzerin am Verzweifeln.",
+        "title_variations": ["Katze auf Baum", "Katze im Baum gefangen"],
+        "message_variations": [
+            "Besitzerin meldet Katze seit 2 Tagen auf Baum, ca. 6m hoch. Kommt nicht runter, Frauchen verzweifelt.",
+            "Katze in Baumkrone, ca. 5m. Miaut seit gestern, Besitzerin bittet dringend um Hilfe.",
+        ],
     },
     {
         "title_pattern": "Ente in Lichtschacht",
         "incident_type": "gerettete_tiere",
         "category": "normal",
         "message_pattern": "Ente mit 6 Küken im Lichtschacht. Kommen nicht raus.",
+        "title_variations": ["Enten im Lichtschacht", "Entenfamilie im Schacht"],
+        "message_variations": [
+            "Anwohnerin meldet Ente mit 6 Küken im Lichtschacht. Kommen nicht raus, Mutter watschelt aufgeregt.",
+            "Entenfamilie in Kellerschacht gefallen, ca. 7 Tiere. Sitzen fest, brauchen Ausstiegshilfe.",
+        ],
     },
     {
         "title_pattern": "Igel im Kellerschacht",
         "incident_type": "gerettete_tiere",
         "category": "normal",
         "message_pattern": "Igel in Kellerschacht. Bewohner füttert ihn seit einer Woche, will ihn jetzt raus haben.",
+        "title_variations": ["Igel im Schacht", "Igel im Kellerschacht"],
+        "message_variations": [
+            "Bewohner meldet Igel im Lichtschacht seit ca. einer Woche. Hat ihn gefüttert, möchte ihn nun draussen haben.",
+            "Igel sitzt im Kellerschacht fest, ca. 1,5m tief. Melder will ihn nicht mehr durchfüttern.",
+        ],
     },
     {
         "title_pattern": "Schwan auf Strasse",
         "incident_type": "gerettete_tiere",
         "category": "normal",
         "message_pattern": "Schwan blockiert Kreuzung. Polizei hat aufgegeben.",
+        "title_variations": ["Schwan auf Strasse", "Schwan blockiert Kreuzung"],
+        "message_variations": [
+            "Polizei meldet Schwan mitten auf Kreuzung. Lässt sich nicht vertreiben, Verkehr staut sich.",
+            "Schwan blockiert Fahrbahn und faucht jeden an. Polizei bittet um Unterstützung.",
+        ],
     },
     # ========================================
     # CRITICAL - Brand
@@ -810,23 +1065,37 @@ async def seed_training_data(skip_geocoding: bool = False):
         print("SEEDING TRAINING DATA")
         print("=" * 60)
 
-        # Check if templates already exist
         from sqlalchemy import func, select
 
-        template_count = await session.scalar(select(func.count()).select_from(EmergencyTemplate))
-
-        if template_count > 0:
-            print(f"\n⏭️  Emergency templates already exist ({template_count} found). Skipping seed.")
-            return
-
-        # Seed emergency templates
-        print(f"\n📝 Seeding {len(EMERGENCY_TEMPLATES)} emergency templates...")
+        # Sync emergency template text (idempotent, keyed by title_pattern) so
+        # edits to EMERGENCY_TEMPLATES — new templates AND added message/title
+        # variations — reach existing databases on deploy. The old skip-if-present
+        # logic left authored variations dormant forever, so every dispatch read
+        # the single message_pattern verbatim.
+        result = await session.execute(select(EmergencyTemplate))
+        existing = {t.title_pattern: t for t in result.scalars().all()}
+        inserted = updated = 0
         for template_data in EMERGENCY_TEMPLATES:
-            template = EmergencyTemplate(id=uuid4(), **template_data)
-            session.add(template)
-
+            existing_template = existing.get(template_data["title_pattern"])
+            if existing_template is None:
+                session.add(EmergencyTemplate(id=uuid4(), **template_data))
+                inserted += 1
+            else:
+                existing_template.incident_type = template_data["incident_type"]
+                existing_template.category = template_data["category"]
+                existing_template.message_pattern = template_data["message_pattern"]
+                existing_template.message_variations = template_data.get("message_variations")
+                existing_template.title_variations = template_data.get("title_variations")
+                updated += 1
         await session.commit()
-        print(f"✅ Seeded {len(EMERGENCY_TEMPLATES)} emergency templates")
+        print(f"✅ Emergency templates synced: {inserted} new, {updated} updated")
+
+        # Training locations: only seed when none exist — reverse geocoding is
+        # slow and rate-limited, so it must never re-run on every deploy.
+        location_count = await session.scalar(select(func.count()).select_from(TrainingLocation))
+        if location_count and location_count > 0:
+            print(f"\n⏭️  Training locations already exist ({location_count} found). Skipping geocoding.")
+            return
 
         # Seed training locations using reverse geocoding
         target_count = 50

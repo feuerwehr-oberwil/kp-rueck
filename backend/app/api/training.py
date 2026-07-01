@@ -239,6 +239,88 @@ async def simulate_checkin(
     )
 
 
+@router.post("/events/{event_id}/simulate/field-complete/{incident_id}", response_model=IncidentResponse)
+async def simulate_field_complete(
+    event_id: UUID,
+    incident_id: UUID,
+    current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Field crew reports the incident finished ("Einsatz beendet").
+
+    Informational only: stamps ``field_complete_reported_at`` so the operator
+    sees a "Feld meldet: beendet" badge on the card and can decide to close the
+    incident. Deliberately does NOT change the status — closing is the
+    operator's board action, mimicking the real command-post split.
+    """
+    if settings.demo_mode:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
+
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if not event.training_flag:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+
+    incident = await db.get(Incident, incident_id)
+    if not incident or incident.event_id != event_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found in this event")
+
+    from datetime import UTC, datetime
+
+    incident.field_complete_reported_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(incident)
+
+    response = IncidentResponse.model_validate(incident)
+    background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
+    return response
+
+
+@router.post("/events/{event_id}/simulate/reko-arrived/{incident_id}", response_model=IncidentResponse)
+async def simulate_reko_arrived(
+    event_id: UUID,
+    incident_id: UUID,
+    current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark the Reko crew as "vor Ort" (arrived on scene) for a training incident.
+
+    This is the first half of the Reko arc — it sets ``arrived_at`` without
+    submitting a report, so the conductor console can walk an incident through
+    "Reko vor Ort" → "Reko-Meldung" as two separate, realistically-timed steps
+    (the one-shot ``simulate_reko`` below still does both at once).
+    """
+    if settings.demo_mode:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
+
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if not event.training_flag:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+
+    incident = await db.get(Incident, incident_id)
+    if not incident or incident.event_id != event_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found in this event")
+
+    if incident.status != "reko":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Einsatz muss im Status 'reko' sein (aktuell: '{incident.status}')",
+        )
+
+    token = generate_form_token(str(incident_id), "reko")
+    await reko_crud.mark_reko_arrived(db, incident_id, token)
+
+    await db.refresh(incident)
+    response = IncidentResponse.model_validate(incident)
+    background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
+    return response
+
+
 @router.post("/events/{event_id}/simulate/reko/{incident_id}", response_model=RekoReportResponse)
 async def simulate_reko(
     event_id: UUID,

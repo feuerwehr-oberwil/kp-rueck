@@ -332,6 +332,10 @@ class Incident(Base):
     created_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set when the field crew reports the incident finished ("Einsatz beendet").
+    # Purely informational: it surfaces a badge on the card so the operator can
+    # decide to close the incident — it does NOT change status on its own.
+    field_complete_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(

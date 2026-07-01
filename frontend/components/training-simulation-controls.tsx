@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEvent } from '@/lib/contexts/event-context';
-import { useOperations } from '@/lib/contexts/operations-context';
+import { useOperations, type Operation, type OperationStatus } from '@/lib/contexts/operations-context';
 import { apiClient } from '@/lib/api-client';
+import { nextAction, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
+import { getTimeSince } from '@/lib/kanban-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -14,23 +16,104 @@ import {
   Users,
   ClipboardCheck,
   Bot,
+  MapPin,
+  Truck,
+  Flag,
+  ChevronRight,
 } from 'lucide-react';
+
+// Short German chip label for each incident status.
+const STATUS_LABELS: Record<OperationStatus, string> = {
+  incoming: 'Eingegangen',
+  ready: 'Reko',
+  rekoDone: 'Reko fertig',
+  enroute: 'Disponiert',
+  active: 'Einsatz',
+  returning: 'Beendet',
+  complete: 'Abgeschlossen',
+};
+
+// Icon per field-action key — keeps the button scannable at a glance.
+const ACTION_ICONS: Record<string, typeof MapPin> = {
+  reko_arrived: MapPin,
+  reko_report: ClipboardCheck,
+  vehicle_on_scene: Truck,
+  field_complete: Flag,
+};
 
 export function TrainingSimulationControls() {
   const { selectedEvent } = useEvent();
-  const { operations } = useOperations();
+  const { operations, changeStatusToTop } = useOperations();
   const [isCheckingIn, setIsCheckingIn] = useState(false);
-  // Track per-incident submit state so each row's button can show its own
-  // loading spinner without locking out the others.
-  const [submittingRekoIds, setSubmittingRekoIds] = useState<Set<string>>(new Set());
+  // Track per-incident advance state so each row's button spins independently.
+  const [advancingIds, setAdvancingIds] = useState<Set<string>>(new Set());
   const [checkinCount, setCheckinCount] = useState(10);
+
+  // 1 Hz clock so "due" recomputes and the elapsed timers tick live.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Build the conductor list: every open incident with its single next
+  // milestone, sorted due-first then longest-waiting-first so the most
+  // "overdue" incident sits at the top, ready to advance.
+  const rows = useMemo(() => {
+    const built = operations
+      .map((op) => {
+        const action = nextAction(op);
+        if (!action) return null;
+        const secs = secondsInStep(op, now);
+        return { op, action, secs, due: isActionDue(op, action, now) };
+      })
+      .filter((r): r is { op: Operation; action: NextAction; secs: number | null; due: boolean } => r !== null);
+
+    return built.sort((a, b) => {
+      if (a.due !== b.due) return a.due ? -1 : 1;
+      return (b.secs ?? Number.MAX_SAFE_INTEGER) - (a.secs ?? Number.MAX_SAFE_INTEGER);
+    });
+  }, [operations, now]);
 
   if (!selectedEvent?.training_flag) {
     return null;
   }
 
-  // Derive reko incidents from operations context (status "ready" = backend "reko")
-  const rekoOps = operations.filter(op => op.status === 'ready');
+  const setAdvancing = (id: string, on: boolean) =>
+    setAdvancingIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  const handleAdvance = async (op: Operation, action: NextAction) => {
+    if (!selectedEvent) return;
+
+    // Plain status transitions reuse the optimistic one-click board move.
+    if (action.kind === 'status' && action.targetStatus) {
+      changeStatusToTop(op.id, action.targetStatus);
+      return;
+    }
+
+    // Field reports hit the backend; the board refreshes via WS/poll.
+    setAdvancing(op.id, true);
+    try {
+      if (action.kind === 'reko_arrived') {
+        await apiClient.simulateRekoArrived(selectedEvent.id, op.id);
+      } else if (action.kind === 'reko_report') {
+        await apiClient.simulateReko(selectedEvent.id, op.id);
+      } else if (action.kind === 'field_complete') {
+        await apiClient.simulateFieldComplete(selectedEvent.id, op.id);
+      }
+    } catch (error: unknown) {
+      console.error('Failed to advance incident:', error);
+      const detail = error instanceof Error ? error.message : 'Aktion fehlgeschlagen';
+      toast.error('Fehler', { description: detail });
+    } finally {
+      setAdvancing(op.id, false);
+    }
+  };
 
   const handleSimulateCheckin = async () => {
     if (!selectedEvent) return;
@@ -51,24 +134,6 @@ export function TrainingSimulationControls() {
     }
   };
 
-  const handleSimulateReko = async (incidentId: string) => {
-    if (!selectedEvent) return;
-    setSubmittingRekoIds((prev) => new Set(prev).add(incidentId));
-    try {
-      await apiClient.simulateReko(selectedEvent.id, incidentId);
-    } catch (error: unknown) {
-      console.error('Failed to simulate reko:', error);
-      const detail = error instanceof Error ? error.message : 'Reko-Simulation fehlgeschlagen';
-      toast.error('Fehler', { description: detail });
-    } finally {
-      setSubmittingRekoIds((prev) => {
-        const next = new Set(prev);
-        next.delete(incidentId);
-        return next;
-      });
-    }
-  };
-
   return (
     <Card className="mt-4">
       <CardHeader>
@@ -83,6 +148,65 @@ export function TrainingSimulationControls() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Conductor console — one recommended next step per open incident,
+            most-overdue first. Due rows are highlighted; a tap advances. */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <ChevronRight className="h-4 w-4" />
+            Nächste Aktionen
+          </Label>
+          {rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Keine offene Feldaktion. Reko aufbieten / disponieren macht der Operator am Board.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                {rows.map(({ op, action, due }) => {
+                  const busy = advancingIds.has(op.id);
+                  const Icon = ACTION_ICONS[action.key] ?? ChevronRight;
+                  const started = stepStartedAt(op);
+                  return (
+                    <div
+                      key={op.id}
+                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
+                        due ? 'border-amber-400/70 bg-amber-50/60 dark:bg-amber-950/30' : 'border-border'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium" title={op.location}>
+                          {op.location || op.incidentType}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {STATUS_LABELS[op.status]}
+                          {started && ` · seit ${getTimeSince(started)}`}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleAdvance(op, action)}
+                        disabled={busy}
+                        variant={due ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-shrink-0"
+                        title={due ? 'Empfohlene nächste Aktion' : undefined}
+                      >
+                        <Icon className="mr-1.5 h-3.5 w-3.5" />
+                        {action.label}
+                        {busy && <span className="ml-1.5 text-xs opacity-70">…</span>}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). &quot;Einsatz beendet&quot; meldet nur — der Operator schliesst den Einsatz ab.
+              </p>
+            </>
+          )}
+        </div>
+
+        <Separator />
+
         {/* Personnel Check-In Simulation */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
@@ -112,50 +236,6 @@ export function TrainingSimulationControls() {
           <p className="text-xs text-muted-foreground">
             Checkt zufällige verfügbare Personen ein
           </p>
-        </div>
-
-        <Separator />
-
-        {/* Reko Report Simulation — one button per Reko incident, single click
-            fills + submits (no dropdown, no confirmation step). */}
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <ClipboardCheck className="h-4 w-4" />
-            Reko-Bericht ausfüllen
-          </Label>
-          {rekoOps.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Keine Einsätze im Status &quot;Reko&quot; vorhanden.
-            </p>
-          ) : (
-            <>
-              <div className="space-y-1.5">
-                {rekoOps.map((op) => {
-                  const submitting = submittingRekoIds.has(op.id);
-                  return (
-                    <Button
-                      key={op.id}
-                      onClick={() => handleSimulateReko(op.id)}
-                      disabled={submitting}
-                      variant="outline"
-                      className="w-full justify-start text-left h-auto py-2"
-                    >
-                      <ClipboardCheck className="mr-2 h-4 w-4 flex-shrink-0" />
-                      <span className="flex-1 truncate">
-                        {op.location || op.incidentType}
-                      </span>
-                      {submitting && (
-                        <span className="ml-2 text-xs text-muted-foreground">…</span>
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Klick füllt + reicht den Bericht ein. Einsatz geht auf &quot;Reko abgeschlossen&quot;.
-              </p>
-            </>
-          )}
         </div>
       </CardContent>
     </Card>

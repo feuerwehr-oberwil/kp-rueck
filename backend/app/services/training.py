@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import EmergencyTemplate, Event, Incident, Notification, Setting, TrainingLocation
-from app.services.training_simulation_data import generate_intake_caller
+from app.services.training_simulation_data import generate_intake_caller, vary_dispatch_numbers
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,9 @@ class TrainingGenerator:
         Telefon badge) for added training realism.
         """
         priority = "high" if template.category == "critical" else "low"
-        description = self._pick_message(template)
+        # Jitter the concrete figures (depth/volume/length) so repeated spawns of
+        # the same template don't read identically.
+        description = vary_dispatch_numbers(self._pick_message(template))
         contact = None
         # A simulated phone/walk-in alarm gets a fake caller (Melder) plus a short
         # citizen-perspective context line, so it reads like a real report.

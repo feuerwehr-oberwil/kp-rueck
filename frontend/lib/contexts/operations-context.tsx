@@ -64,6 +64,9 @@ export interface Operation {
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
+  /** Set when the field crew reported the incident finished (training). Drives the
+   *  "Feld meldet: beendet" card badge; the operator still closes it manually. */
+  fieldCompleteReportedAt?: Date | null
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
   crewAssignments: Map<string, string>
@@ -294,6 +297,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
+      fieldCompleteReportedAt: incident.field_complete_reported_at ? new Date(incident.field_complete_reported_at) : null,
       rekoSummary: null,
       assignedReko: null,
       crewAssignments: new Map(),

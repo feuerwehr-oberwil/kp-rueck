@@ -1,6 +1,7 @@
 """Random data generators for training simulation, contextual to incident type."""
 
 import random
+import re
 
 # Danger profiles per incident type: which dangers are likely and their probability
 _DANGER_PROFILES: dict[str, dict[str, float]] = {
@@ -126,7 +127,7 @@ _SUMMARIES: dict[str, list[str]] = {
         # Generic brand summaries — used when no subcategory keyword matches.
         "Starke Rauchentwicklung. Brandabschnitt identifiziert, Zugang gesichert.",
         "Feuer auf einen Raum begrenzt. Tür geschlossen, Innenangriff möglich.",
-        "Brand weitgehend unter Kontrolle. Restglut wird abgelöscht.",
+        "Kein offenes Feuer mehr sichtbar, einzelne Glutnester. Nachlöschen wird nötig.",
         "Rauchmelder piepst seit 3 Stunden. Bewohner nicht zu Hause. Nachbarn besorgt. Vermutlich Batterie leer.",
     ],
     "brand_wohnung": [
@@ -192,11 +193,15 @@ _SUMMARIES: dict[str, list[str]] = {
         "Bewohnerin hat im Bad geraucht, Melder hat ausgelöst. Pflegepersonal hat sie beruhigt, keine Gefahr.",
         "Pflegeheim Ost: Toast verbrannt in Stationsküche. Melder zurückgesetzt, Bewohner blieben in Zimmern.",
         "Falscher Alarm durch defekten Melder. Anlage isoliert den Sektor, Servicetechniker aufgeboten.",
+        "Bewohner hat Rufknopf mit Melder verwechselt. Pflege bestätigt Fehlalarm.",
+        "Verbranntes Essen im Zimmer, Melder ausgelöst. Kein Feuer, bereits gelüftet.",
     ],
     "bma_gewerbe": [
         "Auslösung durch Schweissarbeiten in Produktionshalle. Schweisser hatte keine Freigabe vom Sicherheitsbeauftragten.",
         "Industriebetrieb: Staub aus Absauganlage hat Optikmelder ausgelöst. Filter ist verstopft.",
         "Produktionshalle: Gabelstapler-Abgase haben CO-Melder ausgelöst. Tor wurde geöffnet, Halle gelüftet.",
+        "Dampf aus Reinigungsanlage hat Melder ausgelöst. Betrieb läuft, kein Brand.",
+        "Fehlalarm nach BMA-Wartung, Techniker war nicht abgemeldet.",
     ],
     "bma_oeffentlich": [
         "Auslösung durch Kochdampf Food Court. Restaurantleiter hat Anlage falsch konfiguriert.",
@@ -208,7 +213,7 @@ _SUMMARIES: dict[str, list[str]] = {
     ],
     "elementarereignis": [
         "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig.",
-        "Wasser fliesst weiter nach. Sandsäcke liegen bereit, Tauchpumpe fehlt.",
+        "Wasser fliesst weiter nach, steigt langsam. Tauchpumpe nötig.",
         "Situation stabil, Wasserstand gleichbleibend. Eine Pumpe reicht, kein Mehraufwand.",
         "Mehrere Kellerräume betroffen. Abpumpen nur in Reihenfolge möglich, Zugang eng.",
         "Baum auf Strasse, Fahrbahn komplett blockiert. Ca. 40cm Stammdurchmesser.",
@@ -227,7 +232,7 @@ _SUMMARIES: dict[str, list[str]] = {
     ],
     "elementar_water": [
         "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig.",
-        "Wasser fliesst weiter nach. Sandsäcke liegen bereit, Tauchpumpe fehlt.",
+        "Wasser fliesst weiter nach, steigt langsam. Tauchpumpe nötig.",
         "Situation stabil, Wasserstand gleichbleibend. Eine Pumpe reicht, kein Mehraufwand.",
         "Mehrere Kellerräume betroffen. Abpumpen nur in Reihenfolge möglich, Zugang eng.",
         "Zufahrt frei. Einsatzstelle gut zugänglich. Standard-Pumpeinsatz genügt.",
@@ -257,12 +262,21 @@ _SUMMARIES: dict[str, list[str]] = {
         "Werbetafel droht herabzufallen. Bereich bereits weiträumig abgesperrt.",
         "Fensterläden schlagen im Wind. Glas noch ganz, aber Scharniere geben nach.",
         "Dachrinne abgerissen, hängt lose an Fassade. Tropft auf Passanten.",
+        "Mehrere Dachziegel lose, bei jeder Böe fällt einer. Trottoir darunter gefährdet.",
+        "Gartentrampolin gegen Hausfassade gedrückt, blockiert Hauseingang. Keine Verletzten.",
+        "Grosser Sonnenschirm auf Strasse geweht, Verkehr behindert. Halterung gebrochen.",
+        "Blechverkleidung am Flachdach hochgebogen, klappert laut. Droht sich zu lösen.",
+        "Bauabschrankung umgeweht, liegt auf Veloweg. Absturzteile lose, Sichtbehinderung.",
+        "Storenkasten teilweise gelöst, Store hängt über Balkon. Absturzgefahr auf Sitzplatz.",
     ],
     "strassenrettung": [
         # Generic fallbacks.
         "Verletzte Person ansprechbar. Sanität bereits vor Ort. Technische Rettung nötig.",
         "Person mit Hand in Briefkasten stecken geblieben. Peinlich aber harmlos.",
         "Schlüsseldienst hat aufgegeben, jetzt hat die Polizei uns gerufen. Tür ist massiv.",
+        "Ring am Finger klemmt, Schwellung. Person ruhig, Ringtrenner genügt.",
+        "Arbeiter mit Arm in Maschine eingeklemmt. Sanität vor Ort, Maschine gesichert.",
+        "Person unter umgekipptem Lagerregal eingeklemmt. Ansprechbar, Hebekissen nötig.",
     ],
     "personenrettung_vu": [
         "Person eingeklemmt, Fahrerseite deformiert. Hydraulische Rettung erforderlich.",
@@ -287,29 +301,35 @@ _SUMMARIES: dict[str, list[str]] = {
     "personenrettung_tier": [
         "Katze auf Baum. Besitzerin besteht auf Feuerwehr. Tier sitzt seit gestern oben.",
         "Kind mit Fuss in Gitter eingeklemmt. Eltern panisch, Kind erstaunlich ruhig.",
+        "Hund auf zugefrorenem Weiher eingebrochen, hält sich an Eiskante. Besitzer ausser sich.",
+        "Kuh in Güllegrube gestürzt. Landwirt vor Ort, Kran und Bergegeschirr nötig.",
+        "Katze seit drei Tagen im Kaminschacht, miaut. Kaminfeger unterstützt.",
     ],
     "oelwehr": [
         # Generic oelwehr fallbacks.
         "Kleiner Ölaustritt, bereits gestoppt. Betroffene Fläche ca. 3m².",
         "Moped tropft Öl auf Parkplatz. Besitzer bestreitet alles. Spur führt direkt zu seinem Töff.",
+        "Diesel tropft aus abgestelltem Lieferwagen. Kleine Lache unter dem Fahrzeug.",
+        "Hydraulikschlauch an Baumaschine geplatzt, ca. 2m² Ölfleck. Maschine steht.",
+        "Ölaustritt an Trafostation, Betreiber alarmiert. EW ist unterwegs.",
     ],
     "oel_keller": [
         "Heizölaustritt im Keller. Ca. 50 Liter. Lache breitet sich nicht mehr aus.",
-        "Heizöltank undicht, Auffangwanne fast voll. Tankraum mit Ölbindemittel abgedeckt.",
+        "Heizöltank undicht, Auffangwanne fast voll. Bindemittel und Umpumpen nötig.",
         "Geruch im Keller, vermutlich kleine Leckage an Tankleitung. Ca. 5 Liter ausgetreten.",
         "Heizöl im Tankraum, ca. 80 Liter. Bewohner hat Sand gestreut. Geruch im ganzen Haus.",
     ],
     "oel_strasse": [
         "Ölspur ca. 100m Länge auf Hauptstrasse. Kein Gewässer in der Nähe.",
         "LKW verliert Hydrauliköl auf Kreuzung. Ca. 20m Spur. Rutschgefahr bei Regen.",
-        "Ölspur im Kreisel nach LKW-Manöver. Bereits mit Ölbindemittel abgestreut, Verkehr läuft langsam.",
+        "Ölspur im Kreisel nach LKW-Manöver, ca. 30m. Rutschgefahr, Verkehr läuft langsam.",
         "Diesel-Lache am Strassenrand nach Tankunfall. Ca. 5m², Werkstattbetrieb informiert.",
     ],
     "oel_gewaesser": [
         "Öl auf Fahrbahn nach Unfall. Bach ca. 50m entfernt, Gefahr von Gewässerverunreinigung.",
         "Ölfilm auf Dorfbach. Quelle: undichte Ölheizung 3 Häuser weiter. Bach fliesst langsam.",
-        "Schimmernde Spur auf Fluss, ca. 30m. Ölsperre wird ausgelegt, Kantonschemiker unterwegs.",
-        "Diesel im Regenwasserschacht. Mündung in Bach. Sperre an Mündung gesetzt.",
+        "Schimmernde Spur auf Fluss, ca. 30m. Ölsperre nötig, Kantonschemiker unterwegs.",
+        "Diesel im Regenwasserschacht. Mündung in Bach. Sperre an Mündung nötig.",
     ],
     "chemiewehr": [
         "Unbekannte Substanz ausgetreten. Geruch wahrnehmbar. Grossräumig abgesperrt.",
@@ -324,16 +344,23 @@ _SUMMARIES: dict[str, list[str]] = {
         # Generic fallbacks.
         "Lage stabilisiert, weitere Massnahmen mit EW/Werkdienst koordiniert.",
         "Situation harmlos, kein dringender Eingriff nötig. Werkdienst übernimmt.",
+        "Umgestürzter Bauzaun auf Trottoir, Passanten müssen ausweichen. Bauführer informiert.",
+        "Loses Blech an Baustellenverkleidung schlägt im Wind. Droht sich zu lösen.",
+        "Kanaldeckel fehlt auf Quartierstrasse, Loch offen. Werkdienst aufgeboten.",
     ],
     "tech_dach": [
         "Dach teilweise abgedeckt. Ca. 4m² offen. Blachen liegen auf dem Dachboden bereit.",
         "Kamin umgeknickt, liegt quer auf dem Dach. Absturzgefahr, Bereich darunter frei.",
         "Ziegel lose, 3 Stück bereits auf Gehweg gefallen. Bereich darunter abgesperrt.",
+        "Firstziegel gelöst, droht auf Innenhof zu fallen. Bereich gesperrt, Steiger nötig.",
+        "Antenne auf Dach umgeknickt, hängt über Traufe. Absturzgefahr.",
     ],
     "tech_storen_fassade": [
         "Storen hängt lose an Fassade, schlägt im Wind gegen Fenster. Glas noch ganz.",
         "Fassadenelement löst sich vom Bürohaus, ca. 2m über Gehweg. Bereich gesperrt.",
         "Sonnenstoren abgerissen, hängt am Kabel. Pendelt über Eingangsbereich.",
+        "Rollladen aus Schiene gesprungen, blockiert Fluchtweg. Sicherung nötig.",
+        "Werbebanner halb abgerissen, weht auf Trottoir. Absturzgefahr für Passanten.",
     ],
     "tech_versorgung": [
         "Baustelle: Bagger hat Wasserleitung getroffen. Wasser spritzt. Haupthahn unbekannt.",
@@ -345,6 +372,8 @@ _SUMMARIES: dict[str, list[str]] = {
         "Tiefgaragentor klemmt, 4 Fahrzeuge eingeschlossen. Motor reagiert nicht.",
         "Garagentor halb offen, Mechanik blockiert. Bewohner kommt nicht in den Keller.",
         "Schranke Parkhaus blockiert nach Stromausfall. 6 Autos im Stau.",
+        "Personenlift zwischen zwei Stockwerken blockiert, niemand drin. Liftfirma unterwegs.",
+        "Rolltor Anlieferung klemmt halboffen, Betrieb blockiert. Motor stromlos.",
     ],
     "diverse_einsaetze": [
         "Wespennest am Eingang, Schwarm aktiv. Bereich abgesperrt, Imker informiert.",
@@ -389,34 +418,47 @@ _POWER_SUPPLY_WEIGHTS: dict[str, dict[str, float]] = {
 _DEFAULT_POWER_SUPPLY_WEIGHTS = {"available": 0.35, "unavailable": 0.25, "emergency_needed": 0.2, "unknown": 0.2}
 
 
-def _get_elementar_subcategory(text: str) -> str:
-    """Categorize an elementarereignis incident by keywords into a subcategory.
+# Keyword pools for the elementarereignis subcategories. Storm words include
+# roof/facade damage; tree words the fallen-tree family; water the flooding
+# family. "dach"/"ziegel"/"abgedeckt" are storm even when a "Wasser"/"Regen"
+# word also appears, because classification is title-first + score-based below.
+_ELEMENTAR_KEYWORDS: dict[str, list[str]] = {
+    "elementar_water": [
+        "wasser", "keller", "überflut", "überschwemm", "schwemm", "kanal",
+        "rückstau", "pumpen", "feucht", "waschmaschine", "waschküche", "pool",
+        "garage", "liftschacht", "hochwasser", "rohrbruch", "abfluss", "grundwasser",
+    ],
+    "elementar_tree": ["baum", "ast", "äste", "wurzel", "eiche", "tanne", "geäst"],
+    "elementar_storm": [
+        "dach", "ziegel", "abgedeckt", "fassade", "fenster", "gerüst", "werbetafel",
+        "trampolin", "store", "markise", "sturm", "wind", "fensterladen", "vordach",
+    ],
+}
 
-    `text` should be the lowercased concatenation of title + description so
-    the resolver can pick up cues from both ("Wasser im Keller" title +
-    "Hochwasser, MFH" description both point to water).
+
+def _score_elementar(text: str) -> tuple[str | None, int]:
+    """Best-matching elementar subcategory for a single text + its hit count.
+    Score-based (dominant subject wins) rather than first-match, so an incidental
+    cross-category word can't hijack the classification."""
+    scores = {sub: sum(1 for kw in kws if kw in text) for sub, kws in _ELEMENTAR_KEYWORDS.items()}
+    best = max(scores, key=lambda s: scores[s])
+    return (best, scores[best]) if scores[best] > 0 else (None, 0)
+
+
+def _get_elementar_subcategory(title: str | None, description: str | None = None) -> str:
+    """Categorize an elementarereignis incident into water / tree / storm.
+
+    The TITLE is the scenario anchor and is classified first — a storm incident
+    ("Dach abgedeckt") must not be dragged to water by an incidental word in its
+    (randomly varied) dispatch description. Only when the title is neutral does
+    the description decide; if neither matches, the mixed elementar pool is used.
     """
-    water_keywords = [
-        "wasser", "keller", "überflut", "kanal", "rückstau", "pumpen",
-        "feucht", "waschmaschine", "pool", "garage unter", "liftschacht",
-        "hochwasser", "rohrbruch", "abfluss", "kanalrückstau",
-    ]
-    tree_keywords = ["baum", "ast", "wurzel", "äste", "eiche", "tanne"]
-    storm_keywords = [
-        "dach", "fassade", "fenster", "gerüst", "werbetafel",
-        "trampolin", "sonnenstoren", "ziegel", "sturm",
-    ]
-
-    for kw in water_keywords:
-        if kw in text:
-            return "elementar_water"
-    for kw in tree_keywords:
-        if kw in text:
-            return "elementar_tree"
-    for kw in storm_keywords:
-        if kw in text:
-            return "elementar_storm"
-
+    for text in (title, description):
+        if not text:
+            continue
+        sub, hits = _score_elementar(text.lower())
+        if sub and hits > 0:
+            return sub
     return "elementarereignis"
 
 
@@ -473,7 +515,6 @@ def _resolve_summary_pool(
     and to elementarereignis if the type itself has no pool at all.
     """
     type_key = (incident_type or "elementarereignis").lower()
-    text = " ".join(filter(None, [title, description])).lower()
 
     # Types without their own pool fall back to a sibling type
     if type_key == "einsatz_bahnanlagen":
@@ -485,13 +526,17 @@ def _resolve_summary_pool(
 
     # elementarereignis has its own (richer) subcategory resolver
     if type_key == "elementarereignis":
-        sub = _get_elementar_subcategory(text)
+        sub = _get_elementar_subcategory(title, description)
         return sub if sub in _SUMMARIES else type_key
 
-    # All other types use the keyword map
-    for sub, kws in _TYPE_SUBCATEGORY_KEYWORDS.get(type_key, []):
-        if any(kw in text for kw in kws):
-            if sub in _SUMMARIES:
+    # Other types use the keyword map — TITLE first (the scenario anchor), then
+    # the description, so a varied dispatch line can't pick the wrong pool.
+    for source in (title, description):
+        if not source:
+            continue
+        low = source.lower()
+        for sub, kws in _TYPE_SUBCATEGORY_KEYWORDS.get(type_key, []):
+            if sub in _SUMMARIES and any(kw in low for kw in kws):
                 return sub
 
     # No subcategory hit — fall back to top-level type pool, then elementar
@@ -564,12 +609,159 @@ def generate_summary(
     return random.choice(summaries)
 
 
+# Humans estimate in round numbers — a Reko says "ca. 20cm", never "21cm". Each
+# quantity snaps to a ladder of plausible round values instead of an arbitrary
+# jitter, so varied figures still read like real eyeball estimates.
+_NICE_CM = [3, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100]
+_NICE_LITER = [5, 10, 20, 30, 50, 80, 100, 150, 200]
+_NICE_M = [3, 5, 10, 20, 30, 50, 80, 100, 150, 200]
+
+
+def _nice_near(n: int, ladder: list[int]) -> int:
+    """A round value from `ladder` near `n` — picks randomly among the plausible
+    band around `n` so the figure varies but stays a number a person would say."""
+    lo, hi = n * 0.5, n * 1.9
+    candidates = [v for v in ladder if lo <= v <= hi]
+    return random.choice(candidates) if candidates else min(ladder, key=lambda v: abs(v - n))
+
+
+def vary_dispatch_numbers(text: str) -> str:
+    """Vary the concrete quantities in a dispatch message (water depth in cm,
+    volumes in Liter, lengths/diameters in m) so a template that says "Ca. 25cm"
+    doesn't read identically on every spawn — snapping to round estimate values.
+    Non-numeric text is untouched."""
+    if not text:
+        return text
+
+    def _range_cm(m: re.Match) -> str:
+        a = _nice_near(int(m.group(1)), _NICE_CM)
+        b = _nice_near(int(m.group(2)), _NICE_CM)
+        if b <= a:
+            higher = [v for v in _NICE_CM if v > a]
+            b = higher[0] if higher else a
+        return f"{a}-{b}{m.group(3)}"
+
+    # Ranges first ("20-30cm") so the single-cm pass doesn't touch their halves.
+    text = re.sub(r"(\d+)\s?-\s?(\d+)\s?(cm)", _range_cm, text)
+    text = re.sub(r"(?<![\d-])(\d+)\s?cm", lambda m: f"{_nice_near(int(m.group(1)), _NICE_CM)}cm", text)
+    text = re.sub(r"(\d+)\s?Liter", lambda m: f"{_nice_near(int(m.group(1)), _NICE_LITER)} Liter", text)
+    text = re.sub(r"(?<![\d-])(\d+)\s?m\b", lambda m: f"{_nice_near(int(m.group(1)), _NICE_M)}m", text)
+    return text
+
+
+# Summary keywords that ASSERT a danger — when the reko text says it, the flag
+# must be on, so the badges never contradict the prose. fire_danger is gated to
+# brand types by the caller (a "kein Brand" false alarm shouldn't light it up).
+_DANGER_ASSERT_KW: dict[str, list[str]] = {
+    "collapse": ["einsturz", "sparren", "durchgebrannt", "wackelt", "instabil", "umgeknickt", "gibt nach", "absturz", "droht herab"],
+    "explosion": ["explos", "gasflasche", "spraydose", "gasleitung", "gasriecher"],
+    "chemical": ["chlor", "chemi", "reizgas", "ätzend", "aetzend", "gefahrgut", "säure", "reiniger", "gefahrstoff"],
+    "electrical": ["strom", "elektr", "trafo", "steckdose", "leitung"],
+    "fire_danger": ["vollbrand", "flammen", "glutnest", "brennt", "in flammen"],
+}
+# Summary keywords that mean "nothing going on" — force all dangers off.
+_HARMLESS_KW = [
+    "täuschungsalarm", "fehlalarm", "harmlos", "entwarnung", "keine gefahr",
+    "kein brand", "kein fw-einsatz", "alles unter kontrolle", "nichts vorgefunden",
+    "kein einsatz",
+]
+# Effort cues: shrink to the profile floor / grow to the ceiling so the numbers
+# agree with the prose ("kleines Aufgebot" shouldn't sit next to 8 Pers.).
+_SMALL_EFFORT_KW = ["kontrolle genügt", "eine pumpe reicht", "kleines aufgebot", "kein mehraufwand", "selbst gelöscht", "bereits gelöscht", "genügt"]
+_LARGE_EFFORT_KW = ["verstärkung", "zusätzliches material", "zusätzliche pumpe", "mehrere pumpen", "dlk", "aussenangriff", "nachforder", "läuft nach", "grossaufgebot"]
+
+
+def _reconcile_with_summary(
+    summary: str,
+    resolved_type: str | None,
+    dangers: dict,
+    effort: dict,
+) -> tuple[dict, dict]:
+    """Make the structured danger/effort fields agree with the summary prose."""
+    lower = summary.lower()
+
+    if any(k in lower for k in _HARMLESS_KW):
+        for k in ("fire", "fire_danger", "explosion", "collapse", "chemical", "electrical"):
+            dangers[k] = False
+    else:
+        for flag, kws in _DANGER_ASSERT_KW.items():
+            if flag == "fire_danger" and not (resolved_type or "").startswith("brand"):
+                continue
+            if any(kw in lower for kw in kws):
+                dangers[flag] = True
+
+    min_p, max_p, _, _ = _EFFORT_PROFILES.get(resolved_type or "", (2, 6, 0.5, 2.0))
+    if any(k in lower for k in _SMALL_EFFORT_KW):
+        effort["personnel_count"] = min_p
+        effort["estimated_duration_hours"] = 1
+    elif any(k in lower for k in _LARGE_EFFORT_KW):
+        effort["personnel_count"] = max(effort["personnel_count"], max_p)
+
+    return dangers, effort
+
+
+def _extract_qty(description: str | None, unit_pattern: str) -> int | None:
+    """First integer preceding `unit_pattern` in the dispatch text (e.g. cm, Liter)."""
+    if not description:
+        return None
+    m = re.search(rf"(\d+)\s?{unit_pattern}", description)
+    return int(m.group(1)) if m else None
+
+
+def _linked_summary(reported: int, unit: str, ladder: list[int], verb_small: str, verb_large: str, confirm: str) -> str:
+    """A reko that confirms or corrects the figure the dispatch reported — the
+    single most realistic reko behaviour (citizens over- and under-report). The
+    corrected figure snaps to a round estimate value, same as the dispatch."""
+    outcome = random.choices(["confirm", "less", "more"], weights=[50, 32, 18], k=1)[0]
+    if outcome == "confirm":
+        return f"Lage wie gemeldet, rund {reported}{unit}. {confirm}"
+    if outcome == "less":
+        actual = _nice_near(round(reported * 0.35), ladder)
+        if actual >= reported:
+            actual = next((v for v in reversed(ladder) if v < reported), reported)
+        return f"Gemeldet {reported}{unit}, vor Ort nur ~{actual}{unit}. {verb_small}"
+    actual = _nice_near(round(reported * 1.7), ladder)
+    if actual <= reported:
+        actual = next((v for v in ladder if v > reported), reported)
+    return f"Gemeldet {reported}{unit}, tatsächlich mehr — ~{actual}{unit}. {verb_large}"
+
+
+def _dispatch_linked_summary(resolved_type: str | None, description: str | None) -> str | None:
+    """A dispatch-referencing summary for quantifiable scenes (water depth, oil
+    volume), or None to fall back to the pooled summaries."""
+    if resolved_type == "elementar_water":
+        cm = _extract_qty(description, "cm")
+        if cm:
+            return _linked_summary(
+                cm, "cm", _NICE_CM,
+                "Bewohner hat übertrieben, Kontrolle genügt.",
+                "Mehrere Pumpen nötig, Wasser läuft nach.",
+                "Heizung/Elektrik betroffen, Pumpeinsatz nötig.",
+            )
+    if resolved_type in ("oelwehr", "oel_keller"):
+        liters = _extract_qty(description, "Liter")
+        if liters:
+            return _linked_summary(
+                liters, " Liter", _NICE_LITER,
+                "Kleinmenge, Bindemittel genügt.",
+                "Grössere Menge, Fachberater Chemie und Entsorgung nötig.",
+                "Öllache bestätigt, Bindemittel und Entsorgung nötig.",
+            )
+    return None
+
+
 def generate_reko_report_data(
     incident_type: str | None = None,
     title: str | None = None,
     description: str | None = None,
 ) -> dict:
-    """Generate a complete reko report payload with contextual random data."""
+    """Generate a complete reko report payload with contextual random data.
+
+    Beyond picking type-matched values, this keeps the report internally
+    coherent: the summary prose and the danger/effort badges are reconciled so
+    they never contradict, and quantifiable scenes get a summary that confirms
+    or corrects the figure the dispatch actually reported.
+    """
     # BMA false alarms have a high chance of being non-relevant; diverse
     # einsaetze (wespen, türöffnungen, etc.) also lean "no FW action needed".
     if incident_type == "bma_unechte_alarme":
@@ -584,15 +776,24 @@ def generate_reko_report_data(
     # types keep their incident_type, so their profiles are unchanged.
     resolved_type = incident_type
     if incident_type == "elementarereignis":
-        text = " ".join(filter(None, [title, description])).lower()
-        resolved_type = _get_elementar_subcategory(text)
+        resolved_type = _get_elementar_subcategory(title, description)
+
+    # Prefer a dispatch-linked summary (confirms/corrects the reported figure);
+    # otherwise fall back to the contextual pool.
+    summary = _dispatch_linked_summary(resolved_type, description) or generate_summary(
+        incident_type, title, description
+    )
+
+    dangers = generate_dangers(resolved_type)
+    effort = generate_effort(resolved_type)
+    dangers, effort = _reconcile_with_summary(summary, resolved_type, dangers, effort)
 
     return {
         "is_relevant": is_relevant,
-        "dangers_json": generate_dangers(resolved_type),
-        "effort_json": generate_effort(resolved_type),
+        "dangers_json": dangers,
+        "effort_json": effort,
         "power_supply": generate_power_supply(resolved_type),
-        "summary_text": generate_summary(incident_type, title, description),
+        "summary_text": summary,
         "additional_notes": None,
         "is_draft": False,
     }

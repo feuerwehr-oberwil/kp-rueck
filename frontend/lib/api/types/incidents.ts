@@ -69,6 +69,8 @@ export interface ApiIncident {
   has_completed_reko: boolean
   /** When reko personnel arrived on site (before submitting) */
   reko_arrived_at: string | null
+  /** When the field crew reported the incident finished (operator decides to close) */
+  field_complete_reported_at: string | null
 }
 
 export interface ApiIncidentCreate {

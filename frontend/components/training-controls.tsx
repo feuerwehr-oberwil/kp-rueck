@@ -179,7 +179,23 @@ export function TrainingControls() {
   const handleGenerateBurst = async () => {
     setIsGenerating(true);
     try {
-      const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: null, count: 5 });
+      // A burst simulates a wave of routine alarms — keep it mostly default
+      // severity with only a rare critical (high-prio) one, so it doesn't blast
+      // the high-prio alert sound five times or read as an implausible cluster
+      // of major incidents.
+      const CRIT_CHANCE = 0.05;
+      let critical = 0;
+      for (let i = 0; i < 5; i++) if (Math.random() < CRIT_CHANCE) critical++;
+      const normal = 5 - critical;
+      const batches = await Promise.all([
+        normal > 0
+          ? apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'normal', count: normal })
+          : Promise.resolve([]),
+        critical > 0
+          ? apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'critical', count: critical })
+          : Promise.resolve([]),
+      ]);
+      const incidents = batches.flat();
       toast.success(`${incidents.length} Einsätze generiert`, {
         description: incidents.map(i => i.title).join(', '),
       });

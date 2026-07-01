@@ -202,6 +202,8 @@ class IncidentResponse(IncidentBase):
     assigned_vehicles: list[AssignedVehicle] = []
     has_completed_reko: bool = False
     reko_arrived_at: datetime | None = None
+    # Field crew reported the incident finished; operator decides to close it.
+    field_complete_reported_at: datetime | None = None
 
     @field_serializer("location_lat", "location_lng")
     def serialize_decimal(self, value):

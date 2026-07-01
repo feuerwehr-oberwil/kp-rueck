@@ -976,6 +976,28 @@ class ApiClient {
     })
   }
 
+  /** Mark the Reko crew as "vor Ort" (arrived) without submitting a report —
+   *  the first of the two Reko conductor steps. */
+  async simulateRekoArrived(
+    eventId: string,
+    incidentId: string
+  ): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/training/events/${eventId}/simulate/reko-arrived/${incidentId}`, {
+      method: 'POST',
+    })
+  }
+
+  /** Field crew reports the incident finished ("Einsatz beendet") — sets an
+   *  informational badge for the operator; does NOT change status. */
+  async simulateFieldComplete(
+    eventId: string,
+    incidentId: string
+  ): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/training/events/${eventId}/simulate/field-complete/${incidentId}`, {
+      method: 'POST',
+    })
+  }
+
   // Divera 24/7 Integration
   async getDiveraEmergencies(params?: {
     attached?: boolean

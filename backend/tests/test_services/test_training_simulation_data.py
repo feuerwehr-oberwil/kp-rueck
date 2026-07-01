@@ -5,11 +5,20 @@ draws from. These tests lock the contract that a dispatch about, say,
 a kitchen fire never produces a Reko summary about a dachstock fire.
 """
 
+import re
+
+from app.seed_training import EMERGENCY_TEMPLATES
 from app.services.training_simulation_data import (
+    _NICE_CM,
+    _NICE_LITER,
+    _NICE_M,
     _SUMMARIES,
+    _get_elementar_subcategory,
+    _reconcile_with_summary,
     _resolve_summary_pool,
     generate_reko_report_data,
     generate_summary,
+    vary_dispatch_numbers,
 )
 
 
@@ -239,19 +248,21 @@ class TestGenerateRekoReportData:
             assert data["summary_text"] in _SUMMARIES["brand_kueche"]
 
     def test_elementar_subcategory_drives_effort(self):
-        # Water uses the (3,9,..) profile, tree the (2,6,0.5,1.5) profile — so
-        # effort should respect those subcategory bounds, not the generic one.
-        for _ in range(50):
+        # Effort must stay within each subcategory's profile bounds — water
+        # (2..5), tree (2..4, short). Reconciliation may push a value to the
+        # floor ("Kontrolle genügt") or ceiling ("Verstärkung"), but never out
+        # of the profile range.
+        for _ in range(100):
             water = generate_reko_report_data(
                 "elementarereignis", title="Wasser im Keller", description="Hochwasser MFH."
             )
-            assert water["effort_json"]["personnel_count"] >= 3
+            assert 2 <= water["effort_json"]["personnel_count"] <= 5
 
             tree = generate_reko_report_data(
                 "elementarereignis", title="Baum auf Strasse", description="Ast blockiert Fahrbahn."
             )
-            assert tree["effort_json"]["personnel_count"] <= 6
-            assert tree["effort_json"]["estimated_duration_hours"] <= 1.5
+            assert 2 <= tree["effort_json"]["personnel_count"] <= 4
+            assert tree["effort_json"]["estimated_duration_hours"] <= 2
 
     def test_diverse_einsaetze_relevance_lowered(self):
         # 60% relevant baseline for diverse — over 200 samples the average
@@ -262,3 +273,157 @@ class TestGenerateRekoReportData:
             if generate_reko_report_data("diverse_einsaetze", title="Türöffnung")["is_relevant"]
         )
         assert relevant < 160, f"expected < 80% relevant, got {relevant/200:.0%}"
+
+
+class TestTemplateClassificationConsistency:
+    """Regression guard for the dispatch↔reko association.
+
+    Locks the fix for 'Dach abgedeckt' (a roof/storm incident) occasionally
+    producing a cellar-water reko: a template's scenario must not flip between
+    its (randomly chosen) title and message variations.
+    """
+
+    @staticmethod
+    def _elementar_templates():
+        return [t for t in EMERGENCY_TEMPLATES if t["incident_type"] == "elementarereignis"]
+
+    def test_every_elementar_template_classifies_consistently(self):
+        for t in self._elementar_templates():
+            titles = [t["title_pattern"], *t.get("title_variations", [])]
+            messages = [t["message_pattern"], *t.get("message_variations", [])]
+            classes = {_get_elementar_subcategory(title, msg) for title in titles for msg in messages}
+            expected = _get_elementar_subcategory(t["title_pattern"])
+            assert classes == {expected}, (
+                f"{t['title_pattern']!r} classifies inconsistently across its variations: {sorted(classes)}"
+            )
+
+    def test_every_elementar_title_is_concrete(self):
+        # Every authored elementar template must resolve to water / tree / storm —
+        # never the mixed fallback pool, which can return an off-scenario reko.
+        for t in self._elementar_templates():
+            sub = _get_elementar_subcategory(t["title_pattern"])
+            assert sub in ("elementar_water", "elementar_tree", "elementar_storm"), (
+                f"{t['title_pattern']!r} lands in the mixed pool ({sub}) — add a keyword"
+            )
+
+
+class TestScenarioAssociation:
+    """The user's example, end-to-end: a roof incident never gets a water reko."""
+
+    def test_roof_incident_never_yields_water_reko(self):
+        for _ in range(60):
+            data = generate_reko_report_data(
+                "elementarereignis",
+                title="Dach abgedeckt",
+                description="Sturm hat Dachfläche abgedeckt, Ziegel auf Strasse. Regen dringt ein.",
+            )
+            assert data["summary_text"] in _SUMMARIES["elementar_storm"], data["summary_text"]
+
+    def test_tree_incident_yields_tree_reko(self):
+        for _ in range(60):
+            data = generate_reko_report_data(
+                "elementarereignis", title="Baum auf Strasse", description="Baum blockiert Fahrbahn."
+            )
+            assert data["summary_text"] in _SUMMARIES["elementar_tree"], data["summary_text"]
+
+
+class TestVaryDispatchNumbers:
+    """Jittered dispatch figures must be round estimate values, never '21cm'."""
+
+    @staticmethod
+    def _nums(text, unit):
+        return [int(n) for n in re.findall(rf"(\d+)\s?{unit}", text)]
+
+    def test_numbers_snap_to_ladder(self):
+        sample = "Ca. 25cm Wasser, 20-30cm im UG. Heizöl 50 Liter, Spur 100m."
+        for _ in range(100):
+            out = vary_dispatch_numbers(sample)
+            assert self._nums(out, "cm"), f"cm figure vanished: {out}"
+            for n in self._nums(out, "cm"):
+                assert n in _NICE_CM, out
+            for n in self._nums(out, "Liter"):
+                assert n in _NICE_LITER, out
+            for n in self._nums(out, r"m\b"):
+                assert n in _NICE_M, out
+
+    def test_text_without_numbers_is_unchanged(self):
+        text = "Wasser durch Kellerfenster, Waschküche betroffen."
+        assert vary_dispatch_numbers(text) == text
+
+
+class TestRekoConsistency:
+    """Summary prose and the danger/effort badges must agree."""
+
+    @staticmethod
+    def _dangers(value=False):
+        return {
+            "fire": value, "fire_danger": value, "explosion": value,
+            "collapse": value, "chemical": value, "electrical": value, "other_notes": None,
+        }
+
+    @staticmethod
+    def _effort(personnel, hours):
+        return {
+            "personnel_count": personnel, "vehicles_needed": [],
+            "equipment_needed": [], "estimated_duration_hours": hours,
+        }
+
+    def test_asserted_danger_forced_on(self):
+        dangers, _ = _reconcile_with_summary(
+            "Dachstuhl in Vollbrand, Sparren durchgebrannt. Einsturzgefahr.",
+            "brand_dachstock", self._dangers(False), self._effort(4, 2),
+        )
+        assert dangers["collapse"] is True
+        assert dangers["fire_danger"] is True
+
+    def test_fire_danger_only_asserted_for_brand_types(self):
+        # A false-alarm summary mentioning 'Flammen' shouldn't light fire_danger
+        # on a non-brand type.
+        dangers, _ = _reconcile_with_summary(
+            "Nachbar meldet Flammen — vor Ort nichts, Fehlalarm.",
+            "bma_unechte_alarme", self._dangers(False), self._effort(2, 1),
+        )
+        assert dangers["fire_danger"] is False
+
+    def test_harmless_clears_all_dangers(self):
+        dangers, _ = _reconcile_with_summary(
+            "BMA hat angesprochen. Kein Rauch, Täuschungsalarm.",
+            "bma_unechte_alarme", self._dangers(True), self._effort(4, 2),
+        )
+        assert not any(
+            dangers[k] for k in ("fire", "fire_danger", "explosion", "collapse", "chemical", "electrical")
+        )
+
+    def test_small_effort_floors_personnel(self):
+        _, effort = _reconcile_with_summary(
+            "Keller trocken bei Ankunft. Kontrolle genügt.",
+            "elementar_water", self._dangers(False), self._effort(8, 4),
+        )
+        assert effort["personnel_count"] == 2  # elementar_water profile min
+        assert effort["estimated_duration_hours"] == 1
+
+    def test_large_effort_raises_personnel(self):
+        _, effort = _reconcile_with_summary(
+            "Vollbrand, Verstärkung und DLK nötig, Aussenangriff.",
+            "brandbekaempfung", self._dangers(False), self._effort(3, 2),
+        )
+        assert effort["personnel_count"] == 8  # brandbekaempfung profile max
+
+
+class TestDispatchLinkedSummary:
+    """Water/oil rekos confirm or correct the dispatched figure, with round numbers."""
+
+    def test_water_reko_references_dispatch_and_rounds(self):
+        seen_confirm = seen_correction = False
+        for _ in range(80):
+            data = generate_reko_report_data(
+                "elementarereignis", title="Wasser im Keller", description="Ca. 30cm Wasser, Heizung betroffen."
+            )
+            summary = data["summary_text"]
+            for n in (int(x) for x in re.findall(r"(\d+)cm", summary)):
+                assert n in _NICE_CM, summary
+            if "wie gemeldet" in summary:
+                seen_confirm = True
+            if summary.startswith("Gemeldet"):
+                seen_correction = True
+        assert seen_confirm and seen_correction, "both confirm and correction branches should occur"
