@@ -18,7 +18,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, Download } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -175,6 +181,35 @@ export default function EventsPage() {
     } finally {
       setAuditLoadingId(null)
     }
+  }
+
+  // Compact export control: one button, both formats in a dropdown.
+  const renderExportMenu = (event: Event) => {
+    const busy = reportLoadingId === event.id || auditLoadingId === event.id
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" disabled={busy} title="Exportieren">
+            {busy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Export
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
+            <FileText className="mr-2 h-4 w-4" />
+            Bericht (PDF)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleAuditExport(event)} className="cursor-pointer">
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Audit (XLSX)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
   }
 
   const handleCreateDialogChange = (open: boolean) => {
@@ -361,55 +396,25 @@ export default function EventsPage() {
                               <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
                             </div>
 
-                            <div className="mt-4 space-y-2">
-                              <div className="flex gap-2">
-                                <Button
-                                  className="flex-1"
-                                  onClick={() => handleSelectEvent(event)}
-                                >
-                                  Auswählen
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    setTargetEvent(event)
-                                    setShowArchiveDialog(true)
-                                  }}
-                                >
-                                  <Archive className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1"
-                                  disabled={reportLoadingId === event.id}
-                                  onClick={() => handleReportExport(event)}
-                                >
-                                  {reportLoadingId === event.id ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <FileText className="mr-2 h-4 w-4" />
-                                  )}
-                                  Bericht (PDF)
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1"
-                                  disabled={auditLoadingId === event.id}
-                                  onClick={() => handleAuditExport(event)}
-                                >
-                                  {auditLoadingId === event.id ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                  )}
-                                  Audit (XLSX)
-                                </Button>
-                              </div>
+                            <div className="mt-4 flex gap-2">
+                              <Button
+                                className="flex-1"
+                                onClick={() => handleSelectEvent(event)}
+                              >
+                                Auswählen
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                title="Archivieren"
+                                onClick={() => {
+                                  setTargetEvent(event)
+                                  setShowArchiveDialog(true)
+                                }}
+                              >
+                                <Archive className="h-4 w-4" />
+                              </Button>
+                              {renderExportMenu(event)}
                             </div>
                           </CardContent>
                         </Card>
@@ -443,57 +448,27 @@ export default function EventsPage() {
                               <div>Archiviert: {new Date(event.archived_at!).toLocaleDateString('de-CH')}</div>
                             </div>
 
-                            <div className="mt-4 space-y-2">
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  className="flex-1"
-                                  onClick={() => handleUnarchive(event)}
-                                >
-                                  <ArchiveRestore className="mr-2 h-4 w-4" />
-                                  Wiederherstellen
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="icon"
-                                  onClick={() => {
-                                    setTargetEvent(event)
-                                    setShowDeleteDialog(true)
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1"
-                                  disabled={reportLoadingId === event.id}
-                                  onClick={() => handleReportExport(event)}
-                                >
-                                  {reportLoadingId === event.id ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <FileText className="mr-2 h-4 w-4" />
-                                  )}
-                                  Bericht (PDF)
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1"
-                                  disabled={auditLoadingId === event.id}
-                                  onClick={() => handleAuditExport(event)}
-                                >
-                                  {auditLoadingId === event.id ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                  )}
-                                  Audit (XLSX)
-                                </Button>
-                              </div>
+                            <div className="mt-4 flex gap-2">
+                              <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => handleUnarchive(event)}
+                              >
+                                <ArchiveRestore className="mr-2 h-4 w-4" />
+                                Wiederherstellen
+                              </Button>
+                              {renderExportMenu(event)}
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                title="Löschen"
+                                onClick={() => {
+                                  setTargetEvent(event)
+                                  setShowDeleteDialog(true)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </CardContent>
                         </Card>

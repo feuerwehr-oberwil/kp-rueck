@@ -215,7 +215,7 @@ export function OperationDetailModal({
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-xl flex items-center gap-2.5">
             <MapPin className="h-5 w-5 text-muted-foreground" />
-            {operation.location ? formatLocation(operation.location) : "Einsatz-Details"}
+            {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
           </DialogTitle>
           <div className="flex items-center gap-1">
             <DialogDescription className="text-sm flex items-center gap-2">
@@ -923,7 +923,7 @@ export function OperationDetailModal({
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Einsatz wirklich löschen?"
-        description={`Der Einsatz "${operation.location}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
+        description={`Der Einsatz "${formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
         onConfirm={() => {
           onDelete(operation.id)
           onOpenChange(false)

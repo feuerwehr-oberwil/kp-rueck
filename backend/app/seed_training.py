@@ -661,8 +661,12 @@ def get_training_area_bounds() -> dict:
 
 
 def get_training_city_info() -> tuple[str, str]:
-    """Get city and postal code for training locations."""
-    return ("Demo City", "0000")
+    """Get city and postal code for training locations.
+
+    Matches the training bounding box (Oberwil BL) and the configured Heimatort,
+    so generated addresses collapse to just the street in the UI/report.
+    """
+    return ("Oberwil", "4104")
 
 
 # Geographic bounding box for training location generation

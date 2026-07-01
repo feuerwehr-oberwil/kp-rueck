@@ -20,6 +20,9 @@ export function cn(...inputs: ClassValue[]) {
  *
  * formatLocationForDisplay("45, Main Street, Basel, Switzerland", "Oberwil")
  * // Returns: "Main Street 45, Basel"
+ *
+ * formatLocationForDisplay("Oberwil, BL", "Oberwil")
+ * // Returns: "" (location is only the home city — redundant, so hidden)
  */
 export function formatLocationForDisplay(fullAddress: string, homeCity?: string): string {
   if (!homeCity || !fullAddress) return fullAddress
@@ -62,7 +65,9 @@ export function formatLocationForDisplay(fullAddress: string, homeCity?: string)
       }
     }
 
-    return houseNumber ? `${streetName} ${houseNumber}` : (streetName || parts[0] || fullAddress)
+    if (streetName) return houseNumber ? `${streetName} ${houseNumber}` : streetName
+    // Nothing more specific than the home city remained → redundant, hide it.
+    return ''
   } else {
     // Address is outside home city, include street and city
     // Typically: "Street, Town, Region, Country" -> "Street, Town"

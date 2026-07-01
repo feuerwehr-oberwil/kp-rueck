@@ -238,7 +238,7 @@ export function MobileIncidentDetailSheet({
             </div>
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-xl text-left">
-                {formatLocation(operation.location)}
+                {formatLocation(operation.location) || getIncidentTypeLabel(operation.incidentType)}
               </SheetTitle>
               <SheetDescription className="text-left mt-1">
                 Einsatz-ID: {operation.id}

@@ -10,6 +10,7 @@ All user-facing strings live in the module-level :data:`LABELS` dict (German,
 Swiss spelling) so plan 06 (i18n) can localise later by swapping the dict.
 """
 
+import re
 from datetime import UTC, datetime
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -142,6 +143,66 @@ def _or_none(value: str | None) -> str:
     return text if text else LABELS["none"]
 
 
+def format_location_for_display(full_address: str | None, home_city: str) -> str:
+    """Python mirror of the frontend ``formatLocationForDisplay`` (lib/utils.ts).
+
+    Strips home-city / region / country / postcode noise. Returns ``""`` when the
+    location is only the home city (redundant) so callers can hide or fall back.
+    """
+    if not full_address:
+        return ""
+    if not home_city:
+        return full_address
+    parts = [p.strip() for p in full_address.split(",")]
+    home_parts = [p.strip() for p in home_city.split(",")]
+    contains_home = any(any(hp.lower() in ap.lower() for ap in parts) for hp in home_parts)
+
+    if contains_home:
+        house_number = ""
+        street_name = ""
+        for part in parts:
+            pl = part.lower()
+            if re.fullmatch(r"\d{4}", part):
+                continue
+            if pl in ("switzerland", "schweiz", "basel-landschaft", "basel-stadt"):
+                continue
+            if any(hp.lower() in pl for hp in home_parts):
+                continue
+            if pl.startswith("bezirk"):
+                continue
+            if part.isdigit():
+                house_number = part
+                continue
+            if not street_name:
+                street_name = part
+        if street_name:
+            return f"{street_name} {house_number}" if house_number else street_name
+        return ""  # nothing more specific than the home city
+
+    house_number = ""
+    street = ""
+    for part in parts:
+        if re.fullmatch(r"\d{4}", part):
+            continue
+        if part.isdigit():
+            house_number = part
+            continue
+        if not street:
+            street = part
+    city = None
+    for idx, part in enumerate(parts):
+        if idx == 0 or part.isdigit():
+            continue
+        if part.lower() in ("switzerland", "schweiz"):
+            continue
+        if re.match(r"^(basel-landschaft|basel-stadt|bezirk|region)", part.lower()):
+            continue
+        city = part
+        break
+    formatted_street = f"{street} {house_number}" if house_number else street
+    return f"{formatted_street}, {city}" if city else formatted_street
+
+
 class NumberedCanvas:
     """Two-pass canvas that stamps ``Seite X von Y`` plus event/date on every page.
 
@@ -210,6 +271,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             leading=26,
             textColor=_BRAND,
             spaceAfter=2,
+            alignment=TA_LEFT,
         ),
         "event": ParagraphStyle(
             "ReportEvent",
@@ -262,6 +324,17 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontSize=9,
             leading=12,
             alignment=TA_LEFT,
+        ),
+        "bullet": ParagraphStyle(
+            "ReportBullet",
+            parent=base["Normal"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=12,
+            alignment=TA_LEFT,
+            leftIndent=14,
+            bulletIndent=4,
+            spaceAfter=1,
         ),
         "cell": ParagraphStyle(
             "ReportCell",
@@ -317,6 +390,7 @@ def _cover(data: EventReportData, generated_by: str, funkrufname: str, styles: d
                 ]
             )
         )
+        badge.hAlign = "LEFT"
         flow.append(Spacer(1, 4))
         flow.append(badge)
 
@@ -377,7 +451,7 @@ def _summary_table(data: EventReportData, styles: dict) -> Table:
     ]
 
     table_data = [[_p(label, styles["field_label"]), _p(value, styles["cell"])] for label, value in rows]
-    table = Table(table_data, colWidths=[55 * mm, None])
+    table = Table(table_data, colWidths=[55 * mm, 117 * mm], hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
@@ -394,14 +468,12 @@ def _summary_table(data: EventReportData, styles: dict) -> Table:
     return table
 
 
-def _incident_overview_table(data: EventReportData, styles: dict) -> Table:
+def _incident_overview_table(data: EventReportData, styles: dict, home_city: str = "") -> Table:
     """One row per incident: nr, title, type, priority, status, address, times."""
     header = [
         _p(LABELS["col_nr"], styles["cell_header"]),
         _p(LABELS["col_title"], styles["cell_header"]),
         _p(LABELS["col_type"], styles["cell_header"]),
-        _p(LABELS["col_priority"], styles["cell_header"]),
-        _p(LABELS["col_status"], styles["cell_header"]),
         _p(LABELS["col_address"], styles["cell_header"]),
         _p(LABELS["col_created"], styles["cell_header"]),
         _p(LABELS["col_completed"], styles["cell_header"]),
@@ -413,17 +485,15 @@ def _incident_overview_table(data: EventReportData, styles: dict) -> Table:
                 _p(str(idx), styles["cell"]),
                 _p(_or_none(inc.title), styles["cell"]),
                 _p(TYPE_LABELS.get(inc.type, inc.type), styles["cell"]),
-                _p(PRIORITY_LABELS.get(inc.priority, inc.priority), styles["cell"]),
-                _p(STATUS_LABELS.get(inc.status, inc.status), styles["cell"]),
-                _p(_or_none(inc.location_address), styles["cell"]),
+                _p(_or_none(format_location_for_display(inc.location_address, home_city)), styles["cell"]),
                 _p(_fmt_dt(inc.created_at), styles["cell"]),
                 _p(_fmt_dt(inc.completed_at), styles["cell"]),
             ]
         )
 
-    # Column widths tuned for A4 portrait content area (~174mm).
-    col_widths = [8 * mm, 34 * mm, 24 * mm, 15 * mm, 24 * mm, 33 * mm, 18 * mm, 18 * mm]
-    table = Table(rows, colWidths=col_widths, repeatRows=1)
+    # Column widths tuned for A4 portrait content area (172mm, ~2mm safety).
+    col_widths = [8 * mm, 50 * mm, 26 * mm, 52 * mm, 18 * mm, 18 * mm]
+    table = Table(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
@@ -450,24 +520,39 @@ def _field(label: str, value: str, styles: dict) -> Paragraph:
     return Paragraph(f"<b>{escape(label)}:</b> {escape(str(value))}", styles["body"])
 
 
-def _incident_detail(data: EventReportData, inc, index: int, styles: dict) -> list:
+def _bullet_field(label: str, items: list[str], styles: dict) -> list:
+    """A label line followed by one bullet per item.
+
+    Falls back to an inline ``Label: —`` line when there are no items, so empty
+    lists stay compact. Each bullet is its own Paragraph so long entries wrap.
+    """
+    if not items:
+        return [_field(label, LABELS["none"], styles)]
+    flow: list = [Paragraph(f"<b>{escape(label)}:</b>", styles["body"])]
+    for item in items:
+        flow.append(Paragraph(escape(str(item)), styles["bullet"], bulletText="•"))
+    return flow
+
+
+def _incident_detail(data: EventReportData, inc, index: int, styles: dict, home_city: str = "") -> list:
     """Build the detail block flowables for a single incident."""
     block: list = []
-    heading = f"{index}. {inc.title or LABELS['none']}"
-    block.append(_p(heading, styles["incident_heading"]))
+    # Heading = address (the incident's "name"); fall back to title, then em dash.
+    # Locations equal to the home city are hidden (redundant) → fall back to title.
+    heading_name = format_location_for_display(inc.location_address, home_city) or inc.title or LABELS["none"]
+    block.append(_p(f"{index}. {heading_name}", styles["incident_heading"]))
 
-    # Type / priority / status quick line
-    quick = " · ".join(
-        [
-            TYPE_LABELS.get(inc.type, inc.type),
-            f"{LABELS['col_priority']}: {PRIORITY_LABELS.get(inc.priority, inc.priority)}",
-            f"{LABELS['col_status']}: {STATUS_LABELS.get(inc.status, inc.status)}",
-        ]
-    )
-    block.append(_p(quick, styles["meta"]))
+    # Title line = category (incident type)
+    block.append(_p(TYPE_LABELS.get(inc.type, inc.type), styles["meta"]))
     block.append(Spacer(1, 2))
 
-    block.append(_field(LABELS["col_address"], _or_none(inc.location_address), styles))
+    # Priority and status, each on its own row, below the category line
+    block.append(_field(LABELS["col_priority"], PRIORITY_LABELS.get(inc.priority, inc.priority), styles))
+    block.append(_field(LABELS["col_status"], STATUS_LABELS.get(inc.status, inc.status), styles))
+
+    # Alarm / received time
+    block.append(_field(LABELS["col_created"], _fmt_dt(inc.created_at), styles))
+
     block.append(_field(LABELS["description"], _or_none(inc.description), styles))
     block.append(_field(LABELS["contact"], _or_none(inc.contact), styles))
 
@@ -492,9 +577,6 @@ def _incident_detail(data: EventReportData, inc, index: int, styles: dict) -> li
         ("material", LABELS["materials"]),
     ):
         items = [a for a in inc_assignments if a.resource_type == res_type]
-        if not items:
-            block.append(_field(label, LABELS["none"], styles))
-            continue
         lines = []
         for a in items:
             name = _resource_name(data, a)
@@ -502,7 +584,7 @@ def _incident_detail(data: EventReportData, inc, index: int, styles: dict) -> li
             if a.unassigned_at:
                 span = f"{_fmt_dt(a.assigned_at)} – {_fmt_dt(a.unassigned_at)}"
             lines.append(f"{name} ({span})")
-        block.append(_field(label, "; ".join(lines), styles))
+        block.extend(_bullet_field(label, lines, styles))
 
     # Status transition timeline
     inc_transitions = [t for t in data.transitions if t.incident_id == inc.id]
@@ -514,7 +596,7 @@ def _incident_detail(data: EventReportData, inc, index: int, styles: dict) -> li
             from_label = STATUS_LABELS.get(t.from_status, t.from_status)
             to_label = STATUS_LABELS.get(t.to_status, t.to_status)
             lines.append(f"{_fmt_dt(t.timestamp)}: {from_label} → {to_label} ({user_name})")
-        block.append(_field(LABELS["status_timeline"], "; ".join(lines), styles))
+        block.extend(_bullet_field(LABELS["status_timeline"], lines, styles))
 
     # Reko report summaries (text fields only)
     inc_reko = [r for r in data.reko_reports if r.incident_id == inc.id]
@@ -530,20 +612,25 @@ def _incident_detail(data: EventReportData, inc, index: int, styles: dict) -> li
             parts.append(f"{LABELS['reko_notes']}: {reko.additional_notes}")
         if reko.is_draft:
             parts.append(f"({LABELS['reko_draft']})")
-        reko_text = " — ".join(parts) if parts else LABELS["none"]
-        block.append(_field(LABELS["reko"], reko_text, styles))
+        block.extend(_bullet_field(LABELS["reko"], parts, styles))
 
     block.append(Spacer(1, 8))
     return block
 
 
-def build_event_report_pdf(data: EventReportData, generated_by: str, funkrufname: str = "") -> bytes:
+def build_event_report_pdf(
+    data: EventReportData,
+    generated_by: str,
+    funkrufname: str = "",
+    home_city: str = "",
+) -> bytes:
     """Render the after-action report PDF.
 
     Args:
         data: Fully-loaded event data from ``collect_event_report_data``.
         generated_by: Username of the person generating the report (footer/meta).
         funkrufname: Radio callsign from settings (``get_setting_value``).
+        home_city: Configured home city; locations equal to it are hidden.
 
     Returns:
         The finished PDF document as ``bytes`` (starts with ``%PDF``).
@@ -578,13 +665,13 @@ def build_event_report_pdf(data: EventReportData, generated_by: str, funkrufname
     else:
         # Overview table
         story.append(_p(LABELS["incident_list_title"], styles["section"]))
-        story.append(_incident_overview_table(data, styles))
+        story.append(_incident_overview_table(data, styles, home_city))
         story.append(Spacer(1, 12))
 
         # Per-incident detail sections
         story.append(_p(LABELS["details_title"], styles["section"]))
         for idx, inc in enumerate(data.incidents, 1):
-            block = _incident_detail(data, inc, idx, styles)
+            block = _incident_detail(data, inc, idx, styles, home_city)
             # KeepTogether for small blocks; large blocks flow across pages.
             story.append(KeepTogether(block))
 

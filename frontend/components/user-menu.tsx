@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
@@ -33,6 +33,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -469,29 +470,31 @@ export function UserMenu({
                 <Download className="mr-2 h-4 w-4" />
                 <span>Export</span>
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {!selectedEvent && (
-                  <DropdownMenuItem disabled>
-                    <span className="text-muted-foreground">Kein Ereignis ausgewählt</span>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  {!selectedEvent && (
+                    <DropdownMenuItem disabled>
+                      <span className="text-muted-foreground">Kein Ereignis ausgewählt</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => downloadEventExport('pdf')}
+                    disabled={!selectedEvent}
+                    className="cursor-pointer"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span>Bericht (PDF)</span>
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={() => downloadEventExport('pdf')}
-                  disabled={!selectedEvent}
-                  className="cursor-pointer"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>Bericht (PDF)</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => downloadEventExport('xlsx')}
-                  disabled={!selectedEvent}
-                  className="cursor-pointer"
-                >
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  <span>Audit-Export (XLSX)</span>
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    onClick={() => downloadEventExport('xlsx')}
+                    disabled={!selectedEvent}
+                    className="cursor-pointer"
+                  >
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    <span>Audit-Export (XLSX)</span>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
             </DropdownMenuSub>
           )}
 
@@ -499,6 +502,13 @@ export function UserMenu({
             <Keyboard className="mr-2 h-4 w-4" />
             <span>Befehle &amp; Tastaturkürzel</span>
             <span className="ml-auto text-xs text-muted-foreground">⌘K</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link href="/help" className="cursor-pointer">
+              <CircleHelp className="mr-2 h-4 w-4" />
+              <span>Hilfe &amp; Tastenkürzel</span>
+            </Link>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

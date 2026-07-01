@@ -262,7 +262,9 @@ function DraggableOperationBase({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-base text-foreground leading-tight break-words">{formatLocation(operation.location)}</h3>
+                {formatLocation(operation.location) && (
+                  <h3 className="font-bold text-base text-foreground leading-tight break-words">{formatLocation(operation.location)}</h3>
+                )}
               </div>
             </div>
             {/* Non-draggable icons area */}

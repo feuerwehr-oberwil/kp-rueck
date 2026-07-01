@@ -2334,7 +2334,7 @@ export default function FireStationDashboard() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Einsatz wirklich löschen?"
-        description={`Der Einsatz "${operationToDelete?.location}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
+        description={`Der Einsatz "${operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : ''}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
         onConfirm={handleDeleteOperationConfirm}
       />
 

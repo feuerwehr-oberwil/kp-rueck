@@ -172,11 +172,13 @@ async def export_event_report(
         # (reportlab is synchronous and CPU-bound).
         data = await collect_event_report_data(db, event_id)
         funkrufname = await get_setting_value(db, "funkrufname", "")
+        home_city = await get_setting_value(db, "home_city", "")
         pdf_bytes = await asyncio.to_thread(
             build_event_report_pdf,
             data,
             current_user.username,
             funkrufname,
+            home_city,
         )
 
         # Audit-log the export (same pattern as the Excel export).

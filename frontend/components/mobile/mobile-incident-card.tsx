@@ -79,10 +79,12 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Location */}
-          <h3 className="font-semibold text-base truncate leading-tight">
-            {formatLocation(operation.location)}
-          </h3>
+          {/* Location — hidden when it is only the home city (redundant) */}
+          {formatLocation(operation.location) && (
+            <h3 className="font-semibold text-base truncate leading-tight">
+              {formatLocation(operation.location)}
+            </h3>
+          )}
 
           {/* Type + Status */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
