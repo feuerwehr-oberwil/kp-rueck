@@ -222,6 +222,7 @@ function DraggableOperationBase({
           <Card
             ref={ref}
             style={{ opacity: isDragging ? 0.5 : 1 }}
+            data-testid="incident-card"
             data-incident-id={operation.id}
             className={cn(
               'operation-card border border-border/50 border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',

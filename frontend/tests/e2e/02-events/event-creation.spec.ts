@@ -31,8 +31,8 @@ test.describe('Event Creation', () => {
     // Verify dialog is visible
     await expect(eventsPage.createDialog).toBeVisible();
     await expect(eventsPage.eventNameInput).toBeVisible();
-    await expect(eventsPage.trainingModeSwitch).toBeVisible();
-    await expect(eventsPage.autoAttachDiveraSwitch).toBeVisible();
+    await expect(eventsPage.liveModeButton).toBeVisible();
+    await expect(eventsPage.trainingModeButton).toBeVisible();
   });
 
   test('should create new event with custom name', async () => {
@@ -101,22 +101,18 @@ test.describe('Event Creation', () => {
     expect(exists).toBeFalsy();
   });
 
-  test('should training mode and Divera auto-attach be mutually exclusive', async () => {
+  test('event mode (Einsatz/Übung) is a mutually exclusive toggle', async () => {
     await eventsPage.clickNewEvent();
 
-    // Enable training mode
-    await eventsPage.toggleTrainingMode(true);
-    let trainingChecked = await eventsPage.trainingModeSwitch.isChecked();
-    let diveraChecked = await eventsPage.autoAttachDiveraSwitch.isChecked();
-    expect(trainingChecked).toBeTruthy();
-    expect(diveraChecked).toBeFalsy();
+    // Select Übung → training on, live off
+    await eventsPage.trainingModeButton.click();
+    await expect(eventsPage.trainingModeButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(eventsPage.liveModeButton).toHaveAttribute('aria-pressed', 'false');
 
-    // Enable Divera auto-attach (should disable training mode)
-    await eventsPage.toggleAutoAttachDivera(true);
-    trainingChecked = await eventsPage.trainingModeSwitch.isChecked();
-    diveraChecked = await eventsPage.autoAttachDiveraSwitch.isChecked();
-    expect(trainingChecked).toBeFalsy();
-    expect(diveraChecked).toBeTruthy();
+    // Select Einsatz → live on (auto-attach), training off
+    await eventsPage.liveModeButton.click();
+    await expect(eventsPage.liveModeButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(eventsPage.trainingModeButton).toHaveAttribute('aria-pressed', 'false');
   });
 });
 

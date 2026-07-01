@@ -377,6 +377,7 @@ export default function EventsPage() {
                       {filteredActiveEvents.map((event) => (
                         <Card
                           key={event.id}
+                          data-testid="event-card"
                           className={`cursor-pointer transition-all hover:shadow-lg ${
                             selectedEvent?.id === event.id ? 'border-2 border-red-600' : ''
                           }`}
@@ -431,6 +432,7 @@ export default function EventsPage() {
                       {filteredArchivedEvents.map((event) => (
                         <Card
                           key={event.id}
+                          data-testid="event-card"
                           className="opacity-50 border-dashed"
                         >
                           <CardHeader>
@@ -508,6 +510,7 @@ export default function EventsPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
+                    aria-pressed={!newEventTraining}
                     onClick={() => {
                       setNewEventTraining(false)
                       setNewEventAutoAttachDivera(true)
@@ -523,6 +526,7 @@ export default function EventsPage() {
                   </button>
                   <button
                     type="button"
+                    aria-pressed={newEventTraining}
                     onClick={() => {
                       setNewEventTraining(true)
                       setNewEventAutoAttachDivera(false)

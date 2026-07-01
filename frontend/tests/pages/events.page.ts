@@ -14,8 +14,10 @@ export class EventsPage extends BasePage {
   // Dialog elements
   readonly createDialog: Locator;
   readonly eventNameInput: Locator;
-  readonly trainingModeSwitch: Locator;
-  readonly autoAttachDiveraSwitch: Locator;
+  // Mode is a two-button toggle (Einsatz / Übung); auto-attach Divera is derived
+  // from the mode (Einsatz = on, Übung = off), no independent control.
+  readonly liveModeButton: Locator;
+  readonly trainingModeButton: Locator;
   readonly createButton: Locator;
   readonly cancelButton: Locator;
 
@@ -42,18 +44,19 @@ export class EventsPage extends BasePage {
     // Dialog elements
     this.createDialog = page.locator('div[role="dialog"]', { hasText: 'Neues Ereignis erstellen' });
     this.eventNameInput = page.locator('input#event-name');
-    this.trainingModeSwitch = page.locator('#training-mode');
-    this.autoAttachDiveraSwitch = page.locator('#auto-attach-divera');
-    this.createButton = page.locator('button:has-text("Erstellen")');
-    this.cancelButton = page.locator('button:has-text("Abbrechen")');
+    this.liveModeButton = this.createDialog.getByRole('button', { name: 'Einsatz' });
+    this.trainingModeButton = this.createDialog.getByRole('button', { name: 'Übung' });
+    // Scope to the dialog: "Erstellen" also substring-matches "Wiederherstellen".
+    this.createButton = this.createDialog.getByRole('button', { name: /Erstellen/ });
+    this.cancelButton = this.createDialog.getByRole('button', { name: 'Abbrechen' });
 
     // Archive dialog
     this.archiveDialog = page.locator('div[role="dialog"]', { hasText: 'Ereignis archivieren?' });
-    this.archiveConfirmButton = page.locator('button:has-text("Archivieren")');
+    this.archiveConfirmButton = this.archiveDialog.getByRole('button', { name: 'Archivieren' });
 
     // Delete dialog
     this.deleteDialog = page.locator('div[role="dialog"]', { hasText: 'Ereignis dauerhaft löschen?' });
-    this.deleteConfirmButton = page.locator('button:has-text("Dauerhaft löschen")');
+    this.deleteConfirmButton = this.deleteDialog.getByRole('button', { name: 'Dauerhaft löschen' });
 
     // Page sections
     this.activeEventsSection = page.locator('text=Aktive Ereignisse').locator('..');
@@ -96,23 +99,19 @@ export class EventsPage extends BasePage {
   }
 
   /**
-   * Toggle training mode switch
+   * Select the event mode. Clicking a mode button sets it directly (and sets
+   * auto-attach Divera accordingly: Einsatz = on, Übung = off).
    */
   async toggleTrainingMode(enabled: boolean) {
-    const isChecked = await this.trainingModeSwitch.isChecked();
-    if (isChecked !== enabled) {
-      await this.trainingModeSwitch.click();
-    }
+    await (enabled ? this.trainingModeButton : this.liveModeButton).click();
   }
 
   /**
-   * Toggle auto-attach Divera switch
+   * Enable/disable auto-attach Divera. There is no independent control anymore —
+   * it follows the event mode — so this maps to selecting the corresponding mode.
    */
   async toggleAutoAttachDivera(enabled: boolean) {
-    const isChecked = await this.autoAttachDiveraSwitch.isChecked();
-    if (isChecked !== enabled) {
-      await this.autoAttachDiveraSwitch.click();
-    }
+    await (enabled ? this.liveModeButton : this.trainingModeButton).click();
   }
 
   /**
@@ -133,11 +132,11 @@ export class EventsPage extends BasePage {
   /**
    * Create a new event with all options
    */
-  async createEvent(name: string, training: boolean = false, autoAttachDivera: boolean = false) {
+  async createEvent(name: string, training: boolean = false) {
     await this.clickNewEvent();
     await this.fillEventName(name);
+    // Mode fully determines auto-attach, so a single toggle is enough.
     await this.toggleTrainingMode(training);
-    await this.toggleAutoAttachDivera(autoAttachDivera);
     await this.submitEvent();
   }
 
@@ -146,12 +145,7 @@ export class EventsPage extends BasePage {
    * Finds the card by locating the event name and its associated "Auswählen" or "Wiederherstellen" button
    */
   eventCard(name: string): Locator {
-    // Find a div that contains both the event name and the select/restore button
-    return this.page.locator('div').filter({
-      hasText: name
-    }).filter({
-      has: this.page.locator('button:has-text("Auswählen"), button:has-text("Wiederherstellen")')
-    }).first();
+    return this.page.getByTestId('event-card').filter({ hasText: name }).first();
   }
 
   /**
@@ -168,9 +162,7 @@ export class EventsPage extends BasePage {
    */
   async archiveEvent(name: string) {
     const card = this.eventCard(name);
-    const archiveButton = card.locator('button[class*="outline"]').filter({
-      has: this.page.locator('svg')
-    }).first();
+    const archiveButton = card.locator('button[title="Archivieren"]');
     await archiveButton.click();
 
     // Confirm in dialog
@@ -193,9 +185,7 @@ export class EventsPage extends BasePage {
    */
   async deleteEvent(name: string) {
     const card = this.eventCard(name);
-    const deleteButton = card.locator('button[class*="destructive"]').filter({
-      has: this.page.locator('svg')
-    });
+    const deleteButton = card.locator('button[title="Löschen"]');
     await deleteButton.click();
 
     // Confirm in dialog

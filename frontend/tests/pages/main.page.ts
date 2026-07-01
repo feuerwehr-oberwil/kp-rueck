@@ -47,7 +47,8 @@ export class MainPage extends BasePage {
     // Quick Incident Creation Elements
     this.quickAddButton = page.locator('button:has-text("Schnell")');
     this.newIncidentButton = page.locator('button:has-text("Neuer Einsatz")');
-    this.incidentModal = page.locator('[role="dialog"]');
+    // Scope to the open dialog — the board also renders closed Radix popovers with role="dialog".
+    this.incidentModal = page.locator('[role="dialog"][data-state="open"]');
     this.quickModeToggle = page.locator('button:has-text("Alle Details")');
     this.fullModeToggle = page.locator('button:has-text("Schnellmodus")');
 
