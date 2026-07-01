@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { toast } from "sonner"
 
+import { openCommandPalette } from "@/components/ui/command-palette"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { UseGPrefixNavigation } from "./use-g-prefix-navigation"
 
@@ -92,7 +93,7 @@ const SHIFT_PRIORITY_KEYS: Record<string, Operation["priority"]> = {
  * state directly — that makes the hook unit-testable without mounting
  * the entire dashboard.
  *
- * The full key map is rendered by the command palette (Cmd/Ctrl+K,
+ * The full key map is rendered by the command palette (Cmd/Ctrl+K or `?`,
  * `components/ui/command-palette.tsx`) — keep its hints in sync.
  */
 export function useKanbanShortcuts(
@@ -127,6 +128,13 @@ export function useKanbanShortcuts(
 
       // g-prefix navigation owns its own state machine.
       if (gPrefix.handleKey(e)) return
+
+      // Open the command palette (? = Shift+/), the single home for shortcuts.
+      if (e.key === "?") {
+        e.preventDefault()
+        openCommandPalette()
+        return
+      }
 
       // Zu Fuss on hovered op
       if (e.key === "0" && hoveredOperationId && !e.shiftKey) {

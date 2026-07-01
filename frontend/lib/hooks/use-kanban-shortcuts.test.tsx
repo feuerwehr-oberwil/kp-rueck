@@ -17,6 +17,11 @@ vi.mock("sonner", () => ({
   },
 }));
 
+const openCommandPalette = vi.fn();
+vi.mock("@/components/ui/command-palette", () => ({
+  openCommandPalette: () => openCommandPalette(),
+}));
+
 import {
   useKanbanShortcuts,
   type KanbanShortcutsActions,
@@ -84,6 +89,7 @@ beforeEach(() => {
   toastLoading.mockReset();
   toastSuccess.mockReset();
   toastError.mockReset();
+  openCommandPalette.mockReset();
   actions = {
     onToggleVehicle: vi.fn(),
     onUpdateOperation: vi.fn(),
@@ -302,6 +308,23 @@ describe("useKanbanShortcuts", () => {
       renderHook(() => useKanbanShortcuts(baseState(), actions));
       press("b");
       expect(actions.onToggleNotifications).toHaveBeenCalled();
+    });
+
+    it("'?' opens the command palette", () => {
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      press("?");
+      expect(openCommandPalette).toHaveBeenCalledTimes(1);
+    });
+
+    it("'?' inside an input does not open the command palette", () => {
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "?", bubbles: true }),
+      );
+      expect(openCommandPalette).not.toHaveBeenCalled();
+      document.body.removeChild(input);
     });
   });
 

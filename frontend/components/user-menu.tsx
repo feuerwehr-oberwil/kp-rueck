@@ -501,13 +501,13 @@ export function UserMenu({
           <DropdownMenuItem onClick={openCommandPalette} className="cursor-pointer">
             <Keyboard className="mr-2 h-4 w-4" />
             <span>Befehle &amp; Tastaturkürzel</span>
-            <span className="ml-auto text-xs text-muted-foreground">⌘K</span>
+            <span className="ml-auto text-xs text-muted-foreground">⌘K · ?</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem asChild>
             <Link href="/help" className="cursor-pointer">
               <CircleHelp className="mr-2 h-4 w-4" />
-              <span>Hilfe &amp; Tastenkürzel</span>
+              <span>Hilfe</span>
             </Link>
           </DropdownMenuItem>
 
