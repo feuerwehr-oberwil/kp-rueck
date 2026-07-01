@@ -30,12 +30,14 @@ const DismissAllToasts = () => {
   if (toasts.length <= 1) return null
 
   return (
-    // Lifted clear of the bottom footer/nav and styled as a solid pill so it
-    // reads as a button instead of floating muted text over the footer.
+    // Anchored to the toast stack so its right edge lines up with the toast
+    // column: sonner insets toasts by offset="96px" on desktop but switches to
+    // a 16px mobile offset below 600px, so match both (right-4 → right-24).
+    // bottom-16 tucks the pill just below the stack, clear of the footer/nav.
     <button
       type="button"
       onClick={() => toast.dismiss()}
-      className="fixed bottom-16 right-4 z-[9999] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur-sm transition-colors hover:text-foreground hover:bg-card"
+      className="fixed bottom-16 right-4 min-[600px]:right-24 z-[9999] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur-sm transition-colors hover:text-foreground hover:bg-card"
     >
       <X className="h-3.5 w-3.5" />
       Alle schliessen
