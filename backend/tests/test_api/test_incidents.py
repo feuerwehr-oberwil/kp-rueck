@@ -8,14 +8,16 @@ Tests cover:
 - Edge cases (not found, invalid data)
 """
 
+from datetime import datetime
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, User
+from app.models import AuditLog, Event, Incident, User
 
 # ============================================
 # Fixtures
@@ -428,6 +430,157 @@ async def test_delete_incident_not_found(editor_client: AsyncClient):
     """Test deleting non-existent incident returns 404."""
     response = await editor_client.delete(f"/api/incidents/{uuid4()}")
     assert response.status_code == 404
+
+
+# ============================================
+# Restore Incident Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_round_trip(
+    editor_client: AsyncClient, test_incident: Incident, test_event: Event, db_session: AsyncSession
+):
+    """Delete then restore: the card leaves and re-enters the list, deleted_at cleared."""
+    # Delete
+    response = await editor_client.delete(f"/api/incidents/{test_incident.id}")
+    assert response.status_code == 204
+
+    # Excluded from list
+    response = await editor_client.get(f"/api/incidents/?event_id={test_event.id}")
+    assert str(test_incident.id) not in [i["id"] for i in response.json()]
+
+    # Restore
+    response = await editor_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert response.status_code == 200
+    assert response.json()["id"] == str(test_incident.id)
+
+    # Back in the list
+    response = await editor_client.get(f"/api/incidents/?event_id={test_event.id}")
+    assert str(test_incident.id) in [i["id"] for i in response.json()]
+
+    # deleted_at cleared in the DB
+    await db_session.refresh(test_incident)
+    assert test_incident.deleted_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_clears_side_effect_completed_at(
+    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
+):
+    """An incident without completed_at → delete (stamps it) → restore clears it."""
+    assert test_incident.completed_at is None
+
+    response = await editor_client.delete(f"/api/incidents/{test_incident.id}")
+    assert response.status_code == 204
+
+    # Delete stamped completed_at as a side effect (== deleted_at)
+    await db_session.refresh(test_incident)
+    assert test_incident.completed_at is not None
+    assert test_incident.completed_at == test_incident.deleted_at
+
+    response = await editor_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert response.status_code == 200
+
+    # Restore recognized it as a side effect and cleared it
+    await db_session.refresh(test_incident)
+    assert test_incident.completed_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_preserves_prior_completed_at(
+    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
+):
+    """An incident with a pre-existing completed_at keeps it through delete+restore."""
+    test_incident.completed_at = datetime(2026, 1, 1, 12, 0, 0)
+    await db_session.commit()
+    # Capture the canonical DB form (tz-aware) so later comparisons are like-for-like.
+    await db_session.refresh(test_incident)
+    completed = test_incident.completed_at
+    assert completed is not None
+
+    response = await editor_client.delete(f"/api/incidents/{test_incident.id}")
+    assert response.status_code == 204
+
+    # deleted_at differs from the pre-existing completed_at
+    await db_session.refresh(test_incident)
+    assert test_incident.completed_at == completed
+    assert test_incident.deleted_at != completed
+
+    response = await editor_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert response.status_code == 200
+
+    await db_session.refresh(test_incident)
+    assert test_incident.completed_at == completed
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_not_deleted_conflict(editor_client: AsyncClient, test_incident: Incident):
+    """Restoring an incident that is not deleted returns 409 (idempotency guard)."""
+    response = await editor_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_double_click_is_harmless(editor_client: AsyncClient, test_incident: Incident):
+    """A double-click on undo: first restore succeeds, second 409s harmlessly."""
+    await editor_client.delete(f"/api/incidents/{test_incident.id}")
+
+    first = await editor_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert first.status_code == 200
+
+    second = await editor_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_not_found(editor_client: AsyncClient):
+    """Restoring an unknown incident returns 404."""
+    response = await editor_client.post(f"/api/incidents/{uuid4()}/restore")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident):
+    """Viewers cannot restore incidents."""
+    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_requires_auth(client: AsyncClient, test_incident: Incident):
+    """Unauthenticated restore is rejected."""
+    response = await client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_incident_writes_audit_log(
+    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
+):
+    """A successful restore writes an audit_log row with action 'restore'."""
+    await editor_client.delete(f"/api/incidents/{test_incident.id}")
+    response = await editor_client.post(f"/api/incidents/{test_incident.id}/restore")
+    assert response.status_code == 200
+
+    result = await db_session.execute(
+        select(AuditLog).where(
+            AuditLog.action_type == "restore",
+            AuditLog.resource_id == test_incident.id,
+        )
+    )
+    audit_rows = result.scalars().all()
+    assert len(audit_rows) >= 1
+    assert audit_rows[0].resource_type == "incident"
 
 
 # ============================================

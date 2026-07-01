@@ -2334,7 +2334,7 @@ export default function FireStationDashboard() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Einsatz wirklich löschen?"
-        description={`Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "${operationToDelete?.location}" wird permanent gelöscht.`}
+        description={`Der Einsatz "${operationToDelete?.location}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
         onConfirm={handleDeleteOperationConfirm}
       />
 

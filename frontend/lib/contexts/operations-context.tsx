@@ -21,6 +21,7 @@ import {
   recordRemoval,
   type RecentRemovals,
 } from "@/lib/recent-removals"
+import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
 
 // Re-export types for backward compatibility
 export type { Person, PersonStatus } from "./personnel-context"
@@ -1596,6 +1597,35 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   const cancelVehicleConflict = useCallback(() => setVehicleConflict(null), [])
 
+  // Undo a delete: restore the soft-deleted incident and reconcile the board.
+  // api-client's request() returns undefined on a network error (no throw) and
+  // throws an ApiError (409 → isConflictError) on HTTP failures, so we normalize
+  // both into a RestoreOutcome and let the pure decideRestoreAction map it.
+  const handleRestore = async (operationId: string): Promise<void> => {
+    let outcome: RestoreOutcome
+    try {
+      const restored = await apiClient.restoreIncident(operationId)
+      outcome = restored ? "ok" : "network"
+    } catch (err) {
+      outcome = ApiError.isConflictError(err) ? "conflict" : "error"
+    }
+
+    const action = decideRestoreAction(outcome)
+    if (action === "error") {
+      toast.error("Wiederherstellen fehlgeschlagen", {
+        description: "Der Einsatz konnte nicht wiederhergestellt werden.",
+      })
+      return
+    }
+
+    // A restore always re-includes the card on the next load, so there is no
+    // WS-resurrection suppression to bypass — refresh pulls the card back.
+    await refreshOperations()
+    if (action === "refresh-success") {
+      toast.success("Einsatz wiederhergestellt")
+    }
+  }
+
   const deleteOperation = async (operationId: string): Promise<void> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) {
@@ -1633,6 +1663,21 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }
 
       setOperations((ops) => ops.filter((op) => op.id !== operationId))
+
+      // Offer an undo. Only when the delete was persisted (isLoaded) — a purely
+      // local optimistic delete has no backend row to restore.
+      if (isLoaded) {
+        toast("Einsatz gelöscht", {
+          description: operation.location,
+          duration: 8000,
+          action: {
+            label: "Rückgängig",
+            onClick: () => {
+              void handleRestore(operationId)
+            },
+          },
+        })
+      }
     } catch (error) {
       console.error("Failed to delete operation:", error)
       throw error

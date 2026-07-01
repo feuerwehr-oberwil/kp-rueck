@@ -858,7 +858,7 @@ function SidePanelDetail({
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Einsatz wirklich löschen?"
-        description={`Dieser Vorgang kann nicht rückgängig gemacht werden. Der Einsatz "${formatLocation(operation.location)}" wird permanent gelöscht.`}
+        description={`Der Einsatz "${formatLocation(operation.location)}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
         onConfirm={() => onDelete(operation.id)}
       />
 

@@ -491,10 +491,13 @@ async def delete_incident(
     if not incident:
         return False
 
-    # Soft delete (mark deleted)
-    incident.deleted_at = datetime.utcnow()
+    # Soft delete (mark deleted). Use ONE `now` for both columns so a later
+    # restore can tell whether `completed_at` was stamped as a side effect of
+    # the delete (completed_at == deleted_at) versus a pre-existing completion.
+    now = datetime.utcnow()
+    incident.deleted_at = now
     if not incident.completed_at:
-        incident.completed_at = datetime.utcnow()
+        incident.completed_at = now
 
     await log_action(
         db=db,
@@ -510,6 +513,60 @@ async def delete_incident(
 
     await db.commit()
     return True
+
+
+async def restore_incident(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    current_user: User,
+    request: Request,
+) -> Incident | None:
+    """Restore a soft-deleted incident.
+
+    Loads the incident directly (the default query helpers exclude soft-deleted
+    rows, so we query the model without the ``deleted_at`` filter).
+
+    Returns:
+        The restored incident on success.
+        ``None`` if the incident does not exist (endpoint maps to 404).
+
+    Raises:
+        ValueError: If the incident is not deleted (endpoint maps to 409). This
+            makes a double-click on the undo toast harmless — the second call
+            409s instead of mutating anything.
+    """
+    result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    incident = result.scalar_one_or_none()
+
+    if incident is None:
+        return None
+
+    if incident.deleted_at is None:
+        raise ValueError("Incident is not deleted")
+
+    # If the delete stamped `completed_at` as a side effect (both timestamps set
+    # to the same `now`), clear it so the restored incident isn't wrongly
+    # "completed". A pre-existing completion (different timestamp) is preserved.
+    if incident.completed_at == incident.deleted_at:
+        incident.completed_at = None
+    incident.deleted_at = None
+
+    await log_action(
+        db=db,
+        action_type="restore",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=current_user,
+        request=request,
+    )
+
+    # Update event activity timestamp
+    await events_crud.update_event_activity(db, incident.event_id)
+
+    await db.commit()
+    await db.refresh(incident)
+
+    return incident
 
 
 async def reorder_incidents(

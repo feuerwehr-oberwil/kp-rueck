@@ -425,6 +425,46 @@ async def delete_incident(
     background_tasks.add_task(broadcast_incident_update, {"id": str(incident_id)}, "delete")
 
 
+@router.post("/{incident_id}/restore", response_model=schemas.IncidentResponse)
+async def restore_incident(
+    incident_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """Restore a soft-deleted incident (editor only).
+
+    Powers the "Rückgängig" undo affordance. Idempotency guard: restoring an
+    incident that is not deleted returns 409, so a double-click on the undo
+    toast is harmless. Unknown ID returns 404. Broadcasts an incident update so
+    other boards re-show the card without a manual refresh.
+    """
+    try:
+        incident = await crud.restore_incident(
+            db=db,
+            incident_id=incident_id,
+            current_user=current_user,
+            request=request,
+        )
+    except ValueError:
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
+
+    if not incident:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    # Re-fetch with populated relationships (assigned_vehicles, reko flags, …) so
+    # the response mirrors GET /{id} and the frontend can consume it directly.
+    populated = await crud.get_incident(db, incident_id)
+    incident_response = schemas.IncidentResponse.model_validate(populated or incident)
+
+    # Broadcast WebSocket update (mirror the update path) so other clients
+    # re-show the restored card.
+    background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
+
+    return incident_response
+
+
 @router.post("/{incident_id}/transfer", response_model=schemas.TransferAssignmentsResponse)
 async def transfer_assignments(
     incident_id: uuid.UUID,

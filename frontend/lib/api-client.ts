@@ -431,6 +431,12 @@ class ApiClient {
     })
   }
 
+  async restoreIncident(id: string): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/incidents/${id}/restore`, {
+      method: 'POST',
+    })
+  }
+
   async transferAssignments(
     sourceIncidentId: string,
     targetIncidentId: string
@@ -885,6 +891,21 @@ class ApiClient {
 
     if (!response.ok) {
       throw new Error(`Audit export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
+  // Event After-Action Report (PDF)
+  async exportEventReport(eventId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/report`
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Report export failed: ${response.statusText}`)
     }
 
     return response.blob()

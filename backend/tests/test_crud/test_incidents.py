@@ -1,12 +1,25 @@
 """Tests for Incident CRUD operations."""
 
+from datetime import datetime
+from unittest.mock import MagicMock
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
 from app.crud import incidents as incident_crud
 from app.models import Incident, IncidentAssignment, User, Vehicle
+
+
+@pytest.fixture
+def mock_request():
+    """Create a mock FastAPI request for audit logging."""
+    request = MagicMock()
+    request.client = MagicMock()
+    request.client.host = "127.0.0.1"
+    request.headers.get = MagicMock(return_value=None)
+    return request
 
 
 class TestIncidentCRUD:
@@ -239,3 +252,117 @@ class TestIncidentCRUD:
         assert len(incident.assigned_vehicles) == 2
         assert incident.assigned_vehicles[0].name == "TLF 1"  # First assigned
         assert incident.assigned_vehicles[1].name == "DLK 1"  # Second assigned
+
+
+class TestRestoreIncident:
+    """Test restore_incident CRUD (undo delete)."""
+
+    async def test_delete_uses_single_now_for_both_columns(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_user: User,
+        mock_request,
+    ):
+        """delete_incident stamps deleted_at and completed_at with the same value."""
+        assert test_incident.completed_at is None
+
+        await incident_crud.delete_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        await db_session.refresh(test_incident)
+        assert test_incident.deleted_at is not None
+        assert test_incident.completed_at == test_incident.deleted_at
+
+    async def test_restore_clears_side_effect_completed_at(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_user: User,
+        mock_request,
+    ):
+        """Restore clears completed_at when it was a delete side effect."""
+        await incident_crud.delete_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        restored = await incident_crud.restore_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert restored is not None
+        assert restored.deleted_at is None
+        assert restored.completed_at is None
+
+    async def test_restore_preserves_prior_completed_at(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_user: User,
+        mock_request,
+    ):
+        """Restore preserves a pre-existing completed_at (different from deleted_at)."""
+        test_incident.completed_at = datetime(2026, 1, 1, 12, 0, 0)
+        await db_session.commit()
+        # Capture the canonical DB form (tz-aware) for like-for-like comparison.
+        await db_session.refresh(test_incident)
+        completed = test_incident.completed_at
+
+        await incident_crud.delete_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        restored = await incident_crud.restore_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert restored is not None
+        assert restored.deleted_at is None
+        assert restored.completed_at == completed
+
+    async def test_restore_unknown_returns_none(
+        self,
+        db_session: AsyncSession,
+        test_user: User,
+        mock_request,
+    ):
+        """Restoring an unknown incident returns None (endpoint maps to 404)."""
+        result = await incident_crud.restore_incident(
+            db=db_session,
+            incident_id=uuid4(),
+            current_user=test_user,
+            request=mock_request,
+        )
+        assert result is None
+
+    async def test_restore_not_deleted_raises_value_error(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_user: User,
+        mock_request,
+    ):
+        """Restoring a non-deleted incident raises ValueError (endpoint maps to 409)."""
+        with pytest.raises(ValueError):
+            await incident_crud.restore_incident(
+                db=db_session,
+                incident_id=test_incident.id,
+                current_user=test_user,
+                request=mock_request,
+            )
