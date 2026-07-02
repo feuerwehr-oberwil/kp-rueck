@@ -101,9 +101,13 @@ interface OperationsContextType {
   lastSyncAt: Date | null
   formatLocation: (fullAddress: string) => string
   refreshOperations: () => Promise<void>
-  removeCrew: (operationId: string, crewName: string) => void
+  /** Resolves true when the removal was persisted (or ran local-only), false
+   * when it failed and was rolled back — callers that chain a follow-up
+   * action (e.g. "remove from incident, then make driver") must check it. */
+  removeCrew: (operationId: string, crewName: string) => Promise<boolean>
   removeMaterial: (operationId: string, materialId: string) => void
-  removeVehicle: (operationId: string, vehicleName: string) => void
+  /** Same result contract as removeCrew. */
+  removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
   removeReko: (operationId: string) => void
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
@@ -946,14 +950,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }, [authLoading, isAuthenticated, selectedEvent, isEventLoaded, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials])
 
-  const removeCrew = (operationId: string, crewName: string) => {
+  const removeCrew = (operationId: string, crewName: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
-    if (!operation) return
+    if (!operation) return Promise.resolve(false)
 
     const assignmentId = operation.crewAssignments.get(crewName)
     if (!assignmentId) {
       console.warn(`No assignment ID found for crew member ${crewName}`)
-      return
+      return Promise.resolve(false)
     }
 
     armAssignmentCooldown()
@@ -986,7 +990,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId)
+      return apiClient.unassignResource(operationId, assignmentId)
+        .then(() => true)
         .catch(err => {
           console.error("Failed to unassign crew:", err)
           toast.error("Fehler beim Entfernen", { description: "Die Person konnte nicht entfernt werden." })
@@ -1000,13 +1005,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           }
           // Removal failed → drop the memo so we don't warn about a phantom removal.
           if (person) recentRemovalsRef.current.delete(person.id)
+          return false
         })
         .finally(() => {
           releaseAssignmentCooldown()
         })
-    } else {
-      releaseAssignmentCooldown(3000)
     }
+    releaseAssignmentCooldown(3000)
+    return Promise.resolve(true)
   }
 
   const removeReko = (operationId: string) => {
@@ -1679,14 +1685,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const removeVehicle = (operationId: string, vehicleName: string) => {
+  const removeVehicle = (operationId: string, vehicleName: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
-    if (!operation) return
+    if (!operation) return Promise.resolve(false)
 
     const assignmentId = operation.vehicleAssignments.get(vehicleName)
     if (!assignmentId) {
       console.warn(`No assignment ID found for vehicle ${vehicleName}`)
-      return
+      return Promise.resolve(false)
     }
 
     armAssignmentCooldown()
@@ -1707,20 +1713,22 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     )
 
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId)
+      return apiClient.unassignResource(operationId, assignmentId)
+        .then(() => true)
         .catch(err => {
           console.error("Failed to unassign vehicle:", err)
           toast.error("Fehler beim Entfernen", { description: "Das Fahrzeug konnte nicht entfernt werden." })
           setOperations((ops) =>
             ops.map((op) => (op.id === operationId ? operation : op))
           )
+          return false
         })
         .finally(() => {
           releaseAssignmentCooldown()
         })
-    } else {
-      releaseAssignmentCooldown(3000)
     }
+    releaseAssignmentCooldown(3000)
+    return Promise.resolve(true)
   }
 
   const resolveVehicleConflict = async (action: "move" | "keep") => {
@@ -1729,9 +1737,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setVehicleConflict(null)
 
     if (action === "move") {
-      // Remove the vehicle from every other incident before assigning it here.
-      for (const c of conflict.conflicts) {
-        removeVehicle(c.operationId, conflict.vehicleName)
+      // Remove the vehicle from every other incident before assigning it
+      // here — and WAIT for the removals: toasting "verschoben" before they
+      // were confirmed left the vehicle double-booked on failure despite the
+      // user explicitly choosing "move".
+      const results = await Promise.all(
+        conflict.conflicts.map((c) => removeVehicle(c.operationId, conflict.vehicleName))
+      )
+      if (results.some((ok) => !ok)) {
+        // removeVehicle already rolled back and toasted the failed ones.
+        toast.error(`${conflict.vehicleName} nicht verschoben`, {
+          description: "Nicht alle Einsätze konnten bereinigt werden — bitte prüfen.",
+        })
+        return
       }
       const labels = conflict.conflicts.map(c => `"${c.operationLabel}"`).join(", ")
       toast.info(`${conflict.vehicleName} verschoben`, {
