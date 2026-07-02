@@ -122,6 +122,12 @@ class Settings(BaseSettings):
     audit_retention_days: int = 90  # Delete audit_log rows older than this (capped at 7 in demo mode)
     audit_cleanup_interval_hours: int = 24  # How often the cleanup job runs (hours)
 
+    # SSO provisioning
+    # Comma-separated emails (case-insensitive) that get role=editor on first
+    # Microsoft login. Everyone else is provisioned as viewer — any tenant
+    # member can reach the login, so write access must be an explicit grant.
+    sso_editor_allowlist: str = ""
+
     # Print Agent
     print_agent_token: str = ""  # Shared token for print agent endpoints (empty = no auth, LAN-only installs)
 
