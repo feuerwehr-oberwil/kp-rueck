@@ -316,8 +316,11 @@ def test_decode_token_invalid_signature():
     data = {"sub": str(uuid.uuid4())}
     token = create_access_token(data)
 
-    # Tamper with the token by changing one character
-    tampered_token = token[:-1] + ("X" if token[-1] != "X" else "Y")
+    # Tamper INSIDE the signature. The final base64url char only carries 2
+    # significant bits, so flipping it decodes to the same signature ~1 in
+    # 16 times (flaky no-raise); a mid-signature char always changes real bits.
+    pos = token.rindex(".") + 5
+    tampered_token = token[:pos] + ("X" if token[pos] != "X" else "Y") + token[pos + 1 :]
 
     with pytest.raises(JWTError) as exc_info:
         decode_token(tampered_token)
