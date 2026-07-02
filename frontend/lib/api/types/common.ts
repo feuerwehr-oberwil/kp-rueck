@@ -24,6 +24,23 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Thrown when a request never reached the server (offline, DNS, refused).
+ * Mutations must reject with this so callers roll back optimistic state —
+ * silently resolving made the UI report success for writes that never
+ * happened. Polling GETs still resolve to undefined instead (soft degrade).
+ */
+export class NetworkError extends Error {
+  constructor(message: string = 'Keine Verbindung zum Server') {
+    super(message)
+    this.name = 'NetworkError'
+  }
+
+  static isNetworkError(error: unknown): error is NetworkError {
+    return error instanceof NetworkError
+  }
+}
+
 export interface CategorySortOrder {
   /** The category name (role for personnel, location for materials). */
   category: string

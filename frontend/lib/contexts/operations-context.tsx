@@ -22,6 +22,7 @@ import {
   type RecentRemovals,
 } from "@/lib/recent-removals"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
+import { UpdateBatcher } from "@/lib/update-batcher"
 
 // Re-export types for backward compatibility
 export type { Person, PersonStatus } from "./personnel-context"
@@ -165,11 +166,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const clearVehicleNeedingDriver = useCallback(() => setVehicleNeedingDriver(null), [])
   const [vehicleConflict, setVehicleConflict] = useState<OperationsContextType["vehicleConflict"]>(null)
 
-  // Refs for debouncing and cooldowns
-  const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  // Refs for debouncing and cooldowns. One debounce timer + pending-merge
+  // buffer PER incident (a single shared timer made rapid edits to two
+  // different incidents silently drop the first one's PATCH).
+  const updateBatcherRef = useRef<UpdateBatcher<Operation>>(new UpdateBatcher())
   const criticalUpdateInProgress = useRef<boolean>(false)
-  const pendingUpdatesRef = useRef<Map<string, Partial<Operation>>>(new Map())
-  const criticalUpdateTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const recentAssignmentRef = useRef<boolean>(false)
   const assignmentCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const recentStatusUpdateRef = useRef<boolean>(false)
@@ -1048,11 +1049,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     recentAssignmentRef.current = true
     if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
 
-    const isCriticalUpdate = updates.location !== undefined || updates.coordinates !== undefined
-
     if (isLoaded) {
-      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current)
-
       const performUpdate = async (batchedUpdates: Partial<Operation>) => {
         const statusToBackend: Record<OperationStatus, string> = {
           "incoming": "eingegangen",
@@ -1103,25 +1100,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             toast.error("Fehler beim Aktualisieren", { description: "Der Einsatz konnte nicht aktualisiert werden." })
           }
         } finally {
-          pendingUpdatesRef.current.delete(operationId)
           if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
           assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
         }
       }
 
-      if (isCriticalUpdate) {
-        if (criticalUpdateTimerRef.current) clearTimeout(criticalUpdateTimerRef.current)
-        const existingUpdates = pendingUpdatesRef.current.get(operationId) || {}
-        const mergedUpdates = { ...existingUpdates, ...updates }
-        pendingUpdatesRef.current.set(operationId, mergedUpdates)
-        criticalUpdateInProgress.current = true
-        criticalUpdateTimerRef.current = setTimeout(() => {
-          const finalUpdates = pendingUpdatesRef.current.get(operationId) || updates
-          performUpdate(finalUpdates)
-        }, 50)
-      } else {
-        updateTimeoutRef.current = setTimeout(() => performUpdate(updates), 500)
-      }
+      // Location/coordinate edits flush almost immediately (map pin drops need
+      // to persist fast); everything else debounces to coalesce rapid edits.
+      // Criticality is decided on the MERGED batch so a follow-up non-critical
+      // edit can't demote a pending location write back to the slow path.
+      const merged = { ...(updateBatcherRef.current.getPending(operationId) ?? {}), ...updates }
+      const isCriticalUpdate = merged.location !== undefined || merged.coordinates !== undefined
+      if (isCriticalUpdate) criticalUpdateInProgress.current = true
+      updateBatcherRef.current.schedule(operationId, updates, isCriticalUpdate ? 50 : 500, performUpdate)
     } else {
       assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
     }
