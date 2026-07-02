@@ -186,6 +186,21 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // and shouldn't trigger re-renders.
   const recentRemovalsRef = useRef<RecentRemovals>(new Map())
 
+  // Every optimistic local mutation bumps this epoch. Reloads capture it when
+  // they START fetching and discard their result if it moved while they were
+  // in flight — otherwise a reload that began just before a drag/assign lands
+  // would overwrite the optimistic state with a pre-mutation snapshot
+  // (visible as the card "snapping back" for a second or two).
+  const mutationEpochRef = useRef<number>(0)
+
+  // Shared preamble of every optimistic mutation: invalidate in-flight
+  // reloads and open the assignment cooldown window.
+  const armAssignmentCooldown = () => {
+    mutationEpochRef.current++
+    recentAssignmentRef.current = true
+    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+  }
+
   const clearAssignmentCooldown = () => {
     recentAssignmentRef.current = false
     replayPendingUpdatesRef.current?.()
@@ -316,6 +331,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
       return
     }
+
+    const epochAtStart = mutationEpochRef.current
 
     try {
 
@@ -458,10 +475,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
       }))
 
+      // A local mutation landed while this reload was fetching — its optimistic
+      // state is newer than this snapshot. Discard and replay once cooldowns clear.
+      if (mutationEpochRef.current !== epochAtStart) {
+        pendingReplayRef.current = true
+        replayPendingUpdatesRef.current?.()
+        return
+      }
+
       setOperations(ops)
       setPersonnel(eventScopedPersonnel)
       setMaterials(eventScopedMaterials)
       setHomeCity(settings.home_city || "")
+      setLastSyncAt(new Date())
     } catch (error) {
       console.error("Failed to load data:", error)
     } finally {
@@ -499,6 +525,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (showLoading && isInitialLoad) {
           setIsLoading(true)
         }
+
+        const epochAtStart = mutationEpochRef.current
+
+        // Snapshot the sync version BEFORE fetching data. Pairing the stored
+        // version with data fetched after it can only err toward one extra
+        // reload — the old trailing fetch could store a version NEWER than the
+        // data it was paired with, blinding the polling fallback to a change.
+        const versionSnapshot = await apiClient.getSyncVersion(eventId).catch(() => null)
 
         // Fetch all data in parallel. See refreshOperations for why we suppress
         // intermediate personnel/material writes.
@@ -671,6 +705,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // Update known incident IDs
         knownIncidentIdsRef.current = new Set(ops.map(op => op.id))
 
+        // A local mutation landed while this reload was fetching — its
+        // optimistic state is newer than this snapshot. Discard the stale
+        // result and replay once the mutation's cooldown clears.
+        if (mutationEpochRef.current !== epochAtStart) {
+          pendingReplayRef.current = true
+          replayPendingUpdatesRef.current?.()
+          return
+        }
+
         setOperations(ops)
         setPersonnel(eventScopedPersonnel)
         setMaterials(eventScopedMaterials)
@@ -679,13 +722,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setLastSyncAt(new Date())
         if (isInitialLoad) setIsInitialLoad(false)
 
-        // Update sync version after successful full load
-        try {
-          const { version } = await apiClient.getSyncVersion(eventId)
-          lastSyncVersionRef.current = version
-        } catch {
-          // Non-critical - version check is an optimization
-        }
+        // Store the version snapshot taken before the data fetch (null forces
+        // the next poll tick to reload — fails toward freshness).
+        lastSyncVersionRef.current = versionSnapshot?.version ?? null
       } catch (error) {
         console.error("Failed to load data:", error)
         setIsLoaded(true)
@@ -844,8 +883,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     setOperations((ops) =>
       ops.map((op) => {
@@ -904,8 +942,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     const rekoPersonId = operation.assignedReko.id
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     // Optimistically update UI
     setOperations((ops) =>
@@ -941,8 +978,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     setOperations((ops) =>
       ops.map((op) => {
@@ -1046,8 +1082,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     // Guard against polling overwriting optimistic updates for field changes
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     if (isLoaded) {
       const performUpdate = async (batchedUpdates: Partial<Operation>) => {
@@ -1127,8 +1162,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const reorderColumn = (orderedIds: string[]) => {
     if (!isLoaded || !selectedEvent || !isValidUUID(selectedEvent.id) || orderedIds.length === 0) return
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     void (async () => {
       try {
@@ -1229,7 +1263,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           vehicleCallsigns: new Map(),
           vehicleDriverStay: new Map(),
         }
-        setOperations((ops) => [newOperation, ...ops])
+        // Invalidate reloads that started before the POST landed — they'd
+        // overwrite the board without the new incident.
+        mutationEpochRef.current++
+        // A WS-triggered reload can already have delivered this incident
+        // between the POST and this write — don't render it twice.
+        setOperations((ops) =>
+          ops.some((op) => op.id === newOperation.id) ? ops : [newOperation, ...ops]
+        )
       } catch (error) {
         console.error("Failed to create operation:", error)
         toast.error("Einsatz konnte nicht erstellt werden", {
@@ -1274,8 +1315,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       recentRemovalsRef.current.delete(personId)
     }
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, crew: [...op.crew, personName] } : op))
@@ -1330,8 +1370,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     // Optimistically update UI - also move to "reko" status if currently "eingegangen"
     const currentOp = operations.find(op => op.id === operationId)
@@ -1384,8 +1423,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, materials: [...op.materials, materialId] } : op))
@@ -1462,8 +1500,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     setOperations((ops) =>
       ops.map((op) => (op.id === operationId ? { ...op, vehicles: [...op.vehicles, vehicleName] } : op))
@@ -1536,8 +1573,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    armAssignmentCooldown()
 
     setOperations((ops) =>
       ops.map((op) => {
@@ -1657,6 +1693,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Invalidate reloads that started before the DELETE landed — they'd
+      // resurrect the card until the next sync.
+      mutationEpochRef.current++
       setOperations((ops) => ops.filter((op) => op.id !== operationId))
 
       // Offer an undo. Only when the delete was persisted (isLoaded) — a purely
