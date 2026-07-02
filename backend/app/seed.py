@@ -459,19 +459,24 @@ async def seed_database() -> None:
             )
             db.add(admin_user)
 
-            # Create shared editor account for teams
-            editor_password = get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
-            editor_password_hash = bcrypt.hashpw(editor_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            # Create shared editor account (dev/local only). In production,
+            # editors come from SSO and the admin account covers break-glass —
+            # a shared password login would just be extra attack surface.
+            if os.getenv("RAILWAY_ENVIRONMENT") is None:
+                editor_password = get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
+                editor_password_hash = bcrypt.hashpw(
+                    editor_password.encode("utf-8"), bcrypt.gensalt()
+                ).decode("utf-8")
 
-            editor_user = models.User(
-                id=uuid4(),
-                username="editor",
-                password_hash=editor_password_hash,
-                role="editor",
-                display_name="Bearbeiter",
-                is_active=True,
-            )
-            db.add(editor_user)
+                editor_user = models.User(
+                    id=uuid4(),
+                    username="editor",
+                    password_hash=editor_password_hash,
+                    role="editor",
+                    display_name="Bearbeiter",
+                    is_active=True,
+                )
+                db.add(editor_user)
 
             # Create shared read-only viewer account for shared/kiosk PCs
             viewer_password = get_shared_account_password("VIEWER_PASSWORD", dev_default="viewer")
@@ -744,7 +749,8 @@ async def seed_database() -> None:
             else:
                 print(f"  - Created dev-user (for auth bypass) and admin user: admin / {password}")
                 print("  ⚠️  Save this password - it was randomly generated for development")
-            print("  - Created shared editor account: editor / [EDITOR_PASSWORD, default 'editor']")
+            if os.getenv("RAILWAY_ENVIRONMENT") is None:
+                print("  - Created shared editor account: editor / [EDITOR_PASSWORD, default 'editor']")
             print("  - Created read-only viewer account: viewer / [VIEWER_PASSWORD, default 'viewer']")
             print(f"  - Created {settings_created} default settings")
             print(f"  - Created {len(vehicles)} vehicles")
