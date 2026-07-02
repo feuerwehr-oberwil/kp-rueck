@@ -41,6 +41,12 @@ import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2 } from 'lucid
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  editor: 'Bearbeiter',
+  viewer: 'Betrachter',
+};
+
 export function UserSettings() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -112,7 +118,7 @@ export function UserSettings() {
       const updateData: ApiUserUpdate = {
         username: formData.username || undefined,
         display_name: formData.display_name || undefined,
-        role: formData.role as 'admin' | 'editor',
+        role: formData.role as 'admin' | 'editor' | 'viewer',
       };
       await apiClient.updateUser(selectedUser.id, updateData);
       setEditDialogOpen(false);
@@ -281,7 +287,7 @@ export function UserSettings() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{user.display_name || user.username}</span>
                     <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                      {user.role === 'admin' ? 'Admin' : 'Bearbeiter'}
+                      {ROLE_LABELS[user.role] ?? user.role}
                     </Badge>
                     {!user.is_active && (
                       <Badge variant="outline" className="text-muted-foreground">
@@ -398,13 +404,14 @@ export function UserSettings() {
               <Label htmlFor="role">Rolle</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' })}
+                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="editor">Bearbeiter</SelectItem>
+                  <SelectItem value="viewer">Betrachter</SelectItem>
                   <SelectItem value="admin">Administrator</SelectItem>
                 </SelectContent>
               </Select>
@@ -454,7 +461,7 @@ export function UserSettings() {
               <Label htmlFor="edit_role">Rolle</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' })}
+                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
                 disabled={selectedUser?.id === currentUser?.id}
               >
                 <SelectTrigger>
@@ -462,6 +469,7 @@ export function UserSettings() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="editor">Bearbeiter</SelectItem>
+                  <SelectItem value="viewer">Betrachter</SelectItem>
                   <SelectItem value="admin">Administrator</SelectItem>
                 </SelectContent>
               </Select>
