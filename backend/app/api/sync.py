@@ -1,5 +1,11 @@
-"""Sync API endpoints for Railway ↔ Local bidirectional sync."""
+"""Sync API endpoints for Railway ↔ Local bidirectional sync.
 
+All endpoints are admin-only: they can write arbitrary rows into any syncable
+table, repoint the sync target at a foreign database, and the config exposes
+the database connection URL.
+"""
+
+import re
 from datetime import datetime
 from uuid import UUID
 
@@ -7,13 +13,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import CurrentUser
+from app.auth.dependencies import CurrentAdmin, CurrentUser
 from app.database import get_db
 from app.models import SyncLog
 from app.schemas import SyncDirection, SyncLogResponse, SyncStatus, SyncStatusResponse
 from app.services.sync_service import SyncService, create_sync_service
 
 router = APIRouter(prefix="/sync", tags=["sync"])
+
+_REDACTED_PASSWORD = "********"
+
+
+def _redact_database_url(url: str) -> str:
+    """Mask the password in a connection URL for display (user kept for recognition)."""
+    if not url:
+        return url
+    return re.sub(r"(://[^:/@]+):[^@]+@", rf"\1:{_REDACTED_PASSWORD}@", url)
 
 
 # Global state for sync operations (in-memory, could be Redis in production)
@@ -24,7 +39,7 @@ _last_sync_result: dict | None = None
 @router.get("/status", response_model=SyncStatusResponse)
 async def get_sync_status(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """
-    Get current sync status.
+    Get current sync status (any authenticated user — polled by the user menu).
 
     Returns:
         Current sync status including last sync time, direction, Railway health, and sync state.
@@ -62,7 +77,7 @@ async def get_sync_status(current_user: CurrentUser, db: AsyncSession = Depends(
 
 
 @router.post("/from-railway", response_model=dict)
-async def sync_from_railway_endpoint(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def sync_from_railway_endpoint(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)):
     """
     Trigger manual sync FROM Railway to Local.
 
@@ -96,7 +111,7 @@ async def sync_from_railway_endpoint(current_user: CurrentUser, db: AsyncSession
 
 
 @router.post("/to-railway", response_model=dict)
-async def sync_to_railway_endpoint(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def sync_to_railway_endpoint(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)):
     """
     Trigger manual sync TO Railway (recovery mode).
 
@@ -132,7 +147,7 @@ async def sync_to_railway_endpoint(current_user: CurrentUser, db: AsyncSession =
 
 
 @router.post("/trigger-immediate", response_model=dict)
-async def trigger_immediate_sync(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def trigger_immediate_sync(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)):
     """
     Trigger immediate bidirectional sync.
 
@@ -189,7 +204,7 @@ async def trigger_immediate_sync(current_user: CurrentUser, db: AsyncSession = D
 @router.get("/history", response_model=list[SyncLogResponse])  # Alias for frontend compatibility
 async def get_sync_logs(current_user: CurrentUser, limit: int = 20, db: AsyncSession = Depends(get_db)):
     """
-    Get recent sync operation logs.
+    Get recent sync operation logs (counts and error strings only — no credentials).
     Requires authentication.
 
     Args:
@@ -216,7 +231,7 @@ async def get_sync_logs(current_user: CurrentUser, limit: int = 20, db: AsyncSes
 
 
 @router.get("/config", response_model=dict)
-async def get_sync_config(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def get_sync_config(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)):
     """
     Get sync configuration.
     Requires authentication.
@@ -245,14 +260,15 @@ async def get_sync_config(current_user: CurrentUser, db: AsyncSession = Depends(
     return {
         "sync_interval_minutes": int(sync_interval_minutes),
         "auto_sync_on_create": auto_sync_on_create.lower() == "true",
-        "railway_database_url": railway_database_url,
+        # Never return the raw URL — it contains the database password.
+        "railway_database_url": _redact_database_url(railway_database_url),
         "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds),
         "is_production": settings.is_production,  # True if running on Railway
     }
 
 
 @router.post("/bidirectional", response_model=dict)
-async def sync_bidirectional_endpoint(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def sync_bidirectional_endpoint(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)):
     """
     Trigger manual bidirectional sync: Railway ↔ Local.
 
@@ -304,7 +320,7 @@ async def sync_bidirectional_endpoint(current_user: CurrentUser, db: AsyncSessio
 
 
 @router.put("/config", response_model=dict)
-async def update_sync_config(config: dict, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def update_sync_config(config: dict, current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)):
     """
     Update sync configuration.
 
@@ -329,7 +345,9 @@ async def update_sync_config(config: dict, current_user: CurrentUser, db: AsyncS
             user_id=current_user.id,
         )
 
-    if "railway_database_url" in config:
+    if "railway_database_url" in config and _REDACTED_PASSWORD not in (config["railway_database_url"] or ""):
+        # The GET response masks the password; a client saving the config back
+        # unchanged would otherwise overwrite the stored URL with the mask.
         await update_setting(
             db, key="railway_database_url", value=config["railway_database_url"], user_id=current_user.id
         )
@@ -350,7 +368,7 @@ async def update_sync_config(config: dict, current_user: CurrentUser, db: AsyncS
 # Helper endpoints for delta sync (used by sync_service.py)
 @router.get("/delta/{table_name}")
 async def get_delta_for_table(
-    table_name: str, current_user: CurrentUser, updated_since: str | None = None, db: AsyncSession = Depends(get_db)
+    table_name: str, current_user: CurrentAdmin, updated_since: str | None = None, db: AsyncSession = Depends(get_db)
 ):
     """
     Get delta (changed records) for a specific table.
@@ -401,7 +419,7 @@ async def get_delta_for_table(
 
 @router.post("/apply/{table_name}")
 async def apply_delta_for_table(
-    table_name: str, records: list[dict], current_user: CurrentUser, db: AsyncSession = Depends(get_db)
+    table_name: str, records: list[dict], current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ):
     """
     Apply delta (changed records) to a specific table.

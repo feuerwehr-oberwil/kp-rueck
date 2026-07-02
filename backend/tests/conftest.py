@@ -141,6 +141,32 @@ async def editor_client(client: AsyncClient, test_editor: User) -> AsyncClient:
 
 
 @pytest_asyncio.fixture
+async def test_admin(db_session: AsyncSession) -> User:
+    """Create an admin user with a known password for login tests."""
+    user = User(
+        id=uuid4(),
+        username="fixture_admin",
+        password_hash=hash_password(TEST_PASSWORD),
+        role="admin",
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def admin_client(client: AsyncClient, test_admin: User) -> AsyncClient:
+    """Create an authenticated client with admin privileges."""
+    response = await client.post(
+        "/api/auth/login",
+        data={"username": "fixture_admin", "password": TEST_PASSWORD},
+    )
+    assert response.status_code == 200, f"Admin login failed: {response.text}"
+    return client
+
+
+@pytest_asyncio.fixture
 async def viewer_client(client: AsyncClient) -> AsyncClient:
     """Create an authenticated client with viewer privileges.
 

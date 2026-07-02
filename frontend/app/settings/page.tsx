@@ -109,7 +109,8 @@ const SECTIONS = [
   { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'alerting', label: 'Alarmierung', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'gps', label: 'GPS', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: false },
+  // Sync can rewrite whole tables and points at a database URL — admin-only (matches /api/sync/*).
+  { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
   { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'users', label: 'Benutzer', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
   { id: 'personnel', label: 'Personal', icon: Users, group: 'resources', editorOnly: true, adminOnly: false },
