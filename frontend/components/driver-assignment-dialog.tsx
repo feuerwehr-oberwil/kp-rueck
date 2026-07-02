@@ -34,7 +34,8 @@ interface DriverAssignmentDialogProps {
   operations: Operation[]
   specialFunctions: ApiEventSpecialFunctionResponse[]
   onDriverAssigned: () => void
-  removeCrew: (operationId: string, crewName: string) => void
+  /** Resolves false when the removal failed (already rolled back + toasted). */
+  removeCrew: (operationId: string, crewName: string) => Promise<boolean>
 }
 
 export function DriverAssignmentDialog({
@@ -158,22 +159,53 @@ export function DriverAssignmentDialog({
 
   const doAssignDriver = async (person: Person) => {
     setIsAssigning(true)
+    const previousDriverId = localDriverId
+    const previousDriverName = localDriverName
     try {
       // If there's a current driver, unassign them first
-      if (localDriverId) {
+      if (previousDriverId) {
         await apiClient.unassignSpecialFunction(eventId, {
-          personnel_id: localDriverId,
+          personnel_id: previousDriverId,
           function_type: 'driver',
           vehicle_id: vehicleId,
         })
       }
 
-      // Assign the new driver
-      await apiClient.assignSpecialFunction(eventId, {
-        personnel_id: person.id,
-        function_type: 'driver',
-        vehicle_id: vehicleId,
-      })
+      // Assign the new driver. If this fails, the old driver is ALREADY gone
+      // server-side — compensate instead of leaving the UI claiming the old
+      // driver while the vehicle is actually driverless.
+      try {
+        await apiClient.assignSpecialFunction(eventId, {
+          personnel_id: person.id,
+          function_type: 'driver',
+          vehicle_id: vehicleId,
+        })
+      } catch (error) {
+        console.error('Failed to assign driver:', error)
+        if (previousDriverId) {
+          try {
+            await apiClient.assignSpecialFunction(eventId, {
+              personnel_id: previousDriverId,
+              function_type: 'driver',
+              vehicle_id: vehicleId,
+            })
+            toast.error('Fehler beim Zuweisen des Fahrers', {
+              description: `${previousDriverName} bleibt Fahrer von ${vehicleName}.`,
+            })
+          } catch {
+            // Compensation failed too — show the real state.
+            setLocalDriverId(null)
+            setLocalDriverName(null)
+            onDriverAssigned()
+            toast.error('Fehler beim Zuweisen des Fahrers', {
+              description: `${vehicleName} hat aktuell keinen Fahrer.`,
+            })
+          }
+        } else {
+          toast.error('Fehler beim Zuweisen des Fahrers')
+        }
+        return
+      }
 
       // Update local state
       setLocalDriverId(person.id)
@@ -185,8 +217,11 @@ export function DriverAssignmentDialog({
       onDriverAssigned()
       onOpenChange(false)
     } catch (error) {
+      // Unassigning the old driver failed — nothing changed server-side.
       console.error('Failed to assign driver:', error)
-      toast.error('Fehler beim Zuweisen des Fahrers')
+      toast.error('Fehler beim Zuweisen des Fahrers', {
+        description: previousDriverName ? `${previousDriverName} bleibt Fahrer von ${vehicleName}.` : undefined,
+      })
     } finally {
       setIsAssigning(false)
     }
@@ -196,18 +231,26 @@ export function DriverAssignmentDialog({
     const { person, conflictingOperations } = conflictDialog
     if (!person) return
 
-    // Unassign from all conflicting operations
-    for (const conflict of conflictingOperations) {
-      removeCrew(conflict.id, conflict.crewName)
-    }
-
     setConflictDialog(prev => ({ ...prev, open: false }))
+    setIsAssigning(true)
+    try {
+      // Unassign from all conflicting operations and WAIT for the results —
+      // firing-and-forgetting raced the driver assignment, so a failed
+      // removal put the person back on the incident AFTER they became
+      // driver: exactly the state this dialog exists to prevent.
+      const results = await Promise.all(
+        conflictingOperations.map((conflict) => removeCrew(conflict.id, conflict.crewName))
+      )
+      if (results.some((ok) => !ok)) {
+        // removeCrew already rolled back and toasted; don't make the person
+        // a driver while they're still assigned to an incident.
+        return
+      }
 
-    // Small delay to let state updates propagate
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    // Now assign as driver
-    await doAssignDriver(person)
+      await doAssignDriver(person)
+    } finally {
+      setIsAssigning(false)
+    }
   }
 
   const handleRemoveDriver = async () => {

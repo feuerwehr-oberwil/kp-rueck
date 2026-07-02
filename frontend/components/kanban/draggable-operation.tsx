@@ -59,6 +59,12 @@ interface DraggableOperationProps {
   printerEnabled?: boolean
   /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
   doubleBookedCrewNames?: Set<string>
+  /** False for viewers: don't register the drag source at all — a drag whose
+   *  PATCH is guaranteed to 403 must not offer a working-looking affordance. */
+  canDrag?: boolean
+  /** Notifies the sync layer that a card drag started/ended so remote reloads
+   *  queue for the duration (a mid-drag reload aborts the native drag). */
+  onDragActiveChange?: (dragging: boolean) => void
 }
 
 // Priority visual configuration - bold borders for quick scanning
@@ -107,6 +113,8 @@ function DraggableOperationBase({
   showMeldung,
   printerEnabled,
   doubleBookedCrewNames,
+  canDrag = true,
+  onDragActiveChange,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -166,21 +174,29 @@ function DraggableOperationBase({
     if (!element) return
 
     return combine(
-      draggable({
-        element,
-        getInitialData: () => ({ type: "operation", operation, index }),
-        onDragStart: () => {
-          setIsDragging(true)
-          isDraggingRef.current = true
-        },
-        onDrop: () => {
-          setIsDragging(false)
-          // Delay to prevent click from firing
-          setTimeout(() => {
-            isDraggingRef.current = false
-          }, 200)
-        },
-      }),
+      ...(canDrag
+        ? [
+            draggable({
+              element,
+              getInitialData: () => ({ type: "operation", operation, index }),
+              onDragStart: () => {
+                setIsDragging(true)
+                isDraggingRef.current = true
+                onDragActiveChange?.(true)
+              },
+              onDrop: () => {
+                setIsDragging(false)
+                // Sync layer must know immediately — the click-suppression
+                // delay below is only for the ref.
+                onDragActiveChange?.(false)
+                // Delay to prevent click from firing
+                setTimeout(() => {
+                  isDraggingRef.current = false
+                }, 200)
+              },
+            }),
+          ]
+        : []),
       dropTargetForElements({
         element,
         canDrop: ({ source }) => {
@@ -212,7 +228,7 @@ function DraggableOperationBase({
         },
       })
     )
-  }, [operation, index, isDraggingRef])
+  }, [operation, index, isDraggingRef, canDrag, onDragActiveChange])
 
   return (
     <ContextMenu>

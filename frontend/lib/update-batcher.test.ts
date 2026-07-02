@@ -77,6 +77,32 @@ describe('UpdateBatcher', () => {
     expect(latestFlush).toHaveBeenCalledExactlyOnceWith({ status: 'enroute', priority: 'high' })
   })
 
+  it('flushAll fires every pending batch immediately and cancels timers', () => {
+    // Regression: debounced edits were silently lost when the tab closed
+    // within the debounce window — nothing flushed on pagehide.
+    const batcher = new UpdateBatcher<Op>()
+    const flushA = vi.fn()
+    const flushB = vi.fn()
+
+    batcher.schedule('incident-a', { status: 'enroute' }, 500, flushA)
+    batcher.schedule('incident-b', { priority: 'high' }, 500, flushB)
+
+    batcher.flushAll()
+    expect(flushA).toHaveBeenCalledExactlyOnceWith({ status: 'enroute' })
+    expect(flushB).toHaveBeenCalledExactlyOnceWith({ priority: 'high' })
+    expect(batcher.getPending('incident-a')).toBeUndefined()
+
+    // The cancelled timers must not fire the batches a second time.
+    vi.advanceTimersByTime(1000)
+    expect(flushA).toHaveBeenCalledTimes(1)
+    expect(flushB).toHaveBeenCalledTimes(1)
+  })
+
+  it('flushAll on an empty batcher is a no-op', () => {
+    const batcher = new UpdateBatcher<Op>()
+    expect(() => batcher.flushAll()).not.toThrow()
+  })
+
   it('clears the pending batch after flushing', () => {
     const batcher = new UpdateBatcher<Op>()
     const flush = vi.fn()

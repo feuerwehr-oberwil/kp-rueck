@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
 import { isValidUUID } from '@/lib/utils/validation'
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
+import { toast } from 'sonner'
 
 interface NotificationContextValue {
   notifications: Notification[]
@@ -161,6 +162,9 @@ export function NotificationProvider({
 
       if (!response.ok) {
         console.error('Failed to dismiss notification:', response.statusText)
+        toast.error('Meldung konnte nicht ausgeblendet werden', {
+          description: 'Bitte erneut versuchen.',
+        })
         return
       }
 
@@ -170,6 +174,9 @@ export function NotificationProvider({
       )
     } catch (error) {
       console.error('Error dismissing notification:', error)
+      toast.error('Meldung konnte nicht ausgeblendet werden', {
+        description: 'Bitte erneut versuchen.',
+      })
     }
   }
 
@@ -194,18 +201,39 @@ export function NotificationProvider({
 
       const results = await Promise.allSettled(dismissPromises)
 
-      // Check for failures
-      const failures = results.filter((r) => r.status === 'rejected')
-      if (failures.length > 0) {
-        console.error('Failed to dismiss some notifications:', failures)
+      // A rejected promise or a non-2xx response both mean the dismiss failed —
+      // only mark the confirmed ones as dismissed locally, otherwise they would
+      // resurrect on the next poll.
+      const dismissedIds = new Set<string>()
+      let failedCount = 0
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.ok) {
+          dismissedIds.add(activeNotifications[index].id)
+        } else {
+          failedCount++
+        }
+      })
+
+      if (failedCount > 0) {
+        console.error(`Failed to dismiss ${failedCount} notifications`)
+        toast.error(
+          failedCount === 1
+            ? '1 Meldung konnte nicht ausgeblendet werden'
+            : `${failedCount} Meldungen konnten nicht ausgeblendet werden`,
+          { description: 'Bitte erneut versuchen.' }
+        )
       }
 
-      // Update local state for all notifications
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, dismissed: true }))
-      )
+      if (dismissedIds.size > 0) {
+        setNotifications((prev) =>
+          prev.map((n) => (dismissedIds.has(n.id) ? { ...n, dismissed: true } : n))
+        )
+      }
     } catch (error) {
       console.error('Error dismissing all notifications:', error)
+      toast.error('Meldungen konnten nicht ausgeblendet werden', {
+        description: 'Bitte erneut versuchen.',
+      })
     }
   }
 
@@ -224,6 +252,9 @@ export function NotificationProvider({
 
       if (!response.ok) {
         console.error('Failed to update notification settings:', response.statusText)
+        toast.error('Einstellungen konnten nicht gespeichert werden', {
+          description: 'Bitte erneut versuchen.',
+        })
         return
       }
 
@@ -231,6 +262,9 @@ export function NotificationProvider({
       setSettings(updated)
     } catch (error) {
       console.error('Error updating notification settings:', error)
+      toast.error('Einstellungen konnten nicht gespeichert werden', {
+        description: 'Bitte erneut versuchen.',
+      })
     }
   }
 
@@ -249,7 +283,17 @@ export function NotificationProvider({
       )
     }
 
-    setNotifications(newNotifications)
+    // Preserve locally-dismissed state: a poll response that was in flight when
+    // the user dismissed a notification would otherwise resurrect it until the
+    // next poll reflects the dismissal.
+    setNotifications((prev) => {
+      const locallyDismissed = new Set(
+        prev.filter((n) => n.dismissed).map((n) => n.id)
+      )
+      return newNotifications.map((n) =>
+        !n.dismissed && locallyDismissed.has(n.id) ? { ...n, dismissed: true } : n
+      )
+    })
   }
 
   // WebSocket + polling fallback for notifications

@@ -85,6 +85,8 @@ export function MaterialSettings() {
   const loadGroups = async () => {
     try {
       const data = await apiClient.getMaterialGroups();
+      // Same degrade-to-undefined guard as loadMaterials — keep previous state.
+      if (!data) return;
       setMaterialGroups(data);
     } catch (error) {
       console.error('Failed to load material groups:', error);
@@ -94,6 +96,16 @@ export function MaterialSettings() {
   const loadMaterials = async () => {
     try {
       const data = await apiClient.getAllMaterials();
+      if (!data) {
+        // GET degraded to undefined after retries — keep previous state instead
+        // of crashing the sort memos with a non-iterable value.
+        if (materials.length === 0) {
+          toast.error('Material konnte nicht geladen werden', {
+            description: 'Bitte Seite neu laden.',
+          });
+        }
+        return;
+      }
       setMaterials(data);
     } catch (error) {
       console.error('Failed to load materials:', error);

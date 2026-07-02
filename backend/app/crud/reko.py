@@ -133,8 +133,13 @@ async def update_reko_report(
     if not report:
         raise ValueError("Report not found")
 
-    # Update fields
-    for field, value in update_data.model_dump(exclude_unset=True).items():
+    # Update fields. Draft status is intentionally NOT settable via the update
+    # body (defense in depth: the schema no longer has is_draft) — only the
+    # explicit `submit` flag below may change it, so a stray draft-save can
+    # never flip a submitted report back to draft.
+    update_fields = update_data.model_dump(exclude_unset=True)
+    update_fields.pop("is_draft", None)
+    for field, value in update_fields.items():
         setattr(report, field, value)
 
     # Mark as submitted if requested

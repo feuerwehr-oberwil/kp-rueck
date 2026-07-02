@@ -16,6 +16,8 @@ import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPr
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { useIncidents } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
+import { ApiError } from "@/lib/api-client"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { LocationInput } from "@/components/location/location-input"
@@ -118,6 +120,17 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
       onOpenChange(false)
     } catch (error) {
       console.error('Failed to save incident:', error)
+      // The api-client shows no toast for 409/401 — without feedback the save
+      // button appears dead. Surface the failure and keep the dialog open.
+      if (ApiError.isConflictError(error)) {
+        toast.error('Von anderer Person geändert', {
+          description: 'Bitte Ansicht aktualisieren und erneut versuchen.',
+        })
+      } else {
+        toast.error('Speichern fehlgeschlagen', {
+          description: 'Bitte erneut versuchen.',
+        })
+      }
     } finally {
       setIsSubmitting(false)
     }

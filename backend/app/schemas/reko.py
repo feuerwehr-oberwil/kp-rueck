@@ -28,7 +28,12 @@ class EffortEstimation(BaseModel):
 
 
 class RekoReportBase(BaseModel):
-    """Base schema for Reko reports."""
+    """Base schema for Reko reports.
+
+    Deliberately has no ``is_draft`` field: draft status is controlled only by
+    the explicit ``submit`` query param on the API, so a stray draft-save with
+    ``is_draft: true`` in the body can never un-submit a submitted report.
+    """
 
     is_relevant: bool | None = None
     dangers_json: DangersAssessment | None = None
@@ -36,7 +41,6 @@ class RekoReportBase(BaseModel):
     power_supply: str | None = None  # 'available' | 'unavailable' | 'emergency_needed'
     summary_text: str | None = None
     additional_notes: str | None = None
-    is_draft: bool = False
 
 
 class RekoReportCreate(RekoReportBase):
@@ -59,6 +63,7 @@ class RekoReportResponse(RekoReportBase):
 
     id: UUID
     incident_id: UUID
+    is_draft: bool = False
     incident_title: str | None = None
     incident_location: str | None = None
     incident_type: str | None = None

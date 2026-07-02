@@ -81,6 +81,16 @@ export function VehicleSettings() {
   const loadVehicles = async () => {
     try {
       const data = await apiClient.getVehicles();
+      if (!data) {
+        // GET degraded to undefined after retries — keep previous state instead
+        // of crashing the sort memos with a non-iterable value.
+        if (vehicles.length === 0) {
+          toast.error('Fahrzeuge konnten nicht geladen werden', {
+            description: 'Bitte Seite neu laden.',
+          });
+        }
+        return;
+      }
       setVehicles(data);
     } catch (error) {
       console.error('Failed to load vehicles:', error);

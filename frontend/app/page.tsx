@@ -82,6 +82,7 @@ export default function FireStationDashboard() {
     removeReko,
     updateOperation,
     reorderColumn,
+    setBoardDragging,
     createOperation,
     getNextOperationId,
     assignPersonToOperation,
@@ -1513,6 +1514,8 @@ export default function FireStationDashboard() {
                       showMeldung={showMeldung}
                       printerEnabled={printerEnabled}
                       doubleBookedCrewNames={doubleBookedPersons.names}
+                      canDrag={isEditor}
+                      onDragActiveChange={setBoardDragging}
                     />
                   )
                 })}

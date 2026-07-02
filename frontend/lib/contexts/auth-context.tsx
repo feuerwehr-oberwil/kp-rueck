@@ -6,6 +6,7 @@
  */
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { getCurrentUser, login as apiLogin, microsoftLogin as apiMicrosoftLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
 
 interface AuthContextType {
@@ -26,6 +27,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Mirror of `user` for the session-expired listener (registered once).
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
 
   useEffect(() => {
     // Check authentication status on mount
@@ -33,6 +37,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(setUser)
       .finally(() => setLoading(false));
   }, []); // Only run once on mount
+
+  useEffect(() => {
+    // The api-client fires this when any request comes back 401 — the cookie
+    // session expired underneath us (e.g. laptop asleep past token expiry).
+    // Without it, every mutation fails silently and optimistic UI reverts
+    // with no explanation until the user happens to reload.
+    const handleSessionExpired = () => {
+      if (!userRef.current) return; // already logged out / public token page
+      userRef.current = null;
+      setUser(null);
+      toast.error('Sitzung abgelaufen', {
+        description: 'Bitte melden Sie sich erneut an.',
+      });
+    };
+    window.addEventListener('kp:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('kp:session-expired', handleSessionExpired);
+  }, []);
 
   useEffect(() => {
     // Set up token refresh interval when user is logged in
