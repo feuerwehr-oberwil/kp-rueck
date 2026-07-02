@@ -125,6 +125,11 @@ async def unassign_resource(
     Release resource from incident.
 
     Sets unassigned_at timestamp and updates resource status to 'available'.
+
+    Flushes only — the CALLER owns the commit. This runs inside larger
+    operations (incident completion auto-release); a commit here would let a
+    crash mid-completion leave status=abschluss with crew still assigned and
+    no StatusTransition/audit row (audit H3).
     """
     result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
     assignment = result.scalar_one_or_none()
@@ -147,7 +152,7 @@ async def unassign_resource(
         request=request,
     )
 
-    await db.commit()
+    await db.flush()
 
     return True
 

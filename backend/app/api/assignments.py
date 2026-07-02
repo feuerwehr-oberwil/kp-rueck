@@ -82,6 +82,9 @@ async def unassign_resource(
     if not success:
         raise HTTPException(status_code=404, detail="Assignment not found")
 
+    # unassign_resource flushes only — this endpoint owns the commit (H3).
+    await db.commit()
+
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(
         broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(incident_id)}, "delete"
@@ -142,6 +145,10 @@ async def release_all_resources(
         current_user=current_user,
         request=request,
     )
+
+    # auto_release/unassign_resource flush only — ONE commit for the whole
+    # release, so all-or-nothing instead of a partial release on crash (H3).
+    await db.commit()
 
     # Broadcast WebSocket update for bulk release
     background_tasks.add_task(

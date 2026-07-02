@@ -219,9 +219,12 @@ async def update_event_activity(db: AsyncSession, event_id: uuid.UUID) -> None:
 
     This should be called whenever an incident in the event is modified.
 
+    Flushes only — the calling operation owns the single commit, so a crash
+    mid-operation can't leave a half-committed status change (audit H3).
+
     Args:
         db: Database session
         event_id: Event ID to update
     """
     await db.execute(update(Event).where(Event.id == event_id).values(last_activity_at=datetime.utcnow()))
-    await db.commit()
+    await db.flush()
