@@ -31,11 +31,16 @@ async def client(db_session: AsyncSession) -> AsyncClient:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    # Route audit-middleware writes into the rolled-back test session.
+    # Without this they fire-and-forget into the shared test DB and pollute
+    # global-count assertions elsewhere (e.g. the audit-cleanup tests).
+    app.state.test_db_session = db_session
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
+    app.state.test_db_session = None
 
 
 # ============================================
