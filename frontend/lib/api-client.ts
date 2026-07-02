@@ -706,10 +706,15 @@ class ApiClient {
   }
 
   // Reko Forms
-  async generateRekoLink(incidentId: string, personnelId?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
+  // `dashboardToken` authorizes the call from the public reko-dashboard page
+  // (field phones without a login); the board UI relies on cookie auth instead.
+  async generateRekoLink(incidentId: string, personnelId?: string, dashboardToken?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
     let url = `/api/reko/generate-link?incident_id=${encodeURIComponent(incidentId)}`
     if (personnelId) {
       url += `&personnel_id=${encodeURIComponent(personnelId)}`
+    }
+    if (dashboardToken) {
+      url += `&dashboard_token=${encodeURIComponent(dashboardToken)}`
     }
     return this.request<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }>(
       url, {
