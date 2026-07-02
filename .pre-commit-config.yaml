@@ -50,11 +50,14 @@ repos:
   # =============================================================================
 
   # Backend - Python linting and formatting (warnings only)
+  # UV_PROJECT_ENVIRONMENT redirect: backend/.venv is volume-shared with the
+  # dev container; a host-side `uv run` would recreate it (broken interpreter
+  # symlink) and the resulting file storm hangs the container's reloader.
   - repo: local
     hooks:
       - id: ruff-format-check
         name: "Lint: Ruff format (backend) [warning]"
-        entry: bash -c 'cd backend && uv run ruff format --check . || echo "⚠️  Ruff format issues found (non-blocking)"'
+        entry: bash -c 'cd backend && UV_PROJECT_ENVIRONMENT="${TMPDIR:-/tmp}/kp-rueck-hooks-venv" uv run ruff format --check . || echo "⚠️  Ruff format issues found (non-blocking)"'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false
@@ -62,7 +65,7 @@ repos:
 
       - id: ruff-check
         name: "Lint: Ruff lint (backend) [warning]"
-        entry: bash -c 'cd backend && uv run ruff check . || echo "⚠️  Ruff lint issues found (non-blocking)"'
+        entry: bash -c 'cd backend && UV_PROJECT_ENVIRONMENT="${TMPDIR:-/tmp}/kp-rueck-hooks-venv" uv run ruff check . || echo "⚠️  Ruff lint issues found (non-blocking)"'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false
