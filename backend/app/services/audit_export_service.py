@@ -1,5 +1,6 @@
 """Event audit export service for payment processing."""
 
+import asyncio
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -191,11 +192,20 @@ async def export_event_audit_excel(db: AsyncSession, event_id: uuid.UUID, curren
     Raises:
         ValueError: If event not found
     """
+    # Shared data collection (queries live in collect_event_report_data).
+    data = await collect_event_report_data(db, event_id)
+
+    # openpyxl sheet building for a large event is pure CPU — keep it off
+    # the event loop so the export doesn't freeze every operator's requests
+    # and WebSocket pings (audit H4).
+    return await asyncio.to_thread(_build_audit_workbook, data, current_user)
+
+
+def _build_audit_workbook(data: EventReportData, current_user: User) -> tuple[BytesIO, dict]:
+    """Blocking workbook construction — runs in a worker thread."""
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
 
-    # Shared data collection (queries live in collect_event_report_data).
-    data = await collect_event_report_data(db, event_id)
     event = data.event
     incidents = data.incidents
     assignments = data.assignments
