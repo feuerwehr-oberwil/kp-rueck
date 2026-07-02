@@ -139,6 +139,29 @@ async def test_get_incident_not_found(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_sync_version_not_shadowed_by_incident_id_route(
+    editor_client: AsyncClient, test_event: Event, test_incident: Incident
+):
+    """Regression: /sync-version must be routable, not parsed as an incident id.
+
+    When the /{incident_id} route was declared first, "sync-version" was
+    swallowed as a UUID path param and 422'd — which silently killed the
+    polling fallback's change detection.
+    """
+    response = await editor_client.get(f"/api/incidents/sync-version?event_id={test_event.id}")
+    assert response.status_code == 200
+    version = response.json()["version"]
+    assert version.startswith("1-")  # one incident in the event
+
+    # Version must change when an incident changes.
+    await editor_client.patch(f"/api/incidents/{test_incident.id}", json={"priority": "high"})
+    response2 = await editor_client.get(f"/api/incidents/sync-version?event_id={test_event.id}")
+    assert response2.status_code == 200
+    assert response2.json()["version"] != version
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_get_incident_invalid_uuid(editor_client: AsyncClient):
     """Test getting incident with invalid UUID returns 422."""
     response = await editor_client.get("/api/incidents/invalid-uuid")
