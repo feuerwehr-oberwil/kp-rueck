@@ -60,7 +60,7 @@ from .background import (
     stop_sync_scheduler,
 )
 from .config import settings
-from .database import Base, engine, get_db
+from .database import engine, get_db
 from .middleware.audit import AuditMiddleware
 from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
@@ -136,11 +136,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events."""
     logger.info("Starting application...")
 
-    # Startup: Create tables
-    logger.info("Creating database tables...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created")
+    # Schema is managed by Alembic ONLY (start.sh / start-dev.sh run
+    # `alembic upgrade head` before boot). A create_all here would silently
+    # materialize tables for models that lack a migration — the later real
+    # migration then fails with DuplicateTable and the boot crash-loops.
 
     # Initialize default settings
     logger.info("Initializing default settings...")

@@ -714,11 +714,14 @@ class PrintJob(Base):
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
     # Optional link to incident (for assignment slips)
+    # NOTE: indexed via the explicitly named idx_* entries in __table_args__
+    # (matching the migration) — `index=True` would autogenerate ix_* names
+    # and drift from the real schema.
     incident_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
     )
     event_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="SET NULL"), nullable=True, index=True
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="SET NULL"), nullable=True
     )
 
     # Timestamps
@@ -735,6 +738,8 @@ class PrintJob(Base):
         CheckConstraint("status IN ('pending', 'printing', 'completed', 'failed')", name="valid_print_job_status"),
         Index("idx_print_jobs_status", "status"),
         Index("idx_print_jobs_created_at", "created_at"),
+        Index("idx_print_jobs_incident_id", "incident_id"),
+        Index("idx_print_jobs_event_id", "event_id"),
     )
 
 
