@@ -25,7 +25,7 @@ class UserBase(BaseModel):
     """Base user schema."""
 
     username: str
-    role: str  # 'admin' or 'editor' (viewer is token-only, no DB user)
+    role: str  # 'admin', 'editor', or 'viewer' (read-only login)
     display_name: str = ""
 
 

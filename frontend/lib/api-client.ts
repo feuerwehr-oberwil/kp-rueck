@@ -1417,7 +1417,7 @@ class ApiClient {
 export interface ApiUser {
   id: string
   username: string
-  role: 'admin' | 'editor'
+  role: 'admin' | 'editor' | 'viewer'
   display_name: string
   is_active: boolean
   created_at: string
@@ -1427,13 +1427,13 @@ export interface ApiUser {
 export interface ApiUserCreate {
   username: string
   password: string
-  role: 'admin' | 'editor'
+  role: 'admin' | 'editor' | 'viewer'
   display_name?: string
 }
 
 export interface ApiUserUpdate {
   username?: string
-  role?: 'admin' | 'editor'
+  role?: 'admin' | 'editor' | 'viewer'
   display_name?: string
   is_active?: boolean
 }

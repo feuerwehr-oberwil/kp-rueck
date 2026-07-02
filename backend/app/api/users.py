@@ -78,7 +78,7 @@ async def create_user(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Benutzername bereits vergeben")
 
     # Validate role
-    if user_data.role not in ("admin", "editor"):
+    if user_data.role not in ("admin", "editor", "viewer"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ungültige Rolle. Erlaubt: admin, editor")
 
     # Create user
@@ -152,7 +152,7 @@ async def update_user(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Benutzername bereits vergeben")
 
     # Validate role if provided
-    if user_data.role and user_data.role not in ("admin", "editor"):
+    if user_data.role and user_data.role not in ("admin", "editor", "viewer"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ungültige Rolle. Erlaubt: admin, editor")
 
     # Track changes for audit log
