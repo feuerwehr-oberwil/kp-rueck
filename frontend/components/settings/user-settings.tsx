@@ -289,62 +289,68 @@ export function UserSettings() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    @{user.username} · Letzter Login: {formatLastLogin(user.last_login)}
-                  </p>
+                  <p className="text-sm text-muted-foreground">@{user.username}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => openEditDialog(user)}
-                  title="Bearbeiten"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => openPasswordDialog(user)}
-                  title="Passwort zurücksetzen"
-                >
-                  <Key className="h-4 w-4" />
-                </Button>
-                {user.id !== currentUser?.id && user.is_active && (
+              <div className="flex items-center gap-4">
+                {/* Last-login column: aligned across rows so stale accounts
+                    stand out at a glance (was buried in the subtitle). */}
+                <div className="hidden sm:block text-right shrink-0">
+                  <p className="text-xs text-muted-foreground">Letzter Login</p>
+                  <p className="text-sm tabular-nums">{formatLastLogin(user.last_login)}</p>
+                </div>
+                <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => openDeleteDialog(user)}
-                    title="Deaktivieren"
-                    className="text-destructive hover:text-destructive"
+                    onClick={() => openEditDialog(user)}
+                    title="Bearbeiten"
                   >
-                    <UserX className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
-                )}
-                {!user.is_active && (
-                  <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openPasswordDialog(user)}
+                    title="Passwort zurücksetzen"
+                  >
+                    <Key className="h-4 w-4" />
+                  </Button>
+                  {user.id !== currentUser?.id && user.is_active && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleReactivate(user)}
-                      title="Reaktivieren"
-                      className="text-success hover:text-success"
-                      disabled={submitting}
-                    >
-                      <UserCheck className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openPermanentDeleteDialog(user)}
-                      title="Endgültig löschen"
+                      onClick={() => openDeleteDialog(user)}
+                      title="Deaktivieren"
                       className="text-destructive hover:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <UserX className="h-4 w-4" />
                     </Button>
-                  </>
-                )}
+                  )}
+                  {!user.is_active && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleReactivate(user)}
+                        title="Reaktivieren"
+                        className="text-success hover:text-success"
+                        disabled={submitting}
+                      >
+                        <UserCheck className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openPermanentDeleteDialog(user)}
+                        title="Endgültig löschen"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </Card>
