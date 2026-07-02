@@ -20,7 +20,6 @@ setup_logging(
 
 logger = get_logger(__name__)
 
-from .api import routes
 from .api.admin import router as admin_router
 from .api.assignments import bulk_router as assignments_bulk_router
 from .api.assignments import router as assignments_router
@@ -392,7 +391,6 @@ app.include_router(training_router, prefix=settings.api_v1_prefix)
 app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(viewer_router, prefix=settings.api_v1_prefix)
 app.include_router(intake_router, prefix=settings.api_v1_prefix)
-app.include_router(routes.router, prefix=settings.api_v1_prefix, tags=["api"])
 
 
 @app.get("/")
