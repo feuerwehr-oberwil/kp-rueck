@@ -100,7 +100,8 @@ describe("LoginPage demo sandbox flow", () => {
 
     await user.click(await screen.findByRole("button", { name: /Als Betrachter einloggen/i }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/"));
+    // Viewer logins land on the read-only board, not the editor kanban.
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/viewer"));
     expect(mockLogin).toHaveBeenCalledWith("demo-viewer", "demo123");
     expect(mockCreateDemoSandbox).not.toHaveBeenCalled();
     expect(mockSetSelectedEvent).not.toHaveBeenCalled();

@@ -74,7 +74,7 @@ class TestUserModel:
             id=uuid4(),
             username="invalid_role_user",
             password_hash="password",
-            role="viewer",  # Invalid role (only admin, editor allowed)
+            role="superuser",  # Invalid role (only admin, editor, viewer allowed)
         )
         db_session.add(user)
 

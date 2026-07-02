@@ -189,6 +189,10 @@ async def test_generate_emergencies_success(
             nachbarhilfe=False,
             am_warten=False,
             zu_fuss=False,
+            # Unflushed mock instances skip column defaults - set the NOT NULL
+            # fields IncidentResponse requires explicitly.
+            position=0,
+            source="operator",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -222,6 +226,10 @@ async def test_generate_emergencies_with_category(
             nachbarhilfe=False,
             am_warten=False,
             zu_fuss=False,
+            # Unflushed mock instances skip column defaults - set the NOT NULL
+            # fields IncidentResponse requires explicitly.
+            position=0,
+            source="operator",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -288,6 +296,10 @@ async def test_generate_multiple_emergencies(
                 nachbarhilfe=False,
                 am_warten=False,
                 zu_fuss=False,
+                # Unflushed mock instances skip column defaults - set the NOT NULL
+                # fields IncidentResponse requires explicitly.
+                position=0,
+                source="operator",
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
             )
