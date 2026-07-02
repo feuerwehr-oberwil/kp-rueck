@@ -35,9 +35,18 @@ class WebSocketClient {
    * Connect to the WebSocket server
    */
   connect() {
-    if (this.socket?.connected) {
-      console.log('WebSocket already connected')
-      return
+    if (this.socket) {
+      if (this.socket.connected) {
+        console.log('WebSocket already connected')
+        return
+      }
+      // A socket exists and socket.io is still auto-reconnecting — let it.
+      // Only replace a socket that has given up (status 'error').
+      if (this.status !== 'error') {
+        return
+      }
+      this.socket.disconnect()
+      this.socket = null
     }
 
     const wsUrl = getWsUrl()
@@ -53,6 +62,18 @@ class WebSocketClient {
     })
 
     this.setupEventHandlers()
+
+    // Attach all buffered app listeners ONCE per socket. Socket.io keeps
+    // handlers across disconnect/reconnect cycles, so re-attaching on every
+    // 'connect' (the old behaviour) duplicated every listener per reconnect —
+    // after N reconnects each update triggered N redundant full reloads on a
+    // multi-hour wall-display session.
+    this.listeners.forEach((callbacks, event) => {
+      callbacks.forEach(callback => {
+        this.socket!.on(event, callback as any)
+      })
+    })
+
     this.updateStatus('connecting')
   }
 
@@ -101,8 +122,10 @@ class WebSocketClient {
     }
     this.listeners.get(event)!.add(callback)
 
-    // If socket is already connected, attach listener immediately
-    if (this.socket?.connected) {
+    // Attach to the live socket immediately (connected or not — socket.io
+    // keeps handlers across reconnects). If no socket exists yet, connect()
+    // attaches everything buffered in `listeners` when it creates one.
+    if (this.socket) {
       this.socket.on(event, callback as any)
     }
 
@@ -170,21 +193,16 @@ class WebSocketClient {
   private setupEventHandlers() {
     if (!this.socket) return
 
-    // Connection events
+    // Connection events. NOTE: no listener re-attach here — 'connect' fires
+    // on every reconnect and socket.io already keeps handlers across
+    // reconnects; re-attaching would duplicate them (see connect()).
     this.socket.on('connect', () => {
       console.log('WebSocket connected')
       this.reconnectAttempts = 0
       this.updateStatus('connected')
 
-      // Join operations room automatically
+      // Join operations room automatically (rooms ARE reset per connection)
       this.joinRoom('operations')
-
-      // Re-attach all listeners
-      this.listeners.forEach((callbacks, event) => {
-        callbacks.forEach(callback => {
-          this.socket!.on(event, callback as any)
-        })
-      })
     })
 
     this.socket.on('disconnect', (reason) => {
