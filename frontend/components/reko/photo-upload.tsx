@@ -79,7 +79,12 @@ interface PhotoUploadProps {
   photos: string[]
   incidentId: string
   token: string
-  onPhotosChange: (photos: string[]) => void
+  /**
+   * Functional update against the parent's CURRENT photo list. Uploads finish
+   * asynchronously, so merging against a captured `photos` prop would resurrect
+   * photos removed while an upload was in flight.
+   */
+  onPhotosChange: (update: (current: string[]) => string[]) => void
 }
 
 export default function PhotoUpload({
@@ -141,17 +146,27 @@ export default function PhotoUpload({
         return response.filename
       })
 
-      const uploadedFilenames = (await Promise.all(uploadPromises)).filter(
-        (filename): filename is string => filename !== null
-      )
+      // allSettled so one failed file doesn't discard the uploads that succeeded
+      const results = await Promise.allSettled(uploadPromises)
+
+      const uploadedFilenames = results
+        .filter((result): result is PromiseFulfilledResult<string | null> => result.status === 'fulfilled')
+        .map((result) => result.value)
+        .filter((filename): filename is string => filename !== null)
 
       if (uploadedFilenames.length > 0) {
-        onPhotosChange([...photos, ...uploadedFilenames])
+        onPhotosChange(current => [...current, ...uploadedFilenames])
       }
-    } catch (error) {
-      console.error('Upload failed:', error)
-      const message = error instanceof Error ? error.message : 'Fehler beim Hochladen'
-      toast.error(message)
+
+      const failed = results.filter((result) => result.status === 'rejected')
+      if (failed.length > 0) {
+        failed.forEach((result) => console.error('Upload failed:', result.reason))
+        toast.error(
+          failed.length === 1
+            ? '1 Foto konnte nicht hochgeladen werden'
+            : `${failed.length} Fotos konnten nicht hochgeladen werden`
+        )
+      }
     } finally {
       setIsUploading(false)
       // Reset file inputs
@@ -176,7 +191,7 @@ export default function PhotoUpload({
         })
       }
 
-      onPhotosChange(photos.filter(f => f !== filename))
+      onPhotosChange(current => current.filter(f => f !== filename))
     } catch (error) {
       console.error('Delete failed:', error)
       toast.error('Foto konnte nicht gelöscht werden')

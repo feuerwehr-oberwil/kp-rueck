@@ -257,6 +257,53 @@ async def test_submit_reko_report_updates_existing(
         assert data["is_relevant"] is False
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_draft_save_cannot_unsubmit_report(
+    client: AsyncClient, test_incident: Incident, valid_token: str
+):
+    """Regression: a stray draft-save (auto-save with is_draft=true in the body)
+    landing after submission must not flip a submitted report back to draft."""
+    report_data = {
+        "incident_id": str(test_incident.id),
+        "token": valid_token,
+        "is_relevant": True,
+        "summary_text": "Full reconnaissance complete",
+    }
+    with patch("app.services.notification_service.create_reko_notification", new_callable=AsyncMock):
+        response = await client.post("/api/reko/?submit=true", json=report_data)
+        assert response.status_code == 200
+        assert response.json()["is_draft"] is False
+
+    # Simulate a late auto-save that was still in flight when the user submitted
+    stray_draft = {**report_data, "summary_text": "Late auto-save", "is_draft": True}
+    response = await client.post("/api/reko/?submit=false", json=stray_draft)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_draft"] is False  # must stay submitted
+    assert data["summary_text"] == "Late auto-save"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_with_is_draft_true_cannot_unsubmit(
+    editor_client: AsyncClient, test_reko_report: RekoReport
+):
+    """Regression: PATCH with is_draft=true in the body must not un-submit."""
+    response = await editor_client.patch(f"/api/reko/{test_reko_report.id}?submit=true", json={})
+    assert response.status_code == 200
+    assert response.json()["is_draft"] is False
+
+    response = await editor_client.patch(
+        f"/api/reko/{test_reko_report.id}",
+        json={"summary_text": "Nachtrag", "is_draft": True},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_draft"] is False
+    assert data["summary_text"] == "Nachtrag"
+
+
 # ============================================
 # Get Report Tests
 # ============================================

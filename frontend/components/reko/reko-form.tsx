@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -70,6 +70,11 @@ export default function RekoForm() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Ref mirror of the submission state: the auto-save interval captures stale
+  // closures, so it must check this ref (set synchronously on submit) instead
+  // of the isSubmitting state. Once a submit succeeds it stays true forever so
+  // no late draft-save can un-submit the report.
+  const isSubmittingRef = useRef(false)
   const [isMarkingArrived, setIsMarkingArrived] = useState(false)
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -92,14 +97,17 @@ export default function RekoForm() {
     }
   }, [localStorageKey])
 
-  // Load form data from localStorage
-  const loadFromLocalStorage = useCallback((): RekoFormData | null => {
+  // Load form data (and its save timestamp) from localStorage
+  const loadFromLocalStorage = useCallback((): { data: RekoFormData; timestamp: string | null } | null => {
     if (!localStorageKey) return null
     try {
       const stored = localStorage.getItem(localStorageKey)
       if (stored) {
         const parsed = JSON.parse(stored)
-        return parsed.data as RekoFormData
+        return {
+          data: parsed.data as RekoFormData,
+          timestamp: (parsed.timestamp as string | undefined) ?? null
+        }
       }
     } catch (error) {
       console.error('Failed to load from localStorage:', error)
@@ -293,10 +301,18 @@ export default function RekoForm() {
           additional_notes: data.additional_notes || ''
         }
 
-        // Use localStorage data if it exists and has meaningful content
-        // (user was likely editing offline)
-        if (localData && (localData.summary_text || localData.is_relevant !== null)) {
-          setFormData(localData)
+        // Use localStorage data only if it has meaningful content AND is not
+        // older than the server report — a stale local draft must not overwrite
+        // a report that was edited or submitted more recently elsewhere.
+        // If the server has no meaningful report yet, local data wins as before
+        // (user was likely editing offline).
+        const localHasContent =
+          localData !== null && (localData.data.summary_text || localData.data.is_relevant !== null)
+        const serverHasContent = data.is_relevant !== null || !!data.summary_text
+        const localTimestamp = localData?.timestamp ? new Date(localData.timestamp).getTime() : 0
+        const serverTimestamp = data.updated_at ? new Date(data.updated_at).getTime() : 0
+        if (localHasContent && (!serverHasContent || localTimestamp > serverTimestamp)) {
+          setFormData(localData!.data)
           toast.info('Lokale Änderungen wiederhergestellt', {
             description: 'Ihre zuvor eingegebenen Daten wurden geladen.'
           })
@@ -322,19 +338,22 @@ export default function RekoForm() {
     saveToLocalStorage(formData)
   }, [formData, localStorageLoaded, isLoading, saveToLocalStorage])
 
-  // Auto-save draft to server every 30 seconds (backup to server)
+  // Auto-save draft to server every 30 seconds (backup to server).
+  // Stops as soon as submission starts so no late draft-save races the submit.
   useEffect(() => {
-    if (!incidentId || !token || isLoading) return
+    if (!incidentId || !token || isLoading || isSubmitting) return
 
     const interval = setInterval(() => {
       saveDraft()
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [formData, incidentId, token, isLoading])
+  }, [formData, incidentId, token, isLoading, isSubmitting])
 
   const saveDraft = useCallback(async () => {
-    if (isSaving || isSubmitting || !incidentId || !token) return
+    // Check the ref (not isSubmitting state): stale interval closures would
+    // otherwise fire a draft-save mid-/post-submit and un-submit the report.
+    if (isSaving || isSubmittingRef.current || !incidentId || !token) return
 
     setIsSaving(true)
     try {
@@ -351,7 +370,7 @@ export default function RekoForm() {
     } finally {
       setIsSaving(false)
     }
-  }, [formData, incidentId, token, isSaving, isSubmitting])
+  }, [formData, incidentId, token, isSaving])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -363,6 +382,8 @@ export default function RekoForm() {
 
     if (!incidentId || !token) return
 
+    // Set the ref synchronously so any in-flight auto-save closure bails out.
+    isSubmittingRef.current = true
     setIsSubmitting(true)
 
     try {
@@ -376,7 +397,9 @@ export default function RekoForm() {
       // Clear localStorage after successful submission
       clearLocalStorage()
 
-      // Redirect to success page with return URL for back button functionality
+      // Redirect to success page with return URL for back button functionality.
+      // Intentionally keep isSubmitting/isSubmittingRef true on success so the
+      // button stays disabled and no auto-save can fire until the redirect.
       setTimeout(() => {
         const params = new URLSearchParams()
         params.set('id', incidentId!)
@@ -388,7 +411,8 @@ export default function RekoForm() {
     } catch (error) {
       console.error('Submit failed:', error)
       toast.error('Fehler beim Übermitteln. Bitte erneut versuchen.')
-    } finally {
+      // Only re-enable submission (and auto-save) after a failed submit
+      isSubmittingRef.current = false
       setIsSubmitting(false)
     }
   }
@@ -639,7 +663,9 @@ export default function RekoForm() {
           photos={formData.photos_json}
           incidentId={incidentId!}
           token={token!}
-          onPhotosChange={(photos) => updateFormData('photos_json', photos)}
+          onPhotosChange={(update) =>
+            setFormData(prev => ({ ...prev, photos_json: update(prev.photos_json) }))
+          }
         />
       </div>
 
