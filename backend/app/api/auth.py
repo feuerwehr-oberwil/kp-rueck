@@ -296,6 +296,18 @@ async def get_microsoft_auth_config():
     )
 
 
+def _is_on_editor_allowlist(email: str) -> bool:
+    """Whether this email gets editor rights on SSO auto-provision.
+
+    SSO_EDITOR_ALLOWLIST is a comma-separated email list, matched
+    case-insensitively; surrounding whitespace is ignored.
+    """
+    allowlist = {
+        entry.strip().lower() for entry in settings.sso_editor_allowlist.split(",") if entry.strip()
+    }
+    return email.lower().strip() in allowlist
+
+
 @router.post("/microsoft-login", response_model=schemas.UserResponse)
 @limiter.limit(RateLimits.LOGIN)
 async def microsoft_login(
@@ -376,18 +388,23 @@ async def microsoft_login(
             logger.info("Linked email %s to existing user %s", email, username)
 
     if not user:
-        # Create new user from Microsoft login (default role: editor)
+        # Create new user from Microsoft login. Any tenant member can reach
+        # this, so default to read-only; editor rights are an explicit grant
+        # via SSO_EDITOR_ALLOWLIST. Existing users keep their role on
+        # re-login — allowlist changes never downgrade, and promotion of an
+        # already-provisioned user stays a manual admin action.
+        role = "editor" if _is_on_editor_allowlist(email) else "viewer"
         user = User(
             username=username,
             email=email,
             password_hash=None,
-            role="editor",
+            role=role,
             display_name=display_name or username,
             is_active=True,
         )
         db.add(user)
         await db.flush()  # Get the ID
-        logger.info("Created new user %s from Microsoft login", username)
+        logger.info("Created new user %s from Microsoft login (role: %s)", username, role)
 
     # Check if user is active
     if not user.is_active:
