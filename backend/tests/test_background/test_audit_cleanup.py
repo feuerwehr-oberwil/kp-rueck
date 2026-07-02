@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.background import audit_cleanup
 from app.background.audit_cleanup import (
@@ -54,9 +54,15 @@ def _audit_row(age: timedelta) -> AuditLog:
     )
 
 
-async def _count_rows(db_session) -> int:
-    result = await db_session.execute(select(func.count()).select_from(AuditLog))
-    return result.scalar_one()
+async def _remaining_of(db_session, rows: list[AuditLog]) -> set:
+    """IDs of the given rows still present.
+
+    Scoped to the rows each test created — other tests' API calls also write
+    audit-log rows (via the middleware), so global counts aren't isolated.
+    """
+    ids = [row.id for row in rows]
+    result = await db_session.execute(select(AuditLog.id).where(AuditLog.id.in_(ids)))
+    return set(result.scalars().all())
 
 
 class TestCleanupOldAuditLogs:
@@ -69,9 +75,8 @@ class TestCleanupOldAuditLogs:
 
         deleted = await cleanup_old_audit_logs(session_maker=session_maker)
 
-        assert deleted == 3
-        remaining = (await db_session.execute(select(AuditLog.id))).scalars().all()
-        assert set(remaining) == {row.id for row in recent_rows}
+        assert deleted >= 3
+        assert await _remaining_of(db_session, old_rows + recent_rows) == {row.id for row in recent_rows}
 
     @pytest.mark.asyncio
     async def test_boundary_around_cutoff(self, db_session, session_maker, monkeypatch):
@@ -84,32 +89,33 @@ class TestCleanupOldAuditLogs:
 
         deleted = await cleanup_old_audit_logs(session_maker=session_maker)
 
-        assert deleted == 1
-        remaining = (await db_session.execute(select(AuditLog.id))).scalars().all()
-        assert remaining == [survivor.id]
+        assert deleted >= 1
+        assert await _remaining_of(db_session, [survivor, goner]) == {survivor.id}
 
     @pytest.mark.asyncio
     async def test_batching_deletes_all_rows(self, db_session, session_maker, monkeypatch):
         monkeypatch.setattr(audit_cleanup, "BATCH_SIZE", 2)
-        db_session.add_all([_audit_row(timedelta(days=100)) for _ in range(5)])
+        rows = [_audit_row(timedelta(days=100)) for _ in range(5)]
+        db_session.add_all(rows)
         await db_session.commit()
 
         deleted = await cleanup_old_audit_logs(session_maker=session_maker)
 
-        assert deleted == 5
-        assert await _count_rows(db_session) == 0
+        assert deleted >= 5
+        assert await _remaining_of(db_session, rows) == set()
 
     @pytest.mark.asyncio
     async def test_demo_mode_caps_retention(self, db_session, session_maker, monkeypatch):
         monkeypatch.setattr(audit_cleanup.settings, "demo_mode", True)
         monkeypatch.setattr(audit_cleanup.settings, "audit_retention_days", 90)
-        db_session.add(_audit_row(timedelta(days=10)))
+        row = _audit_row(timedelta(days=10))
+        db_session.add(row)
         await db_session.commit()
 
         deleted = await cleanup_old_audit_logs(session_maker=session_maker)
 
-        assert deleted == 1
-        assert await _count_rows(db_session) == 0
+        assert deleted >= 1
+        assert await _remaining_of(db_session, [row]) == set()
 
     @pytest.mark.asyncio
     async def test_demo_mode_smaller_explicit_override_wins(self, db_session, session_maker, monkeypatch):
@@ -129,11 +135,12 @@ class TestCleanupOldAuditLogs:
     @pytest.mark.asyncio
     async def test_skipped_during_shutdown(self, db_session, session_maker):
         audit_cleanup._shutting_down = True
-        db_session.add(_audit_row(timedelta(days=100)))
+        row = _audit_row(timedelta(days=100))
+        db_session.add(row)
         await db_session.commit()
 
         assert await cleanup_old_audit_logs(session_maker=session_maker) == 0
-        assert await _count_rows(db_session) == 1
+        assert await _remaining_of(db_session, [row]) == {row.id}
 
     @pytest.mark.asyncio
     async def test_errors_are_swallowed(self, monkeypatch):
