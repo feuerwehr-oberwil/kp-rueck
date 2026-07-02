@@ -1,5 +1,6 @@
 """Photo storage and processing service for Reko forms."""
 
+import asyncio
 import io
 import logging
 import uuid
@@ -177,8 +178,24 @@ class PhotoStorageService:
                 detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
             )
 
+        # Generate safe, unique filename (always use UUID to prevent attacks)
+        filename = self._sanitize_filename(file.filename or "photo.jpg")
+        incident_dir = self._get_incident_dir(incident_id)
+        file_path = incident_dir / filename
+
+        # PIL decode/resize/encode of a multi-MB phone photo blocks the event
+        # loop for seconds — freezing every operator request and WebSocket
+        # ping. Run validation + compression + disk write in a worker thread
+        # (same pattern as the PDF report). HTTPExceptions raised inside the
+        # thread propagate normally.
+        return await asyncio.to_thread(self._process_and_store, content, file.filename, file_path, filename)
+
+    def _process_and_store(
+        self, content: bytes, original_filename: str | None, file_path: Path, filename: str
+    ) -> str:
+        """Blocking part of save_photo — must run off the event loop."""
         # Validate file type (extension + MIME type)
-        self._validate_file_type(content, file.filename)
+        self._validate_file_type(content, original_filename)
 
         # Scan for malware (placeholder for production integration)
         self._scan_for_malware(content)
@@ -190,13 +207,6 @@ class PhotoStorageService:
         except Exception as e:
             logger.warning("Failed to process image: %s", e)
             raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_FILE)
-
-        # Generate safe, unique filename (always use UUID to prevent attacks)
-        filename = self._sanitize_filename(file.filename or "photo.jpg")
-
-        # Save to disk
-        incident_dir = self._get_incident_dir(incident_id)
-        file_path = incident_dir / filename
 
         with open(file_path, "wb") as f:
             f.write(compressed_data)

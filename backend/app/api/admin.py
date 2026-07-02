@@ -1,5 +1,6 @@
 """Admin API endpoints for import/export."""
 
+import asyncio
 import logging
 from datetime import datetime
 
@@ -32,7 +33,8 @@ async def download_import_template(
     current_user: CurrentEditor,
 ):
     """Download empty Excel template for data import."""
-    template_bytes = generate_empty_template()
+    # openpyxl work off the event loop (audit H4)
+    template_bytes = await asyncio.to_thread(generate_empty_template)
 
     filename = "kprueck_import_template.xlsx"
 
@@ -65,7 +67,8 @@ async def preview_excel_import(
         )
 
     try:
-        parsed_data = validate_and_parse_excel(file_bytes)
+        # openpyxl parsing off the event loop (audit H4)
+        parsed_data = await asyncio.to_thread(validate_and_parse_excel, file_bytes)
     except ExcelImportError:
         raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden")
 
@@ -118,7 +121,8 @@ async def execute_excel_import(
         )
 
     try:
-        parsed_data = validate_and_parse_excel(file_bytes)
+        # openpyxl parsing off the event loop (audit H4)
+        parsed_data = await asyncio.to_thread(validate_and_parse_excel, file_bytes)
     except ExcelImportError:
         raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden")
 

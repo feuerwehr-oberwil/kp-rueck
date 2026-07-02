@@ -1,5 +1,6 @@
 """Excel import/export service for bulk data management."""
 
+import asyncio
 from io import BytesIO
 from typing import Any, Literal
 
@@ -260,6 +261,20 @@ async def import_data(
 
 async def export_data_to_excel(db: AsyncSession) -> BytesIO:
     """Export all personnel, vehicles, and materials to Excel."""
+    result = await db.execute(select(Personnel).order_by(Personnel.name))
+    personnel = result.scalars().all()
+    result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
+    vehicles = result.scalars().all()
+    result = await db.execute(select(Material).order_by(Material.location, Material.name))
+    materials = result.scalars().all()
+
+    # openpyxl workbook building is pure CPU — keep it off the event loop
+    # so a large export doesn't freeze every operator's requests (audit H4).
+    return await asyncio.to_thread(_build_export_workbook, personnel, vehicles, materials)
+
+
+def _build_export_workbook(personnel: list, vehicles: list, materials: list) -> BytesIO:
+    """Blocking workbook construction — runs in a worker thread."""
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -270,8 +285,6 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
 
-    result = await db.execute(select(Personnel).order_by(Personnel.name))
-    personnel = result.scalars().all()
     for person in personnel:
         ws_personnel.append(
             [
@@ -288,8 +301,6 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
 
-    result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
-    vehicles = result.scalars().all()
     for vehicle in vehicles:
         ws_vehicles.append(
             [
@@ -308,8 +319,6 @@ async def export_data_to_excel(db: AsyncSession) -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
 
-    result = await db.execute(select(Material).order_by(Material.location, Material.name))
-    materials = result.scalars().all()
     for material in materials:
         ws_materials.append(
             [
