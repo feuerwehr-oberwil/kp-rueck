@@ -62,6 +62,9 @@ interface DraggableOperationProps {
   /** False for viewers: don't register the drag source at all — a drag whose
    *  PATCH is guaranteed to 403 must not offer a working-looking affordance. */
   canDrag?: boolean
+  /** Notifies the sync layer that a card drag started/ended so remote reloads
+   *  queue for the duration (a mid-drag reload aborts the native drag). */
+  onDragActiveChange?: (dragging: boolean) => void
 }
 
 // Priority visual configuration - bold borders for quick scanning
@@ -111,6 +114,7 @@ function DraggableOperationBase({
   printerEnabled,
   doubleBookedCrewNames,
   canDrag = true,
+  onDragActiveChange,
 }: DraggableOperationProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -178,9 +182,13 @@ function DraggableOperationBase({
               onDragStart: () => {
                 setIsDragging(true)
                 isDraggingRef.current = true
+                onDragActiveChange?.(true)
               },
               onDrop: () => {
                 setIsDragging(false)
+                // Sync layer must know immediately — the click-suppression
+                // delay below is only for the ref.
+                onDragActiveChange?.(false)
                 // Delay to prevent click from firing
                 setTimeout(() => {
                   isDraggingRef.current = false
@@ -220,7 +228,7 @@ function DraggableOperationBase({
         },
       })
     )
-  }, [operation, index, isDraggingRef, canDrag])
+  }, [operation, index, isDraggingRef, canDrag, onDragActiveChange])
 
   return (
     <ContextMenu>

@@ -116,7 +116,13 @@ export function useKanbanDragDrop({
 
         // Operation reordering/moving
         if (sourceData.type === "operation") {
-          const draggedOp = sourceData.operation as Operation
+          // Look the operation up FRESH by id instead of using the drag-start
+          // snapshot: re-inserting the snapshot would overwrite fields another
+          // operator changed mid-drag, or resurrect a card that was deleted
+          // remotely while it was in the user's hand.
+          const draggedOpId = (sourceData.operation as Operation).id
+          const draggedOp = operations.find(op => op.id === draggedOpId)
+          if (!draggedOp) return
           const sourceIndex = sourceData.index as number
 
           // Dropped on another operation

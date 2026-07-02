@@ -108,6 +108,10 @@ interface OperationsContextType {
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
   reorderColumn: (orderedIds: string[]) => void
+  /** Board drag lifecycle. While a card is being dragged, remote updates are
+   * queued instead of applied — a mid-drag reload remounts the columns and
+   * aborts the native drag. Call with false when the drag ends (any outcome). */
+  setBoardDragging: (dragging: boolean) => void
   /** Change an incident's status and move it to the TOP of the target column —
    *  the one-click equivalent of dragging it across (mirrors the reko auto-move). */
   changeStatusToTop: (operationId: string, newStatus: OperationStatus) => void
@@ -157,7 +161,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   operationsRef.current = operations
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  // Mirror for reads inside the long-lived sync effect: having isLoading in
+  // its dependency array tore down and rebuilt the whole WebSocket+polling
+  // setup on every loading flip (multiple reconnects during startup).
+  const isLoadingRef = useRef(false)
+  isLoadingRef.current = isLoading
+  // Ref, not state: only the sync closures care, and as a dependency it
+  // caused the same effect churn as isLoading.
+  const isInitialLoadRef = useRef(true)
   const [homeCity, setHomeCity] = useState<string>("")
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   // When a vehicle is assigned to an incident with no driver yet, hold it here so the
@@ -171,10 +182,23 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // different incidents silently drop the first one's PATCH).
   const updateBatcherRef = useRef<UpdateBatcher<Operation>>(new UpdateBatcher())
   const criticalUpdateInProgress = useRef<boolean>(false)
-  const recentAssignmentRef = useRef<boolean>(false)
-  const assignmentCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
-  const recentStatusUpdateRef = useRef<boolean>(false)
-  const statusUpdateCooldownTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  // Refcounted cooldown: every optimistic mutation takes a hold when it
+  // starts and releases it (plus a grace period) when its request settles.
+  // A single boolean + shared timer let a FAST mutation clear the cooldown
+  // while a SLOWER one was still in flight — a poll could then load
+  // pre-mutation state and visibly snap the slow mutation back. This also
+  // replaces the old fixed 2s status cooldown, which could expire while a
+  // slow status PATCH was still in flight.
+  const assignmentHoldsRef = useRef<number>(0)
+  // True while an operation card is physically being dragged. Remote updates
+  // queue for the duration: a mid-drag reload remounts the columns, which
+  // aborts the native drag and silently drops the card back.
+  const boardDraggingRef = useRef<boolean>(false)
+  // Serialize reorder POSTs: two rapid drags could land out of order
+  // server-side, silently persisting the FIRST drag's order. Only the latest
+  // queued order survives; intermediates are skipped.
+  const reorderInFlightRef = useRef<boolean>(false)
+  const queuedReorderRef = useRef<string[] | null>(null)
   // UI #2: queue-and-replay for WS/poll updates that arrive during a cooldown.
   // When set, the next cooldown clear triggers a single loadData(false). Prevents
   // silent loss of remote updates during rapid local dispatch.
@@ -194,21 +218,30 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const mutationEpochRef = useRef<number>(0)
 
   // Shared preamble of every optimistic mutation: invalidate in-flight
-  // reloads and open the assignment cooldown window.
+  // reloads and take one cooldown hold. Must be paired with exactly one
+  // releaseAssignmentCooldown call once the mutation's request settles.
   const armAssignmentCooldown = () => {
     mutationEpochRef.current++
-    recentAssignmentRef.current = true
-    if (assignmentCooldownTimerRef.current) clearTimeout(assignmentCooldownTimerRef.current)
+    assignmentHoldsRef.current++
   }
 
-  const clearAssignmentCooldown = () => {
-    recentAssignmentRef.current = false
-    replayPendingUpdatesRef.current?.()
+  // Release the hold taken by armAssignmentCooldown after a short grace
+  // period; when the last hold drops, replay any queued remote update.
+  const releaseAssignmentCooldown = (graceMs = 500) => {
+    setTimeout(() => {
+      assignmentHoldsRef.current = Math.max(0, assignmentHoldsRef.current - 1)
+      if (assignmentHoldsRef.current === 0) replayPendingUpdatesRef.current?.()
+    }, graceMs)
   }
-  const clearStatusUpdateCooldown = () => {
-    recentStatusUpdateRef.current = false
-    replayPendingUpdatesRef.current?.()
-  }
+
+  // Card drag lifecycle, wired from the board via context. Ending a drag
+  // replays queued remote updates — an aborted drag would otherwise leave
+  // them waiting for an unrelated mutation to flush the queue.
+  const setBoardDragging = useCallback((dragging: boolean) => {
+    if (boardDraggingRef.current === dragging) return
+    boardDraggingRef.current = dragging
+    if (!dragging) replayPendingUpdatesRef.current?.()
+  }, [])
 
   // Track known incident IDs for new high-priority alert sound
   const knownIncidentIdsRef = useRef<Set<string>>(new Set())
@@ -540,10 +573,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Drive the top progress bar only for the meaningful initial load — not
       // the silent ~5s background polls — so the board's first paint feels fast
       // without the bar flickering on every sync.
-      const driveBar = showLoading && isInitialLoad
+      const driveBar = showLoading && isInitialLoadRef.current
       if (driveBar) topLoading.start()
       try {
-        if (showLoading && isInitialLoad) {
+        if (showLoading && isInitialLoadRef.current) {
           setIsLoading(true)
         }
 
@@ -741,7 +774,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setHomeCity(settings.home_city || "")
         setIsLoaded(true)
         setLastSyncAt(new Date())
-        if (isInitialLoad) setIsInitialLoad(false)
+        isInitialLoadRef.current = false
 
         // Store the version snapshot taken before the data fetch (null forces
         // the next poll tick to reload — fails toward freshness).
@@ -749,7 +782,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Failed to load data:", error)
         setIsLoaded(true)
-        if (isInitialLoad) setIsInitialLoad(false)
+        isInitialLoadRef.current = false
       } finally {
         setIsLoading(false)
         if (driveBar) topLoading.done()
@@ -761,8 +794,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // WebSocket setup
     wsClient.connect()
 
+    // Waking from a background/suspended tab: the socket may have been reaped
+    // server-side while timers were throttled. connect() is a no-op when the
+    // socket is alive or still auto-reconnecting.
+    const handleWake = () => {
+      if (document.visibilityState === 'visible') wsClient.connect()
+    }
+    document.addEventListener('visibilitychange', handleWake)
+
     const inCooldown = () =>
-      criticalUpdateInProgress.current || recentAssignmentRef.current || recentStatusUpdateRef.current
+      criticalUpdateInProgress.current || assignmentHoldsRef.current > 0 || boardDraggingRef.current
 
     const handleRemoteUpdate = () => {
       const action = decideRemoteUpdateAction({ inCooldown: inCooldown() })
@@ -831,7 +872,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       const interval = getNextPollInterval(true)
       pollTimeout = setTimeout(async () => {
         if (!isPollingActive) return
-        const tickAction = decidePollTickAction({ isLoading, inCooldown: inCooldown() })
+        const tickAction = decidePollTickAction({ isLoading: isLoadingRef.current, inCooldown: inCooldown() })
         if (tickAction === "skip") {
           if (isPollingActive) schedulePoll()
           return
@@ -849,6 +890,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           if (version !== lastSyncVersionRef.current) {
             lastSyncVersionRef.current = version
             await loadData(false)
+          } else {
+            // Confirmed fresh — keep the stale-data banner honest. Without
+            // this, a healthy polling session with no changes let lastSyncAt
+            // age past the threshold and showed "Verbindung verloren".
+            setLastSyncAt(new Date())
           }
         } catch {
           pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
@@ -878,10 +924,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         startPolling()
       } else if (status === 'connected') {
         stopPolling()
+        // Resync once per (re)connect: events broadcast while we weren't in
+        // the room are gone for good — without this the board stays stale
+        // until the next unrelated mutation triggers an event. Respects the
+        // cooldown queue like any other remote update.
+        handleRemoteUpdate()
       }
     })
 
     return () => {
+      document.removeEventListener('visibilitychange', handleWake)
       unsubscribeIncidentUpdate()
       unsubscribePersonnelUpdate()
       unsubscribeVehicleUpdate()
@@ -892,7 +944,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       stopPolling()
       wsClient.disconnect()
     }
-  }, [authLoading, isAuthenticated, selectedEvent, isEventLoaded, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials, isLoading, isInitialLoad])
+  }, [authLoading, isAuthenticated, selectedEvent, isEventLoaded, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials])
 
   const removeCrew = (operationId: string, crewName: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -950,10 +1002,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           if (person) recentRemovalsRef.current.delete(person.id)
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+          releaseAssignmentCooldown()
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -982,10 +1034,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           )
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+          releaseAssignmentCooldown()
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1038,10 +1090,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           }
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+          releaseAssignmentCooldown()
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1096,14 +1148,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (updates.status !== undefined) {
-      recentStatusUpdateRef.current = true
-      if (statusUpdateCooldownTimerRef.current) clearTimeout(statusUpdateCooldownTimerRef.current)
-      statusUpdateCooldownTimerRef.current = setTimeout(clearStatusUpdateCooldown, 2000)
+    // Guard against polling overwriting optimistic updates (status changes
+    // included — the hold is released only after the PATCH settles, unlike
+    // the old fixed 2s status timer that could expire mid-flight). Take ONE
+    // hold per pending batch: schedule() merges rapid edits into a single
+    // flush, so arming on every call would leak holds and freeze syncing.
+    if (isLoaded && updateBatcherRef.current.getPending(operationId) !== undefined) {
+      mutationEpochRef.current++ // still invalidate in-flight reloads
+    } else {
+      armAssignmentCooldown()
     }
-
-    // Guard against polling overwriting optimistic updates for field changes
-    armAssignmentCooldown()
 
     if (isLoaded) {
       const performUpdate = async (batchedUpdates: Partial<Operation>) => {
@@ -1157,7 +1211,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           }
         } finally {
           if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
-          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+          releaseAssignmentCooldown()
         }
       }
 
@@ -1173,7 +1227,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       if (isCriticalUpdate) criticalUpdateInProgress.current = true
       updateBatcherRef.current.schedule(operationId, updates, isCriticalUpdate ? 50 : 500, performUpdate)
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1186,22 +1240,37 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const reorderColumn = (orderedIds: string[]) => {
     if (!isLoaded || !selectedEvent || !isValidUUID(selectedEvent.id) || orderedIds.length === 0) return
 
-    armAssignmentCooldown()
+    // Serialize the POSTs: two rapid drags in flight together can commit in
+    // reverse order server-side, silently persisting the FIRST drag's order.
+    // Only the latest queued order is sent once the in-flight POST settles.
+    const eventId = selectedEvent.id
+    queuedReorderRef.current = orderedIds
+    if (reorderInFlightRef.current) return
 
+    reorderInFlightRef.current = true
     void (async () => {
       try {
-        await apiClient.reorderIncidents(selectedEvent.id, orderedIds)
-      } catch (err) {
-        console.error("Failed to persist column order:", err)
-        // The optimistic order isn't saved — tell the user and pull the
-        // authoritative order back (the generic API toast doesn't say the
-        // ORDER was reverted).
-        toast.error("Reihenfolge nicht gespeichert", {
-          description: "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
-        })
-        await refreshOperations()
+        while (queuedReorderRef.current) {
+          const ids = queuedReorderRef.current
+          queuedReorderRef.current = null
+          armAssignmentCooldown()
+          try {
+            await apiClient.reorderIncidents(eventId, ids)
+          } catch (err) {
+            console.error("Failed to persist column order:", err)
+            // The optimistic order isn't saved — tell the user and pull the
+            // authoritative order back (the generic API toast doesn't say the
+            // ORDER was reverted).
+            toast.error("Reihenfolge nicht gespeichert", {
+              description: "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
+            })
+            await refreshOperations()
+          } finally {
+            releaseAssignmentCooldown()
+          }
+        }
       } finally {
-        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+        reorderInFlightRef.current = false
       }
     })()
   }
@@ -1383,10 +1452,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
       } finally {
-        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+        releaseAssignmentCooldown()
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1444,10 +1513,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         )
       } finally {
-        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+        releaseAssignmentCooldown()
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1502,10 +1571,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
         )
       } finally {
-        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+        releaseAssignmentCooldown()
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1603,10 +1672,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } finally {
         // Clear cooldown after API response, with a small grace period
-        assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+        releaseAssignmentCooldown()
       }
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1647,10 +1716,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           )
         })
         .finally(() => {
-          assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
+          releaseAssignmentCooldown()
         })
     } else {
-      assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 3000)
+      releaseAssignmentCooldown(3000)
     }
   }
 
@@ -1790,6 +1859,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         removeReko,
         updateOperation,
         reorderColumn,
+        setBoardDragging,
         changeStatusToTop,
         createOperation,
         getNextOperationId,

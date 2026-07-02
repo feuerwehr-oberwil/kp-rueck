@@ -58,6 +58,8 @@ interface DroppableColumnProps {
   doubleBookedCrewNames?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
   canDrag?: boolean
+  /** Forwarded to cards: notifies the sync layer of drag start/end. */
+  onDragActiveChange?: (dragging: boolean) => void
 }
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -147,6 +149,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   printerEnabled,
   doubleBookedCrewNames,
   canDrag,
+  onDragActiveChange,
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -307,6 +310,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 printerEnabled={printerEnabled}
                 doubleBookedCrewNames={doubleBookedCrewNames}
                 canDrag={canDrag}
+                onDragActiveChange={onDragActiveChange}
               />
             </div>
           ))}

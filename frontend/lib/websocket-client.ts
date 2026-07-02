@@ -40,9 +40,13 @@ class WebSocketClient {
         console.log('WebSocket already connected')
         return
       }
-      // A socket exists and socket.io is still auto-reconnecting — let it.
-      // Only replace a socket that has given up (status 'error').
-      if (this.status !== 'error') {
+      // A socket exists and its io manager is still actively connecting or
+      // auto-reconnecting — let it finish. Anything else (gave up after max
+      // attempts, or a server-initiated disconnect that socket.io does NOT
+      // retry) is dead weight: replace it. The old guard (`status !== 'error'`)
+      // kept permanently-dead sockets around forever, so no later connect()
+      // call could ever restore realtime updates.
+      if (this.socket.active) {
         return
       }
       this.socket.disconnect()
@@ -208,6 +212,14 @@ class WebSocketClient {
     this.socket.on('disconnect', (reason) => {
       console.log('WebSocket disconnected:', reason)
       this.updateStatus('disconnected')
+      // The server closed the connection deliberately (e.g. the idle-session
+      // reaper kicking a background tab whose 30s ping was throttled).
+      // socket.io does NOT auto-reconnect on 'io server disconnect' — without
+      // this, a wall display that slept >5 min silently loses realtime
+      // updates for the rest of the session.
+      if (reason === 'io server disconnect') {
+        this.socket?.connect()
+      }
     })
 
     this.socket.on('connect_error', (error) => {
