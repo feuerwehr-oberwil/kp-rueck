@@ -1233,3 +1233,30 @@ class TestAutoResolution:
         assert depot_notification.dismissed_at is not None
         # dismissed_by should be None for auto-resolved
         assert depot_notification.dismissed_by is None
+
+
+class TestNotificationTypeConstraintParity:
+    """Every NotificationType enum value must be insertable under the DB CHECK constraint.
+
+    Regression for the geofence landmine: _check_geofence_alerts inserted
+    type='vehicle_arrived' while the valid_notification_type constraint didn't
+    allow it, and the IntegrityError rolled back ALL pending alerts of the same
+    evaluation — the alert panel went dark the moment a tracked vehicle arrived.
+    """
+
+    @pytest.mark.asyncio
+    async def test_all_enum_values_pass_check_constraint(self, db_session: AsyncSession, notif_event: Event):
+        from app.schemas import NotificationType
+
+        for notification_type in NotificationType:
+            db_session.add(
+                Notification(
+                    type=notification_type.value,
+                    severity="info",
+                    message=f"constraint parity check: {notification_type.value}",
+                    event_id=notif_event.id,
+                    dismissed=False,
+                )
+            )
+        # Raises IntegrityError if any enum value is missing from the constraint.
+        await db_session.commit()

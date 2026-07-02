@@ -609,7 +609,8 @@ class Notification(Base):
         CheckConstraint(
             "type IN ("
             "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
-            "'missing_location', 'event_size_limit', 'reko_submitted', 'reko_arrived', 'training_emergency'"
+            "'missing_location', 'event_size_limit', 'reko_submitted', 'reko_arrived', "
+            "'training_emergency', 'vehicle_arrived'"
             ")",
             name="valid_notification_type",
         ),
