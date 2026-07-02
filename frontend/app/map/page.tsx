@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Loader2, Palette, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { colorGroupFor, COLOR_BY_LABELS, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { colorGroupFor, COLOR_BY_LABELS, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -47,13 +47,6 @@ function formatTime(date: Date): string {
   })
 }
 
-function getTimeSince(date: Date): string {
-  const minutes = Math.floor((Date.now() - date.getTime()) / 1000 / 60)
-  if (minutes < 60) return `${minutes}'`
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-  return `${hours}h ${mins}'`
-}
 
 export default function MapPage() {
   const { incidents, formatLocation, refreshIncidents } = useIncidents()
@@ -442,7 +435,7 @@ export default function MapPage() {
               <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-mono text-base font-semibold tabular-nums">
-                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
                 </span>
               </div>
               <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />

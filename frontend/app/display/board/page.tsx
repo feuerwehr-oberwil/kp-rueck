@@ -11,8 +11,9 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { columns, getTimeSince } from "@/lib/kanban-utils"
+import { columns, getTimeSince, ageChipClass } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
 import { Clock, Truck, Users, Siren, Package, AlertTriangle, AlertCircle, Info, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck, ChevronRight } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -173,13 +174,14 @@ function BoardDisplay() {
   )
 }
 
+// Icons/labels from the shared priority module; only the tailwind tint is local.
 const priorityVisuals: Record<
   Operation["priority"],
   { Icon: LucideIcon; label: string; iconColor: string }
 > = {
-  high: { Icon: AlertTriangle, label: "Hoch", iconColor: "text-red-500" },
-  medium: { Icon: AlertCircle, label: "Mittel", iconColor: "text-yellow-500" },
-  low: { Icon: Info, label: "Niedrig", iconColor: "text-green-600 dark:text-green-500" },
+  high: { Icon: PRIORITY_ICONS.high, label: PRIORITY_LABELS.high, iconColor: "text-red-500" },
+  medium: { Icon: PRIORITY_ICONS.medium, label: PRIORITY_LABELS.medium, iconColor: "text-amber-500" },
+  low: { Icon: PRIORITY_ICONS.low, label: PRIORITY_LABELS.low, iconColor: "text-green-600 dark:text-green-500" },
 }
 
 function DisplayOperationCard({
@@ -239,10 +241,12 @@ function DisplayOperationCard({
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             <span className="font-mono text-xs text-muted-foreground">
-              {operation.dispatchTime.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+              {operation.dispatchTime.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
-          <span className="font-mono text-xs text-muted-foreground">
+          <span
+            className={`font-mono text-xs ${ageChipClass(operation.statusChangedAt || operation.dispatchTime)}`}
+          >
             {getTimeSince(operation.statusChangedAt || operation.dispatchTime)}
           </span>
         </div>
@@ -332,7 +336,7 @@ function IncidentDetailModal({
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span className="font-mono">
-                {operation.dispatchTime.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                {operation.dispatchTime.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
               </span>
               <span>·</span>
               <span className="font-mono">{getTimeSince(operation.statusChangedAt || operation.dispatchTime)}</span>

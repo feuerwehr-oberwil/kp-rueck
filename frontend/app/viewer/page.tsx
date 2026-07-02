@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone, LogOut, WifiOff } from 'lucide-react'
-import { columns, getTimeSince } from '@/lib/kanban-utils'
+import { columns, getTimeSince, ageChipClass } from '@/lib/kanban-utils'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
 import { type OperationStatus } from '@/lib/contexts/operations-context'
@@ -164,14 +164,11 @@ function ViewerIncidentCard({ incident, isExpanded = false, onClick }: ViewerInc
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="font-mono text-sm text-muted-foreground">
-              {dispatchTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+              {dispatchTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
           <span
-            className={cn(
-              'font-mono text-xs text-muted-foreground',
-              isOverOneHour && 'font-medium'
-            )}
+            className={cn('font-mono text-xs', ageChipClass(statusChangedAt))}
             title={isOverOneHour ? `In diesem Status seit über 1 Stunde` : undefined}
           >
             {getTimeSince(statusChangedAt)}
@@ -501,7 +498,7 @@ export default function ViewerPage() {
             <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
               <RefreshCw className="h-3 w-3" />
               <span>
-                {lastRefresh.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {lastRefresh.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
             </div>
           )}
@@ -510,7 +507,7 @@ export default function ViewerPage() {
           <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="font-mono text-base font-semibold tabular-nums">
-              {currentTime.toLocaleTimeString('de-DE')}
+              {currentTime.toLocaleTimeString('de-CH')}
             </span>
           </div>
 

@@ -160,7 +160,7 @@ export default function PrintableMap({ operations }: PrintableMapProps) {
         </div>
         <div className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-full bg-green-500 border border-white"></span>
-          <span>Tief</span>
+          <span>Niedrig</span>
         </div>
       </div>
     </div>

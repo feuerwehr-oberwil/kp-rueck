@@ -1,3 +1,4 @@
+import { PRIORITY_COLORS } from "./priority"
 /**
  * Named map-marker colors.
  *
@@ -28,8 +29,4 @@ export const MAP_COLORS = {
  * styling we use across the kanban/display board (high=red, medium=yellow,
  * low=green).
  */
-export const PRIORITY_MARKER_COLORS: Record<"high" | "medium" | "low", string> = {
-  high: MAP_COLORS.destructive,
-  medium: MAP_COLORS.warning,
-  low: MAP_COLORS.success,
-}
+export const PRIORITY_MARKER_COLORS: Record<"high" | "medium" | "low", string> = PRIORITY_COLORS

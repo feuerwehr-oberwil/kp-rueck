@@ -1,5 +1,6 @@
 import { type Operation, type OperationStatus } from "./contexts/operations-context"
 import { getIncidentTypeLabel } from "./incident-types"
+import { PRIORITY_COLORS, PRIORITY_LABELS } from "./priority"
 
 // Kanban column definitions
 // Colors use light mode defaults with dark: variants
@@ -52,9 +53,10 @@ const ACCENT_PALETTE = [
   "#3b82f6", "#6366f1", "#a855f7", "#ec4899", "#0ea5e9",
   "#84cc16", "#f43f5e",
 ]
-// Priority keeps its semantic colours instead of a hashed hue.
-const PRIORITY_ACCENTS: Record<string, string> = { high: "#ef4444", medium: "#f59e0b", low: "#3b82f6" }
-const PRIORITY_LABELS: Record<string, string> = { high: "Hoch", medium: "Mittel", low: "Tief" }
+// Priority keeps its semantic colours instead of a hashed hue — shared with
+// the map markers and display board so the same priority never changes colour
+// between views.
+const PRIORITY_ACCENTS: Record<string, string> = PRIORITY_COLORS
 
 function hashString(s: string): number {
   let h = 0
@@ -87,13 +89,25 @@ export function colorGroupFor(operation: Operation, dimension: ColorByDimension)
       break
     case "priority":
       key = operation.priority || "low"
-      label = PRIORITY_LABELS[key] ?? key
+      label = PRIORITY_LABELS[key as keyof typeof PRIORITY_LABELS] ?? key
       break
     default:
       return null
   }
   if (!key) return null
   return { key, label: label ?? key, color: colorAccent(key, dimension) }
+}
+
+/**
+ * Colour class for the age chip: quiet under 60', amber at 60'+, red at
+ * 120'+. Colour beats bolding 11px muted text — an incident sitting in a
+ * status for two hours must be visible from across the room.
+ */
+export function ageChipClass(date: Date): string {
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000))
+  if (minutes >= 120) return "text-red-600 dark:text-red-400 font-medium"
+  if (minutes >= 60) return "text-amber-600 dark:text-amber-500 font-medium"
+  return "text-muted-foreground"
 }
 
 // Helper function to format time since a given date

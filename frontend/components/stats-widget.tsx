@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { apiClient, type ApiEventStats } from '@/lib/api-client'
 import { Activity, Users, Clock, TrendingUp } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { STATUS_LABELS } from '@/lib/types/incidents'
 
 interface StatCardProps {
   label: string
@@ -32,19 +33,13 @@ function StatCard({ label, value, icon }: StatCardProps) {
   )
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  eingegangen: 'Eingegangen',
-  reko: 'Reko',
-  reko_done: 'Reko abgeschlossen',
-  disponiert: 'Disponiert',
-  einsatz: 'Einsatz',
-  einsatz_beendet: 'Einsatz beendet',
-  abschluss: 'Abschluss',
-}
-
-// Helper function to get status label with fallback
+// Helper function to get status label with fallback (labels shared with the
+// incident type definitions so board and stats can't drift)
 function getStatusLabel(status: string): string {
-  return STATUS_LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1)
+  return (
+    STATUS_LABELS[status as keyof typeof STATUS_LABELS] ||
+    status.charAt(0).toUpperCase() + status.slice(1)
+  )
 }
 
 export function StatsWidget({ eventId }: { eventId: string }) {

@@ -1359,7 +1359,7 @@ export default function FireStationDashboard() {
               <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-mono text-base font-semibold tabular-nums">
-                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
                 </span>
               </div>
 
