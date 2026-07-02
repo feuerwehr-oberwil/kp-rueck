@@ -410,12 +410,10 @@ async def seed_database() -> None:
         await seed_demo_database()
         return
 
-    # Ensure all tables exist (idempotent - safe to run multiple times)
-    from .database import Base, engine
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("✅ Database tables verified")
+    # Schema is managed by Alembic ONLY — the boot scripts run
+    # `alembic upgrade head` before seeding. A create_all here would let a
+    # model without a migration slip through and crash the NEXT deploy's
+    # migration with DuplicateTable (audit point 14).
 
     async with async_session_maker() as db:
         try:
