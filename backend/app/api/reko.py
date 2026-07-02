@@ -1,15 +1,33 @@
-"""Reko form API endpoints (no authentication required for forms, authentication required for photos)."""
+"""Reko form API endpoints.
+
+Field-crew form endpoints validate the per-incident form token; report
+viewing/editing and link generation additionally accept cookie auth. Nothing
+here is fully open: a leaked form link must not allow minting fresh tokens or
+rewriting other incidents' recon reports.
+"""
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Cookie,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..auth.dependencies import CurrentUser
+from ..auth.dependencies import CurrentUser, get_current_user
 from ..config import settings
 from ..crud import reko as crud
 from ..database import get_db
@@ -23,9 +41,27 @@ logger = get_logger(__name__)
 from ..services.audit import log_action
 from ..services.notification_service import create_reko_arrived_notification
 from ..services.photo_storage import photo_storage
-from ..services.tokens import generate_form_token, validate_form_token
+from ..services.tokens import generate_form_token, validate_form_token, validate_reko_dashboard_token
 
 router = APIRouter(prefix="/reko", tags=["reko"])
+
+
+async def _require_user_or_form_token(
+    request: Request,
+    incident_id: uuid.UUID,
+    reko_token: str | None,
+    access_token: str | None,
+    authorization: str | None,
+    db: AsyncSession,
+) -> None:
+    """Allow a valid reko form token for this incident OR any logged-in user.
+
+    Field crews open reko links without an account; operators view/edit
+    reports from the cookie-authenticated board. Raises 401 otherwise.
+    """
+    if reko_token and validate_form_token(reko_token, str(incident_id)):
+        return
+    await get_current_user(request, access_token, authorization, db)
 
 
 @router.get("/form", response_model=schemas.RekoReportResponse)
@@ -136,10 +172,26 @@ async def update_report(
     report_id: uuid.UUID,
     update_data: schemas.RekoReportUpdate,
     background_tasks: BackgroundTasks,
+    request: Request,
     submit: bool = Query(default=False),
+    x_reko_token: str | None = Header(None),
+    access_token: str | None = Cookie(None),
+    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update existing Reko report (e.g., add more photos after submission)."""
+    """Update existing Reko report (e.g., add more photos after submission).
+
+    Requires either the incident's form token (X-Reko-Token header) or a
+    logged-in user — recon reports feed operator decisions and the printed
+    slip, so they must not be rewritable by anyone who can reach the API.
+    """
+    result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
+    existing = result.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
+
+    await _require_user_or_form_token(request, existing.incident_id, x_reko_token, access_token, authorization, db)
+
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit)
 
@@ -173,14 +225,23 @@ async def update_report(
 @router.get("/{report_id}", response_model=schemas.RekoReportResponse)
 async def get_report(
     report_id: uuid.UUID,
+    request: Request,
+    token: str | None = Query(None),
+    access_token: str | None = Cookie(None),
+    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get Reko report by ID (for viewing on incident card)."""
+    """Get Reko report by ID (for viewing on incident card).
+
+    Requires either the incident's form token (?token=) or a logged-in user.
+    """
     result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
     report = result.scalar_one_or_none()
 
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    await _require_user_or_form_token(request, report.incident_id, token, access_token, authorization, db)
 
     # Fetch incident title
     incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
@@ -201,9 +262,13 @@ async def get_report(
 @router.get("/incident/{incident_id}/reports", response_model=list[schemas.RekoReportResponse])
 async def get_incident_reports(
     incident_id: uuid.UUID,
+    _current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get all Reko reports for an incident (for incident detail view)."""
+    """Get all Reko reports for an incident (for incident detail view).
+
+    Requires authentication — only called from the logged-in board UI.
+    """
     reports = await crud.get_incident_reko_reports(db, incident_id)
 
     # Fetch incident title once
@@ -301,20 +366,44 @@ async def mark_reko_arrived(
 
 @router.post("/generate-link")
 async def generate_reko_link(
+    request: Request,
     incident_id: uuid.UUID = Query(...),
     form_type: str = Query("reko"),
     personnel_id: uuid.UUID | None = Query(None),
+    dashboard_token: str | None = Query(None),
+    access_token: str | None = Cookie(None),
+    authorization: str | None = Header(None),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Generate Reko form link for an incident (editor-only in practice).
+    Generate Reko form link for an incident.
+
+    Requires either an editor/admin login or a valid reko-dashboard link
+    token whose event contains the incident (the dashboard runs on field
+    phones without an account). A leaked form link must NOT allow minting
+    fresh tokens for arbitrary incidents.
 
     Args:
         incident_id: The incident this reko is for
         form_type: Type of form (default: reko)
         personnel_id: Optional personnel who will do the reko
+        dashboard_token: Event-scoped reko-dashboard token (alternative to login)
 
     Returns shareable link with token.
     """
+    authorized = False
+    if dashboard_token:
+        event_id = validate_reko_dashboard_token(dashboard_token)
+        if event_id is not None:
+            incident = await db.get(Incident, incident_id)
+            authorized = incident is not None and incident.event_id == event_id
+    if not authorized:
+        user = await get_current_user(request, access_token, authorization, db)
+        if user.role not in ("editor", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich"
+            )
+
     token = generate_form_token(str(incident_id), form_type)
     link = f"/reko?incident_id={incident_id}&token={token}"
     if personnel_id:

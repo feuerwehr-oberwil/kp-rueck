@@ -195,8 +195,9 @@ export default function RekoDashboardPage() {
     // Generate reko link and navigate to it
     // The form will be pre-populated with the personnel_id
     if (selectedPerson && token) {
-      // We need to get a fresh reko link for this incident
-      apiClient.generateRekoLink(assignment.incident_id, selectedPerson.personnel_id)
+      // We need to get a fresh reko link for this incident. The dashboard
+      // token authorizes the call — this page runs without a login.
+      apiClient.generateRekoLink(assignment.incident_id, selectedPerson.personnel_id, token)
         .then(({ link }) => {
           // Add return URL so user can navigate back to dashboard after submission
           const returnUrl = encodeURIComponent(`/reko-dashboard?token=${token}`)

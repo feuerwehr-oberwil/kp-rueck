@@ -264,13 +264,35 @@ async def test_submit_reko_report_updates_existing(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_report_by_id(client: AsyncClient, test_reko_report: RekoReport):
-    """Test getting report by ID."""
-    response = await client.get(f"/api/reko/{test_reko_report.id}")
+async def test_get_report_by_id(editor_client: AsyncClient, test_reko_report: RekoReport):
+    """Test getting report by ID as a logged-in user."""
+    response = await editor_client.get(f"/api/reko/{test_reko_report.id}")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == str(test_reko_report.id)
     assert data["summary_text"] == test_reko_report.summary_text
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_report_by_id_with_form_token(client: AsyncClient, test_reko_report: RekoReport):
+    """The incident's form token grants read access without a login (field crew)."""
+    response = await client.get(f"/api/reko/{test_reko_report.id}?token={test_reko_report.token}")
+    assert response.status_code == 200
+    assert response.json()["id"] == str(test_reko_report.id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_report_by_id_unauthenticated(client: AsyncClient, test_reko_report: RekoReport):
+    """Regression (audit H1): report reads were fully open."""
+    response = await client.get(f"/api/reko/{test_reko_report.id}")
+    assert response.status_code == 401
+
+    # A token for a DIFFERENT incident must not work either
+    wrong_token = generate_form_token(str(uuid4()), "reko")
+    response = await client.get(f"/api/reko/{test_reko_report.id}?token={wrong_token}")
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -283,9 +305,11 @@ async def test_get_report_not_found(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_incident_reports(client: AsyncClient, test_incident: Incident, test_reko_report: RekoReport):
+async def test_get_incident_reports(
+    editor_client: AsyncClient, test_incident: Incident, test_reko_report: RekoReport
+):
     """Test getting all reports for an incident."""
-    response = await client.get(f"/api/reko/incident/{test_incident.id}/reports")
+    response = await editor_client.get(f"/api/reko/incident/{test_incident.id}/reports")
     assert response.status_code == 200
     reports = response.json()
     assert len(reports) == 1
@@ -294,11 +318,19 @@ async def test_get_incident_reports(client: AsyncClient, test_incident: Incident
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_incident_reports_empty(client: AsyncClient, test_incident: Incident):
+async def test_get_incident_reports_empty(editor_client: AsyncClient, test_incident: Incident):
     """Test getting reports when none exist."""
-    response = await client.get(f"/api/reko/incident/{test_incident.id}/reports")
+    response = await editor_client.get(f"/api/reko/incident/{test_incident.id}/reports")
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_incident_reports_unauthenticated(client: AsyncClient, test_incident: Incident):
+    """Regression (audit H1): the incident reports list was fully open."""
+    response = await client.get(f"/api/reko/incident/{test_incident.id}/reports")
+    assert response.status_code == 401
 
 
 # ============================================
@@ -308,17 +340,52 @@ async def test_get_incident_reports_empty(client: AsyncClient, test_incident: In
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_update_report(client: AsyncClient, test_reko_report: RekoReport):
-    """Test updating existing report via PATCH."""
+async def test_update_report(editor_client: AsyncClient, test_reko_report: RekoReport):
+    """Test updating existing report via PATCH as a logged-in user."""
     update_data = {
         "summary_text": "Updated summary via patch",
         "additional_notes": "New hazard identified",
     }
-    response = await client.patch(f"/api/reko/{test_reko_report.id}", json=update_data)
+    response = await editor_client.patch(f"/api/reko/{test_reko_report.id}", json=update_data)
     assert response.status_code == 200
     data = response.json()
     assert data["summary_text"] == "Updated summary via patch"
     assert data["additional_notes"] == "New hazard identified"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_report_with_form_token(client: AsyncClient, test_reko_report: RekoReport):
+    """The incident's form token grants edit access without a login (field crew)."""
+    response = await client.patch(
+        f"/api/reko/{test_reko_report.id}",
+        json={"summary_text": "Updated by field crew"},
+        headers={"X-Reko-Token": test_reko_report.token},
+    )
+    assert response.status_code == 200
+    assert response.json()["summary_text"] == "Updated by field crew"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_report_unauthenticated(
+    client: AsyncClient, db_session: AsyncSession, test_reko_report: RekoReport
+):
+    """Regression (audit H1): recon reports were rewritable by anyone."""
+    response = await client.patch(f"/api/reko/{test_reko_report.id}", json={"summary_text": "tampered"})
+    assert response.status_code == 401
+
+    # Wrong-incident token must not work either
+    wrong_token = generate_form_token(str(uuid4()), "reko")
+    response = await client.patch(
+        f"/api/reko/{test_reko_report.id}",
+        json={"summary_text": "tampered"},
+        headers={"X-Reko-Token": wrong_token},
+    )
+    assert response.status_code == 401
+
+    await db_session.refresh(test_reko_report)
+    assert test_reko_report.summary_text == "Test report summary"
 
 
 @pytest.mark.asyncio
@@ -331,12 +398,12 @@ async def test_update_report_not_found(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_update_report_and_submit(client: AsyncClient, test_reko_report: RekoReport):
+async def test_update_report_and_submit(editor_client: AsyncClient, test_reko_report: RekoReport):
     """Test updating report and marking as submitted."""
     update_data = {
         "summary_text": "Final update before submission",
     }
-    response = await client.patch(f"/api/reko/{test_reko_report.id}?submit=true", json=update_data)
+    response = await editor_client.patch(f"/api/reko/{test_reko_report.id}?submit=true", json=update_data)
     assert response.status_code == 200
     data = response.json()
     assert data["is_draft"] is False
@@ -349,9 +416,9 @@ async def test_update_report_and_submit(client: AsyncClient, test_reko_report: R
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_reko_link(client: AsyncClient, test_incident: Incident):
-    """Test generating reko form link."""
-    response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
+async def test_generate_reko_link(editor_client: AsyncClient, test_incident: Incident):
+    """Test generating reko form link as an editor."""
+    response = await editor_client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
     assert response.status_code == 200
     data = response.json()
     assert data["incident_id"] == str(test_incident.id)
@@ -363,16 +430,85 @@ async def test_generate_reko_link(client: AsyncClient, test_incident: Incident):
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_generate_reko_link_with_personnel(
-    client: AsyncClient, test_incident: Incident, test_personnel: Personnel
+    editor_client: AsyncClient, test_incident: Incident, test_personnel: Personnel
 ):
     """Test generating reko form link with personnel."""
-    response = await client.post(
+    response = await editor_client.post(
         f"/api/reko/generate-link?incident_id={test_incident.id}&personnel_id={test_personnel.id}"
     )
     assert response.status_code == 200
     data = response.json()
     assert data["personnel_id"] == str(test_personnel.id)
     assert str(test_personnel.id) in data["link"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_generate_reko_link_unauthenticated(client: AsyncClient, test_incident: Incident):
+    """Regression (audit H1): anyone reaching the backend could mint valid
+    reko tokens for any incident."""
+    response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_generate_reko_link_viewer_forbidden(
+    client: AsyncClient, db_session: AsyncSession, test_incident: Incident
+):
+    """Viewers must not mint reko tokens.
+
+    Uses a real logged-in viewer: generate-link resolves the user manually
+    (token-or-auth), so the dependency-override viewer_client doesn't apply.
+    """
+    from app.auth.security import hash_password
+
+    viewer = User(
+        id=uuid4(),
+        username="reko_viewer",
+        password_hash=hash_password("testpassword1234"),
+        role="viewer",
+    )
+    db_session.add(viewer)
+    await db_session.commit()
+
+    login = await client.post(
+        "/api/auth/login", data={"username": "reko_viewer", "password": "testpassword1234"}
+    )
+    assert login.status_code == 200
+
+    response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_generate_reko_link_with_dashboard_token(
+    client: AsyncClient, test_event: Event, test_incident: Incident
+):
+    """The event-scoped reko-dashboard token authorizes link generation —
+    the dashboard runs on field phones without a login."""
+    from app.services.tokens import generate_reko_dashboard_token
+
+    dashboard_token = generate_reko_dashboard_token(test_event.id)
+    response = await client.post(
+        f"/api/reko/generate-link?incident_id={test_incident.id}&dashboard_token={dashboard_token}"
+    )
+    assert response.status_code == 200
+    assert response.json()["incident_id"] == str(test_incident.id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_generate_reko_link_dashboard_token_wrong_event(client: AsyncClient, test_incident: Incident):
+    """A dashboard token for a DIFFERENT event must not mint tokens here."""
+    from app.services.tokens import generate_reko_dashboard_token
+
+    foreign_token = generate_reko_dashboard_token(uuid4())
+    response = await client.post(
+        f"/api/reko/generate-link?incident_id={test_incident.id}&dashboard_token={foreign_token}"
+    )
+    assert response.status_code == 401
 
 
 # ============================================
@@ -550,7 +686,7 @@ async def test_serve_photo_viewer_can_access(viewer_client: AsyncClient, test_in
 @pytest.mark.api
 async def test_reko_report_response_structure(client: AsyncClient, test_reko_report: RekoReport):
     """Test that report response contains all expected fields."""
-    response = await client.get(f"/api/reko/{test_reko_report.id}")
+    response = await client.get(f"/api/reko/{test_reko_report.id}?token={test_reko_report.token}")
     assert response.status_code == 200
     data = response.json()
 
@@ -577,10 +713,10 @@ async def test_reko_report_response_structure(client: AsyncClient, test_reko_rep
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_complete_reko_workflow(client: AsyncClient, test_incident: Incident):
+async def test_complete_reko_workflow(client: AsyncClient, editor_client: AsyncClient, test_incident: Incident):
     """Test complete reko workflow: generate link → get form → save draft → submit final."""
-    # Step 1: Generate link
-    link_response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
+    # Step 1: Generate link (an editor does this from the board)
+    link_response = await editor_client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
     assert link_response.status_code == 200
     token = link_response.json()["token"]
 
@@ -622,9 +758,9 @@ async def test_complete_reko_workflow(client: AsyncClient, test_incident: Incide
         assert data["submitted_at"] is not None
         assert data["summary_text"] == "Full assessment complete - fire contained to kitchen"
 
-    # Step 5: Verify report is accessible
+    # Step 5: Verify report is accessible with the form token
     report_id = data["id"]
-    get_response = await client.get(f"/api/reko/{report_id}")
+    get_response = await client.get(f"/api/reko/{report_id}?token={token}")
     assert get_response.status_code == 200
     assert get_response.json()["is_draft"] is False
 
@@ -738,13 +874,13 @@ async def test_submit_reko_report_with_is_relevant_false(
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_get_incident_reports_with_personnel_names(
-    client: AsyncClient,
+    editor_client: AsyncClient,
     test_incident: Incident,
     test_personnel: Personnel,
     reko_report_with_personnel: RekoReport,
 ):
     """Test getting incident reports includes personnel names."""
-    response = await client.get(f"/api/reko/incident/{test_incident.id}/reports")
+    response = await editor_client.get(f"/api/reko/incident/{test_incident.id}/reports")
     assert response.status_code == 200
     reports = response.json()
 
@@ -761,7 +897,7 @@ async def test_get_report_includes_incident_details(
     client: AsyncClient, test_reko_report: RekoReport, test_incident: Incident
 ):
     """Test that getting single report includes full incident details."""
-    response = await client.get(f"/api/reko/{test_reko_report.id}")
+    response = await client.get(f"/api/reko/{test_reko_report.id}?token={test_reko_report.token}")
     assert response.status_code == 200
     data = response.json()
 
@@ -779,7 +915,11 @@ async def test_update_report_includes_incident_details(
 ):
     """Test that PATCH response includes incident details."""
     update_data = {"summary_text": "Updated for testing"}
-    response = await client.patch(f"/api/reko/{test_reko_report.id}", json=update_data)
+    response = await client.patch(
+        f"/api/reko/{test_reko_report.id}",
+        json=update_data,
+        headers={"X-Reko-Token": test_reko_report.token},
+    )
     assert response.status_code == 200
     data = response.json()
 
@@ -916,9 +1056,9 @@ async def test_serve_photo_logs_access(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_link_custom_form_type(client: AsyncClient, test_incident: Incident):
+async def test_generate_link_custom_form_type(editor_client: AsyncClient, test_incident: Incident):
     """Test generating link with custom form type."""
-    response = await client.post(
+    response = await editor_client.post(
         f"/api/reko/generate-link?incident_id={test_incident.id}&form_type=custom"
     )
     assert response.status_code == 200
