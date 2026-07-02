@@ -404,6 +404,9 @@ class ApiClient {
     return this.request<ApiIncident>(`/api/incidents/${id}${queryParams}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+      // Survive page hide/unload: debounced board edits are flushed from a
+      // pagehide handler and must outlive the document (payloads are tiny).
+      keepalive: true,
     })
   }
 

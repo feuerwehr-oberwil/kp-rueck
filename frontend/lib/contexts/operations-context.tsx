@@ -256,6 +256,27 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Flush debounced board edits when the page is hidden or closed — the
+  // debounce window must not silently swallow the last edit (classic case:
+  // drag the last card to ABGESCHLOSSEN, close the laptop). updateIncident
+  // sends keepalive requests, so the flushed PATCH outlives the document.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const batcher = updateBatcherRef.current
+    const flushPending = () => batcher.flushAll()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushPending()
+    }
+    window.addEventListener('pagehide', flushPending)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('pagehide', flushPending)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      // Provider unmount: fire whatever is still pending.
+      flushPending()
+    }
+  }, [])
+
   // Sync version for lightweight polling optimization
   const lastSyncVersionRef = useRef<string | null>(null)
 
@@ -1140,12 +1161,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Location/coordinate edits flush almost immediately (map pin drops need
-      // to persist fast); everything else debounces to coalesce rapid edits.
-      // Criticality is decided on the MERGED batch so a follow-up non-critical
-      // edit can't demote a pending location write back to the slow path.
+      // Location/coordinate edits and STATUS changes flush almost immediately
+      // (map pin drops need to persist fast; status drags must hit the server
+      // before the reorder POST lands and before a possible tab close).
+      // Everything else debounces to coalesce rapid edits. Criticality is
+      // decided on the MERGED batch so a follow-up non-critical edit can't
+      // demote a pending critical write back to the slow path.
       const merged = { ...(updateBatcherRef.current.getPending(operationId) ?? {}), ...updates }
-      const isCriticalUpdate = merged.location !== undefined || merged.coordinates !== undefined
+      const isCriticalUpdate =
+        merged.location !== undefined || merged.coordinates !== undefined || merged.status !== undefined
       if (isCriticalUpdate) criticalUpdateInProgress.current = true
       updateBatcherRef.current.schedule(operationId, updates, isCriticalUpdate ? 50 : 500, performUpdate)
     } else {
