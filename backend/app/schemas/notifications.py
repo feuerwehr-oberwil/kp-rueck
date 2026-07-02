@@ -27,6 +27,7 @@ class NotificationType(str, Enum):
     REKO_SUBMITTED = "reko_submitted"
     REKO_ARRIVED = "reko_arrived"
     TRAINING_EMERGENCY = "training_emergency"
+    VEHICLE_ARRIVED = "vehicle_arrived"
 
 
 class NotificationResponse(BaseModel):
