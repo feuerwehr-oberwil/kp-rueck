@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { apiClient, type ApiIncident, type ApiEvent } from '@/lib/api-client'
@@ -9,7 +9,7 @@ import { useEvent, apiEventToEvent } from '@/lib/contexts/event-context'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone, LogOut } from 'lucide-react'
+import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, MapIcon, RefreshCw, LayoutGrid, Phone, LogOut, WifiOff } from 'lucide-react'
 import { columns, getTimeSince } from '@/lib/kanban-utils'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
@@ -278,6 +278,12 @@ export default function ViewerPage() {
     return () => clearInterval(timer)
   }, [])
 
+  // Whether we ever loaded data successfully. A wall display runs unattended
+  // for hours: a failed *refresh* must keep showing last-known data (with a
+  // stale banner) and keep retrying — only a failed FIRST load may show the
+  // full-screen error, because someone is standing there setting it up.
+  const hasDataRef = useRef(false)
+
   const loadData = useCallback(async () => {
     try {
       const data = token
@@ -285,18 +291,23 @@ export default function ViewerPage() {
         : authEventId
           ? await apiClient.getViewerDataAuthenticated(authEventId)
           : null
+      // Network blips resolve to undefined (soft-degrade): keep the last
+      // state; the stale banner takes over once refreshes stall.
       if (!data) return
       setEvent(data.event)
       setIncidents(data.incidents)
       setError(null)
       setLastRefresh(new Date())
+      hasDataRef.current = true
     } catch (err) {
       console.error('Failed to load viewer data:', err)
-      setError(
-        token
-          ? 'Ungültiger oder abgelaufener Link. Bitte fordern Sie einen neuen Link an.'
-          : 'Daten konnten nicht geladen werden.'
-      )
+      if (!hasDataRef.current) {
+        setError(
+          token
+            ? 'Ungültiger oder abgelaufener Link. Bitte fordern Sie einen neuen Link an.'
+            : 'Daten konnten nicht geladen werden.'
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -381,6 +392,11 @@ export default function ViewerPage() {
     return incidents.filter(inc => inc.status !== 'abschluss')
   }, [incidents])
 
+  // Stale when refreshes have stalled for ~6 poll cycles (5s interval).
+  // Derived from lastRefresh so it covers every failure mode — thrown
+  // errors, network soft-fails, and anything else that stops updates.
+  const isStale = lastRefresh !== null && currentTime.getTime() - lastRefresh.getTime() > 30_000
+
   if (error) {
     return (
       <div className="min-h-full bg-background flex items-center justify-center p-4">
@@ -405,6 +421,21 @@ export default function ViewerPage() {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
+      {/* Stale-data banner: refreshes stalled but last-known data stays up */}
+      {isStale && lastRefresh && (
+        <div
+          role="status"
+          className="flex items-center justify-center gap-2 border-b border-amber-500/30 bg-amber-500/15 px-4 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400"
+        >
+          <WifiOff className="h-4 w-4 flex-shrink-0" />
+          <span>
+            Verbindung gestört — letzter Stand{' '}
+            {lastRefresh.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} Uhr.
+            Aktualisierung läuft weiter.
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
         <div className="flex items-center gap-3 min-w-0 flex-1">
