@@ -13,6 +13,7 @@ export * from './api/types'
 
 import {
   ApiError,
+  NetworkError,
   type ApiAuditLog,
   type BulkCategorySortOrderUpdate,
   type ApiEvent,
@@ -209,8 +210,15 @@ class ApiClient {
               description: "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
             })
           }
-          // Return undefined instead of throwing to avoid Next.js error overlay
-          return undefined as T
+          if (isGetRequest) {
+            // Reads degrade softly: polling callers treat undefined as "no
+            // fresh data" and keep showing the last known state.
+            return undefined as T
+          }
+          // Mutations must fail loudly so the caller's catch (rollback,
+          // toast, refresh) runs — otherwise the optimistic UI state keeps
+          // claiming a write succeeded that was never sent.
+          throw new NetworkError()
         }
 
         // Re-throw other errors (like our API errors)
@@ -1116,7 +1124,9 @@ class ApiClient {
   }
 
   async getSyncConfig(): Promise<SyncConfig> {
-    return this.request<SyncConfig>('/api/sync/config')
+    // Admin-only endpoint, but also probed by the user menu for every user —
+    // suppress the generic error toast and let callers handle 401/403.
+    return this.request<SyncConfig>('/api/sync/config', { skipToast: true })
   }
 
   async updateSyncConfig(config: SyncConfig): Promise<SyncConfig> {
