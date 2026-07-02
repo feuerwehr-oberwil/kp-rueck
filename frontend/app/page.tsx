@@ -1513,6 +1513,7 @@ export default function FireStationDashboard() {
                       showMeldung={showMeldung}
                       printerEnabled={printerEnabled}
                       doubleBookedCrewNames={doubleBookedPersons.names}
+                      canDrag={isEditor}
                     />
                   )
                 })}

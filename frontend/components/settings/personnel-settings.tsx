@@ -99,6 +99,16 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   const loadPersonnel = async () => {
     try {
       const data = await apiClient.getAllPersonnel();
+      if (!data) {
+        // GET degraded to undefined after retries — keep previous state instead
+        // of crashing the sort memos with a non-iterable value.
+        if (personnel.length === 0) {
+          toast.error('Personal konnte nicht geladen werden', {
+            description: 'Bitte Seite neu laden.',
+          });
+        }
+        return;
+      }
       setPersonnel(data);
     } catch (error) {
       console.error('Failed to load personnel:', error);

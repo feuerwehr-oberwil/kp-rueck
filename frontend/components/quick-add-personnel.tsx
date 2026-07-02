@@ -21,6 +21,9 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
 
   const addNewPerson = async () => {
     if (!newPersonName.trim()) return
+    // Guard against double-submit: Enter key can re-trigger while a request
+    // is already in flight (the button is disabled, the keyboard is not).
+    if (addingPerson) return
 
     setAddingPerson(true)
     try {

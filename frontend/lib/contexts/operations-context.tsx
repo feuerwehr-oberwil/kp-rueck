@@ -1169,7 +1169,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         await apiClient.reorderIncidents(selectedEvent.id, orderedIds)
       } catch (err) {
         console.error("Failed to persist column order:", err)
-        // The optimistic order isn't saved — pull the authoritative order back.
+        // The optimistic order isn't saved — tell the user and pull the
+        // authoritative order back (the generic API toast doesn't say the
+        // ORDER was reverted).
+        toast.error("Reihenfolge nicht gespeichert", {
+          description: "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
+        })
         await refreshOperations()
       } finally {
         assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
@@ -1342,6 +1347,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (err) {
         console.error("Failed to assign person:", err)
+        toast.error("Fehler beim Zuweisen", {
+          description: ApiError.isConflictError(err)
+            ? `${personName} wurde gerade von jemand anderem geändert — bitte erneut versuchen.`
+            : `${personName} konnte nicht zugewiesen werden.`,
+        })
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, crew: op.crew.filter(n => n !== personName) } : op))
         )
@@ -1394,6 +1404,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         await apiClient.assignRekoPersonnel(operationId, personId)
       } catch (err) {
         console.error("Failed to assign reko person:", err)
+        toast.error("Fehler beim Zuweisen", {
+          description: `${personName} konnte nicht als Reko zugewiesen werden.`,
+        })
         // Revert on error
         setOperations((ops) =>
           ops.map((op) => {
@@ -1453,6 +1466,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (err) {
         console.error("Failed to assign material:", err)
+        toast.error("Fehler beim Zuweisen", {
+          description: ApiError.isConflictError(err)
+            ? `${material.name} wurde gerade von jemand anderem geändert — bitte erneut versuchen.`
+            : `${material.name} konnte nicht zugewiesen werden.`,
+        })
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, materials: op.materials.filter(id => id !== materialId) } : op))
         )
@@ -1551,6 +1569,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error("Failed to assign vehicle:", err)
+        toast.error("Fehler beim Zuweisen", {
+          description: ApiError.isConflictError(err)
+            ? `${vehicleName} wurde gerade von jemand anderem geändert — bitte erneut versuchen.`
+            : `${vehicleName} konnte nicht zugewiesen werden.`,
+        })
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
         )

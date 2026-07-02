@@ -170,7 +170,16 @@ class ApiClient {
           const isConflict = response.status === 409
           const error = new ApiError(errorMessage, response.status, isConflict)
 
-          // Don't show toast for 401 Unauthorized - user will be redirected to login
+          // A 401 means the session is gone (auth endpoints don't go through
+          // this client). Tell the auth layer so it can clear the user and
+          // show "Sitzung abgelaufen" — without this, every mutation after
+          // token expiry fails silently and optimistic UI just reverts.
+          if (response.status === 401 && typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('kp:session-expired'))
+          }
+
+          // Don't show toast for 401 Unauthorized - the session-expired event
+          // above produces a single, specific message instead
           // Don't show toast for 409 Conflict - let the caller handle it with context-specific message
           if (!skipToast && response.status !== 401 && !isConflict) {
             toast({

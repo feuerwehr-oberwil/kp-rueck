@@ -56,6 +56,8 @@ interface DroppableColumnProps {
   showMeldung?: boolean
   printerEnabled?: boolean
   doubleBookedCrewNames?: Set<string>
+  /** False for viewers: cards render without a drag source (read-only board). */
+  canDrag?: boolean
 }
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -69,7 +71,8 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.showMeldung !== next.showMeldung ||
     prev.printerEnabled !== next.printerEnabled ||
     prev.materials !== next.materials ||
-    prev.doubleBookedCrewNames !== next.doubleBookedCrewNames
+    prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
+    prev.canDrag !== next.canDrag
   ) {
     return false
   }
@@ -143,6 +146,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   showMeldung,
   printerEnabled,
   doubleBookedCrewNames,
+  canDrag,
 }: DroppableColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -302,6 +306,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 showMeldung={showMeldung}
                 printerEnabled={printerEnabled}
                 doubleBookedCrewNames={doubleBookedCrewNames}
+                canDrag={canDrag}
               />
             </div>
           ))}
