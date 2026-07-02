@@ -18,7 +18,7 @@ import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/prag
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
-import { getTimeSince } from "@/lib/kanban-utils"
+import { getTimeSince, ageChipClass } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
@@ -322,15 +322,12 @@ function DraggableOperationBase({
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span className="font-mono text-sm text-muted-foreground">
-                {operation.dispatchTime.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                {operation.dispatchTime.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
             <span
-              className={cn(
-                "font-mono text-xs text-muted-foreground",
-                isOverOneHour && "font-medium"
-              )}
-              title={isOverOneHour ? `In diesem Status seit über 1 Stunde (seit ${timeInStatus.toLocaleString("de-DE")})` : undefined}
+              className={cn("font-mono text-xs", ageChipClass(timeInStatus))}
+              title={isOverOneHour ? `In diesem Status seit über 1 Stunde (seit ${timeInStatus.toLocaleString("de-CH")})` : undefined}
             >
               {getTimeSince(timeInStatus)}
             </span>

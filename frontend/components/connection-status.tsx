@@ -68,7 +68,7 @@ export function ConnectionStatus() {
   }
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    return date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 
   return (

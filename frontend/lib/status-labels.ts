@@ -1,0 +1,20 @@
+/**
+ * Single source of truth for operation-status display labels (audit UI pass).
+ *
+ * Before this module the mobile cards, detail sheet, filter pills and
+ * training controls each carried their own map and drifted ("Unterwegs" vs
+ * "Disponiert", two filter pills both called "Beendet"). Labels follow the
+ * board column titles, which is the vocabulary operators know.
+ */
+
+import type { OperationStatus } from "@/lib/contexts/operations-context"
+
+export const OPERATION_STATUS_LABELS: Record<OperationStatus, string> = {
+  incoming: "Eingegangen",
+  ready: "Reko",
+  rekoDone: "Reko abgeschlossen",
+  enroute: "Disponiert",
+  active: "Einsatz",
+  returning: "Rückfahrt",
+  complete: "Abgeschlossen",
+}

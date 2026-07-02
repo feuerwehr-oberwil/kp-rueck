@@ -191,7 +191,7 @@ export default function DisplayLayout({
           <div className="flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-1">
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-mono text-sm font-semibold tabular-nums">
-              {currentTime ? currentTime.toLocaleTimeString("de-DE") : "--:--:--"}
+              {currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
             </span>
           </div>
         </div>

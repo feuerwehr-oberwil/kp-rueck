@@ -43,6 +43,7 @@ import { toast } from "sonner"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
+import { OPERATION_STATUS_LABELS as statusLabels } from "@/lib/status-labels"
 
 interface MobileIncidentDetailSheetProps {
   operation: Operation | null
@@ -73,15 +74,6 @@ const priorityStyles = {
   },
 } as const
 
-// Status label mapping
-const statusLabels: Record<string, string> = {
-  incoming: "Eingegangen",
-  ready: "Reko",
-  enroute: "Unterwegs",
-  active: "Einsatz",
-  returning: "Rückfahrt",
-  complete: "Beendet",
-}
 
 const statusKeys: OperationStatus[] = ["incoming", "ready", "enroute", "active", "returning", "complete"]
 

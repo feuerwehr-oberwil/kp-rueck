@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useEvent } from '@/lib/contexts/event-context';
-import { useOperations, type Operation, type OperationStatus } from '@/lib/contexts/operations-context';
+import { useOperations, type Operation } from '@/lib/contexts/operations-context';
 import { apiClient } from '@/lib/api-client';
 import { nextAction, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
 import { getTimeSince } from '@/lib/kanban-utils';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
+import { OPERATION_STATUS_LABELS as STATUS_LABELS } from '@/lib/status-labels';
 import {
   Users,
   ClipboardCheck,
@@ -21,17 +22,6 @@ import {
   Flag,
   ChevronRight,
 } from 'lucide-react';
-
-// Short German chip label for each incident status.
-const STATUS_LABELS: Record<OperationStatus, string> = {
-  incoming: 'Eingegangen',
-  ready: 'Reko',
-  rekoDone: 'Reko fertig',
-  enroute: 'Disponiert',
-  active: 'Einsatz',
-  returning: 'Beendet',
-  complete: 'Abgeschlossen',
-};
 
 // Icon per field-action key — keeps the button scannable at a glance.
 const ACTION_ICONS: Record<string, typeof MapPin> = {

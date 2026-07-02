@@ -41,8 +41,8 @@ const statusOrder: Record<string, number> = {
 const statusGroups = [
   { id: "active", label: "Aktiv", statuses: ["active", "enroute"] },
   { id: "incoming", label: "Neu", statuses: ["incoming", "ready", "rekoDone"] },
-  { id: "returning", label: "Beendet", statuses: ["returning"] },
-  { id: "complete", label: "Beendet", statuses: ["complete"] },
+  { id: "returning", label: "Rückfahrt", statuses: ["returning"] },
+  { id: "complete", label: "Abgeschlossen", statuses: ["complete"] },
 ]
 
 export function MobileIncidentListView({

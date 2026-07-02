@@ -8,6 +8,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
+import { OPERATION_STATUS_LABELS as statusLabels } from "@/lib/status-labels"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -31,15 +32,6 @@ const priorityStyles = {
   },
 } as const
 
-// Status label mapping
-const statusLabels: Record<string, string> = {
-  incoming: "Eingegangen",
-  ready: "Reko",
-  enroute: "Unterwegs",
-  active: "Einsatz",
-  returning: "Rückfahrt",
-  complete: "Beendet",
-}
 
 function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIncidentCardProps) {
   const priority = operation.priority || "low"

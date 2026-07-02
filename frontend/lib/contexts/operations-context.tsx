@@ -1308,6 +1308,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setPersonnel((people) =>
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
+        // The chip already snapped back — say why, or the operator assumes it stuck.
+        toast.error("Zuweisung fehlgeschlagen", {
+          description: `${personName} konnte nicht zugewiesen werden.`,
+        })
       } finally {
         assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
       }
@@ -1367,6 +1371,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             return reverted
           })
         )
+        // The reko badge already snapped back — say why, or the operator assumes it stuck.
+        toast.error("Reko-Zuweisung fehlgeschlagen", {
+          description: `${personName} konnte nicht als Reko zugewiesen werden.`,
+        })
       } finally {
         assignmentCooldownTimerRef.current = setTimeout(clearAssignmentCooldown, 500)
       }

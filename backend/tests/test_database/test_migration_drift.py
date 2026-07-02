@@ -66,9 +66,11 @@ def test_migrations_match_models(monkeypatch):
     asyncio.run(_recreate_drift_database())
 
     # alembic/env.py builds its engine from app settings — point it at the
-    # scratch database for the upgrade run.
+    # scratch database for the upgrade run. Config() WITHOUT the ini file:
+    # loading alembic.ini would run fileConfig(), which reconfigures global
+    # logging and silently breaks log-assertion tests later in the run.
     monkeypatch.setattr(app_settings, "database_url", DRIFT_URL)
-    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg = Config()
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     command.upgrade(cfg, "head")
 
