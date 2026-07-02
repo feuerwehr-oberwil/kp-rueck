@@ -69,7 +69,7 @@ class TestAuditMiddleware:
     ):
         """Successful API calls should create audit log."""
         # Make a successful API request
-        response = await authenticated_client.get("/api/incidents")
+        response = await authenticated_client.get(f"/api/incidents/?event_id={uuid4()}")
         assert response.status_code == 200
 
         # Verify audit log created
@@ -87,7 +87,7 @@ class TestAuditMiddleware:
 
         entry = matching[0]
         assert entry.changes_json["method"] == "GET"
-        assert entry.changes_json["path"] == "/api/incidents"
+        assert entry.changes_json["path"] == "/api/incidents/"
         assert "duration_ms" in entry.changes_json
 
     @pytest.mark.asyncio
@@ -156,7 +156,7 @@ class TestAuditMiddleware:
     ):
         """Middleware should capture authenticated user."""
         # Make authenticated request
-        response = await authenticated_client.get("/api/incidents")
+        response = await authenticated_client.get(f"/api/incidents/?event_id={uuid4()}")
         assert response.status_code == 200
 
         # Find the audit log entry
@@ -171,7 +171,7 @@ class TestAuditMiddleware:
         entries = result.scalars().all()
 
         # Find entry for /api/incidents
-        matching = [e for e in entries if e.changes_json.get("path") == "/api/incidents"]
+        matching = [e for e in entries if e.changes_json.get("path") == "/api/incidents/"]
         assert len(matching) >= 1
 
         entry = matching[0]
@@ -183,5 +183,5 @@ class TestAuditMiddleware:
         # Mock log_action to raise exception
         with patch("app.middleware.audit.log_action", side_effect=Exception("Database error")):
             # Request should still succeed despite audit logging failure
-            response = await authenticated_client.get("/api/incidents")
+            response = await authenticated_client.get(f"/api/incidents/?event_id={uuid4()}")
             assert response.status_code == 200  # Request still works

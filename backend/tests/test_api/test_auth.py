@@ -116,14 +116,14 @@ async def test_login_nonexistent_user(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_protected_route_requires_auth(client: AsyncClient):
     """Test protected routes reject unauthenticated requests."""
-    response = await client.get("/api/incidents")
+    response = await client.get(f"/api/incidents/?event_id={uuid4()}")
     assert response.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_protected_route_with_auth(authenticated_editor_client: AsyncClient):
     """Test protected routes allow authenticated requests."""
-    response = await authenticated_editor_client.get("/api/incidents")
+    response = await authenticated_editor_client.get(f"/api/incidents/?event_id={uuid4()}")
     assert response.status_code == 200
 
 
@@ -135,7 +135,7 @@ async def test_protected_route_with_auth(authenticated_editor_client: AsyncClien
 @pytest.mark.asyncio
 async def test_viewer_can_read(viewer_client: AsyncClient):
     """Test viewers can read data."""
-    response = await viewer_client.get("/api/incidents")
+    response = await viewer_client.get(f"/api/incidents/?event_id={uuid4()}")
     assert response.status_code == 200
 
 
