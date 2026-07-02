@@ -44,6 +44,358 @@ def get_admin_password() -> str:
     return generated_password
 
 
+def get_shared_account_password(env_var: str, dev_default: str) -> str:
+    """
+    Password for the shared editor/viewer accounts.
+
+    Security: in production the env var must be explicitly set — same rule as
+    ADMIN_SEED_PASSWORD. Otherwise a fresh/restored DB would go live with
+    internet-facing editor/editor and viewer/viewer logins (audit point 15).
+    """
+    is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+    password = os.getenv(env_var, "")
+
+    if password:
+        if len(password) < 12:
+            raise ValueError(f"{env_var} must be at least 12 characters long")
+        return password
+
+    if is_production:
+        raise ValueError(
+            f"{env_var} environment variable is required in production. "
+            "Generate a strong password and set it in Railway variables."
+        )
+
+    return dev_default
+
+
+async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials) -> None:
+    """Seed sample events, incidents, assignments, special functions, and
+    status transitions - development fixtures only.
+
+    Never run in production: on a fresh or restored DB the non-training
+    sample incidents would appear as REAL operations on the board.
+    """
+    # ============================================
+    # 6. SEED SAMPLE EVENTS
+    # ============================================
+    print("Creating sample events...")
+
+    # Create operational event
+    operational_event = models.Event(
+        id=uuid4(),
+        name="Einsätze 26.10.2025",
+        training_flag=False,
+    )
+    db.add(operational_event)
+
+    # Create training event
+    training_event = models.Event(
+        id=uuid4(),
+        name="Übung 26.10.2025",
+        training_flag=True,
+    )
+    db.add(training_event)
+
+    await db.flush()  # Get event IDs for incidents
+
+    # ============================================
+    # 7. SEED SAMPLE INCIDENTS
+    # ============================================
+    print("Creating sample incidents...")
+    now = datetime.now()
+
+    incidents_data = [
+        # Water-focused incidents (main focus)
+        {
+            "title": "Wasser im Keller Einfamilienhaus",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Mühleweg 23, Musterstadt",
+            "location_lat": 47.5596,
+            "location_lng": 7.5886,
+            "status": "einsatz",
+            "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
+            "created_by": admin_user.id,
+            "event_id": operational_event.id,
+        },
+        {
+            "title": "Überflutung Tiefgarage",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Hauptstrasse 95, Musterstadt",
+            "location_lat": 47.5610,
+            "location_lng": 7.5900,
+            "status": "disponiert",
+            "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
+            "created_by": admin_user.id,
+            "event_id": operational_event.id,
+        },
+        {
+            "title": "Wasserschaden Mehrfamilienhaus",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Bahnhofstrasse 45, Musterstadt",
+            "location_lat": 47.5580,
+            "location_lng": 7.5870,
+            "status": "eingegangen",
+            "description": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. 3 Stockwerke betroffen.",
+            "created_by": admin_user.id,
+            "event_id": operational_event.id,
+        },
+        {
+            "title": "Keller auspumpen Gewerbebetrieb",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Gewerbestrasse 12, Musterstadt",
+            "location_lat": 47.5620,
+            "location_lng": 7.5920,
+            "status": "reko",
+            "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
+            "created_by": admin_user.id,
+            "event_id": operational_event.id,
+        },
+        # Diverse other incidents
+        {
+            "title": "Baum auf Strasse",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Waldstrasse 78, Musterstadt",
+            "location_lat": 47.5630,
+            "location_lng": 7.5850,
+            "status": "einsatz",
+            "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
+            "created_by": admin_user.id,
+            "event_id": operational_event.id,
+        },
+        {
+            "title": "Ölspur Industriegebiet",
+            "type": "oelwehr",
+            "priority": "low",
+            "location_address": "Industriestrasse 8, Musterstadt",
+            "location_lat": 47.5570,
+            "location_lng": 7.5910,
+            "status": "abschluss",
+            "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
+            "created_by": admin_user.id,
+            "completed_at": now - timedelta(minutes=35),
+            "event_id": operational_event.id,
+        },
+        {
+            "title": "Dachziegel lose nach Sturm",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Kirchgasse 5, Musterstadt",
+            "location_lat": 47.5600,
+            "location_lng": 7.5895,
+            "status": "abschluss",
+            "description": "Mehrere Dachziegel durch Sturmböen gelöst. Absturzgefahr auf Gehweg. Bereich abgesperrt.",
+            "created_by": admin_user.id,
+            "completed_at": now - timedelta(minutes=55),
+            "event_id": operational_event.id,
+        },
+        # Training incident
+        {
+            "title": "Übung: Keller auspumpen",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Übungsgelände Feuerwehr",
+            "location_lat": 47.5605,
+            "location_lng": 7.5890,
+            "status": "reko",
+            "description": "Übung Wasserschadeneinsatz mit Tauchpumpen und Wassersaugern.",
+            "created_by": admin_user.id,
+            "event_id": training_event.id,
+        },
+    ]
+
+    incidents = []
+    for incident_data in incidents_data:
+        incident = models.Incident(id=uuid4(), **incident_data)
+        db.add(incident)
+        incidents.append(incident)
+
+    await db.flush()  # Get incident IDs for assignments
+
+    # ============================================
+    # 8. SEED INCIDENT ASSIGNMENTS
+    # ============================================
+    print("Creating incident assignments...")
+
+    # Assign resources to first incident (Wohnungsbrand)
+    assignments = [
+        models.IncidentAssignment(
+            id=uuid4(),
+            incident_id=incidents[0].id,
+            resource_type="vehicle",
+            resource_id=vehicles[0].id,  # TLF 1
+            assigned_by=admin_user.id,
+        ),
+        models.IncidentAssignment(
+            id=uuid4(),
+            incident_id=incidents[0].id,
+            resource_type="personnel",
+            resource_id=personnel[0].id,  # M. Schmidt
+            assigned_by=admin_user.id,
+        ),
+        models.IncidentAssignment(
+            id=uuid4(),
+            incident_id=incidents[0].id,
+            resource_type="personnel",
+            resource_id=personnel[2].id,  # T. Weber
+            assigned_by=admin_user.id,
+        ),
+        models.IncidentAssignment(
+            id=uuid4(),
+            incident_id=incidents[0].id,
+            resource_type="material",
+            resource_id=materials[0].id,  # Wasserpumpe
+            assigned_by=admin_user.id,
+        ),
+    ]
+
+    # Assign resources to second incident (Verkehrsunfall)
+    assignments.extend(
+        [
+            models.IncidentAssignment(
+                id=uuid4(),
+                incident_id=incidents[1].id,
+                resource_type="vehicle",
+                resource_id=vehicles[3].id,  # Pio
+                assigned_by=admin_user.id,
+            ),
+            models.IncidentAssignment(
+                id=uuid4(),
+                incident_id=incidents[1].id,
+                resource_type="personnel",
+                resource_id=personnel[4].id,  # K. Wagner
+                assigned_by=admin_user.id,
+            ),
+            models.IncidentAssignment(
+                id=uuid4(),
+                incident_id=incidents[1].id,
+                resource_type="material",
+                resource_id=materials[5].id,  # Hydraulisches Rettungsgerät
+                assigned_by=admin_user.id,
+            ),
+        ]
+    )
+
+    for assignment in assignments:
+        db.add(assignment)
+
+    # ============================================
+    # 9. SEED EVENT SPECIAL FUNCTIONS
+    # ============================================
+    print("Creating special function assignments...")
+
+    # Assign drivers to vehicles for the operational event
+    special_functions = [
+        # Drivers for operational event
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=operational_event.id,
+            personnel_id=personnel[0].id,  # Imhof Sebastiaan (Offizier with F tag)
+            function_type="driver",
+            vehicle_id=vehicles[0].id,  # TLF
+            assigned_by=admin_user.id,
+        ),
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=operational_event.id,
+            personnel_id=personnel[1].id,  # Weber Martin (Offizier with F tag)
+            function_type="driver",
+            vehicle_id=vehicles[1].id,  # Pio
+            assigned_by=admin_user.id,
+        ),
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=operational_event.id,
+            personnel_id=personnel[7].id,  # Lehmann Bastian (Wachtmeister with F tag)
+            function_type="driver",
+            vehicle_id=vehicles[2].id,  # Mowa
+            assigned_by=admin_user.id,
+        ),
+        # Reko assignment for operational event
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=operational_event.id,
+            personnel_id=personnel[3].id,  # Baumann Michael (Offizier)
+            function_type="reko",
+            vehicle_id=None,
+            assigned_by=admin_user.id,
+        ),
+        # Magazin assignment for operational event
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=operational_event.id,
+            personnel_id=personnel[15].id,  # Arnold Samuel (Wachtmeister)
+            function_type="magazin",
+            vehicle_id=None,
+            assigned_by=admin_user.id,
+        ),
+        # Different assignments for training event
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=training_event.id,
+            personnel_id=personnel[4].id,  # Leuenberger Luca (Offizier with F tag)
+            function_type="driver",
+            vehicle_id=vehicles[0].id,  # TLF (different driver than operational)
+            assigned_by=admin_user.id,
+        ),
+        models.EventSpecialFunction(
+            id=uuid4(),
+            event_id=training_event.id,
+            personnel_id=personnel[5].id,  # Steiner Lukas (Offizier)
+            function_type="reko",
+            vehicle_id=None,
+            assigned_by=admin_user.id,
+        ),
+    ]
+
+    for special_func in special_functions:
+        db.add(special_func)
+
+    # ============================================
+    # 10. SEED STATUS TRANSITIONS
+    # ============================================
+    print("Creating status transitions...")
+
+    # Add some status transitions for completed incident
+    transitions = [
+        models.StatusTransition(
+            id=uuid4(),
+            incident_id=incidents[2].id,
+            from_status="eingegangen",
+            to_status="disponiert",
+            user_id=admin_user.id,
+            notes="Fahrzeug alarmiert",
+        ),
+        models.StatusTransition(
+            id=uuid4(),
+            incident_id=incidents[2].id,
+            from_status="disponiert",
+            to_status="einsatz",
+            user_id=admin_user.id,
+            notes="Vor Ort eingetroffen",
+        ),
+        models.StatusTransition(
+            id=uuid4(),
+            incident_id=incidents[2].id,
+            from_status="einsatz",
+            to_status="abschluss",
+            user_id=admin_user.id,
+            notes="Fehlalarm bestätigt",
+        ),
+    ]
+
+    for transition in transitions:
+        db.add(transition)
+
+    print(f"  - Created {len(incidents)} sample incidents, {len(assignments)} assignments, "
+          f"{len(special_functions)} special functions, {len(transitions)} transitions (dev only)")
+
+
 async def seed_database() -> None:
     """Seed the database with initial data.
 
@@ -108,7 +460,7 @@ async def seed_database() -> None:
             db.add(admin_user)
 
             # Create shared editor account for teams
-            editor_password = os.getenv("EDITOR_PASSWORD", "editor")  # Default for dev, override in prod
+            editor_password = get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
             editor_password_hash = bcrypt.hashpw(editor_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
             editor_user = models.User(
@@ -122,7 +474,7 @@ async def seed_database() -> None:
             db.add(editor_user)
 
             # Create shared read-only viewer account for shared/kiosk PCs
-            viewer_password = os.getenv("VIEWER_PASSWORD", "viewer")  # Default for dev, override in prod
+            viewer_password = get_shared_account_password("VIEWER_PASSWORD", dev_default="viewer")
             viewer_password_hash = bcrypt.hashpw(viewer_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
             viewer_user = models.User(
@@ -371,321 +723,13 @@ async def seed_database() -> None:
                 db.add(trailer)
                 materials.append(trailer)
 
-            # ============================================
-            # 6. SEED SAMPLE EVENTS
-            # ============================================
-            print("Creating sample events...")
-
-            # Create operational event
-            operational_event = models.Event(
-                id=uuid4(),
-                name="Einsätze 26.10.2025",
-                training_flag=False,
-            )
-            db.add(operational_event)
-
-            # Create training event
-            training_event = models.Event(
-                id=uuid4(),
-                name="Übung 26.10.2025",
-                training_flag=True,
-            )
-            db.add(training_event)
-
-            await db.flush()  # Get event IDs for incidents
-
-            # ============================================
-            # 7. SEED SAMPLE INCIDENTS
-            # ============================================
-            print("Creating sample incidents...")
-            now = datetime.now()
-
-            incidents_data = [
-                # Water-focused incidents (main focus)
-                {
-                    "title": "Wasser im Keller Einfamilienhaus",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Mühleweg 23, Musterstadt",
-                    "location_lat": 47.5596,
-                    "location_lng": 7.5886,
-                    "status": "einsatz",
-                    "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
-                    "created_by": admin_user.id,
-                    "event_id": operational_event.id,
-                },
-                {
-                    "title": "Überflutung Tiefgarage",
-                    "type": "elementarereignis",
-                    "priority": "high",
-                    "location_address": "Hauptstrasse 95, Musterstadt",
-                    "location_lat": 47.5610,
-                    "location_lng": 7.5900,
-                    "status": "disponiert",
-                    "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
-                    "created_by": admin_user.id,
-                    "event_id": operational_event.id,
-                },
-                {
-                    "title": "Wasserschaden Mehrfamilienhaus",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Bahnhofstrasse 45, Musterstadt",
-                    "location_lat": 47.5580,
-                    "location_lng": 7.5870,
-                    "status": "eingegangen",
-                    "description": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. 3 Stockwerke betroffen.",
-                    "created_by": admin_user.id,
-                    "event_id": operational_event.id,
-                },
-                {
-                    "title": "Keller auspumpen Gewerbebetrieb",
-                    "type": "elementarereignis",
-                    "priority": "high",
-                    "location_address": "Gewerbestrasse 12, Musterstadt",
-                    "location_lat": 47.5620,
-                    "location_lng": 7.5920,
-                    "status": "reko",
-                    "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
-                    "created_by": admin_user.id,
-                    "event_id": operational_event.id,
-                },
-                # Diverse other incidents
-                {
-                    "title": "Baum auf Strasse",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Waldstrasse 78, Musterstadt",
-                    "location_lat": 47.5630,
-                    "location_lng": 7.5850,
-                    "status": "einsatz",
-                    "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
-                    "created_by": admin_user.id,
-                    "event_id": operational_event.id,
-                },
-                {
-                    "title": "Ölspur Industriegebiet",
-                    "type": "oelwehr",
-                    "priority": "low",
-                    "location_address": "Industriestrasse 8, Musterstadt",
-                    "location_lat": 47.5570,
-                    "location_lng": 7.5910,
-                    "status": "abschluss",
-                    "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
-                    "created_by": admin_user.id,
-                    "completed_at": now - timedelta(minutes=35),
-                    "event_id": operational_event.id,
-                },
-                {
-                    "title": "Dachziegel lose nach Sturm",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Kirchgasse 5, Musterstadt",
-                    "location_lat": 47.5600,
-                    "location_lng": 7.5895,
-                    "status": "abschluss",
-                    "description": "Mehrere Dachziegel durch Sturmböen gelöst. Absturzgefahr auf Gehweg. Bereich abgesperrt.",
-                    "created_by": admin_user.id,
-                    "completed_at": now - timedelta(minutes=55),
-                    "event_id": operational_event.id,
-                },
-                # Training incident
-                {
-                    "title": "Übung: Keller auspumpen",
-                    "type": "elementarereignis",
-                    "priority": "medium",
-                    "location_address": "Übungsgelände Feuerwehr",
-                    "location_lat": 47.5605,
-                    "location_lng": 7.5890,
-                    "status": "reko",
-                    "description": "Übung Wasserschadeneinsatz mit Tauchpumpen und Wassersaugern.",
-                    "created_by": admin_user.id,
-                    "event_id": training_event.id,
-                },
-            ]
-
-            incidents = []
-            for incident_data in incidents_data:
-                incident = models.Incident(id=uuid4(), **incident_data)
-                db.add(incident)
-                incidents.append(incident)
-
-            await db.flush()  # Get incident IDs for assignments
-
-            # ============================================
-            # 8. SEED INCIDENT ASSIGNMENTS
-            # ============================================
-            print("Creating incident assignments...")
-
-            # Assign resources to first incident (Wohnungsbrand)
-            assignments = [
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[0].id,
-                    resource_type="vehicle",
-                    resource_id=vehicles[0].id,  # TLF 1
-                    assigned_by=admin_user.id,
-                ),
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[0].id,
-                    resource_type="personnel",
-                    resource_id=personnel[0].id,  # M. Schmidt
-                    assigned_by=admin_user.id,
-                ),
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[0].id,
-                    resource_type="personnel",
-                    resource_id=personnel[2].id,  # T. Weber
-                    assigned_by=admin_user.id,
-                ),
-                models.IncidentAssignment(
-                    id=uuid4(),
-                    incident_id=incidents[0].id,
-                    resource_type="material",
-                    resource_id=materials[0].id,  # Wasserpumpe
-                    assigned_by=admin_user.id,
-                ),
-            ]
-
-            # Assign resources to second incident (Verkehrsunfall)
-            assignments.extend(
-                [
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[1].id,
-                        resource_type="vehicle",
-                        resource_id=vehicles[3].id,  # Pio
-                        assigned_by=admin_user.id,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[1].id,
-                        resource_type="personnel",
-                        resource_id=personnel[4].id,  # K. Wagner
-                        assigned_by=admin_user.id,
-                    ),
-                    models.IncidentAssignment(
-                        id=uuid4(),
-                        incident_id=incidents[1].id,
-                        resource_type="material",
-                        resource_id=materials[5].id,  # Hydraulisches Rettungsgerät
-                        assigned_by=admin_user.id,
-                    ),
-                ]
-            )
-
-            for assignment in assignments:
-                db.add(assignment)
-
-            # ============================================
-            # 9. SEED EVENT SPECIAL FUNCTIONS
-            # ============================================
-            print("Creating special function assignments...")
-
-            # Assign drivers to vehicles for the operational event
-            special_functions = [
-                # Drivers for operational event
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=operational_event.id,
-                    personnel_id=personnel[0].id,  # Imhof Sebastiaan (Offizier with F tag)
-                    function_type="driver",
-                    vehicle_id=vehicles[0].id,  # TLF
-                    assigned_by=admin_user.id,
-                ),
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=operational_event.id,
-                    personnel_id=personnel[1].id,  # Weber Martin (Offizier with F tag)
-                    function_type="driver",
-                    vehicle_id=vehicles[1].id,  # Pio
-                    assigned_by=admin_user.id,
-                ),
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=operational_event.id,
-                    personnel_id=personnel[7].id,  # Lehmann Bastian (Wachtmeister with F tag)
-                    function_type="driver",
-                    vehicle_id=vehicles[2].id,  # Mowa
-                    assigned_by=admin_user.id,
-                ),
-                # Reko assignment for operational event
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=operational_event.id,
-                    personnel_id=personnel[3].id,  # Baumann Michael (Offizier)
-                    function_type="reko",
-                    vehicle_id=None,
-                    assigned_by=admin_user.id,
-                ),
-                # Magazin assignment for operational event
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=operational_event.id,
-                    personnel_id=personnel[15].id,  # Arnold Samuel (Wachtmeister)
-                    function_type="magazin",
-                    vehicle_id=None,
-                    assigned_by=admin_user.id,
-                ),
-                # Different assignments for training event
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=training_event.id,
-                    personnel_id=personnel[4].id,  # Leuenberger Luca (Offizier with F tag)
-                    function_type="driver",
-                    vehicle_id=vehicles[0].id,  # TLF (different driver than operational)
-                    assigned_by=admin_user.id,
-                ),
-                models.EventSpecialFunction(
-                    id=uuid4(),
-                    event_id=training_event.id,
-                    personnel_id=personnel[5].id,  # Steiner Lukas (Offizier)
-                    function_type="reko",
-                    vehicle_id=None,
-                    assigned_by=admin_user.id,
-                ),
-            ]
-
-            for special_func in special_functions:
-                db.add(special_func)
-
-            # ============================================
-            # 10. SEED STATUS TRANSITIONS
-            # ============================================
-            print("Creating status transitions...")
-
-            # Add some status transitions for completed incident
-            transitions = [
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[2].id,
-                    from_status="eingegangen",
-                    to_status="disponiert",
-                    user_id=admin_user.id,
-                    notes="Fahrzeug alarmiert",
-                ),
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[2].id,
-                    from_status="disponiert",
-                    to_status="einsatz",
-                    user_id=admin_user.id,
-                    notes="Vor Ort eingetroffen",
-                ),
-                models.StatusTransition(
-                    id=uuid4(),
-                    incident_id=incidents[2].id,
-                    from_status="einsatz",
-                    to_status="abschluss",
-                    user_id=admin_user.id,
-                    notes="Fehlalarm bestätigt",
-                ),
-            ]
-
-            for transition in transitions:
-                db.add(transition)
+            # Sample events/incidents are dev-only fixtures. On a fresh or
+            # restored production DB they would appear as REAL operations on
+            # the board - skip them there (audit point 15).
+            if os.getenv("RAILWAY_ENVIRONMENT") is not None:
+                print("Production environment - skipping sample events/incidents.")
+            else:
+                await _seed_sample_operations(db, admin_user, vehicles, personnel, materials)
 
             # ============================================
             # COMMIT ALL CHANGES
@@ -706,11 +750,6 @@ async def seed_database() -> None:
             print(f"  - Created {len(vehicles)} vehicles")
             print(f"  - Created {len(personnel)} personnel")
             print(f"  - Created {len(materials)} materials")
-            print("  - Created 2 events (1 training, 1 operational)")
-            print(f"  - Created {len(incidents)} incidents (1 training, 4 operational)")
-            print(f"  - Created {len(assignments)} resource assignments")
-            print(f"  - Created {len(special_functions)} special function assignments (drivers, reko, magazin)")
-            print(f"  - Created {len(transitions)} status transitions")
 
         except Exception as e:
             print(f"❌ Error seeding database: {e}")
