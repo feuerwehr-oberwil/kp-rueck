@@ -22,7 +22,7 @@ from sqlalchemy.orm import selectinload
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings as app_settings
-from ..crud.print_jobs import build_assignment_payload
+from ..crud.print_jobs import build_assignment_payload, requeue_lost_jobs
 from ..database import get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import settings as settings_service
@@ -492,6 +492,9 @@ async def get_pending_jobs(
     PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
     """
     _touch_agent_heartbeat()
+    # Reaper: bring back jobs stuck in 'printing' (agent died mid-print) or
+    # 'failed' with attempts left — otherwise those slips vanish silently.
+    await requeue_lost_jobs(db)
     result = await db.execute(
         select(PrintJob).where(PrintJob.status == "pending").order_by(PrintJob.created_at).limit(limit)
     )

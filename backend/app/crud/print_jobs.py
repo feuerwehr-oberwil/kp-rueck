@@ -2,9 +2,10 @@
 
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,6 +23,57 @@ logger = logging.getLogger(__name__)
 
 # Don't re-print the same incident within this window
 DEDUP_WINDOW_SECONDS = 30
+
+# Reaper thresholds: a claimed job prints in seconds, so a 'printing' job this
+# old means the agent died mid-print (power loss, crash) and no completion
+# will ever arrive. Failed jobs (paper out, cable pulled) retry after a short
+# pause. Both are capped so a broken printer doesn't loop forever.
+STALE_PRINTING_TIMEOUT_SECONDS = 120
+FAILED_RETRY_DELAY_SECONDS = 30
+MAX_PRINT_ATTEMPTS = 3
+
+
+async def requeue_lost_jobs(db: AsyncSession) -> int:
+    """Requeue jobs that would otherwise be lost forever (audit point 13).
+
+    - 'printing' older than the stale timeout → back to 'pending'
+      (the claim consumed an attempt, so retry_count increments).
+    - 'failed' with attempts left → back to 'pending' after a short delay
+      (retry_count was already incremented on failure).
+
+    Called from the agent's pending-jobs poll; returns the number requeued.
+    Uses plain UPDATEs so concurrent polls can't double-requeue.
+    """
+    now = datetime.now(UTC)
+    requeued = 0
+
+    stale_result = await db.execute(
+        sa_update(PrintJob)
+        .where(
+            PrintJob.status == "printing",
+            PrintJob.claimed_at < now - timedelta(seconds=STALE_PRINTING_TIMEOUT_SECONDS),
+            PrintJob.retry_count < MAX_PRINT_ATTEMPTS,
+        )
+        .values(status="pending", claimed_at=None, retry_count=PrintJob.retry_count + 1)
+    )
+    requeued += stale_result.rowcount or 0
+
+    failed_result = await db.execute(
+        sa_update(PrintJob)
+        .where(
+            PrintJob.status == "failed",
+            PrintJob.completed_at < now - timedelta(seconds=FAILED_RETRY_DELAY_SECONDS),
+            PrintJob.retry_count < MAX_PRINT_ATTEMPTS,
+        )
+        .values(status="pending", claimed_at=None, completed_at=None)
+    )
+    requeued += failed_result.rowcount or 0
+
+    if requeued:
+        await db.commit()
+        logger.info("Requeued %d lost print job(s)", requeued)
+
+    return requeued
 
 
 async def queue_assignment_print(
