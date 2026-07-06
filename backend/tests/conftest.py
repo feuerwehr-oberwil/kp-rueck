@@ -1,5 +1,6 @@
 """Pytest configuration and fixtures for testing."""
 
+import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -25,8 +26,12 @@ from app.models import (
     Vehicle,
 )
 
-# Test database URL - use a separate test database
-TEST_DATABASE_URL = "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test"
+# Test database URL - use a separate test database. Default targets the host-mapped
+# port; override via env when running inside the dev container (where the db service
+# is reachable as postgres:5432 instead of localhost:5433).
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test"
+)
 
 # Standard test password (>= 12 chars to satisfy MIN_PASSWORD_LENGTH)
 TEST_PASSWORD = "testpassword1234"
