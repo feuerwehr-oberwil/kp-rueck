@@ -7,9 +7,9 @@ two rules, both opt-in behind ``gps.automation_enabled`` (default OFF):
   incident location, advance the incident ``disponiert → einsatz``. By DEFAULT this only
   PROMPTS the operator to confirm (``gps_arrival_prompt``); silent auto-advance is an
   explicit opt-in via ``gps.rule_arrival_silent``. The anti-jitter guards are hard either
-  way: ``N`` consecutive FRESH fixes over ``>= 60 s``, speed gate, stale/404 fixes are
-  ignored and RESET the debounce counter, only from status exactly ``disponiert``,
-  one-shot per incident, fully reversible (an operator can drag it back).
+  way: ``N`` consecutive FRESH fixes spanning ``>= gps.min_dwell_seconds``, speed gate,
+  stale/404 fixes are ignored and RESET the debounce counter, only from status exactly
+  ``disponiert``, one-shot per incident, fully reversible (an operator can drag it back).
 
 - **Rule B — Return to magazin (CONFIRM-release):** when an assigned vehicle's device
   enters the magazin geofence (confirmed with the same guards), PROMPT the operator
@@ -77,6 +77,7 @@ class _AutomationConfig:
     station_radius_m: float
     debounce_count: int
     freshness_seconds: float
+    min_dwell_seconds: float
     speed_gate_kmh: float
 
 
@@ -155,9 +156,10 @@ async def _load_config(db: AsyncSession) -> _AutomationConfig:
     station_lng = _parse_float(await get_setting_value(db, "gps.station_lng", ""))
     station_radius = _parse_float(await get_setting_value(db, "gps.station_radius_meters", "100")) or 100.0
 
-    debounce_count = int(_parse_float(await get_setting_value(db, "gps.debounce_count", "3")) or 3)
-    freshness = _parse_float(await get_setting_value(db, "gps.freshness_seconds", "60")) or 60.0
-    speed_gate = _parse_float(await get_setting_value(db, "gps.speed_gate_kmh", "5")) or 5.0
+    debounce_count = int(_parse_float(await get_setting_value(db, "gps.debounce_count", "2")) or 2)
+    freshness = _parse_float(await get_setting_value(db, "gps.freshness_seconds", "180")) or 180.0
+    min_dwell = _parse_float(await get_setting_value(db, "gps.min_dwell_seconds", "40")) or 40.0
+    speed_gate = _parse_float(await get_setting_value(db, "gps.speed_gate_kmh", "10")) or 10.0
 
     return _AutomationConfig(
         enabled=enabled,
@@ -170,6 +172,7 @@ async def _load_config(db: AsyncSession) -> _AutomationConfig:
         station_radius_m=station_radius,
         debounce_count=max(1, debounce_count),
         freshness_seconds=max(1.0, freshness),
+        min_dwell_seconds=max(0.0, min_dwell),
         speed_gate_kmh=max(0.0, speed_gate),
     )
 
@@ -211,10 +214,15 @@ def _advance_debounce(store: dict, key, fix_at: datetime, cfg: _AutomationConfig
     """Register a confirming fix (at GPS time ``fix_at``) and report whether to fire.
 
     Returns True exactly once when N consecutive confirming fixes have accumulated over a
-    GPS-observed span of >= freshness_seconds AND the one-shot latch is still open. The
+    GPS-observed span of >= min_dwell_seconds AND the one-shot latch is still open. The
     caller resets the debounce on any non-confirming/missing/stale fix. A fix that is not
     strictly newer than the last counted one is ignored (no double-count of a repeated
     position from two ticks before the tracker reported a new fix).
+
+    Dwell (how long the vehicle must demonstrably stand there) is deliberately a separate
+    knob from freshness (how stale a fix may be before it resets the counter): parked
+    Traccar clients throttle to one fix every ~30-100 s, so a tight freshness window
+    would keep resetting the counter on a vehicle that IS standing at the target.
     """
     db = store.get(key)
     if db is None:
@@ -237,7 +245,7 @@ def _advance_debounce(store: dict, key, fix_at: datetime, cfg: _AutomationConfig
     db.count += 1
 
     span = (db.last_fix_at - db.first_fix_at).total_seconds()
-    if db.count >= cfg.debounce_count and span >= cfg.freshness_seconds:
+    if db.count >= cfg.debounce_count and span >= cfg.min_dwell_seconds:
         db.fired = True
         return True
     return False

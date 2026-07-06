@@ -81,10 +81,14 @@ DEFAULT_SETTINGS = {
     "gps.station_lng": "",  # Magazin/home-base longitude (Rule B geofence centre)
     "gps.station_radius_meters": "100",  # Tight radius so passing vehicles don't trigger
     # Tuning constants (shared by both rules). Arrival radius reuses geofence_radius_meters.
+    # Defaults tuned against real Traccar tracks (2026-07-06 field test): parked clients
+    # throttle to one fix every ~30-100 s, so freshness must be generous while the
+    # actual "standing there" requirement lives in min_dwell_seconds.
     "geofence_radius_meters": "200",  # Rule A: arrival radius (m) around the incident (edited in Settings → GPS)
-    "gps.debounce_count": "3",  # N consecutive confirming fixes required
-    "gps.freshness_seconds": "60",  # Ignore fixes older than this; also the min enter-duration
-    "gps.speed_gate_kmh": "5",  # Treat as stationary only below this speed
+    "gps.debounce_count": "2",  # N consecutive confirming fixes required
+    "gps.freshness_seconds": "180",  # Ignore fixes older than this (staleness tolerance only)
+    "gps.min_dwell_seconds": "40",  # Confirming fixes must span at least this long
+    "gps.speed_gate_kmh": "10",  # Treat as stationary only below this speed
 }
 
 

@@ -61,6 +61,7 @@ async def _enable_arrival(db: AsyncSession, *, silent: bool = True) -> None:
     await _set(db, "geofence_radius_meters", "200")
     await _set(db, "gps.debounce_count", "3")
     await _set(db, "gps.freshness_seconds", "60")
+    await _set(db, "gps.min_dwell_seconds", "60")
     await _set(db, "gps.speed_gate_kmh", "5")
 
 
@@ -72,6 +73,7 @@ async def _enable_return(db: AsyncSession) -> None:
     await _set(db, "gps.station_radius_meters", "120")
     await _set(db, "gps.debounce_count", "3")
     await _set(db, "gps.freshness_seconds", "60")
+    await _set(db, "gps.min_dwell_seconds", "60")
     await _set(db, "gps.speed_gate_kmh", "5")
 
 
@@ -312,6 +314,41 @@ async def test_training_event_included(
     for _ in range(4):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=40)
     assert await _status(db_session, disponiert_incident.id) == "einsatz"
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+async def test_sparse_parked_fixes_still_fire(
+    bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+):
+    """Regression (2026-07-06 field test): a parked Traccar client throttles to one fix
+    every ~30-100s. With freshness decoupled from dwell, ticks that re-see the SAME
+    still-fresh fix must neither reset the counter nor double-count, and two fixes 90s
+    apart must satisfy count=2/dwell=40."""
+    vehicle, assignment = assigned_vehicle
+    await _set(db_session, "gps.automation_enabled", "true")
+    await _set(db_session, "gps.rule_return_enabled", "true")
+    await _set(db_session, "gps.station_lat", str(STATION_LAT))
+    await _set(db_session, "gps.station_lng", str(STATION_LNG))
+    await _set(db_session, "gps.station_radius_meters", "120")
+    await _set(db_session, "gps.debounce_count", "2")
+    await _set(db_session, "gps.freshness_seconds", "180")
+    await _set(db_session, "gps.min_dwell_seconds", "40")
+    await _set(db_session, "gps.speed_gate_kmh", "10")
+
+    clock = _Clock(datetime.now(UTC))
+    first_fix = _fresh_at_station(clock.now())
+
+    # Fix 1 at t0; the tracker then goes quiet. The tick at t0+45 re-sees the SAME fix
+    # (still fresh under 180s) — count must stay at 1, no reset, no double-count.
+    await _tick(db_session, clock, first_fix, advance=45)
+    await _tick(db_session, clock, first_fix, advance=35)
+    bc_msg.assert_not_called()
+
+    # Fix 2 arrives at t0+80 (past dwell=40) and the next tick sees it -> fires.
+    await _tick(db_session, clock, _fresh_at_station(clock.now()))
+    bc_msg.assert_awaited_once()
+    assert bc_msg.await_args.args[0]["type"] == "gps_release_prompt"
 
 
 # ---------------------------------------------------------------------------
