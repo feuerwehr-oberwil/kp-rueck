@@ -63,6 +63,24 @@ export function TrainingGpsSimulation() {
     [operations],
   );
 
+  // Default target per vehicle, following its assignment: while the incident is
+  // still outbound the vehicle drives there; once it's in Einsatz/Rückfahrt the
+  // natural next drive is back to the magazin. A manual pick always wins.
+  const defaultTargets = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const vehicle of vehicles) {
+      const op = operations.find(
+        (o) => o.status !== 'complete' && o.vehicles.includes(vehicle.name),
+      );
+      if (!op) continue;
+      map[vehicle.id] =
+        op.status === 'active' || op.status === 'returning' ? MAGAZIN_TARGET : op.id;
+    }
+    return map;
+  }, [vehicles, operations]);
+
+  const targetFor = (vehicleId: string) => targets[vehicleId] ?? defaultTargets[vehicleId] ?? '';
+
   if (!selectedEvent?.training_flag) return null;
 
   const driveFor = (vehicleId: string) => drives.find((d) => d.vehicle_id === vehicleId);
@@ -76,7 +94,7 @@ export function TrainingGpsSimulation() {
     });
 
   const handleStart = async (vehicle: ApiVehicle) => {
-    const target = targets[vehicle.id];
+    const target = targetFor(vehicle.id);
     if (!target) return;
     setBusy(vehicle.id, true);
     try {
@@ -173,7 +191,7 @@ export function TrainingGpsSimulation() {
                 ) : (
                   <>
                     <Select
-                      value={targets[vehicle.id] ?? ''}
+                      value={targetFor(vehicle.id)}
                       onValueChange={(v) => setTargets((prev) => ({ ...prev, [vehicle.id]: v }))}
                     >
                       <SelectTrigger className="h-8 flex-1 text-xs">
@@ -195,7 +213,7 @@ export function TrainingGpsSimulation() {
                     </Select>
                     <Button
                       onClick={() => handleStart(vehicle)}
-                      disabled={busy || !targets[vehicle.id]}
+                      disabled={busy || !targetFor(vehicle.id)}
                       size="sm"
                       className="flex-shrink-0"
                     >
