@@ -81,6 +81,7 @@ DEFAULT_SETTINGS = {
     "gps.station_lng": "",  # Magazin/home-base longitude (Rule B geofence centre)
     "gps.station_radius_meters": "100",  # Tight radius so passing vehicles don't trigger
     # Tuning constants (shared by both rules). Arrival radius reuses geofence_radius_meters.
+    "geofence_radius_meters": "200",  # Rule A: arrival radius (m) around the incident (edited in Settings → GPS)
     "gps.debounce_count": "3",  # N consecutive confirming fixes required
     "gps.freshness_seconds": "60",  # Ignore fixes older than this; also the min enter-duration
     "gps.speed_gate_kmh": "5",  # Treat as stationary only below this speed
