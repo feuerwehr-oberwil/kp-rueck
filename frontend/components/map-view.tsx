@@ -242,6 +242,36 @@ function createFirestationIcon(): L.DivIcon {
   })
 }
 
+// Magazin (GPS-Heimatbasis) marker — a little home icon styled like the
+// vehicle pills so it reads as "where the vehicles live". Only rendered
+// when gps.station_lat/lng are configured (Settings → GPS).
+function createMagazinIcon(): L.DivIcon {
+  const html = `
+    <div style="
+      width: 24px;
+      height: ${VEHICLE_PILL_HEIGHT}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: ${MAP_COLORS.info};
+      color: white;
+      border: 2px solid white;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      font-size: 14px;
+      line-height: 1;
+    ">⌂</div>
+  `
+
+  return L.divIcon({
+    html,
+    className: "magazin-marker",
+    iconSize: [24, VEHICLE_PILL_HEIGHT],
+    iconAnchor: [12, VEHICLE_PILL_HEIGHT / 2],
+    popupAnchor: [0, -VEHICLE_PILL_HEIGHT / 2],
+  })
+}
+
 // Component that tracks zoom level for conditional label rendering
 function ZoomWatcher({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
   const map = useMap()
@@ -505,6 +535,8 @@ export default function MapView({
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
     47.51637699933488, 7.561800450458299,
   ])
+  // Magazin/homebase from the GPS settings (gps.station_lat/lng) — null until configured
+  const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
   // Tracks live zoom so vehicle markers can shrink when zoomed out.
   const [mapZoom, setMapZoom] = useState<number>(13)
 
@@ -540,6 +572,11 @@ export default function MapView({
             parseFloat(settings.firestation_latitude),
             parseFloat(settings.firestation_longitude),
           ])
+        }
+        const magazinLat = parseFloat(settings["gps.station_lat"] ?? "")
+        const magazinLng = parseFloat(settings["gps.station_lng"] ?? "")
+        if (Number.isFinite(magazinLat) && Number.isFinite(magazinLng)) {
+          setMagazinCoords([magazinLat, magazinLng])
         }
         setVehicles(vehicleList)
       } catch (error) {
@@ -798,6 +835,19 @@ export default function MapView({
             <span>{firestationName}</span>
           </Tooltip>
         </Marker>
+
+        {/* Magazin (GPS-Heimatbasis) marker */}
+        {magazinCoords && (
+          <Marker
+            position={magazinCoords}
+            icon={createMagazinIcon()}
+            zIndexOffset={-100}
+          >
+            <Tooltip direction="top" offset={[0, -VEHICLE_PILL_HEIGHT / 2]}>
+              <span>Magazin</span>
+            </Tooltip>
+          </Marker>
+        )}
 
         {/* Incident Markers */}
         {mappableIncidents.map((incident) => {
