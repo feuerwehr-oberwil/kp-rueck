@@ -16,6 +16,7 @@ const STATION_RADIUS_KEY = "gps.station_radius_meters"
 const ARRIVAL_RADIUS_KEY = "geofence_radius_meters"
 const DEBOUNCE_KEY = "gps.debounce_count"
 const FRESHNESS_KEY = "gps.freshness_seconds"
+const MIN_DWELL_KEY = "gps.min_dwell_seconds"
 const SPEED_GATE_KEY = "gps.speed_gate_kmh"
 
 interface Props {
@@ -36,7 +37,7 @@ interface Props {
  * - **Rückkehr (Regel B):** only PROMPTS the operator to release a vehicle when it is
  *   back in the magazin — never silent.
  *
- * Disabled in training events and demo mode. The card warns that auto-advance acts on GPS.
+ * Also active in training events; disabled in demo mode. The card warns that auto-advance acts on GPS.
  */
 export function GpsSettingsCard({
   settings,
@@ -54,26 +55,32 @@ export function GpsSettingsCard({
   const NUMBER_FALLBACKS: Record<string, string> = {
     [STATION_RADIUS_KEY]: "100",
     [ARRIVAL_RADIUS_KEY]: "200",
-    [DEBOUNCE_KEY]: "3",
-    [FRESHNESS_KEY]: "60",
-    [SPEED_GATE_KEY]: "5",
+    [DEBOUNCE_KEY]: "2",
+    [FRESHNESS_KEY]: "180",
+    [MIN_DWELL_KEY]: "40",
+    [SPEED_GATE_KEY]: "10",
   }
 
   const tuningFields = [
     {
       key: DEBOUNCE_KEY,
       label: "Bestätigende Messungen",
-      hint: "Anzahl aufeinanderfolgender gültiger GPS-Messungen, bevor eine Regel auslöst (gegen GPS-Zittern). Empfohlen: 3.",
+      hint: "Anzahl gültiger GPS-Messungen, bevor eine Regel auslöst (gegen GPS-Zittern). Empfohlen: 2.",
+    },
+    {
+      key: MIN_DWELL_KEY,
+      label: "Mindest-Standzeit (Sek.)",
+      hint: "So lange muss ein Fahrzeug mindestens vor Ort stehen, bevor eine Regel auslöst. Empfohlen: 40.",
     },
     {
       key: FRESHNESS_KEY,
       label: "Aktualität (Sek.)",
-      hint: "Ältere Messungen werden ignoriert und setzen den Zähler zurück. Gleichzeitig die Mindestdauer, die ein Fahrzeug vor Ort sein muss. Empfohlen: 60.",
+      hint: "Ältere Messungen werden ignoriert und setzen den Zähler zurück. Grosszügig halten – parkierte Tracker senden nur alle 30–100 Sek. eine Position. Empfohlen: 180.",
     },
     {
       key: SPEED_GATE_KEY,
       label: "Geschwindigkeitsgrenze (km/h)",
-      hint: "Nur unterhalb dieser Geschwindigkeit gilt ein Fahrzeug als stehend. Empfohlen: 5.",
+      hint: "Nur unterhalb dieser Geschwindigkeit gilt ein Fahrzeug als stehend (Schritttempo im Hof zählt mit). Empfohlen: 10.",
     },
   ]
 
