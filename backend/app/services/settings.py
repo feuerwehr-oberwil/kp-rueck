@@ -72,7 +72,7 @@ DEFAULT_SETTINGS = {
     # GPS-driven status automation (plan 10) — opt-in, OFF by default. GPS is noisy
     # here (the Traccar feed returns frequent 404/no-fix), so all rules are gated on the
     # master switch and survive jitter via the debounce/freshness/speed guards below.
-    # Never acts in training events or demo mode. See app/services/gps_automation.py.
+    # Also active in training events; never acts in demo mode. See app/services/gps_automation.py.
     "gps.automation_enabled": "false",  # Master switch for all GPS automation
     "gps.rule_arrival_enabled": "false",  # Rule A: arrival at incident -> advance to einsatz
     "gps.rule_arrival_silent": "false",  # Rule A opt-in: advance SILENTLY (no operator confirm)
