@@ -300,16 +300,18 @@ async def test_disabled_master_switch_noop(
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
-async def test_training_event_excluded(
+async def test_training_event_included(
     _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event
 ):
+    # Training events are deliberately NOT excluded — they're the natural place
+    # to exercise the GPS rules (Übungen with real vehicles in the field).
     await _enable_arrival(db_session)
     test_event.training_flag = True
     await db_session.commit()
     clock = _Clock(datetime.now(UTC))
     for _ in range(4):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=40)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, disponiert_incident.id) == "einsatz"
 
 
 # ---------------------------------------------------------------------------

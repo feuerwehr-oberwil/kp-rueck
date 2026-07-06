@@ -274,7 +274,10 @@ export const DroppableColumn = memo(function DroppableColumn({
           </div>
         )}
 
-        <div className="space-y-3">
+        {/* flex gap instead of space-y: gap is applied by the container and
+            can't be lost to sibling-selector/margin edge cases when cards are
+            re-parented by live (websocket) status moves */}
+        <div className="flex flex-col gap-3">
           {operations.map((operation, index) => (
             <div
               key={operation.id}

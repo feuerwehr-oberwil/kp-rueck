@@ -129,8 +129,8 @@ export function GpsSettingsCard({
             Schaltet zwei GPS-gestützte Regeln frei. <strong>Ankunft</strong> fragt nach, ob ein
             disponierter Einsatz auf <em>Einsatz</em> gesetzt werden soll, sobald ein zugewiesenes
             Fahrzeug am Einsatzort steht. <strong>Rückkehr</strong> fragt nach, ob ein Fahrzeug
-            freigegeben werden soll, wenn es ins Magazin zurückkehrt – nie automatisch. In Übungen
-            und im Demo-Modus inaktiv.
+            freigegeben werden soll, wenn es ins Magazin zurückkehrt – nie automatisch.
+            Funktioniert auch in Übungen; im Demo-Modus inaktiv.
           </p>
         </div>
         <Switch

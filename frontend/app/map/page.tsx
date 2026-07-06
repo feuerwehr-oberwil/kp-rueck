@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Loader2, Palette, Check } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Ruler, Loader2, Palette, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_LABELS, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
@@ -84,6 +84,7 @@ export default function MapPage() {
   })
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
+  const [showDistances, setShowDistances] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
   // Marker coloring ("Färben nach") — defaults to priority (the original styling).
   const [colorBy, setColorBy] = useState<ColorByDimension>('priority')
@@ -455,6 +456,7 @@ export default function MapPage() {
               panTrigger={panTrigger}
               statusFilters={statusFilters}
               showAssignmentLines={showAssignmentLines}
+              showDistances={showDistances}
               showLabels={showLabels}
               focusVehicleName={focusVehicleName}
               focusVehicleTrigger={focusVehicleTrigger}
@@ -515,6 +517,18 @@ export default function MapPage() {
                   <Route className="h-3 w-3" />
                   Linien
                   {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
+                </button>
+                <button
+                  onClick={() => setShowDistances(!showDistances)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
+                    showDistances
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                  title={showDistances ? 'Distanz Fahrzeug–Einsatz ausblenden' : 'Distanz Fahrzeug–Einsatz einblenden'}
+                >
+                  <Ruler className="h-3 w-3" />
+                  Distanz
                 </button>
 
                 {/* Färben nach — re-colors incident markers by a chosen dimension */}

@@ -90,6 +90,9 @@ async def get_or_create_reko_report(
             photos_json=previous_report.photos_json,
             summary_text=previous_report.summary_text,
             additional_notes=previous_report.additional_notes,
+            # Carry the arrival over so a follow-up form doesn't offer
+            # "Ich bin vor Ort" again (and re-ping the command post).
+            arrived_at=previous_report.arrived_at,
         )
     else:
         report = RekoReport(

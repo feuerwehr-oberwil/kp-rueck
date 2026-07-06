@@ -18,7 +18,8 @@ two rules, both opt-in behind ``gps.automation_enabled`` (default OFF):
 All automated actions go through ``crud.update_incident_status`` so status-transition
 side effects fire, and are attributed to a clearly-named system actor user
 (``gps-automation``) so the audit / Excel export shows "automatic (GPS)" vs operator
-actions. Disabled in training events and demo mode.
+actions. Also active in training events (so the rules can be exercised in Übungen);
+disabled only in demo mode.
 
 Debounce counters are kept in module-level memory and reset on any gap (missing/stale
 fix) so spotty GPS coverage can never accumulate a false positive.
@@ -269,8 +270,8 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
 
         now = _now()
 
-        # Active vehicle assignments for non-training, non-archived events. We pull the
-        # event so we can honour the training gate per-incident.
+        # Active vehicle assignments for non-archived events. Training events are
+        # deliberately included — they're the natural place to exercise the rules.
         result = await db.execute(
             select(IncidentAssignment, Incident, Vehicle, Event)
             .join(Incident, IncidentAssignment.incident_id == Incident.id)
@@ -279,7 +280,6 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
             .where(IncidentAssignment.resource_type == "vehicle")
             .where(IncidentAssignment.unassigned_at.is_(None))
             .where(Incident.deleted_at.is_(None))
-            .where(Event.training_flag.is_(False))
             .where(Event.archived_at.is_(None))
         )
         # Snapshot the values we need as plain primitives BEFORE any mutation, because
