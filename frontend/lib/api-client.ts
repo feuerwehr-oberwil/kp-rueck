@@ -34,6 +34,7 @@ import {
   type ApiTraccarStatus,
   type ApiVehiclePosition,
   type ApiVehicleTrail,
+  type ApiGpsSimDrive,
   type ApiMaterialResource,
   type ApiMaterialCreate,
   type ApiMaterialUpdate,
@@ -1009,6 +1010,31 @@ class ApiClient {
   ): Promise<ApiIncident> {
     return this.request<ApiIncident>(`/api/training/events/${eventId}/simulate/reko-arrived/${incidentId}`, {
       method: 'POST',
+    })
+  }
+
+  // GPS drive simulation (Übungssteuerung) — simulated positions feed the same
+  // pipeline as real Traccar data (map, distances, arrival/return prompts).
+  async getGpsSimulations(): Promise<ApiGpsSimDrive[]> {
+    return this.request<ApiGpsSimDrive[]>('/api/training/gps-sim/')
+  }
+
+  async startGpsSimulation(body: {
+    vehicle_id: string
+    target: 'incident' | 'magazin'
+    incident_id?: string
+    speed_kmh?: number
+  }): Promise<ApiGpsSimDrive> {
+    return this.request<ApiGpsSimDrive>('/api/training/gps-sim/start', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
+  async stopGpsSimulation(vehicleId?: string): Promise<{ stopped: number }> {
+    return this.request<{ stopped: number }>('/api/training/gps-sim/stop', {
+      method: 'POST',
+      body: JSON.stringify({ vehicle_id: vehicleId ?? null }),
     })
   }
 

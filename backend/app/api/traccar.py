@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.config import settings
+from app.services.gps_simulation import gps_simulation
 from app.traccar import traccar_client
 
 logger = logging.getLogger(__name__)
@@ -38,9 +39,13 @@ class VehiclePositionResponse(BaseModel):
 
 @router.get("/status", response_model=TraccarStatusResponse)
 async def get_traccar_status() -> TraccarStatusResponse:
-    """Get Traccar configuration status."""
+    """Get Traccar configuration status.
+
+    Reports configured=true while a GPS simulation runs so the map subscribes to
+    position updates even on installations without a real Traccar server.
+    """
     return TraccarStatusResponse(
-        configured=traccar_client.is_configured,
+        configured=traccar_client.is_configured or gps_simulation.any_active(),
         url=settings.traccar_url if traccar_client.is_configured else None,
     )
 
@@ -48,7 +53,7 @@ async def get_traccar_status() -> TraccarStatusResponse:
 @router.get("/positions", response_model=list[VehiclePositionResponse])
 async def get_vehicle_positions() -> list[VehiclePositionResponse]:
     """Get current GPS positions of all tracked vehicles."""
-    if not traccar_client.is_configured:
+    if not traccar_client.is_configured and not gps_simulation.any_active():
         raise HTTPException(
             status_code=503,
             detail="Traccar is not configured. Set TRACCAR_URL and TRACCAR_TOKEN environment variables.",

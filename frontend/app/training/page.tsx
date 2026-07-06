@@ -5,6 +5,7 @@ import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { TrainingControls } from "@/components/training-controls"
 import { TrainingSimulationControls } from "@/components/training-simulation-controls"
+import { TrainingGpsSimulation } from "@/components/training-gps-simulation"
 import { useEvent } from "@/lib/contexts/event-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
@@ -75,6 +76,7 @@ export default function TrainingPage() {
           <div className="max-w-4xl mx-auto">
             <TrainingControls />
             <TrainingSimulationControls />
+            <TrainingGpsSimulation />
           </div>
         </main>
 

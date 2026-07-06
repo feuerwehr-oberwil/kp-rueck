@@ -60,6 +60,19 @@ export interface ApiVehiclePosition {
   address: string | null
 }
 
+/** Active simulated GPS drive (Übungssteuerung). */
+export interface ApiGpsSimDrive {
+  vehicle_id: string
+  vehicle_name: string
+  target_label: string
+  kind: 'incident' | 'magazin'
+  /** 0..1 along the straight-line route */
+  progress: number
+  eta_seconds: number
+  speed_kmh: number
+  started_at: string
+}
+
 export interface ApiTrailPoint {
   latitude: number
   longitude: number

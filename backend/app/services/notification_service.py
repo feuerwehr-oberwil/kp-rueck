@@ -428,8 +428,9 @@ async def _check_geofence_alerts(
 
     try:
         from ..traccar import traccar_client
+        from .gps_simulation import gps_simulation
 
-        if not traccar_client.is_configured:
+        if not traccar_client.is_configured and not gps_simulation.any_active():
             return notifications
 
         # Get all vehicle positions

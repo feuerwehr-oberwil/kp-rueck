@@ -129,9 +129,17 @@ class TraccarClient:
             return [TraccarPosition(**p) for p in response.json()]
 
     async def get_vehicle_positions(self) -> list[VehiclePosition]:
-        """Get combined device and position data for all vehicles."""
+        """Get combined device and position data for all vehicles.
+
+        Simulated training drives (see services/gps_simulation.py) are overlaid
+        here so every consumer — poller broadcast, GPS automation, geofence
+        notification, REST endpoint — sees the same picture.
+        """
+        # Local import: the simulation service imports VehiclePosition from here.
+        from app.services.gps_simulation import gps_simulation
+
         if not self.is_configured:
-            return []
+            return gps_simulation.overlay([])
 
         async with httpx.AsyncClient() as client:
             cookies = await self._create_session(client)
@@ -179,7 +187,7 @@ class TraccarClient:
                         )
                     )
 
-            return result
+            return gps_simulation.overlay(result)
 
 
 # Create singleton instance

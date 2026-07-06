@@ -36,7 +36,13 @@ class TraccarPoller:
 
     async def start_polling(self):
         """Start polling for positions and trails."""
-        if not self.is_configured or self.is_polling:
+        from .gps_simulation import gps_simulation
+
+        if self.is_polling:
+            return
+        # Also run for simulation-only setups (no Traccar configured): the client
+        # then serves purely simulated positions.
+        if not self.is_configured and not gps_simulation.any_active():
             return
 
         self._should_poll = True
