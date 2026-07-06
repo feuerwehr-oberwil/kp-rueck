@@ -87,7 +87,9 @@ DEFAULT_SETTINGS = {
     "geofence_radius_meters": "200",  # Rule A: arrival radius (m) around the incident (edited in Settings → GPS)
     "gps.debounce_count": "2",  # N consecutive confirming fixes required
     "gps.freshness_seconds": "180",  # Ignore fixes older than this (staleness tolerance only)
-    "gps.min_dwell_seconds": "40",  # Confirming fixes must span at least this long
+    "gps.min_dwell_seconds": "10",  # Confirming fixes must span at least this long — kept
+    # short so the prompt lands while the vehicle is still rolling to a stop; the
+    # speed gate + confirm-modal carry the false-positive protection.
     "gps.speed_gate_kmh": "10",  # Treat as stationary only below this speed
 }
 

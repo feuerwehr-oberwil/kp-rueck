@@ -41,8 +41,16 @@ export function GpsReleasePrompt() {
 
   useEffect(() => {
     if (!isEditor) return
-    const unsubscribe = wsClient.on("gps_release_prompt", (payload: Record<string, string>) => {
+    const unsubscribe = wsClient.on("gps_release_prompt", async (payload: Record<string, string>) => {
       if (!payload?.assignment_id || !payload?.incident_id) return
+      // If the incident is already closed out, the operator has handled it —
+      // no modal, the bell notification is enough.
+      try {
+        const incident = await apiClient.getIncident(payload.incident_id)
+        if (incident.status === "abschluss") return
+      } catch {
+        // Can't verify — show the prompt; the unassign endpoint is the backstop.
+      }
       // Last prompt wins; the operator handles one at a time. A re-broadcast for the
       // same assignment simply refreshes the open dialog.
       setPrompt({
@@ -54,6 +62,19 @@ export function GpsReleasePrompt() {
     })
     return () => unsubscribe()
   }, [isEditor])
+
+  // Auto-close if the incident gets completed while the dialog is open.
+  useEffect(() => {
+    if (!prompt) return
+    const unsubscribe = wsClient.on(
+      "incident_update",
+      (msg: { action?: string; data?: { id?: string; status?: string } }) => {
+        if (msg?.data?.id !== prompt.incidentId) return
+        if (msg.data.status === "abschluss" || msg.action === "delete") setPrompt(null)
+      },
+    )
+    return () => unsubscribe()
+  }, [prompt])
 
   if (!isEditor || !prompt) return null
 

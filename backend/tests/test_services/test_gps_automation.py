@@ -351,6 +351,22 @@ async def test_sparse_parked_fixes_still_fire(
     assert bc_msg.await_args.args[0]["type"] == "gps_release_prompt"
 
 
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+async def test_return_skips_completed_incident(
+    bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+):
+    # Operator already closed the incident out -> no release modal, only the
+    # regular bell notification path.
+    await _enable_return(db_session)
+    disponiert_incident.status = "abschluss"
+    await db_session.commit()
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(4):
+        await _tick(db_session, clock, _fresh_at_station(clock.now()), advance=40)
+    bc_msg.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Rule B — return-to-station prompt
 # ---------------------------------------------------------------------------
