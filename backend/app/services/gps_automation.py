@@ -158,7 +158,7 @@ async def _load_config(db: AsyncSession) -> _AutomationConfig:
 
     debounce_count = int(_parse_float(await get_setting_value(db, "gps.debounce_count", "2")) or 2)
     freshness = _parse_float(await get_setting_value(db, "gps.freshness_seconds", "180")) or 180.0
-    min_dwell = _parse_float(await get_setting_value(db, "gps.min_dwell_seconds", "40")) or 40.0
+    min_dwell = _parse_float(await get_setting_value(db, "gps.min_dwell_seconds", "10")) or 10.0
     speed_gate = _parse_float(await get_setting_value(db, "gps.speed_gate_kmh", "10")) or 10.0
 
     return _AutomationConfig(
@@ -339,7 +339,14 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                     _reset_debounce(_state.arrival, a_key)
 
             # ---- Rule B: return to station -> prompt operator to release ----
-            if cfg.rule_return_enabled and cfg.station_lat is not None and cfg.station_lng is not None:
+            # Skip incidents the operator already closed out — the release prompt
+            # would only be noise there (the bell notification still covers it).
+            if (
+                cfg.rule_return_enabled
+                and cfg.station_lat is not None
+                and cfg.station_lng is not None
+                and t["incident_status"] != "abschluss"
+            ):
                 r_key = t["assignment_id"]
                 return_keys.add(r_key)
                 if _return_fix_confirms(vp, cfg, now):

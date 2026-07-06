@@ -57,7 +57,7 @@ export function GpsSettingsCard({
     [ARRIVAL_RADIUS_KEY]: "200",
     [DEBOUNCE_KEY]: "2",
     [FRESHNESS_KEY]: "180",
-    [MIN_DWELL_KEY]: "40",
+    [MIN_DWELL_KEY]: "10",
     [SPEED_GATE_KEY]: "10",
   }
 
@@ -70,7 +70,7 @@ export function GpsSettingsCard({
     {
       key: MIN_DWELL_KEY,
       label: "Mindest-Standzeit (Sek.)",
-      hint: "So lange muss ein Fahrzeug mindestens vor Ort stehen, bevor eine Regel auslöst. Empfohlen: 40.",
+      hint: "So lange müssen langsame Messungen mindestens auseinanderliegen, bevor eine Regel auslöst. Kurz halten, damit die Meldung schon beim Anhalten kommt. Empfohlen: 10.",
     },
     {
       key: FRESHNESS_KEY,

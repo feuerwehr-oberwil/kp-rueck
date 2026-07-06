@@ -40,8 +40,16 @@ export function GpsArrivalPrompt() {
 
   useEffect(() => {
     if (!isEditor) return
-    const unsubscribe = wsClient.on("gps_arrival_prompt", (payload: Record<string, string>) => {
+    const unsubscribe = wsClient.on("gps_arrival_prompt", async (payload: Record<string, string>) => {
       if (!payload?.incident_id) return
+      // If the operator already moved the card past Disponiert, the bell
+      // notification is enough — don't interrupt with a stale modal.
+      try {
+        const incident = await apiClient.getIncident(payload.incident_id)
+        if (incident.status !== "disponiert") return
+      } catch {
+        // Can't verify — show the prompt; the status endpoint re-checks on confirm.
+      }
       // Last prompt wins; the operator handles one at a time. A re-broadcast for the
       // same incident simply refreshes the open dialog.
       setPrompt({
@@ -52,6 +60,20 @@ export function GpsArrivalPrompt() {
     })
     return () => unsubscribe()
   }, [isEditor])
+
+  // Auto-close if the incident leaves Disponiert while the dialog is open
+  // (operator moved the card themselves on another screen).
+  useEffect(() => {
+    if (!prompt) return
+    const unsubscribe = wsClient.on(
+      "incident_update",
+      (msg: { action?: string; data?: { id?: string; status?: string } }) => {
+        if (msg?.data?.id !== prompt.incidentId) return
+        if (msg.data.status && msg.data.status !== "disponiert") setPrompt(null)
+      },
+    )
+    return () => unsubscribe()
+  }, [prompt])
 
   if (!isEditor || !prompt) return null
 
