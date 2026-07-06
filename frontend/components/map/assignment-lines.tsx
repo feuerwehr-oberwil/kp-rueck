@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo } from "react"
-import { Polyline, Tooltip } from "react-leaflet"
+import { Marker, Polyline, Tooltip } from "react-leaflet"
+import L from "leaflet"
 import type { Incident } from "@/lib/types/incidents"
 import type { ApiVehiclePosition } from "@/lib/api-client"
 import { STATUS_TO_GROUP, type IncidentStatus } from "@/lib/types/incidents"
@@ -11,12 +12,52 @@ interface AssignmentLine {
   vehiclePosition: [number, number]
   incidentPosition: [number, number]
   incidentTitle: string
+  distanceMeters: number
 }
 
 interface AssignmentLinesProps {
   incidents: Incident[]
   vehiclePositions: ApiVehiclePosition[]
   visible?: boolean
+  /** Show the vehicle→incident distance as a label on each assignment. */
+  showDistances?: boolean
+}
+
+// Haversine distance in meters (same formula as the backend geofence checks).
+function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatDistance(meters: number): string {
+  if (meters < 950) return `${Math.round(meters / 10) * 10} m`
+  return `${(meters / 1000).toFixed(1)} km`
+}
+
+// Small pill label rendered at the midpoint of an assignment line.
+function distanceLabelIcon(text: string): L.DivIcon {
+  const html = `
+    <div style="
+      transform: translate(-50%, -50%);
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.95);
+      color: #dc2626;
+      border: 1.5px solid #dc2626;
+      border-radius: 9999px;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    ">${text}</div>
+  `
+  return L.divIcon({ html, className: "distance-label", iconSize: [0, 0] })
 }
 
 /**
@@ -69,9 +110,14 @@ function findMatchingPosition(
  * - Active assignments (not completed incidents)
  * - Incidents with valid coordinates
  */
-export function AssignmentLines({ incidents, vehiclePositions, visible = true }: AssignmentLinesProps) {
+export function AssignmentLines({
+  incidents,
+  vehiclePositions,
+  visible = true,
+  showDistances = false,
+}: AssignmentLinesProps) {
   const lines = useMemo(() => {
-    if (!visible) return []
+    if (!visible && !showDistances) return []
 
     const result: AssignmentLine[] = []
 
@@ -108,14 +154,20 @@ export function AssignmentLines({ incidents, vehiclePositions, visible = true }:
           vehiclePosition: [vp.latitude, vp.longitude],
           incidentPosition: [incident.location_lat, incident.location_lng],
           incidentTitle: incident.title || incident.location_address || "Einsatz",
+          distanceMeters: distanceMeters(
+            vp.latitude,
+            vp.longitude,
+            incident.location_lat,
+            incident.location_lng,
+          ),
         })
       }
     }
 
     return result
-  }, [incidents, vehiclePositions, visible])
+  }, [incidents, vehiclePositions, visible, showDistances])
 
-  if (!visible || lines.length === 0) return null
+  if ((!visible && !showDistances) || lines.length === 0) return null
 
   return (
     <>
@@ -131,25 +183,41 @@ export function AssignmentLines({ incidents, vehiclePositions, visible = true }:
         }
       `}</style>
 
-      {lines.map((line, idx) => (
-        <Polyline
-          key={`${line.vehicleName}-${idx}`}
-          positions={[line.vehiclePosition, line.incidentPosition]}
-          pathOptions={{
-            color: "#dc2626",
-            weight: 2.5,
-            opacity: 0.8,
-            dashArray: "8, 12",
-            className: "ant-trail",
-          }}
-        >
-          <Tooltip sticky>
-            <span className="text-xs font-medium">
-              {line.vehicleName} → {line.incidentTitle}
-            </span>
-          </Tooltip>
-        </Polyline>
-      ))}
+      {visible &&
+        lines.map((line, idx) => (
+          <Polyline
+            key={`${line.vehicleName}-${idx}`}
+            positions={[line.vehiclePosition, line.incidentPosition]}
+            pathOptions={{
+              color: "#dc2626",
+              weight: 2.5,
+              opacity: 0.8,
+              dashArray: "8, 12",
+              className: "ant-trail",
+            }}
+          >
+            <Tooltip sticky>
+              <span className="text-xs font-medium">
+                {line.vehicleName} → {line.incidentTitle} ({formatDistance(line.distanceMeters)})
+              </span>
+            </Tooltip>
+          </Polyline>
+        ))}
+
+      {/* Distance labels at the line midpoints (independent of line visibility) */}
+      {showDistances &&
+        lines.map((line, idx) => (
+          <Marker
+            key={`distance-${line.vehicleName}-${idx}`}
+            position={[
+              (line.vehiclePosition[0] + line.incidentPosition[0]) / 2,
+              (line.vehiclePosition[1] + line.incidentPosition[1]) / 2,
+            ]}
+            icon={distanceLabelIcon(formatDistance(line.distanceMeters))}
+            interactive={false}
+            zIndexOffset={200}
+          />
+        ))}
     </>
   )
 }

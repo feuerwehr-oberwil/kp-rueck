@@ -507,6 +507,7 @@ interface MapViewProps {
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
   showAssignmentLines?: boolean // Show animated lines from vehicles to assigned incidents
+  showDistances?: boolean // Show vehicle→incident distance labels on assignments
   showLabels?: boolean // Show permanent labels on incident markers
   focusVehicleName?: string | null // Vehicle name to zoom to (keys 1-5)
   focusVehicleTrigger?: number // Counter to re-trigger zoom to the same vehicle
@@ -523,6 +524,7 @@ export default function MapView({
   panTrigger = 0,
   statusFilters = { open: true, active: true, completed: false },
   showAssignmentLines = true,
+  showDistances = false,
   showLabels = true,
   focusVehicleName = null,
   focusVehicleTrigger = 0,
@@ -926,6 +928,7 @@ export default function MapView({
           incidents={incidents}
           vehiclePositions={mappedVehiclePositions}
           visible={showAssignmentLines}
+          showDistances={showDistances}
         />
 
         {/* Vehicle breadcrumb trails */}
