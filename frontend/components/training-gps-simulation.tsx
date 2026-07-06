@@ -96,6 +96,16 @@ export function TrainingGpsSimulation() {
   const handleStart = async (vehicle: ApiVehicle) => {
     const target = targetFor(vehicle.id);
     if (!target) return;
+    // The arrival prompt only fires from Disponiert — warn the instructor
+    // early instead of leaving them waiting for a modal that can't come.
+    if (target !== MAGAZIN_TARGET) {
+      const op = operations.find((o) => o.id === target);
+      if (op && op.status !== 'enroute') {
+        toast.info('Hinweis: Ankunftsmeldung kommt nur bei Status «Disponiert»', {
+          description: 'Der Einsatz steht aktuell nicht auf Disponiert — die Fahrt läuft, aber ohne Ankunfts-Abfrage.',
+        });
+      }
+    }
     setBusy(vehicle.id, true);
     try {
       await apiClient.startGpsSimulation({
@@ -227,8 +237,9 @@ export function TrainingGpsSimulation() {
           })
         )}
         <p className="text-xs text-muted-foreground pt-1">
-          Fahrten laufen mit ~40 km/h in gerader Linie, bremsen vor dem Ziel ab und stoppen
-          automatisch nach 30 Minuten. Gesperrt, solange ein Ernstfall-Ereignis aktive Einsätze hat.
+          Fahrten laufen mit ~30 km/h (inkl. Umwegfaktor) in gerader Linie, bremsen vor dem Ziel ab
+          und stoppen automatisch nach 30 Minuten. Rückfahrten starten am zugewiesenen Einsatzort.
+          Gesperrt, solange ein Ernstfall-Ereignis aktive Einsätze hat.
         </p>
       </CardContent>
     </Card>

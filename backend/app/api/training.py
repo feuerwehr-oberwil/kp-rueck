@@ -15,7 +15,16 @@ from ..config import settings
 from ..crud import personnel_checkin as checkin_crud
 from ..crud import reko as reko_crud
 from ..database import get_db
-from ..models import EmergencyTemplate, Event, EventAttendance, Incident, Personnel, TrainingLocation, Vehicle
+from ..models import (
+    EmergencyTemplate,
+    Event,
+    EventAttendance,
+    Incident,
+    IncidentAssignment,
+    Personnel,
+    TrainingLocation,
+    Vehicle,
+)
 from ..schemas import (
     EmergencyTemplateResponse,
     GenerateEmergencyRequest,
@@ -410,7 +419,7 @@ class GpsSimStartRequest(BaseModel):
     vehicle_id: UUID
     target: Literal["incident", "magazin"]
     incident_id: UUID | None = None
-    speed_kmh: float = 40.0
+    speed_kmh: float = 30.0
 
 
 class GpsSimStopRequest(BaseModel):
@@ -520,8 +529,29 @@ async def start_gps_simulation(
             )
         target_label = "Magazin"
 
-    # Start position: current simulated position > real GPS > magazin > firestation
+    # Start position: current simulated position > (for returns) the assigned
+    # incident's location > real GPS > magazin > firestation
     start = gps_simulation.current_position(vehicle.name)
+    if start is None and request.target == "magazin":
+        # A returning vehicle conceptually starts at the incident it is still
+        # assigned to — its REAL tracker usually sits parked at the magazin,
+        # which would make the return drive an 8-metre no-op.
+        row = (
+            await db.execute(
+                select(Incident.location_lat, Incident.location_lng)
+                .join(IncidentAssignment, IncidentAssignment.incident_id == Incident.id)
+                .where(IncidentAssignment.resource_type == "vehicle")
+                .where(IncidentAssignment.resource_id == vehicle.id)
+                .where(IncidentAssignment.unassigned_at.is_(None))
+                .where(Incident.deleted_at.is_(None))
+                .where(Incident.location_lat.isnot(None))
+                .where(Incident.location_lng.isnot(None))
+                .order_by(IncidentAssignment.assigned_at.desc())
+                .limit(1)
+            )
+        ).first()
+        if row:
+            start = (float(row[0]), float(row[1]))
     if start is None:
         try:
             for p in await traccar_client.get_vehicle_positions():

@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 MAX_LIFETIME_SECONDS = 30 * 60
 # Distance over which the vehicle decelerates from cruise speed to standstill.
 DECEL_ZONE_M = 150.0
+# Real roads are longer than the crow flies; stretch the drive DURATION by this
+# factor so straight-line drives don't feel unrealistically fast.
+ROAD_FACTOR = 1.3
 # Synthetic device ids live far below zero so they can never collide with Traccar.
 _SIM_DEVICE_ID_BASE = -9000
 
@@ -67,12 +70,18 @@ class SimulatedDrive:
 
     @property
     def total_m(self) -> float:
+        """Geometric (crow-flies) length of the drawn line."""
         return _haversine_m(self.start_lat, self.start_lng, self.target_lat, self.target_lng)
 
+    @property
+    def route_m(self) -> float:
+        """Pretend road length — the kinematics run over this."""
+        return self.total_m * ROAD_FACTOR
+
     def _distance_and_speed(self, elapsed_s: float) -> tuple[float, float]:
-        """Distance travelled (m) and current speed (km/h) after ``elapsed_s``."""
+        """Route distance travelled (m) and current speed (km/h) after ``elapsed_s``."""
         v = max(5.0, self.cruise_kmh) / 3.6  # m/s
-        total = self.total_m
+        total = self.route_m
         decel = min(DECEL_ZONE_M, total)
         cruise_dist = total - decel
         t_cruise = cruise_dist / v
@@ -90,7 +99,7 @@ class SimulatedDrive:
     def position_at(self, now: datetime) -> tuple[float, float, float]:
         """(lat, lng, speed_kmh) at wall-clock ``now``."""
         elapsed = max(0.0, (now - self.started_at).total_seconds())
-        total = self.total_m
+        total = self.route_m
         if total < 1.0:
             return self.target_lat, self.target_lng, 0.0
         dist, speed = self._distance_and_speed(elapsed)
@@ -101,10 +110,10 @@ class SimulatedDrive:
 
     def arrived(self, now: datetime) -> bool:
         dist, _ = self._distance_and_speed(max(0.0, (now - self.started_at).total_seconds()))
-        return dist >= self.total_m
+        return dist >= self.route_m
 
     def progress(self, now: datetime) -> float:
-        total = self.total_m
+        total = self.route_m
         if total < 1.0:
             return 1.0
         dist, _ = self._distance_and_speed(max(0.0, (now - self.started_at).total_seconds()))
@@ -112,7 +121,7 @@ class SimulatedDrive:
 
     def eta_seconds(self, now: datetime) -> float:
         v = max(5.0, self.cruise_kmh) / 3.6
-        total = self.total_m
+        total = self.route_m
         decel = min(DECEL_ZONE_M, total)
         t_total = (total - decel) / v + (decel / (v / 2) if decel > 0 else 0.0)
         return max(0.0, t_total - (now - self.started_at).total_seconds())

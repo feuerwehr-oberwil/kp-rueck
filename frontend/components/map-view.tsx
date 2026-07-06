@@ -9,6 +9,7 @@ import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incident
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
+import { GpsSimBanner } from "./gps-sim-banner"
 import type { ColorByDimension, ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
@@ -958,6 +959,9 @@ export default function MapView({
 
       {/* Map Legend */}
       <MapLegend colorBy={colorBy} colorGroups={colorGroups} />
+
+      {/* Simulated-drive indicator — map only, so exercises stay realistic elsewhere */}
+      <GpsSimBanner />
     </div>
   )
 }

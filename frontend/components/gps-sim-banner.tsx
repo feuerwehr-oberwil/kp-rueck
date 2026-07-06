@@ -8,10 +8,10 @@ import { wsClient } from "@/lib/websocket-client"
 import { useAuth } from "@/lib/contexts/auth-context"
 
 /**
- * Global "GPS-Simulation aktiv" indicator. Simulated positions are global —
- * everyone looking at the board/map must be able to tell at a glance that the
- * vehicle movement they see is an exercise, not reality. Mounted once in the
- * root layout; renders nothing while no simulation runs.
+ * "GPS-Simulation aktiv" indicator, shown ONLY on the map (rendered inside
+ * MapView) — deliberately not app-wide, so trainees keep working realistically;
+ * only whoever looks at the map sees that the vehicle movement is simulated.
+ * Renders nothing while no simulation runs.
  */
 export function GpsSimBanner() {
   const { isAuthenticated } = useAuth()
@@ -47,7 +47,7 @@ export function GpsSimBanner() {
   return (
     <Link
       href="/training"
-      className="fixed left-1/2 top-2 z-50 -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-purple-400/60 bg-purple-100/90 px-3 py-1 text-xs font-semibold text-purple-900 shadow-md backdrop-blur-sm dark:bg-purple-950/90 dark:text-purple-200"
+      className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-purple-400/60 bg-purple-100/90 px-3 py-1 text-xs font-semibold text-purple-900 shadow-md backdrop-blur-sm dark:bg-purple-950/90 dark:text-purple-200"
       title="Zur Übungs-Steuerung"
     >
       <Satellite className="h-3.5 w-3.5" />

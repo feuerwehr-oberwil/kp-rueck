@@ -17,7 +17,6 @@ import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
-import { GpsSimBanner } from '@/components/gps-sim-banner'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
 
 const geistSans = Geist({
@@ -74,7 +73,6 @@ export default function RootLayout({
                         <VehicleConflictPrompt />
                         <GpsReleasePrompt />
                         <GpsArrivalPrompt />
-                        <GpsSimBanner />
                       </CommandPaletteProvider>
                     </NotificationProvider>
                   </OperationsProvider>
