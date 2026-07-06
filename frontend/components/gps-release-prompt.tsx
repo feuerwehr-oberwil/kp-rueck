@@ -91,6 +91,24 @@ export function GpsReleasePrompt() {
     }
   }
 
+  // Archive the incident — the status change to abschluss auto-releases
+  // personnel and vehicles server-side (materials stay, like on the board).
+  const handleReleaseAndComplete = async () => {
+    setReleasing(true)
+    try {
+      const incident = await apiClient.getIncident(prompt.incidentId)
+      if (incident.status !== "abschluss") {
+        await apiClient.updateIncidentStatus(prompt.incidentId, incident.status, "abschluss")
+      }
+      toast.success(`${prompt.incidentLabel} abgeschlossen`)
+      setPrompt(null)
+    } catch {
+      toast.error("Abschliessen fehlgeschlagen")
+    } finally {
+      setReleasing(false)
+    }
+  }
+
   return (
     <AlertDialog open={true} onOpenChange={(open) => { if (!open) setPrompt(null) }}>
       <AlertDialogContent>
@@ -101,17 +119,22 @@ export function GpsReleasePrompt() {
           </AlertDialogTitle>
           <AlertDialogDescription>
             <span className="font-medium text-foreground">{prompt.vehicleName}</span> ist laut GPS
-            wieder im Magazin. Soll die Zuweisung zu »{prompt.incidentLabel}« jetzt freigegeben
-            werden? Der Einsatz bleibt offen und wird nicht abgeschlossen.
+            wieder im Magazin. Nur die Zuweisung zu »{prompt.incidentLabel}« freigeben — oder den
+            Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="sm:justify-between">
+        <AlertDialogFooter className="gap-2 sm:justify-between">
           <Button variant="ghost" onClick={() => setPrompt(null)} disabled={releasing}>
             Nicht freigeben
           </Button>
-          <Button onClick={handleRelease} disabled={releasing}>
-            {prompt.vehicleName} freigeben
-          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="outline" onClick={handleRelease} disabled={releasing}>
+              Nur {prompt.vehicleName} freigeben
+            </Button>
+            <Button onClick={handleReleaseAndComplete} disabled={releasing}>
+              Einsatz abschliessen
+            </Button>
+          </div>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
