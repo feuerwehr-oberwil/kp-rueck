@@ -22,7 +22,7 @@ import logging
 import math
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,37 @@ class GpsSimulation:
             drive.cruise_kmh,
         )
         await self._broadcast_status()
+
+    async def set_speed(self, vehicle_name: str, speed_kmh: float) -> SimulatedDrive | None:
+        """Change the cruise speed of an active drive without moving the vehicle.
+
+        The drive is rebuilt with a back-dated ``started_at`` chosen so the
+        distance already travelled stays identical under the new speed — the
+        marker keeps rolling from where it is, only the pace changes.
+        """
+        async with self._lock:
+            old = self._drives.get(vehicle_name.lower())
+            if old is None:
+                return None
+            now = datetime.now(UTC)
+            dist_done, _ = old._distance_and_speed(max(0.0, (now - old.started_at).total_seconds()))
+            v = max(5.0, speed_kmh) / 3.6
+            new = SimulatedDrive(
+                vehicle_id=old.vehicle_id,
+                vehicle_name=old.vehicle_name,
+                start_lat=old.start_lat,
+                start_lng=old.start_lng,
+                target_lat=old.target_lat,
+                target_lng=old.target_lng,
+                target_label=old.target_label,
+                kind=old.kind,
+                cruise_kmh=speed_kmh,
+                started_at=now - timedelta(seconds=dist_done / v),
+            )
+            self._drives[vehicle_name.lower()] = new
+        logger.info("GPS simulation: %s speed -> %.0f km/h", new.vehicle_name, speed_kmh)
+        await self._broadcast_status()
+        return new
 
     async def stop(self, vehicle_name: str | None = None) -> int:
         """Stop one vehicle's drive (or all when ``vehicle_name`` is None)."""

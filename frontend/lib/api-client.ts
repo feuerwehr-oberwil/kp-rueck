@@ -1031,6 +1031,13 @@ class ApiClient {
     })
   }
 
+  async setGpsSimulationSpeed(vehicleId: string, speedKmh: number): Promise<ApiGpsSimDrive> {
+    return this.request<ApiGpsSimDrive>('/api/training/gps-sim/speed', {
+      method: 'POST',
+      body: JSON.stringify({ vehicle_id: vehicleId, speed_kmh: speedKmh }),
+    })
+  }
+
   async stopGpsSimulation(vehicleId?: string): Promise<{ stopped: number }> {
     return this.request<{ stopped: number }>('/api/training/gps-sim/stop', {
       method: 'POST',

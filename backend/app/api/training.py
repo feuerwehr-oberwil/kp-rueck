@@ -426,6 +426,11 @@ class GpsSimStopRequest(BaseModel):
     vehicle_id: UUID | None = None  # None stops all drives
 
 
+class GpsSimSpeedRequest(BaseModel):
+    vehicle_id: UUID
+    speed_kmh: float
+
+
 class GpsSimDriveResponse(BaseModel):
     vehicle_id: UUID
     vehicle_name: str
@@ -593,6 +598,27 @@ async def start_gps_simulation(
     # Make sure positions actually flow, even without a real Traccar server.
     await traccar_poller.start_polling()
 
+    return _drive_response(drive, datetime.now(UTC))
+
+
+@router.post("/gps-sim/speed", response_model=GpsSimDriveResponse)
+async def set_gps_simulation_speed(
+    request: GpsSimSpeedRequest,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Change the cruise speed of a vehicle's active simulated drive."""
+    from ..services.gps_simulation import gps_simulation
+
+    vehicle = await db.get(Vehicle, request.vehicle_id)
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Fahrzeug nicht gefunden")
+
+    drive = await gps_simulation.set_speed(
+        vehicle.name, max(10.0, min(100.0, request.speed_kmh))
+    )
+    if drive is None:
+        raise HTTPException(status_code=404, detail="Keine aktive Fahrt für dieses Fahrzeug")
     return _drive_response(drive, datetime.now(UTC))
 
 

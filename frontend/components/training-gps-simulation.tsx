@@ -14,10 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { Satellite, Play, Square, Home } from 'lucide-react';
+import { Satellite, Play, Square, Home, Gauge } from 'lucide-react';
 
 const MAGAZIN_TARGET = '__magazin__';
+const DEFAULT_SPEED_KMH = 30;
 
 /**
  * GPS-Simulation (Übungssteuerung): send a vehicle on a simulated drive to a
@@ -32,6 +34,8 @@ export function TrainingGpsSimulation() {
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
   const [drives, setDrives] = useState<ApiGpsSimDrive[]>([]);
   const [targets, setTargets] = useState<Record<string, string>>({}); // vehicleId -> target value
+  // vehicleId -> chosen speed; sticks across drives so a vehicle keeps its pace.
+  const [speeds, setSpeeds] = useState<Record<string, number>>({});
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
   const refreshDrives = useCallback(async () => {
@@ -53,6 +57,15 @@ export function TrainingGpsSimulation() {
       clearInterval(interval);
     };
   }, [refreshDrives]);
+
+  // Stable, human order — vehicle names sort naturally (TLF 1 before TLF 10).
+  const sortedVehicles = useMemo(
+    () =>
+      [...vehicles].sort((a, b) =>
+        a.name.localeCompare(b.name, 'de', { numeric: true, sensitivity: 'base' }),
+      ),
+    [vehicles],
+  );
 
   // Incidents of this training event that can be driven to (need coordinates).
   const incidentTargets = useMemo(
@@ -85,6 +98,28 @@ export function TrainingGpsSimulation() {
 
   const driveFor = (vehicleId: string) => drives.find((d) => d.vehicle_id === vehicleId);
 
+  // Manual pick > running drive's speed > default. The manual pick sticks so a
+  // vehicle keeps its pace for follow-up drives (e.g. the Rückfahrt).
+  const speedFor = (vehicleId: string) =>
+    speeds[vehicleId] ?? driveFor(vehicleId)?.speed_kmh ?? DEFAULT_SPEED_KMH;
+
+  // Live speed change on an active drive: the backend rebuilds the drive at the
+  // current position, so the marker keeps rolling — only the pace changes.
+  const handleSpeedCommit = async (vehicle: ApiVehicle, speedKmh: number) => {
+    if (!driveFor(vehicle.id)) return; // idle: the value is only picked up on start
+    try {
+      await apiClient.setGpsSimulationSpeed(vehicle.id, speedKmh);
+      await refreshDrives();
+    } catch {
+      setSpeeds((prev) => {
+        const next = { ...prev };
+        delete next[vehicle.id];
+        return next;
+      });
+      toast.error('Tempo konnte nicht geändert werden');
+    }
+  };
+
   const setBusy = (id: string, on: boolean) =>
     setBusyIds((prev) => {
       const next = new Set(prev);
@@ -112,10 +147,31 @@ export function TrainingGpsSimulation() {
         vehicle_id: vehicle.id,
         target: target === MAGAZIN_TARGET ? 'magazin' : 'incident',
         incident_id: target === MAGAZIN_TARGET ? undefined : target,
+        speed_kmh: speedFor(vehicle.id),
       });
       await refreshDrives();
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : 'Simulation konnte nicht gestartet werden';
+      toast.error('Fehler', { description: detail });
+    } finally {
+      setBusy(vehicle.id, false);
+    }
+  };
+
+  // Send an arrived vehicle back to the magazin — simulates a quick drop-off
+  // without stopping the simulation first. start() replaces the finished drive,
+  // and the backend starts the return at the current simulated position.
+  const handleReturn = async (vehicle: ApiVehicle) => {
+    setBusy(vehicle.id, true);
+    try {
+      await apiClient.startGpsSimulation({
+        vehicle_id: vehicle.id,
+        target: 'magazin',
+        speed_kmh: speedFor(vehicle.id),
+      });
+      await refreshDrives();
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : 'Rückfahrt konnte nicht gestartet werden';
       toast.error('Fehler', { description: detail });
     } finally {
       setBusy(vehicle.id, false);
@@ -167,16 +223,18 @@ export function TrainingGpsSimulation() {
         {vehicles.length === 0 ? (
           <p className="text-xs text-muted-foreground">Keine Fahrzeuge vorhanden.</p>
         ) : (
-          vehicles.map((vehicle) => {
+          sortedVehicles.map((vehicle) => {
             const drive = driveFor(vehicle.id);
             const busy = busyIds.has(vehicle.id);
+            const speed = speedFor(vehicle.id);
             return (
               <div
                 key={vehicle.id}
-                className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
+                className={`rounded-md border px-2 py-1.5 text-sm ${
                   drive ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30' : 'border-border'
                 }`}
               >
+                <div className="flex items-center gap-2">
                 <div className="min-w-0 w-24 flex-shrink-0 truncate font-medium">{vehicle.name}</div>
                 {drive ? (
                   <>
@@ -187,6 +245,18 @@ export function TrainingGpsSimulation() {
                       {' · '}
                       {Math.round(drive.progress * 100)}% · {formatEta(drive.eta_seconds)}
                     </div>
+                    {drive.kind === 'incident' && drive.eta_seconds <= 5 && (
+                      <Button
+                        onClick={() => handleReturn(vehicle)}
+                        disabled={busy}
+                        size="sm"
+                        className="flex-shrink-0"
+                        title="Zurück zum Magazin fahren (z.B. nur Material abgeliefert)"
+                      >
+                        <Home className="mr-1.5 h-3.5 w-3.5" />
+                        Rückfahrt
+                      </Button>
+                    )}
                     <Button
                       onClick={() => handleStop(vehicle.id)}
                       disabled={busy}
@@ -232,14 +302,36 @@ export function TrainingGpsSimulation() {
                     </Button>
                   </>
                 )}
+                </div>
+                {/* Tempo: picked up on start while idle; adjusts the running
+                    drive live once committed (slider release). */}
+                {(drive || targetFor(vehicle.id)) && (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Gauge className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    <Slider
+                      min={10}
+                      max={100}
+                      step={5}
+                      value={[speed]}
+                      onValueChange={([v]) => setSpeeds((prev) => ({ ...prev, [vehicle.id]: v }))}
+                      onValueCommit={([v]) => handleSpeedCommit(vehicle, v)}
+                      disabled={busy}
+                      className="flex-1"
+                    />
+                    <span className="w-16 flex-shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                      {Math.round(speed)} km/h
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })
         )}
         <p className="text-xs text-muted-foreground pt-1">
-          Fahrten laufen mit ~30 km/h (inkl. Umwegfaktor) in gerader Linie, bremsen vor dem Ziel ab
-          und stoppen automatisch nach 30 Minuten. Rückfahrten starten am zugewiesenen Einsatzort.
-          Gesperrt, solange ein Ernstfall-Ereignis aktive Einsätze hat.
+          Fahrten laufen in gerader Linie (inkl. Umwegfaktor), bremsen vor dem Ziel ab und stoppen
+          automatisch nach 30 Minuten. Das Tempo lässt sich pro Fahrzeug einstellen — auch während
+          der Fahrt. Rückfahrten starten am zugewiesenen Einsatzort. Gesperrt, solange ein
+          Ernstfall-Ereignis aktive Einsätze hat.
         </p>
       </CardContent>
     </Card>
