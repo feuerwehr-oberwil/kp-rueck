@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { MapPin } from "lucide-react"
 import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
@@ -31,15 +32,26 @@ interface ArrivalPrompt {
  * board already uses. Declining leaves everything as it was.
  *
  * Editors only — a viewer would be 403'd on the status change, so they get no prompt.
- * Mounted once in the root layout so it covers every page (board, map, settings).
+ * Mounted once in the root layout, but only ACTIVE on the board and map — those are
+ * the pages where the operator manages incident status. Elsewhere (Übungssteuerung,
+ * settings, …) the modal would only interrupt; the bell notification still covers it.
  */
 export function GpsArrivalPrompt() {
   const { isEditor } = useAuth()
+  const pathname = usePathname()
   const [prompt, setPrompt] = useState<ArrivalPrompt | null>(null)
   const [advancing, setAdvancing] = useState(false)
 
+  const onOperatorPage = pathname === "/" || pathname === "/map"
+
+  // Drop any pending prompt when leaving the board/map so it can't pop up
+  // stale after navigating back.
   useEffect(() => {
-    if (!isEditor) return
+    if (!onOperatorPage) setPrompt(null)
+  }, [onOperatorPage])
+
+  useEffect(() => {
+    if (!isEditor || !onOperatorPage) return
     const unsubscribe = wsClient.on("gps_arrival_prompt", async (payload: Record<string, string>) => {
       if (!payload?.incident_id) return
       // If the operator already moved the card past Disponiert, the bell
@@ -59,7 +71,7 @@ export function GpsArrivalPrompt() {
       })
     })
     return () => unsubscribe()
-  }, [isEditor])
+  }, [isEditor, onOperatorPage])
 
   // Auto-close if the incident leaves Disponiert while the dialog is open
   // (operator moved the card themselves on another screen).
@@ -75,7 +87,7 @@ export function GpsArrivalPrompt() {
     return () => unsubscribe()
   }, [prompt])
 
-  if (!isEditor || !prompt) return null
+  if (!isEditor || !onOperatorPage || !prompt) return null
 
   const handleAdvance = async () => {
     setAdvancing(true)

@@ -6,7 +6,13 @@ import type { Operation, OperationStatus } from "./contexts/operations-context"
 // Reko, disponieren, closing the incident) stay with the operator (trainee) on
 // the board. So the console exposes exactly the field-originated milestones:
 //
-//   Reko vor Ort → Reko-Meldung → Fahrzeug vor Ort → (Feld meldet: beendet)
+//   Reko vor Ort → Reko-Meldung → Fahrt zu Einsatz → (Feld meldet: beendet)
+//
+// "Fahrt zu Einsatz" starts a simulated GPS drive for the assigned vehicles;
+// the geofence arrival prompt then asks the OPERATOR to confirm "vor Ort", so
+// the status change stays a command-post decision. When the drive can't run
+// (no coordinates, no vehicle assigned, demo mode) the step falls back to the
+// direct "Fahrzeug vor Ort" status change.
 //
 // Each step has an expected dwell time; once an incident waits past it the
 // action becomes "due" and floats to the top of the console, highlighted.
@@ -21,6 +27,7 @@ export type NextActionKind =
   | "status" // field arrival that advances status (reuses changeStatusToTop)
   | "reko_arrived" // Reko crew "vor Ort" — sets arrived_at, stays in "reko"
   | "reko_report" // Reko-Meldung — generates + submits the report → reko_done
+  | "gps_drive" // starts a simulated GPS drive to the incident; arrival prompt follows
   | "field_complete" // field reports "Einsatz beendet" — info badge, NO status change
 
 export interface NextAction {
@@ -39,7 +46,8 @@ export interface NextAction {
 const DUE = {
   rekoArrived: 120, // travel time before the Reko crew reaches the scene
   rekoReport: 90, // assessment time on scene before the report comes in
-  vehicleOnScene: 150, // travel time before the vehicles reach the scene
+  driveStart: 45, // the field would start driving right after being disponiert
+  vehicleOnScene: 150, // travel time before the vehicles reach the scene (fallback)
   incidentDone: 420, // time working the incident (~7 min) before the crew reports done
 } as const
 
@@ -48,8 +56,12 @@ const DUE = {
  * move belongs to the operator (Eingegangen, Reko abgeschlossen), the incident
  * is closed, or completion was already reported. Aware of the Reko sub-state:
  * the crew must first arrive ("Reko vor Ort") before the report ("Reko-Meldung").
+ *
+ * `opts.gpsSim` says whether the GPS drive simulation is usable (backend
+ * refuses it in demo mode) — without it, Disponiert falls back to the direct
+ * "Fahrzeug vor Ort" status change.
  */
-export function nextAction(op: Operation): NextAction | null {
+export function nextAction(op: Operation, opts?: { gpsSim?: boolean }): NextAction | null {
   switch (op.status) {
     case "ready":
       if (!op.rekoArrivedAt) {
@@ -57,6 +69,9 @@ export function nextAction(op: Operation): NextAction | null {
       }
       return { key: "reko_report", label: "Reko-Meldung", kind: "reko_report", dueAfterSec: DUE.rekoReport }
     case "enroute":
+      if (opts?.gpsSim && op.coordinates && op.vehicles.length > 0) {
+        return { key: "drive_to_incident", label: "Fahrt zu Einsatz", kind: "gps_drive", dueAfterSec: DUE.driveStart }
+      }
       return { key: "vehicle_on_scene", label: "Fahrzeug vor Ort", kind: "status", targetStatus: "active", dueAfterSec: DUE.vehicleOnScene }
     case "active":
       // Field reports "Einsatz beendet" once — after that the operator closes it,

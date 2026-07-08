@@ -299,7 +299,9 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                 "incident_status": incident.status,
                 "incident_lat": incident.location_lat,
                 "incident_lng": incident.location_lng,
-                "incident_label": incident.title or incident.location_address or "Einsatz",
+                # Operators think in places, not titles — the board cards lead with the
+                # address too, so the prompts and toasts use it as the incident label.
+                "incident_label": incident.location_address or incident.title or "Einsatz",
                 "vehicle_id": vehicle.id,
                 "vehicle_name": vehicle.name,
             }

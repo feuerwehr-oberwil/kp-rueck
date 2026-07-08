@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations, type Operation } from '@/lib/contexts/operations-context';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, type ApiGpsSimDrive, type ApiVehicle } from '@/lib/api-client';
+import { wsClient } from '@/lib/websocket-client';
 import { nextAction, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
 import { getTimeSince } from '@/lib/kanban-utils';
 import { Button } from '@/components/ui/button';
@@ -27,8 +28,16 @@ import {
 const ACTION_ICONS: Record<string, typeof MapPin> = {
   reko_arrived: MapPin,
   reko_report: ClipboardCheck,
+  drive_to_incident: Truck,
   vehicle_on_scene: Truck,
   field_complete: Flag,
+};
+
+const formatEta = (secs: number) => {
+  if (secs <= 5) return 'angekommen';
+  const m = Math.floor(secs / 60);
+  const s = Math.round(secs % 60);
+  return m > 0 ? `noch ~${m} min ${s}s` : `noch ~${s}s`;
 };
 
 export function TrainingSimulationControls() {
@@ -38,6 +47,33 @@ export function TrainingSimulationControls() {
   // Track per-incident advance state so each row's button spins independently.
   const [advancingIds, setAdvancingIds] = useState<Set<string>>(new Set());
   const [checkinCount, setCheckinCount] = useState(10);
+
+  // GPS drive simulation: vehicles for name→id lookup, active drives for the
+  // per-row progress state. The backend refuses simulations in demo mode, so
+  // the console falls back to the plain "Fahrzeug vor Ort" action there.
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+  const [drives, setDrives] = useState<ApiGpsSimDrive[]>([]);
+  const [gpsSimAvailable, setGpsSimAvailable] = useState(true);
+
+  const refreshDrives = useCallback(async () => {
+    try {
+      setDrives(await apiClient.getGpsSimulations());
+    } catch {
+      // Endpoint unavailable (old backend) — leave list as-is.
+    }
+  }, []);
+
+  useEffect(() => {
+    apiClient.getVehicles().then(setVehicles).catch(() => setVehicles([]));
+    apiClient.getDemoStatus().then((status) => setGpsSimAvailable(!status?.demo)).catch(() => {});
+    refreshDrives();
+    const unsubscribe = wsClient.on('gps_sim_status', () => refreshDrives());
+    const interval = setInterval(refreshDrives, 5000);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [refreshDrives]);
 
   // 1 Hz clock so "due" recomputes and the elapsed timers tick live.
   const [now, setNow] = useState(() => Date.now());
@@ -52,18 +88,28 @@ export function TrainingSimulationControls() {
   const rows = useMemo(() => {
     const built = operations
       .map((op) => {
-        const action = nextAction(op);
+        const action = nextAction(op, { gpsSim: gpsSimAvailable });
         if (!action) return null;
         const secs = secondsInStep(op, now);
-        return { op, action, secs, due: isActionDue(op, action, now) };
+        // Active drives toward this incident: while the vehicles are rolling,
+        // the row shows progress instead of a button and is never "due".
+        const opDrives =
+          action.kind === 'gps_drive'
+            ? drives.filter((d) => d.kind === 'incident' && op.vehicles.includes(d.vehicle_name))
+            : [];
+        const due = opDrives.length === 0 && isActionDue(op, action, now);
+        return { op, action, secs, due, opDrives };
       })
-      .filter((r): r is { op: Operation; action: NextAction; secs: number | null; due: boolean } => r !== null);
+      .filter(
+        (r): r is { op: Operation; action: NextAction; secs: number | null; due: boolean; opDrives: ApiGpsSimDrive[] } =>
+          r !== null
+      );
 
     return built.sort((a, b) => {
       if (a.due !== b.due) return a.due ? -1 : 1;
       return (b.secs ?? Number.MAX_SAFE_INTEGER) - (a.secs ?? Number.MAX_SAFE_INTEGER);
     });
-  }, [operations, now]);
+  }, [operations, now, drives, gpsSimAvailable]);
 
   if (!selectedEvent?.training_flag) {
     return null;
@@ -89,7 +135,26 @@ export function TrainingSimulationControls() {
     // Field reports hit the backend; the board refreshes via WS/poll.
     setAdvancing(op.id, true);
     try {
-      if (action.kind === 'reko_arrived') {
+      if (action.kind === 'gps_drive') {
+        // Send every assigned vehicle that isn't already rolling on its drive.
+        // Arrival then flows through the real GPS pipeline (geofence prompt).
+        const rolling = new Set(drives.map((d) => d.vehicle_name));
+        const toSend = vehicles.filter((v) => op.vehicles.includes(v.name) && !rolling.has(v.name));
+        if (toSend.length === 0) {
+          toast.error('Kein Fahrzeug für die Fahrt gefunden', {
+            description: 'Die zugewiesenen Fahrzeuge sind unbekannt oder bereits unterwegs.',
+          });
+          return;
+        }
+        for (const vehicle of toSend) {
+          await apiClient.startGpsSimulation({
+            vehicle_id: vehicle.id,
+            target: 'incident',
+            incident_id: op.id,
+          });
+        }
+        await refreshDrives();
+      } else if (action.kind === 'reko_arrived') {
         await apiClient.simulateRekoArrived(selectedEvent.id, op.id);
       } else if (action.kind === 'reko_report') {
         await apiClient.simulateReko(selectedEvent.id, op.id);
@@ -152,15 +217,23 @@ export function TrainingSimulationControls() {
           ) : (
             <>
               <div className="space-y-1.5">
-                {rows.map(({ op, action, due }) => {
+                {rows.map(({ op, action, due, opDrives }) => {
                   const busy = advancingIds.has(op.id);
                   const Icon = ACTION_ICONS[action.key] ?? ChevronRight;
                   const started = stepStartedAt(op);
+                  // Slowest vehicle defines the incident's arrival state.
+                  const slowest = opDrives.length
+                    ? opDrives.reduce((a, b) => (a.eta_seconds >= b.eta_seconds ? a : b))
+                    : null;
                   return (
                     <div
                       key={op.id}
                       className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
-                        due ? 'border-amber-400/70 bg-amber-50/60 dark:bg-amber-950/30' : 'border-border'
+                        due
+                          ? 'border-amber-400/70 bg-amber-50/60 dark:bg-amber-950/30'
+                          : slowest
+                            ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30'
+                            : 'border-border'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
@@ -172,24 +245,31 @@ export function TrainingSimulationControls() {
                           {started && ` · seit ${getTimeSince(started)}`}
                         </div>
                       </div>
-                      <Button
-                        onClick={() => handleAdvance(op, action)}
-                        disabled={busy}
-                        variant={due ? 'default' : 'outline'}
-                        size="sm"
-                        className="flex-shrink-0"
-                        title={due ? 'Empfohlene nächste Aktion' : undefined}
-                      >
-                        <Icon className="mr-1.5 h-3.5 w-3.5" />
-                        {action.label}
-                        {busy && <span className="ml-1.5 text-xs opacity-70">…</span>}
-                      </Button>
+                      {slowest ? (
+                        <div className="flex-shrink-0 text-xs text-muted-foreground">
+                          <Truck className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                          {Math.round(slowest.progress * 100)}% · {formatEta(slowest.eta_seconds)}
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={() => handleAdvance(op, action)}
+                          disabled={busy}
+                          variant={due ? 'default' : 'outline'}
+                          size="sm"
+                          className="flex-shrink-0"
+                          title={due ? 'Empfohlene nächste Aktion' : undefined}
+                        >
+                          <Icon className="mr-1.5 h-3.5 w-3.5" />
+                          {action.label}
+                          {busy && <span className="ml-1.5 text-xs opacity-70">…</span>}
+                        </Button>
+                      )}
                     </div>
                   );
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). &quot;Einsatz beendet&quot; meldet nur — der Operator schliesst den Einsatz ab.
+                Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). &quot;Fahrt zu Einsatz&quot; startet eine GPS-Fahrt — die Ankunft meldet sich über die GPS-Abfrage. &quot;Einsatz beendet&quot; meldet nur — der Operator schliesst den Einsatz ab.
               </p>
             </>
           )}
