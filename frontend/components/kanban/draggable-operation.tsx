@@ -349,21 +349,6 @@ function DraggableOperationBase({
             </span>
           </div>
 
-          {/* Field crew reported the incident finished (training). Informational
-              nudge for the operator to close it — status is unchanged. */}
-          {operation.fieldCompleteReportedAt && operation.status === "active" && (
-            <div className="flex items-center gap-1.5">
-              <Badge
-                variant="outline"
-                className="text-xs px-1.5 py-0.5 flex items-center gap-1 border-emerald-400/70 text-emerald-700 dark:text-emerald-400"
-                title="Das Feld meldet den Einsatz als beendet — bereit zum Abschliessen"
-              >
-                <CheckCircle2 className="h-3 w-3" />
-                Feld meldet: Einsatz beendet
-              </Badge>
-            </div>
-          )}
-
           {/* Meldung (notes) - shown when toggle is enabled */}
           {showMeldung && operation.notes && (
             <div className="border-t pt-3">
@@ -750,7 +735,6 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
   return (
     prevProps.operation.id === nextProps.operation.id &&
     prevProps.operation.status === nextProps.operation.status &&
-    prevProps.operation.fieldCompleteReportedAt?.getTime() === nextProps.operation.fieldCompleteReportedAt?.getTime() &&
     prevProps.operation.priority === nextProps.operation.priority &&
     prevProps.operation.location === nextProps.operation.location &&
     prevProps.operation.notes === nextProps.operation.notes &&

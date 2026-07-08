@@ -5,6 +5,8 @@ import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations, type Operation } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiGpsSimDrive, type ApiVehicle } from '@/lib/api-client';
 import { wsClient } from '@/lib/websocket-client';
+import { useGpsSimSpeed } from '@/lib/hooks/use-gps-sim-speed';
+import { formatEta, liveDrive } from '@/lib/gps-sim';
 import { nextAction, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
 import { getTimeSince } from '@/lib/kanban-utils';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,7 @@ import {
   MapPin,
   Truck,
   Flag,
+  Home,
   ChevronRight,
 } from 'lucide-react';
 
@@ -31,14 +34,9 @@ const ACTION_ICONS: Record<string, typeof MapPin> = {
   drive_to_incident: Truck,
   vehicle_on_scene: Truck,
   field_complete: Flag,
+  drive_to_magazin: Home,
 };
 
-const formatEta = (secs: number) => {
-  if (secs <= 5) return 'angekommen';
-  const m = Math.floor(secs / 60);
-  const s = Math.round(secs % 60);
-  return m > 0 ? `noch ~${m} min ${s}s` : `noch ~${s}s`;
-};
 
 export function TrainingSimulationControls() {
   const { selectedEvent } = useEvent();
@@ -53,11 +51,14 @@ export function TrainingSimulationControls() {
   // the console falls back to the plain "Fahrzeug vor Ort" action there.
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
   const [drives, setDrives] = useState<ApiGpsSimDrive[]>([]);
+  const [drivesFetchedAt, setDrivesFetchedAt] = useState(() => Date.now());
   const [gpsSimAvailable, setGpsSimAvailable] = useState(true);
+  const [speedKmh] = useGpsSimSpeed();
 
   const refreshDrives = useCallback(async () => {
     try {
       setDrives(await apiClient.getGpsSimulations());
+      setDrivesFetchedAt(Date.now());
     } catch {
       // Endpoint unavailable (old backend) — leave list as-is.
     }
@@ -68,7 +69,7 @@ export function TrainingSimulationControls() {
     apiClient.getDemoStatus().then((status) => setGpsSimAvailable(!status?.demo)).catch(() => {});
     refreshDrives();
     const unsubscribe = wsClient.on('gps_sim_status', () => refreshDrives());
-    const interval = setInterval(refreshDrives, 5000);
+    const interval = setInterval(refreshDrives, 3000);
     return () => {
       unsubscribe();
       clearInterval(interval);
@@ -91,12 +92,12 @@ export function TrainingSimulationControls() {
         const action = nextAction(op, { gpsSim: gpsSimAvailable });
         if (!action) return null;
         const secs = secondsInStep(op, now);
-        // Active drives toward this incident: while the vehicles are rolling,
-        // the row shows progress instead of a button and is never "due".
-        const opDrives =
-          action.kind === 'gps_drive'
-            ? drives.filter((d) => d.kind === 'incident' && op.vehicles.includes(d.vehicle_name))
-            : [];
+        // Active drives for this step (outbound or return): while the vehicles
+        // are rolling, the row shows progress instead of a button, never "due".
+        const driveKind = action.kind === 'gps_drive' ? 'incident' : action.kind === 'gps_return' ? 'magazin' : null;
+        const opDrives = driveKind
+          ? drives.filter((d) => d.kind === driveKind && op.vehicles.includes(d.vehicle_name))
+          : [];
         const due = opDrives.length === 0 && isActionDue(op, action, now);
         return { op, action, secs, due, opDrives };
       })
@@ -135,10 +136,12 @@ export function TrainingSimulationControls() {
     // Field reports hit the backend; the board refreshes via WS/poll.
     setAdvancing(op.id, true);
     try {
-      if (action.kind === 'gps_drive') {
-        // Send every assigned vehicle that isn't already rolling on its drive.
-        // Arrival then flows through the real GPS pipeline (geofence prompt).
-        const rolling = new Set(drives.map((d) => d.vehicle_name));
+      if (action.kind === 'gps_drive' || action.kind === 'gps_return') {
+        // Send every assigned vehicle that isn't already rolling on this leg.
+        // Arrival/return then flows through the real GPS pipeline (geofence
+        // prompts). A finished outbound drive is simply replaced by the return.
+        const target = action.kind === 'gps_drive' ? 'incident' : 'magazin';
+        const rolling = new Set(drives.filter((d) => d.kind === target).map((d) => d.vehicle_name));
         const toSend = vehicles.filter((v) => op.vehicles.includes(v.name) && !rolling.has(v.name));
         if (toSend.length === 0) {
           toast.error('Kein Fahrzeug für die Fahrt gefunden', {
@@ -149,8 +152,9 @@ export function TrainingSimulationControls() {
         for (const vehicle of toSend) {
           await apiClient.startGpsSimulation({
             vehicle_id: vehicle.id,
-            target: 'incident',
-            incident_id: op.id,
+            target,
+            incident_id: target === 'incident' ? op.id : undefined,
+            speed_kmh: speedKmh,
           });
         }
         await refreshDrives();
@@ -221,10 +225,12 @@ export function TrainingSimulationControls() {
                   const busy = advancingIds.has(op.id);
                   const Icon = ACTION_ICONS[action.key] ?? ChevronRight;
                   const started = stepStartedAt(op);
-                  // Slowest vehicle defines the incident's arrival state.
+                  // Slowest vehicle defines the incident's arrival state; tick
+                  // its progress locally between polls so the row feels live.
                   const slowest = opDrives.length
                     ? opDrives.reduce((a, b) => (a.eta_seconds >= b.eta_seconds ? a : b))
                     : null;
+                  const live = slowest ? liveDrive(slowest, drivesFetchedAt, now) : null;
                   return (
                     <div
                       key={op.id}
@@ -243,12 +249,21 @@ export function TrainingSimulationControls() {
                         <div className="text-xs text-muted-foreground">
                           {STATUS_LABELS[op.status]}
                           {started && ` · seit ${getTimeSince(started)}`}
+                          {/* The "beendet" report lives ONLY here — the board is
+                              informed in the exercise itself (e.g. via radio). */}
+                          {op.fieldCompleteReportedAt && op.status === 'active' && (
+                            <span className="text-emerald-600 dark:text-emerald-400"> · Feld meldet: beendet</span>
+                          )}
                         </div>
                       </div>
-                      {slowest ? (
+                      {slowest && live ? (
                         <div className="flex-shrink-0 text-xs text-muted-foreground">
-                          <Truck className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
-                          {Math.round(slowest.progress * 100)}% · {formatEta(slowest.eta_seconds)}
+                          {slowest.kind === 'magazin' ? (
+                            <Home className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                          ) : (
+                            <Truck className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                          )}
+                          {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
                         </div>
                       ) : (
                         <Button
@@ -269,7 +284,7 @@ export function TrainingSimulationControls() {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). &quot;Fahrt zu Einsatz&quot; startet eine GPS-Fahrt — die Ankunft meldet sich über die GPS-Abfrage. &quot;Einsatz beendet&quot; meldet nur — der Operator schliesst den Einsatz ab.
+                Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). &quot;Fahrt zu Einsatz&quot; und &quot;Rückfahrt Magazin&quot; starten GPS-Fahrten — Ankunft und Rückkehr melden sich über die GPS-Abfrage. &quot;Einsatz beendet&quot; erscheint nur hier — das Board informierst du selbst (z.B. per Funk).
               </p>
             </>
           )}

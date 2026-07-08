@@ -17,9 +17,10 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { Satellite, Play, Square, Home, Gauge } from 'lucide-react';
+import { useGpsSimSpeed, GPS_SIM_SPEED_MIN, GPS_SIM_SPEED_MAX } from '@/lib/hooks/use-gps-sim-speed';
+import { formatEta, liveDrive } from '@/lib/gps-sim';
 
 const MAGAZIN_TARGET = '__magazin__';
-const DEFAULT_SPEED_KMH = 30;
 
 /**
  * GPS-Simulation (Übungssteuerung): send a vehicle on a simulated drive to a
@@ -33,14 +34,16 @@ export function TrainingGpsSimulation() {
   const { operations } = useOperations();
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
   const [drives, setDrives] = useState<ApiGpsSimDrive[]>([]);
+  const [drivesFetchedAt, setDrivesFetchedAt] = useState(() => Date.now());
   const [targets, setTargets] = useState<Record<string, string>>({}); // vehicleId -> target value
-  // vehicleId -> chosen speed; sticks across drives so a vehicle keeps its pace.
-  const [speeds, setSpeeds] = useState<Record<string, number>>({});
+  // Global tempo, shared with the Nächste-Aktionen console (persisted).
+  const [speedKmh, setSpeedKmh] = useGpsSimSpeed();
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
   const refreshDrives = useCallback(async () => {
     try {
       setDrives(await apiClient.getGpsSimulations());
+      setDrivesFetchedAt(Date.now());
     } catch {
       // Endpoint unavailable (old backend) — leave list as-is.
     }
@@ -49,20 +52,30 @@ export function TrainingGpsSimulation() {
   useEffect(() => {
     apiClient.getVehicles().then(setVehicles).catch(() => setVehicles([]));
     refreshDrives();
-    // Live status via WS, plus a light poll so progress bars advance.
+    // Live status via WS, plus a light poll so drive states stay fresh.
     const unsubscribe = wsClient.on('gps_sim_status', () => refreshDrives());
-    const interval = setInterval(refreshDrives, 5000);
+    const interval = setInterval(refreshDrives, 3000);
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
   }, [refreshDrives]);
 
-  // Stable, human order — vehicle names sort naturally (TLF 1 before TLF 10).
+  // 1 Hz clock: progress/ETA extrapolate between polls so drives tick live.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Same order as everywhere else: the display_order maintained in the
+  // settings, with a natural name sort as tie-breaker (TLF 1 before TLF 10).
   const sortedVehicles = useMemo(
     () =>
-      [...vehicles].sort((a, b) =>
-        a.name.localeCompare(b.name, 'de', { numeric: true, sensitivity: 'base' }),
+      [...vehicles].sort(
+        (a, b) =>
+          a.display_order - b.display_order ||
+          a.name.localeCompare(b.name, 'de', { numeric: true, sensitivity: 'base' }),
       ),
     [vehicles],
   );
@@ -98,24 +111,15 @@ export function TrainingGpsSimulation() {
 
   const driveFor = (vehicleId: string) => drives.find((d) => d.vehicle_id === vehicleId);
 
-  // Manual pick > running drive's speed > default. The manual pick sticks so a
-  // vehicle keeps its pace for follow-up drives (e.g. the Rückfahrt).
-  const speedFor = (vehicleId: string) =>
-    speeds[vehicleId] ?? driveFor(vehicleId)?.speed_kmh ?? DEFAULT_SPEED_KMH;
-
-  // Live speed change on an active drive: the backend rebuilds the drive at the
-  // current position, so the marker keeps rolling — only the pace changes.
-  const handleSpeedCommit = async (vehicle: ApiVehicle, speedKmh: number) => {
-    if (!driveFor(vehicle.id)) return; // idle: the value is only picked up on start
+  // Committing the global tempo also re-paces every active drive: the backend
+  // rebuilds each drive at its current position, so the markers keep rolling —
+  // only the pace changes.
+  const handleSpeedCommit = async (newSpeed: number) => {
+    if (drives.length === 0) return; // idle: the value is only picked up on start
     try {
-      await apiClient.setGpsSimulationSpeed(vehicle.id, speedKmh);
+      await Promise.all(drives.map((d) => apiClient.setGpsSimulationSpeed(d.vehicle_id, newSpeed)));
       await refreshDrives();
     } catch {
-      setSpeeds((prev) => {
-        const next = { ...prev };
-        delete next[vehicle.id];
-        return next;
-      });
       toast.error('Tempo konnte nicht geändert werden');
     }
   };
@@ -147,7 +151,7 @@ export function TrainingGpsSimulation() {
         vehicle_id: vehicle.id,
         target: target === MAGAZIN_TARGET ? 'magazin' : 'incident',
         incident_id: target === MAGAZIN_TARGET ? undefined : target,
-        speed_kmh: speedFor(vehicle.id),
+        speed_kmh: speedKmh,
       });
       await refreshDrives();
     } catch (error: unknown) {
@@ -167,7 +171,7 @@ export function TrainingGpsSimulation() {
       await apiClient.startGpsSimulation({
         vehicle_id: vehicle.id,
         target: 'magazin',
-        speed_kmh: speedFor(vehicle.id),
+        speed_kmh: speedKmh,
       });
       await refreshDrives();
     } catch (error: unknown) {
@@ -188,13 +192,6 @@ export function TrainingGpsSimulation() {
     } finally {
       if (vehicleId) setBusy(vehicleId, false);
     }
-  };
-
-  const formatEta = (secs: number) => {
-    if (secs <= 5) return 'angekommen';
-    const m = Math.floor(secs / 60);
-    const s = Math.round(secs % 60);
-    return m > 0 ? `noch ~${m} min ${s}s` : `noch ~${s}s`;
   };
 
   return (
@@ -220,32 +217,48 @@ export function TrainingGpsSimulation() {
         </div>
       </CardHeader>
       <CardContent className="space-y-1.5">
+        {/* Global tempo: applied when a drive starts and, on release, to all
+            drives already rolling. */}
+        <div className="flex items-center gap-2 pb-1">
+          <Gauge className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+          <Slider
+            min={GPS_SIM_SPEED_MIN}
+            max={GPS_SIM_SPEED_MAX}
+            step={5}
+            value={[speedKmh]}
+            onValueChange={([v]) => setSpeedKmh(v)}
+            onValueCommit={([v]) => handleSpeedCommit(v)}
+            className="flex-1"
+          />
+          <span className="w-16 flex-shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+            {Math.round(speedKmh)} km/h
+          </span>
+        </div>
         {vehicles.length === 0 ? (
           <p className="text-xs text-muted-foreground">Keine Fahrzeuge vorhanden.</p>
         ) : (
           sortedVehicles.map((vehicle) => {
             const drive = driveFor(vehicle.id);
             const busy = busyIds.has(vehicle.id);
-            const speed = speedFor(vehicle.id);
+            const live = drive ? liveDrive(drive, drivesFetchedAt, now) : null;
             return (
               <div
                 key={vehicle.id}
-                className={`rounded-md border px-2 py-1.5 text-sm ${
+                className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
                   drive ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30' : 'border-border'
                 }`}
               >
-                <div className="flex items-center gap-2">
                 <div className="min-w-0 w-24 flex-shrink-0 truncate font-medium">{vehicle.name}</div>
-                {drive ? (
+                {drive && live ? (
                   <>
                     <div className="min-w-0 flex-1 text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">
                         {drive.kind === 'magazin' ? 'Rückkehr Magazin' : `→ ${drive.target_label}`}
                       </span>
                       {' · '}
-                      {Math.round(drive.progress * 100)}% · {formatEta(drive.eta_seconds)}
+                      {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
                     </div>
-                    {drive.kind === 'incident' && drive.eta_seconds <= 5 && (
+                    {drive.kind === 'incident' && live.eta <= 5 && (
                       <Button
                         onClick={() => handleReturn(vehicle)}
                         disabled={busy}
@@ -302,36 +315,15 @@ export function TrainingGpsSimulation() {
                     </Button>
                   </>
                 )}
-                </div>
-                {/* Tempo: picked up on start while idle; adjusts the running
-                    drive live once committed (slider release). */}
-                {(drive || targetFor(vehicle.id)) && (
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Gauge className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                    <Slider
-                      min={10}
-                      max={100}
-                      step={5}
-                      value={[speed]}
-                      onValueChange={([v]) => setSpeeds((prev) => ({ ...prev, [vehicle.id]: v }))}
-                      onValueCommit={([v]) => handleSpeedCommit(vehicle, v)}
-                      disabled={busy}
-                      className="flex-1"
-                    />
-                    <span className="w-16 flex-shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                      {Math.round(speed)} km/h
-                    </span>
-                  </div>
-                )}
               </div>
             );
           })
         )}
         <p className="text-xs text-muted-foreground pt-1">
           Fahrten laufen in gerader Linie (inkl. Umwegfaktor), bremsen vor dem Ziel ab und stoppen
-          automatisch nach 30 Minuten. Das Tempo lässt sich pro Fahrzeug einstellen — auch während
-          der Fahrt. Rückfahrten starten am zugewiesenen Einsatzort. Gesperrt, solange ein
-          Ernstfall-Ereignis aktive Einsätze hat.
+          automatisch nach 30 Minuten. Das Tempo gilt für alle Fahrzeuge — Ändern während der Fahrt
+          passt laufende Fahrten an. Rückfahrten starten am zugewiesenen Einsatzort. Gesperrt,
+          solange ein Ernstfall-Ereignis aktive Einsätze hat.
         </p>
       </CardContent>
     </Card>
