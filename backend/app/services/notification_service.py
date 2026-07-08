@@ -731,6 +731,52 @@ async def create_reko_notification(
     return notification
 
 
+async def create_vehicle_returned_notification(
+    db: AsyncSession,
+    event_id: UUID,
+    incident_id: UUID | None,
+    vehicle_name: str,
+) -> Notification | None:
+    """Info bell when an unassigned vehicle is confirmed back at the magazin.
+
+    Deliberately notification-only (no modal): the vehicle carries no assignment
+    anymore, so there is nothing for the operator to decide — they just need to
+    know it is home. Deduped against a recent identical note so GPS automation
+    restarts or state flaps can't spam the bell.
+    """
+    message = f"{vehicle_name} zurück im Magazin"
+
+    recent = await db.execute(
+        select(Notification.id)
+        .where(Notification.type == "vehicle_returned")
+        .where(Notification.message == message)
+        .where(Notification.dismissed.is_(False))
+        .where(Notification.created_at >= datetime.now(UTC) - timedelta(minutes=15))
+        .limit(1)
+    )
+    if recent.first() is not None:
+        return None
+
+    notification = Notification(
+        type="vehicle_returned",
+        severity="info",
+        message=message,
+        incident_id=incident_id,
+        event_id=event_id,
+    )
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
+
+    from ..websocket_manager import broadcast_notification_update
+
+    await broadcast_notification_update(
+        {"id": str(notification.id), "type": notification.type, "event_id": str(event_id)},
+        "create",
+    )
+    return notification
+
+
 async def create_reko_arrived_notification(
     db: AsyncSession,
     incident_id: UUID,

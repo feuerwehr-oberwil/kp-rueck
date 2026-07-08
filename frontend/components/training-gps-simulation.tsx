@@ -258,10 +258,13 @@ export function TrainingGpsSimulation() {
                       {' · '}
                       {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
                     </div>
-                    {drive.kind === 'incident' && live.eta <= 5 && (
+                    {/* Arrival gate uses the SERVER eta, not the extrapolated one —
+                        the extrapolation oscillates around the threshold between
+                        polls and made this button flicker. Hidden while busy so it
+                        vanishes the moment the return is requested. */}
+                    {drive.kind === 'incident' && drive.eta_seconds <= 5 && !busy && (
                       <Button
                         onClick={() => handleReturn(vehicle)}
-                        disabled={busy}
                         size="sm"
                         className="flex-shrink-0"
                         title="Zurück zum Magazin fahren (z.B. nur Material abgeliefert)"

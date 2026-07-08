@@ -8,6 +8,7 @@ export type NotificationType =
   | 'missing_location'
   | 'event_size_limit'
   | 'vehicle_arrived'
+  | 'vehicle_returned'
 
 export interface Notification {
   id: string

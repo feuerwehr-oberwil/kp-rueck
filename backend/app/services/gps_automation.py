@@ -15,6 +15,12 @@ two rules, both opt-in behind ``gps.automation_enabled`` (default OFF):
   enters the magazin geofence (confirmed with the same guards), PROMPT the operator
   to release that vehicle's assignment. Never silent-release, never auto-close.
 
+- **Rule C — Unassigned vehicle back home (INFO):** when a vehicle WITHOUT an active
+  assignment (released while still in the field) is confirmed back inside the magazin
+  geofence after having been observed away, create an info bell notification so the
+  dispatchers know it is home. No modal, no mutation beyond the notification. Shares
+  the ``gps.rule_return_enabled`` opt-in with Rule B.
+
 All automated actions go through ``crud.update_incident_status`` so status-transition
 side effects fire, and are attributed to a clearly-named system actor user
 (``gps-automation``) so the audit / Excel export shows "automatic (GPS)" vs operator
@@ -111,6 +117,11 @@ class _AutomationState:
     # Rule A keyed by (incident_id, vehicle_id); Rule B keyed by assignment_id.
     arrival: dict[tuple[uuid.UUID, uuid.UUID], _Debounce] = field(default_factory=dict)
     returns: dict[uuid.UUID, _Debounce] = field(default_factory=dict)
+    # Rule C keyed by vehicle_id. ``unassigned_away`` records vehicles OBSERVED away
+    # from the station — only those may notify on coming home, so a vehicle parked at
+    # the magazin across a backend restart never produces a phantom "back" note.
+    unassigned_returns: dict[uuid.UUID, _Debounce] = field(default_factory=dict)
+    unassigned_away: set[uuid.UUID] = field(default_factory=set)
 
     def prune(self, arrival_keys: set, return_keys: set) -> None:
         """Drop debounce entries whose target is no longer relevant.
@@ -362,6 +373,11 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
 
         _state.prune(arrival_keys, return_keys)
 
+        # ---- Rule C: unassigned vehicle back home -> info notification ----
+        if cfg.rule_return_enabled and cfg.station_lat is not None and cfg.station_lng is not None:
+            assigned_vehicle_ids = {t["vehicle_id"] for t in targets}
+            await _watch_unassigned_returns(db, cfg, position_by_name, assigned_vehicle_ids, now)
+
     except Exception as e:  # never break the poll
         logger.debug("GPS automation tick failed: %s", e)
 
@@ -398,6 +414,79 @@ def _return_fix_confirms(vp, cfg: _AutomationConfig, now: datetime) -> bool:
         float(cfg.station_lng),
     )
     return distance <= cfg.station_radius_m
+
+
+async def _watch_unassigned_returns(
+    db: AsyncSession,
+    cfg: _AutomationConfig,
+    position_by_name: dict,
+    assigned_vehicle_ids: set,
+    now: datetime,
+) -> None:
+    """Rule C: notify (info bell) when an unassigned vehicle comes home.
+
+    State machine per vehicle: a fresh fix clearly OUTSIDE the station geofence
+    (1.5x radius hysteresis) marks it "away" and re-arms; a debounce-confirmed
+    fix INSIDE fires the notification once — but only if it was seen away while
+    unassigned. Assigned vehicles are Rule B's business: their Rule C state is
+    dropped, so a vehicle released at the magazin (via the release prompt)
+    starts fresh and never double-notifies.
+    """
+    vehicles = (await db.execute(select(Vehicle))).scalars().all()
+    for vehicle in vehicles:
+        if vehicle.id in assigned_vehicle_ids:
+            _state.unassigned_returns.pop(vehicle.id, None)
+            _state.unassigned_away.discard(vehicle.id)
+            continue
+        vp = position_by_name.get(vehicle.name.lower())
+        if vp is None or not _is_fresh(vp.last_update, now, cfg.freshness_seconds):
+            # Invisible/stale: keep state; a coverage gap must not fake a transition.
+            continue
+        distance = _haversine_distance_meters(
+            float(vp.latitude), float(vp.longitude), float(cfg.station_lat), float(cfg.station_lng)
+        )
+        if distance > cfg.station_radius_m * 1.5:
+            # Clearly out: arm the return watch and clear the one-shot latch by
+            # dropping the debounce entirely (reset() would keep the latch).
+            _state.unassigned_away.add(vehicle.id)
+            _state.unassigned_returns.pop(vehicle.id, None)
+        elif _return_fix_confirms(vp, cfg, now):
+            if _advance_debounce(_state.unassigned_returns, vehicle.id, vp.last_update, cfg):
+                if vehicle.id in _state.unassigned_away:
+                    _state.unassigned_away.discard(vehicle.id)
+                    await _fire_unassigned_return_notification(db, vehicle)
+                # else: first sighting is already at home (e.g. after a restart) —
+                # latch silently so a parked vehicle never notifies.
+        else:
+            # In the fuzzy zone or too fast — hold the counter, keep the latch.
+            _reset_debounce(_state.unassigned_returns, vehicle.id)
+
+
+async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicle) -> None:
+    """Create the "vehicle back home" info notification, attributed to the event
+    of its most recent released assignment (that's whose dispatchers care)."""
+    row = (
+        await db.execute(
+            select(Incident.id, Incident.event_id)
+            .join(IncidentAssignment, IncidentAssignment.incident_id == Incident.id)
+            .join(Event, Incident.event_id == Event.id)
+            .where(IncidentAssignment.resource_type == "vehicle")
+            .where(IncidentAssignment.resource_id == vehicle.id)
+            .where(IncidentAssignment.unassigned_at.isnot(None))
+            .where(Event.archived_at.is_(None))
+            .order_by(IncidentAssignment.unassigned_at.desc())
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        # Never assigned in any open event — nobody is waiting for this vehicle.
+        return
+    from .notification_service import create_vehicle_returned_notification
+
+    logger.info("GPS automation: unassigned vehicle %s back at station — notifying", vehicle.name)
+    await create_vehicle_returned_notification(
+        db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name
+    )
 
 
 async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: str, actor: User) -> None:

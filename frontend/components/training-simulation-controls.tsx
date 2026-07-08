@@ -7,7 +7,7 @@ import { apiClient, type ApiGpsSimDrive, type ApiVehicle } from '@/lib/api-clien
 import { wsClient } from '@/lib/websocket-client';
 import { useGpsSimSpeed } from '@/lib/hooks/use-gps-sim-speed';
 import { formatEta, liveDrive } from '@/lib/gps-sim';
-import { nextAction, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
+import { nextActions, secondsInStep, isActionDue, stepStartedAt, type NextAction } from '@/lib/training-lifecycle';
 import { getTimeSince } from '@/lib/kanban-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,27 +83,37 @@ export function TrainingSimulationControls() {
     return () => clearInterval(t);
   }, []);
 
-  // Build the conductor list: every open incident with its single next
-  // milestone, sorted due-first then longest-waiting-first so the most
-  // "overdue" incident sits at the top, ready to advance.
+  // Build the conductor list: every open incident with its recommended field
+  // actions (usually one; on scene both "Einsatz beendet" and "Rückfahrt"),
+  // sorted due-first then longest-waiting-first so the most "overdue" incident
+  // sits at the top, ready to advance. Each action carries its own drive state
+  // — a rolling drive renders as progress instead of a button.
   const rows = useMemo(() => {
     const built = operations
       .map((op) => {
-        const action = nextAction(op, { gpsSim: gpsSimAvailable });
-        if (!action) return null;
+        const actions = nextActions(op, { gpsSim: gpsSimAvailable }).map((action) => {
+          const driveKind = action.kind === 'gps_drive' ? 'incident' : action.kind === 'gps_return' ? 'magazin' : null;
+          const actionDrives = driveKind
+            ? drives.filter((d) => d.kind === driveKind && op.vehicles.includes(d.vehicle_name))
+            : [];
+          return { action, actionDrives };
+        });
+        if (actions.length === 0) return null;
         const secs = secondsInStep(op, now);
-        // Active drives for this step (outbound or return): while the vehicles
-        // are rolling, the row shows progress instead of a button, never "due".
-        const driveKind = action.kind === 'gps_drive' ? 'incident' : action.kind === 'gps_return' ? 'magazin' : null;
-        const opDrives = driveKind
-          ? drives.filter((d) => d.kind === driveKind && op.vehicles.includes(d.vehicle_name))
-          : [];
-        const due = opDrives.length === 0 && isActionDue(op, action, now);
-        return { op, action, secs, due, opDrives };
+        // Due-ness follows the primary action, and only while it isn't rolling.
+        const primary = actions[0];
+        const due = primary.actionDrives.length === 0 && isActionDue(op, primary.action, now);
+        return { op, actions, secs, due };
       })
       .filter(
-        (r): r is { op: Operation; action: NextAction; secs: number | null; due: boolean; opDrives: ApiGpsSimDrive[] } =>
-          r !== null
+        (
+          r
+        ): r is {
+          op: Operation;
+          actions: { action: NextAction; actionDrives: ApiGpsSimDrive[] }[];
+          secs: number | null;
+          due: boolean;
+        } => r !== null
       );
 
     return built.sort((a, b) => {
@@ -221,23 +231,17 @@ export function TrainingSimulationControls() {
           ) : (
             <>
               <div className="space-y-1.5">
-                {rows.map(({ op, action, due, opDrives }) => {
+                {rows.map(({ op, actions, due }) => {
                   const busy = advancingIds.has(op.id);
-                  const Icon = ACTION_ICONS[action.key] ?? ChevronRight;
                   const started = stepStartedAt(op);
-                  // Slowest vehicle defines the incident's arrival state; tick
-                  // its progress locally between polls so the row feels live.
-                  const slowest = opDrives.length
-                    ? opDrives.reduce((a, b) => (a.eta_seconds >= b.eta_seconds ? a : b))
-                    : null;
-                  const live = slowest ? liveDrive(slowest, drivesFetchedAt, now) : null;
+                  const anyRolling = actions.some((a) => a.actionDrives.length > 0);
                   return (
                     <div
                       key={op.id}
                       className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
                         due
                           ? 'border-amber-400/70 bg-amber-50/60 dark:bg-amber-950/30'
-                          : slowest
+                          : anyRolling
                             ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30'
                             : 'border-border'
                       }`}
@@ -256,29 +260,41 @@ export function TrainingSimulationControls() {
                           )}
                         </div>
                       </div>
-                      {slowest && live ? (
-                        <div className="flex-shrink-0 text-xs text-muted-foreground">
-                          {slowest.kind === 'magazin' ? (
-                            <Home className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
-                          ) : (
-                            <Truck className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
-                          )}
-                          {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
-                        </div>
-                      ) : (
-                        <Button
-                          onClick={() => handleAdvance(op, action)}
-                          disabled={busy}
-                          variant={due ? 'default' : 'outline'}
-                          size="sm"
-                          className="flex-shrink-0"
-                          title={due ? 'Empfohlene nächste Aktion' : undefined}
-                        >
-                          <Icon className="mr-1.5 h-3.5 w-3.5" />
-                          {action.label}
-                          {busy && <span className="ml-1.5 text-xs opacity-70">…</span>}
-                        </Button>
-                      )}
+                      {actions.map(({ action, actionDrives }, idx) => {
+                        const Icon = ACTION_ICONS[action.key] ?? ChevronRight;
+                        // A rolling drive replaces its action's button with live
+                        // progress (slowest vehicle counts), ticking between polls.
+                        if (actionDrives.length > 0) {
+                          const slowest = actionDrives.reduce((a, b) => (a.eta_seconds >= b.eta_seconds ? a : b));
+                          const live = liveDrive(slowest, drivesFetchedAt, now);
+                          return (
+                            <div key={action.key} className="flex-shrink-0 text-xs text-muted-foreground">
+                              {slowest.kind === 'magazin' ? (
+                                <Home className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                              ) : (
+                                <Truck className="mr-1 inline h-3.5 w-3.5 text-purple-600" />
+                              )}
+                              {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
+                            </div>
+                          );
+                        }
+                        const isPrimary = idx === 0;
+                        return (
+                          <Button
+                            key={action.key}
+                            onClick={() => handleAdvance(op, action)}
+                            disabled={busy}
+                            variant={due && isPrimary ? 'default' : 'outline'}
+                            size="sm"
+                            className="flex-shrink-0"
+                            title={due && isPrimary ? 'Empfohlene nächste Aktion' : undefined}
+                          >
+                            <Icon className="mr-1.5 h-3.5 w-3.5" />
+                            {action.label}
+                            {busy && <span className="ml-1.5 text-xs opacity-70">…</span>}
+                          </Button>
+                        );
+                      })}
                     </div>
                   );
                 })}
