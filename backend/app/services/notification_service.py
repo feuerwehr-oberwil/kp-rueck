@@ -742,7 +742,9 @@ async def create_vehicle_returned_notification(
     Deliberately notification-only (no modal): the vehicle carries no assignment
     anymore, so there is nothing for the operator to decide — they just need to
     know it is home. Deduped against a recent identical note so GPS automation
-    restarts or state flaps can't spam the bell.
+    restarts or geofence-edge flaps can't spam the bell. The window is short on
+    purpose: a shuttle run (drop people off, return) can legitimately bring the
+    same vehicle home again within minutes and must notify each time.
     """
     message = f"{vehicle_name} zurück im Magazin"
 
@@ -751,7 +753,7 @@ async def create_vehicle_returned_notification(
         .where(Notification.type == "vehicle_returned")
         .where(Notification.message == message)
         .where(Notification.dismissed.is_(False))
-        .where(Notification.created_at >= datetime.now(UTC) - timedelta(minutes=15))
+        .where(Notification.created_at >= datetime.now(UTC) - timedelta(minutes=2))
         .limit(1)
     )
     if recent.first() is not None:
