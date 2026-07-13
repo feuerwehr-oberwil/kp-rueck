@@ -45,6 +45,8 @@ class DiveraEmergencyResponse(BaseModel):
     attached_at: datetime | None = None
     created_incident_id: UUID | None = None
     is_archived: bool
+    # Simulated alarm from the Übungssteuerung (never a real Divera alarm)
+    is_training: bool = False
 
     @field_serializer("latitude", "longitude")
     def serialize_decimal(self, value):

@@ -83,7 +83,7 @@ async def test_webhook_receive_success(client: AsyncClient):
     }
 
     # Mock the WebSocket broadcast
-    with patch("app.api.divera.broadcast_message", new_callable=AsyncMock):
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
         response = await client.post("/api/divera/webhook", json=webhook_payload)
         assert response.status_code == 200
         data = response.json()
@@ -117,7 +117,7 @@ async def test_webhook_minimal_payload(client: AsyncClient):
         "title": "Minimal Emergency",
     }
 
-    with patch("app.api.divera.broadcast_message", new_callable=AsyncMock):
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
         response = await client.post("/api/divera/webhook", json=webhook_payload)
         assert response.status_code == 200
 
@@ -141,7 +141,7 @@ async def test_webhook_full_payload(client: AsyncClient):
         "vehicle": ["TLF", "DLK", "MTW"],
     }
 
-    with patch("app.api.divera.broadcast_message", new_callable=AsyncMock):
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
         response = await client.post("/api/divera/webhook", json=webhook_payload)
         assert response.status_code == 200
         data = response.json()
@@ -770,3 +770,174 @@ async def test_list_response_structure(editor_client: AsyncClient, test_emergenc
     assert isinstance(data["emergencies"], list)
     assert isinstance(data["total"], int)
     assert isinstance(data["unattached_count"], int)
+
+
+# ============================================
+# Auto-Attach Tests
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def auto_attach_event(db_session: AsyncSession) -> Event:
+    """An active real event with auto-attach enabled."""
+    event = Event(
+        id=uuid4(),
+        name="Sturmlage mit Auto-Attach",
+        training_flag=False,
+        auto_attach_divera=True,
+        created_at=datetime.now(UTC),
+    )
+    db_session.add(event)
+    await db_session.commit()
+    await db_session.refresh(event)
+    return event
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_webhook_auto_attaches_to_flagged_event(
+    client: AsyncClient, db_session: AsyncSession, auto_attach_event: Event
+):
+    """A webhook emergency auto-attaches as an incident when an event wants it."""
+    payload = {
+        "id": 555001,
+        "title": "FEUER Dachstock",
+        "text": "Rauch aus Dachfenster sichtbar",
+        "address": "Hauptstrasse 1, 4104 Oberwil",
+        "lat": 47.51,
+        "lng": 7.55,
+    }
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await client.post("/api/divera/webhook", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["auto_attached_incident_id"] is not None
+
+    from sqlalchemy import select
+
+    from app.models import Incident
+
+    incident = (
+        await db_session.execute(select(Incident).where(Incident.event_id == auto_attach_event.id))
+    ).scalar_one()
+    assert incident.title == "FEUER Dachstock"
+    assert incident.type == "brandbekaempfung"
+    assert incident.priority == "high"
+    assert incident.status == "eingegangen"
+
+    emergency = (
+        await db_session.execute(
+            select(DiveraEmergency).where(DiveraEmergency.divera_id == 555001)
+        )
+    ).scalar_one()
+    assert emergency.attached_to_event_id == auto_attach_event.id
+    assert emergency.created_incident_id == incident.id
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_webhook_no_auto_attach_without_flag(
+    client: AsyncClient, db_session: AsyncSession, test_event: Event
+):
+    """Without any auto-attach event the emergency stays in the pool."""
+    payload = {"id": 555002, "title": "STURM Baum auf Strasse"}
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await client.post("/api/divera/webhook", json=payload)
+    assert response.status_code == 200
+    assert response.json()["auto_attached_incident_id"] is None
+
+    from sqlalchemy import select
+
+    emergency = (
+        await db_session.execute(
+            select(DiveraEmergency).where(DiveraEmergency.divera_id == 555002)
+        )
+    ).scalar_one()
+    assert emergency.attached_to_event_id is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_webhook_never_auto_attaches_to_training_event(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """A training event with auto-attach on must never receive real alarms."""
+    event = Event(
+        id=uuid4(),
+        name="Übung mit (irrtümlich) Auto-Attach",
+        training_flag=True,
+        auto_attach_divera=True,
+        created_at=datetime.now(UTC),
+    )
+    db_session.add(event)
+    await db_session.commit()
+
+    payload = {"id": 555003, "title": "BMA Schulhaus"}
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await client.post("/api/divera/webhook", json=payload)
+    assert response.status_code == 200
+    assert response.json()["auto_attached_incident_id"] is None
+
+
+# ============================================
+# Training Emergency Attach Guard Tests
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def training_pool_emergency(db_session: AsyncSession) -> DiveraEmergency:
+    """A simulated (training) pool emergency."""
+    emergency = DiveraEmergency(
+        id=uuid4(),
+        divera_id=-987654,
+        divera_number="UE-123",
+        title="Wassereinbruch Keller",
+        text="Simulierter Übungsalarm",
+        address="Bahnhofstrasse 3, 4104 Oberwil",
+        received_at=datetime.now(UTC),
+        is_archived=False,
+        is_training=True,
+    )
+    db_session.add(emergency)
+    await db_session.commit()
+    await db_session.refresh(emergency)
+    return emergency
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_training_emergency_cannot_attach_to_real_event(
+    editor_client: AsyncClient, test_event: Event, training_pool_emergency: DiveraEmergency
+):
+    """A simulated training alarm must never become a real incident."""
+    response = await editor_client.post(
+        f"/api/divera/emergencies/{training_pool_emergency.id}/attach",
+        json={"event_id": str(test_event.id)},
+    )
+    assert response.status_code == 400
+    assert "Übung" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_training_emergency_attaches_to_training_event(
+    editor_client: AsyncClient, db_session: AsyncSession, training_pool_emergency: DiveraEmergency
+):
+    """Attaching a simulated alarm to a training event works normally."""
+    event = Event(
+        id=uuid4(),
+        name="Übung Herbst",
+        training_flag=True,
+        created_at=datetime.now(UTC),
+    )
+    db_session.add(event)
+    await db_session.commit()
+
+    response = await editor_client.post(
+        f"/api/divera/emergencies/{training_pool_emergency.id}/attach",
+        json={"event_id": str(event.id)},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["title"] == "Wassereinbruch Keller"
+    assert data["status"] == "eingegangen"
