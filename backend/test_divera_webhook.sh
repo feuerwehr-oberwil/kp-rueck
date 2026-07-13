@@ -32,7 +32,6 @@ PAYLOAD=$(cat <<EOF
   "address": "Musterstrasse 123, 4410 Liestal",
   "lat": 47.4859,
   "lng": 7.7342,
-  "priority": 2,
   "cluster": ["Liestal"],
   "group": ["Zug 1", "Zug 2"],
   "vehicle": ["TLF-1", "DLK-1", "MTW-1"],

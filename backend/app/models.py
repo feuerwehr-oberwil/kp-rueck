@@ -783,11 +783,16 @@ class DiveraEmergency(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Simulated alarm injected by the Übungssteuerung: badge in the pool UI,
+    # excluded from auto-attach, only attachable to training events.
+    is_training: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     __table_args__ = (
         Index("idx_divera_emergencies_divera_id", "divera_id"),
         Index("idx_divera_emergencies_received_at", "received_at"),
         Index("idx_divera_emergencies_attached", "attached_to_event_id"),
         Index("idx_divera_emergencies_archived", "is_archived"),
+        Index("idx_divera_emergencies_is_training", "is_training"),
     )
 
     def __repr__(self):

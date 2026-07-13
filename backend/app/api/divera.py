@@ -23,142 +23,22 @@ from ..middleware.rate_limit import RateLimits, limiter
 from ..services import divera_alarm
 from ..services import settings as settings_service
 from ..services.audit import log_action
+from ..services.divera_intake import (
+    broadcast_emergency_received,
+    incident_create_from_emergency,
+    try_auto_attach,
+)
 from ..services.divera_members import build_sync_preview, execute_sync, fetch_divera_members
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_incident_update, broadcast_message, get_divera_poller_stats
+from ..websocket_manager import broadcast_incident_update, get_divera_poller_stats
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/divera", tags=["divera"])
 
 
-# Incident type mapping from Divera title keywords to IncidentType enum
-INCIDENT_TYPE_MAPPING = {
-    "FEUER": schemas.IncidentType.BRANDBEKAEMPFUNG,
-    "BRAND": schemas.IncidentType.BRANDBEKAEMPFUNG,
-    "HOCHWASSER": schemas.IncidentType.ELEMENTAREREIGNIS,
-    "UNWETTER": schemas.IncidentType.ELEMENTAREREIGNIS,
-    "STURM": schemas.IncidentType.ELEMENTAREREIGNIS,
-    "VU": schemas.IncidentType.STRASSENRETTUNG,
-    "VERKEHR": schemas.IncidentType.STRASSENRETTUNG,
-    "UNFALL": schemas.IncidentType.STRASSENRETTUNG,
-    "THL": schemas.IncidentType.TECHNISCHE_HILFELEISTUNG,
-    "TECH": schemas.IncidentType.TECHNISCHE_HILFELEISTUNG,
-    "ÖL": schemas.IncidentType.OELWEHR,
-    "OELWEHR": schemas.IncidentType.OELWEHR,
-    "CHEMIE": schemas.IncidentType.CHEMIEWEHR,
-    "STRAHLEN": schemas.IncidentType.STRAHLENWEHR,
-    "BAHN": schemas.IncidentType.EINSATZ_BAHNANLAGEN,
-    "BMA": schemas.IncidentType.BMA_UNECHTE_ALARME,
-    "FEHLALARM": schemas.IncidentType.BMA_UNECHTE_ALARME,
-    "DIENST": schemas.IncidentType.DIENSTLEISTUNGEN,
-    "TIER": schemas.IncidentType.GERETTETE_TIERE,
-}
-
-
-def detect_incident_type(title: str) -> schemas.IncidentType:
-    """
-    Detect incident type from Divera title.
-
-    Args:
-        title: Divera alarm title (e.g., "FEUER3", "THL-VERKEHR")
-
-    Returns:
-        Detected IncidentType, defaults to DIVERSE_EINSAETZE if no match
-    """
-    title_upper = title.upper()
-
-    for keyword, incident_type in INCIDENT_TYPE_MAPPING.items():
-        if keyword in title_upper:
-            return incident_type
-
-    # Default fallback
-    return schemas.IncidentType.DIVERSE_EINSAETZE
-
-
-def infer_priority_from_text(title: str, text: str | None = None) -> schemas.IncidentPriority:
-    """
-    Infer incident priority from title and text content.
-
-    HIGH priority keywords indicate life-threatening or critical situations:
-    - Fire/Brand emergencies
-    - BMA (building fire alarms)
-    - Person rescue situations
-    - Gas leaks
-    - Chemical hazards
-    - Medical emergencies
-
-    Everything else defaults to LOW. Only life-threatening situations are HIGH.
-
-    Args:
-        title: Incident title (e.g., "Wohnungsbrand", "BMA Schulhaus")
-        text: Optional incident description/text
-
-    Returns:
-        IncidentPriority.HIGH for critical situations, LOW otherwise
-    """
-    # Combine title and text for keyword search
-    combined = f"{title} {text or ''}".upper()
-
-    # HIGH priority keywords - life-threatening or critical situations
-    high_priority_keywords = [
-        # Fire emergencies
-        "BRAND",
-        "FEUER",
-        "FEUERALARM",
-        "VOLLBRAND",
-        "RAUCH",
-        "FLAMMEN",
-        # Building fire alarms
-        "BMA",
-        "BRANDMELDEANLAGE",
-        "BRANDMELDER",
-        "RAUCHMELDER",
-        # Person in danger / rescue (specific phrases to avoid false positives)
-        "PERSON IN",  # Person in Lift, Person in Gefahr
-        "PERSON IM",  # Person im Wasser
-        "EINGEKLEMMT",
-        "EINGESCHLOSSEN",
-        "ABSTURZ",  # Person abgestürzt
-        "VERMISST",
-        "BEWUSSTLOS",
-        "VERLETZT",
-        # Traffic accidents with people
-        "VU",  # Verkehrsunfall
-        "VERKEHRSUNFALL",
-        # Gas / Chemical hazards
-        "GAS",
-        "GASGERUCH",
-        "GASAUSTRITT",
-        "CHEMIE",
-        "CHEMIKALIEN",
-        "GEFAHRGUT",
-        "GEFAHRSTOFF",
-        # Medical emergencies
-        "MED USTÜ",  # Medizinische Unterstützung
-        "MED.",  # Med. Notfall
-        "MEDIZINISCH",
-        "REANIMATION",
-        "NOTARZT",
-        "RETTUNGSDIENST",
-        # Explosions
-        "EXPLOSION",
-        "DETONATION",
-        # Building collapse
-        "EINSTURZ",
-        "EINGESTÜRZT",
-        # Lift/elevator emergencies
-        "LIFT",
-        "AUFZUG",
-        "FAHRSTUHL",
-    ]
-
-    for keyword in high_priority_keywords:
-        if keyword in combined:
-            return schemas.IncidentPriority.HIGH
-
-    # Default to LOW for all other emergencies
-    return schemas.IncidentPriority.LOW
+# Type/priority inference lives in services.divera_intake so the webhook,
+# poller and attach endpoints share one source.
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
@@ -175,7 +55,8 @@ async def receive_divera_webhook(
     This endpoint receives webhooks from Divera and:
     1. Validates webhook secret (query param or X-Webhook-Secret header)
     2. Stores the emergency in divera_emergencies table
-    3. Does NOT auto-attach to any Event (manual attachment via UI)
+    3. Auto-attaches it (as a new incident) to the newest active event that has
+       auto-attach enabled — otherwise it stays in the pool for manual attachment
     4. Broadcasts WebSocket notification to frontend
     5. Returns 200 OK to Divera
     """
@@ -213,19 +94,22 @@ async def receive_divera_webhook(
             f"Divera ID {emergency.divera_id}, Title: {emergency.title}"
         )
 
-        # Broadcast WebSocket notification to frontend
+        # Auto-attach to the newest active event with the flag on (if any) —
+        # the emergency lands on that event's board as a fresh incident.
+        incident = await try_auto_attach(db, emergency)
+
+        # Broadcast WebSocket notification to frontend (pool + board)
         background_tasks.add_task(
-            broadcast_message,
-            {
-                "type": "divera_emergency_received",
-                "emergency": schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
-            },
+            broadcast_emergency_received,
+            schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
+            schemas.IncidentResponse.model_validate(incident).model_dump(mode="json") if incident else None,
         )
 
         return {
             "status": "ok",
             "message": "Emergency stored successfully",
             "emergency_id": str(emergency.id),
+            "auto_attached_incident_id": str(incident.id) if incident else None,
         }
 
     except IntegrityError as e:
@@ -338,24 +222,15 @@ async def attach_emergency_to_event(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
-    # Detect incident type from title
-    incident_type = detect_incident_type(emergency.title)
+    # Simulated training alarms never become real incidents
+    if emergency.is_training and not event.training_flag:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Übungs-Alarm kann nur an eine Übung angehängt werden",
+        )
 
-    # Infer priority from title and text content
-    priority = infer_priority_from_text(emergency.title, emergency.text)
-
-    # Create incident from emergency
-    incident_create = schemas.IncidentCreate(
-        event_id=request_data.event_id,
-        title=emergency.title,
-        type=incident_type,
-        priority=priority,
-        location_address=emergency.address,
-        location_lat=str(emergency.latitude) if emergency.latitude else None,
-        location_lng=str(emergency.longitude) if emergency.longitude else None,
-        description=emergency.text,
-        status=schemas.IncidentStatus.EINGEGANGEN,
-    )
+    # Derive incident (type/priority inferred from title/text)
+    incident_create = incident_create_from_emergency(emergency, request_data.event_id)
 
     # Create the incident
     incident = await incidents_crud.create_incident(
@@ -429,22 +304,13 @@ async def bulk_attach_emergencies(
 
             # Allow re-attachment to different events
 
-            # Detect type and infer priority from text
-            incident_type = detect_incident_type(emergency.title)
-            priority = infer_priority_from_text(emergency.title, emergency.text)
+            # Simulated training alarms never become real incidents
+            if emergency.is_training and not event.training_flag:
+                errors.append(f"Emergency {emergency_id}: Übungs-Alarm kann nur an eine Übung angehängt werden")
+                continue
 
-            # Create incident
-            incident_create = schemas.IncidentCreate(
-                event_id=request_data.event_id,
-                title=emergency.title,
-                type=incident_type,
-                priority=priority,
-                location_address=emergency.address,
-                location_lat=str(emergency.latitude) if emergency.latitude else None,
-                location_lng=str(emergency.longitude) if emergency.longitude else None,
-                description=emergency.text,
-                status=schemas.IncidentStatus.EINGEGANGEN,
-            )
+            # Create incident (type/priority inferred from title/text)
+            incident_create = incident_create_from_emergency(emergency, request_data.event_id)
 
             incident = await incidents_crud.create_incident(
                 db=db,

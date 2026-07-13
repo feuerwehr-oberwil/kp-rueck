@@ -96,8 +96,10 @@ export default function DiveraPoolPage() {
     const unsubscribe = wsClient.on('divera_emergency_received', (data: any) => {
       const emergency = data.emergency as ApiDiveraEmergency;
       toast({
-        title: 'Neuer Divera-Notfall',
-        description: emergency.title,
+        title: emergency.is_training ? 'Neuer Alarm (ÜBUNG)' : 'Neuer Divera-Notfall',
+        description: data.auto_attached
+          ? `${emergency.title} — automatisch angehängt`
+          : emergency.title,
         duration: 10000,
       });
       playAlertSound();
@@ -327,6 +329,14 @@ export default function DiveraPoolPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className={`font-medium truncate ${isAssigned ? 'text-muted-foreground' : ''}`}>
+                          {emergency.is_training && (
+                            <Badge
+                              variant="outline"
+                              className="mr-2 border-orange-500/60 text-orange-600 dark:text-orange-400 align-middle"
+                            >
+                              ÜBUNG
+                            </Badge>
+                          )}
                           {emergency.title}
                         </p>
                         {emergency.address && (

@@ -413,7 +413,19 @@ export default function FireStationDashboard() {
       try {
         const settings = await apiClient.getAllSettings()
         if (settings.funkrufname) setFunkrufname(settings.funkrufname)
-        setDiveraEnabled(settings['divera.alarm_enabled'] === 'true')
+        // The send button needs both the setting AND a configured access key —
+        // otherwise it would render and then 400 on send.
+        if (settings['divera.alarm_enabled'] === 'true') {
+          try {
+            const status = await apiClient.getDiveraPollingStatus()
+            setDiveraEnabled(status.configured === true)
+          } catch {
+            // Status endpoint unavailable — keep the old behavior (setting only)
+            setDiveraEnabled(true)
+          }
+        } else {
+          setDiveraEnabled(false)
+        }
       } catch { /* ignore */ }
     }
     fetchPrinterStatus()

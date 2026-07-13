@@ -38,7 +38,6 @@ SAMPLE_PAYLOADS = [
         "address": "Musterstrasse 123, 4410 Liestal",
         "lat": 47.4859,
         "lng": 7.7342,
-        "priority": 2,  # High priority
         "cluster": ["Liestal"],
         "group": ["Zug 1", "Zug 2"],
         "vehicle": ["TLF-1", "DLK-1", "MTW-1"],
@@ -53,7 +52,6 @@ SAMPLE_PAYLOADS = [
         "address": "Rheinstrasse 45, 4410 Liestal",
         "lat": 47.4822,
         "lng": 7.7389,
-        "priority": 2,  # High priority
         "cluster": ["Liestal"],
         "group": ["Zug 1"],
         "vehicle": ["TLF-1", "RW-1"],
@@ -68,7 +66,6 @@ SAMPLE_PAYLOADS = [
         "address": "Waldweg 7, 4410 Liestal",
         "lat": 47.4901,
         "lng": 7.7412,
-        "priority": 0,  # Low priority
         "cluster": ["Liestal"],
         "group": ["Zug 1"],
         "vehicle": ["TLF-1"],
@@ -83,7 +80,6 @@ SAMPLE_PAYLOADS = [
         "address": "Industriestrasse 88, 4410 Liestal",
         "lat": 47.4777,
         "lng": 7.7301,
-        "priority": 1,  # Medium priority
         "cluster": ["Liestal"],
         "group": ["Zug 1"],
         "vehicle": ["TLF-1", "MTW-1"],
@@ -98,7 +94,6 @@ SAMPLE_PAYLOADS = [
         "address": "Hauptstrasse 234, 4410 Liestal",
         "lat": 47.4833,
         "lng": 7.7356,
-        "priority": 1,  # Medium priority
         "cluster": ["Liestal"],
         "group": ["Zug 1"],
         "vehicle": ["TLF-1"],
@@ -128,7 +123,6 @@ def send_webhook(base_url: str, payload: dict, verbose: bool = True) -> bool:
         print(f"Emergency ID: {payload['id']}")
         print(f"Number: {payload.get('number', 'N/A')}")
         print(f"Title: {payload['title']}")
-        print(f"Priority: {payload['priority']} (0=low, 1=medium, 2=high)")
         print(f"{'=' * 60}")
 
     try:

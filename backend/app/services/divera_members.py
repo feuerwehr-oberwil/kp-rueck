@@ -13,8 +13,9 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-# Divera pull API uses a different base URL than the alarm API
-DIVERA_PULL_BASE_URL = "https://www.divera247.com/api/v2"
+# Same base as every other Divera call (app.divera247.com serves pull/ too) —
+# configured centrally via DIVERA_API_URL instead of a second hardcoded host.
+DIVERA_PULL_BASE_URL = settings.divera_api_url
 
 
 def _normalize_name(name: str) -> str:

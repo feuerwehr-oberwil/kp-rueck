@@ -22,6 +22,8 @@ export interface ApiDiveraEmergency {
   /** UUID */
   created_incident_id: string | null
   is_archived: boolean
+  /** Simulated alarm injected by the Übungssteuerung (ÜBUNG badge). */
+  is_training?: boolean
 }
 
 export interface ApiDiveraEmergencyListResponse {

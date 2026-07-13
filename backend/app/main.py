@@ -67,7 +67,7 @@ from .middleware.request_id import RequestIDMiddleware, get_request_id, request_
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.settings import initialize_default_settings
-from .websocket_manager import broadcast_message, set_divera_poll_callback, ws_manager
+from .websocket_manager import set_divera_poll_callback, ws_manager
 from .websocket_manager import sio as socket_server
 
 
@@ -81,6 +81,7 @@ async def _setup_divera_polling():
     from . import schemas
     from .crud import divera as divera_crud
     from .database import async_session_maker
+    from .services.divera_intake import broadcast_emergency_received, try_auto_attach
 
     async def on_polled_alarm(payload: schemas.DiveraWebhookPayload) -> bool:
         """
@@ -103,13 +104,13 @@ async def _setup_divera_polling():
                     f"Divera ID {emergency.divera_id}, Title: {emergency.title}"
                 )
 
-                # Broadcast WebSocket notification
-                await broadcast_message(
-                    {
-                        "type": "divera_emergency_received",
-                        "emergency": schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
-                        "source": "poll",  # Indicate this came from polling, not webhook
-                    },
+                # Auto-attach to the newest active event with the flag on, then
+                # broadcast (pool toast + board update) — same as the webhook path.
+                incident = await try_auto_attach(db, emergency)
+                await broadcast_emergency_received(
+                    schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
+                    schemas.IncidentResponse.model_validate(incident).model_dump(mode="json") if incident else None,
+                    source="poll",  # Indicate this came from polling, not webhook
                 )
 
                 return True  # New alarm processed
@@ -203,6 +204,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Audit cleanup scheduler failed to start: {e}")
 
+    # Start training auto-generation monitor (idle unless the setting is on;
+    # training features are unavailable in demo mode, so skip it there)
+    if not settings.demo_mode:
+        logger.info("Starting training auto-generation task...")
+        try:
+            from .services.training_autogen_task import training_autogen_task
+
+            await training_autogen_task.start()
+        except Exception as e:
+            logger.warning(f"Training auto-generation task failed to start: {e}")
+
     if settings.is_production and not settings.print_agent_token:
         logger.warning(
             "PRINT_AGENT_TOKEN is not set in production - print agent endpoints "
@@ -211,6 +223,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     logger.info("Application startup complete")
     yield
+
+    # Shutdown: Stop training auto-generation task
+    if not settings.demo_mode:
+        logger.info("Stopping training auto-generation task...")
+        try:
+            from .services.training_autogen_task import training_autogen_task
+
+            await training_autogen_task.stop()
+        except Exception as e:
+            logger.warning(f"Training auto-generation task shutdown failed: {e}")
 
     # Shutdown: Stop audit cleanup scheduler
     logger.info("Stopping audit cleanup scheduler...")
