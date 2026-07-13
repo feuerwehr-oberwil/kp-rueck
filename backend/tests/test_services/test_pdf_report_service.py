@@ -399,3 +399,56 @@ class TestCollectAndBuild:
         text = _extract_text(pdf_bytes)
         assert "Zeitraum" in text
         assert "laufend" not in text  # archived -> concrete end date, not "laufend"
+
+
+# ============================================
+# Reaction times (debrief metrics)
+# ============================================
+
+
+class TestReactionTimes:
+    """The Reaktionszeiten table: first time each status was reached."""
+
+    def test_reaction_times_section_renders_deltas(self, simple_event: Event, simple_incident: Incident):
+        # created 9:15 → einsatz first reached 9:25 = 10 min
+        transition = StatusTransition(
+            id=uuid4(),
+            incident_id=simple_incident.id,
+            from_status="disponiert",
+            to_status="einsatz",
+            timestamp=datetime(2026, 6, 1, 9, 25, tzinfo=UTC),
+        )
+        # A later re-entry into the same status must NOT override the first one.
+        later = StatusTransition(
+            id=uuid4(),
+            incident_id=simple_incident.id,
+            from_status="einsatz_beendet",
+            to_status="einsatz",
+            timestamp=datetime(2026, 6, 1, 10, 45, tzinfo=UTC),
+        )
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=[transition, later],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+
+        pdf_bytes = build_event_report_pdf(data, generated_by="tester")
+        text = _extract_text(pdf_bytes)
+        assert "Reaktionszeiten" in text
+        assert "10 min" in text  # eingegangen 9:15 → einsatz 9:25
+
+    def test_reaction_times_without_transitions_shows_dashes(self, simple_event: Event, simple_incident: Incident):
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+        pdf_bytes = build_event_report_pdf(data, generated_by="tester")
+        assert pdf_bytes[:4] == b"%PDF"
+        assert "Reaktionszeiten" in _extract_text(pdf_bytes)

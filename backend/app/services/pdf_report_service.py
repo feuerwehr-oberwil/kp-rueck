@@ -53,6 +53,13 @@ LABELS: dict[str, str] = {
     "materials_used": "Eingesetztes Material",
     "reko_reports_count": "Reko-Berichte",
     "no_incidents": "Keine Einsätze erfasst",
+    # Reaction times (debrief metrics)
+    "reaction_title": "Reaktionszeiten",
+    "reaction_hint": "Zeit ab Eingang bis zum ersten Erreichen des Status.",
+    "col_to_reko": "→ Reko",
+    "col_to_disponiert": "→ Disponiert",
+    "col_to_einsatz": "→ Vor Ort",
+    "col_to_abschluss": "→ Abschluss",
     # Incident overview table
     "incident_list_title": "Einsatzübersicht",
     "col_nr": "Nr",
@@ -468,6 +475,73 @@ def _summary_table(data: EventReportData, styles: dict) -> Table:
     return table
 
 
+def _fmt_duration(seconds: float | None) -> str:
+    """Compact duration for the reaction-times table: "8 min", "1 h 05"."""
+    if seconds is None or seconds < 0:
+        return LABELS["none"]
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    return f"{minutes // 60} h {minutes % 60:02d}"
+
+
+def _reaction_times_table(data: EventReportData, styles: dict) -> Table:
+    """Per-incident reaction metrics: time from Eingang to first reaching each
+    key status. Feeds the debrief — "incident 3 sat unnoticed for 9 minutes"
+    becomes a number instead of a feeling."""
+    # First time each incident reached each status (transitions are per-incident).
+    first_reached: dict[tuple, datetime] = {}
+    for t in data.transitions:
+        key = (t.incident_id, t.to_status)
+        if key not in first_reached or t.timestamp < first_reached[key]:
+            first_reached[key] = t.timestamp
+
+    def delta(inc, status: str) -> str:
+        reached = first_reached.get((inc.id, status))
+        if reached is None or inc.created_at is None:
+            return LABELS["none"]
+        return _fmt_duration((reached - inc.created_at).total_seconds())
+
+    header = [
+        _p(LABELS["col_nr"], styles["cell_header"]),
+        _p(LABELS["col_title"], styles["cell_header"]),
+        _p(LABELS["col_to_reko"], styles["cell_header"]),
+        _p(LABELS["col_to_disponiert"], styles["cell_header"]),
+        _p(LABELS["col_to_einsatz"], styles["cell_header"]),
+        _p(LABELS["col_to_abschluss"], styles["cell_header"]),
+    ]
+    rows = [header]
+    for idx, inc in enumerate(data.incidents, 1):
+        rows.append(
+            [
+                _p(str(idx), styles["cell"]),
+                _p(_or_none(inc.title), styles["cell"]),
+                _p(delta(inc, "reko"), styles["cell"]),
+                _p(delta(inc, "disponiert"), styles["cell"]),
+                _p(delta(inc, "einsatz"), styles["cell"]),
+                _p(delta(inc, "abschluss"), styles["cell"]),
+            ]
+        )
+
+    col_widths = [8 * mm, 68 * mm, 24 * mm, 24 * mm, 24 * mm, 24 * mm]
+    table = Table(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), _BRAND),
+                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
 def _incident_overview_table(data: EventReportData, styles: dict, home_city: str = "") -> Table:
     """One row per incident: nr, title, type, priority, status, address, times."""
     header = [
@@ -666,6 +740,12 @@ def build_event_report_pdf(
         # Overview table
         story.append(_p(LABELS["incident_list_title"], styles["section"]))
         story.append(_incident_overview_table(data, styles, home_city))
+        story.append(Spacer(1, 12))
+
+        # Reaction times (debrief metrics)
+        story.append(_p(LABELS["reaction_title"], styles["section"]))
+        story.append(_reaction_times_table(data, styles))
+        story.append(_p(LABELS["reaction_hint"], styles["meta"]))
         story.append(Spacer(1, 12))
 
         # Per-incident detail sections
