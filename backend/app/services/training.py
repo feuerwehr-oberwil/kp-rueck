@@ -1,16 +1,14 @@
 """Training emergency auto-generation service."""
 
-import asyncio
 import logging
 import random
-from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import EmergencyTemplate, Event, Incident, Notification, Setting, TrainingLocation
+from app.models import DiveraEmergency, EmergencyTemplate, Incident, Notification, Setting, TrainingLocation
 from app.services.training_simulation_data import generate_intake_caller, vary_dispatch_numbers
 
 logger = logging.getLogger(__name__)
@@ -23,7 +21,6 @@ class TrainingGenerator:
         self.db = db
         self._cache_templates: list[EmergencyTemplate] = []
         self._cache_locations: list[TrainingLocation] = []
-        self._event_start_time: dict[UUID, datetime] = {}
 
     async def _load_templates(self):
         """Load all active emergency templates."""
@@ -34,24 +31,6 @@ class TrainingGenerator:
         """Load all active training locations."""
         result = await self.db.execute(select(TrainingLocation).where(TrainingLocation.is_active))
         self._cache_locations = list(result.scalars().all())
-
-    def _calculate_time_weight(self, event_id: UUID, early_multiplier: float) -> float:
-        """
-        Calculate weight based on elapsed time since event creation.
-        More incidents at beginning of exercise.
-        """
-        if event_id not in self._event_start_time:
-            return early_multiplier
-
-        elapsed = datetime.utcnow() - self._event_start_time[event_id]
-        elapsed_minutes = elapsed.total_seconds() / 60
-
-        # Linear decay from multiplier to 1.0 over first 30 minutes
-        if elapsed_minutes < 30:
-            weight = early_multiplier - ((early_multiplier - 1.0) * (elapsed_minutes / 30))
-            return max(1.0, weight)
-
-        return 1.0
 
     @staticmethod
     def _pick_title(template: EmergencyTemplate) -> str:
@@ -258,45 +237,84 @@ class TrainingGenerator:
         )
         return incident
 
-    async def start_auto_generation(self, event_id: UUID, settings: dict[str, str]):
+    async def generate_pool_emergency(
+        self,
+        event_id: UUID,
+        category: Literal["normal", "critical"] | None = None,
+        settings: dict[str, str] | None = None,
+    ) -> DiveraEmergency:
+        """Generate a simulated Divera alarm into the emergency pool.
+
+        Instead of materializing an incident on the board, this drops a
+        training-marked entry into the Divera pool — alarm sound, toast and the
+        attach workflow included — so trainees practice the real alarm-intake
+        path. No bell notification is created on purpose: discovering the alarm
+        via the pool IS the exercise. The entry is flagged ``is_training`` and
+        can only be attached to training events.
         """
-        Start auto-generating emergencies for a training event.
-        Runs in background until stopped.
+        if not self._cache_templates:
+            await self._load_templates()
+        if not self._cache_locations:
+            await self._load_locations()
 
-        This is meant to be called as a background task.
-        """
-        # Store event start time
-        self._event_start_time[event_id] = datetime.utcnow()
+        if not self._cache_templates:
+            raise ValueError("No emergency templates available. Please run seed_training.py first.")
+        if not self._cache_locations:
+            raise ValueError("No training locations available. Please run seed_training.py first.")
 
-        min_interval = int(settings.get("training_autogen_min_interval_sec", 120))
-        max_interval = int(settings.get("training_autogen_max_interval_sec", 420))
-        early_multiplier = float(settings.get("training_early_multiplier", 2.0))
+        if category is None:
+            normal_weight = int(settings.get("training_normal_weight", 90)) if settings else 90
+            critical_weight = int(settings.get("training_critical_weight", 10)) if settings else 10
+            category = random.choices(["normal", "critical"], weights=[normal_weight, critical_weight], k=1)[0]
 
-        while True:
-            # Check if still enabled
-            enabled_setting = await self._get_setting("training_autogen_enabled")
-            if enabled_setting != "true":
+        templates = [t for t in self._cache_templates if t.category == category]
+        if not templates:
+            raise ValueError(f"No templates found for category: {category}")
+
+        template = random.choice(templates)
+        used_addresses = await self._active_addresses(event_id)
+        free_locations = [
+            loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses
+        ]
+        location = random.choice(free_locations or self._cache_locations)
+
+        # Negative divera_id keeps simulated alarms clear of real Divera IDs
+        # (which are positive). Retry on the unlikely collision.
+        divera_id = -random.randint(10_000_000, 2_000_000_000)
+        for _ in range(5):
+            existing = await self.db.execute(
+                select(DiveraEmergency.id).where(DiveraEmergency.divera_id == divera_id)
+            )
+            if existing.scalar_one_or_none() is None:
                 break
+            divera_id = -random.randint(10_000_000, 2_000_000_000)
 
-            # Check if event still exists and is training
-            event = await self.db.get(Event, event_id)
-            if not event or not event.training_flag:
-                break
+        emergency = DiveraEmergency(
+            divera_id=divera_id,
+            divera_number=f"UE-{random.randint(100, 999)}",
+            title=self._pick_title(template),
+            text=vary_dispatch_numbers(self._pick_message(template)),
+            address=location.get_full_address(),
+            latitude=location.latitude,
+            longitude=location.longitude,
+            is_training=True,
+            raw_payload_json={
+                "simulated": True,
+                "training_event_id": str(event_id),
+                "category": category,
+            },
+        )
+        self.db.add(emergency)
+        await self.db.commit()
+        await self.db.refresh(emergency)
 
-            # Calculate weighted interval (shorter at beginning)
-            time_weight = self._calculate_time_weight(event_id, early_multiplier)
-            adjusted_min = int(min_interval / time_weight)
-            adjusted_max = int(max_interval / time_weight)
-
-            wait_seconds = random.randint(adjusted_min, adjusted_max)
-            await asyncio.sleep(wait_seconds)
-
-            # Generate emergency
-            try:
-                await self.generate_emergency(event_id, settings=settings)
-            except Exception as e:
-                logger.error("Error generating emergency: %s", e)
-                continue
+        logger.info(
+            "Simulated Divera alarm created: %s at %s (category: %s)",
+            emergency.title,
+            emergency.address,
+            category,
+        )
+        return emergency
 
     async def _active_addresses(self, event_id: UUID) -> set[str]:
         """Addresses of still-active (not yet completed) incidents in the event."""
@@ -307,12 +325,6 @@ class TrainingGenerator:
             )
         )
         return {addr for (addr,) in result.all() if addr}
-
-    async def _get_setting(self, key: str) -> str | None:
-        """Helper to get setting value."""
-        result = await self.db.execute(select(Setting).where(Setting.key == key))
-        setting = result.scalar_one_or_none()
-        return setting.value if setting else None
 
 
 async def generate_training_emergency(
@@ -348,3 +360,16 @@ async def generate_training_emergency(
         incidents.append(incident)
 
     return incidents
+
+
+async def generate_training_divera_emergency(
+    db: AsyncSession,
+    event_id: UUID,
+    category: Literal["normal", "critical"] | None = None,
+) -> DiveraEmergency:
+    """Generate a simulated Divera alarm into the pool for a training event."""
+    settings_result = await db.execute(select(Setting))
+    settings = {s.key: s.value for s in settings_result.scalars().all()}
+
+    generator = TrainingGenerator(db)
+    return await generator.generate_pool_emergency(event_id, category, settings)

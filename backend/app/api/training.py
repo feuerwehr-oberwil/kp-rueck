@@ -1,5 +1,7 @@
 """Training automation API endpoints."""
 
+import asyncio
+import logging
 import random
 from datetime import UTC, datetime
 from typing import Literal
@@ -14,18 +16,20 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
 from ..crud import personnel_checkin as checkin_crud
 from ..crud import reko as reko_crud
-from ..database import get_db
+from ..database import async_session_maker, get_db
 from ..models import (
     EmergencyTemplate,
     Event,
     EventAttendance,
     Incident,
     IncidentAssignment,
+    Notification,
     Personnel,
     TrainingLocation,
     Vehicle,
 )
 from ..schemas import (
+    DiveraEmergencyResponse,
     EmergencyTemplateResponse,
     GenerateEmergencyRequest,
     IncidentResponse,
@@ -34,14 +38,51 @@ from ..schemas import (
     RekoReportUpdate,
     SimulateCheckinRequest,
     SimulateCheckinResponse,
+    SimulateDiveraRequest,
+    SimulateInjectResponse,
+    SimulateVehicleBreakdownResponse,
     TrainingLocationResponse,
 )
+from ..services.divera_intake import broadcast_emergency_received
 from ..services.tokens import generate_form_token
-from ..services.training import TrainingGenerator, generate_training_emergency
-from ..services.training_simulation_data import generate_reko_report_data
-from ..websocket_manager import broadcast_incident_update, broadcast_personnel_update
+from ..services.training import (
+    TrainingGenerator,
+    generate_training_divera_emergency,
+    generate_training_emergency,
+)
+from ..services.training_simulation_data import (
+    generate_escalation,
+    generate_reinforcement_request,
+    generate_reko_report_data,
+)
+from ..websocket_manager import (
+    broadcast_incident_update,
+    broadcast_personnel_update,
+    broadcast_vehicle_update,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/training", tags=["training"])
+
+
+async def _require_training_event(db: AsyncSession, event_id: UUID) -> Event:
+    """Shared guard: training endpoints only work on training events, never in demo."""
+    if settings.demo_mode:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if not event.training_flag:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+    return event
+
+
+async def _get_event_incident(db: AsyncSession, event_id: UUID, incident_id: UUID) -> Incident:
+    incident = await db.get(Incident, incident_id)
+    if not incident or incident.event_id != event_id or incident.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found in this event")
+    return incident
 
 
 @router.post("/events/{event_id}/generate/", response_model=list[IncidentResponse])
@@ -188,6 +229,30 @@ async def list_locations(current_user: CurrentUser, db: AsyncSession = Depends(g
 # ============================================
 
 
+# One trickle task per event at most; module-level so requests share the guard
+# and the task isn't garbage-collected mid-run. In-memory only — a backend
+# restart drops pending trickles, which is fine for an exercise aid.
+_trickle_tasks: dict[UUID, asyncio.Task] = {}
+
+
+async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], window_seconds: float):
+    """Check `people` in one by one at random offsets across the window."""
+    offsets = sorted(random.uniform(window_seconds * 0.05, window_seconds) for _ in people)
+    elapsed = 0.0
+    for (person_id, name), offset in zip(people, offsets):
+        await asyncio.sleep(max(0.0, offset - elapsed))
+        elapsed = offset
+        try:
+            async with async_session_maker() as db:
+                result = await checkin_crud.check_in_personnel(db, event_id, person_id)
+            if result:
+                await broadcast_personnel_update(
+                    {"id": str(person_id), "name": name, "checked_in": True}, "checkin"
+                )
+        except Exception as e:
+            logger.error("Trickle check-in failed for %s: %s", name, e)
+
+
 @router.post("/events/{event_id}/simulate/checkin", response_model=SimulateCheckinResponse)
 async def simulate_checkin(
     event_id: UUID,
@@ -199,20 +264,14 @@ async def simulate_checkin(
     """
     Simulate personnel check-in for a training event.
 
-    Randomly selects unchecked personnel and checks them in.
+    Randomly selects unchecked personnel and checks them in — immediately, or
+    trickled over ``over_minutes`` so arrivals mirror a real Aufgebot.
     """
-    if settings.demo_mode:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
-
-    # Verify event exists and is training
-    event = await db.get(Event, event_id)
-    if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    if not event.training_flag:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+    await _require_training_event(db, event_id)
 
     # Validate count
     count = max(1, min(50, request.count))
+    over_minutes = max(0, min(30, request.over_minutes))
 
     # Get available personnel
     all_personnel = await db.execute(
@@ -231,6 +290,26 @@ async def simulate_checkin(
 
     # Select random subset
     to_checkin = random.sample(unchecked, min(count, len(unchecked)))
+
+    # Trickle mode: schedule the arrivals and return immediately.
+    if over_minutes > 0 and to_checkin:
+        existing = _trickle_tasks.get(event_id)
+        if existing and not existing.done():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ein gestaffeltes Einchecken läuft bereits",
+            )
+        people = [(p.id, p.name) for p in to_checkin]
+        _trickle_tasks[event_id] = asyncio.create_task(
+            _trickle_checkins(event_id, people, over_minutes * 60.0)
+        )
+        return SimulateCheckinResponse(
+            checked_in=[],
+            total_checked_in=len(checked_in_ids),
+            total_available=len(personnel_list),
+            scheduled=[name for _, name in people],
+            trickle_minutes=over_minutes,
+        )
 
     # Check them in
     checked_in_names = []
@@ -408,6 +487,196 @@ async def simulate_reko(
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
 
     return response_data
+
+
+# ---------------------------------------------------------------------------
+# Trainer injects: simulated Divera intake + escalations
+# ---------------------------------------------------------------------------
+
+
+@router.post("/events/{event_id}/simulate/divera", response_model=DiveraEmergencyResponse)
+async def simulate_divera_alarm(
+    event_id: UUID,
+    request: SimulateDiveraRequest,
+    current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Inject a simulated Divera alarm into the emergency pool.
+
+    Trainees then run the real alarm-intake workflow: alert sound and toast on
+    the pool page, review, attach to the exercise. The entry is training-marked
+    (ÜBUNG badge), excluded from auto-attach and only attachable to training
+    events — it never touches real operations or Divera itself.
+    """
+    await _require_training_event(db, event_id)
+
+    if request.category and request.category not in ["normal", "critical"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category must be 'normal' or 'critical'")
+
+    emergency = await generate_training_divera_emergency(db, event_id, category=request.category)
+
+    response = DiveraEmergencyResponse.model_validate(emergency)
+    background_tasks.add_task(broadcast_emergency_received, response.model_dump(mode="json"))
+    return response
+
+
+@router.post("/events/{event_id}/simulate/escalate/{incident_id}", response_model=IncidentResponse)
+async def simulate_escalation(
+    event_id: UUID,
+    incident_id: UUID,
+    current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Inject "Lage verschärft sich": the field reports a worsening situation.
+
+    Bumps the incident to high priority, appends the Lagemeldung to the
+    description and raises a critical bell notification — the trainee has to
+    reassess resources and priorities mid-incident.
+    """
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+
+    if incident.status == "abschluss" or incident.completed_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Abgeschlossene Einsätze können nicht eskaliert werden",
+        )
+
+    text = generate_escalation(incident.type)
+    incident.priority = "high"
+    incident.description = f"{incident.description or ''}\n\n⚠️ Lagemeldung Feld: {text}".strip()
+
+    db.add(
+        Notification(
+            type="training_emergency",
+            severity="critical",
+            message=f"Lage verschärft: {incident.title} — {text}",
+            incident_id=incident.id,
+            event_id=event_id,
+            dismissed=False,
+        )
+    )
+    await db.commit()
+    await db.refresh(incident)
+
+    response = IncidentResponse.model_validate(incident)
+    background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
+    return response
+
+
+@router.post("/events/{event_id}/simulate/reinforcement/{incident_id}", response_model=SimulateInjectResponse)
+async def simulate_reinforcement_request(
+    event_id: UUID,
+    incident_id: UUID,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+):
+    """Inject "Feld fordert Verstärkung": the crew on scene asks for more.
+
+    Notification only — what (and whether) to send is the trainee's decision
+    on the board.
+    """
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+
+    if incident.status == "abschluss" or incident.completed_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Abgeschlossene Einsätze können keine Verstärkung anfordern",
+        )
+
+    request_text = generate_reinforcement_request(incident.type)
+    message = f"Feld fordert Verstärkung: {request_text} — {incident.title}"
+    db.add(
+        Notification(
+            type="training_emergency",
+            severity="warning",
+            message=message,
+            incident_id=incident.id,
+            event_id=event_id,
+            dismissed=False,
+        )
+    )
+    await db.commit()
+
+    return SimulateInjectResponse(message=message)
+
+
+@router.post(
+    "/events/{event_id}/simulate/vehicle-breakdown/{incident_id}",
+    response_model=SimulateVehicleBreakdownResponse,
+)
+async def simulate_vehicle_breakdown(
+    event_id: UUID,
+    incident_id: UUID,
+    current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Inject "Fahrzeug fällt aus": a random assigned vehicle becomes unavailable.
+
+    Stops the vehicle's simulated GPS drive (if any) and raises a critical
+    notification — the trainee has to unassign it and dispatch a replacement.
+    The assignment is deliberately left in place: cleaning up is the exercise.
+    """
+    from ..services.gps_simulation import gps_simulation
+
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+
+    vehicles_result = await db.execute(
+        select(Vehicle)
+        .join(IncidentAssignment, IncidentAssignment.resource_id == Vehicle.id)
+        .where(IncidentAssignment.incident_id == incident_id)
+        .where(IncidentAssignment.resource_type == "vehicle")
+        .where(IncidentAssignment.unassigned_at.is_(None))
+        .where(Vehicle.status == "available")
+    )
+    candidates = list(vehicles_result.scalars().all())
+    if not candidates:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Kein einsatzbereites Fahrzeug diesem Einsatz zugewiesen",
+        )
+
+    vehicle = random.choice(candidates)
+    vehicle.status = "unavailable"
+
+    message = f"Fahrzeug {vehicle.name} ausgefallen: {incident.title} — Ersatz disponieren"
+    db.add(
+        Notification(
+            type="training_emergency",
+            severity="critical",
+            message=message,
+            incident_id=incident.id,
+            event_id=event_id,
+            dismissed=False,
+        )
+    )
+    await db.commit()
+    await db.refresh(vehicle)
+
+    # A broken-down vehicle stops rolling.
+    await gps_simulation.stop(vehicle.name)
+
+    # Plain dict instead of schemas.Vehicle: its validator rejects the empty
+    # radio_call_sign the DB default allows, and this is a broadcast, not input.
+    background_tasks.add_task(
+        broadcast_vehicle_update,
+        {
+            "id": str(vehicle.id),
+            "name": vehicle.name,
+            "type": vehicle.type,
+            "display_order": vehicle.display_order,
+            "status": vehicle.status,
+            "radio_call_sign": vehicle.radio_call_sign,
+        },
+        "update",
+    )
+
+    return SimulateVehicleBreakdownResponse(vehicle_name=vehicle.name, message=message)
 
 
 # ---------------------------------------------------------------------------

@@ -235,6 +235,9 @@ class SimulateCheckinRequest(BaseModel):
     """Schema for simulating personnel check-in during training."""
 
     count: int = 10  # Number of personnel to check in (1-50)
+    # 0 = check everyone in immediately; >0 = trickle the check-ins randomly
+    # over this many minutes (max 30), mirroring how AdF actually arrive.
+    over_minutes: int = 0
 
 
 class SimulateCheckinResponse(BaseModel):
@@ -243,3 +246,26 @@ class SimulateCheckinResponse(BaseModel):
     checked_in: list[str]
     total_checked_in: int
     total_available: int
+    # Trickle mode: names scheduled to check in over the window (checked_in
+    # stays empty — they arrive one by one via WebSocket updates).
+    scheduled: list[str] = []
+    trickle_minutes: int = 0
+
+
+class SimulateDiveraRequest(BaseModel):
+    """Schema for injecting a simulated Divera alarm into the pool."""
+
+    category: str | None = None  # 'normal', 'critical', or None for weighted random
+
+
+class SimulateInjectResponse(BaseModel):
+    """Generic result of a trainer inject (reinforcement request etc.)."""
+
+    message: str
+
+
+class SimulateVehicleBreakdownResponse(BaseModel):
+    """Result of a simulated vehicle breakdown."""
+
+    vehicle_name: str
+    message: str

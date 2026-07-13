@@ -10,8 +10,6 @@ Tests cover:
 - Error handling for missing templates/locations
 """
 
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -193,7 +191,6 @@ class TestTrainingGeneratorInit:
         assert generator.db is db_session
         assert generator._cache_templates == []
         assert generator._cache_locations == []
-        assert generator._event_start_time == {}
 
 
 # ============================================
@@ -236,54 +233,71 @@ class TestTemplateLoading:
 
 
 # ============================================
-# Time Weight Calculation Tests
+# Simulated Divera Pool Emergency Tests
 # ============================================
 
 
-class TestTimeWeightCalculation:
-    """Tests for time-based weight calculation."""
+class TestPoolEmergencyGeneration:
+    """Tests for simulated Divera alarms injected into the pool."""
 
     @pytest.mark.asyncio
-    async def test_calculate_time_weight_no_start_time(self, db_session: AsyncSession):
-        """Test weight calculation when no start time is recorded."""
+    async def test_generate_pool_emergency(
+        self,
+        db_session: AsyncSession,
+        training_event,
+        emergency_templates,
+        training_locations,
+    ):
+        """A pool emergency is training-marked, unattached and has a negative ID."""
         generator = TrainingGenerator(db_session)
-        event_id = uuid4()
+        emergency = await generator.generate_pool_emergency(training_event.id, category="normal")
 
-        weight = generator._calculate_time_weight(event_id, 2.0)
-        assert weight == pytest.approx(2.0)  # Returns multiplier when no start time
+        assert emergency.is_training is True
+        assert emergency.divera_id < 0
+        assert emergency.attached_to_event_id is None
+        assert emergency.title
+        assert emergency.address
+        assert emergency.raw_payload_json["simulated"] is True
+        assert emergency.raw_payload_json["training_event_id"] == str(training_event.id)
 
     @pytest.mark.asyncio
-    async def test_calculate_time_weight_at_start(self, db_session: AsyncSession):
-        """Test weight calculation at event start (0 minutes)."""
-        generator = TrainingGenerator(db_session)
-        event_id = uuid4()
-        generator._event_start_time[event_id] = datetime.utcnow()
+    async def test_generate_pool_emergency_creates_no_incident_or_notification(
+        self,
+        db_session: AsyncSession,
+        training_event,
+        emergency_templates,
+        training_locations,
+    ):
+        """Pool injection must NOT put anything on the board or ring the bell —
+        discovering the alarm via the pool is the exercise."""
+        from sqlalchemy import func
 
-        weight = generator._calculate_time_weight(event_id, 2.0)
-        assert weight == pytest.approx(2.0)  # Full multiplier at start
+        generator = TrainingGenerator(db_session)
+        await generator.generate_pool_emergency(training_event.id, category="normal")
+
+        incident_count = (
+            await db_session.execute(
+                select(func.count()).select_from(Incident).where(Incident.event_id == training_event.id)
+            )
+        ).scalar_one()
+        notification_count = (
+            await db_session.execute(select(func.count()).select_from(Notification))
+        ).scalar_one()
+        assert incident_count == 0
+        assert notification_count == 0
 
     @pytest.mark.asyncio
-    async def test_calculate_time_weight_halfway(self, db_session: AsyncSession):
-        """Test weight calculation at 15 minutes (halfway through decay period)."""
+    async def test_generate_pool_emergency_critical_category(
+        self,
+        db_session: AsyncSession,
+        training_event,
+        emergency_templates,
+        training_locations,
+    ):
+        """Forcing the critical category picks a critical template."""
         generator = TrainingGenerator(db_session)
-        event_id = uuid4()
-        # Set start time 15 minutes ago
-        generator._event_start_time[event_id] = datetime.utcnow() - timedelta(minutes=15)
-
-        weight = generator._calculate_time_weight(event_id, 2.0)
-        # At 15 minutes: weight = 2.0 - ((2.0 - 1.0) * (15 / 30)) = 2.0 - 0.5 = 1.5
-        assert 1.4 <= weight <= 1.6  # Allow small timing variance
-
-    @pytest.mark.asyncio
-    async def test_calculate_time_weight_after_30_minutes(self, db_session: AsyncSession):
-        """Test weight calculation after 30+ minutes returns 1.0."""
-        generator = TrainingGenerator(db_session)
-        event_id = uuid4()
-        # Set start time 45 minutes ago
-        generator._event_start_time[event_id] = datetime.utcnow() - timedelta(minutes=45)
-
-        weight = generator._calculate_time_weight(event_id, 2.0)
-        assert weight == pytest.approx(1.0)
+        emergency = await generator.generate_pool_emergency(training_event.id, category="critical")
+        assert emergency.raw_payload_json["category"] == "critical"
 
 
 # ============================================
@@ -601,31 +615,6 @@ class TestModuleFunctions:
         normal_count = sum(1 for i in incidents if i.priority == "low")
         # With 80/20 weights, expect roughly 8 normal incidents (allow variance)
         assert normal_count >= 5  # At least half should be normal
-
-
-# ============================================
-# Get Setting Helper Tests
-# ============================================
-
-
-class TestGetSettingHelper:
-    """Tests for _get_setting helper method."""
-
-    @pytest.mark.asyncio
-    async def test_get_setting_returns_value(
-        self, db_session: AsyncSession, training_settings: list[Setting]
-    ):
-        """Test getting an existing setting."""
-        generator = TrainingGenerator(db_session)
-        value = await generator._get_setting("training_autogen_enabled")
-        assert value == "true"
-
-    @pytest.mark.asyncio
-    async def test_get_setting_returns_none_for_missing(self, db_session: AsyncSession):
-        """Test getting a non-existent setting returns None."""
-        generator = TrainingGenerator(db_session)
-        value = await generator._get_setting("nonexistent_setting")
-        assert value is None
 
 
 # ============================================

@@ -492,3 +492,251 @@ async def test_location_response_format(editor_client: AsyncClient, test_locatio
     assert "house_number" in location
     assert "latitude" in location
     assert "longitude" in location
+
+
+# ============================================
+# Simulated Divera Intake Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_divera_creates_training_pool_entry(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    training_event: Event,
+    test_templates,
+    test_locations,
+):
+    """The inject lands in the Divera pool as a training-marked entry."""
+    with patch("app.api.training.broadcast_emergency_received", new_callable=AsyncMock) as mock_bc:
+        response = await editor_client.post(
+            f"/api/training/events/{training_event.id}/simulate/divera",
+            json={"category": "normal"},
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_training"] is True
+    assert data["divera_id"] < 0
+    assert data["attached_to_event_id"] is None
+    assert data["title"]
+    mock_bc.assert_called_once()
+
+    # Nothing on the board — the trainee has to attach it via the pool.
+    from sqlalchemy import func, select
+
+    incident_count = (
+        await db_session.execute(
+            select(func.count()).select_from(Incident).where(Incident.event_id == training_event.id)
+        )
+    ).scalar_one()
+    assert incident_count == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_divera_live_event_forbidden(
+    editor_client: AsyncClient, live_event: Event, test_templates, test_locations
+):
+    """Simulated Divera alarms only exist for training events."""
+    response = await editor_client.post(
+        f"/api/training/events/{live_event.id}/simulate/divera", json={}
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_divera_invalid_category(
+    editor_client: AsyncClient, training_event: Event
+):
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/divera",
+        json={"category": "apocalyptic"},
+    )
+    assert response.status_code == 400
+
+
+# ============================================
+# Escalation Inject Tests
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def active_incident(db_session: AsyncSession, training_event: Event) -> Incident:
+    """An incident being worked (status einsatz) in the training event."""
+    incident = Incident(
+        id=uuid4(),
+        event_id=training_event.id,
+        title="Wassereinbruch Keller",
+        type="elementarereignis",
+        priority="low",
+        status="einsatz",
+        location_address="Hauptstrasse 1, 4104 Oberwil",
+        description="Ca. 20cm Wasser im Keller.",
+    )
+    db_session.add(incident)
+    await db_session.commit()
+    await db_session.refresh(incident)
+    return incident
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_escalation_bumps_priority_and_notifies(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+):
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/escalate/{active_incident.id}"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["priority"] == "high"
+    assert "Lagemeldung Feld" in data["description"]
+
+    from sqlalchemy import select
+
+    from app.models import Notification
+
+    notification = (
+        await db_session.execute(
+            select(Notification).where(Notification.incident_id == active_incident.id)
+        )
+    ).scalars().first()
+    assert notification is not None
+    assert notification.severity == "critical"
+    assert "Lage verschärft" in notification.message
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_escalation_rejects_completed_incident(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+):
+    active_incident.status = "abschluss"
+    active_incident.completed_at = datetime.now(UTC)
+    await db_session.commit()
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/escalate/{active_incident.id}"
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_reinforcement_creates_notification(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+):
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/reinforcement/{active_incident.id}"
+    )
+    assert response.status_code == 200
+    message = response.json()["message"]
+    assert "Verstärkung" in message
+
+    from sqlalchemy import select
+
+    from app.models import Notification
+
+    notification = (
+        await db_session.execute(
+            select(Notification).where(Notification.incident_id == active_incident.id)
+        )
+    ).scalars().first()
+    assert notification is not None
+    assert notification.severity == "warning"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_vehicle_breakdown(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+):
+    """Breakdown makes an assigned vehicle unavailable and keeps the assignment."""
+    from app.models import IncidentAssignment, Vehicle
+
+    vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available", display_order=1)
+    db_session.add(vehicle)
+    await db_session.flush()
+    db_session.add(
+        IncidentAssignment(
+            id=uuid4(),
+            incident_id=active_incident.id,
+            resource_type="vehicle",
+            resource_id=vehicle.id,
+        )
+    )
+    await db_session.commit()
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/vehicle-breakdown/{active_incident.id}"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["vehicle_name"] == "TLF 1"
+
+    await db_session.refresh(vehicle)
+    assert vehicle.status == "unavailable"
+
+    # Assignment deliberately stays — cleaning up is the trainee's job.
+    from sqlalchemy import select
+
+    assignment = (
+        await db_session.execute(
+            select(IncidentAssignment).where(IncidentAssignment.incident_id == active_incident.id)
+        )
+    ).scalars().first()
+    assert assignment.unassigned_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_vehicle_breakdown_without_vehicle_conflicts(
+    editor_client: AsyncClient, training_event: Event, active_incident: Incident
+):
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/vehicle-breakdown/{active_incident.id}"
+    )
+    assert response.status_code == 409
+
+
+# ============================================
+# Trickled Check-in Tests
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_checkin_trickle_schedules(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event
+):
+    """Trickle mode returns the schedule instead of checking in immediately."""
+    from app.api.training import _trickle_tasks
+    from app.models import Personnel
+
+    for i in range(3):
+        db_session.add(Personnel(id=uuid4(), name=f"AdF Trickle {i}", availability="available"))
+    await db_session.commit()
+
+    try:
+        response = await editor_client.post(
+            f"/api/training/events/{training_event.id}/simulate/checkin",
+            json={"count": 3, "over_minutes": 5},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["checked_in"] == []
+        assert len(data["scheduled"]) == 3
+        assert data["trickle_minutes"] == 5
+
+        # A second trickle while one is running is refused.
+        response = await editor_client.post(
+            f"/api/training/events/{training_event.id}/simulate/checkin",
+            json={"count": 3, "over_minutes": 5},
+        )
+        assert response.status_code == 409
+    finally:
+        task = _trickle_tasks.pop(training_event.id, None)
+        if task:
+            task.cancel()
