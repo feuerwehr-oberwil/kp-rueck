@@ -193,7 +193,29 @@ async def try_auto_attach(
     skipped entirely (trainees attach them by hand — that's the exercise), and
     training events never receive auto-attached incidents. Returns the created
     incident, or None when no event wants auto-attach.
+
+    Never raises: a failed auto-attach must not fail the webhook ACK back to
+    Divera — the emergency is already stored and stays manually attachable.
     """
+    try:
+        return await _auto_attach(db, emergency)
+    except Exception:
+        logger.exception("Auto-attach failed for Divera emergency %s", emergency.divera_id)
+        # Leave the session usable for the caller's response handling. The
+        # rollback expires loaded attributes, so re-load the emergency before
+        # the caller serializes it (sync attribute access on an expired object
+        # would blow up in the async session).
+        try:
+            await db.rollback()
+            await db.refresh(emergency)
+        except Exception:
+            pass
+        return None
+
+
+async def _auto_attach(
+    db: AsyncSession, emergency: models.DiveraEmergency
+) -> models.Incident | None:
     if emergency.is_training or emergency.attached_to_event_id is not None:
         return None
 

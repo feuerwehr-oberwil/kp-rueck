@@ -129,11 +129,20 @@ export default function DiveraPoolPage() {
     );
   });
 
+  // Simulated training alarms can only go to training events (backend enforces
+  // this too) — with one selected, only training events are offered.
+  const hasTrainingSelection = emergencies.some(
+    (e) => selectedEmergencies.has(e.id) && e.is_training
+  );
+  const attachableEvents = hasTrainingSelection
+    ? activeEvents.filter((e) => e.training_flag)
+    : activeEvents;
+
   const handleAttachClick = () => {
     if (selectedEmergencies.size === 0) return;
     // Default to the currently selected event, but only if it's in the
-    // selectable (non-archived) list so the dropdown can display it.
-    if (currentEvent?.id && activeEvents.some((e) => e.id === currentEvent.id)) {
+    // selectable (non-archived, attachable) list so the dropdown can display it.
+    if (currentEvent?.id && attachableEvents.some((e) => e.id === currentEvent.id)) {
       setSelectedEventId(currentEvent.id);
     }
     setShowAttachDialog(true);
@@ -396,14 +405,14 @@ export default function DiveraPoolPage() {
                     otherwise show the placeholder. */}
                 <SelectValue placeholder="Ereignis wählen...">
                   {(() => {
-                    const selected = activeEvents.find((e) => e.id === selectedEventId);
+                    const selected = attachableEvents.find((e) => e.id === selectedEventId);
                     if (!selected) return undefined;
                     return `${selected.name}${selected.training_flag ? ' (Übung)' : ''}`;
                   })()}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {activeEvents.map((event) => (
+                {attachableEvents.map((event) => (
                   <SelectItem key={event.id} value={event.id}>
                     {event.name}
                     {event.training_flag && ' (Übung)'}
@@ -411,6 +420,11 @@ export default function DiveraPoolPage() {
                 ))}
               </SelectContent>
             </Select>
+            {hasTrainingSelection && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Übungs-Alarme können nur an Übungen angehängt werden.
+              </p>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
