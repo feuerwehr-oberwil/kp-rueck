@@ -17,6 +17,7 @@ import {
   Target,
   MapPin,
   Phone,
+  Radio,
   X,
 } from 'lucide-react';
 import {
@@ -137,6 +138,23 @@ export function TrainingControls() {
     }
   };
 
+  const handleGenerateDivera = async () => {
+    setIsGenerating(true);
+    try {
+      const emergency = await apiClient.simulateDiveraAlarm(selectedEvent.id);
+      toast.success('Divera-Alarm im Pool', {
+        description: `${emergency.title} — Übernahme macht der Operator über "Divera Notfälle".`,
+      });
+    } catch (error) {
+      console.error('❌ Failed to simulate divera alarm:', error);
+      toast.error('Fehler', {
+        description: 'Divera-Alarm konnte nicht simuliert werden',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const canDispatch =
     !!selectedTemplateId && (!!selectedLocationId || !!pinLocation);
 
@@ -246,17 +264,28 @@ export function TrainingControls() {
               Kritisch
             </Button>
           </div>
-          <Button
-            onClick={handleGenerateTelefon}
-            disabled={isGenerating}
-            variant="outline"
-            className="w-full"
-          >
-            <Phone className="mr-2 h-4 w-4 text-sky-600" />
-            Telefon-Alarm
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={handleGenerateTelefon}
+              disabled={isGenerating}
+              variant="outline"
+              className="w-full"
+            >
+              <Phone className="mr-2 h-4 w-4 text-sky-600" />
+              Telefon-Alarm
+            </Button>
+            <Button
+              onClick={handleGenerateDivera}
+              disabled={isGenerating}
+              variant="outline"
+              className="w-full"
+            >
+              <Radio className="mr-2 h-4 w-4 text-orange-600" />
+              Divera-Alarm
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung | Telefon: simuliert eine Meldung über den Alarm-Link
+            Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung | Telefon: simuliert eine Meldung über den Alarm-Link | Divera: landet im Notfall-Pool — der Operator übernimmt ihn dort (echter Alarmierungs-Weg)
           </p>
         </div>
 

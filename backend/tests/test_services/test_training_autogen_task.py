@@ -541,3 +541,91 @@ class TestEdgeCases:
             assert "settings" in call_args.kwargs
             settings_dict = call_args.kwargs["settings"]
             assert "training_autogen_enabled" in settings_dict
+
+
+# ============================================
+# Intake Mode Tests (board vs divera)
+# ============================================
+
+
+class TestAutogenIntakeMode:
+    """Tests for the training_autogen_mode setting."""
+
+    @pytest.mark.asyncio
+    async def test_divera_mode_generates_pool_emergency(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_settings_enabled: list[Setting],
+    ):
+        """Mode 'divera' drops a simulated alarm into the pool, not the board."""
+        db_session.add(Setting(key="training_autogen_mode", value="divera"))
+        await db_session.commit()
+
+        task = TrainingAutoGenTask()
+        with patch("app.services.training_autogen_task.TrainingGenerator") as MockGen:
+            mock_instance = MockGen.return_value
+            mock_instance.generate_pool_emergency = AsyncMock(return_value=MagicMock(title="Sim"))
+            mock_instance.generate_emergency = AsyncMock()
+
+            await task._check_and_run(db_session)
+
+            mock_instance.generate_pool_emergency.assert_called_once()
+            mock_instance.generate_emergency.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_board_mode_is_default(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_settings_enabled: list[Setting],
+    ):
+        """Without a mode setting, incidents land on the board (classic)."""
+        task = TrainingAutoGenTask()
+        with patch("app.services.training_autogen_task.TrainingGenerator") as MockGen:
+            mock_instance = MockGen.return_value
+            mock_instance.generate_emergency = AsyncMock(return_value=MagicMock(title="Board"))
+            mock_instance.generate_pool_emergency = AsyncMock()
+
+            await task._check_and_run(db_session)
+
+            mock_instance.generate_emergency.assert_called_once()
+            mock_instance.generate_pool_emergency.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unattached_pool_alarms_count_toward_max(
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_settings_enabled: list[Setting],
+    ):
+        """Simulated pool alarms the trainee hasn't attached yet count as load."""
+        from app.models import DiveraEmergency
+
+        # Lower the cap and fill it with unattached training pool entries.
+        for s in autogen_settings_enabled:
+            if s.key == "training_autogen_max_emergencies":
+                s.value = "2"
+        for i in range(2):
+            db_session.add(
+                DiveraEmergency(
+                    id=uuid4(),
+                    divera_id=-(1000 + i),
+                    title=f"Sim {i}",
+                    is_training=True,
+                    is_archived=False,
+                )
+            )
+        await db_session.commit()
+
+        task = TrainingAutoGenTask()
+        task.current_event_id = training_event.id
+        with patch("app.services.training_autogen_task.TrainingGenerator") as MockGen:
+            mock_instance = MockGen.return_value
+            mock_instance.generate_emergency = AsyncMock()
+            mock_instance.generate_pool_emergency = AsyncMock()
+
+            await task._check_and_run(db_session)
+
+            mock_instance.generate_emergency.assert_not_called()
+            mock_instance.generate_pool_emergency.assert_not_called()

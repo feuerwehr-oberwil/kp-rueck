@@ -985,12 +985,56 @@ class ApiClient {
 
   async simulateCheckin(
     eventId: string,
-    count: number
-  ): Promise<{ checked_in: string[]; total_checked_in: number; total_available: number }> {
+    count: number,
+    overMinutes: number = 0
+  ): Promise<{
+    checked_in: string[]
+    total_checked_in: number
+    total_available: number
+    scheduled?: string[]
+    trickle_minutes?: number
+  }> {
     return this.request(`/api/training/events/${eventId}/simulate/checkin`, {
       method: 'POST',
-      body: JSON.stringify({ count }),
+      body: JSON.stringify({ count, over_minutes: overMinutes }),
     })
+  }
+
+  /** Inject a simulated Divera alarm into the pool (training intake exercise). */
+  async simulateDiveraAlarm(
+    eventId: string,
+    category?: 'normal' | 'critical' | null
+  ): Promise<ApiDiveraEmergency> {
+    return this.request<ApiDiveraEmergency>(`/api/training/events/${eventId}/simulate/divera`, {
+      method: 'POST',
+      body: JSON.stringify({ category: category ?? null }),
+    })
+  }
+
+  /** Inject "Lage verschärft sich": priority up + Lagemeldung + critical bell. */
+  async simulateEscalation(eventId: string, incidentId: string): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/training/events/${eventId}/simulate/escalate/${incidentId}`, {
+      method: 'POST',
+    })
+  }
+
+  /** Inject "Feld fordert Verstärkung": bell notification only. */
+  async simulateReinforcement(eventId: string, incidentId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/training/events/${eventId}/simulate/reinforcement/${incidentId}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Inject "Fahrzeug fällt aus": random assigned vehicle becomes unavailable. */
+  async simulateVehicleBreakdown(
+    eventId: string,
+    incidentId: string
+  ): Promise<{ vehicle_name: string; message: string }> {
+    return this.request<{ vehicle_name: string; message: string }>(
+      `/api/training/events/${eventId}/simulate/vehicle-breakdown/${incidentId}`,
+      { method: 'POST' }
+    )
   }
 
   async simulateReko(

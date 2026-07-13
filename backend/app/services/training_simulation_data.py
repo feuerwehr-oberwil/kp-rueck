@@ -839,3 +839,87 @@ def generate_intake_caller() -> dict:
         "contact": f"{first} {last}, {number}",
         "context": random.choice(_INTAKE_CALLER_CONTEXTS),
     }
+
+
+# Escalation injects ("Lage verschärft sich") — a field report that the scene
+# got worse, per incident type. Written as radio-style Lagemeldungen so the
+# operator has to react (priority is bumped to high by the endpoint).
+_ESCALATIONS: dict[str, list[str]] = {
+    "brandbekaempfung": [
+        "Feuer greift auf das Nachbargebäude über, starke Rauchentwicklung.",
+        "Durchzündung im Dachstock, Vollbrand droht.",
+        "Starker Funkenflug Richtung Nachbarliegenschaft, Wind dreht.",
+        "Person wird noch im Gebäude vermutet, Atemschutztrupp im Innenangriff.",
+    ],
+    "elementarereignis": [
+        "Wasser steigt weiter, jetzt auch Zugang zum Heizungsraum betroffen.",
+        "Weitere Keller in der Nachbarschaft laufen voll, Lage weitet sich aus.",
+        "Zweiter Baum droht auf die Fahrleitung zu stürzen.",
+        "Hangrutsch droht, Strasse muss grossräumig gesperrt werden.",
+    ],
+    "oelwehr": [
+        "Ölfilm erreicht den Bachlauf, Ausbreitung flussabwärts.",
+        "Leck grösser als gemeldet, Tank läuft weiter aus.",
+    ],
+    "strassenrettung": [
+        "Zweites Fahrzeug beteiligt, weitere eingeklemmte Person.",
+        "Betriebsstoffe laufen aus, Brandgefahr an der Unfallstelle.",
+    ],
+    "technische_hilfeleistung": [
+        "Konstruktion instabiler als gedacht, Einsturzgefahr.",
+        "Weitere Gebäudeteile betroffen, Absperrung muss erweitert werden.",
+    ],
+    "chemiewehr": [
+        "Geruchsbelästigung nimmt zu, Anwohner klagen über Reizungen.",
+        "Behälter undicht, Stoff noch nicht identifiziert.",
+    ],
+    "bma_unechte_alarme": [
+        "Doch Rauchentwicklung im Untergeschoss festgestellt — kein Fehlalarm.",
+    ],
+    "_default": [
+        "Lage vor Ort deutlich schlimmer als gemeldet, weitere Kräfte nötig.",
+        "Situation verschärft sich, Schadenausmass grösser als angenommen.",
+    ],
+}
+
+# Reinforcement requests ("Feld fordert Verstärkung") — what the crew on scene
+# asks the command post for. The operator decides what to actually send.
+_REINFORCEMENTS: dict[str, list[str]] = {
+    "brandbekaempfung": [
+        "zusätzlichen Atemschutztrupp",
+        "TLF mit Wasser zur Ablösung",
+        "DLK für den Aussenangriff",
+    ],
+    "elementarereignis": [
+        "zusätzliche Pumpe und Schläuche",
+        "2 AdF mit Nasssauger",
+        "Sandsäcke und Transporthilfe",
+        "Motorsäge und Sicherungsmaterial",
+    ],
+    "oelwehr": [
+        "zusätzliches Öl-Bindemittel",
+        "Ölsperre für den Bachlauf",
+    ],
+    "strassenrettung": [
+        "2 AdF für den Verkehrsdienst",
+        "zusätzliches Sicherungsmaterial",
+    ],
+    "_default": [
+        "2 zusätzliche AdF",
+        "zusätzliches Material ab Magazin",
+        "Ablösung für die eingesetzte Gruppe",
+        "Beleuchtungsmaterial für die Nacht",
+    ],
+}
+
+
+def generate_escalation(incident_type: str | None) -> str:
+    """A worsening-situation Lagemeldung matching the incident type."""
+    pool = _ESCALATIONS.get(incident_type or "", []) + _ESCALATIONS["_default"]
+    return random.choice(pool)
+
+
+def generate_reinforcement_request(incident_type: str | None) -> str:
+    """What the field crew asks for — type-matched, with generic fallbacks."""
+    pool = _REINFORCEMENTS.get(incident_type or "", []) + _REINFORCEMENTS["_default"]
+    return random.choice(pool)

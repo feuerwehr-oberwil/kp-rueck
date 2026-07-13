@@ -21,6 +21,14 @@ DEFAULT_SETTINGS = {
     "auto_archive_timeout_hours": "24",
     "notification_enabled": "false",
     "alarm_webhook_secret": "",  # Auto-generated on first init
+    # Training auto-generation (Übungssteuerung → "Automatik"). The background
+    # monitor (services/training_autogen_task.py) idles until enabled and then
+    # feeds the newest active training event.
+    "training_autogen_enabled": "false",  # Master toggle for auto-generation
+    "training_autogen_interval_min": "5",  # Minutes between generated alarms
+    "training_autogen_mode": "board",  # "board" (incidents) or "divera" (pool alarms)
+    "training_boost_multiplicator": "2.0",  # Interval divisor during the boost phase
+    "training_boost_duration_min": "30",  # Boost phase length after event creation
     "training_autogen_max_emergencies": "50",
     "sync_interval_minutes": "2",
     "auto_sync_on_create": "true",
