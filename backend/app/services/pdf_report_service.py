@@ -14,6 +14,7 @@ import re
 from datetime import UTC, datetime
 from io import BytesIO
 from xml.sax.saxutils import escape
+from zoneinfo import ZoneInfo
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
@@ -128,6 +129,9 @@ PRIORITY_LABELS: dict[str, str] = {
     "high": "Hoch",
 }
 
+# All DB timestamps are UTC; reports are read by people with Swiss wall clocks.
+LOCAL_TZ = ZoneInfo("Europe/Zurich")
+
 # Layout constants
 _PAGE_MARGIN = 18 * mm
 _BRAND = colors.HexColor("#b91c1c")  # warm red (fire service identity)
@@ -136,10 +140,12 @@ _BORDER = colors.HexColor("#d4d4d8")
 
 
 def _fmt_dt(dt: datetime | None) -> str:
-    """Format a datetime for display (Swiss ``DD.MM.YYYY HH:MM``) or em dash."""
+    """Format a datetime for display (Swiss ``DD.MM.YYYY HH:MM``, local time) or em dash."""
     if dt is None:
         return LABELS["none"]
-    return dt.strftime("%d.%m.%Y %H:%M")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(LOCAL_TZ).strftime("%d.%m.%Y %H:%M")
 
 
 def _or_none(value: str | None) -> str:

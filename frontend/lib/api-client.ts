@@ -937,6 +937,21 @@ class ApiClient {
     return response.blob()
   }
 
+  // Lageblatt — paper-fallback board snapshot (PDF, Führungsformular layout)
+  async exportEventLageblatt(eventId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/lageblatt`
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Lageblatt export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
   // Event Stats
   async getEventStats(eventId: string): Promise<ApiEventStats> {
     return this.request<ApiEventStats>(`/api/events/${eventId}/stats`)
