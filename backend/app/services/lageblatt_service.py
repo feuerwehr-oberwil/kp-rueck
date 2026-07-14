@@ -134,6 +134,14 @@ def _rank_key(person) -> tuple:
     return (_ROLE_RANK.get(role, 98), person.role_sort_order, person.name)
 
 
+def _mittel(inc: Incident, vehicles: list) -> list[str]:
+    """Womit: vehicles, with 'Zu Fuss' treated like one more vehicle."""
+    names = [v.name for v in vehicles]
+    if inc.zu_fuss:
+        names.append("Zu Fuss")
+    return names
+
+
 def _crew_compact(crew: list) -> str:
     """Highest rank + count instead of everyone: 'Of Muster +4'."""
     if not crew:
@@ -167,7 +175,7 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
         _p(_clip(reko.summary_text if reko else "", 80)),
         _p(_time(dispo.timestamp) if dispo else ""),
         _p(_clip(_crew_compact(crew), 24)),
-        _p(_clip(", ".join(v.name for v in vehicles), 22)),
+        _p(_clip(", ".join(_mittel(inc, vehicles)), 22)),
         _p("✓" if done else ""),
     ]
 
@@ -199,8 +207,6 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         flags.append("Nachbarhilfe" + (f" ({inc.nachbarhilfe_note})" if inc.nachbarhilfe_note else ""))
     if inc.am_warten:
         flags.append("Am Warten" + (f" ({inc.am_warten_note})" if inc.am_warten_note else ""))
-    if inc.zu_fuss:
-        flags.append("Zu Fuss")
 
     rows: list[tuple[str, str]] = [
         (
@@ -218,7 +224,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
             "Personal",
             ", ".join(f"{p.name}" + (f" ({p.role})" if p.role else "") for p in sorted(crew, key=_rank_key)) or "—",
         ),
-        ("Fahrzeuge", ", ".join(v.name for v in vehicles) or "—"),
+        ("Mittel", ", ".join(_mittel(inc, vehicles)) or "—"),
         ("Material", ", ".join(m.name for m in materials) or "—"),
     ]
 
