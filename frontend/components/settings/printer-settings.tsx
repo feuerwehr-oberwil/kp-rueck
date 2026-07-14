@@ -228,6 +228,8 @@ export function PrinterSettings() {
   const printerIp = settings['printer.ip'] || '';
   const printerPort = settings['printer.port'] || '9100';
   const autoAnfahrt = settings['printer.auto_anfahrt'] === 'true';
+  const fallbackAutoPrint = settings['fallback.auto_print_enabled'] === 'true';
+  const fallbackInterval = settings['fallback.auto_print_interval_min'] || '15';
 
   if (loading) {
     return (
@@ -392,6 +394,53 @@ export function PrinterSettings() {
               disabled={saving === 'printer.auto_anfahrt'}
             />
           </div>
+
+          {/* Paper fallback: periodic automatic board snapshots */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="fallback-auto-print" className="font-medium">Papier-Fallback: Board automatisch drucken</Label>
+              <p className="text-xs text-muted-foreground">
+                Druckt regelmässig einen Board-Schnappschuss, solange ein Live-Ereignis aktiv ist —
+                nur wenn sich etwas geändert hat
+              </p>
+            </div>
+            <Switch
+              id="fallback-auto-print"
+              checked={fallbackAutoPrint}
+              onCheckedChange={(checked) =>
+                updateSetting('fallback.auto_print_enabled', checked ? 'true' : 'false')
+              }
+              disabled={saving === 'fallback.auto_print_enabled'}
+            />
+          </div>
+
+          {fallbackAutoPrint && (
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <Label htmlFor="fallback-interval" className="font-medium">Intervall (Minuten)</Label>
+                <p className="text-xs text-muted-foreground">Frühestens alle 5, spätestens alle 120 Minuten</p>
+              </div>
+              <div className="flex-shrink-0 w-24">
+                <Input
+                  id="fallback-interval"
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={fallbackInterval}
+                  onChange={(e) =>
+                    setSettings((prev) => ({ ...prev, 'fallback.auto_print_interval_min': e.target.value }))
+                  }
+                  onBlur={(e) => {
+                    const clamped = String(Math.max(5, Math.min(120, parseInt(e.target.value) || 15)));
+                    if (clamped !== savedSettingsRef.current['fallback.auto_print_interval_min']) {
+                      updateSetting('fallback.auto_print_interval_min', clamped);
+                    }
+                  }}
+                  disabled={saving === 'fallback.auto_print_interval_min'}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Test Buttons */}
           <div className="flex justify-end gap-2 pt-2">

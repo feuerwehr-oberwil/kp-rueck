@@ -22,6 +22,7 @@ from ..services.audit_export_service import (
     export_event_audit_excel,
     get_safe_filename,
 )
+from ..services.lageblatt_service import build_lageblatt_pdf
 from ..services.pdf_report_service import build_event_report_pdf
 from ..services.settings import get_setting_value
 from ..utils.errors import ErrorMessages
@@ -211,5 +212,50 @@ async def export_event_report(
 
     except Exception as e:
         logger.error("Report export generation failed for event %s: %s", event_id, e, exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED)
+
+
+@router.get("/events/{event_id}/lageblatt")
+@limiter.limit(RateLimits.EXPORT)
+async def export_event_lageblatt(
+    request: Request,
+    event_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """
+    Generate the Lageblatt PDF — the paper-fallback snapshot of the current board.
+
+    One row per incident in the layout of the cantonal Führungsformular
+    (Elementarschaden FWI BL/BS) plus empty rows for handwritten continuation
+    when the digital board is unavailable.
+
+    Raises:
+        404: Event not found
+        500: Generation failed
+    """
+    event_result = await db.execute(select(Event).where(Event.id == event_id))
+    event = event_result.scalar_one_or_none()
+
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Event {event_id} not found")
+
+    try:
+        data = await collect_event_report_data(db, event_id)
+        home_city = await get_setting_value(db, "home_city", "")
+        pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city)
+
+        date_str = datetime.now(UTC).strftime("%Y-%m-%d-%H%M")
+        filename = f"lageblatt-{slugify_event_name(event.name)}-{date_str}.pdf"
+
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error("Lageblatt generation failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED)

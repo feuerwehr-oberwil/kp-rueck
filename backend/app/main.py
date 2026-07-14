@@ -215,6 +215,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.warning(f"Training auto-generation task failed to start: {e}")
 
+    # Start fallback auto-print monitor (idle unless fallback.auto_print_enabled;
+    # pointless in demo mode — there is no printer)
+    if not settings.demo_mode:
+        logger.info("Starting fallback auto-print task...")
+        try:
+            from .background.fallback_print import fallback_print_task
+
+            await fallback_print_task.start()
+        except Exception as e:
+            logger.warning(f"Fallback auto-print task failed to start: {e}")
+
     if settings.is_production and not settings.print_agent_token:
         logger.warning(
             "PRINT_AGENT_TOKEN is not set in production - print agent endpoints "
@@ -223,6 +234,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     logger.info("Application startup complete")
     yield
+
+    # Shutdown: Stop fallback auto-print task
+    if not settings.demo_mode:
+        logger.info("Stopping fallback auto-print task...")
+        try:
+            from .background.fallback_print import fallback_print_task
+
+            await fallback_print_task.stop()
+        except Exception as e:
+            logger.warning(f"Fallback auto-print task shutdown failed: {e}")
 
     # Shutdown: Stop training auto-generation task
     if not settings.demo_mode:
