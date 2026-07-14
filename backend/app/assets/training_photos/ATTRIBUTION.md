@@ -10,8 +10,6 @@ re-encoded (JPEG q80) and stripped of EXIF metadata.
 
 | File | Author | License | Source |
 |------|--------|---------|--------|
-| 01.jpg | dbking | CC BY 2.0 | [File:Eastern Market Fire, 4.30.07.jpg](https://commons.wikimedia.org/wiki/File:Eastern_Market_Fire,_4.30.07.jpg) |
-| 02.jpg | Original uploader was DragonFire1024 at en.wikinews | CC BY-SA 3.0 | [File:48 Granger Pl. Buffalo Fire June 22.07 pt5.JPG](https://commons.wikimedia.org/wiki/File:48_Granger_Pl._Buffalo_Fire_June_22.07_pt5.JPG) |
 | 03.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9541.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9541.jpg) |
 | 04.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9547.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9547.jpg) |
 | 05.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9573.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9573.jpg) |
