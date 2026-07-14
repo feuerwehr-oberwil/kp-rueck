@@ -38,10 +38,9 @@ MAX_EDGE = 1280  # resize longest edge
 JPEG_QUALITY = 80
 
 # Incident types (see valid_incident_type in backend/app/models.py) mapped to
-# Commons search terms. Types without a pool here reuse a sibling pool at
-# runtime (see backend/app/services/training_photos.py):
-#   strahlenwehr -> chemiewehr, einsatz_bahnanlagen -> strassenrettung,
-#   gerettete_menschen -> strassenrettung, dienstleistungen -> technische_hilfeleistung.
+# Commons search terms. Every board type has its own pool; if a type's
+# directory is ever emptied, the runtime falls back to a sibling pool
+# (alias map in backend/app/services/training_photos.py).
 SEARCH_TERMS: dict[str, list[str]] = {
     "brandbekaempfung": [
         "house fire firefighters flames",
@@ -107,6 +106,37 @@ SEARCH_TERMS: dict[str, list[str]] = {
         "cat stuck in a tree",
         "cat high up tree branch",
     ],
+    "strahlenwehr": [
+        "Strahlenschutz Feuerwehr",
+        "CBRN exercise responders",
+        "radiation protection suit exercise",
+        "Geiger counter radiation measurement",
+        "radiation survey meter",
+        "ABC-Zug Übung",
+    ],
+    "einsatz_bahnanlagen": [
+        "Bahnunfall Feuerwehr",
+        "train derailment",
+        "Zugentgleisung",
+        "railway accident emergency services",
+        "level crossing accident",
+        "Bahnübergang Unfall",
+    ],
+    "gerettete_menschen": [
+        "Personenrettung Feuerwehr Übung",
+        "firefighters stretcher rescue exercise",
+        "Höhenrettung Feuerwehr Übung",
+        "rescue exercise dummy firefighters",
+        "Drehleiter Rettung Übung",
+        "firefighters rope rescue training",
+    ],
+    "dienstleistungen": [
+        "Feuerwehr Wasserversorgung Übung",
+        "firefighters pumping water supply hose",
+        "Feuerwehr Verkehrsdienst Absicherung",
+        "firefighters filling water tank",
+        "Feuerwehr Ölsperre Übung",
+    ],
 }
 
 # Strict license allow-list: CC0, CC BY, CC BY-SA (any version, any port).
@@ -138,6 +168,20 @@ EXCLUDE_TITLES: set[str] = {
     "File:Hornet Nest model at Regional Museum of Natural History, Bhubaneswar.jpg",
     "File:L.S. Hornet Nest at Regional Museum of Natural History, Bhubaneswar.jpg",
     "File:Dragline Basket and Claim Shell Bucket Are Used to Scoop Oil - Laden Debris from Log Boom on the San Juan River, 10-1972.jpg",
+    # Third review pass (US scenes, out of place for Swiss training):
+    "File:Eastern Market Fire, 4.30.07.jpg",  # US flags front and center
+    "File:48 Granger Pl. Buffalo Fire June 22.07 pt5.JPG",  # nondescript US house
+    # Fourth review pass (new-type curation):
+    "File:96 car Train derailment in Trinway, Ohio USA 01.jpg",  # photographer watermark
+    "File:96 car Train derailment in Trinway, Ohio USA 02.jpg",  # photographer watermark
+    "File:96 car Train derailment in Trinway, Ohio USA 03.jpg",  # photographer watermark
+    "File:Derailment marks on outbound platform at Northeastern station, September 2012.JPG",  # empty platform
+    "File:Derailment Accident Site - Amagasaki Rail Crash(63081686).jpg",  # aerial city view
+    "File:Going off the rails (348294867).jpg",  # fence, no incident
+    "File:挨拶 (29591464221).jpg",  # ceremony line-up, not a rescue
+    "File:Yakiniku 001.jpg",  # grilled food (?!)
+    "File:Fire tools- water backpacks.jpg",  # gear close-up, not a scene
+    "File:W50 LF16 TS8.jpg",  # vintage museum truck
     # Second review pass:
     "File:Kyoto's firefighters.jpg",  # crowd of onlookers with visible faces
     "File:Flooding in southern Iran (49389786917).jpg",  # satellite image

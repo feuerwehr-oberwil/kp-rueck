@@ -900,6 +900,15 @@ class TestPickPoolPhotos:
         assert all(p.parent.name == "chemiewehr" for p in photos)
 
     @pytest.mark.unit
+    def test_own_pool_wins_over_alias(self, pool_dir: Path, always_two_photos):
+        """An aliased type with its own images uses those, not the sibling's."""
+        for i in range(1, 4):
+            _make_jpeg(pool_dir / "strahlenwehr" / f"{i:02d}.jpg")
+        photos = pick_pool_photos("strahlenwehr", pool_dir=pool_dir)
+        assert len(photos) == 2
+        assert all(p.parent.name == "strahlenwehr" for p in photos)
+
+    @pytest.mark.unit
     def test_can_return_zero_photos(self, pool_dir: Path, monkeypatch):
         monkeypatch.setattr(training_photos, "_PHOTO_COUNT_WEIGHTS", (1, 0, 0))
         assert pick_pool_photos("brandbekaempfung", pool_dir=pool_dir) == []
