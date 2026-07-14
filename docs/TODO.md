@@ -13,6 +13,14 @@
   deliberately NOT merged: training stays Divera-free (simulations only) for now.
   If ever wanted: fix the send-dialog banner race (one settings fetch must drive
   banner + send gate) and check the ÜBUNG marker against the truncated title first.
+- [ ] **More reko training photos** — current pool is Wikimedia-Commons-only,
+  scene-before-response criterion (59 images, `scripts/download-training-photos.py`
+  + ATTRIBUTION.md). Gaps: `chemiewehr` and `gerettete_menschen` have zero compliant
+  Commons material — best filled with own photos staged during a drill (before crews
+  enter frame; drop into `backend/app/assets/training_photos/<type>/`, own dir beats
+  the alias automatically). Other sources worth probing: Openverse (aggregates
+  Flickr CC — check each license), cantonal/GVB press archives (ask permission),
+  Unsplash/Pexels are NOT ok (licenses forbid redistribution "as part of a dataset").
 
 ## Operational Reliability
 
