@@ -16,6 +16,7 @@ import {
   generateChecklistTasks,
   ChecklistTaskState,
   isTaskComplete,
+  isFallbackReady,
   checklistOverridesKey,
   resolveWhatsAppMessage,
   WHATSAPP_MESSAGE_1_KEY,
@@ -184,6 +185,7 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
         mapTilesAvailable,
         printerEnabled: printerStatus?.enabled ?? false,
         printerAgentOnline: printerStatus?.agent_online ?? false,
+        fallbackReady: isFallbackReady(settings, printerStatus?.enabled ?? false),
         onCopyCheckInLink: handleCopyCheckInLink,
         onPrintCheckInLink: handlePrintCheckInLink,
         onCopyRekoLink: handleCopyRekoLink,
@@ -192,6 +194,9 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
         onPrintAlarmLink: handlePrintAlarmLink,
         onShowTileSetup: handleShowTileSetup,
         onTestPrint: handleTestPrint,
+        onOpenFallbackSettings: () => {
+          window.location.href = '/settings?section=fallback'
+        },
       })
 
       setTasks(updatedTasks)

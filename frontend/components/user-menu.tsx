@@ -36,6 +36,10 @@ import {
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import {
+  LAGEBLATT_AUTODOWNLOAD_EVENT,
+  LAGEBLATT_AUTODOWNLOAD_KEY,
+} from '@/components/settings/fallback-settings';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface UserMenuProps {
@@ -95,10 +99,19 @@ export function UserMenu({
 
   // Paper fallback: periodically auto-download the Lageblatt to THIS device so a
   // current printable snapshot exists even if the connection dies later.
-  // Per-device preference (localStorage), interval fixed at 15 minutes.
+  // Toggled in Einstellungen → Ausfallsicherheit; the interval runs here because
+  // the UserMenu is mounted on every page.
   const [lageblattAutoDownload, setLageblattAutoDownload] = useState(false);
   useEffect(() => {
-    setLageblattAutoDownload(localStorage.getItem('kp-lageblatt-autodownload') === 'true');
+    const read = () =>
+      setLageblattAutoDownload(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true');
+    read();
+    window.addEventListener(LAGEBLATT_AUTODOWNLOAD_EVENT, read);
+    window.addEventListener('storage', read);
+    return () => {
+      window.removeEventListener(LAGEBLATT_AUTODOWNLOAD_EVENT, read);
+      window.removeEventListener('storage', read);
+    };
   }, []);
   const downloadEventExportRef = useRef(downloadEventExport);
   downloadEventExportRef.current = downloadEventExport;
@@ -107,17 +120,6 @@ export function UserMenu({
     const id = window.setInterval(() => downloadEventExportRef.current('lageblatt'), 15 * 60 * 1000);
     return () => window.clearInterval(id);
   }, [lageblattAutoDownload, selectedEvent, isEditor]);
-  const toggleLageblattAutoDownload = () => {
-    const next = !lageblattAutoDownload;
-    setLageblattAutoDownload(next);
-    localStorage.setItem('kp-lageblatt-autodownload', next ? 'true' : 'false');
-    if (next) {
-      downloadEventExportRef.current('lageblatt');
-      toast.success('Lageblatt Auto-Download aktiv', {
-        description: 'Alle 15 Minuten wird ein aktuelles Lageblatt heruntergeladen.',
-      });
-    }
-  };
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
@@ -531,16 +533,6 @@ export function UserMenu({
                   >
                     <ClipboardList className="mr-2 h-4 w-4" />
                     <span>Lageblatt (A4)</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={toggleLageblattAutoDownload}
-                    disabled={!selectedEvent}
-                    className="cursor-pointer"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    <span>
-                      Lageblatt Auto-Download {lageblattAutoDownload ? 'stoppen' : '(15 Min)'}
-                    </span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
