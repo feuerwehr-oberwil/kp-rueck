@@ -34,6 +34,10 @@ DEFAULT_SETTINGS = {
     "auto_sync_on_create": "true",
     "railway_database_url": "",  # Railway PostgreSQL connection string (empty = local mode, no sync)
     "sync_conflict_buffer_seconds": "5",  # Timestamp buffer for conflict resolution (Local wins if within buffer)
+    # Paper fallback: periodic automatic board snapshots to the thermal printer
+    # (background/fallback_print.py idles until enabled; needs printer.enabled too)
+    "fallback.auto_print_enabled": "false",
+    "fallback.auto_print_interval_min": "15",
     # Thermal printer settings (local installations only)
     "printer.enabled": "false",  # Master toggle for printer functionality
     "printer.ip": "",  # Printer IP address (e.g., "192.168.1.100")

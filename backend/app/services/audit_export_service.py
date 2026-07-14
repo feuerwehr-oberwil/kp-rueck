@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (
+    AuditLog,
     Event,
     Incident,
     IncidentAssignment,
@@ -23,6 +24,11 @@ from ..models import (
     User,
     Vehicle,
 )
+
+# Audit actions that are journal-worthy for the Einsatztagebuch chapter in the
+# PDF report. Deliberately a whitelist: field-level updates, logins, exports,
+# settings changes etc. must never leak into the after-action journal.
+JOURNAL_AUDIT_ACTIONS: tuple[str, ...] = ("divera_alarm", "delete", "restore")
 
 
 @dataclass
@@ -41,6 +47,8 @@ class EventReportData:
     assignments: list[IncidentAssignment]
     transitions: list[StatusTransition]
     reko_reports: list[RekoReport]
+    # Journal-worthy audit rows (see JOURNAL_AUDIT_ACTIONS), incident-scoped.
+    audit_entries: list[AuditLog] = field(default_factory=list)
     incident_map: dict[uuid.UUID, Incident] = field(default_factory=dict)
     personnel_map: dict[uuid.UUID, Personnel] = field(default_factory=dict)
     vehicle_map: dict[uuid.UUID, Vehicle] = field(default_factory=dict)
@@ -138,6 +146,21 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
     else:
         reko_reports = []
 
+    # Load journal-worthy audit entries (Einsatztagebuch). Audit rows carry no
+    # event scoping, only resource_type/resource_id — so we scope them via the
+    # event's incident ids and restrict to the whitelisted action types.
+    audit_entries: list[AuditLog] = []
+    if incident_ids:
+        audit_result = await db.execute(
+            select(AuditLog)
+            .where(AuditLog.resource_type == "incident")
+            .where(AuditLog.resource_id.in_(incident_ids))
+            .where(AuditLog.action_type.in_(JOURNAL_AUDIT_ACTIONS))
+            .order_by(AuditLog.timestamp.asc())
+        )
+        audit_entries = list(audit_result.scalars().all())
+        user_ids.update(a.user_id for a in audit_entries if a.user_id)
+
     # ========== 6. Batch load resources and users ==========
     personnel_map: dict[uuid.UUID, Personnel] = {}
     if personnel_ids:
@@ -165,6 +188,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         assignments=assignments,
         transitions=transitions,
         reko_reports=reko_reports,
+        audit_entries=audit_entries,
         incident_map=incident_map,
         personnel_map=personnel_map,
         vehicle_map=vehicle_map,

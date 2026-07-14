@@ -6,12 +6,12 @@
  * Enhanced with visual grouping for better navigation organization
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp } from 'lucide-react';
+import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
@@ -36,6 +36,10 @@ import {
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import {
+  LAGEBLATT_AUTODOWNLOAD_EVENT,
+  LAGEBLATT_AUTODOWNLOAD_KEY,
+} from '@/components/settings/fallback-settings';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface UserMenuProps {
@@ -59,12 +63,14 @@ export function UserMenu({
   const router = useRouter();
 
   // Quick per-event export of the currently selected event (Verwaltung → Export).
-  const downloadEventExport = async (kind: 'pdf' | 'xlsx') => {
+  const downloadEventExport = async (kind: 'pdf' | 'xlsx' | 'lageblatt') => {
     if (!selectedEvent) return;
     try {
       const blob = kind === 'pdf'
         ? await apiClient.exportEventReport(selectedEvent.id)
-        : await apiClient.exportEventAudit(selectedEvent.id);
+        : kind === 'lageblatt'
+          ? await apiClient.exportEventLageblatt(selectedEvent.id)
+          : await apiClient.exportEventAudit(selectedEvent.id);
       // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
       const slug = selectedEvent.name
         .toLowerCase()
@@ -72,9 +78,12 @@ export function UserMenu({
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '') || 'ereignis';
       const date = new Date().toISOString().slice(0, 10);
+      const time = new Date().toTimeString().slice(0, 5).replace(':', '');
       const filename = kind === 'pdf'
         ? `einsatzbericht-${slug}-${date}.pdf`
-        : `audit-${slug}-${date}.xlsx`;
+        : kind === 'lageblatt'
+          ? `lageblatt-${slug}-${date}-${time}.pdf`
+          : `audit-${slug}-${date}.xlsx`;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -84,9 +93,33 @@ export function UserMenu({
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : (kind === 'pdf' ? 'Bericht-Export fehlgeschlagen' : 'Audit-Export fehlgeschlagen'));
+      toast.error(err instanceof Error ? err.message : 'Export fehlgeschlagen');
     }
   };
+
+  // Paper fallback: periodically auto-download the Lageblatt to THIS device so a
+  // current printable snapshot exists even if the connection dies later.
+  // Toggled in Einstellungen → Ausfallsicherheit; the interval runs here because
+  // the UserMenu is mounted on every page.
+  const [lageblattAutoDownload, setLageblattAutoDownload] = useState(false);
+  useEffect(() => {
+    const read = () =>
+      setLageblattAutoDownload(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true');
+    read();
+    window.addEventListener(LAGEBLATT_AUTODOWNLOAD_EVENT, read);
+    window.addEventListener('storage', read);
+    return () => {
+      window.removeEventListener(LAGEBLATT_AUTODOWNLOAD_EVENT, read);
+      window.removeEventListener('storage', read);
+    };
+  }, []);
+  const downloadEventExportRef = useRef(downloadEventExport);
+  downloadEventExportRef.current = downloadEventExport;
+  useEffect(() => {
+    if (!lageblattAutoDownload || !selectedEvent || !isEditor) return;
+    const id = window.setInterval(() => downloadEventExportRef.current('lageblatt'), 15 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [lageblattAutoDownload, selectedEvent, isEditor]);
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
@@ -492,6 +525,14 @@ export function UserMenu({
                   >
                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                     <span>Audit-Export (XLSX)</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => downloadEventExport('lageblatt')}
+                    disabled={!selectedEvent}
+                    className="cursor-pointer"
+                  >
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    <span>Lageblatt (A4)</span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>

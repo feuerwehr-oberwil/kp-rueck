@@ -50,6 +50,7 @@ from ..services.training import (
     generate_training_divera_emergency,
     generate_training_emergency,
 )
+from ..services.training_photos import attach_training_photos
 from ..services.training_simulation_data import (
     generate_escalation,
     generate_reinforcement_request,
@@ -246,9 +247,7 @@ async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], wind
             async with async_session_maker() as db:
                 result = await checkin_crud.check_in_personnel(db, event_id, person_id)
             if result:
-                await broadcast_personnel_update(
-                    {"id": str(person_id), "name": name, "checked_in": True}, "checkin"
-                )
+                await broadcast_personnel_update({"id": str(person_id), "name": name, "checked_in": True}, "checkin")
         except Exception as e:
             logger.error("Trickle check-in failed for %s: %s", name, e)
 
@@ -300,9 +299,7 @@ async def simulate_checkin(
                 detail="Ein gestaffeltes Einchecken läuft bereits",
             )
         people = [(p.id, p.name) for p in to_checkin]
-        _trickle_tasks[event_id] = asyncio.create_task(
-            _trickle_checkins(event_id, people, over_minutes * 60.0)
-        )
+        _trickle_tasks[event_id] = asyncio.create_task(_trickle_checkins(event_id, people, over_minutes * 60.0))
         return SimulateCheckinResponse(
             checked_in=[],
             total_checked_in=len(checked_in_ids),
@@ -464,6 +461,16 @@ async def simulate_reko(
     )
     update_data = RekoReportUpdate(**reko_data)
     updated = await reko_crud.update_reko_report(db, report.id, update_data, submit=True)
+
+    # Attach 0-2 curated scene photos from the bundled offline pool, matched to
+    # the incident type. They go through the same PhotoStorageService path real
+    # uploads use, so serving/cleanup/deletion behave identically. A missing or
+    # stripped pool simply yields a report without photos.
+    photo_filenames = await attach_training_photos(incident_id, incident.type, current_photos=updated.photos_json)
+    if photo_filenames:
+        updated.photos_json = (updated.photos_json or []) + photo_filenames
+        await db.commit()
+        await db.refresh(updated)
 
     # Refresh incident to get current state
     await db.refresh(incident)
@@ -883,9 +890,7 @@ async def set_gps_simulation_speed(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Fahrzeug nicht gefunden")
 
-    drive = await gps_simulation.set_speed(
-        vehicle.name, max(10.0, min(100.0, request.speed_kmh))
-    )
+    drive = await gps_simulation.set_speed(vehicle.name, max(10.0, min(100.0, request.speed_kmh)))
     if drive is None:
         raise HTTPException(status_code=404, detail="Keine aktive Fahrt für dieses Fahrzeug")
     return _drive_response(drive, datetime.now(UTC))
