@@ -186,21 +186,14 @@ def _json_true_keys(payload) -> str:
 
 
 def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[tuple[str, str]]:
+    """Every field the board knows, always present — empty values render as an
+    em dash so operators see what is unknown (and can fill it in by hand)."""
     crew, vehicles, materials = _active_resources(data, inc.id)
-    rows: list[tuple[str, str]] = [
-        (
-            "Typ / Priorität",
-            f"{TYPE_LABELS.get(inc.type, inc.type)} / {PRIORITY_LABELS.get(inc.priority, inc.priority)}",
-        ),
-        ("Adresse", inc.location_address or "—"),
-        ("Eingang", _dt_full(inc.created_at)),
-    ]
-    if inc.source and inc.source != "operator":
-        rows.append(("Quelle", {"intake": "Telefon", "divera": "Divera"}.get(inc.source, inc.source)))
-    if inc.description:
-        rows.append(("Beschreibung", inc.description))
-    if inc.contact:
-        rows.append(("Kontakt", inc.contact))
+
+    coords = "—"
+    if inc.location_lat is not None and inc.location_lng is not None:
+        coords = f"{float(inc.location_lat):.5f}, {float(inc.location_lng):.5f}"
+
     flags = []
     if inc.nachbarhilfe:
         flags.append("Nachbarhilfe" + (f" ({inc.nachbarhilfe_note})" if inc.nachbarhilfe_note else ""))
@@ -208,21 +201,31 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         flags.append("Am Warten" + (f" ({inc.am_warten_note})" if inc.am_warten_note else ""))
     if inc.zu_fuss:
         flags.append("Zu Fuss")
-    if flags:
-        rows.append(("Merkmale", ", ".join(flags)))
-    if crew:
-        rows.append(
-            (
-                "Personal",
-                ", ".join(f"{p.name}" + (f" ({p.role})" if p.role else "") for p in sorted(crew, key=_rank_key)),
-            )
-        )
-    if vehicles:
-        rows.append(("Fahrzeuge", ", ".join(v.name for v in vehicles)))
-    if materials:
-        rows.append(("Material", ", ".join(m.name for m in materials)))
 
-    for report in [r for r in data.reko_reports if r.incident_id == inc.id and not r.is_draft]:
+    rows: list[tuple[str, str]] = [
+        (
+            "Typ / Priorität",
+            f"{TYPE_LABELS.get(inc.type, inc.type)} / {PRIORITY_LABELS.get(inc.priority, inc.priority)}",
+        ),
+        ("Adresse", inc.location_address or "—"),
+        ("Koordinaten", coords),
+        ("Eingang", _dt_full(inc.created_at)),
+        ("Quelle", {"intake": "Telefon", "divera": "Divera"}.get(inc.source or "", "Operator")),
+        ("Beschreibung", inc.description or "—"),
+        ("Kontakt", inc.contact or "—"),
+        ("Merkmale", ", ".join(flags) or "—"),
+        (
+            "Personal",
+            ", ".join(f"{p.name}" + (f" ({p.role})" if p.role else "") for p in sorted(crew, key=_rank_key)) or "—",
+        ),
+        ("Fahrzeuge", ", ".join(v.name for v in vehicles) or "—"),
+        ("Material", ", ".join(m.name for m in materials) or "—"),
+    ]
+
+    reports = [r for r in data.reko_reports if r.incident_id == inc.id and not r.is_draft]
+    if not reports:
+        rows.append(("Reko", "—"))
+    for report in reports:
         who = ""
         if report.submitted_by_personnel_id in data.personnel_map:
             who = f" ({data.personnel_map[report.submitted_by_personnel_id].name})"
@@ -241,10 +244,18 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
             parts.append(f"Notizen: {report.additional_notes}")
         rows.append((f"Reko {_time(report.submitted_at)}{who}", " — ".join(parts) or "—"))
 
-    if inc.internal_notes:
-        rows.append(("Interne Notizen", inc.internal_notes))
-    if inc.completed_at:
-        rows.append(("Abgeschlossen", _dt_full(inc.completed_at)))
+    # Compact status history: when each stage was first reached.
+    transitions = sorted((t for t in data.transitions if t.incident_id == inc.id), key=lambda t: t.timestamp)
+    seen: dict[str, str] = {}
+    for t in transitions:
+        seen.setdefault(t.to_status, _time(t.timestamp))
+    verlauf = " → ".join(f"{STATUS_LABELS.get(s, s)} {ts}" for s, ts in seen.items())
+    rows.append(("Verlauf", verlauf or "—"))
+
+    if inc.field_complete_reported_at:
+        rows.append(("Beendet gemeldet", _dt_full(inc.field_complete_reported_at)))
+    rows.append(("Interne Notizen", inc.internal_notes or "—"))
+    rows.append(("Abgeschlossen", _dt_full(inc.completed_at)))
     return rows
 
 
