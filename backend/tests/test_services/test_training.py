@@ -10,6 +10,10 @@ Tests cover:
 - Error handling for missing templates/locations
 """
 
+import io
+import re
+import uuid
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -25,11 +29,13 @@ from app.models import (
     Setting,
     TrainingLocation,
 )
+from app.services import training_photos
+from app.services.photo_storage import photo_storage
 from app.services.training import (
     TrainingGenerator,
     generate_training_emergency,
 )
-
+from app.services.training_photos import attach_training_photos, pick_pool_photos
 
 # ============================================
 # Fixtures
@@ -280,9 +286,7 @@ class TestPoolEmergencyGeneration:
                 select(func.count()).select_from(Incident).where(Incident.event_id == training_event.id)
             )
         ).scalar_one()
-        notification_count = (
-            await db_session.execute(select(func.count()).select_from(Notification))
-        ).scalar_one()
+        notification_count = (await db_session.execute(select(func.count()).select_from(Notification))).scalar_one()
         assert incident_count == 0
         assert notification_count == 0
 
@@ -385,9 +389,7 @@ class TestEmergencyGeneration:
         incident = await generator.generate_emergency(training_event.id)
 
         # Check notification was created
-        result = await db_session.execute(
-            select(Notification).where(Notification.incident_id == incident.id)
-        )
+        result = await db_session.execute(select(Notification).where(Notification.incident_id == incident.id))
         notification = result.scalar_one_or_none()
 
         assert notification is not None
@@ -407,9 +409,7 @@ class TestEmergencyGeneration:
         generator = TrainingGenerator(db_session)
         incident = await generator.generate_emergency(training_event.id, category="critical")
 
-        result = await db_session.execute(
-            select(Notification).where(Notification.incident_id == incident.id)
-        )
+        result = await db_session.execute(select(Notification).where(Notification.incident_id == incident.id))
         notification = result.scalar_one_or_none()
         assert notification.severity == "critical"
 
@@ -425,9 +425,7 @@ class TestEmergencyGeneration:
         generator = TrainingGenerator(db_session)
         incident = await generator.generate_emergency(training_event.id, category="normal")
 
-        result = await db_session.execute(
-            select(Notification).where(Notification.incident_id == incident.id)
-        )
+        result = await db_session.execute(select(Notification).where(Notification.incident_id == incident.id))
         notification = result.scalar_one_or_none()
         assert notification.severity == "warning"
 
@@ -559,9 +557,7 @@ class TestModuleFunctions:
         training_settings: list[Setting],
     ):
         """Test generating with specific category."""
-        incidents = await generate_training_emergency(
-            db_session, training_event.id, category="critical", count=2
-        )
+        incidents = await generate_training_emergency(db_session, training_event.id, category="critical", count=2)
 
         assert len(incidents) == 2
         for incident in incidents:
@@ -582,9 +578,7 @@ class TestModuleFunctions:
         dispatch. So intake forces normal scenarios and attaches a Melder
         (contact) plus a context line on the description for realism.
         """
-        incidents = await generate_training_emergency(
-            db_session, training_event.id, count=5, source="intake"
-        )
+        incidents = await generate_training_emergency(db_session, training_event.id, count=5, source="intake")
 
         assert len(incidents) == 5
         for incident in incidents:
@@ -814,14 +808,163 @@ class TestDispatchSpecific:
         training_locations: list[TrainingLocation],
     ):
         generator = TrainingGenerator(db_session)
-        await generator.dispatch_specific(
-            training_event.id, template_with_variations, location=training_locations[0]
-        )
+        await generator.dispatch_specific(training_event.id, template_with_variations, location=training_locations[0])
 
-        result = await db_session.execute(
-            select(Notification).where(Notification.event_id == training_event.id)
-        )
+        result = await db_session.execute(select(Notification).where(Notification.event_id == training_event.id))
         notes = list(result.scalars().all())
         assert len(notes) == 1
         assert notes[0].type == "training_emergency"
         assert training_locations[0].street in notes[0].message
+
+
+# ============================================
+# Training Photo Pool (simulated Reko photos)
+# ============================================
+#
+# Uses a stubbed pool directory (tmp_path) — these tests must not depend on
+# the committed images in app/assets/training_photos, because brigades may
+# strip those assets entirely.
+
+# Same filename contract the real upload endpoint produces and the serving
+# endpoint (get_photo_path) enforces.
+UUID_JPG = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$")
+
+
+def _make_jpeg(path: Path, size: tuple[int, int] = (64, 48)) -> None:
+    """Write a small valid JPEG to `path`."""
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img = Image.new("RGB", size, (200, 30, 30))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    path.write_bytes(buf.getvalue())
+
+
+@pytest.fixture
+def pool_dir(tmp_path: Path) -> Path:
+    """A stubbed photo pool with images for two incident types."""
+    pool = tmp_path / "pool"
+    for i in range(1, 4):
+        _make_jpeg(pool / "brandbekaempfung" / f"{i:02d}.jpg")
+        _make_jpeg(pool / "chemiewehr" / f"{i:02d}.jpg")
+    return pool
+
+
+@pytest.fixture
+def photos_dir(tmp_path: Path, monkeypatch) -> Path:
+    """Redirect the PhotoStorageService singleton to a temp photos dir."""
+    target = tmp_path / "photos"
+    monkeypatch.setattr(photo_storage, "photos_dir", target)
+    return target
+
+
+@pytest.fixture
+def always_two_photos(monkeypatch):
+    """Force the weighted photo count to always pick 2."""
+    monkeypatch.setattr(training_photos, "_PHOTO_COUNT_WEIGHTS", (0, 0, 1))
+
+
+class TestPickPoolPhotos:
+    """Pool selection: type matching, aliases, graceful absence."""
+
+    @pytest.mark.unit
+    def test_returns_empty_for_missing_pool(self, tmp_path: Path):
+        assert pick_pool_photos("brandbekaempfung", pool_dir=tmp_path / "does-not-exist") == []
+
+    @pytest.mark.unit
+    def test_returns_empty_for_missing_type_dir(self, pool_dir: Path):
+        assert pick_pool_photos("oelwehr", pool_dir=pool_dir) == []
+
+    @pytest.mark.unit
+    def test_returns_empty_for_empty_type_dir(self, pool_dir: Path):
+        (pool_dir / "oelwehr").mkdir()
+        assert pick_pool_photos("oelwehr", pool_dir=pool_dir) == []
+
+    @pytest.mark.unit
+    def test_returns_empty_for_none_type(self, pool_dir: Path):
+        assert pick_pool_photos(None, pool_dir=pool_dir) == []
+
+    @pytest.mark.unit
+    def test_selects_from_matching_type_dir(self, pool_dir: Path, always_two_photos):
+        photos = pick_pool_photos("brandbekaempfung", pool_dir=pool_dir)
+        assert len(photos) == 2
+        assert all(p.parent.name == "brandbekaempfung" for p in photos)
+        assert len(set(photos)) == 2  # no duplicate picks within one report
+
+    @pytest.mark.unit
+    def test_uses_alias_for_types_without_own_pool(self, pool_dir: Path, always_two_photos):
+        """strahlenwehr has no own pool and borrows chemiewehr's."""
+        photos = pick_pool_photos("strahlenwehr", pool_dir=pool_dir)
+        assert len(photos) == 2
+        assert all(p.parent.name == "chemiewehr" for p in photos)
+
+    @pytest.mark.unit
+    def test_can_return_zero_photos(self, pool_dir: Path, monkeypatch):
+        monkeypatch.setattr(training_photos, "_PHOTO_COUNT_WEIGHTS", (1, 0, 0))
+        assert pick_pool_photos("brandbekaempfung", pool_dir=pool_dir) == []
+
+
+class TestAttachTrainingPhotos:
+    """Copying pool photos through the real PhotoStorageService path."""
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_stores_photos_in_incident_dir(self, pool_dir: Path, photos_dir: Path, always_two_photos):
+        incident_id = uuid.uuid4()
+        filenames = await attach_training_photos(incident_id, "brandbekaempfung", pool_dir=pool_dir)
+
+        assert len(filenames) == 2
+        for filename in filenames:
+            # Same photos_json entry shape as the real upload endpoint: a
+            # plain UUID.jpg filename string.
+            assert UUID_JPG.match(filename)
+            # File lands in the per-incident directory, exactly like uploads.
+            file_path = photos_dir / str(incident_id) / filename
+            assert file_path.exists()
+            # And is served through the same path-validating accessor.
+            assert photo_storage.get_photo_path(incident_id, filename) == file_path
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_photos_are_valid_jpegs(self, pool_dir: Path, photos_dir: Path, always_two_photos):
+        from PIL import Image
+
+        incident_id = uuid.uuid4()
+        filenames = await attach_training_photos(incident_id, "brandbekaempfung", pool_dir=pool_dir)
+        for filename in filenames:
+            with Image.open(photos_dir / str(incident_id) / filename) as img:
+                assert img.format == "JPEG"
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_degrades_gracefully_without_pool(self, tmp_path: Path, photos_dir: Path, always_two_photos):
+        """A stripped/missing pool must yield no photos, not an error."""
+        incident_id = uuid.uuid4()
+        filenames = await attach_training_photos(incident_id, "brandbekaempfung", pool_dir=tmp_path / "gone")
+        assert filenames == []
+        assert not (photos_dir / str(incident_id)).exists()
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_skips_corrupt_pool_images(self, tmp_path: Path, photos_dir: Path, always_two_photos):
+        """Unreadable pool files are skipped without breaking the simulation."""
+        pool = tmp_path / "pool"
+        (pool / "brandbekaempfung").mkdir(parents=True)
+        (pool / "brandbekaempfung" / "01.jpg").write_bytes(b"not a jpeg at all")
+        (pool / "brandbekaempfung" / "02.jpg").write_bytes(b"still not a jpeg")
+
+        filenames = await attach_training_photos(uuid.uuid4(), "brandbekaempfung", pool_dir=pool)
+        assert filenames == []
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_respects_existing_photo_count_limit(
+        self, pool_dir: Path, photos_dir: Path, always_two_photos, monkeypatch
+    ):
+        """The max-photos-per-report guard of the real upload path applies."""
+        monkeypatch.setattr(photo_storage, "max_photos", 1)
+        filenames = await attach_training_photos(
+            uuid.uuid4(), "brandbekaempfung", current_photos=["existing.jpg"], pool_dir=pool_dir
+        )
+        assert filenames == []  # limit reached -> save_photo refuses, we degrade
