@@ -142,9 +142,14 @@ export default function DiveraPoolPage() {
     if (selectedEmergencies.size === 0) return;
     // Default to the currently selected event, but only if it's in the
     // selectable (non-archived, attachable) list so the dropdown can display it.
-    if (currentEvent?.id && attachableEvents.some((e) => e.id === currentEvent.id)) {
-      setSelectedEventId(currentEvent.id);
-    }
+    // Otherwise clear any previously chosen event — a stale id from an earlier
+    // dialog may not be attachable anymore (e.g. ÜBUNG entry selected now) and
+    // would be submitted invisibly.
+    setSelectedEventId(
+      currentEvent?.id && attachableEvents.some((e) => e.id === currentEvent.id)
+        ? currentEvent.id
+        : ''
+    );
     setShowAttachDialog(true);
   };
 
