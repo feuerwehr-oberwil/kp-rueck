@@ -41,50 +41,72 @@ JPEG_QUALITY = 80
 # Commons search terms. Every board type has its own pool; if a type's
 # directory is ever emptied, the runtime falls back to a sibling pool
 # (alias map in backend/app/services/training_photos.py).
+#
+# Curation criterion (product owner): photos show the emergency AS THE REKO
+# CREW FIRST FINDS IT — the raw scene BEFORE any response. No firefighters,
+# fire trucks, police, ambulances, hoses, cordons, warning triangles/signs,
+# hi-vis personnel or any responder equipment on scene. Queries are therefore
+# scene-only; anything with responders that slips through goes to
+# EXCLUDE_TITLES during visual review.
+#
+# Types WITHOUT an own pool (on purpose):
+#   - dienstleistungen: a Dienstleistung IS the response (water supply,
+#     traffic service) — there is no scene-before-response imagery for it.
+#     The runtime alias serves technische_hilfeleistung.
+#   - gerettete_menschen: scene-before-response imagery for person rescues
+#     barely exists on Commons (and faces are a problem). Alias falls back
+#     to strassenrettung.
+#   - chemiewehr: Commons only has hazmat crews/exercises; the two compliant
+#     scene-only finds were too few to ship (constant repetition). No alias —
+#     chemiewehr reports simply carry no photos.
 SEARCH_TERMS: dict[str, list[str]] = {
     "brandbekaempfung": [
-        "house fire firefighters flames",
-        "Wohnungsbrand Feuerwehr Einsatz",
-        "building fire smoke firefighters hose",
-        "Dachstuhlbrand",
-        "car fire firefighters extinguishing",
+        "Dachstuhlbrand Flammen Rauch",
+        "burning house flames smoke",
+        "house on fire roof flames",
+        "Wohnungsbrand Rauch Fenster",
+        "building on fire smoke",
+        "Hausbrand Flammen",
+        "barn on fire flames",
+        "Scheunenbrand",
+        "burning building night flames",
+        "Rauchsäule Brand",
+        "Grossbrand Rauch",
+        "incendie maison flammes",
+        "casa in fiamme incendio",
     ],
     "elementarereignis": [
         "flooded street flooding houses",
-        "Hochwasser Feuerwehr",
+        "Hochwasser überflutete Strasse",
+        "flooded basement",
+        "Überschwemmung Haus",
         "fallen tree blocking road storm",
-        "flooded basement pumping",
     ],
     "strassenrettung": [
-        "traffic accident firefighters rescue",
-        "Verkehrsunfall Feuerwehr",
-        "car crash wreckage emergency services",
-        "vehicle extrication firefighters",
+        "car crashed into tree",
+        "Auto Unfall Baum",
+        "car accident damage collision",
+        "overturned car crash road",
+        "Verkehrsunfall beschädigtes Auto",
+        "car crash ditch",
+        "crashed car guardrail",
+        "Auffahrunfall Schaden",
+        "car accident rear end damage",
+        "car overturned on roof accident",
     ],
     "technische_hilfeleistung": [
-        "Sturmschaden Feuerwehr Einsatz",
         "fallen tree car storm damage",
         "storm damage roof house",
-        "Technische Hilfeleistung Feuerwehr Einsatz",
+        "Sturmschaden Baum Haus",
+        "tree fallen on house",
     ],
     "oelwehr": [
-        "oil spill road street asphalt",
-        "Ölspur Feuerwehr",
-        "oil boom river spill containment",
-        "diesel spill absorbent",
         "oil sheen water surface",
+        "Ölfilm Wasser",
         "oil slick asphalt rainbow",
+        "diesel spill asphalt",
         "heating oil tank leak",
-    ],
-    "chemiewehr": [
-        "hazmat suit firefighters",
-        "Gefahrgut Feuerwehr Einsatz",
-        "Dekontamination Feuerwehr",
-        "hazmat decontamination exercise",
-        "Chemikalienschutzanzug",
-        "hazmat response spill",
-        "ABC Übung Feuerwehr",
-        "chemical spill exercise emergency",
+        "oil spill contaminated soil",
     ],
     "bma_unechte_alarme": [
         "fire alarm control panel building",
@@ -99,43 +121,30 @@ SEARCH_TERMS: dict[str, list[str]] = {
         "Hornissennest",
     ],
     "gerettete_tiere": [
-        "firefighters animal rescue",
-        "Tierrettung Feuerwehr Einsatz",
-        "horse rescue fire brigade",
         # Animal-in-situ scenes: exactly what a Reko crew would photograph
         "cat stuck in a tree",
         "cat high up tree branch",
+        "Katze im Baum",
+        "cat on the roof",
+        "sheep stuck fence",
+        "swan trapped ice",
+        "cow stuck mud",
     ],
     "strahlenwehr": [
-        "Strahlenschutz Feuerwehr",
-        "CBRN exercise responders",
-        "radiation protection suit exercise",
-        "Geiger counter radiation measurement",
-        "radiation survey meter",
-        "ABC-Zug Übung",
+        "radioactive waste drums",
+        "radioactive warning sign drum",
+        "radiation warning sign trefoil",
+        "Radioaktiv Warnschild",
+        "radioactive material barrel",
+        "Fukushima contaminated soil bags",
+        "Chernobyl exclusion zone warning sign",
     ],
     "einsatz_bahnanlagen": [
-        "Bahnunfall Feuerwehr",
-        "train derailment",
+        "train derailment wreck",
+        "derailed freight wagon",
         "Zugentgleisung",
-        "railway accident emergency services",
-        "level crossing accident",
-        "Bahnübergang Unfall",
-    ],
-    "gerettete_menschen": [
-        "Personenrettung Feuerwehr Übung",
-        "firefighters stretcher rescue exercise",
-        "Höhenrettung Feuerwehr Übung",
-        "rescue exercise dummy firefighters",
-        "Drehleiter Rettung Übung",
-        "firefighters rope rescue training",
-    ],
-    "dienstleistungen": [
-        "Feuerwehr Wasserversorgung Übung",
-        "firefighters pumping water supply hose",
-        "Feuerwehr Verkehrsdienst Absicherung",
-        "firefighters filling water tank",
-        "Feuerwehr Ölsperre Übung",
+        "entgleister Güterwagen",
+        "derailed train accident damage",
     ],
 }
 
@@ -145,15 +154,22 @@ _LICENSE_RE = re.compile(r"^CC(0|(\s|-)BY((\s|-)SA)?)([\s-].*)?$", re.IGNORECASE
 _LICENSE_FORBIDDEN = re.compile(r"\b(NC|ND)\b", re.IGNORECASE)
 
 # Best-effort face/person avoidance + junk filters on the file title.
+# Includes responder keywords: the pool must show the raw scene before any
+# response, so titles naming fire brigades, police, rescue crews or their
+# apparatus are skipped outright.
 _TITLE_SKIP = re.compile(
     r"portrait|selfie|face|wedding|ceremony|press conference|group photo|posing|"
     r"memorial|funeral|logo|map|diagram|drawing|painting|poster|museum|model|"
-    r"protest|boycott|demonstration|parade|helicopter",
+    r"protest|boycott|demonstration|parade|helicopter|"
+    r"feuerwehr|firefight|fire brigade|fire engine|fire truck|brandweer|hasi[cč]|"
+    r"polizei|police|ambulance|rettung|hazmat|dekon|decontamination|"
+    r"drehleiter|einsatzkr|thw|l[öo]sch|extinguish|bombers|vigili del fuoco",
     re.IGNORECASE,
 )
 
-# Historic archive material (b&w/sepia) reads wrong on a modern Reko report.
-_OLD_YEAR = re.compile(r"\b(18\d\d|19[0-7]\d)\b")
+# Historic archive material (b&w/sepia, pre-1990) reads wrong on a modern
+# Reko report.
+_OLD_YEAR = re.compile(r"\b(18\d\d|19[0-8]\d)\b")
 
 # Titles rejected during visual review — re-running the script skips them and
 # fills the slot with the next candidate.
@@ -222,6 +238,138 @@ EXCLUDE_TITLES: set[str] = {
     "File:Gerätewagen Dekontamination Personal -Katastrophenschutz Hessen.jpg",  # parked truck, no scene
     "File:FW Ulm - Dekon-LKW P.jpg",  # parked truck, no scene
     "File:Hoornaar - European hornet (20725124754).jpg",  # photographer watermark
+    # Fifth review pass — scene-only criterion: the pool must show the raw
+    # scene BEFORE any response (no responders, apparatus, hoses, cordons,
+    # warning signs). Everything below shows the response, not the scene.
+    "File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9541.jpg",  # aerial ladder + crews
+    "File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9547.jpg",  # aerial ladder + crews
+    "File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9573.jpg",  # firefighters on scaffold
+    "File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9638.jpg",  # firefighter group
+    "File:Autobrand IJzendoorn.JPG",  # firefighters extinguishing
+    "File:SV-RTL Firefighting (16685391802).jpg",  # crews + ambulance at car fire
+    "File:BAB 8 Feuerwehr nach Loeschung eines Pkw-Brandes Bayrische Polizei.JPG",  # fire trucks + police
+    "File:Feuerwehr bei Hochwasser-Einsatz.jpg",  # fire truck in flood
+    "File:Hochwasser 2009 Oststeiermark 22.jpg",  # fire truck + hoses
+    "File:Hochwasser Karden (2024-05-19 3 MSp).jpg",  # firefighters watching flood
+    "File:BS Feuerwehr Ueberschwemmung.JPG",  # fire truck driving through flood
+    "File:Traffic accident on the D6 highway, Czech Republic 03.png",  # extrication crew + timestamp
+    "File:Traffic accident on the D6 highway, Czech Republic 04.png",  # extrication crew + timestamp
+    "File:Traffic accident on the D6 highway, Czech Republic 05.png",  # extrication crew + timestamp
+    "File:Traffic accident on the D6 highway, Czech Republic 06.png",  # extrication crew + timestamp
+    "File:Wuppertal, A46 nach schwerem Verkehrsunfall an der Brücke Ehrenhainstr., von Brücke Gräfrather Str. aus.jpg",  # police + tow trucks
+    "File:VU-Bad Mühllacken 2533 (39897922242).jpg",  # fire crew at rollover
+    "File:VU-Bad Mühllacken 2536 (26057722248).jpg",  # fire trucks at rollover
+    "File:TLF2000 Mettersdorf (51374349112).jpg",  # fire truck at crash
+    "File:Ölspur - 02.jpg",  # Ölspur warning sign is responder-placed
+    "File:Ölspur - 12.jpg",  # Ölspur warning sign is responder-placed
+    "File:Ölspur-Mureck-20210104 113538 (50799161143).jpg",  # crew spreading absorbent
+    "File:Ölspur-Mureck-20210104 113323 (50800018102).jpg",  # response trailer on scene
+    "File:OilSpillCleanupGovNichollsWharf28July2008.jpg",  # boom + response boats
+    "File:OilSpillCleanupShipJuly2008.jpg",  # boom + response boats
+    "File:High-volume Open Sea Skimmer (HOSS) barge.jpg",  # response barge
+    "File:MHE - KBH Brandvaesen - HAZMAT 1.jpg",  # hazmat crews suiting up
+    "File:MHE - KBH Brandvaesen - HAZMAT 2.jpg",  # hazmat crews suiting up
+    "File:MHE - KBH Brandvaesen - HAZMAT 3.jpg",  # hazmat crews suiting up
+    "File:MHE - KBH Brandvaesen - HAZMAT 3a.jpg",  # hazmat crews suiting up
+    "File:Abrollbehälter-Dekontamination-Zivilpersonen der Feuerwehr Hannover aufgebaut.jpg",  # decon tents
+    "File:Verletzten-Transportsystem vom Abrollbehälter-Dekontamination-Zivilpersonen der Feuerwehr Hannover.jpg",  # decon interior
+    "File:HAZMAT exercise in Cobb County (5436421761).jpg",  # suited responders + faces
+    "File:138th Chemical Company participates in HAZMAT exercise (7972558662).jpg",  # suited responders + casualty
+    "File:Firefighters Rescue Horse.jpg",  # rescue crew at work
+    "File:Animal rescue.jpg",  # crews lifting horse
+    "File:Rescue of storks in Maidan-Lypnenskyi, 2023-08-15 (1).jpg",  # firefighters cutting silo
+    "File:Rescue of storks in Maidan-Lypnenskyi, 2023-08-15 (3).jpg",  # firefighter holding stork
+    "File:Russian Blue cat (50744136351).jpg",  # house cat in Christmas tree, no incident
+    "File:Strahlenschutz bfkuu denkmayr 0008 (33144375180).jpg",  # posing crew, faces
+    "File:Strahlenschutz bfkuu denkmayr 0010 (33399429331).jpg",  # responder with meter
+    "File:Strahlenschutz bfkuu denkmayr 0015 (33399427341).jpg",  # responders + decon pool
+    "File:Strahlenschutz bfkuu denkmayr 0017 (33399426611).jpg",  # crew chatting, faces
+    "File:Portable Geiger counter Berthold LB122-02.jpg",  # product shot, no scene
+    "File:Geiger counter.jpg",  # product shot, no scene
+    "File:Geiger counter measuring tree in Chernobyl.jpg",  # responder hand + meter
+    "File:Geiger counter measuring tree at Chernobyl.jpg",  # responder hand + meter
+    "File:Höhenrettung Feuerwehr München 2977.jpg",  # rope rescue crew
+    "File:Höhenrettung Feuerwehr München 2973.jpg",  # rope rescue crew
+    "File:Höhenrettung Feuerwehr München 2982.jpg",  # rope rescue crew
+    "File:Höhenrettung Feuerwehr München 2985.jpg",  # rope rescue crew
+    "File:Hauptstraße 95 (Schönheide) Feuerwehrübung V.JPG",  # aerial ladder drill
+    "File:Hauptstraße 95 (Schönheide) Feuerwehrübung VI.JPG",  # aerial ladder drill
+    "File:Tree-works.png",  # work platform on scene
+    # Fifth review pass, round 2 (scene-only re-curation candidates):
+    "File:CSIRO ScienceImage 11277 The steelframed house after the flame test at Mogo on Friday 16 April 2010.jpg",  # hi-vis crew at edge
+    "File:CSIRO ScienceImage 11362 The steelframed house before the flame test at Mogo on Friday 16 April 2010.jpg",  # intact house, no incident
+    "File:CSIRO ScienceImage 11113 The steelframed house at the height of the flame test at Mogo on Friday 16 April 2010.jpg",  # fire trucks both sides
+    "File:System Sensor 6500 Beam Smoke Detector.jpg",  # detector close-up, wrong type
+    "File:Smoke ^ Fire, Darsham - geograph.org.uk - 3400885.jpg",  # pub called Smoke & Fire, no incident
+    "File:Captain D's Seafood Kitchen with smoke from fire at People's Cartage warehouse.jpg",  # obviously-American scene
+    "File:Burnt out car - geograph.org.uk - 5807326.jpg",  # long-abandoned rusted wreck
+    "File:20020815520NR Dresden Hochwasser im Kreuzungsbauwerk Hbf.jpg",  # embedded caption overlay
+    "File:20130605490DR Dresden Hochwasser am Blockhaus.jpg",  # strolling crowd, reads as sightseeing
+    "File:CarInDitch.JPG",  # cordon tape across scene + photographer shadow
+    "File:The British Isles winter weather event deaths of 2010.png",  # choropleth map
+    "File:Freiburg im Breisgau- Unfallauto - LABW - Staatsarchiv Freiburg W 140 Nr. 16820.jpeg",  # b&w archive
+    "File:2017 05 12 Gemeindeübung PB FK Pokesch-57 (34288401680).jpg",  # firefighters at drill
+    "File:PKW WARTBURG.jpg",  # b&w archive
+    "File:AC Cobra (4451986754).jpg",  # car show, no incident
+    "File:Flower offering at Higashi Ikebukuro 2020-02-26.jpg",  # memorial flowers, not a scene
+    "File:Oil Contamination in Hirtshals, 2011 ubt.jpeg",  # authority-placed "Olie på stranden" warning sign
+    "File:Leiblach-8573.jpg",  # accordion player, prominent face
+    "File:Bhuj cat.jpg",  # cat on rug, no incident + phone watermark
+    "File:Bundesarchiv Bild 183-55521-0001, LPG Niedergrossen, Bau eines Stalls.jpg",  # 1958 archive
+    "File:Operating waste drums Olkiluoto Visitor Centre.jpg",  # visitor-centre display
+    "File:Radiation and the International Atomic Energy Agency (ISEA) - radioactive material content (02910469) (53638804502).jpg",  # lab worker, face
+    "File:Fûts de déchets faiblement radioactifs en Altantique Nord-Est (Ifremer 00539-65072 - 9585).jpg",  # murky seabed shot
+    "File:TINT Radioactive wastes' barrel.jpg",  # storage warehouse rows, duplicate motif
+    "File:TINT Radioactive wastes' Barrel.jpg",  # storage warehouse rows, duplicate motif
+    "File:2017 Washington train derailment detour routes.png",  # route map
+    "File:Farragut derailment 2.JPG",  # fire hoses + pump on scene
+    "File:Train wreck near Rutherfordton.png",  # b&w newspaper archive
+    "File:Korean Train Wreck (4233473301).jpg",  # b&w archive
+    "File:Train accident derailment at Keswick (17096325922).jpg",  # no visible incident, loco behind fence
+    # Fifth review pass, round 3:
+    "File:Richmond Chevron Refinery fire smoke cloud over Berkley and San Francisco-0441 03.JPG",  # distant haze, obviously-American skyline
+    "File:Hidden Peak Fire Lookout at sunset, with smokey haze from nearby fires.jpg",  # sunset haze, no incident
+    "File:House fire with smoke.jpg",  # hose stream arcs into frame
+    "File:Es brennt lichterloh.jpg",  # abstract bonfire close-up
+    "File:August barn fire at Monkton Kent England 2.jpg",  # near-duplicate of the other two
+    "File:Unfall- Lastwagen am Baum - LABW - Staatsarchiv Wertheim S-N 70 G 1069.jpg",  # b&w archive
+    "File:Mengkofen Ziegelstadel Weiklmarterl.jpg",  # wayside memorial stone
+    "File:Moscow, Smolenskaya Square, rear-end collision, June 2026 07.jpg",  # traffic police on scene
+    "File:Moscow, Smolenskaya Square, rear-end collision, June 2026 06.jpg",  # traffic police on scene
+    "File:Carousel F - 011 (49887286103).jpg",  # burnt-out ruin, old slide scan
+    "File:Dick Chalpin (7158001130).jpg",  # men in suits, US flags
+    "File:Rusty... (8600804394).jpg",  # lizard macro
+    "File:Antarctica, pollution, environment, Russia, Bellingshausen 1.JPG",  # Antarctic shore, implausible scene
+    "File:Fotothek df roe-neg 0006537 019 Frauen schälen Birnen im VEB Leipziger Feinkostf.jpg",  # 1950s archive
+    "File:Fotothek df roe-neg 0006537 020 Frauen schälen im VEB Leipziger Feinkostfabrik B.jpg",  # 1950s archive
+    "File:Fotothek df roe-neg 0006537 022 Frauen füllen im VEB Leipziger Feinkostfabrik Bi.jpg",  # 1950s archive
+    "File:Fûts de déchets faiblement radioactifs en Altantique Nord-Est (Ifremer 00539-65072 - 9586).jpg",  # murky seabed shot
+    "File:Fûts de déchets faiblement radioactifs en Altantique Nord-Est (Ifremer 00539-65072 - 9587).jpg",  # murky seabed shot
+    "File:Sign at Entrance to Chernobyl Exclusion Zone - Northern Ukraine (26825581640).jpg",  # Ukraine-specific text panel
+    "File:Derailed tram Gdansk jan 2013 ubt.jpg",  # reads as snowy traffic, incident invisible
+    "File:2013-05-18 MTR Light Rail Derailment Accident Aftermath (26) (8751222520).jpg",  # work crews + caption overlay
+    "File:Derailment (50895874993).jpg",  # b&w archive look
+    # Fifth review pass, round 4:
+    "File:Building Smoke (6093922507).jpg",  # wildfire smoke bank over US ranch, off-brief
+    "File:2019 Getty Fire smoke from Santa Monica.jpg",  # LA palms, obviously-American scene
+    "File:Scheunenbrand Petersberg DSC00488.jpg",  # fire trucks across the meadow
+    "File:Scheunenbrand Petersberg DSC00506.jpg",  # firefighters at burnt barn
+    "File:Amfleet car and locomotive after July 2011 grade crossing accident.jpg",  # train close-up, incident invisible
+    "File:CrashBarrier.jpg",  # damaged barrier only, no subject
+    "File:Flower offering at Higashi Ikebukuro 2019-04-28.jpg",  # memorial flowers, not a scene
+    "File:Wadsworth Road Fire Smoke and rooftops panorama.jpg",  # near-duplicate letterbox panorama
+    "File:Scheunenbrand Petersberg DSC00509.jpg",  # firefighters + hose lines
+    "File:Two car accident temporarily closes Rock Quarry Road (15468891310).jpg",  # tow truck on scene
+    "File:Dumped Oil Drums - Tottenham Green East (18794037225).jpg",  # two-photo collage
+    "File:Prep Dump.jpg",  # embedded timestamp overlay
+    "File:Almost there . . . (3214659707).jpg",  # collage, fly-tipped suitcase (not chemical)
+    # chemiewehr was retired after this pass: Commons has no scene-only
+    # Gefahrgut imagery (only hazmat crews/exercises); the two compliant
+    # finds were too few to ship without constant repetition.
+    "File:Impacto do ser humano sobre a natureza.jpg",  # grainy scan; pool retired
+    "File:37hazwaste (4085488575).jpg",  # pool retired, below minimum pool size
+    "File:Train accident derailment at Keswick (16890231857).jpg",  # hi-vis workers at the loco
+    "File:Private Well Next 2 AST (4562779921).jpg",  # inspector's leg at frame edge
 }
 
 session = requests.Session()
