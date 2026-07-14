@@ -539,17 +539,13 @@ async def test_simulate_divera_live_event_forbidden(
     editor_client: AsyncClient, live_event: Event, test_templates, test_locations
 ):
     """Simulated Divera alarms only exist for training events."""
-    response = await editor_client.post(
-        f"/api/training/events/{live_event.id}/simulate/divera", json={}
-    )
+    response = await editor_client.post(f"/api/training/events/{live_event.id}/simulate/divera", json={})
     assert response.status_code == 400
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_simulate_divera_invalid_category(
-    editor_client: AsyncClient, training_event: Event
-):
+async def test_simulate_divera_invalid_category(editor_client: AsyncClient, training_event: Event):
     response = await editor_client.post(
         f"/api/training/events/{training_event.id}/simulate/divera",
         json={"category": "apocalyptic"},
@@ -599,10 +595,10 @@ async def test_simulate_escalation_bumps_priority_and_notifies(
     from app.models import Notification
 
     notification = (
-        await db_session.execute(
-            select(Notification).where(Notification.incident_id == active_incident.id)
-        )
-    ).scalars().first()
+        (await db_session.execute(select(Notification).where(Notification.incident_id == active_incident.id)))
+        .scalars()
+        .first()
+    )
     assert notification is not None
     assert notification.severity == "critical"
     assert "Lage verschärft" in notification.message
@@ -640,10 +636,10 @@ async def test_simulate_reinforcement_creates_notification(
     from app.models import Notification
 
     notification = (
-        await db_session.execute(
-            select(Notification).where(Notification.incident_id == active_incident.id)
-        )
-    ).scalars().first()
+        (await db_session.execute(select(Notification).where(Notification.incident_id == active_incident.id)))
+        .scalars()
+        .first()
+    )
     assert notification is not None
     assert notification.severity == "warning"
 
@@ -683,10 +679,14 @@ async def test_simulate_vehicle_breakdown(
     from sqlalchemy import select
 
     assignment = (
-        await db_session.execute(
-            select(IncidentAssignment).where(IncidentAssignment.incident_id == active_incident.id)
+        (
+            await db_session.execute(
+                select(IncidentAssignment).where(IncidentAssignment.incident_id == active_incident.id)
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     assert assignment.unassigned_at is None
 
 
@@ -740,3 +740,111 @@ async def test_simulate_checkin_trickle_schedules(
         task = _trickle_tasks.pop(training_event.id, None)
         if task:
             task.cancel()
+
+
+# ============================================
+# Simulated Reko Report Photos
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def reko_incident(db_session: AsyncSession, training_event: Event) -> Incident:
+    """An incident awaiting Reko (status reko) in the training event."""
+    incident = Incident(
+        id=uuid4(),
+        event_id=training_event.id,
+        title="Brand Dachstock",
+        type="brandbekaempfung",
+        priority="high",
+        status="reko",
+        location_address="Hauptstrasse 1, 4104 Oberwil",
+        description="Starke Rauchentwicklung aus dem Dachstock.",
+    )
+    db_session.add(incident)
+    await db_session.commit()
+    await db_session.refresh(incident)
+    return incident
+
+
+@pytest.fixture
+def stub_photo_pool(tmp_path, monkeypatch):
+    """Stubbed offline pool + temp photo storage; forces 2 photos per report."""
+    import io
+
+    from PIL import Image
+
+    from app.services import training_photos
+    from app.services.photo_storage import photo_storage
+
+    pool = tmp_path / "pool" / "brandbekaempfung"
+    pool.mkdir(parents=True)
+    for i in range(1, 4):
+        img = Image.new("RGB", (64, 48), (200, 30, 30))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        (pool / f"{i:02d}.jpg").write_bytes(buf.getvalue())
+
+    photos_dir = tmp_path / "photos"
+    monkeypatch.setattr(training_photos, "POOL_DIR", tmp_path / "pool")
+    monkeypatch.setattr(training_photos, "_PHOTO_COUNT_WEIGHTS", (0, 0, 1))
+    monkeypatch.setattr(photo_storage, "photos_dir", photos_dir)
+    return photos_dir
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_reko_attaches_pool_photos(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    training_event: Event,
+    reko_incident: Incident,
+    stub_photo_pool,
+):
+    """Simulated reko reports carry pool photos shaped exactly like real uploads."""
+    import re
+
+    response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/reko/{reko_incident.id}")
+    assert response.status_code == 200
+    data = response.json()
+
+    photos = data["photos_json"]
+    assert len(photos) == 2
+    for filename in photos:
+        # photos_json entries are plain UUID.jpg strings, same as real uploads
+        assert re.match(r"^[0-9a-f-]{36}\.jpg$", filename)
+        # and the files exist in the incident's photo directory on disk
+        assert (stub_photo_pool / str(reko_incident.id) / filename).exists()
+
+    # The stored report matches the response
+    from sqlalchemy import select
+
+    from app.models import RekoReport
+
+    report = (
+        (await db_session.execute(select(RekoReport).where(RekoReport.incident_id == reko_incident.id)))
+        .scalars()
+        .first()
+    )
+    assert report is not None
+    assert report.photos_json == photos
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_reko_without_pool_still_succeeds(
+    editor_client: AsyncClient,
+    training_event: Event,
+    reko_incident: Incident,
+    tmp_path,
+    monkeypatch,
+):
+    """A brigade that stripped the bundled pool gets reports without photos."""
+    from app.services import training_photos
+    from app.services.photo_storage import photo_storage
+
+    monkeypatch.setattr(training_photos, "POOL_DIR", tmp_path / "missing-pool")
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
+
+    response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/reko/{reko_incident.id}")
+    assert response.status_code == 200
+    assert response.json()["photos_json"] == []

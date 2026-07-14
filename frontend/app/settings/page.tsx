@@ -82,6 +82,7 @@ import {
   Info,
   Megaphone,
   Navigation,
+  LifeBuoy,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -97,6 +98,7 @@ import { PersonnelSettings } from '@/components/settings/personnel-settings';
 import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
+import { FallbackSettings } from '@/components/settings/fallback-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
@@ -112,6 +114,7 @@ const SECTIONS = [
   // Sync can rewrite whole tables and points at a database URL — admin-only (matches /api/sync/*).
   { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
   { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'fallback', label: 'Ausfallsicherheit', icon: LifeBuoy, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'users', label: 'Benutzer', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
   { id: 'personnel', label: 'Personal', icon: Users, group: 'resources', editorOnly: true, adminOnly: false },
   { id: 'vehicles', label: 'Fahrzeuge', icon: Truck, group: 'resources', editorOnly: true, adminOnly: false },
@@ -788,6 +791,13 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <DemoHint text="Druckereinstellungen sind im Demo-Modus nicht verfügbar. Es ist kein physischer Drucker angeschlossen." />
             <PrinterSettings />
+          </div>
+        );
+
+      case 'fallback':
+        return (
+          <div className="space-y-4">
+            <FallbackSettings />
           </div>
         );
 

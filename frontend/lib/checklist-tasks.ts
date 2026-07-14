@@ -1,5 +1,6 @@
-import { LucideIcon, MessageCircle, Users, Truck, Package, Map, Printer, Copy } from 'lucide-react'
+import { LucideIcon, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/components/settings/fallback-settings'
 
 export interface ChecklistAction {
   label: string
@@ -73,6 +74,7 @@ export function generateChecklistTasks(params: {
   mapTilesAvailable: boolean
   printerEnabled: boolean
   printerAgentOnline: boolean
+  fallbackReady: boolean
   onCopyCheckInLink: () => void
   onPrintCheckInLink: () => void
   onCopyRekoLink: () => void
@@ -81,6 +83,7 @@ export function generateChecklistTasks(params: {
   onPrintAlarmLink: () => void
   onShowTileSetup: () => void
   onTestPrint: () => void
+  onOpenFallbackSettings: () => void
 }): ChecklistTaskState[] {
   const printerAvailable = params.printerEnabled && params.printerAgentOnline
 
@@ -213,7 +216,30 @@ export function generateChecklistTasks(params: {
       ]
     },
 
-    // 9. Configure offline maps (Optional)
+    // 9. Paper fallback armed — a snapshot must exist OUTSIDE the system when it fails
+    {
+      id: 'fallback-ready',
+      title: 'Papier-Fallback aktivieren',
+      description: 'Auto-Druck (Thermo) oder Lageblatt Auto-Download für den Ausfall',
+      icon: LifeBuoy,
+      priority: 'recommended',
+      completed: params.fallbackReady,
+      metadata: {
+        details: params.fallbackReady
+          ? 'Snapshot-Routine aktiv'
+          : 'Kein automatischer Board-Snapshot eingerichtet'
+      },
+      actionButtons: [
+        {
+          label: 'Einrichten',
+          icon: LifeBuoy,
+          variant: 'outline',
+          onClick: params.onOpenFallbackSettings
+        }
+      ]
+    },
+
+    // 10. Configure offline maps (Optional)
     {
       id: 'configure-map-mode',
       title: 'Offline-Karten einrichten',
@@ -234,6 +260,18 @@ export function generateChecklistTasks(params: {
       ]
     }
   ]
+}
+
+/**
+ * The paper fallback counts as armed when either snapshot routine runs:
+ * server-side auto thermal print (needs the printer enabled too) or the
+ * Lageblatt auto-download on THIS device (localStorage).
+ */
+export function isFallbackReady(settings: Record<string, string>, printerEnabled: boolean): boolean {
+  const autoPrint = printerEnabled && settings['fallback.auto_print_enabled'] === 'true'
+  const autoDownload =
+    typeof window !== 'undefined' && localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true'
+  return autoPrint || autoDownload
 }
 
 /** localStorage key holding the operator's explicit tick/un-tick overrides per event. */
@@ -262,11 +300,12 @@ export function isTaskComplete(
 export async function summarizeEventChecklist(
   eventId: string
 ): Promise<{ completed: number; total: number; allComplete: boolean }> {
-  const [attendance, specialFunctions, vehicles, printerStatus] = await Promise.all([
+  const [attendance, specialFunctions, vehicles, printerStatus, settings] = await Promise.all([
     apiClient.getEventAttendance(eventId).catch(() => []),
     apiClient.getEventSpecialFunctions(eventId).catch(() => []),
     apiClient.getVehicles().catch(() => []),
     apiClient.getPrinterStatus().catch(() => null),
+    apiClient.getAllSettings().catch(() => ({}) as Record<string, string>),
   ])
 
   let mapTilesAvailable = false
@@ -287,6 +326,7 @@ export async function summarizeEventChecklist(
     mapTilesAvailable,
     printerEnabled: printerStatus?.enabled ?? false,
     printerAgentOnline: printerStatus?.agent_online ?? false,
+    fallbackReady: isFallbackReady(settings, printerStatus?.enabled ?? false),
     onCopyCheckInLink: noop,
     onPrintCheckInLink: noop,
     onCopyRekoLink: noop,
@@ -295,6 +335,7 @@ export async function summarizeEventChecklist(
     onPrintAlarmLink: noop,
     onShowTileSetup: noop,
     onTestPrint: noop,
+    onOpenFallbackSettings: noop,
   })
 
   let overrides: Record<string, boolean> = {}
