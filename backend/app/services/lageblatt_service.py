@@ -45,6 +45,10 @@ from .pdf_report_service import (
 # The handwriting continuation area: empty grid rows appended after the data.
 EMPTY_ROWS = 10
 
+# One uniform height for every data/empty row: fits three 6pt lines plus
+# padding, and doubles as handwriting space.
+ROW_HEIGHT = 9 * mm
+
 _BORDER = colors.HexColor("#a1a1aa")
 _HEADER_BG = colors.HexColor("#f4f4f5")
 
@@ -245,32 +249,37 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
 
 
 def _detail_block(data: EventReportData, inc: Incident, index: int, home_city: str) -> list:
+    """One bordered card per incident: shaded header row, generous row spacing."""
     head = (
         f"{index} — {inc.title}"
         f"  ·  {STATUS_LABELS.get(inc.status, inc.status)}"
         f"  ·  Prio {_PRIORITY_SHORT.get(inc.priority, '—')}"
     )
-    story: list = [Spacer(1, 3 * mm), Paragraph(escape(head), _DETAIL_HEAD), Spacer(1, 1 * mm)]
-    rows = [
+    usable = A4[0] - 16 * mm
+    rows: list[list] = [[Paragraph(escape(head), _DETAIL_HEAD), ""]]
+    rows.extend(
         [Paragraph(escape(label), _DETAIL_LABEL), Paragraph(escape(value), _DETAIL_VALUE)]
         for label, value in _detail_rows(data, inc, home_city)
-    ]
-    usable = A4[0] - 16 * mm
-    table = LongTable(rows, colWidths=[usable * 0.16, usable * 0.84])
-    table.setStyle(
+    )
+    card = LongTable(rows, colWidths=[usable * 0.16, usable * 0.84], repeatRows=1)
+    card.setStyle(
         TableStyle(
             [
+                ("BOX", (0, 0), (-1, -1), 0.75, _BORDER),
+                ("SPAN", (0, 0), (1, 0)),
+                ("BACKGROUND", (0, 0), (-1, 0), _HEADER_BG),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.5, _BORDER),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("TOPPADDING", (0, 0), (-1, -1), 1),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-                ("LINEBELOW", (0, -1), (-1, -1), 0.25, _BORDER),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, 0), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+                ("TOPPADDING", (0, 1), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 1), (-1, -1), 3),
             ]
         )
     )
-    story.append(table)
-    return story
+    return [Spacer(1, 4 * mm), card]
 
 
 def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
@@ -293,9 +302,7 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
     story = [
         Paragraph(f"Ereignis: {data.event.name}", title_style),
         Paragraph(
-            f"Datum: {now_local.strftime('%d.%m.%Y')} — Stand: {now_local.strftime('%H:%M')} Uhr"
-            " — bei Ausfall des digitalen Boards gilt dieses Blatt; Änderungen von Hand mit Zeit nachführen."
-            " Details zu jedem Einsatz auf den Folgeseiten.",
+            f"Datum: {now_local.strftime('%d.%m.%Y')} — Stand: {now_local.strftime('%H:%M')} Uhr",
             meta_style,
         ),
         Spacer(1, 3 * mm),
@@ -359,12 +366,13 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
         ("SPAN", (8, 0), (10, 0)),
         ("SPAN", (11, 0), (11, 1)),
     ]
-    # Fixed-height empty rows: comfortable handwriting space.
+    # Uniform row height everywhere (~3 lines at 6pt): filled and empty rows
+    # read as one grid, and every row leaves handwriting space.
     table = LongTable(
         rows,
         colWidths=col_widths,
         repeatRows=2,
-        rowHeights=[None] * (2 + len(data.incidents)) + [9 * mm] * EMPTY_ROWS,
+        rowHeights=[None, None] + [ROW_HEIGHT] * (len(data.incidents) + EMPTY_ROWS),
     )
     table.setStyle(TableStyle(style))
     story.append(table)
