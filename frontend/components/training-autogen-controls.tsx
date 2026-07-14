@@ -51,12 +51,14 @@ export function TrainingAutogenControls() {
     return null;
   }
 
-  const save = async (key: string, value: string) => {
+  const save = async (key: string, value: string): Promise<boolean> => {
     setSaving(true);
     try {
       await apiClient.updateSetting(key, value);
+      return true;
     } catch {
       toast.error('Einstellung konnte nicht gespeichert werden');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -64,7 +66,10 @@ export function TrainingAutogenControls() {
 
   const handleToggle = async (on: boolean) => {
     setEnabled(on);
-    await save('training_autogen_enabled', on ? 'true' : 'false');
+    if (!(await save('training_autogen_enabled', on ? 'true' : 'false'))) {
+      setEnabled(!on);
+      return;
+    }
     toast.success(on ? 'Automatik gestartet' : 'Automatik gestoppt', {
       description: on
         ? `Neue Alarme alle ~${intervalMin} Min (erste 30 Min doppeltes Tempo).`
