@@ -17,6 +17,7 @@ from pypdf import PdfReader
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    AuditLog,
     Event,
     Incident,
     IncidentAssignment,
@@ -27,7 +28,7 @@ from app.models import (
     Vehicle,
 )
 from app.services.audit_export_service import EventReportData, collect_event_report_data
-from app.services.pdf_report_service import build_event_report_pdf
+from app.services.pdf_report_service import build_event_report_pdf, build_journal_entries
 
 
 def _extract_text(pdf_bytes: bytes) -> str:
@@ -360,6 +361,28 @@ async def event_with_full_data(
             is_draft=False,
         )
     )
+    # Journal-worthy audit row (must be collected for the Einsatztagebuch)
+    db_session.add(
+        AuditLog(
+            id=uuid4(),
+            user_id=test_user.id,
+            action_type="divera_alarm",
+            resource_type="incident",
+            resource_id=incident.id,
+            changes_json={"recipients": [str(uuid4()), str(uuid4())]},
+        )
+    )
+    # Noisy audit row that must NOT be collected (not whitelisted)
+    db_session.add(
+        AuditLog(
+            id=uuid4(),
+            user_id=test_user.id,
+            action_type="update",
+            resource_type="incident",
+            resource_id=incident.id,
+            changes_json={"title": "changed"},
+        )
+    )
     await db_session.commit()
     await db_session.refresh(test_event)
     return test_event
@@ -377,6 +400,12 @@ class TestCollectAndBuild:
         text = _extract_text(pdf_bytes)
         assert "DB Wohnungsbrand" in text
         assert "Max Mustermann" in text  # linked personnel name
+
+        # Einsatztagebuch: whitelisted audit row collected, noisy one filtered
+        assert len(data.audit_entries) == 1
+        assert data.audit_entries[0].action_type == "divera_alarm"
+        assert "Einsatztagebuch" in text
+        assert "Divera-Alarm ausgelöst (2 Empfänger)" in text
 
     @pytest.mark.asyncio
     async def test_collect_raises_for_unknown_event(self, db_session: AsyncSession):
@@ -452,3 +481,207 @@ class TestReactionTimes:
         pdf_bytes = build_event_report_pdf(data, generated_by="tester")
         assert pdf_bytes[:4] == b"%PDF"
         assert "Reaktionszeiten" in _extract_text(pdf_bytes)
+
+
+# ============================================
+# Einsatztagebuch (chronological journal)
+# ============================================
+
+
+def _journal_fixture_data(simple_event: Event, simple_incident: Incident) -> EventReportData:
+    """Event with a full mix of journal sources, deliberately out of order."""
+    user = User(id=uuid4(), username="disponent1", display_name="Dispo Eins", password_hash="x", role="editor")
+    personnel = Personnel(id=uuid4(), name="Max Mustermann", role="Gruppenführer", availability="available")
+    vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available", radio_call_sign="Florian-1")
+
+    assignment = IncidentAssignment(
+        id=uuid4(),
+        incident_id=simple_incident.id,
+        resource_type="vehicle",
+        resource_id=vehicle.id,
+        assigned_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+        unassigned_at=datetime(2026, 6, 1, 10, 50, tzinfo=UTC),
+        assigned_by=user.id,
+    )
+    transition = StatusTransition(
+        id=uuid4(),
+        incident_id=simple_incident.id,
+        from_status="eingegangen",
+        to_status="disponiert",
+        timestamp=datetime(2026, 6, 1, 9, 25, tzinfo=UTC),
+        user_id=user.id,
+    )
+    reko = RekoReport(
+        id=uuid4(),
+        incident_id=simple_incident.id,
+        token="tok",
+        summary_text="Lage unter Kontrolle, keine weiteren Massnahmen nötig",
+        submitted_by_personnel_id=personnel.id,
+        is_draft=False,
+        submitted_at=datetime(2026, 6, 1, 9, 40, tzinfo=UTC),
+    )
+    draft_reko = RekoReport(
+        id=uuid4(),
+        incident_id=simple_incident.id,
+        token="tok2",
+        summary_text="Entwurf darf nicht erscheinen",
+        is_draft=True,
+        submitted_at=datetime(2026, 6, 1, 9, 45, tzinfo=UTC),
+    )
+    divera_audit = AuditLog(
+        id=uuid4(),
+        user_id=user.id,
+        action_type="divera_alarm",
+        resource_type="incident",
+        resource_id=simple_incident.id,
+        changes_json={"recipients": [str(uuid4()), str(uuid4()), str(uuid4())]},
+        timestamp=datetime(2026, 6, 1, 9, 28, tzinfo=UTC),
+    )
+    noisy_audit = AuditLog(
+        id=uuid4(),
+        user_id=user.id,
+        action_type="export",
+        resource_type="incident",
+        resource_id=simple_incident.id,
+        timestamp=datetime(2026, 6, 1, 9, 29, tzinfo=UTC),
+    )
+
+    return EventReportData(
+        event=simple_event,
+        incidents=[simple_incident],
+        assignments=[assignment],
+        transitions=[transition],
+        reko_reports=[reko, draft_reko],
+        audit_entries=[divera_audit, noisy_audit],
+        incident_map={simple_incident.id: simple_incident},
+        personnel_map={personnel.id: personnel},
+        vehicle_map={vehicle.id: vehicle},
+        user_map={user.id: user},
+    )
+
+
+class TestEinsatztagebuch:
+    """The merged chronological journal chapter."""
+
+    def test_entries_are_chronologically_sorted(self, simple_event: Event, simple_incident: Incident):
+        data = _journal_fixture_data(simple_event, simple_incident)
+        entries = build_journal_entries(data)
+        timestamps = [e.timestamp for e in entries]
+        assert timestamps == sorted(timestamps)
+        # created (9:15) first, vehicle release (10:50) last
+        assert "Einsatz erstellt" in entries[0].text
+        assert "freigegeben" in entries[-1].text
+
+    def test_whitelist_filters_noisy_audit_actions(self, simple_event: Event, simple_incident: Incident):
+        data = _journal_fixture_data(simple_event, simple_incident)
+        entries = build_journal_entries(data)
+        # The "export" audit row must not produce an entry; divera_alarm must.
+        assert not any("export" in e.text.lower() for e in entries)
+        assert sum("Divera-Alarm" in e.text for e in entries) == 1
+
+    def test_draft_reko_is_excluded(self, simple_event: Event, simple_incident: Incident):
+        data = _journal_fixture_data(simple_event, simple_incident)
+        entries = build_journal_entries(data)
+        reko_entries = [e for e in entries if "Reko-Bericht" in e.text]
+        assert len(reko_entries) == 1
+        assert "Entwurf darf nicht erscheinen" not in reko_entries[0].text
+
+    def test_german_sentences_for_status_assignment_reko(self, simple_event: Event, simple_incident: Incident):
+        data = _journal_fixture_data(simple_event, simple_incident)
+        texts = [e.text for e in build_journal_entries(data)]
+        assert "Status: Eingegangen → Disponiert" in texts
+        assert "TLF 1 (Florian-1) zugeteilt" in texts
+        assert "TLF 1 (Florian-1) freigegeben" in texts
+        assert any(t.startswith("Reko-Bericht eingegangen: Lage unter Kontrolle") for t in texts)
+
+    def test_intake_source_is_mentioned(self, simple_event: Event):
+        incident = Incident(
+            id=uuid4(),
+            event_id=simple_event.id,
+            title="Wassereinbruch Keller",
+            type="elementarereignis",
+            priority="medium",
+            status="eingegangen",
+            source="intake",
+            nachbarhilfe=False,
+            am_warten=False,
+            zu_fuss=False,
+            created_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+        )
+        data = EventReportData(
+            event=simple_event,
+            incidents=[incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={incident.id: incident},
+        )
+        entries = build_journal_entries(data)
+        assert entries[0].text == "Einsatz erstellt: «Wassereinbruch Keller» (Telefon)"
+
+    def test_actor_names_resolved(self, simple_event: Event, simple_incident: Incident):
+        data = _journal_fixture_data(simple_event, simple_incident)
+        entries = build_journal_entries(data)
+        status_entry = next(e for e in entries if e.text.startswith("Status:"))
+        assert status_entry.actor == "Dispo Eins"  # display_name preferred over username
+        reko_entry = next(e for e in entries if e.text.startswith("Reko-Bericht"))
+        assert reko_entry.actor == "Max Mustermann"
+
+    def test_pdf_renders_journal_chapter_with_full_mix(self, simple_event: Event, simple_incident: Incident):
+        data = _journal_fixture_data(simple_event, simple_incident)
+        pdf_bytes = build_event_report_pdf(data, generated_by="tester")
+        assert pdf_bytes.startswith(b"%PDF")
+        assert _page_count(pdf_bytes) >= 1
+        text = _extract_text(pdf_bytes)
+        assert "Einsatztagebuch" in text
+        assert "Automatisch aus den Protokolldaten erstellt." in text
+        assert "Divera-Alarm ausgelöst (3 Empfänger)" in text
+        assert "zugeteilt" in text
+
+    def test_multiday_event_uses_date_prefixed_times(self, simple_event: Event, simple_incident: Incident):
+        incident2 = Incident(
+            id=uuid4(),
+            event_id=simple_event.id,
+            title="Sturmschaden Tag 2",
+            type="elementarereignis",
+            priority="low",
+            status="eingegangen",
+            nachbarhilfe=False,
+            am_warten=False,
+            zu_fuss=False,
+            created_at=datetime(2026, 6, 2, 7, 5, tzinfo=UTC),
+        )
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident, incident2],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident, incident2.id: incident2},
+        )
+        pdf_bytes = build_event_report_pdf(data, generated_by="tester")
+        text = _extract_text(pdf_bytes)
+        assert "02.06. 07:05" in text
+
+    def test_many_entries_paginate_cleanly(self, simple_event: Event, simple_incident: Incident):
+        transitions = [
+            StatusTransition(
+                id=uuid4(),
+                incident_id=simple_incident.id,
+                from_status="eingegangen",
+                to_status="disponiert",
+                timestamp=datetime(2026, 6, 1, 9, 0, tzinfo=UTC) + timedelta(minutes=i),
+            )
+            for i in range(150)
+        ]
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=transitions,
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+        pdf_bytes = build_event_report_pdf(data, generated_by="tester")
+        assert pdf_bytes.startswith(b"%PDF")
+        assert _page_count(pdf_bytes) > 1

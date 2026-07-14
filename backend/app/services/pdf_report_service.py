@@ -11,6 +11,7 @@ Swiss spelling) so plan 06 (i18n) can localise later by swapping the dict.
 """
 
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -23,6 +24,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     KeepTogether,
+    LongTable,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -61,6 +63,25 @@ LABELS: dict[str, str] = {
     "col_to_disponiert": "→ Disponiert",
     "col_to_einsatz": "→ Vor Ort",
     "col_to_abschluss": "→ Abschluss",
+    # Einsatztagebuch (chronological journal)
+    "journal_title": "Einsatztagebuch",
+    "journal_hint": "Automatisch aus den Protokolldaten erstellt.",
+    "journal_empty": "Keine Einträge vorhanden.",
+    "col_time": "Zeit",
+    "col_incident": "Einsatz",
+    "col_entry": "Eintrag",
+    "col_user": "Benutzer",
+    "journal_incident_created": "Einsatz erstellt: «{title}»",
+    "journal_source_intake": "Telefon",
+    "journal_source_divera": "Divera",
+    "journal_status_change": "Status: {from_status} → {to_status}",
+    "journal_assigned": "{name} zugeteilt",
+    "journal_unassigned": "{name} freigegeben",
+    "journal_reko_received": "Reko-Bericht eingegangen",
+    "journal_divera_alarm": "Divera-Alarm ausgelöst ({count} Empfänger)",
+    "journal_divera_alarm_plain": "Divera-Alarm ausgelöst",
+    "journal_incident_deleted": "Einsatz gelöscht",
+    "journal_incident_restored": "Einsatz wiederhergestellt",
     # Incident overview table
     "incident_list_title": "Einsatzübersicht",
     "col_nr": "Nr",
@@ -548,6 +569,189 @@ def _reaction_times_table(data: EventReportData, styles: dict) -> Table:
     return table
 
 
+# ---------------------------------------------------------------------------
+# Einsatztagebuch — merged, chronological journal of the whole event.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class JournalEntry:
+    """One line in the Einsatztagebuch: when, which incident, what, who."""
+
+    timestamp: datetime
+    incident_ref: str  # short incident title, or "—" for event-level entries
+    text: str  # German one-line description
+    actor: str  # user/personnel display name, "" when unknown
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Normalize naive datetimes to UTC so mixed values sort/compare safely."""
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+
+def _truncate(text: str, limit: int = 80) -> str:
+    text = (text or "").strip()
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def _user_display(data: EventReportData, user_id) -> str:
+    """Resolve a user's display name (falls back to username, then '')."""
+    if not user_id:
+        return ""
+    user = data.user_map.get(user_id)
+    if not user:
+        return ""
+    return user.display_name or user.username
+
+
+def _incident_ref(data: EventReportData, incident_id) -> str:
+    inc = data.incident_map.get(incident_id)
+    if inc is None or not inc.title:
+        return LABELS["none"]
+    return _truncate(inc.title, 45)
+
+
+# Incident sources worth calling out in the "erstellt" journal line.
+_SOURCE_LABELS: dict[str, str] = {
+    "intake": LABELS["journal_source_intake"],
+    "divera": LABELS["journal_source_divera"],
+}
+
+
+def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
+    """Build the merged Einsatztagebuch timeline from whitelisted sources.
+
+    Sources: incident creation, status transitions, resource (un)assignments,
+    submitted reko reports, and the whitelisted audit rows (Divera alarms,
+    incident delete/restore). Anything else — field-level updates, logins,
+    exports, settings changes — is deliberately excluded.
+    """
+    entries: list[JournalEntry] = []
+
+    # Incident created
+    for inc in data.incidents:
+        if inc.created_at is None:
+            continue
+        text = LABELS["journal_incident_created"].format(title=_truncate(inc.title or LABELS["none"], 60))
+        source_label = _SOURCE_LABELS.get(getattr(inc, "source", None) or "")
+        if source_label:
+            text += f" ({source_label})"
+        entries.append(
+            JournalEntry(inc.created_at, _incident_ref(data, inc.id), text, _user_display(data, inc.created_by))
+        )
+
+    # Status transitions
+    for t in data.transitions:
+        if t.timestamp is None:
+            continue
+        text = LABELS["journal_status_change"].format(
+            from_status=STATUS_LABELS.get(t.from_status, t.from_status),
+            to_status=STATUS_LABELS.get(t.to_status, t.to_status),
+        )
+        entries.append(
+            JournalEntry(t.timestamp, _incident_ref(data, t.incident_id), text, _user_display(data, t.user_id))
+        )
+
+    # Resource assignments / releases (assignment rows carry the timestamps)
+    for a in data.assignments:
+        name = _resource_name(data, a)
+        ref = _incident_ref(data, a.incident_id)
+        if a.assigned_at is not None:
+            entries.append(
+                JournalEntry(
+                    a.assigned_at,
+                    ref,
+                    LABELS["journal_assigned"].format(name=name),
+                    _user_display(data, a.assigned_by),
+                )
+            )
+        if a.unassigned_at is not None:
+            # No user is recorded for the release — leave the actor empty.
+            entries.append(JournalEntry(a.unassigned_at, ref, LABELS["journal_unassigned"].format(name=name), ""))
+
+    # Reko reports (submitted only — drafts are not yet "eingegangen")
+    for reko in data.reko_reports:
+        if reko.is_draft or reko.submitted_at is None:
+            continue
+        text = LABELS["journal_reko_received"]
+        if reko.summary_text:
+            text += f": {_truncate(reko.summary_text, 80)}"
+        personnel = data.personnel_map.get(reko.submitted_by_personnel_id) if reko.submitted_by_personnel_id else None
+        entries.append(
+            JournalEntry(
+                reko.submitted_at, _incident_ref(data, reko.incident_id), text, personnel.name if personnel else ""
+            )
+        )
+
+    # Whitelisted audit rows (Divera alarms, incident delete/restore)
+    for entry in data.audit_entries:
+        if entry.timestamp is None:
+            continue
+        if entry.action_type == "divera_alarm":
+            recipients = (entry.changes_json or {}).get("recipients")
+            if recipients:
+                text = LABELS["journal_divera_alarm"].format(count=len(recipients))
+            else:
+                text = LABELS["journal_divera_alarm_plain"]
+        elif entry.action_type == "delete":
+            text = LABELS["journal_incident_deleted"]
+        elif entry.action_type == "restore":
+            text = LABELS["journal_incident_restored"]
+        else:
+            continue  # defensive: never render non-whitelisted actions
+        entries.append(
+            JournalEntry(
+                entry.timestamp, _incident_ref(data, entry.resource_id), text, _user_display(data, entry.user_id)
+            )
+        )
+
+    entries.sort(key=lambda e: _as_utc(e.timestamp))
+    return entries
+
+
+def _journal_table(entries: list[JournalEntry], styles: dict) -> LongTable:
+    """Dense, paginating journal table (LongTable so hundreds of rows split
+    cleanly across pages; header repeats)."""
+    # HH:MM is enough within one day; add the date when the event spans days.
+    spans_days = len({_as_utc(e.timestamp).date() for e in entries}) > 1
+    time_fmt = "%d.%m. %H:%M" if spans_days else "%H:%M"
+
+    header = [
+        _p(LABELS["col_time"], styles["cell_header"]),
+        _p(LABELS["col_incident"], styles["cell_header"]),
+        _p(LABELS["col_entry"], styles["cell_header"]),
+        _p(LABELS["col_user"], styles["cell_header"]),
+    ]
+    rows = [header]
+    for e in entries:
+        rows.append(
+            [
+                _p(e.timestamp.strftime(time_fmt), styles["cell"]),
+                _p(e.incident_ref, styles["cell"]),
+                _p(e.text, styles["cell"]),
+                _p(e.actor or LABELS["none"], styles["cell"]),
+            ]
+        )
+
+    col_widths = [20 * mm, 40 * mm, 84 * mm, 28 * mm]
+    table = LongTable(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), _BRAND),
+                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
 def _incident_overview_table(data: EventReportData, styles: dict, home_city: str = "") -> Table:
     """One row per incident: nr, title, type, priority, status, address, times."""
     header = [
@@ -752,6 +956,17 @@ def build_event_report_pdf(
         story.append(_p(LABELS["reaction_title"], styles["section"]))
         story.append(_reaction_times_table(data, styles))
         story.append(_p(LABELS["reaction_hint"], styles["meta"]))
+        story.append(Spacer(1, 12))
+
+        # Einsatztagebuch (merged, chronological journal)
+        story.append(_p(LABELS["journal_title"], styles["section"]))
+        story.append(_p(LABELS["journal_hint"], styles["meta"]))
+        story.append(Spacer(1, 4))
+        journal_entries = build_journal_entries(data)
+        if journal_entries:
+            story.append(_journal_table(journal_entries, styles))
+        else:
+            story.append(_p(LABELS["journal_empty"], styles["body"]))
         story.append(Spacer(1, 12))
 
         # Per-incident detail sections
