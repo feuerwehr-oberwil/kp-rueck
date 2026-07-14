@@ -713,7 +713,8 @@ def _journal_table(entries: list[JournalEntry], styles: dict) -> LongTable:
     """Dense, paginating journal table (LongTable so hundreds of rows split
     cleanly across pages; header repeats)."""
     # HH:MM is enough within one day; add the date when the event spans days.
-    spans_days = len({_as_utc(e.timestamp).date() for e in entries}) > 1
+    # Local dates/times — the journal is read against Swiss wall clocks.
+    spans_days = len({_as_utc(e.timestamp).astimezone(LOCAL_TZ).date() for e in entries}) > 1
     time_fmt = "%d.%m. %H:%M" if spans_days else "%H:%M"
 
     header = [
@@ -726,7 +727,7 @@ def _journal_table(entries: list[JournalEntry], styles: dict) -> LongTable:
     for e in entries:
         rows.append(
             [
-                _p(e.timestamp.strftime(time_fmt), styles["cell"]),
+                _p(_as_utc(e.timestamp).astimezone(LOCAL_TZ).strftime(time_fmt), styles["cell"]),
                 _p(e.incident_ref, styles["cell"]),
                 _p(e.text, styles["cell"]),
                 _p(e.actor or LABELS["none"], styles["cell"]),

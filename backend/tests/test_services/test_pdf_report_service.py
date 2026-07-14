@@ -661,7 +661,8 @@ class TestEinsatztagebuch:
         )
         pdf_bytes = build_event_report_pdf(data, generated_by="tester")
         text = _extract_text(pdf_bytes)
-        assert "02.06. 07:05" in text
+        # 07:05 UTC renders as Swiss local time (09:05 CEST in June)
+        assert "02.06. 09:05" in text
 
     def test_many_entries_paginate_cleanly(self, simple_event: Event, simple_incident: Incident):
         transitions = [
