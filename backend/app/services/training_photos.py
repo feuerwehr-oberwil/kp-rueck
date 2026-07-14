@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 # Pool shipped inside the app package: backend/app/assets/training_photos/<type>/NN.jpg
 POOL_DIR = Path(__file__).resolve().parent.parent / "assets" / "training_photos"
 
-# Types without their own curated pool borrow a sibling's — mirrors the summary
-# pool fallbacks in training_simulation_data (bahnanlagen reads like a rescue
-# scene, strahlenwehr like a hazmat scene, etc.).
+# Fallback when a type has no (or an emptied) pool of its own: borrow a
+# sibling's — mirrors the summary pool fallbacks in training_simulation_data
+# (bahnanlagen reads like a rescue scene, strahlenwehr like a hazmat scene).
+# A type's own directory always wins when it contains images.
 _POOL_ALIASES = {
     "strahlenwehr": "chemiewehr",
     "einsatz_bahnanlagen": "strassenrettung",
@@ -40,6 +41,13 @@ _PHOTO_COUNTS = (0, 1, 2)
 _PHOTO_COUNT_WEIGHTS = (45, 35, 20)
 
 
+def _list_pool_images(type_dir: Path) -> list[Path]:
+    try:
+        return sorted(p for p in type_dir.glob("*.jpg") if p.is_file())
+    except OSError:
+        return []
+
+
 def pick_pool_photos(incident_type: str | None, pool_dir: Path | None = None) -> list[Path]:
     """Pick 0-2 random pool photos matching the incident type.
 
@@ -49,15 +57,12 @@ def pick_pool_photos(incident_type: str | None, pool_dir: Path | None = None) ->
     """
     base = pool_dir if pool_dir is not None else POOL_DIR
     type_key = (incident_type or "").lower()
-    type_key = _POOL_ALIASES.get(type_key, type_key)
     if not type_key:
         return []
 
-    type_dir = base / type_key
-    try:
-        candidates = sorted(p for p in type_dir.glob("*.jpg") if p.is_file())
-    except OSError:
-        return []
+    candidates = _list_pool_images(base / type_key)
+    if not candidates and type_key in _POOL_ALIASES:
+        candidates = _list_pool_images(base / _POOL_ALIASES[type_key])
     if not candidates:
         return []
 

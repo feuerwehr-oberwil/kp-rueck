@@ -10,12 +10,14 @@ re-encoded (JPEG q80) and stripped of EXIF metadata.
 
 | File | Author | License | Source |
 |------|--------|---------|--------|
-| 03.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9541.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9541.jpg) |
-| 04.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9547.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9547.jpg) |
-| 05.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9573.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9573.jpg) |
-| 06.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9638.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9638.jpg) |
-| 07.jpg | Fire Brigade Neder-Betuwe, base Ochten, the Netherlands | CC BY-SA 3.0 | [File:Autobrand IJzendoorn.JPG](https://commons.wikimedia.org/wiki/File:Autobrand_IJzendoorn.JPG) |
-| 08.jpg | Kecko | CC BY 2.0 | [File:SV-RTL Firefighting (16685391802).jpg](https://commons.wikimedia.org/wiki/File:SV-RTL_Firefighting_(16685391802).jpg) |
+| 01.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9541.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9541.jpg) |
+| 02.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9547.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9547.jpg) |
+| 03.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9573.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9573.jpg) |
+| 04.jpg | Raimond Spekking | CC BY-SA 4.0 | [File:Dachstuhlbrand Försterstraße 26, Ecke Ehrenfeldgürtel, Köln-9638.jpg](https://commons.wikimedia.org/wiki/File:Dachstuhlbrand_F%C3%B6rsterstra%C3%9Fe_26,_Ecke_Ehrenfeldg%C3%BCrtel,_K%C3%B6ln-9638.jpg) |
+| 05.jpg | Fire Brigade Neder-Betuwe, base Ochten, the Netherlands | CC BY-SA 3.0 | [File:Autobrand IJzendoorn.JPG](https://commons.wikimedia.org/wiki/File:Autobrand_IJzendoorn.JPG) |
+| 06.jpg | Kecko | CC BY 2.0 | [File:SV-RTL Firefighting (16685391802).jpg](https://commons.wikimedia.org/wiki/File:SV-RTL_Firefighting_(16685391802).jpg) |
+| 07.jpg | Usien | CC BY-SA 3.0 | [File:BAB 8 Feuerwehr nach Loeschung eines Pkw-Brandes Bayrische Polizei.JPG](https://commons.wikimedia.org/wiki/File:BAB_8_Feuerwehr_nach_Loeschung_eines_Pkw-Brandes_Bayrische_Polizei.JPG) |
+| 08.jpg | Ajkochanowicz | CC BY-SA 3.0 | [File:Burnt car.jpg](https://commons.wikimedia.org/wiki/File:Burnt_car.jpg) |
 
 ## elementarereignis
 
@@ -119,3 +121,34 @@ re-encoded (JPEG q80) and stripped of EXIF metadata.
 | 05.jpg | Guyon Morée | CC BY 2.0 | [File:Kitten stuck on top of a tree trunk.jpg](https://commons.wikimedia.org/wiki/File:Kitten_stuck_on_top_of_a_tree_trunk.jpg) |
 | 06.jpg | Ilmari Karonen | CC BY-SA | [File:Cat in apple tree.jpg](https://commons.wikimedia.org/wiki/File:Cat_in_apple_tree.jpg) |
 | 07.jpg | John Brighenti from Rockville, MD, United States | CC BY 2.0 | [File:Russian Blue cat (50744136351).jpg](https://commons.wikimedia.org/wiki/File:Russian_Blue_cat_(50744136351).jpg) |
+
+## strahlenwehr
+
+| File | Author | License | Source |
+|------|--------|---------|--------|
+| 01.jpg | Pressestelle BFK Urfahr-Umgebung | CC BY 2.0 | [File:Strahlenschutz bfkuu denkmayr 0008 (33144375180).jpg](https://commons.wikimedia.org/wiki/File:Strahlenschutz_bfkuu_denkmayr_0008_(33144375180).jpg) |
+| 02.jpg | Pressestelle BFK Urfahr-Umgebung | CC BY 2.0 | [File:Strahlenschutz bfkuu denkmayr 0015 (33399427341).jpg](https://commons.wikimedia.org/wiki/File:Strahlenschutz_bfkuu_denkmayr_0015_(33399427341).jpg) |
+| 03.jpg | Pressestelle BFK Urfahr-Umgebung | CC BY 2.0 | [File:Strahlenschutz bfkuu denkmayr 0017 (33399426611).jpg](https://commons.wikimedia.org/wiki/File:Strahlenschutz_bfkuu_denkmayr_0017_(33399426611).jpg) |
+| 04.jpg | Pressestelle BFK Urfahr-Umgebung | CC BY 2.0 | [File:Strahlenschutz bfkuu denkmayr 0010 (33399429331).jpg](https://commons.wikimedia.org/wiki/File:Strahlenschutz_bfkuu_denkmayr_0010_(33399429331).jpg) |
+| 05.jpg | Lilly_M | CC BY-SA 3.0 | [File:Portable Geiger counter Berthold LB122-02.jpg](https://commons.wikimedia.org/wiki/File:Portable_Geiger_counter_Berthold_LB122-02.jpg) |
+| 06.jpg | Boffy b | CC BY-SA 3.0 | [File:Geiger counter.jpg](https://commons.wikimedia.org/wiki/File:Geiger_counter.jpg) |
+| 07.jpg | ArticCynda | CC BY-SA 4.0 | [File:Geiger counter measuring tree in Chernobyl.jpg](https://commons.wikimedia.org/wiki/File:Geiger_counter_measuring_tree_in_Chernobyl.jpg) |
+| 08.jpg | ArticCynda | CC BY-SA 4.0 | [File:Geiger counter measuring tree at Chernobyl.jpg](https://commons.wikimedia.org/wiki/File:Geiger_counter_measuring_tree_at_Chernobyl.jpg) |
+
+## einsatz_bahnanlagen
+
+| File | Author | License | Source |
+|------|--------|---------|--------|
+| 04.jpg | thunderlips36 | CC BY-SA 4.0 | [File:Smoke from the 2023 Ohio train derailment taken during the night, February 3 (cropped).jpg](https://commons.wikimedia.org/wiki/File:Smoke_from_the_2023_Ohio_train_derailment_taken_during_the_night,_February_3_(cropped).jpg) |
+| 07.jpg | Ludek | CC BY-SA 3.0 | [File:Vykolejeni EC 107 v Praze 5.jpg](https://commons.wikimedia.org/wiki/File:Vykolejeni_EC_107_v_Praze_5.jpg) |
+
+## gerettete_menschen
+
+| File | Author | License | Source |
+|------|--------|---------|--------|
+| 03.jpg | H-stt | CC BY-SA 4.0 | [File:Höhenrettung Feuerwehr München 2977.jpg](https://commons.wikimedia.org/wiki/File:H%C3%B6henrettung_Feuerwehr_M%C3%BCnchen_2977.jpg) |
+| 04.jpg | H-stt | CC BY-SA 4.0 | [File:Höhenrettung Feuerwehr München 2982.jpg](https://commons.wikimedia.org/wiki/File:H%C3%B6henrettung_Feuerwehr_M%C3%BCnchen_2982.jpg) |
+| 05.jpg | H-stt | CC BY-SA 4.0 | [File:Höhenrettung Feuerwehr München 2973.jpg](https://commons.wikimedia.org/wiki/File:H%C3%B6henrettung_Feuerwehr_M%C3%BCnchen_2973.jpg) |
+| 06.jpg | H-stt | CC BY-SA 4.0 | [File:Höhenrettung Feuerwehr München 2985.jpg](https://commons.wikimedia.org/wiki/File:H%C3%B6henrettung_Feuerwehr_M%C3%BCnchen_2985.jpg) |
+| 07.jpg | Wewalther | CC BY-SA 4.0 | [File:Hauptstraße 95 (Schönheide) Feuerwehrübung VI.JPG](https://commons.wikimedia.org/wiki/File:Hauptstra%C3%9Fe_95_(Sch%C3%B6nheide)_Feuerwehr%C3%BCbung_VI.JPG) |
+| 08.jpg | Wewalther | CC BY-SA 4.0 | [File:Hauptstraße 95 (Schönheide) Feuerwehrübung V.JPG](https://commons.wikimedia.org/wiki/File:Hauptstra%C3%9Fe_95_(Sch%C3%B6nheide)_Feuerwehr%C3%BCbung_V.JPG) |
