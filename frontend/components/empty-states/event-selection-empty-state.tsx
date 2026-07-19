@@ -1,11 +1,13 @@
 "use client"
 
 import { Calendar, ChevronRight, Sparkles } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
 
 export function EventSelectionEmptyState() {
+  const t = useTranslations('events')
   const router = useRouter()
 
   return (
@@ -22,15 +24,14 @@ export function EventSelectionEmptyState() {
           {/* Heading with friendlier copy */}
           <div className="space-y-3">
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Noch kein Ereignis ausgewählt?
+              {t('emptyState.title')}
             </h1>
             <p className="text-base text-muted-foreground max-w-md mx-auto">
-              Kein Problem! Erstellen Sie ein neues Ereignis oder wählen Sie ein
-              bestehendes aus, um loszulegen.
+              {t('emptyState.description')}
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-primary/80">
               <Sparkles className="h-4 w-4" />
-              <span>Bereit für Ihren ersten Einsatz</span>
+              <span>{t('emptyState.ready')}</span>
             </div>
           </div>
 
@@ -42,7 +43,7 @@ export function EventSelectionEmptyState() {
               onClick={() => router.push('/events?action=create')}
             >
               <Calendar className="h-5 w-5" />
-              Neues Ereignis erstellen
+              {t('emptyState.createButton')}
             </Button>
             <Button
               size="lg"
@@ -50,7 +51,7 @@ export function EventSelectionEmptyState() {
               className="gap-2 min-h-[52px] hover-delight"
               onClick={() => router.push('/events')}
             >
-              Ereignisse anzeigen
+              {t('emptyState.viewButton')}
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>

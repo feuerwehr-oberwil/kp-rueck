@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 
 interface ReleasePrompt {
   assignmentId: string
@@ -39,6 +40,7 @@ interface ReleasePrompt {
  * notification still covers it.
  */
 export function GpsReleasePrompt() {
+  const t = useTranslations('incidents.gpsRelease')
   const { isEditor } = useAuth()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ReleasePrompt | null>(null)
@@ -69,12 +71,12 @@ export function GpsReleasePrompt() {
       setPrompt({
         assignmentId: payload.assignment_id,
         incidentId: payload.incident_id,
-        vehicleName: payload.vehicle_name || "Fahrzeug",
-        incidentLabel: payload.incident_label || "Einsatz",
+        vehicleName: payload.vehicle_name || t('fallbackVehicle'),
+        incidentLabel: payload.incident_label || t('fallbackIncident'),
       })
     })
     return () => unsubscribe()
-  }, [isEditor, onOperatorPage])
+  }, [isEditor, onOperatorPage, t])
 
   // Auto-close if the incident gets completed while the dialog is open.
   useEffect(() => {
@@ -95,10 +97,10 @@ export function GpsReleasePrompt() {
     setReleasing(true)
     try {
       await apiClient.unassignResource(prompt.incidentId, prompt.assignmentId)
-      toast.success(`${prompt.vehicleName} freigegeben`)
+      toast.success(t('released', { vehicle: prompt.vehicleName }))
       setPrompt(null)
     } catch {
-      toast.error("Freigabe fehlgeschlagen")
+      toast.error(t('releaseFailed'))
     } finally {
       setReleasing(false)
     }
@@ -113,10 +115,10 @@ export function GpsReleasePrompt() {
       if (incident.status !== "abschluss") {
         await apiClient.updateIncidentStatus(prompt.incidentId, incident.status, "abschluss")
       }
-      toast.success(`${prompt.incidentLabel} abgeschlossen`)
+      toast.success(t('completed', { label: prompt.incidentLabel }))
       setPrompt(null)
     } catch {
-      toast.error("Abschliessen fehlgeschlagen")
+      toast.error(t('completeFailed'))
     } finally {
       setReleasing(false)
     }
@@ -128,24 +130,26 @@ export function GpsReleasePrompt() {
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary" />
-            Fahrzeug zurück im Magazin — freigeben?
+            {t('title')}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            <span className="font-medium text-foreground">{prompt.vehicleName}</span> ist laut GPS
-            wieder im Magazin. Nur die Zuweisung zu »{prompt.incidentLabel}« freigeben — oder den
-            Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?
+            {t.rich('description', {
+              vehicle: prompt.vehicleName,
+              label: prompt.incidentLabel,
+              strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:justify-between">
           <Button variant="ghost" onClick={() => setPrompt(null)} disabled={releasing}>
-            Nicht freigeben
+            {t('decline')}
           </Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Button variant="outline" onClick={handleRelease} disabled={releasing}>
-              Nur {prompt.vehicleName} freigeben
+              {t('releaseOnly', { vehicle: prompt.vehicleName })}
             </Button>
             <Button onClick={handleReleaseAndComplete} disabled={releasing}>
-              Einsatz abschliessen
+              {t('completeIncident')}
             </Button>
           </div>
         </AlertDialogFooter>

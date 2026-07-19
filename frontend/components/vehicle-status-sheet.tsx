@@ -9,6 +9,8 @@ import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus } fro
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { cn } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -44,12 +46,14 @@ function formatDuration(minutes: number | null): string {
   if (minutes === null) return "-"
 
   if (minutes < 60) {
-    return `${minutes} Min`
+    return translateOutsideReact('incidents.vehicleStatus.durationMinutes', { minutes })
   }
 
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  return mins > 0
+    ? translateOutsideReact('incidents.vehicleStatus.durationHoursMinutes', { hours, mins })
+    : translateOutsideReact('incidents.vehicleStatus.durationHours', { hours })
 }
 
 function getDurationColor(minutes: number | null): string {
@@ -63,9 +67,9 @@ function getVehicleStatusBadge(status: string): { variant: "default" | "secondar
   switch (status) {
     case "available":
       // Subtle, desaturated green - Refactoring UI: don't use bright colors for passive states
-      return { variant: "outline", label: "Verfügbar", color: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50" }
+      return { variant: "outline", label: translateOutsideReact('incidents.vehicleStatus.available'), color: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50" }
     case "unavailable":
-      return { variant: "secondary", label: "Nicht verfügbar", color: "bg-muted text-muted-foreground border-border" }
+      return { variant: "secondary", label: translateOutsideReact('incidents.vehicleStatus.unavailable'), color: "bg-muted text-muted-foreground border-border" }
     default:
       return { variant: "outline", label: status }
   }
@@ -95,6 +99,7 @@ function getIncidentStatusBadgeVariant(incidentStatus: string | null): "default"
 }
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
+  const t = useTranslations('incidents')
   const router = useRouter()
   const isMobile = useIsMobile()
   const { personnel, operations, removeCrew } = useOperations()
@@ -181,7 +186,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     } catch (error) {
       console.error("Error loading vehicle statuses:", error)
       if (!silent) {
-        toast.error("Fehler beim Laden der Fahrzeugstatus")
+        toast.error(t('vehicleStatus.loadError'))
       }
     } finally {
       if (!silent) {
@@ -276,15 +281,15 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
         <SheetHeader className="p-0">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <SheetTitle>Fahrzeugstatus</SheetTitle>
+              <SheetTitle>{t('vehicleStatus.title')}</SheetTitle>
               <SheetDescription>
-                Klicken um zu Einsatz zu navigieren • Aktualisiert alle 10 Sekunden
+                {t('vehicleStatus.description')}
               </SheetDescription>
             </div>
 
             <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading} className="flex-shrink-0">
               <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
-              Aktualisieren
+              {t('vehicleStatus.refresh')}
             </Button>
           </div>
         </SheetHeader>
@@ -307,7 +312,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
           ) : displayedVehicles.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-center">
               <Truck className="h-12 w-12 text-muted-foreground/50 mb-2" />
-              <p className="text-muted-foreground">Keine Fahrzeuge verfügbar</p>
+              <p className="text-muted-foreground">{t('vehicleStatus.noVehicles')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -348,23 +353,23 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           <div className="flex items-center gap-1.5">
                             {!vehicle.incident_id && vehicle.status === "available" && (
                               <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
-                                Verfügbar
+                                {t('vehicleStatus.available')}
                               </Badge>
                             )}
                             {vehicle.status === "unavailable" && (
                               <Badge className="text-xs bg-muted text-muted-foreground border-border">
-                                Nicht verfügbar
+                                {t('vehicleStatus.unavailable')}
                               </Badge>
                             )}
                             {vehicle.incident_id && vehicle.incident_status && (
                               <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
-                                {STATUS_LABELS[vehicle.incident_status as keyof typeof STATUS_LABELS] || vehicle.incident_status}
+                                {vehicle.incident_status in STATUS_LABELS ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
                               </Badge>
                             )}
                             {showDurationWarning && (
                               <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
                                 <AlertTriangle className="h-3 w-3 mr-1" />
-                                Lange
+                                {t('vehicleStatus.longDuration')}
                               </Badge>
                             )}
                           </div>
@@ -377,13 +382,13 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           <div className="flex items-center gap-1.5">
                             <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                             <span className={cn("truncate", vehicle.driver_name ? "" : "text-muted-foreground")}>
-                              {vehicle.driver_name || "Kein Fahrer"}
+                              {vehicle.driver_name || t('vehicleStatus.noDriver')}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 col-span-2">
                             <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                             <span className="truncate">
-                              {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? "Nicht verfügbar" : "Bereit für Einsatz")}
+                              {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation'))}
                             </span>
                           </div>
                           {vehicle.assignment_duration_minutes !== null && (
@@ -420,11 +425,11 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             "flex items-center gap-2 min-w-[120px] rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
                             "hover:bg-muted/80 cursor-pointer group"
                           )}
-                          title={vehicle.driver_name ? "Fahrer ändern" : "Fahrer zuweisen"}
+                          title={vehicle.driver_name ? t('vehicleStatus.changeDriver') : t('vehicleStatus.assignDriver')}
                         >
                           <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                           <span className={cn("text-sm truncate", vehicle.driver_name ? "" : "text-muted-foreground")}>
-                            {vehicle.driver_name || "Kein Fahrer"}
+                            {vehicle.driver_name || t('vehicleStatus.noDriver')}
                           </span>
                           {!vehicle.driver_name && (
                             <Plus className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -435,7 +440,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                           <span className="text-sm truncate">
-                            {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? "Nicht verfügbar" : "Bereit für Einsatz")}
+                            {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation'))}
                           </span>
                         </div>
 
@@ -453,23 +458,23 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           {!vehicle.incident_id && vehicle.status === "available" && (
                             <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
-                              Verfügbar
+                              {t('vehicleStatus.available')}
                             </Badge>
                           )}
                           {vehicle.status === "unavailable" && (
                             <Badge className="text-xs bg-muted text-muted-foreground border-border">
-                              Nicht verfügbar
+                              {t('vehicleStatus.unavailable')}
                             </Badge>
                           )}
                           {vehicle.incident_id && vehicle.incident_status && (
                             <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
-                              {STATUS_LABELS[vehicle.incident_status as keyof typeof STATUS_LABELS] || vehicle.incident_status}
+                              {vehicle.incident_status in STATUS_LABELS ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
                             </Badge>
                           )}
                           {showDurationWarning && (
                             <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
                               <AlertTriangle className="h-3 w-3 mr-1" />
-                              Lange
+                              {t('vehicleStatus.longDuration')}
                             </Badge>
                           )}
                         </div>

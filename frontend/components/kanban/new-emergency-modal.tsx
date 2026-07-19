@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from "react"
+import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,6 +36,7 @@ export function NewEmergencyModal({
   onCreateOperation,
   nextOperationId,
 }: NewEmergencyModalProps) {
+  const t = useTranslations('kanban')
   const [formData, setFormData] = useState({
     location: "",
     incidentType: "elementarereignis",
@@ -79,8 +81,8 @@ export function NewEmergencyModal({
     setShowValidationErrors(true)
 
     if (!isLocationValid) {
-      toast.error("Bitte füllen Sie alle Pflichtfelder aus", {
-        description: "Der Einsatzort ist erforderlich."
+      toast.error(t('newEmergency.validationTitle'), {
+        description: t('newEmergency.validationDescription')
       })
       return
     }
@@ -129,10 +131,10 @@ export function NewEmergencyModal({
         <DialogHeader>
           <div className="flex items-center gap-3">
             <Plus className="h-6 w-6 text-primary" />
-            <DialogTitle className="text-2xl">Neuer Einsatz</DialogTitle>
+            <DialogTitle className="text-2xl">{t('common.newIncident')}</DialogTitle>
           </div>
           <DialogDescription className="text-base">
-            Erfassen Sie die Details zum neuen Einsatz
+            {t('newEmergency.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +160,7 @@ export function NewEmergencyModal({
             />
             {showLocationError && (
               <p className="text-sm text-destructive">
-                Bitte geben Sie einen Einsatzort ein
+                {t('newEmergency.locationError')}
               </p>
             )}
           </div>
@@ -166,11 +168,11 @@ export function NewEmergencyModal({
           {/* Meldung */}
           <div className="space-y-1.5">
             <Label htmlFor="notes" className="text-sm font-medium">
-              Meldung
+              {t('common.meldung')}
             </Label>
             <Textarea
               id="notes"
-              placeholder="Notizen, Besonderheiten, Gefahren..."
+              placeholder={t('common.meldungPlaceholder')}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="min-h-[100px]"
@@ -181,14 +183,14 @@ export function NewEmergencyModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="incidentType" className="text-sm font-medium">
-                Einsatzart
+                {t('common.einsatzart')}
               </Label>
               <Select
                 value={formData.incidentType}
                 onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Einsatzart auswählen" />
+                  <SelectValue placeholder={t('common.einsatzartPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {incidentTypeKeys.map((typeKey) => (
@@ -202,7 +204,7 @@ export function NewEmergencyModal({
 
             <div className="space-y-1.5">
               <Label htmlFor="priority" className="text-sm font-medium">
-                Priorität
+                {t('common.priority')}
               </Label>
               <Select
                 value={formData.priority}
@@ -212,9 +214,9 @@ export function NewEmergencyModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Niedrig</SelectItem>
-                  <SelectItem value="medium">Mittel</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
+                  <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
+                  <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
+                  <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -223,11 +225,11 @@ export function NewEmergencyModal({
           {/* Contact */}
           <div className="space-y-1.5">
             <Label htmlFor="contact" className="text-sm font-medium">
-              Kontakt / Melder
+              {t('common.contact')}
             </Label>
             <Input
               id="contact"
-              placeholder="Name, Telefonnummer..."
+              placeholder={t('common.contactPlaceholder')}
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
             />
@@ -236,7 +238,7 @@ export function NewEmergencyModal({
           {/* Info */}
           <div className="bg-muted/50 p-3 rounded-lg">
             <p className="text-sm text-muted-foreground">
-              Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.
+              {t('newEmergency.infoDragDrop')}
             </p>
           </div>
 
@@ -248,10 +250,10 @@ export function NewEmergencyModal({
               className="gap-2 hover-delight"
             >
               <Plus className="h-4 w-4" />
-              Einsatz erstellen
+              {t('newEmergency.create')}
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
           </div>
         </div>

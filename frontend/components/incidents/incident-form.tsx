@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { Plus, Save, MapPin, Check, ChevronsUpDown, Building2, Timer } from 'lucide-react'
 import type { Incident, IncidentCreate, IncidentUpdate, IncidentType, IncidentPriority } from "@/lib/types/incidents"
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
+import { useTranslations } from "next-intl"
 import { useIncidents } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { ApiError } from "@/lib/api-client"
@@ -30,6 +31,7 @@ interface IncidentFormProps {
 }
 
 export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: IncidentFormProps) {
+  const t = useTranslations('incidents')
   const { createIncident, updateIncident, trainingMode } = useIncidents()
   const { selectedEvent } = useEvent()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -123,12 +125,12 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
       // The api-client shows no toast for 409/401 — without feedback the save
       // button appears dead. Surface the failure and keep the dialog open.
       if (ApiError.isConflictError(error)) {
-        toast.error('Von anderer Person geändert', {
-          description: 'Bitte Ansicht aktualisieren und erneut versuchen.',
+        toast.error(t('form.conflictErrorTitle'), {
+          description: t('form.conflictErrorDescription'),
         })
       } else {
-        toast.error('Speichern fehlgeschlagen', {
-          description: 'Bitte erneut versuchen.',
+        toast.error(t('form.saveErrorTitle'), {
+          description: t('form.saveErrorDescription'),
         })
       }
     } finally {
@@ -183,23 +185,23 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             {mode === 'create' ? (
               <>
                 <Plus className="h-6 w-6 text-primary" />
-                Neuer Einsatz
+                {t('form.titleCreate')}
               </>
             ) : (
               <>
                 <Save className="h-6 w-6 text-primary" />
-                Einsatz bearbeiten
+                {t('form.titleEdit')}
               </>
             )}
           </DialogTitle>
           <DialogDescription className="text-base">
             {trainingMode && (
               <span className="inline-flex items-center gap-2 px-2 py-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                Übungsmodus aktiv
+                {t('form.trainingModeActive')}
               </span>
             )}
             {mode === 'edit' && incident && (
-              <span className="ml-2">ID: {incident.id}</span>
+              <span className="ml-2">{t('form.idLabel', { id: incident.id })}</span>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -208,13 +210,13 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
           {/* Title */}
           <div>
             <Label htmlFor="title" className="text-sm font-semibold text-muted-foreground">
-              Titel / Einsatzbezeichnung *
+              {t('form.titleLabel')}
             </Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="z.B. Wohnungsbrand Hauptstrasse 45"
+              placeholder={t('form.titlePlaceholder')}
               className="mt-2"
               required
               autoFocus={mode === 'create'}
@@ -225,7 +227,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             {/* Type - Searchable Combobox */}
             <div>
               <Label htmlFor="type" className="text-sm font-semibold text-muted-foreground">
-                Einsatzart *
+                {t('form.typeLabel')}
               </Label>
               <Popover open={incidentTypeOpen} onOpenChange={setIncidentTypeOpen}>
                 <PopoverTrigger asChild>
@@ -235,20 +237,20 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
                     aria-expanded={incidentTypeOpen}
                     className="mt-2 w-full justify-between"
                   >
-                    {formData.type ? INCIDENT_TYPE_LABELS[formData.type] : "Einsatzart wählen..."}
+                    {formData.type ? t(`types.${formData.type}`) : t('form.typePlaceholder')}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Einsatzart suchen..." />
+                    <CommandInput placeholder={t('form.typeSearchPlaceholder')} />
                     <CommandList>
-                      <CommandEmpty>Keine Einsatzart gefunden.</CommandEmpty>
+                      <CommandEmpty>{t('form.typeNotFound')}</CommandEmpty>
                       <CommandGroup>
-                        {Object.entries(INCIDENT_TYPE_LABELS).map(([key, label]) => (
+                        {Object.keys(INCIDENT_TYPE_LABELS).map((key) => (
                           <CommandItem
                             key={key}
-                            value={label}
+                            value={t(`types.${key}`)}
                             onSelect={() => {
                               setFormData({ ...formData, type: key as IncidentType })
                               setIncidentTypeOpen(false)
@@ -260,7 +262,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
                                 formData.type === key ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {label}
+                            {t(`types.${key}`)}
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -273,7 +275,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             {/* Priority */}
             <div>
               <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
-                Priorität * <span className="text-xs text-muted-foreground/60">(Shift+1-3)</span>
+                {t('form.priorityLabel')} <span className="text-xs text-muted-foreground/60">(Shift+1-3)</span>
               </Label>
               <Select
                 value={formData.priority}
@@ -283,9 +285,9 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
+                  {Object.keys(PRIORITY_LABELS).map((key) => (
                     <SelectItem key={key} value={key}>
-                      {label}
+                      {t(`priority.${key}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -309,13 +311,13 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
           {/* Description */}
           <div>
             <Label htmlFor="description" className="text-sm font-semibold text-muted-foreground">
-              Beschreibung / Notizen
+              {t('form.descriptionLabel')}
             </Label>
             <Textarea
               id="description"
               value={formData.description || ''}
               onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
-              placeholder="Zusätzliche Informationen, Besonderheiten, Gefahren..."
+              placeholder={t('form.descriptionPlaceholder')}
               className="mt-2 min-h-[100px]"
             />
           </div>
@@ -328,14 +330,14 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             <div className="flex items-center gap-3">
               <Building2 className="h-5 w-5 text-muted-foreground" />
               <div className="space-y-0.5">
-                <Label className="text-sm font-semibold pointer-events-none">Nachbarhilfe</Label>
+                <Label className="text-sm font-semibold pointer-events-none">{t('form.nachbarhilfe')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Einsatz mit Nachbarfeuerwehr-Beteiligung
+                  {t('form.nachbarhilfeDescription')}
                 </p>
               </div>
             </div>
             <Switch
-              aria-label="Nachbarhilfe"
+              aria-label={t('form.nachbarhilfe')}
               checked={formData.nachbarhilfe || false}
               onCheckedChange={(checked) => setFormData({ ...formData, nachbarhilfe: checked })}
               onClick={(e) => e.stopPropagation()}
@@ -350,14 +352,14 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             <div className="flex items-center gap-3">
               <Timer className="h-5 w-5 text-muted-foreground" />
               <div className="space-y-0.5">
-                <Label className="text-sm font-semibold pointer-events-none">Am Warten</Label>
+                <Label className="text-sm font-semibold pointer-events-none">{t('form.amWarten')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Einsatz verzögert / wartet auf Ressourcen
+                  {t('form.amWartenDescription')}
                 </p>
               </div>
             </div>
             <Switch
-              aria-label="Am Warten"
+              aria-label={t('form.amWarten')}
               checked={formData.am_warten || false}
               onCheckedChange={(checked) => setFormData({ ...formData, am_warten: checked })}
               onClick={(e) => e.stopPropagation()}
@@ -369,7 +371,7 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
             <div>
               <Separator className="my-6" />
               <Label className="text-sm font-semibold text-muted-foreground">
-                Rekognoszierungs-Meldungen
+                {t('form.rekoReports')}
               </Label>
               <div className="mt-3">
                 <RekoReportSection incidentId={incident.id} />
@@ -383,17 +385,17 @@ export function IncidentForm({ open, onOpenChange, incident, mode = 'create' }: 
               {mode === 'create' ? (
                 <>
                   <Plus className="h-4 w-4" />
-                  Einsatz erstellen
+                  {t('form.submitCreate')}
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  Änderungen speichern
+                  {t('form.submitEdit')}
                 </>
               )}
             </Button>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
           </div>
         </form>

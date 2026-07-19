@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { CheckCircle, Circle, Search } from 'lucide-react'
@@ -12,6 +13,7 @@ import { wsClient, type WebSocketUpdate } from '@/lib/websocket-client'
 export default function CheckInPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const t = useTranslations('intake.checkin')
 
   const [personnel, setPersonnel] = useState<ApiPersonnelListItem[]>([])
   const [eventName, setEventName] = useState<string>('')
@@ -36,7 +38,7 @@ export default function CheckInPage() {
     } catch (error) {
       console.error('Failed to load personnel:', error)
       if (isInitialLoad) {
-        setError('Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.')
+        setError(t('invalidCode'))
       }
     } finally {
       if (isInitialLoad) {
@@ -47,7 +49,7 @@ export default function CheckInPage() {
 
   useEffect(() => {
     if (!token) {
-      setError('Zugriffscode fehlt. Bitte QR-Code scannen.')
+      setError(t('missingCode'))
       setLoading(false)
       return
     }
@@ -81,8 +83,8 @@ export default function CheckInPage() {
 
     // Prevent checkout of assigned personnel
     if (person.checked_in && person.is_assigned) {
-      toast.error('Abmeldung nicht möglich', {
-        description: 'Diese Person ist einem Einsatz zugewiesen und kann nicht abgemeldet werden.'
+      toast.error(t('checkoutBlocked'), {
+        description: t('checkoutBlockedDescription')
       })
       return
     }
@@ -104,8 +106,8 @@ export default function CheckInPage() {
       )
     } catch (error) {
       console.error('Check-in toggle failed:', error)
-      toast.error('Fehler beim Ändern des Status', {
-        description: 'Bitte versuchen Sie es erneut.'
+      toast.error(t('statusError'), {
+        description: t('statusErrorDescription')
       })
       skipNextRefreshRef.current = false // Allow refresh on error to get correct state
       // Reload to get correct state (background refresh)
@@ -135,7 +137,7 @@ export default function CheckInPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md text-center">
           <div className="text-destructive text-xl font-semibold mb-2">
-            Zugriff erforderlich
+            {t('accessRequired')}
           </div>
           <div className="text-muted-foreground">{error}</div>
         </div>
@@ -148,19 +150,19 @@ export default function CheckInPage() {
       {/* Header */}
       <div className="max-w-2xl mx-auto mb-6">
         <h1 className="text-2xl font-bold mb-2">
-          Personal Check-In
+          {t('title')}
         </h1>
         {eventName && (
           <p className="text-lg text-muted-foreground mb-3">
-            Ereignis: <span className="font-semibold text-foreground">{eventName}</span>
+            {t('eventLabel')} <span className="font-semibold text-foreground">{eventName}</span>
           </p>
         )}
         <div className="flex gap-4 text-sm text-muted-foreground">
-          <span>Gesamt: {stats.total}</span>
+          <span>{t('statsTotal', { count: stats.total })}</span>
           <span className="text-blue-500 font-semibold">
-            Anwesend: {stats.checkedIn}
+            {t('statsPresent', { count: stats.checkedIn })}
           </span>
-          <span>Nicht anwesend: {stats.total - stats.checkedIn}</span>
+          <span>{t('statsAbsent', { count: stats.total - stats.checkedIn })}</span>
         </div>
       </div>
 
@@ -170,7 +172,7 @@ export default function CheckInPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Personal suchen..."
+            placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 h-12 text-lg"
@@ -199,10 +201,10 @@ export default function CheckInPage() {
       {/* Personnel List */}
       <div className="max-w-2xl mx-auto space-y-2">
         {loading ? (
-          <div className="text-center py-8 text-muted-foreground">Lädt...</div>
+          <div className="text-center py-8 text-muted-foreground">{t('loading')}</div>
         ) : filteredPersonnel.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Keine Personen gefunden
+            {t('noneFound')}
           </div>
         ) : (
           filteredPersonnel.map(person => {
@@ -241,15 +243,15 @@ export default function CheckInPage() {
               <div className="flex-shrink-0">
                 {person.is_assigned ? (
                   <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                    Im Einsatz
+                    {t('badgeAssigned')}
                   </span>
                 ) : person.checked_in ? (
                   <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                    Anwesend
+                    {t('badgeCheckedIn')}
                   </span>
                 ) : (
                   <span className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                    Nicht hier
+                    {t('badgeNotCheckedIn')}
                   </span>
                 )}
               </div>

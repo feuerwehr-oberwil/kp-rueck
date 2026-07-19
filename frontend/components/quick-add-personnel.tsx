@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 
 interface QuickAddPersonnelProps {
   /** Called after person is added - receives the new person data for optimistic update */
@@ -15,6 +16,8 @@ interface QuickAddPersonnelProps {
 }
 
 export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPersonnelProps) {
+  const t = useTranslations('incidents.quickAdd')
+  const tCommon = useTranslations('incidents.common')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPersonName, setNewPersonName] = useState('')
   const [addingPerson, setAddingPerson] = useState(false)
@@ -55,16 +58,16 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
       console.error('Failed to add person:', error)
       // Provide specific error messages based on error type
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        toast.error('Netzwerkfehler', {
-          description: 'Bitte Internetverbindung prüfen und erneut versuchen.'
+        toast.error(t('networkErrorTitle'), {
+          description: t('networkErrorDescription')
         })
       } else if (error instanceof Error && error.message.includes('409')) {
-        toast.error('Person existiert bereits', {
-          description: 'Eine Person mit diesem Namen ist bereits vorhanden.'
+        toast.error(t('duplicateTitle'), {
+          description: t('duplicateDescription')
         })
       } else {
-        toast.error('Fehler beim Hinzufügen', {
-          description: 'Die Person konnte nicht hinzugefügt werden. Bitte erneut versuchen.'
+        toast.error(t('addErrorTitle'), {
+          description: t('addErrorDescription')
         })
       }
     } finally {
@@ -81,13 +84,13 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
           className="w-full h-12"
         >
           <UserPlus className="h-5 w-5 mr-2" />
-          Neue Person hinzufügen
+          {t('addNewPerson')}
         </Button>
       ) : (
         <div className="bg-card border-2 border-border rounded-lg p-4 space-y-3">
           <Input
             type="text"
-            placeholder="Name eingeben..."
+            placeholder={t('namePlaceholder')}
             value={newPersonName}
             onChange={(e) => setNewPersonName(e.target.value)}
             onKeyPress={(e) => {
@@ -104,7 +107,7 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
               disabled={!newPersonName.trim() || addingPerson}
               className="flex-1 h-11"
             >
-              {addingPerson ? 'Wird hinzugefügt...' : 'Hinzufügen'}
+              {addingPerson ? t('adding') : t('add')}
             </Button>
             <Button
               onClick={() => {
@@ -114,7 +117,7 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
               variant="outline"
               className="flex-1 h-11"
             >
-              Abbrechen
+              {tCommon('cancel')}
             </Button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, memo } from "react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
@@ -18,6 +19,7 @@ interface DraggablePersonProps {
 }
 
 function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: DraggablePersonProps) {
+  const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -67,7 +69,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
       badges.push(
         <Badge key="reko" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
           <Binoculars className="h-3 w-3" />
-          Reko
+          {t('common.reko')}
         </Badge>
       )
     }
@@ -77,7 +79,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
       badges.push(
         <Badge key="magazin" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
           <Package2 className="h-3 w-3" />
-          Magazin
+          {t('common.magazin')}
         </Badge>
       )
     }
@@ -120,8 +122,8 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
               {/* Status indicator - icon only, muted colors */}
               <div
                 className="flex items-center justify-center h-4 w-4 rounded flex-shrink-0 text-muted-foreground"
-                aria-label={person.status === "available" ? "Verfügbar" : "Im Einsatz"}
-                title={person.status === "available" ? "Verfügbar" : "Im Einsatz"}
+                aria-label={person.status === "available" ? t('common.available') : t('common.inUse')}
+                title={person.status === "available" ? t('common.available') : t('common.inUse')}
               >
                 {person.status === "available" ? (
                   <Check className="h-3 w-3" />
@@ -139,7 +141,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
                 <Badge
                   variant="outline"
                   className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning"
-                  title={`Auf ${assignmentCount} Einsätzen — Doppelbelegung`}
+                  title={t('person.doubleBookedTooltip', { count: assignmentCount ?? 0 })}
                 >
                   <AlertTriangle className="h-3 w-3" />
                   {assignmentCount}×

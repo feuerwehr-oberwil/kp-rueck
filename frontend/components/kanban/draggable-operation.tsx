@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, memo } from "react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -116,6 +117,7 @@ function DraggableOperationBase({
   canDrag = true,
   onDragActiveChange,
 }: DraggableOperationProps) {
+  const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isOver, setIsOver] = useState(false)
@@ -131,10 +133,10 @@ function DraggableOperationBase({
     setIsPrinting(true)
     try {
       await apiClient.queueAssignmentPrint(operation.id)
-      toast.success('Druckauftrag gesendet')
+      toast.success(t('common.printJobSent'))
     } catch (error) {
       console.error('Print failed:', error)
-      toast.error('Drucken fehlgeschlagen')
+      toast.error(t('common.printFailed'))
     } finally {
       setIsPrinting(false)
     }
@@ -271,11 +273,11 @@ function DraggableOperationBase({
               <div className="flex items-center flex-shrink-0 mt-0.5">
                 {/* Priority indicator - icon only, no colors */}
                 {priority === "high" ? (
-                  <ChevronUp className={cn('h-4 w-4', priorityConfig?.icon)} aria-label="Hohe Priorität" />
+                  <ChevronUp className={cn('h-4 w-4', priorityConfig?.icon)} aria-label={t('card.priorityHighAria')} />
                 ) : priority === "medium" ? (
-                  <Minus className={cn('h-4 w-4', priorityConfig?.icon)} aria-label="Mittlere Priorität" />
+                  <Minus className={cn('h-4 w-4', priorityConfig?.icon)} aria-label={t('card.priorityMediumAria')} />
                 ) : (
-                  <ChevronDown className={cn('h-4 w-4', priorityConfig?.icon)} aria-label="Niedrige Priorität" />
+                  <ChevronDown className={cn('h-4 w-4', priorityConfig?.icon)} aria-label={t('card.priorityLowAria')} />
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -289,7 +291,7 @@ function DraggableOperationBase({
               {operation.source === 'intake' && (
                 <div
                   className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30"
-                  title="Per Telefon / Walk-in erfasst – bitte prüfen"
+                  title={t('card.intakeTooltip')}
                 >
                   <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                 </div>
@@ -297,7 +299,7 @@ function DraggableOperationBase({
               {operation.amWarten && (
                 <div
                   className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30"
-                  title="Am Warten"
+                  title={t('common.amWarten')}
                 >
                   <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 </div>
@@ -305,7 +307,7 @@ function DraggableOperationBase({
               {operation.nachbarhilfe && (
                 <div
                   className="p-1.5 rounded-md bg-muted/60"
-                  title="Nachbarhilfe"
+                  title={t('common.nachbarhilfe')}
                 >
                   <Building2 className="h-4 w-4 text-muted-foreground/80" />
                 </div>
@@ -313,7 +315,7 @@ function DraggableOperationBase({
               {operation.hasCompletedReko && (
                 <div
                   className="p-1.5 rounded-md bg-muted/60"
-                  title="Reko-Bericht ausgefüllt"
+                  title={t('card.rekoDoneTooltip')}
                 >
                   <FileCheck className="h-4 w-4 text-muted-foreground/80" />
                 </div>
@@ -322,7 +324,7 @@ function DraggableOperationBase({
                 href={`/map?highlight=${operation.id}`}
                 onClick={(e) => e.stopPropagation()}
                 className="p-1.5 rounded-md hover:bg-muted/80 transition-colors group/mapicon"
-                title="Auf Karte anzeigen"
+                title={t('card.showOnMap')}
               >
                 <Map className="h-4 w-4 text-muted-foreground group-hover/mapicon:text-foreground transition-colors" />
               </Link>
@@ -343,7 +345,7 @@ function DraggableOperationBase({
             </div>
             <span
               className={cn("font-mono text-xs", ageChipClass(timeInStatus))}
-              title={isOverOneHour ? `In diesem Status seit über 1 Stunde (seit ${timeInStatus.toLocaleString("de-CH")})` : undefined}
+              title={isOverOneHour ? t('card.inStatusTooltip', { since: timeInStatus.toLocaleString("de-CH") }) : undefined}
             >
               {getTimeSince(timeInStatus)}
             </span>
@@ -377,7 +379,7 @@ function DraggableOperationBase({
                           onRemoveReko?.()
                         }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                        title={`${operation.assignedReko.name} entfernen`}
+                        title={t('common.removeNamed', { name: operation.assignedReko.name })}
                       >
                         <X className="h-2.5 w-2.5" />
                       </button>
@@ -385,7 +387,7 @@ function DraggableOperationBase({
                     {/* Show arrival time if on site but report not yet submitted */}
                     {operation.rekoArrivedAt && !operation.hasCompletedReko && (
                       <span className="text-xs text-muted-foreground">
-                        vor Ort {operation.rekoArrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
+                        {t('card.onSiteSince', { time: operation.rekoArrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
                       </span>
                     )}
                   </div>
@@ -407,7 +409,7 @@ function DraggableOperationBase({
                           )}
                           title={
                             isConflict
-                              ? `${crewName} ist auf mehreren Einsätzen — Doppelbelegung`
+                              ? t('card.doubleBookedTooltip', { name: crewName })
                               : undefined
                           }
                         >
@@ -419,7 +421,7 @@ function DraggableOperationBase({
                               onRemoveCrew(crewName)
                             }}
                             className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                            title={`${crewName} entfernen`}
+                            title={t('common.removeNamed', { name: crewName })}
                           >
                             <X className="h-2.5 w-2.5" />
                           </button>
@@ -439,14 +441,14 @@ function DraggableOperationBase({
                         className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
                       >
                         <Footprints className="h-3 w-3" />
-                        <span>Zu Fuss</span>
+                        <span>{t('common.zuFuss')}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             onToggleZuFuss?.()
                           }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                          title="Zu Fuss entfernen"
+                          title={t('common.removeZuFuss')}
                         >
                           <X className="h-2.5 w-2.5" />
                         </button>
@@ -460,7 +462,7 @@ function DraggableOperationBase({
                         key={vehicleName}
                         variant="secondary"
                         className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group transition-colors cursor-default"
-                        title={callsign ? `Funkrufname: ${callsign}` : undefined}
+                        title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                       >
                         <button
                           onClick={(e) => {
@@ -468,7 +470,7 @@ function DraggableOperationBase({
                             onToggleDriverStay?.(vehicleName)
                           }}
                           className="flex items-center gap-1 cursor-pointer"
-                          title={driverStay ? 'Fahrer bleibt vor Ort — klicken für Rückkehr' : 'Fahrer kehrt zurück — klicken für vor Ort bleiben'}
+                          title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                         >
                           <span>{vehicleName}{callsign ? ` · ${callsign}` : ''}</span>
                           {driverStay ? (
@@ -483,7 +485,7 @@ function DraggableOperationBase({
                             onRemoveVehicle(vehicleName)
                           }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                          title={`${vehicleName} entfernen`}
+                          title={t('common.removeNamed', { name: vehicleName })}
                         >
                           <X className="h-2.5 w-2.5" />
                         </button>
@@ -545,7 +547,7 @@ function DraggableOperationBase({
                                     }
                                   }}
                                   className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                                  title={`${group.name} entfernen`}
+                                  title={t('common.removeNamed', { name: group.name })}
                                 >
                                   <X className="h-2.5 w-2.5" />
                                 </button>
@@ -568,7 +570,7 @@ function DraggableOperationBase({
                                     onRemoveMaterial(materialId)
                                   }}
                                   className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                                  title={`${material?.name || materialId} entfernen`}
+                                  title={t('common.removeNamed', { name: material?.name || materialId })}
                                 >
                                   <X className="h-2.5 w-2.5" />
                                 </button>
@@ -602,7 +604,7 @@ function DraggableOperationBase({
 
               <div className="text-xs text-muted-foreground">
                 {operation.rekoSummary.personnelCount && (
-                  <span className="mr-3">{operation.rekoSummary.personnelCount} Pers.</span>
+                  <span className="mr-3">{t('card.persCount', { count: operation.rekoSummary.personnelCount })}</span>
                 )}
                 {operation.rekoSummary.estimatedDuration && (
                   <span>{operation.rekoSummary.estimatedDuration}h</span>
@@ -622,7 +624,7 @@ function DraggableOperationBase({
         {/* Bearbeiten */}
         <ContextMenuItem onClick={() => isLargeScreen ? onSelect?.() : onClick()}>
           <PenLine className="mr-2 h-4 w-4" />
-          Bearbeiten
+          {t('common.edit')}
         </ContextMenuItem>
 
         {/* Zuweisen — reko, crew, vehicle, material, and resource transfer */}
@@ -632,29 +634,29 @@ function DraggableOperationBase({
             {onAssignReko && (
               <ContextMenuItem onClick={() => onAssignReko()}>
                 <Binoculars className="mr-2 h-4 w-4" />
-                {operation.assignedReko ? 'Reko ändern' : 'Reko zuweisen'}
+                {operation.assignedReko ? t('card.changeReko') : t('card.assignReko')}
               </ContextMenuItem>
             )}
             {onAssignResource && (
               <>
                 <ContextMenuItem onClick={() => onAssignResource('crew', operation.id)}>
                   <Users className="mr-2 h-4 w-4" />
-                  Mannschaft zuweisen
+                  {t('common.assignCrew')}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
                   <Truck className="mr-2 h-4 w-4" />
-                  Fahrzeug zuweisen
+                  {t('common.assignVehicle')}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => onAssignResource('materials', operation.id)}>
                   <Package className="mr-2 h-4 w-4" />
-                  Material zuweisen
+                  {t('common.assignMaterial')}
                 </ContextMenuItem>
               </>
             )}
             {onTransfer && (
               <ContextMenuItem onClick={() => onTransfer()}>
                 <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Ressourcen übertragen
+                {t('common.transferResources')}
               </ContextMenuItem>
             )}
           </>
@@ -667,19 +669,19 @@ function DraggableOperationBase({
             {onToggleZuFuss && (
               <ContextMenuItem onClick={() => onToggleZuFuss()}>
                 <Footprints className="mr-2 h-4 w-4" />
-                {operation.zuFuss ? 'Zu Fuss entfernen' : 'Zu Fuss markieren'}
+                {operation.zuFuss ? t('common.removeZuFuss') : t('card.markZuFuss')}
               </ContextMenuItem>
             )}
             {onToggleNachbarhilfe && (
               <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
                 <Building2 className="mr-2 h-4 w-4" />
-                {operation.nachbarhilfe ? 'Nachbarhilfe entfernen' : 'Als Nachbarhilfe markieren'}
+                {operation.nachbarhilfe ? t('card.removeNachbarhilfe') : t('card.markNachbarhilfe')}
               </ContextMenuItem>
             )}
             {onToggleAmWarten && (
               <ContextMenuItem onClick={() => onToggleAmWarten()}>
                 <Timer className="mr-2 h-4 w-4" />
-                {operation.amWarten ? 'Am Warten entfernen' : 'Als Am Warten markieren'}
+                {operation.amWarten ? t('card.removeAmWarten') : t('card.markAmWarten')}
               </ContextMenuItem>
             )}
           </>
@@ -692,7 +694,7 @@ function DraggableOperationBase({
             <ContextMenuSeparator />
             <ContextMenuItem onClick={() => onRequestComplete()}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Einsatz abschliessen
+              {t('card.completeIncident')}
             </ContextMenuItem>
           </>
         )}
@@ -702,13 +704,13 @@ function DraggableOperationBase({
         <ContextMenuItem asChild>
           <Link href={`/map?highlight=${operation.id}`}>
             <Map className="mr-2 h-4 w-4" />
-            Auf Karte zeigen
+            {t('card.showOnMapMenu')}
           </Link>
         </ContextMenuItem>
         {printerEnabled && (
           <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
             <Printer className="mr-2 h-4 w-4" />
-            {isPrinting ? 'Drucke...' : 'Einsatzzettel drucken'}
+            {isPrinting ? t('card.printing') : t('common.printSlip')}
           </ContextMenuItem>
         )}
       </ContextMenuContent>

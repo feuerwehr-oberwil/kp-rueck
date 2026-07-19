@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import Link from "next/link"
 import type { Incident } from "@/lib/types/incidents"
-import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from "@/lib/types/incidents"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { useTranslations } from "next-intl"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { VehicleTags } from "./vehicle-tags"
 import { AssignRekoDialog } from "./assign-reko-dialog"
 
@@ -26,10 +27,10 @@ interface IncidentCardProps {
 
 function getTimeSince(date: Date): { text: string; isOverOneHour: boolean } {
   const minutes = Math.floor((Date.now() - date.getTime()) / 1000 / 60)
-  if (minutes < 60) return { text: `${minutes} Min`, isOverOneHour: false }
+  if (minutes < 60) return { text: translateOutsideReact('incidents.card.minutesAgo', { minutes }), isOverOneHour: false }
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  return { text: `${hours}h ${mins}m`, isOverOneHour: true }
+  return { text: translateOutsideReact('incidents.card.hoursMinutes', { hours, mins }), isOverOneHour: true }
 }
 
 function formatTime(date: Date): string {
@@ -49,6 +50,7 @@ export function IncidentCard({
   onTransfer,
   showAssignReko,
 }: IncidentCardProps) {
+  const t = useTranslations('incidents')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [showRekoDialog, setShowRekoDialog] = useState(false)
@@ -109,8 +111,8 @@ export function IncidentCard({
                 }`}
                 title={
                   incident.has_completed_reko
-                    ? 'Reko-Bericht ausgefüllt'
-                    : 'Reko vor Ort'
+                    ? t('card.rekoCompleted')
+                    : t('card.rekoOnSite')
                 }
               >
                 <Binoculars
@@ -133,7 +135,7 @@ export function IncidentCard({
                     <Map className="h-4 w-4 text-muted-foreground" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent>Auf Karte anzeigen</TooltipContent>
+                <TooltipContent>{t('card.showOnMap')}</TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -143,7 +145,7 @@ export function IncidentCard({
         <div className="flex items-center gap-2">
           <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <span className="text-sm font-medium text-foreground">
-            {INCIDENT_TYPE_LABELS[incident.type]}
+            {t(`types.${incident.type}`)}
           </span>
         </div>
 
@@ -163,7 +165,7 @@ export function IncidentCard({
         {/* Priority badge row */}
         <div className="flex items-center gap-2">
           <Badge variant={priorityVariant} className="text-xs">
-            {PRIORITY_LABELS[incident.priority]}
+            {t(`priority.${incident.priority}`)}
           </Badge>
         </div>
 
@@ -199,7 +201,7 @@ export function IncidentCard({
             className="w-full gap-2 mt-2"
           >
             <Search className="h-4 w-4" />
-            Reko zuweisen
+            {t('card.assignReko')}
           </Button>
         )}
 
@@ -215,7 +217,7 @@ export function IncidentCard({
             className="w-full gap-2 mt-2 border border-border"
           >
             <ArrowRightLeft className="h-4 w-4" />
-            Ressourcen übertragen
+            {t('card.transferResources')}
           </Button>
         )}
       </div>

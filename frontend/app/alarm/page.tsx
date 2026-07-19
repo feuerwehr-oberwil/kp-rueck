@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Check, ChevronsUpDown, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,7 @@ function CenteredSpinner() {
 type Status = 'loading' | 'invalid' | 'ready' | 'success'
 
 function AlarmIntake() {
+  const t = useTranslations('intake.alarm')
   const searchParams = useSearchParams()
   const token = searchParams.get('token') ?? ''
 
@@ -74,9 +76,9 @@ function AlarmIntake() {
     return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
         <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-destructive" />
-        <h1 className="text-lg font-semibold">Link ungültig oder abgelaufen</h1>
+        <h1 className="text-lg font-semibold">{t('invalidTitle')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Dieser Alarm-Link ist nicht mehr gültig. Bitte fordern Sie einen neuen Link an.
+          {t('invalidDescription')}
         </p>
       </div>
     )
@@ -97,18 +99,19 @@ function AlarmIntake() {
 }
 
 function SuccessScreen({ eventName, onAnother }: { eventName: string; onAnother: () => void }) {
+  const t = useTranslations('intake.alarm')
   return (
     <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
       <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
         <Check className="h-7 w-7 text-emerald-500" />
       </div>
-      <h1 className="text-lg font-semibold">Alarm erfasst</h1>
+      <h1 className="text-lg font-semibold">{t('successTitle')}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Der Alarm wurde an die Einsatzleitung übermittelt ({eventName}).
+        {t('successDescription', { eventName })}
       </p>
       <Button className="mt-6 w-full" size="lg" onClick={onAnother}>
         <Plus className="mr-2 h-5 w-5" />
-        Weiteren Alarm erfassen
+        {t('another')}
       </Button>
     </div>
   )
@@ -122,6 +125,7 @@ interface AlarmFormProps {
 }
 
 function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps) {
+  const t = useTranslations('intake.alarm')
   const [title, setTitle] = useState('')
   const [type, setType] = useState<IncidentType>('elementarereignis')
   const [priority, setPriority] = useState<IncidentPriority>('medium')
@@ -156,7 +160,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
       setError(
         err instanceof Error && err.message
           ? err.message
-          : 'Der Alarm konnte nicht übermittelt werden. Bitte erneut versuchen.'
+          : t('submitError')
       )
     } finally {
       setSubmitting(false)
@@ -168,13 +172,13 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
       <header>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Plus className="h-6 w-6 text-primary" />
-          Alarm erfassen
+          {t('title')}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{eventName}</p>
         {trainingFlag && (
           <span className="mt-2 inline-flex items-center gap-2 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs text-amber-500">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Übungsmodus
+            {t('trainingMode')}
           </span>
         )}
       </header>
@@ -195,13 +199,13 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
       {/* Meldung — what was reported (not the address, that's the location above) */}
       <div>
         <Label htmlFor="title" className="text-sm font-semibold text-muted-foreground">
-          Meldung *
+          {t('messageLabel')}
         </Label>
         <Input
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="z.B. Brennt im Keller, starke Rauchentwicklung"
+          placeholder={t('messagePlaceholder')}
           className="mt-2 h-12 text-base"
           required
           autoFocus
@@ -210,7 +214,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
 
       {/* Priority — three quick buttons (mobile-friendly, like the Reko form) */}
       <div>
-        <Label className="text-sm font-semibold text-muted-foreground">Priorität *</Label>
+        <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')}</Label>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
             <Button
@@ -228,7 +232,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
 
       {/* Type */}
       <div>
-        <Label className="text-sm font-semibold text-muted-foreground">Einsatzart *</Label>
+        <Label className="text-sm font-semibold text-muted-foreground">{t('typeLabel')}</Label>
         <Popover open={typeOpen} onOpenChange={setTypeOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -244,9 +248,9 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
           </PopoverTrigger>
           <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
             <Command>
-              <CommandInput placeholder="Einsatzart suchen..." />
+              <CommandInput placeholder={t('typeSearchPlaceholder')} />
               <CommandList>
-                <CommandEmpty>Keine Einsatzart gefunden.</CommandEmpty>
+                <CommandEmpty>{t('typeNotFound')}</CommandEmpty>
                 <CommandGroup>
                   {Object.entries(INCIDENT_TYPE_LABELS).map(([key, label]) => (
                     <CommandItem
@@ -271,13 +275,13 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
       {/* Description */}
       <div>
         <Label htmlFor="description" className="text-sm font-semibold text-muted-foreground">
-          Weitere Hinweise
+          {t('hintsLabel')}
         </Label>
         <Textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Besonderheiten, Gefahren, Anzahl betroffener Personen..."
+          placeholder={t('hintsPlaceholder')}
           className="mt-2 min-h-[100px] text-base"
         />
       </div>
@@ -285,13 +289,13 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
       {/* Contact (Melder / Anrufer) */}
       <div>
         <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">
-          Melder / Anrufer
+          {t('contactLabel')}
         </Label>
         <Input
           id="contact"
           value={contact}
           onChange={(e) => setContact(e.target.value)}
-          placeholder="Name / Telefonnummer der meldenden Person"
+          placeholder={t('contactPlaceholder')}
           className="mt-2 h-12 text-base"
         />
       </div>
@@ -306,12 +310,12 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         {submitting ? (
           <>
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Wird übermittelt...
+            {t('submitting')}
           </>
         ) : (
           <>
             <Plus className="mr-2 h-5 w-5" />
-            Alarm absenden
+            {t('submit')}
           </>
         )}
       </Button>

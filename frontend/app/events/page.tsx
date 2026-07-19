@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
@@ -31,6 +32,7 @@ import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
 
 export default function EventsPage() {
+  const t = useTranslations('events')
   const router = useRouter()
   const searchParams = useSearchParams()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
@@ -151,7 +153,7 @@ export default function EventsPage() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Bericht-Export fehlgeschlagen')
+      toast.error(err instanceof Error ? err.message : t('page.reportExportFailed'))
     } finally {
       setReportLoadingId(null)
     }
@@ -177,7 +179,7 @@ export default function EventsPage() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Audit-Export fehlgeschlagen')
+      toast.error(err instanceof Error ? err.message : t('page.auditExportFailed'))
     } finally {
       setAuditLoadingId(null)
     }
@@ -189,23 +191,23 @@ export default function EventsPage() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" disabled={busy} title="Exportieren">
+          <Button variant="outline" disabled={busy} title={t('page.exportTitle')}>
             {busy ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Download className="mr-2 h-4 w-4" />
             )}
-            Export
+            {t('page.export')}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
             <FileText className="mr-2 h-4 w-4" />
-            Bericht (PDF)
+            {t('page.exportReport')}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleAuditExport(event)} className="cursor-pointer">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Audit (XLSX)
+            {t('page.exportAudit')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -316,10 +318,10 @@ export default function EventsPage() {
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Ereignisse</h1>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
             {selectedEvent && (
               <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">
-                Aktiv: {selectedEvent.name}
+                {t('page.activeBadge', { name: selectedEvent.name })}
               </Badge>
             )}
           </div>
@@ -327,7 +329,7 @@ export default function EventsPage() {
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <Button onClick={() => setShowCreateDialog(true)} size="sm" className="hidden sm:flex">
               <Plus className="mr-2 h-4 w-4" />
-              Neues Ereignis
+              {t('page.newEvent')}
             </Button>
             <Button onClick={() => setShowCreateDialog(true)} size="icon" className="sm:hidden">
               <Plus className="h-5 w-5" />
@@ -350,7 +352,7 @@ export default function EventsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Ereignisse durchsuchen..."
+                  placeholder={t('page.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -363,8 +365,8 @@ export default function EventsPage() {
               <Card>
                 <CardContent className="pt-6 text-center text-muted-foreground">
                   {events.length === 0
-                    ? 'Keine Ereignisse vorhanden. Erstellen Sie ein neues Ereignis, um zu beginnen.'
-                    : 'Keine Ereignisse gefunden.'}
+                    ? t('page.emptyNone')
+                    : t('page.emptySearch')}
                 </CardContent>
               </Card>
             ) : (
@@ -372,7 +374,7 @@ export default function EventsPage() {
                 {/* Active Events Section */}
                 {filteredActiveEvents.length > 0 && (
                   <div>
-                    <h2 className="text-xl font-semibold mb-4">Aktive Ereignisse</h2>
+                    <h2 className="text-xl font-semibold mb-4">{t('page.activeSection')}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {filteredActiveEvents.map((event) => (
                         <Card
@@ -392,9 +394,9 @@ export default function EventsPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-2 text-sm text-muted-foreground">
-                              <div>Einsätze: {event.incident_count}</div>
-                              <div>Erstellt: {new Date(event.created_at).toLocaleDateString('de-CH')}</div>
-                              <div>Letzte Aktivität: {new Date(event.last_activity_at).toLocaleString('de-CH')}</div>
+                              <div>{t('page.incidentCount', { count: event.incident_count })}</div>
+                              <div>{t('page.createdAt', { date: new Date(event.created_at).toLocaleDateString('de-CH') })}</div>
+                              <div>{t('page.lastActivity', { date: new Date(event.last_activity_at).toLocaleString('de-CH') })}</div>
                             </div>
 
                             <div className="mt-4 flex gap-2">
@@ -402,12 +404,12 @@ export default function EventsPage() {
                                 className="flex-1"
                                 onClick={() => handleSelectEvent(event)}
                               >
-                                Auswählen
+                                {t('page.select')}
                               </Button>
                               <Button
                                 variant="outline"
                                 size="icon"
-                                title="Archivieren"
+                                title={t('page.archive')}
                                 onClick={() => {
                                   setTargetEvent(event)
                                   setShowArchiveDialog(true)
@@ -427,7 +429,7 @@ export default function EventsPage() {
                 {/* Archived Events Section */}
                 {filteredArchivedEvents.length > 0 && (
                   <div>
-                    <h2 className="text-xl font-semibold mb-4 text-muted-foreground">Archivierte Ereignisse</h2>
+                    <h2 className="text-xl font-semibold mb-4 text-muted-foreground">{t('page.archivedSection')}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {filteredArchivedEvents.map((event) => (
                         <Card
@@ -445,9 +447,9 @@ export default function EventsPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-2 text-sm text-muted-foreground">
-                              <div>Einsätze: {event.incident_count}</div>
-                              <div>Erstellt: {new Date(event.created_at).toLocaleDateString('de-CH')}</div>
-                              <div>Archiviert: {new Date(event.archived_at!).toLocaleDateString('de-CH')}</div>
+                              <div>{t('page.incidentCount', { count: event.incident_count })}</div>
+                              <div>{t('page.createdAt', { date: new Date(event.created_at).toLocaleDateString('de-CH') })}</div>
+                              <div>{t('page.archivedAt', { date: new Date(event.archived_at!).toLocaleDateString('de-CH') })}</div>
                             </div>
 
                             <div className="mt-4 flex gap-2">
@@ -457,13 +459,13 @@ export default function EventsPage() {
                                 onClick={() => handleUnarchive(event)}
                               >
                                 <ArchiveRestore className="mr-2 h-4 w-4" />
-                                Wiederherstellen
+                                {t('page.restore')}
                               </Button>
                               {renderExportMenu(event)}
                               <Button
                                 variant="destructive"
                                 size="icon"
-                                title="Löschen"
+                                title={t('page.delete')}
                                 onClick={() => {
                                   setTargetEvent(event)
                                   setShowDeleteDialog(true)
@@ -487,16 +489,16 @@ export default function EventsPage() {
         <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Neues Ereignis erstellen</DialogTitle>
+              <DialogTitle>{t('createDialog.title')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="event-name">Name</Label>
+                <Label htmlFor="event-name">{t('createDialog.nameLabel')}</Label>
                 <Input
                   id="event-name"
                   value={newEventName}
                   onChange={(e) => setNewEventName(e.target.value)}
-                  placeholder="z.B. Hochwasser 2026-02-19"
+                  placeholder={t('createDialog.namePlaceholder')}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newEventName.trim() && !isCreating) {
@@ -506,7 +508,7 @@ export default function EventsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Modus</Label>
+                <Label>{t('createDialog.modeLabel')}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -522,7 +524,7 @@ export default function EventsPage() {
                     }`}
                   >
                     <Siren className="h-4 w-4 shrink-0" />
-                    Einsatz
+                    {t('createDialog.modeLive')}
                   </button>
                   <button
                     type="button"
@@ -538,18 +540,18 @@ export default function EventsPage() {
                     }`}
                   >
                     <GraduationCap className="h-4 w-4 shrink-0" />
-                    Übung
+                    {t('createDialog.modeTraining')}
                   </button>
                 </div>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
-                Abbrechen
+                {t('createDialog.cancel')}
               </Button>
               <Button onClick={handleCreateEvent} disabled={isCreating || !newEventName.trim()}>
                 {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isCreating ? 'Erstellen...' : 'Erstellen'}
+                {isCreating ? t('createDialog.creating') : t('createDialog.create')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -559,21 +561,20 @@ export default function EventsPage() {
       <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ereignis archivieren?</DialogTitle>
+            <DialogTitle>{t('archiveDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <p>Möchten Sie das Ereignis "{targetEvent?.name}" archivieren?</p>
+            <p>{t('archiveDialog.question', { name: targetEvent?.name ?? '' })}</p>
             <p className="text-sm text-muted-foreground">
-              Das Ereignis wird ausgeblendet, aber alle Daten bleiben erhalten.
-              Sie können es später dauerhaft löschen.
+              {t('archiveDialog.note')}
             </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
-              Abbrechen
+              {t('archiveDialog.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleArchive}>
-              Archivieren
+              {t('archiveDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -583,23 +584,23 @@ export default function EventsPage() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ereignis dauerhaft löschen?</DialogTitle>
+            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <p className="font-semibold text-destructive">
-              Warnung: Dieser Vorgang kann nicht rückgängig gemacht werden!
+              {t('deleteDialog.warning')}
             </p>
-            <p>Möchten Sie das Ereignis "{targetEvent?.name}" und alle zugehörigen Einsätze wirklich dauerhaft löschen?</p>
+            <p>{t('deleteDialog.question', { name: targetEvent?.name ?? '' })}</p>
             <p className="text-sm text-muted-foreground">
-              Dies betrifft {targetEvent?.incident_count || 0} Einsätze und alle zugehörigen Daten.
+              {t('deleteDialog.note', { count: targetEvent?.incident_count || 0 })}
             </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-              Abbrechen
+              {t('deleteDialog.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
-              Dauerhaft löschen
+              {t('deleteDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
