@@ -1,58 +1,59 @@
-# i18n Phase 1 — Resume Status (2026-07-19)
+# i18n Phase 1 — COMPLETE (2026-07-19)
 
-Branch `feat/i18n` in worktree `.claude/worktrees/i18n`. Plan: `docs/plans/06-i18n.md` (Phase 1, German-only extraction).
+Branch `feat/i18n` in worktree `.claude/worktrees/i18n`. Plan: `docs/plans/06-i18n.md`.
+Phase 1 = German-only extraction, zero intended visual change. **Done.**
 
-## Interrupted by Claude monthly spend limit
+## What shipped
 
-Eight parallel extraction agents ran; two finished and were committed cleanly,
-six were cut off mid-verification. Their part catalogs were all recovered and
-**every key from all 8 areas is already merged into `frontend/messages/de.json`**.
-The WIP commit after this file contains the six unverified areas' code edits.
+- **Infrastructure:** `next-intl` (v4), cookie-based locale (`NEXT_LOCALE`, default `de`,
+  no URL routing), provider in `app/layout.tsx`, server request config in
+  `i18n/request.ts`, plugin in `next.config.mjs`.
+- **Helpers:** `lib/i18n-messages.ts` (`translateOutsideReact`, `getActiveLocale`,
+  `loadMessages` with de fallback), `lib/date-locale.ts` (`getDateFnsLocale`).
+  `getIncidentTypeLabel`/`getOperationStatusLabel` made locale-aware.
+- **Catalog:** `messages/de.json`, 20 namespaces, German = source of truth.
+  A key missing in another locale falls back to `de` (no crash, no console spam).
+- **Extraction:** every user-facing German UI string across ~120 files replaced
+  with `t()` / `getTranslations` / `translateOutsideReact`. Domain/DB status,
+  type and priority *values* stay untranslated; only their display *labels* are.
+- **Tests:** `test-utils/render-with-intl.tsx` wrapper; `lib/i18n.test.ts` catalog
+  sanity (no empty values, balanced ICU braces); provider-dependent RTL tests
+  migrated. Suite green: 27 files / 157 tests.
 
-## Completed + committed (verified, tsc clean at the time)
+## Verification (all green)
 
-- `f8034b7` infra: next-intl, cookie locale, provider, helpers
-- `e7ce707` toasts/contexts/api-client (`notifications.*`, `errors.api.*`)
-- `c810eb5` login/nav/common/error pages (216 keys)
+- `pnpm exec tsc --noEmit` — 0 errors.
+- `pnpm test` — 157/157.
+- `pnpm lint` — 0 errors (248 pre-existing warnings, unrelated).
+- `pre-commit run --all-files` — all hooks pass (backend ruff hooks skip: not on host).
+- German-word sweep (`scratchpad/german-sweep.js`, catches non-umlaut German too):
+  remaining hits are all JSX comments, TS type names (`Person[]`/`Material[]`), or
+  the documented carve-outs below.
+- Runtime smoke on a worktree dev server: `/login` (client provider) and the 404
+  page (server `getTranslations`) both render German, no `MISSING_MESSAGE`/`IntlError`.
 
-## In the WIP commit (edits applied, NOT verified — tsc/lint/tests not run)
+## Intentional carve-outs (stay German by design)
 
-| Area | Files | Namespaces |
-|---|---|---|
-| kanban | app/page.tsx, components/kanban/**, lib/kanban-utils.ts, lib/types/incidents.ts | kanban |
-| incidents | components/incidents/**, driver/vehicle/gps prompts, components/mobile/**, lib/status-labels.ts, lib/incident-types.ts, lib/api/types/vehicles.ts | incidents |
-| settings | app/settings/page.tsx, components/settings/** | settings |
-| print/training/sync | components/print/**, training-*, components/sync/**, notification-settings, event-setup-checklist, lib/checklist-tasks.ts | print, training, sync, checklist, notifications.settings |
-| map/events/display | app/map, components/map*, location/*, app/events, app/display/**, app/viewer/*, app/help | map, events, display, viewer, help |
-| reko/divera/intake | app/reko*, components/reko/**, app/divera-pool, components/divera/**, app/alarm, app/check-in, lib/api/types/divera.ts | reko, divera, intake |
+- Printed output: `components/print/print-view.tsx`, `components/print/printable-map.tsx`,
+  and the QR-label `title`/`subtitle` sent to `queueQRCodePrint` in
+  `components/event-setup-checklist.tsx` (they are print content, never on screen).
+- WhatsApp message bodies (`lib/whatsapp-formatter.ts`) and Divera outbound message
+  bodies in `components/divera/divera-send-dialog.tsx` (dialog chrome IS translated).
+- Training/demo prefill content: the dummy-summary arrays in
+  `components/reko/reko-form.tsx` (same rule as seeded incident titles = data).
+- Brand "KP Rück", transliteration/slug regexes, `console.*`, comments.
+- `components/assignment-selector.tsx` is pre-existing **English** UI (Personnel/
+  Vehicle/Material) — no German to extract; left as-is (separate copy concern).
 
-## Remaining work to finish Phase 1
+## Not done here (later phases / follow-ups)
 
-1. `cd frontend && pnpm exec tsc --noEmit` — fix errors in the six WIP areas
-   (likely a few half-applied edits at the exact cutoff point).
-2. Missing-key sweep: grep the six areas' files for `t('` / `useTranslations(`
-   keys and confirm each exists in `messages/de.json` (agents wrote part files
-   before final self-checks; a few call sites may reference keys never written —
-   add the German string to de.json in that case).
-3. Leftover-German sweep: `grep -rnE 'ä|ö|ü|Ä|Ö|Ü' app components --include='*.tsx'`
-   minus known intentional leftovers (print/WhatsApp/Divera OUTPUT content stays
-   German by decision; brand names; domain values).
-4. Known follow-ups from finished agents:
-   - `lib/hooks/use-reko-notifications.tsx` — unassigned file, duplicates danger-type
-     labels; reuse `notifications.operations.dangerTypes.*`.
-   - `stats-widget.tsx` renders labels from `STATUS_LABELS` in `lib/types/incidents.ts`
-     — confirm the kanban/incidents agents translated those render sites.
-   - `connection-status.tsx` had pre-existing ENGLISH strings — keyed as-is under
-     `common.connectionStatus.*` (copy bug to fix separately).
-5. Tests (plan §Test plan): `test-utils/render-with-intl.tsx` wrapper around
-   NextIntlClientProvider + de.json; migrate failing RTL tests; add
-   `lib/i18n.test.ts` (no empty values, ICU placeholder sanity); run
-   `pnpm test`, `pnpm lint`, `pnpm exec tsc --noEmit`.
-6. Run `pre-commit run --all-files` once (per-area commits used --no-verify).
-7. Squash/keep the WIP commit as desired; delete this file before merge to main.
+- `fr.json` + French (Phase 2), language switcher (Phase 3), `it.json`.
+- Backend strings stay German (explicit non-goal).
+- `components/connection-status.tsx` had pre-existing **English** strings; keyed
+  as-is under `common.connectionStatus.*` — a copy bug for a translator, not i18n.
 
-Extraction conventions used by all agents: see the spec copied below this repo at
-the session scratchpad, summarized: `useTranslations('<ns>')` in client components,
-`getTranslations` in server components, `translateOutsideReact('full.key')` from
-`@/lib/i18n-messages` outside React (never at module scope); ICU placeholders;
-DB/domain values never translated; printed/WhatsApp/Divera output content stays German.
+## Before merging to main
+
+- History includes one `WIP(i18n): … cut off by spend limit` commit (all later
+  verified); squash the `feat/i18n` commits if you want clean per-area history.
+- Delete this file.
