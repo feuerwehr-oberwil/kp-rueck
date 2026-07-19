@@ -187,6 +187,7 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
             availability="available",
         )
         person = await personnel_crud.create_personnel(db, personnel_data, current_user, request)
+        created += 1
         divera_id = member.get("divera_id")
         if divera_id:
             person.divera_user_id = divera_id
