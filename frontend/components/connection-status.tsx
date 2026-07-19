@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { getApiUrl } from "@/lib/env"
 
 export function ConnectionStatus() {
+  const t = useTranslations('common.connectionStatus')
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking")
   const [lastCheck, setLastCheck] = useState<Date>(new Date())
   const [apiUrl] = useState(getApiUrl())
@@ -48,22 +50,22 @@ export function ConnectionStatus() {
   const getStatusText = () => {
     switch (status) {
       case "connected":
-        return "Connected"
+        return t('statusConnected')
       case "disconnected":
-        return "Offline"
+        return t('statusDisconnected')
       case "checking":
-        return "Checking..."
+        return t('statusChecking')
     }
   }
 
   const getStatusLabel = () => {
     switch (status) {
       case "connected":
-        return "Backend verbunden"
+        return t('labelConnected')
       case "disconnected":
-        return "Backend nicht erreichbar"
+        return t('labelDisconnected')
       case "checking":
-        return "Verbindung wird geprüft"
+        return t('labelChecking')
     }
   }
 
@@ -83,7 +85,7 @@ export function ConnectionStatus() {
       <PopoverContent className="w-64" align="end">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Backend Status</span>
+            <span className="text-sm font-medium">{t('backendStatus')}</span>
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} aria-hidden="true" />
               <span className="text-sm">{getStatusText()}</span>
@@ -91,13 +93,13 @@ export function ConnectionStatus() {
           </div>
           <div className="border-t pt-2 space-y-1">
             <div className="text-xs text-muted-foreground">
-              <span className="font-medium">Backend URL:</span>
+              <span className="font-medium">{t('backendUrl')}</span>
               <div className="mt-1 font-mono text-xs break-all">
                 {apiUrl}
               </div>
             </div>
             <div className="text-xs text-muted-foreground">
-              <span className="font-medium">Last check:</span> {formatTime(lastCheck)}
+              <span className="font-medium">{t('lastCheck')}</span> {formatTime(lastCheck)}
             </div>
           </div>
         </div>

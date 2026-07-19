@@ -6,6 +6,7 @@
  */
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { checkBackendHealth } from '@/lib/auth-client';
 import { useEffect, useState, useRef } from 'react';
@@ -45,6 +46,7 @@ function AuthLoadingScreen({ message }: { message: string }) {
 }
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('login.protectedRoute');
   const { user, loading } = useAuth();
   const router = useRouter();
   const [backendAvailable, setBackendAvailable] = useState(true);
@@ -70,7 +72,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (loading || checkingBackend) {
     return (
       <AuthLoadingScreen
-        message={loading ? 'Anmeldung wird vorbereitet...' : 'Prüfe Serververbindung...'}
+        message={loading ? t('preparingLogin') : t('checkingServer')}
       />
     );
   }
@@ -95,15 +97,15 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
               />
             </svg>
           </div>
-          <h2 className="text-xl font-bold mb-2">Server nicht erreichbar</h2>
+          <h2 className="text-xl font-bold mb-2">{t('serverUnreachableTitle')}</h2>
           <p className="text-muted-foreground mb-4">
-            Der Backend-Server ist momentan nicht verfügbar. Bitte stellen Sie sicher, dass der Server läuft.
+            {t('serverUnreachableDescription')}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
           >
-            Erneut versuchen
+            {t('retry')}
           </button>
         </div>
       </div>
@@ -122,6 +124,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
  * Redirects to home if user is not an editor
  */
 export function EditorRoute({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('login.protectedRoute');
   const { user, loading, isEditor } = useAuth();
   const router = useRouter();
 
@@ -134,7 +137,7 @@ export function EditorRoute({ children }: { children: React.ReactNode }) {
   }, [user, loading, isEditor, router]);
 
   if (loading) {
-    return <AuthLoadingScreen message="Anmeldung wird vorbereitet..." />;
+    return <AuthLoadingScreen message={t('preparingLogin')} />;
   }
 
   if (!user || !isEditor) return null;

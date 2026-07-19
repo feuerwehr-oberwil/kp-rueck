@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Copy, Check } from 'lucide-react'
 import { Button } from './button'
 import { toast } from 'sonner'
@@ -19,22 +20,23 @@ export function CopyButton({
   variant = 'outline',
   className = ''
 }: CopyButtonProps) {
+  const t = useTranslations('common.copyButton')
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
     try {
       await copyToClipboard(text)
       setCopied(true)
-      toast.success('Kopiert', {
-        description: 'Text wurde in die Zwischenablage kopiert.',
+      toast.success(t('copiedTitle'), {
+        description: t('copiedDescription'),
       })
 
       // Reset copied state after 2 seconds
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Failed to copy text:', error)
-      toast.error('Fehler', {
-        description: 'Text konnte nicht kopiert werden.',
+      toast.error(t('errorTitle'), {
+        description: t('errorDescription'),
       })
     }
   }
@@ -49,12 +51,12 @@ export function CopyButton({
       {copied ? (
         <>
           <Check className="h-4 w-4 mr-1" />
-          Kopiert
+          {t('copied')}
         </>
       ) : (
         <>
           <Copy className="h-4 w-4 mr-1" />
-          Kopieren
+          {t('copy')}
         </>
       )}
     </Button>

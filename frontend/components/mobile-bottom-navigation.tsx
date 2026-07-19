@@ -11,6 +11,7 @@ import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, R
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,7 @@ export function MobileBottomNavigation({
   onThermo,
   printerEnabled = false,
 }: MobileBottomNavigationProps) {
+  const t = useTranslations('nav.mobileBottomNav')
   const { isEditor, logout } = useAuth()
   const { selectedEvent, events, setSelectedEvent } = useEvent()
   const router = useRouter()
@@ -60,14 +62,14 @@ export function MobileBottomNavigation({
   const tabs = [
     {
       id: 'kanban',
-      label: 'Einsätze',
+      label: t('incidents'),
       icon: List,
       href: '/',
       disabled: !hasSelectedEvent,
     },
     {
       id: 'map',
-      label: 'Karte',
+      label: t('map'),
       icon: MapIcon,
       href: '/map',
       disabled: !hasSelectedEvent,
@@ -77,9 +79,9 @@ export function MobileBottomNavigation({
   // Secondary navigation items for "More" sheet (event switching is handled in
   // its own section below since it needs the live event list).
   const secondaryItems = [
-    { id: 'settings', label: 'Einstellungen', icon: Settings, href: '/settings', category: 'Verwaltung' },
-    { id: 'divera', label: 'Divera Notfälle', icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
-    { id: 'help', label: 'Hilfe & Dokumentation', icon: HelpCircle, href: '/help', category: 'Support' },
+    { id: 'settings', label: t('settings'), icon: Settings, href: '/settings', category: 'Verwaltung' },
+    { id: 'divera', label: t('diveraPool'), icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
+    { id: 'help', label: t('helpDocs'), icon: HelpCircle, href: '/help', category: 'Support' },
   ]
 
   // Handle tap animation
@@ -139,10 +141,10 @@ export function MobileBottomNavigation({
                 (currentPage !== 'settings' && currentPage !== 'help') && "text-muted-foreground hover:text-foreground",
                 tapAnimation === 'more' && "animate-bounce-tap"
               )}
-              aria-label="Mehr Optionen"
+              aria-label={t('moreOptions')}
             >
               <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs font-medium">Mehr</span>
+              <span className="text-xs font-medium">{t('more')}</span>
             </button>
           </SheetTrigger>
           <SheetContent
@@ -153,7 +155,7 @@ export function MobileBottomNavigation({
             }}
           >
             <SheetHeader className="mb-4 -mx-6 px-6 pb-3 border-b">
-              <SheetTitle>Weitere Funktionen</SheetTitle>
+              <SheetTitle>{t('moreFunctions')}</SheetTitle>
               <div className="flex items-center gap-2 pt-2">
                 <RoleBadge />
               </div>
@@ -164,15 +166,15 @@ export function MobileBottomNavigation({
                   top-bar event switcher, which is hidden on mobile). */}
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
-                  Ereignis
+                  {t('event')}
                 </h3>
                 <div className="space-y-2">
                   <div className="px-3 py-2 rounded-lg bg-muted/50">
                     <p className="text-sm font-semibold truncate">
-                      {selectedEvent ? selectedEvent.name : 'Kein Ereignis ausgewählt'}
+                      {selectedEvent ? selectedEvent.name : t('noEventSelected')}
                     </p>
                     {selectedEvent?.training_flag && (
-                      <span className="text-xs text-orange-600 dark:text-orange-400">Übung</span>
+                      <span className="text-xs text-orange-600 dark:text-orange-400">{t('training')}</span>
                     )}
                   </div>
                   {otherEvents.map((event) => (
@@ -198,7 +200,7 @@ export function MobileBottomNavigation({
                     }}
                   >
                     <Plus className="h-5 w-5" />
-                    <span>Neues Ereignis</span>
+                    <span>{t('newEvent')}</span>
                   </Button>
                   <Link href="/events" onClick={() => setSheetOpen(false)}>
                     <Button
@@ -206,7 +208,7 @@ export function MobileBottomNavigation({
                       className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight"
                     >
                       <Calendar className="h-5 w-5" />
-                      <span>Alle Ereignisse</span>
+                      <span>{t('allEvents')}</span>
                     </Button>
                   </Link>
                 </div>
@@ -221,7 +223,7 @@ export function MobileBottomNavigation({
               <>
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
-                  Schnellzugriff
+                  {t('quickActions')}
                 </h3>
                 <div className="space-y-1">
                   {/* Check-In Button */}
@@ -235,7 +237,7 @@ export function MobileBottomNavigation({
                       }}
                     >
                       <QrCode className="h-5 w-5" />
-                      <span>Check-In QR-Code</span>
+                      <span>{t('checkInQr')}</span>
                     </Button>
                   )}
 
@@ -250,7 +252,7 @@ export function MobileBottomNavigation({
                       }}
                     >
                       <Search className="h-5 w-5" />
-                      <span>Reko</span>
+                      <span>{t('reko')}</span>
                     </Button>
                   )}
 
@@ -265,7 +267,7 @@ export function MobileBottomNavigation({
                       }}
                     >
                       <Eye className="h-5 w-5" />
-                      <span>Viewer</span>
+                      <span>{t('viewer')}</span>
                     </Button>
                   )}
 
@@ -280,7 +282,7 @@ export function MobileBottomNavigation({
                       }}
                     >
                       <Users className="h-5 w-5" />
-                      <span>Personal</span>
+                      <span>{t('personnel')}</span>
                     </Button>
                   )}
 
@@ -295,7 +297,7 @@ export function MobileBottomNavigation({
                       }}
                     >
                       <Truck className="h-5 w-5" />
-                      <span>Fahrzeuge</span>
+                      <span>{t('vehicles')}</span>
                     </Button>
                   )}
 
@@ -310,7 +312,7 @@ export function MobileBottomNavigation({
                       }}
                     >
                       <Printer className="h-5 w-5" />
-                      <span>Drucken</span>
+                      <span>{t('print')}</span>
                     </Button>
                   )}
 
@@ -325,7 +327,7 @@ export function MobileBottomNavigation({
                       }}
                     >
                       <Printer className="h-5 w-5" />
-                      <span>Thermodruck</span>
+                      <span>{t('thermoPrint')}</span>
                     </Button>
                   )}
 
@@ -337,7 +339,7 @@ export function MobileBottomNavigation({
                         className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       >
                         <Sparkles className="h-5 w-5 text-orange-500" />
-                        <span>Übungs-Steuerung</span>
+                        <span>{t('trainingControl')}</span>
                       </Button>
                     </Link>
                   )}
@@ -351,7 +353,7 @@ export function MobileBottomNavigation({
               {/* Verwaltung Section */}
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
-                  Verwaltung
+                  {t('management')}
                 </h3>
                 <div className="space-y-2">
                   {secondaryItems.filter(item => item.category === 'Verwaltung').map((item, index) => {
@@ -380,7 +382,7 @@ export function MobileBottomNavigation({
               {/* Support Section */}
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
-                  Support
+                  {t('support')}
                 </h3>
                 <div className="space-y-2">
                   {secondaryItems.filter(item => item.category === 'Support').map((item, index) => {
@@ -408,7 +410,7 @@ export function MobileBottomNavigation({
               <Separator />
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
-                  Konto
+                  {t('account')}
                 </h3>
                 <div className="space-y-2">
                   <Button
@@ -420,7 +422,7 @@ export function MobileBottomNavigation({
                     }}
                   >
                     <LogOut className="h-5 w-5" />
-                    <span>Abmelden</span>
+                    <span>{t('logout')}</span>
                   </Button>
                 </div>
               </div>
