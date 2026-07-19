@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -35,6 +36,7 @@ interface EventSetupChecklistProps {
 }
 
 export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, onChecklistLoaded }: EventSetupChecklistProps) {
+  const t = useTranslations('checklist.setup')
   const [tasks, setTasks] = useState<ChecklistTaskState[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
@@ -57,8 +59,8 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
         const url = toFullUrl(link)
         if (mode === 'copy') {
           await copyToClipboard(url)
-          toast.success(`${meta.copyLabel} kopiert`, {
-            description: 'Der Link wurde in die Zwischenablage kopiert.',
+          toast.success(t('linkCopied', { label: meta.copyLabel }), {
+            description: t('linkCopiedDescription'),
           })
         } else {
           await apiClient.queueQRCodePrint({
@@ -67,32 +69,32 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
             subtitle: meta.subtitle,
             event_id: eventId,
           })
-          toast.info('QR-Code wird gedruckt…', {
-            description: 'Der Auftrag wurde an den Drucker gesendet.',
+          toast.info(t('qrPrinting'), {
+            description: t('qrPrintingDescription'),
           })
         }
       } catch (error) {
         console.error('Link share failed:', error)
-        toast.error(mode === 'copy' ? 'Link konnte nicht kopiert werden' : 'Druck fehlgeschlagen')
+        toast.error(mode === 'copy' ? t('copyFailed') : t('printFailed'))
       }
     },
-    [eventId]
+    [eventId, t]
   )
 
   const checkInMeta = {
     title: 'Personal Check-In',
     subtitle: 'QR scannen zum Einchecken — funktioniert ohne Anmeldung.',
-    copyLabel: 'Check-In Link',
+    copyLabel: t('checkInCopyLabel'),
   }
   const rekoMeta = {
     title: 'Reko-Dashboard',
     subtitle: 'Reko-Personal sieht Zuweisungen und füllt Formulare aus — ohne Anmeldung.',
-    copyLabel: 'Reko-Link',
+    copyLabel: t('rekoCopyLabel'),
   }
   const alarmMeta = {
     title: 'Alarm-Link',
     subtitle: 'Neue Alarme erfassen (Telefon/Walk-in) — ohne Anmeldung.',
-    copyLabel: 'Alarm-Link',
+    copyLabel: t('alarmCopyLabel'),
   }
 
   const handleCopyCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
@@ -105,20 +107,20 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
   const handleTestPrint = async () => {
     try {
       await apiClient.queueTestPrint()
-      toast.info('Testdruck eingereiht – warte auf Drucker…', {
-        description: 'Der Drucker-Status wird automatisch aktualisiert.',
+      toast.info(t('testPrintQueued'), {
+        description: t('testPrintQueuedDescription'),
       })
     } catch (error) {
       console.error('Failed to queue test print:', error)
-      toast.error('Testdruck konnte nicht gestartet werden')
+      toast.error(t('testPrintFailed'))
     }
   }
 
   const handleShowTileSetup = () => {
-    toast.info('Tile-Setup', {
-      description: 'Öffnen Sie die Hilfe-Seite für Anleitungen zur Offline-Karten-Einrichtung.',
+    toast.info(t('tileSetupTitle'), {
+      description: t('tileSetupDescription'),
       action: {
-        label: 'Zur Hilfe',
+        label: t('tileSetupAction'),
         onClick: () => window.open('/help#offline-maps', '_blank'),
       },
     })
@@ -130,11 +132,11 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
     const message = which === 1 ? whatsappMessages.m1 : whatsappMessages.m2
     copyToClipboard(message)
       .then(() =>
-        toast.success(`WhatsApp-Nachricht ${which} kopiert`, {
-          description: 'In WhatsApp einfügen und senden, danach manuell abhaken.',
+        toast.success(t('whatsappCopied', { number: which }), {
+          description: t('whatsappCopiedDescription'),
         })
       )
-      .catch(() => toast.error('Fehler beim Kopieren'))
+      .catch(() => toast.error(t('copyError')))
   }
 
   // Load checklist state
@@ -203,7 +205,7 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
       onChecklistLoaded?.()
     } catch (error) {
       console.error('Failed to load checklist state:', error)
-      toast.error('Fehler beim Laden der Checkliste')
+      toast.error(t('loadFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -252,7 +254,7 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
       <div className="p-4">
         <div className="flex items-center gap-3">
           <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-muted-foreground">Checkliste wird geladen...</span>
+          <span className="text-muted-foreground">{t('loading')}</span>
         </div>
       </div>
     )
@@ -264,7 +266,7 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <ClipboardCheck className="h-5 w-5 text-primary" />
-            <h3 className="text-base font-semibold">Setup-Checkliste</h3>
+            <h3 className="text-base font-semibold">{t('title')}</h3>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm tabular-nums text-muted-foreground">
@@ -336,17 +338,17 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
                           <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
-                          WhatsApp senden
+                          {t('whatsappSend')}
                           <ChevronDown className="h-3.5 w-3.5 ml-1.5 opacity-60" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-64">
                         <DropdownMenuItem onClick={() => handleSendWhatsApp(1)} className="flex-col items-start gap-0.5">
-                          <span className="font-medium">Nachricht 1 · Standby</span>
+                          <span className="font-medium">{t('message1')}</span>
                           <span className="text-xs text-muted-foreground line-clamp-2">{whatsappMessages.m1}</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleSendWhatsApp(2)} className="flex-col items-start gap-0.5">
-                          <span className="font-medium">Nachricht 2 · Einrücken</span>
+                          <span className="font-medium">{t('message2')}</span>
                           <span className="text-xs text-muted-foreground line-clamp-2">{whatsappMessages.m2}</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>

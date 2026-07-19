@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +22,8 @@ interface SyncStatusCardProps {
 }
 
 export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComplete }: SyncStatusCardProps) {
+  const t = useTranslations('sync.status')
+  const tCommon = useTranslations('sync.common')
   const [isSyncing, setIsSyncing] = useState(false)
   const [config, setConfig] = useState<SyncConfig | null>(null)
   const [copied, setCopied] = useState(false)
@@ -41,13 +44,13 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
   const handleSyncFromRailway = async () => {
     try {
       setIsSyncing(true)
-      const toastId = toast.loading('Synchronisiere von Railway...')
+      const toastId = toast.loading(t('syncingFrom'))
       await apiClient.triggerSyncFromRailway()
       toast.dismiss(toastId)
-      toast.success('Erfolgreich von Railway synchronisiert')
+      toast.success(t('syncFromSuccess'))
       onSyncComplete?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Synchronisation fehlgeschlagen')
+      toast.error(err instanceof Error ? err.message : t('syncFailed'))
     } finally {
       setIsSyncing(false)
     }
@@ -56,13 +59,13 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
   const handleSyncToRailway = async () => {
     try {
       setIsSyncing(true)
-      const toastId = toast.loading('Synchronisiere zu Railway...')
+      const toastId = toast.loading(t('syncingTo'))
       await apiClient.triggerSyncToRailway()
       toast.dismiss(toastId)
-      toast.success('Erfolgreich zu Railway synchronisiert')
+      toast.success(t('syncToSuccess'))
       onSyncComplete?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Synchronisation fehlgeschlagen')
+      toast.error(err instanceof Error ? err.message : t('syncFailed'))
     } finally {
       setIsSyncing(false)
     }
@@ -74,7 +77,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       return (
         <Badge variant="secondary" className="flex items-center gap-1">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Lädt...
+          {t('loading')}
         </Badge>
       )
     }
@@ -83,7 +86,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" />
-          Fehler
+          {t('error')}
         </Badge>
       )
     }
@@ -92,7 +95,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       return (
         <Badge variant="secondary" className="flex items-center gap-1 bg-warning text-warning-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Synchronisiert...
+          {tCommon('syncing')}
         </Badge>
       )
     }
@@ -101,7 +104,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" />
-          Railway Offline
+          {tCommon('railwayOffline')}
         </Badge>
       )
     }
@@ -110,7 +113,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       return (
         <Badge variant="secondary" className="flex items-center gap-1 bg-warning text-warning-foreground">
           <AlertTriangle className="h-3 w-3" />
-          Daten veraltet
+          {tCommon('stale')}
         </Badge>
       )
     }
@@ -118,7 +121,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     return (
       <Badge variant="secondary" className="flex items-center gap-1 bg-success text-success-foreground">
         <CheckCircle2 className="h-3 w-3" />
-        Synchronisiert
+        {t('synced')}
       </Badge>
     )
   }
@@ -135,12 +138,12 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
   }
 
   const getDirectionText = () => {
-    if (!status) return 'Unbekannt'
-    return status.direction === 'from_railway' ? 'Von Railway' : 'Zu Railway'
+    if (!status) return t('unknown')
+    return status.direction === 'from_railway' ? tCommon('fromRailway') : tCommon('toRailway')
   }
 
   const getLastSyncText = () => {
-    if (!status?.last_sync) return 'Noch nie'
+    if (!status?.last_sync) return tCommon('never')
 
     try {
       return formatDistanceToNow(new Date(status.last_sync), {
@@ -148,7 +151,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
         locale: de,
       })
     } catch {
-      return 'Ungültig'
+      return tCommon('invalid')
     }
   }
 
@@ -158,10 +161,10 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     try {
       await copyToClipboard(config.railway_database_url)
       setCopied(true)
-      toast.success('Connection String kopiert')
+      toast.success(t('copied'))
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      toast.error('Kopieren fehlgeschlagen')
+      toast.error(t('copyFailed'))
     }
   }
 
@@ -169,8 +172,8 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="font-medium">Synchronisations-Status</p>
-          <p className="text-xs text-muted-foreground">Live-Status der Datensynchronisation zwischen Railway und Local</p>
+          <p className="font-medium">{t('title')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         {getStatusBadge()}
       </div>
@@ -178,14 +181,14 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
         {/* Status Details */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-sm text-muted-foreground">Richtung</p>
+            <p className="text-sm text-muted-foreground">{t('direction')}</p>
             <div className="flex items-center gap-2 mt-1">
               {getDirectionIcon()}
               <span className="font-medium">{getDirectionText()}</span>
             </div>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Letzte Synchronisation</p>
+            <p className="text-sm text-muted-foreground">{t('lastSync')}</p>
             <p className="font-medium mt-1">{getLastSyncText()}</p>
           </div>
         </div>
@@ -203,7 +206,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
           <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
             <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-destructive">Letzter Fehler:</p>
+              <p className="text-sm font-medium text-destructive">{t('lastError')}</p>
               <p className="text-sm text-destructive mt-1">{status.last_error}</p>
             </div>
           </div>
@@ -214,7 +217,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
           <div className="flex items-center gap-2 p-3 bg-info/10 border border-info/30 rounded-md">
             <AlertTriangle className="h-4 w-4 text-info" />
             <p className="text-sm text-info">
-              {status.records_pending} Datensätze warten auf Synchronisation
+              {t('pendingRecords', { count: status.records_pending })}
             </p>
           </div>
         )}
@@ -222,7 +225,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
         {/* Railway Database Connection String */}
         {config?.railway_database_url && (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">Railway PostgreSQL Connection String</p>
+            <p className="text-sm font-medium text-muted-foreground">{t('connectionString')}</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 p-2 bg-muted rounded-md font-mono text-xs overflow-hidden">
                 <code className="block truncate">{config.railway_database_url}</code>
@@ -256,7 +259,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            Von Railway synchronisieren
+            {t('syncFromButton')}
           </Button>
 
           {!status?.railway_healthy && (
@@ -271,7 +274,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
               ) : (
                 <ArrowUp className="h-4 w-4" />
               )}
-              Zu Railway synchronisieren
+              {t('syncToButton')}
             </Button>
           )}
         </div>

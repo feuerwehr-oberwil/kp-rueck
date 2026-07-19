@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,7 @@ export function openCommandPalette() {
 }
 
 export function CommandPalette() {
+  const t = useTranslations('common.commandPalette')
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
@@ -115,73 +117,73 @@ export function CommandPalette() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="overflow-hidden p-0 shadow-lg" showCloseButton={false}>
         <DialogHeader className="sr-only">
-          <DialogTitle>Befehlspalette</DialogTitle>
-          <DialogDescription>Suche und führe Befehle aus.</DialogDescription>
+          <DialogTitle>{t('title')}</DialogTitle>
+          <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
         <Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
-          <CommandInput placeholder="Befehl suchen..." showClose />
+          <CommandInput placeholder={t('searchPlaceholder')} showClose />
           <CommandList>
-            <CommandEmpty>Keine Ergebnisse gefunden.</CommandEmpty>
+            <CommandEmpty>{t('noResults')}</CommandEmpty>
 
-            <CommandGroup heading="Navigation">
+            <CommandGroup heading={t('groupNavigation')}>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/"))}
               >
                 <Home className="mr-2 h-4 w-4" />
-                <span>Kanban-Ansicht</span>
+                <span>{t('kanbanView')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">G K</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/map"))}
               >
                 <Map className="mr-2 h-4 w-4" />
-                <span>Karten-Ansicht</span>
+                <span>{t('mapView')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">G M</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/events"))}
               >
                 <Calendar className="mr-2 h-4 w-4" />
-                <span>Ereignis-Auswahl</span>
+                <span>{t('eventSelection')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">G E</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/help"))}
               >
                 <BookOpen className="mr-2 h-4 w-4" />
-                <span>Hilfe & Dokumentation</span>
+                <span>{t('helpDocs')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">G H</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/settings"))}
               >
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Einstellungen</span>
+                <span>{t('settings')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">G S</span>
               </CommandItem>
             </CommandGroup>
 
             <CommandSeparator />
 
-            <CommandGroup heading="Aktionen">
+            <CommandGroup heading={t('groupActions')}>
               {onNewOperation && (
                 <CommandItem onSelect={() => runCommand(onNewOperation)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  <span>Neuer Einsatz</span>
+                  <span>{t('newIncident')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">N</span>
                 </CommandItem>
               )}
               {onToggleVehicleStatus && (
                 <CommandItem onSelect={() => runCommand(onToggleVehicleStatus)}>
                   <Truck className="mr-2 h-4 w-4" />
-                  <span>Fahrzeugstatus</span>
+                  <span>{t('vehicleStatus')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">F</span>
                 </CommandItem>
               )}
               {onRefresh && (
                 <CommandItem onSelect={() => runCommand(onRefresh)}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  <span>Daten aktualisieren</span>
+                  <span>{t('refreshData')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">R</span>
                 </CommandItem>
               )}
@@ -189,46 +191,46 @@ export function CommandPalette() {
 
             <CommandSeparator />
 
-            <CommandGroup heading="Ansicht">
+            <CommandGroup heading={t('groupView')}>
               {onToggleLeftSidebar && (
                 <CommandItem onSelect={() => runCommand(onToggleLeftSidebar)}>
                   <Users className="mr-2 h-4 w-4" />
-                  <span>Personal-Seitenleiste</span>
+                  <span>{t('personnelSidebar')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">Q / [</span>
                 </CommandItem>
               )}
               {onToggleRightSidebar && (
                 <CommandItem onSelect={() => runCommand(onToggleRightSidebar)}>
                   <Package className="mr-2 h-4 w-4" />
-                  <span>Material-Seitenleiste</span>
+                  <span>{t('materialSidebar')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">W / ]</span>
                 </CommandItem>
               )}
               {onToggleNotifications && (
                 <CommandItem onSelect={() => runCommand(onToggleNotifications)}>
                   <Bell className="mr-2 h-4 w-4" />
-                  <span>Benachrichtigungen</span>
+                  <span>{t('notifications')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">B</span>
                 </CommandItem>
               )}
               {onToggleSidePanel && (
                 <CommandItem onSelect={() => runCommand(onToggleSidePanel)}>
                   <PanelRight className="mr-2 h-4 w-4" />
-                  <span>Seitenpanel umschalten</span>
+                  <span>{t('toggleSidePanel')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">I / \</span>
                 </CommandItem>
               )}
               {onSidePanelDetail && (
                 <CommandItem onSelect={() => runCommand(onSidePanelDetail)}>
                   <Edit className="mr-2 h-4 w-4" />
-                  <span>Seitenpanel: Detail</span>
+                  <span>{t('sidePanelDetail')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">D</span>
                 </CommandItem>
               )}
               {onSidePanelMap && (
                 <CommandItem onSelect={() => runCommand(onSidePanelMap)}>
                   <Map className="mr-2 h-4 w-4" />
-                  <span>Seitenpanel: Karte</span>
+                  <span>{t('sidePanelMap')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">K</span>
                 </CommandItem>
               )}
@@ -237,25 +239,25 @@ export function CommandPalette() {
             {(onToggleMapLabels || onToggleMapLines || onFocusVehicle) && (
               <>
                 <CommandSeparator />
-                <CommandGroup heading="Karte">
+                <CommandGroup heading={t('groupMap')}>
                   {onToggleMapLabels && (
                     <CommandItem onSelect={() => runCommand(onToggleMapLabels)}>
                       <Tag className="mr-2 h-4 w-4" />
-                      <span>Labels umschalten</span>
+                      <span>{t('toggleLabels')}</span>
                       <span className="ml-auto text-xs text-muted-foreground">L</span>
                     </CommandItem>
                   )}
                   {onToggleMapLines && (
                     <CommandItem onSelect={() => runCommand(onToggleMapLines)}>
                       <Route className="mr-2 h-4 w-4" />
-                      <span>Zuweisungslinien umschalten</span>
+                      <span>{t('toggleAssignmentLines')}</span>
                       <span className="ml-auto text-xs text-muted-foreground">I</span>
                     </CommandItem>
                   )}
                   {onMapResetZoom && (
                     <CommandItem onSelect={() => runCommand(onMapResetZoom)}>
                       <Crosshair className="mr-2 h-4 w-4" />
-                      <span>Zoom zurücksetzen / Auswahl aufheben</span>
+                      <span>{t('resetZoom')}</span>
                       <span className="ml-auto text-xs text-muted-foreground">Z</span>
                     </CommandItem>
                   )}
@@ -266,7 +268,7 @@ export function CommandPalette() {
                         onSelect={() => runCommand(() => onFocusVehicle?.(n))}
                       >
                         <Crosshair className="mr-2 h-4 w-4" />
-                        <span>{mapVehicleNames[n - 1] ? `${mapVehicleNames[n - 1]} anzeigen` : `Fahrzeug ${n} anzeigen`}</span>
+                        <span>{mapVehicleNames[n - 1] ? t('showVehicleNamed', { name: mapVehicleNames[n - 1] }) : t('showVehicleNumber', { number: n })}</span>
                         <span className="ml-auto text-xs text-muted-foreground">{n}</span>
                       </CommandItem>
                     ))}
@@ -276,27 +278,27 @@ export function CommandPalette() {
 
             <CommandSeparator />
 
-            <CommandGroup heading="Suche">
+            <CommandGroup heading={t('groupSearch')}>
               <CommandItem
                 onSelect={() =>
                   runCommand(onFocusIncidentSearch ?? (() => document.getElementById('search-input')?.focus()))
                 }
               >
                 <Search className="mr-2 h-4 w-4" />
-                <span>Einsätze durchsuchen</span>
+                <span>{t('searchIncidents')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">S / /</span>
               </CommandItem>
               {onSearchPersonnel && (
                 <CommandItem onSelect={() => runCommand(onSearchPersonnel)}>
                   <Users className="mr-2 h-4 w-4" />
-                  <span>Personal durchsuchen</span>
+                  <span>{t('searchPersonnel')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">P</span>
                 </CommandItem>
               )}
               {onSearchMaterial && (
                 <CommandItem onSelect={() => runCommand(onSearchMaterial)}>
                   <Package className="mr-2 h-4 w-4" />
-                  <span>Material durchsuchen</span>
+                  <span>{t('searchMaterial')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">M</span>
                 </CommandItem>
               )}
@@ -306,13 +308,13 @@ export function CommandPalette() {
                 full shortcut list; entries are `disabled` (greyed out) when no
                 op is hovered/selected. */}
             <CommandSeparator />
-            <CommandGroup heading={hasSelectedIncident ? "Ausgewählter Einsatz" : "Einsatz (Maus über einen Einsatz)"}>
+            <CommandGroup heading={hasSelectedIncident ? t('groupSelectedIncident') : t('groupIncidentHover')}>
               <CommandItem
                 disabled={!hasSelectedIncident}
                 onSelect={() => runCommand(() => incidentOnly(onEditIncident)?.())}
               >
                 <Edit className="mr-2 h-4 w-4" />
-                <span>Details öffnen</span>
+                <span>{t('openDetails')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">E</span>
               </CommandItem>
               <CommandItem
@@ -320,7 +322,7 @@ export function CommandPalette() {
                 onSelect={() => runCommand(() => incidentOnly(onMoveStatusForward)?.())}
               >
                 <ArrowRight className="mr-2 h-4 w-4" />
-                <span>Status vorwärts</span>
+                <span>{t('statusForward')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">&gt;</span>
               </CommandItem>
               <CommandItem
@@ -328,7 +330,7 @@ export function CommandPalette() {
                 onSelect={() => runCommand(() => incidentOnly(onMoveStatusBackward)?.())}
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                <span>Status zurück</span>
+                <span>{t('statusBackward')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">&lt;</span>
               </CommandItem>
               <CommandItem
@@ -338,7 +340,7 @@ export function CommandPalette() {
                 }
               >
                 <AlertTriangle className="mr-2 h-4 w-4 text-muted-foreground" />
-                <span>Priorität: Niedrig</span>
+                <span>{t('priorityLow')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧1</span>
               </CommandItem>
               <CommandItem
@@ -348,7 +350,7 @@ export function CommandPalette() {
                 }
               >
                 <AlertTriangle className="mr-2 h-4 w-4 text-yellow-500" />
-                <span>Priorität: Mittel</span>
+                <span>{t('priorityMedium')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧2</span>
               </CommandItem>
               <CommandItem
@@ -358,7 +360,7 @@ export function CommandPalette() {
                 }
               >
                 <AlertTriangle className="mr-2 h-4 w-4 text-red-500" />
-                <span>Priorität: Hoch</span>
+                <span>{t('priorityHigh')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧3</span>
               </CommandItem>
               <CommandItem
@@ -366,7 +368,7 @@ export function CommandPalette() {
                 onSelect={() => runCommand(() => incidentOnly(onToggleZuFuss)?.())}
               >
                 <Footprints className="mr-2 h-4 w-4" />
-                <span>Zu Fuss umschalten</span>
+                <span>{t('toggleZuFuss')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">0</span>
               </CommandItem>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -378,7 +380,7 @@ export function CommandPalette() {
                   }
                 >
                   <Truck className="mr-2 h-4 w-4" />
-                  <span>Fahrzeug {n} zuweisen/entfernen</span>
+                  <span>{t('assignVehicle', { number: n })}</span>
                   <span className="ml-auto text-xs text-muted-foreground">{n}</span>
                 </CommandItem>
               ))}
@@ -387,7 +389,7 @@ export function CommandPalette() {
                 onSelect={() => runCommand(() => incidentOnly(onDeleteIncident)?.())}
               >
                 <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                <span className="text-destructive">Einsatz löschen</span>
+                <span className="text-destructive">{t('deleteIncident')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">Del</span>
               </CommandItem>
             </CommandGroup>

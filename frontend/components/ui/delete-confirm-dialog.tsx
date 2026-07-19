@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   AlertDialog,
@@ -31,9 +32,10 @@ export function DeleteConfirmDialog({
   title,
   description,
   onConfirm,
-  confirmText = 'Löschen',
-  cancelText = 'Abbrechen',
+  confirmText,
+  cancelText,
 }: DeleteConfirmDialogProps) {
+  const t = useTranslations('common.deleteConfirmDialog')
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleConfirm = async () => {
@@ -54,7 +56,7 @@ export function DeleteConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>{cancelText ?? t('cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault()
@@ -64,7 +66,7 @@ export function DeleteConfirmDialog({
             className={cn(buttonVariants({ variant: 'destructive' }))}
           >
             {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {confirmText}
+            {confirmText ?? t('confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

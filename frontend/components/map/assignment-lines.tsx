@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { Marker, Polyline, Tooltip } from "react-leaflet"
 import L from "leaflet"
 import type { Incident } from "@/lib/types/incidents"
@@ -116,6 +117,7 @@ export function AssignmentLines({
   visible = true,
   showDistances = false,
 }: AssignmentLinesProps) {
+  const t = useTranslations('map')
   const lines = useMemo(() => {
     if (!visible && !showDistances) return []
 
@@ -153,7 +155,7 @@ export function AssignmentLines({
           vehicleName: vehicle.name,
           vehiclePosition: [vp.latitude, vp.longitude],
           incidentPosition: [incident.location_lat, incident.location_lng],
-          incidentTitle: incident.title || incident.location_address || "Einsatz",
+          incidentTitle: incident.title || incident.location_address || t('assignmentLines.incidentFallback'),
           distanceMeters: distanceMeters(
             vp.latitude,
             vp.longitude,
@@ -165,7 +167,7 @@ export function AssignmentLines({
     }
 
     return result
-  }, [incidents, vehiclePositions, visible, showDistances])
+  }, [incidents, vehiclePositions, visible, showDistances, t])
 
   if ((!visible && !showDistances) || lines.length === 0) return null
 

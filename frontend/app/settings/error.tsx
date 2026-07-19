@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { Settings, RefreshCw, Home } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -12,6 +13,7 @@ export default function SettingsError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const t = useTranslations('errors.settingsError')
   useEffect(() => {
     console.error('Settings error:', error)
   }, [error])
@@ -27,11 +29,10 @@ export default function SettingsError({
 
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-foreground">
-            Einstellungsfehler
+            {t('title')}
           </h1>
           <p className="text-muted-foreground">
-            Die Einstellungen konnten nicht geladen werden.
-            Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.
+            {t('description')}
           </p>
         </div>
 
@@ -46,12 +47,12 @@ export default function SettingsError({
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button onClick={reset} className="gap-2">
             <RefreshCw className="h-4 w-4" />
-            Erneut versuchen
+            {t('retry')}
           </Button>
           <Button variant="outline" asChild>
             <Link href="/" className="gap-2">
               <Home className="h-4 w-4" />
-              Zum Kanban
+              {t('home')}
             </Link>
           </Button>
         </div>

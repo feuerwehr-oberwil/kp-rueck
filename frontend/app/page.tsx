@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import Link from "next/link"
@@ -114,6 +115,13 @@ export default function FireStationDashboard() {
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
   const isMobile = useIsMobile()
+
+  const tCommon = useTranslations('kanban.common')
+  const tDash = useTranslations('kanban.dashboard')
+  const tRes = useTranslations('kanban.resources')
+  const tMissing = useTranslations('kanban.missingResources')
+  const tReko = useTranslations('kanban.rekoMissing')
+  const tMat = useTranslations('kanban.materialDecision')
 
   // Ref for highlight timeout cleanup
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -443,10 +451,10 @@ export default function FireStationDashboard() {
         include_vehicles: options.includeVehicles,
         include_personnel: options.includePersonnel,
       } : undefined)
-      toast.success('Board-Druckauftrag gesendet')
+      toast.success(tDash('boardPrintSent'))
       setActiveFooterSheet(null)
     } catch {
-      toast.error('Drucken fehlgeschlagen')
+      toast.error(tCommon('printFailed'))
     } finally {
       setIsPrintingBoard(false)
     }
@@ -463,9 +471,9 @@ export default function FireStationDashboard() {
         subtitle,
         event_id: selectedEvent?.id,
       })
-      toast.success('QR-Druckauftrag gesendet')
+      toast.success(tDash('qrPrintSent'))
     } catch {
-      toast.error('Drucken fehlgeschlagen')
+      toast.error(tCommon('printFailed'))
     } finally {
       setIsPrintingQR(false)
     }
@@ -477,11 +485,11 @@ export default function FireStationDashboard() {
   // Returns the resource categories (Personal / Fahrzeuge / Mittel) an incident
   // is still missing. Vehicles are skipped for "zu Fuss" incidents, which by
   // definition rück without apparatus.
-  const getMissingResources = useCallback((op: Operation): string[] => {
-    const missing: string[] = []
-    if (op.crew.length === 0) missing.push("Personal")
-    if (!op.zuFuss && op.vehicles.length === 0) missing.push("Fahrzeuge")
-    if (op.materials.length === 0) missing.push("Mittel")
+  const getMissingResources = useCallback((op: Operation): Array<'crew' | 'vehicles' | 'materials'> => {
+    const missing: Array<'crew' | 'vehicles' | 'materials'> = []
+    if (op.crew.length === 0) missing.push("crew")
+    if (!op.zuFuss && op.vehicles.length === 0) missing.push("vehicles")
+    if (op.materials.length === 0) missing.push("materials")
     return missing
   }, [])
 
@@ -529,7 +537,7 @@ export default function FireStationDashboard() {
   const handleOpenTransfer = useCallback(async (operationId: string) => {
     const op = operations.find(o => o.id === operationId)
     if (!op || !selectedEvent) {
-      toast.error("Fehler", { description: "Kein Event ausgewählt." })
+      toast.error(tCommon('error'), { description: tCommon('noEventSelected') })
       return
     }
     try {
@@ -552,7 +560,7 @@ export default function FireStationDashboard() {
       setTransferSourceOp(op)
     } catch (error) {
       console.error("Failed to load incidents:", error)
-      toast.error("Fehler beim Laden")
+      toast.error(tCommon('loadFailed'))
     }
   }, [operations, selectedEvent])
 
@@ -563,10 +571,10 @@ export default function FireStationDashboard() {
       setIsTransferring(true)
       await apiClient.transferAssignments(transferSourceOp.id, targetIncidentId)
       setTransferSourceOp(null)
-      toast.success("Ressourcen übertragen")
+      toast.success(tCommon('transferResources'))
     } catch (error: any) {
-      toast.error("Fehler beim Übertragen", {
-        description: error?.message || "Die Ressourcen konnten nicht übertragen werden.",
+      toast.error(tCommon('transferFailed'), {
+        description: error?.message || tCommon('transferFailedDescription'),
       })
     } finally {
       setIsTransferring(false)
@@ -1019,8 +1027,8 @@ export default function FireStationDashboard() {
     }
 
     if (!selectedEvent) {
-      toast.error('Fehler', {
-        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      toast.error(tCommon('error'), {
+        description: tDash('selectEventFirst'),
       })
       return
     }
@@ -1033,8 +1041,8 @@ export default function FireStationDashboard() {
       setActiveFooterSheet('checkin')
     } catch (error) {
       console.error('Failed to generate check-in link:', error)
-      toast.error('Fehler', {
-        description: 'QR-Code konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      toast.error(tCommon('error'), {
+        description: tDash('qrGenerateFailed'),
       })
     }
   }
@@ -1046,10 +1054,10 @@ export default function FireStationDashboard() {
       const { copyToClipboard } = await import('@/lib/utils')
       await copyToClipboard(checkInUrl)
       setCopied(true)
-      toast.success('Link kopiert')
+      toast.success(tCommon('linkCopied'))
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      toast.error('Fehler beim Kopieren')
+      toast.error(tCommon('copyFailed'))
     }
   }
 
@@ -1061,8 +1069,8 @@ export default function FireStationDashboard() {
     }
 
     if (!selectedEvent) {
-      toast.error('Fehler', {
-        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      toast.error(tCommon('error'), {
+        description: tDash('selectEventFirst'),
       })
       return
     }
@@ -1075,8 +1083,8 @@ export default function FireStationDashboard() {
       setActiveFooterSheet('reko')
     } catch (error) {
       console.error('Failed to generate Reko Dashboard link:', error)
-      toast.error('Fehler', {
-        description: 'Reko-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      toast.error(tCommon('error'), {
+        description: tDash('rekoLinkFailed'),
       })
     }
   }
@@ -1088,10 +1096,10 @@ export default function FireStationDashboard() {
       const { copyToClipboard } = await import('@/lib/utils')
       await copyToClipboard(rekoDashboardUrl)
       setRekoCopied(true)
-      toast.success('Link kopiert')
+      toast.success(tCommon('linkCopied'))
       setTimeout(() => setRekoCopied(false), 2000)
     } catch (error) {
-      toast.error('Fehler beim Kopieren')
+      toast.error(tCommon('copyFailed'))
     }
   }
 
@@ -1103,8 +1111,8 @@ export default function FireStationDashboard() {
     }
 
     if (!selectedEvent) {
-      toast.error('Fehler', {
-        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      toast.error(tCommon('error'), {
+        description: tDash('selectEventFirst'),
       })
       return
     }
@@ -1117,8 +1125,8 @@ export default function FireStationDashboard() {
       setActiveFooterSheet('viewer')
     } catch (error) {
       console.error('Failed to generate viewer link:', error)
-      toast.error('Fehler', {
-        description: 'Viewer-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      toast.error(tCommon('error'), {
+        description: tDash('viewerLinkFailed'),
       })
     }
   }
@@ -1130,10 +1138,10 @@ export default function FireStationDashboard() {
       const { copyToClipboard } = await import('@/lib/utils')
       await copyToClipboard(viewerUrl)
       setViewerCopied(true)
-      toast.success('Link kopiert')
+      toast.success(tCommon('linkCopied'))
       setTimeout(() => setViewerCopied(false), 2000)
     } catch (error) {
-      toast.error('Fehler beim Kopieren')
+      toast.error(tCommon('copyFailed'))
     }
   }
 
@@ -1145,8 +1153,8 @@ export default function FireStationDashboard() {
     }
 
     if (!selectedEvent) {
-      toast.error('Fehler', {
-        description: 'Bitte wählen Sie zuerst ein Ereignis aus.',
+      toast.error(tCommon('error'), {
+        description: tDash('selectEventFirst'),
       })
       return
     }
@@ -1158,8 +1166,8 @@ export default function FireStationDashboard() {
       setActiveFooterSheet('alarm')
     } catch (error) {
       console.error('Failed to generate alarm link:', error)
-      toast.error('Fehler', {
-        description: 'Alarm-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.',
+      toast.error(tCommon('error'), {
+        description: tDash('alarmLinkFailed'),
       })
     }
   }
@@ -1171,10 +1179,10 @@ export default function FireStationDashboard() {
       const { copyToClipboard } = await import('@/lib/utils')
       await copyToClipboard(alarmUrl)
       setAlarmCopied(true)
-      toast.success('Link kopiert')
+      toast.success(tCommon('linkCopied'))
       setTimeout(() => setAlarmCopied(false), 2000)
     } catch (error) {
-      toast.error('Fehler beim Kopieren')
+      toast.error(tCommon('copyFailed'))
     }
   }
 
@@ -1234,7 +1242,7 @@ export default function FireStationDashboard() {
       })
     )
     apiClient.updateAssignment(operationId, assignmentId, { driver_stay: newValue }).catch(() => {
-      toast.error('Fehler beim Aktualisieren')
+      toast.error(tCommon('updateFailed'))
       setOperations((ops) =>
         ops.map((op) => {
           if (op.id === operationId) {
@@ -1277,7 +1285,7 @@ export default function FireStationDashboard() {
       await deleteOperation(operationToDelete.id)
     } catch (error) {
       console.error('Failed to delete operation:', error)
-      toast.error("Fehler beim Löschen")
+      toast.error(tCommon('deleteFailed'))
     } finally {
       setOperationToDelete(null)
     }
@@ -1287,7 +1295,7 @@ export default function FireStationDashboard() {
   if (!isMounted) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">Laden...</div>
+        <div className="text-muted-foreground">{tDash('loading')}</div>
       </div>
     )
   }
@@ -1313,15 +1321,15 @@ export default function FireStationDashboard() {
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 min-w-0 -ml-2 rounded-lg px-2 py-1 hover:bg-secondary/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                 <h1 className={`text-xl md:text-2xl font-bold tracking-tight truncate ${selectedEvent ? "" : "text-muted-foreground"}`}>
-                  {selectedEvent ? selectedEvent.name : "Kein Ereignis ausgewählt"}
+                  {selectedEvent ? selectedEvent.name : tDash('noEventSelected')}
                 </h1>
                 {selectedEvent?.training_flag && (
-                  <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">Übung</Badge>
+                  <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">{tDash('training')}</Badge>
                 )}
                 <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuLabel>Ereignis wechseln</DropdownMenuLabel>
+                <DropdownMenuLabel>{tDash('switchEvent')}</DropdownMenuLabel>
                 {events
                   .filter((e) => !e.archived_at && e.id !== selectedEvent?.id)
                   .sort((a, b) => b.last_activity_at.getTime() - a.last_activity_at.getTime())
@@ -1334,18 +1342,18 @@ export default function FireStationDashboard() {
                     >
                       <span className="truncate">{event.name}</span>
                       {event.training_flag && (
-                        <Badge variant="secondary" className="ml-auto text-[10px]">Übung</Badge>
+                        <Badge variant="secondary" className="ml-auto text-[10px]">{tDash('training')}</Badge>
                       )}
                     </DropdownMenuItem>
                   ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push("/events?action=create")} className="cursor-pointer">
                   <Plus className="mr-2 h-4 w-4" />
-                  Neues Ereignis
+                  {tDash('newEvent')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/events")} className="cursor-pointer">
                   <CalendarDays className="mr-2 h-4 w-4" />
-                  Alle Ereignisse
+                  {tDash('allEvents')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1359,7 +1367,7 @@ export default function FireStationDashboard() {
                 <Input
                   id="search-input"
                   type="text"
-                  placeholder="Suchen..."
+                  placeholder={tCommon('search')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-72 pl-9"
@@ -1411,7 +1419,7 @@ export default function FireStationDashboard() {
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     id="personnel-search-input"
-                    placeholder="Personal suchen..."
+                    placeholder={tDash('personnelSearch')}
                     value={personnelSearchQuery}
                     onChange={(e) => setPersonnelSearchQuery(e.target.value)}
                     className="h-8 pl-8 pr-8 text-sm"
@@ -1429,7 +1437,7 @@ export default function FireStationDashboard() {
                   /* Show QR code when no available personnel */
                   <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
                     <p className="text-sm text-muted-foreground text-center">
-                      Keine Personen verfügbar
+                      {tDash('noPersonnelAvailable')}
                     </p>
                     {checkInUrl ? (
                       <div className="flex flex-col items-center gap-2">
@@ -1443,14 +1451,14 @@ export default function FireStationDashboard() {
                         </div>
                         <div className="flex items-center gap-2">
                           <p className="text-xs text-muted-foreground text-center">
-                            Check-In QR-Code scannen
+                            {tDash('scanCheckInQr')}
                           </p>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6"
                             onClick={copyCheckInUrlToClipboard}
-                            title="Link kopieren"
+                            title={tCommon('copyLink')}
                           >
                             {copied ? (
                               <Check className="h-3 w-3 text-green-600" />
@@ -1485,7 +1493,7 @@ export default function FireStationDashboard() {
               {/* Fixed availability counter at bottom */}
               <div className="border-t border-border px-4 py-2 bg-card/50 backdrop-blur-sm">
                 <p className="text-xs text-muted-foreground text-center">
-                  {personnel.filter((p) => p.status === "available").length}/{personnel.length} verfügbar
+                  {tCommon('availableCounter', { available: personnel.filter((p) => p.status === "available").length, total: personnel.length })}
                 </p>
               </div>
             </aside>
@@ -1561,7 +1569,7 @@ export default function FireStationDashboard() {
                 setPanelSelectedId(null)
               } catch (error) {
                 console.error('Failed to delete operation:', error)
-                toast.error("Fehler beim Löschen")
+                toast.error(tCommon('deleteFailed'))
               }
             }}
             onAssignVehicle={assignVehicleToOperation}
@@ -1580,7 +1588,7 @@ export default function FireStationDashboard() {
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     id="material-search-input"
-                    placeholder="Material suchen..."
+                    placeholder={tDash('materialSearch')}
                     value={materialSearchQuery}
                     onChange={(e) => setMaterialSearchQuery(e.target.value)}
                     className="h-8 pl-8 pr-8 text-sm"
@@ -1649,7 +1657,7 @@ export default function FireStationDashboard() {
               {/* Fixed availability counter at bottom */}
               <div className="border-t border-border px-4 py-2 bg-card/50 backdrop-blur-sm">
                 <p className="text-xs text-muted-foreground text-center">
-                  {materials.filter((m) => m.status === "available").length}/{materials.length} verfügbar
+                  {tCommon('availableCounter', { available: materials.filter((m) => m.status === "available").length, total: materials.length })}
                 </p>
               </div>
             </aside>
@@ -1663,7 +1671,7 @@ export default function FireStationDashboard() {
             <div className="flex items-center gap-3">
               <Button size="sm" className="gap-2 shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="h-4 w-4" />
-                Neuer Einsatz
+                {tCommon('newIncident')}
               </Button>
 
               {/* Event Setup Checklist — shown only while setup is incomplete; disappears once done */}
@@ -1672,7 +1680,7 @@ export default function FireStationDashboard() {
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline" className="gap-2">
                       <ClipboardCheck className="h-4 w-4" />
-                      Bereitschaft
+                      {tDash('readiness')}
                       <Badge variant="secondary" className="h-5 px-1.5 text-xs font-medium tabular-nums">
                         {checklistProgress.completed}/{checklistProgress.total}
                       </Badge>
@@ -1713,7 +1721,7 @@ export default function FireStationDashboard() {
                   }}
                 >
                   <QrCode className="h-3.5 w-3.5" />
-                  <span className="text-xs">Check-In</span>
+                  <span className="text-xs">{tDash('checkIn')}</span>
                 </Button>
                 <Button
                   size="sm"
@@ -1729,7 +1737,7 @@ export default function FireStationDashboard() {
                   }}
                 >
                   <Search className="h-3.5 w-3.5" />
-                  <span className="text-xs">Reko</span>
+                  <span className="text-xs">{tCommon('reko')}</span>
                 </Button>
                 <Button
                   size="sm"
@@ -1745,7 +1753,7 @@ export default function FireStationDashboard() {
                   }}
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  <span className="text-xs">Viewer</span>
+                  <span className="text-xs">{tDash('viewer')}</span>
                 </Button>
                 <Button
                   size="sm"
@@ -1761,7 +1769,7 @@ export default function FireStationDashboard() {
                   }}
                 >
                   <Siren className="h-3.5 w-3.5" />
-                  <span className="text-xs">Alarm</span>
+                  <span className="text-xs">{tDash('alarm')}</span>
                 </Button>
               </div>
 
@@ -1785,7 +1793,7 @@ export default function FireStationDashboard() {
                   disabled={!selectedEvent}
                 >
                   <Truck className="h-3.5 w-3.5" />
-                  <span className="text-xs">Fahrzeuge</span>
+                  <span className="text-xs">{tDash('vehicles')}</span>
                 </Button>
                 <Button
                   size="sm"
@@ -1803,7 +1811,7 @@ export default function FireStationDashboard() {
                   disabled={!selectedEvent}
                 >
                   <Printer className="h-3.5 w-3.5" />
-                  <span className="text-xs">Drucken</span>
+                  <span className="text-xs">{tDash('print')}</span>
                 </Button>
                 {printerEnabled && (
                   <Button
@@ -1820,10 +1828,10 @@ export default function FireStationDashboard() {
                       setActiveFooterSheet(thermoSheetOpen ? null : 'thermo')
                     }}
                     disabled={!selectedEvent}
-                    title="Board auf Thermodrucker drucken"
+                    title={tDash('thermoTitle')}
                   >
                     <Printer className="h-3.5 w-3.5" />
-                    <span className="text-xs">Thermo</span>
+                    <span className="text-xs">{tDash('thermo')}</span>
                   </Button>
                 )}
               </div>
@@ -1834,7 +1842,7 @@ export default function FireStationDashboard() {
                   <Link href="/training">
                     <Button size="sm" variant="ghost" className="gap-1.5 h-8 px-2.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30">
                       <Sparkles className="h-3.5 w-3.5" />
-                      <span className="text-xs font-medium">Übungs-Steuerung</span>
+                      <span className="text-xs font-medium">{tDash('trainingControl')}</span>
                     </Button>
                   </Link>
                 </>
@@ -1852,7 +1860,7 @@ export default function FireStationDashboard() {
                 }`}
               >
                 <div className={`h-1.5 w-1.5 rounded-full ${showMeldung ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
-                Meldung
+                {tCommon('meldung')}
               </button>
             </div>
 
@@ -1863,7 +1871,7 @@ export default function FireStationDashboard() {
                 className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
               >
                 <Kbd className="h-5 text-[10px] px-1.5">⌘K</Kbd>
-                <span className="hidden lg:inline">Befehle</span>
+                <span className="hidden lg:inline">{tDash('commands')}</span>
               </button>
             </div>
           </div>
@@ -1998,9 +2006,9 @@ export default function FireStationDashboard() {
             {/* Content */}
             <div className="flex-1 min-w-0">
               <SheetHeader className="p-0 mb-3">
-                <SheetTitle>Personal Check-In</SheetTitle>
+                <SheetTitle>{tDash('checkInSheetTitle')}</SheetTitle>
                 <SheetDescription>
-                  QR-Code scannen oder Link teilen für mobilen Zugriff
+                  {tDash('checkInSheetDescription')}
                 </SheetDescription>
               </SheetHeader>
 
@@ -2030,7 +2038,7 @@ export default function FireStationDashboard() {
                       size="sm"
                       asChild
                       className="flex-shrink-0 text-muted-foreground"
-                      title="In neuem Tab öffnen"
+                      title={tCommon('openInNewTab')}
                     >
                       <a href={checkInUrl} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -2040,17 +2048,17 @@ export default function FireStationDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePrintQR(checkInUrl, 'Personal Check-In', 'Personal kann diesen QR-Code scannen um sich einzuchecken. Funktioniert ohne Anmeldung.')}
+                        onClick={() => handlePrintQR(checkInUrl, tDash('checkInSheetTitle'), tDash('checkInSheetHint'))}
                         disabled={isPrintingQR}
                         className="flex-shrink-0"
-                        title="QR-Code drucken"
+                        title={tCommon('printQrCode')}
                       >
                         <Printer className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Personal kann diesen QR-Code scannen um sich einzuchecken. Funktioniert ohne Anmeldung.
+                    {tDash('checkInSheetHint')}
                   </p>
                 </div>
               )}
@@ -2091,9 +2099,9 @@ export default function FireStationDashboard() {
             {/* Content */}
             <div className="flex-1 min-w-0">
               <SheetHeader className="p-0 mb-3">
-                <SheetTitle>Reko Dashboard</SheetTitle>
+                <SheetTitle>{tDash('rekoSheetTitle')}</SheetTitle>
                 <SheetDescription>
-                  QR-Code scannen oder Link teilen für Reko-Personal
+                  {tDash('rekoSheetDescription')}
                 </SheetDescription>
               </SheetHeader>
 
@@ -2123,7 +2131,7 @@ export default function FireStationDashboard() {
                       size="sm"
                       asChild
                       className="flex-shrink-0 text-muted-foreground"
-                      title="In neuem Tab öffnen"
+                      title={tCommon('openInNewTab')}
                     >
                       <a href={rekoDashboardUrl} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -2133,17 +2141,17 @@ export default function FireStationDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePrintQR(rekoDashboardUrl, 'Reko Dashboard', 'Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.')}
+                        onClick={() => handlePrintQR(rekoDashboardUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint'))}
                         disabled={isPrintingQR}
                         className="flex-shrink-0"
-                        title="QR-Code drucken"
+                        title={tCommon('printQrCode')}
                       >
                         <Printer className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.
+                    {tDash('rekoSheetHint')}
                   </p>
                 </div>
               )}
@@ -2184,9 +2192,9 @@ export default function FireStationDashboard() {
             {/* Content */}
             <div className="flex-1 min-w-0">
               <SheetHeader className="p-0 mb-3">
-                <SheetTitle>Viewer-Link</SheetTitle>
+                <SheetTitle>{tDash('viewerSheetTitle')}</SheetTitle>
                 <SheetDescription>
-                  QR-Code scannen oder Link teilen für Nur-Lesen-Ansicht
+                  {tDash('viewerSheetDescription')}
                 </SheetDescription>
               </SheetHeader>
 
@@ -2216,7 +2224,7 @@ export default function FireStationDashboard() {
                       size="sm"
                       asChild
                       className="flex-shrink-0 text-muted-foreground"
-                      title="In neuem Tab öffnen"
+                      title={tCommon('openInNewTab')}
                     >
                       <a href={viewerUrl} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -2226,17 +2234,17 @@ export default function FireStationDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePrintQR(viewerUrl, 'Viewer-Link', 'Jeder mit diesem Link kann die aktuelle Einsatzübersicht sehen. Funktioniert ohne Anmeldung, nur Lesen.')}
+                        onClick={() => handlePrintQR(viewerUrl, tDash('viewerSheetTitle'), tDash('viewerSheetHint'))}
                         disabled={isPrintingQR}
                         className="flex-shrink-0"
-                        title="QR-Code drucken"
+                        title={tCommon('printQrCode')}
                       >
                         <Printer className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Jeder mit diesem Link kann die aktuelle Einsatzübersicht sehen. Funktioniert ohne Anmeldung, nur Lesen.
+                    {tDash('viewerSheetHint')}
                   </p>
                 </div>
               )}
@@ -2276,9 +2284,9 @@ export default function FireStationDashboard() {
             {/* Content */}
             <div className="flex-1 min-w-0">
               <SheetHeader className="p-0 mb-3">
-                <SheetTitle>Alarm-Link</SheetTitle>
+                <SheetTitle>{tDash('alarmSheetTitle')}</SheetTitle>
                 <SheetDescription>
-                  QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z.B. Telefon / Walk-in)
+                  {tDash('alarmSheetDescription')}
                 </SheetDescription>
               </SheetHeader>
 
@@ -2308,7 +2316,7 @@ export default function FireStationDashboard() {
                       size="sm"
                       asChild
                       className="flex-shrink-0 text-muted-foreground"
-                      title="In neuem Tab öffnen"
+                      title={tCommon('openInNewTab')}
                     >
                       <a href={alarmUrl} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -2318,17 +2326,17 @@ export default function FireStationDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePrintQR(alarmUrl, 'Alarm-Link', 'Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.')}
+                        onClick={() => handlePrintQR(alarmUrl, tDash('alarmSheetTitle'), tDash('alarmSheetHint'))}
                         disabled={isPrintingQR}
                         className="flex-shrink-0"
-                        title="QR-Code drucken"
+                        title={tCommon('printQrCode')}
                       >
                         <Printer className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.
+                    {tDash('alarmSheetHint')}
                   </p>
                 </div>
               )}
@@ -2348,8 +2356,8 @@ export default function FireStationDashboard() {
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Einsatz wirklich löschen?"
-        description={`Der Einsatz "${operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : ''}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
+        title={tCommon('deleteIncidentTitle')}
+        description={tCommon('deleteIncidentDescription', { name: operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : '' })}
         onConfirm={handleDeleteOperationConfirm}
       />
 
@@ -2390,15 +2398,15 @@ export default function FireStationDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
-              Ressourcen fehlen
+              {tMissing('title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium text-foreground">{missingResourcesAckOp?.location}</span> wird disponiert,
-              es {missingResourcesAckOp && getMissingResources(missingResourcesAckOp).length === 1 ? "fehlt" : "fehlen"} aber noch{" "}
-              <span className="font-medium text-foreground">
-                {missingResourcesAckOp ? getMissingResources(missingResourcesAckOp).join(", ") : ""}
-              </span>
-              . Möchten Sie zuerst zuweisen oder trotzdem fortfahren?
+              {missingResourcesAckOp && tMissing.rich('description', {
+                location: missingResourcesAckOp.location,
+                count: getMissingResources(missingResourcesAckOp).length,
+                list: getMissingResources(missingResourcesAckOp).map((r) => tRes(r)).join(", "),
+                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
@@ -2409,7 +2417,7 @@ export default function FireStationDashboard() {
                 setMissingResourcesAckOp(null)
               }}
             >
-              Trotzdem disponieren
+              {tMissing('dispatchAnyway')}
             </Button>
             <Button
               onClick={() => {
@@ -2418,14 +2426,7 @@ export default function FireStationDashboard() {
                 if (!op) return
                 // Open the assignment dialog on the first still-missing category so
                 // the operator can fill the gap instead of just acknowledging it.
-                const typeMap: Record<string, 'crew' | 'vehicles' | 'materials'> = {
-                  Personal: 'crew',
-                  Fahrzeuge: 'vehicles',
-                  Mittel: 'materials',
-                }
-                const firstMissing = getMissingResources(op)
-                  .map(label => typeMap[label])
-                  .find(Boolean)
+                const firstMissing = getMissingResources(op)[0]
                 if (firstMissing) {
                   // Remember to open the disponiert info modal once assigning is done,
                   // so the Funk/WhatsApp/Print/Divera step is never skipped.
@@ -2434,7 +2435,7 @@ export default function FireStationDashboard() {
                 }
               }}
             >
-              Zuweisen
+              {tCommon('assign')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2449,17 +2450,18 @@ export default function FireStationDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Binoculars className="h-5 w-5 text-primary" />
-              Keine Reko-Person zugewiesen
+              {tCommon('noRekoAssigned')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium text-foreground">{rekoMissingAckOp?.location}</span> wurde in die
-              Reko-Spalte verschoben, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält
-              niemand das Reko-Formular. Möchten Sie jetzt jemanden zuweisen oder trotzdem fortfahren?
+              {rekoMissingAckOp && tReko.rich('description', {
+                location: rekoMissingAckOp.location,
+                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
             <Button variant="ghost" onClick={() => setRekoMissingAckOp(null)}>
-              Trotzdem fortfahren
+              {tReko('proceedAnyway')}
             </Button>
             <Button
               onClick={() => {
@@ -2468,7 +2470,7 @@ export default function FireStationDashboard() {
                 if (op) handleOpenRekoAssignDialog(op.id)
               }}
             >
-              Reko-Person zuweisen
+              {tReko('assignReko')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2485,16 +2487,14 @@ export default function FireStationDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
-              Material vor Ort gelassen?
+              {tMat('title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium text-foreground">{materialDecisionOp?.location}</span> wurde
-              abgeschlossen und hat noch{" "}
-              <span className="font-medium text-foreground">
-                {materialDecisionOp?.materials.length}
-              </span>{" "}
-              {materialDecisionOp?.materials.length === 1 ? "Mittel" : "Mittel"} zugewiesen. Wurde das
-              Material vor Ort gelassen oder kommt es zurück ins Magazin?
+              {materialDecisionOp && tMat.rich('description', {
+                location: materialDecisionOp.location,
+                count: materialDecisionOp.materials.length,
+                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
@@ -2507,14 +2507,14 @@ export default function FireStationDashboard() {
                   for (const materialId of [...op.materials]) {
                     removeMaterial(op.id, materialId)
                   }
-                  toast.success("Material zurückgegeben")
+                  toast.success(tDash('materialReturned'))
                 }
               }}
             >
-              Material zurück
+              {tMat('returnMaterial')}
             </Button>
             <Button variant="ghost" onClick={() => setMaterialDecisionOp(null)}>
-              Vor Ort gelassen
+              {tMat('leftOnSite')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

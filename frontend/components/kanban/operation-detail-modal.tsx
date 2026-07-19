@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -68,6 +69,7 @@ export function OperationDetailModal({
   onSendDivera,
   onRequestComplete,
 }: OperationDetailModalProps) {
+  const t = useTranslations('kanban')
   const { formatLocation, setOperations, changeStatusToTop } = useOperations()
   const { selectedEvent } = useEvent()
   const { materialGroups } = useMaterials()
@@ -122,8 +124,8 @@ export function OperationDetailModal({
         setAvailableVehicles(sorted.map((v) => ({ id: v.id, name: v.name, type: v.type })))
       } catch (error) {
         console.error('Failed to load vehicles:', error)
-        toast.error('Fahrzeuge konnten nicht geladen werden', {
-          description: 'Bitte erneut versuchen oder das Fenster neu öffnen.',
+        toast.error(t('detail.vehiclesLoadFailed'), {
+          description: t('detail.vehiclesLoadFailedDescription'),
         })
       } finally {
         setIsLoadingVehicles(false)
@@ -139,8 +141,8 @@ export function OperationDetailModal({
   // Handler for opening transfer dialog
   const handleOpenTransfer = async () => {
     if (!operation || !selectedEvent) {
-      toast.error('Fehler', {
-        description: 'Kein Event ausgewählt. Bitte wählen Sie ein Event aus.',
+      toast.error(t('common.error'), {
+        description: t('detail.noEventSelectedLong'),
       })
       return
     }
@@ -171,8 +173,8 @@ export function OperationDetailModal({
       setTransferDialogOpen(true)
     } catch (error) {
       console.error('Failed to load incidents:', error)
-      toast.error('Fehler beim Laden', {
-        description: 'Die Einsätze konnten nicht geladen werden.',
+      toast.error(t('common.loadFailed'), {
+        description: t('detail.incidentsLoadFailedDescription'),
       })
     }
   }
@@ -190,8 +192,8 @@ export function OperationDetailModal({
       onOpenChange(false)
 
     } catch (error: any) {
-      toast.error("Fehler beim Übertragen", {
-        description: error?.message || "Die Ressourcen konnten nicht übertragen werden."
+      toast.error(t('common.transferFailed'), {
+        description: error?.message || t('common.transferFailedDescription')
       })
     } finally {
       setIsTransferring(false)
@@ -221,7 +223,7 @@ export function OperationDetailModal({
             <DialogDescription className="text-sm flex items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
               <span className="text-muted-foreground/40">·</span>
-              <span>{getTimeSince(operation.dispatchTime)} seit Alarmierung</span>
+              <span>{t('detail.sinceAlarm', { time: getTimeSince(operation.dispatchTime) })}</span>
             </DialogDescription>
             <IncidentTimelinePopover incidentId={operation.id} />
           </div>
@@ -248,11 +250,11 @@ export function OperationDetailModal({
 
           {/* Meldung - Moved up from bottom */}
           <div>
-            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">Meldung</Label>
+            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">{t('common.meldung')}</Label>
             <Textarea
               id="notes"
               ref={notesTextareaRef}
-              placeholder="Eingegangene Meldung, Schadensbild..."
+              placeholder={t('detail.meldungPlaceholder')}
               value={operation.notes}
               onChange={(e) => onUpdate({ notes: e.target.value })}
               className="mt-1.5 min-h-[100px]"
@@ -263,14 +265,14 @@ export function OperationDetailModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="edit-incidentType" className="text-sm font-semibold text-muted-foreground">
-                Einsatzart
+                {t('common.einsatzart')}
               </Label>
               <Select
                 value={operation.incidentType}
                 onValueChange={(value) => onUpdate({ incidentType: value })}
               >
                 <SelectTrigger className="mt-1.5" tabIndex={0}>
-                  <SelectValue placeholder="Einsatzart auswählen" />
+                  <SelectValue placeholder={t('common.einsatzartPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {incidentTypeKeys.map((typeKey) => (
@@ -285,7 +287,7 @@ export function OperationDetailModal({
             <div>
               <div className="flex items-center gap-2">
                 <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
-                  Priorität
+                  {t('common.priority')}
                 </Label>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Kbd className="h-4 text-[10px]">⇧1</Kbd>
@@ -301,9 +303,9 @@ export function OperationDetailModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Niedrig</SelectItem>
-                  <SelectItem value="medium">Mittel</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
+                  <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
+                  <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
+                  <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -311,10 +313,10 @@ export function OperationDetailModal({
 
           {/* Contact */}
           <div>
-            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">Kontakt / Melder</Label>
+            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">{t('common.contact')}</Label>
             <Input
               id="contact"
-              placeholder="Name, Telefonnummer..."
+              placeholder={t('common.contactPlaceholder')}
               value={operation.contact}
               onChange={(e) => onUpdate({ contact: e.target.value })}
               className="mt-1.5"
@@ -323,10 +325,10 @@ export function OperationDetailModal({
 
           {/* Internal Notes */}
           <div>
-            <Label htmlFor="internalNotes" className="text-sm font-semibold text-muted-foreground">Notizen</Label>
+            <Label htmlFor="internalNotes" className="text-sm font-semibold text-muted-foreground">{t('common.notes')}</Label>
             <Textarea
               id="internalNotes"
-              placeholder="Interne Notizen..."
+              placeholder={t('common.internalNotesPlaceholder')}
               value={operation.internalNotes}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
               className="mt-1.5 min-h-[80px]"
@@ -342,12 +344,12 @@ export function OperationDetailModal({
               <div className="flex items-center gap-3">
                 <Building2 className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <Label className="text-sm font-semibold pointer-events-none">Nachbarhilfe</Label>
-                  <p className="text-xs text-muted-foreground">Einsatz mit Nachbarfeuerwehr-Beteiligung</p>
+                  <Label className="text-sm font-semibold pointer-events-none">{t('common.nachbarhilfe')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('detail.nachbarhilfeDescription')}</p>
                 </div>
               </div>
               <Switch
-                aria-label="Nachbarhilfe"
+                aria-label={t('common.nachbarhilfe')}
                 checked={operation.nachbarhilfe || false}
                 onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
                 onClick={(e) => e.stopPropagation()}
@@ -355,7 +357,7 @@ export function OperationDetailModal({
             </div>
             {operation.nachbarhilfe && (
               <Input
-                placeholder="Feuerwehr, Kontakt..."
+                placeholder={t('common.nachbarhilfePlaceholder')}
                 value={operation.nachbarhilfeNote || ''}
                 onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
@@ -373,12 +375,12 @@ export function OperationDetailModal({
               <div className="flex items-center gap-3">
                 <Timer className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <Label className="text-sm font-semibold pointer-events-none">Am Warten</Label>
-                  <p className="text-xs text-muted-foreground">Einsatz verzögert / wartet auf Ressourcen</p>
+                  <Label className="text-sm font-semibold pointer-events-none">{t('common.amWarten')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('common.amWartenDescription')}</p>
                 </div>
               </div>
               <Switch
-                aria-label="Am Warten"
+                aria-label={t('common.amWarten')}
                 checked={operation.amWarten || false}
                 onCheckedChange={(checked) => onUpdate({ amWarten: checked })}
                 onClick={(e) => e.stopPropagation()}
@@ -386,7 +388,7 @@ export function OperationDetailModal({
             </div>
             {operation.amWarten && (
               <Input
-                placeholder="Grund der Verzögerung..."
+                placeholder={t('common.amWartenPlaceholder')}
                 value={operation.amWartenNote || ''}
                 onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
@@ -402,7 +404,7 @@ export function OperationDetailModal({
           {/* Reko Reports */}
           <div>
             <Label className="text-sm font-semibold text-muted-foreground">
-              Rekognoszierungs-Meldungen
+              {t('common.rekoReports')}
             </Label>
             <div className="mt-1.5">
               <RekoReportSection
@@ -415,7 +417,7 @@ export function OperationDetailModal({
           {/* Resource Assignment Section */}
           <div>
             <Label className="text-sm font-semibold text-muted-foreground block">
-              Zugewiesene Ressourcen
+              {t('common.assignedResources')}
             </Label>
 
             {/* Reko Personnel */}
@@ -423,7 +425,7 @@ export function OperationDetailModal({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Search className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Reko</span>
+                  <span className="text-sm font-medium">{t('common.reko')}</span>
                 </div>
                 <Button
                   size="sm"
@@ -435,12 +437,12 @@ export function OperationDetailModal({
                   {assignedRekoPersonnel ? (
                     <>
                       <ArrowRightLeft className="h-3 w-3" />
-                      Wechseln
+                      {t('common.switch')}
                     </>
                   ) : (
                     <>
                       <Plus className="h-3 w-3" />
-                      Zuweisen
+                      {t('common.assign')}
                     </>
                   )}
                 </Button>
@@ -469,7 +471,7 @@ export function OperationDetailModal({
                       ) : (
                         <Link2 className="h-3 w-3" />
                       )}
-                      Direkt-Link
+                      {t('common.directLink')}
                     </Button>
                     <Button
                       size="sm"
@@ -483,12 +485,12 @@ export function OperationDetailModal({
                       ) : (
                         <LayoutDashboard className="h-3 w-3" />
                       )}
-                      Dashboard
+                      {t('common.dashboard')}
                     </Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground/60 italic">Keine Reko-Person zugewiesen</p>
+                <p className="text-sm text-muted-foreground/60 italic">{t('common.noRekoAssigned')}</p>
               )}
             </div>
 
@@ -497,7 +499,7 @@ export function OperationDetailModal({
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Mannschaft ({operation.crew.length})</span>
+                  <span className="text-sm font-medium">{t('common.crewCount', { count: operation.crew.length })}</span>
                 </div>
                 {onAssignResource && (
                   <Button
@@ -505,11 +507,11 @@ export function OperationDetailModal({
                     variant="ghost"
                     onClick={() => onAssignResource('crew', operation.id)}
                     className="h-7 px-2 gap-1"
-                    title="Mannschaft zuweisen"
+                    title={t('common.assignCrew')}
                     tabIndex={0}
                   >
                     <Plus className="h-3 w-3" />
-                    Hinzufügen
+                    {t('common.add')}
                   </Button>
                 )}
               </div>
@@ -529,7 +531,7 @@ export function OperationDetailModal({
                             onRemoveCrew(operation.id, member)
                           }}
                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Person entfernen"
+                          title={t('detail.removePerson')}
                           tabIndex={-1}
                         >
                           <X className="h-3 w-3" />
@@ -538,7 +540,7 @@ export function OperationDetailModal({
                     </Badge>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground/60 italic">Keine Mannschaft zugewiesen</p>
+                  <p className="text-sm text-muted-foreground/60 italic">{t('detail.noCrew')}</p>
                 )}
               </div>
             </div>
@@ -548,7 +550,7 @@ export function OperationDetailModal({
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Truck className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Fahrzeuge ({operation.vehicles.length})</span>
+                  <span className="text-sm font-medium">{t('common.vehiclesCount', { count: operation.vehicles.length })}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Popover>
@@ -557,17 +559,17 @@ export function OperationDetailModal({
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 gap-1"
-                        title="Fahrzeug zuweisen"
+                        title={t('common.assignVehicle')}
                         tabIndex={0}
                       >
                         <Plus className="h-3 w-3" />
-                        Hinzufügen
+                        {t('common.add')}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-64 p-2" align="start">
                       <div className="space-y-1">
                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                          Fahrzeug zuweisen
+                          {t('common.assignVehicle')}
                         </div>
                         <button
                           onClick={() => {
@@ -580,15 +582,15 @@ export function OperationDetailModal({
                         >
                           <Footprints className="h-4 w-4" />
                           <div className="text-left flex-1">
-                            <div className="font-medium">Zu Fuss</div>
-                            <div className="text-xs text-muted-foreground">Ohne Fahrzeug</div>
+                            <div className="font-medium">{t('common.zuFuss')}</div>
+                            <div className="text-xs text-muted-foreground">{t('detail.ohneFahrzeug')}</div>
                           </div>
                           <Kbd className="h-5 text-xs">0</Kbd>
                         </button>
                         <div className="border-t border-border my-1" />
                         {isLoadingVehicles ? (
                           <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                            Lade Fahrzeuge...
+                            {t('detail.loadingVehicles')}
                           </div>
                         ) : (
                           availableVehicles.map((vehicle) => {
@@ -630,14 +632,14 @@ export function OperationDetailModal({
                 {operation.zuFuss && (
                   <Badge variant="secondary" className="text-sm gap-1">
                     <Footprints className="h-3.5 w-3.5" />
-                    Zu Fuss
+                    {t('common.zuFuss')}
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         onUpdate({ zuFuss: false })
                       }}
                       className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-                      title="Zu Fuss entfernen"
+                      title={t('common.removeZuFuss')}
                       tabIndex={-1}
                     >
                       <X className="h-3 w-3" />
@@ -655,7 +657,7 @@ export function OperationDetailModal({
                         key={vehicleName}
                         variant="default"
                         className="text-sm gap-1 pr-1 group transition-colors"
-                        title={callsign ? `Funkrufname: ${callsign}` : undefined}
+                        title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                       >
                         {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
                         {assignmentId && (
@@ -675,7 +677,7 @@ export function OperationDetailModal({
                                 })
                               )
                               apiClient.updateAssignment(operation.id, assignmentId, { driver_stay: newValue }).catch(() => {
-                                toast.error('Fehler beim Aktualisieren')
+                                toast.error(t('common.updateFailed'))
                                 // Revert
                                 setOperations((ops: Operation[]) =>
                                   ops.map((op: Operation) => {
@@ -695,13 +697,13 @@ export function OperationDetailModal({
                                 ? "bg-white/20 text-white hover:bg-white/30"
                                 : "bg-white/10 text-white/60 hover:bg-white/20"
                             )}
-                            title={driverStay ? "Fahrer bleibt vor Ort — klicken für Rückkehr" : "Fahrer kehrt zurück — klicken für vor Ort bleiben"}
+                            title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                             tabIndex={-1}
                           >
                             {driverStay ? (
-                              <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> bleibt</span>
+                              <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> {t('common.driverStays')}</span>
                             ) : (
-                              <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3" /> zurück</span>
+                              <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3" /> {t('common.driverReturns')}</span>
                             )}
                           </button>
                         )}
@@ -711,7 +713,7 @@ export function OperationDetailModal({
                             onRemoveVehicle(operation.id, vehicleName)
                           }}
                           className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white cursor-pointer"
-                          title="Fahrzeug entfernen"
+                          title={t('detail.removeVehicle')}
                           tabIndex={-1}
                         >
                           <X className="h-3 w-3" />
@@ -720,7 +722,7 @@ export function OperationDetailModal({
                     )
                   })
                 ) : (
-                  <p className="text-sm text-muted-foreground/60 italic">Keine Fahrzeuge zugewiesen</p>
+                  <p className="text-sm text-muted-foreground/60 italic">{t('detail.noVehicles')}</p>
                 )}
               </div>
             </div>
@@ -730,7 +732,7 @@ export function OperationDetailModal({
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Material ({operation.materials.length})</span>
+                  <span className="text-sm font-medium">{t('common.materialsCount', { count: operation.materials.length })}</span>
                 </div>
                 {onAssignResource && (
                   <Button
@@ -738,11 +740,11 @@ export function OperationDetailModal({
                     variant="ghost"
                     onClick={() => onAssignResource('materials', operation.id)}
                     className="h-7 px-2 gap-1"
-                    title="Material zuweisen"
+                    title={t('common.assignMaterial')}
                     tabIndex={0}
                   >
                     <Plus className="h-3 w-3" />
-                    Hinzufügen
+                    {t('common.add')}
                   </Button>
                 )}
               </div>
@@ -793,7 +795,7 @@ export function OperationDetailModal({
                                     }
                                   }}
                                   className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title={`${group.name} entfernen`}
+                                  title={t('common.removeNamed', { name: group.name })}
                                   tabIndex={-1}
                                 >
                                   <X className="h-3 w-3" />
@@ -823,7 +825,7 @@ export function OperationDetailModal({
                                   onRemoveMaterial(operation.id, matId)
                                 }}
                                 className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Material entfernen"
+                                title={t('detail.removeMaterial')}
                                 tabIndex={-1}
                               >
                                 <X className="h-3 w-3" />
@@ -836,7 +838,7 @@ export function OperationDetailModal({
                     )
                   })()
                 ) : (
-                  <p className="text-sm text-muted-foreground/60 italic">Kein Material zugewiesen</p>
+                  <p className="text-sm text-muted-foreground/60 italic">{t('detail.noMaterial')}</p>
                 )}
               </div>
             </div>
@@ -846,7 +848,7 @@ export function OperationDetailModal({
             <div className="mt-4">
               <div className="flex items-center gap-2 mb-1.5">
                 <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Status ändern</span>
+                <span className="text-sm font-medium">{t('detail.changeStatus')}</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {columns.map((col) => {
@@ -860,7 +862,7 @@ export function OperationDetailModal({
                       onClick={() => changeStatusToTop(operation.id, col.status[0])}
                       className="h-7 px-2.5 text-xs"
                     >
-                      {col.title}
+                      {t(`columns.${col.id}`)}
                     </Button>
                   )
                 })}
@@ -880,7 +882,7 @@ export function OperationDetailModal({
             disabled={isCopyingWhatsApp}
           >
             <MessageCircle className="h-4 w-4" />
-            {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp kopieren'}
+            {isCopyingWhatsApp ? t('common.copying') : t('detail.copyWhatsapp')}
           </Button>
           {diveraEnabled && onSendDivera && operation && (
             <Button
@@ -890,7 +892,7 @@ export function OperationDetailModal({
               className="border border-border"
             >
               <Siren className="h-4 w-4" />
-              Aufgebot
+              {t('detail.diveraAlarm')}
             </Button>
           )}
           <Button
@@ -900,7 +902,7 @@ export function OperationDetailModal({
             className="border border-border"
           >
             <ArrowRightLeft className="h-4 w-4" />
-            Ressourcen übertragen
+            {t('common.transferResources')}
           </Button>
           <div className="ml-auto flex items-center gap-2">
             <Button
@@ -910,10 +912,10 @@ export function OperationDetailModal({
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="h-4 w-4" />
-              Löschen
+              {t('common.delete')}
             </Button>
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              Schliessen
+              {t('common.close')}
             </Button>
           </div>
         </div>
@@ -922,8 +924,8 @@ export function OperationDetailModal({
       <DeleteConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Einsatz wirklich löschen?"
-        description={`Der Einsatz "${formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
+        title={t('common.deleteIncidentTitle')}
+        description={t('common.deleteIncidentDescription', { name: formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType) })}
         onConfirm={() => {
           onDelete(operation.id)
           onOpenChange(false)

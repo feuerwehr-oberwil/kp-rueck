@@ -2,8 +2,9 @@
 
 import { ArrowDown, ArrowUp, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { de } from 'date-fns/locale'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
+import { getDateFnsLocale } from '@/lib/date-locale'
 import { useSyncStatus } from '@/lib/hooks/use-sync-status'
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery'
 
@@ -12,6 +13,7 @@ import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery'
  * Shows a colored dot, direction arrow, and last sync time on hover.
  */
 export function NavbarSyncIndicator() {
+  const t = useTranslations('sync')
   const { status, isLoading, error, isStale } = useSyncStatus()
   useRailwayRecovery(status)
 
@@ -55,27 +57,27 @@ export function NavbarSyncIndicator() {
   }
 
   const getTooltipText = () => {
-    if (isLoading) return 'Lade Status...'
-    if (error) return `Fehler: ${error}`
-    if (!status) return 'Kein Status verfügbar'
+    if (isLoading) return t('navbar.loadingStatus')
+    if (error) return t('navbar.error', { error })
+    if (!status) return t('navbar.noStatus')
 
     const lastSync = status.last_sync
-      ? formatDistanceToNow(new Date(status.last_sync), { addSuffix: true, locale: de })
-      : 'Noch nie'
+      ? formatDistanceToNow(new Date(status.last_sync), { addSuffix: true, locale: getDateFnsLocale() })
+      : t('common.never')
 
     if (!status.railway_healthy) {
-      return `Railway Offline • Letzte Sync: ${lastSync}`
+      return t('navbar.offlineLastSync', { lastSync })
     }
 
     if (isStale) {
-      return `Daten veraltet • Letzte Sync: ${lastSync}`
+      return t('navbar.staleLastSync', { lastSync })
     }
 
     if (status.is_syncing) {
-      return 'Synchronisiert...'
+      return t('common.syncing')
     }
 
-    return `Synchronisiert • ${lastSync}`
+    return t('navbar.syncedAt', { lastSync })
   }
 
   return (
@@ -88,8 +90,8 @@ export function NavbarSyncIndicator() {
       {getDirectionIcon()}
       <span className="text-sm text-muted-foreground hidden md:inline">
         {status?.last_sync
-          ? formatDistanceToNow(new Date(status.last_sync), { addSuffix: true, locale: de })
-          : 'Noch nie'}
+          ? formatDistanceToNow(new Date(status.last_sync), { addSuffix: true, locale: getDateFnsLocale() })
+          : t('common.never')}
       </span>
     </Link>
   )

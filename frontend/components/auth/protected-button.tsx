@@ -8,6 +8,7 @@
  */
 
 import { ReactNode, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -41,6 +42,7 @@ export function ProtectedButton({
   asChild = false,
   ...props
 }: ProtectedButtonProps) {
+  const t = useTranslations('common.protectedButton');
   const { isEditor } = useAuth();
   const [wiggle, setWiggle] = useState(false);
 
@@ -99,10 +101,10 @@ export function ProtectedButton({
         <div className="space-y-2">
           <p className="font-semibold flex items-center gap-2">
             <Info className="h-3 w-3 text-primary" />
-            Diese Funktion ist nur für Editoren verfügbar
+            {t('editorOnlyTitle')}
           </p>
           <p className="text-xs text-muted-foreground">
-            Sie können aber alle Einsätze in Echtzeit verfolgen. Sprechen Sie mit Ihrem Administrator für erweiterte Berechtigungen.
+            {t('editorOnlyDescription')}
           </p>
         </div>
       </TooltipContent>

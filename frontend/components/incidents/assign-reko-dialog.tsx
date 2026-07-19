@@ -9,6 +9,7 @@ import { Search, User, Loader2 } from "lucide-react"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 
 interface AssignRekoDialogProps {
   open: boolean
@@ -25,6 +26,8 @@ export function AssignRekoDialog({
   incidentTitle,
   onAssigned,
 }: AssignRekoDialogProps) {
+  const t = useTranslations('incidents.assignReko')
+  const tCommon = useTranslations('incidents.common')
   const [personnel, setPersonnel] = useState<ApiAvailableRekoPersonnel[]>([])
   const [currentlyAssignedId, setCurrentlyAssignedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -47,7 +50,7 @@ export function AssignRekoDialog({
       setCurrentlyAssignedId(response.currently_assigned_id)
     } catch (err) {
       console.error('Failed to load Reko personnel:', err)
-      setError('Fehler beim Laden der Reko-Personen')
+      setError(t('loadError'))
     } finally {
       setLoading(false)
     }
@@ -61,7 +64,7 @@ export function AssignRekoDialog({
       onOpenChange(false)
     } catch (err) {
       console.error('Failed to assign Reko personnel:', err)
-      toast.error('Fehler bei der Zuweisung', { description: 'Die Person konnte nicht zugewiesen werden. Versuchen Sie es erneut.' })
+      toast.error(t('assignErrorTitle'), { description: t('assignErrorDescription') })
     } finally {
       setAssigning(null)
     }
@@ -73,10 +76,10 @@ export function AssignRekoDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Search className="h-5 w-5" />
-            Reko-Personal zuweisen
+            {t('title')}
           </DialogTitle>
           <DialogDescription className="truncate">
-            Einsatz: {incidentTitle}
+            {t('incidentLabel', { title: incidentTitle })}
           </DialogDescription>
         </DialogHeader>
 
@@ -86,23 +89,23 @@ export function AssignRekoDialog({
             {loading ? (
               <div className="flex items-center justify-center h-[300px]">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Lädt...</span>
+                <span className="ml-2 text-muted-foreground">{t('loading')}</span>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-[300px]">
                 <p className="text-destructive">{error}</p>
                 <Button variant="outline" onClick={loadAvailablePersonnel} className="mt-4">
-                  Erneut versuchen
+                  {t('retry')}
                 </Button>
               </div>
             ) : personnel.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[300px]">
                 <User className="h-12 w-12 text-muted-foreground/50 mb-3" />
                 <p className="text-sm font-medium text-foreground mb-2">
-                  Keine Reko-Personen verfügbar
+                  {t('emptyTitle')}
                 </p>
                 <p className="text-xs text-muted-foreground text-center">
-                  Tipp: Rechtsklick auf eine Person in der Seitenleiste → "Als Reko zuweisen" um jemanden als Reko-Personal zu markieren.
+                  {t('emptyHint')}
                 </p>
               </div>
             ) : (
@@ -139,11 +142,11 @@ export function AssignRekoDialog({
                       <div className="flex items-center gap-2">
                         {isCurrentlyAssigned ? (
                           <Badge variant="default" className="text-xs bg-success">
-                            Zugewiesen
+                            {t('assigned')}
                           </Badge>
                         ) : person.assignment_count > 0 ? (
                           <Badge variant="outline" className="text-xs">
-                            {person.assignment_count} {person.assignment_count === 1 ? 'Einsatz' : 'Einsätze'}
+                            {t('assignmentCount', { count: person.assignment_count })}
                           </Badge>
                         ) : null}
                         {assigning === person.personnel_id && (
@@ -161,7 +164,7 @@ export function AssignRekoDialog({
           {/* Footer */}
           <div className="flex justify-end pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Abbrechen
+              {tCommon('cancel')}
             </Button>
           </div>
         </div>

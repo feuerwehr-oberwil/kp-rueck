@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Fragment } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import {
   Table,
@@ -24,6 +25,8 @@ interface SyncHistoryCardProps {
 }
 
 export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
+  const t = useTranslations('sync.history')
+  const tCommon = useTranslations('sync.common')
   const [history, setHistory] = useState<SyncHistoryEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -38,7 +41,7 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
       const data = await apiClient.getSyncHistory(10) // Last 10 syncs
       setHistory(data)
     } catch (error) {
-      toast.error('Fehler beim Laden des Synchronisations-Verlaufs')
+      toast.error(t('loadFailed'))
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -61,28 +64,28 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
         return (
           <Badge variant="secondary" className="bg-success text-success-foreground flex items-center gap-1 w-fit">
             <CheckCircle2 className="h-3 w-3" />
-            Erfolgreich
+            {t('statusSuccess')}
           </Badge>
         )
       case 'failed':
         return (
           <Badge variant="destructive" className="flex items-center gap-1 w-fit">
             <XCircle className="h-3 w-3" />
-            Fehlgeschlagen
+            {t('statusFailed')}
           </Badge>
         )
       case 'partial':
         return (
           <Badge variant="secondary" className="bg-warning text-warning-foreground flex items-center gap-1 w-fit">
             <AlertTriangle className="h-3 w-3" />
-            Teilweise
+            {t('statusPartial')}
           </Badge>
         )
       case 'syncing':
         return (
           <Badge variant="secondary" className="bg-warning text-warning-foreground flex items-center gap-1 w-fit">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Läuft...
+            {t('statusRunning')}
           </Badge>
         )
     }
@@ -97,30 +100,30 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
   }
 
   const getDirectionText = (direction: SyncHistoryEntry['sync_direction']) => {
-    return direction === 'from_railway' ? 'Von Railway' : 'Zu Railway'
+    return direction === 'from_railway' ? tCommon('fromRailway') : tCommon('toRailway')
   }
 
   const formatTimestamp = (timestamp: string) => {
     try {
       return format(new Date(timestamp), 'dd.MM.yyyy HH:mm:ss', { locale: de })
     } catch {
-      return 'Ungültig'
+      return tCommon('invalid')
     }
   }
 
   const formatRecordsSynced = (records: SyncHistoryEntry['records_synced']) => {
-    if (!records) return 'Keine'
+    if (!records) return t('none')
 
     const entries = Object.entries(records).filter(([_, count]) => count && count > 0)
-    if (entries.length === 0) return 'Keine'
+    if (entries.length === 0) return t('none')
 
     return entries.map(([type, count]) => {
       const typeNames: Record<string, string> = {
-        incidents: 'Einsätze',
-        personnel: 'Personal',
-        vehicles: 'Fahrzeuge',
-        materials: 'Materialien',
-        settings: 'Einstellungen',
+        incidents: t('typeNames.incidents'),
+        personnel: t('typeNames.personnel'),
+        vehicles: t('typeNames.vehicles'),
+        materials: t('typeNames.materials'),
+        settings: t('typeNames.settings'),
       }
       return `${count} ${typeNames[type] || type}`
     }).join(', ')
@@ -129,8 +132,8 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
   return (
     <Card className="p-6">
       <div className="space-y-1 mb-4">
-        <p className="font-medium">Synchronisations-Verlauf</p>
-        <p className="text-xs text-muted-foreground">Letzte 10 Synchronisationen zwischen Railway und Local</p>
+        <p className="font-medium">{t('title')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div>
         {isLoading ? (
@@ -139,7 +142,7 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
           </div>
         ) : history.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Keine Synchronisations-Historie verfügbar
+            {t('empty')}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -147,10 +150,10 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]"></TableHead>
-                  <TableHead>Zeitstempel</TableHead>
-                  <TableHead>Richtung</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Datensätze</TableHead>
+                  <TableHead>{t('colTimestamp')}</TableHead>
+                  <TableHead>{t('colDirection')}</TableHead>
+                  <TableHead>{t('colStatus')}</TableHead>
+                  <TableHead>{t('colRecords')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -188,41 +191,41 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
                             <div className="py-3 px-4 space-y-2">
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
-                                  <span className="font-medium">Gestartet:</span>{' '}
+                                  <span className="font-medium">{t('startedAt')}</span>{' '}
                                   {formatTimestamp(entry.started_at)}
                                 </div>
                                 {entry.completed_at && (
                                   <div>
-                                    <span className="font-medium">Abgeschlossen:</span>{' '}
+                                    <span className="font-medium">{t('completedAt')}</span>{' '}
                                     {formatTimestamp(entry.completed_at)}
                                   </div>
                                 )}
                               </div>
                               {entry.records_synced && (
                                 <div>
-                                  <span className="font-medium text-sm">Details:</span>
+                                  <span className="font-medium text-sm">{t('details')}</span>
                                   <div className="grid grid-cols-2 gap-2 mt-1 text-sm text-muted-foreground">
                                     {entry.records_synced.incidents !== undefined && (
-                                      <div>Einsätze: {entry.records_synced.incidents}</div>
+                                      <div>{t('typeNames.incidents')}: {entry.records_synced.incidents}</div>
                                     )}
                                     {entry.records_synced.personnel !== undefined && (
-                                      <div>Personal: {entry.records_synced.personnel}</div>
+                                      <div>{t('typeNames.personnel')}: {entry.records_synced.personnel}</div>
                                     )}
                                     {entry.records_synced.vehicles !== undefined && (
-                                      <div>Fahrzeuge: {entry.records_synced.vehicles}</div>
+                                      <div>{t('typeNames.vehicles')}: {entry.records_synced.vehicles}</div>
                                     )}
                                     {entry.records_synced.materials !== undefined && (
-                                      <div>Materialien: {entry.records_synced.materials}</div>
+                                      <div>{t('typeNames.materials')}: {entry.records_synced.materials}</div>
                                     )}
                                     {entry.records_synced.settings !== undefined && (
-                                      <div>Einstellungen: {entry.records_synced.settings}</div>
+                                      <div>{t('typeNames.settings')}: {entry.records_synced.settings}</div>
                                     )}
                                   </div>
                                 </div>
                               )}
                               {entry.errors && Object.keys(entry.errors).length > 0 && (
                                 <div className="mt-2">
-                                  <span className="font-medium text-sm text-destructive">Fehler:</span>
+                                  <span className="font-medium text-sm text-destructive">{t('errors')}</span>
                                   <div className="mt-1 text-sm text-destructive/80 space-y-1">
                                     {Object.entries(entry.errors).map(([key, value]) => (
                                       <div key={key}>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { ArrowRightLeft } from "lucide-react"
 import {
   Dialog,
@@ -30,6 +31,7 @@ export function TransferRekoDialog({
   rekoPersonnel,
   onTransferred,
 }: TransferRekoDialogProps) {
+  const t = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const [isTransferring, setIsTransferring] = useState(false)
 
@@ -50,7 +52,7 @@ export function TransferRekoDialog({
       onTransferred()
       onOpenChange(false)
     } catch {
-      toast.error("Übertragung fehlgeschlagen")
+      toast.error(t('transferReko.failed'))
     } finally {
       setIsTransferring(false)
     }
@@ -60,16 +62,16 @@ export function TransferRekoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Rekos übertragen</DialogTitle>
+          <DialogTitle>{t('transferReko.title')}</DialogTitle>
           <DialogDescription>
-            Offene Reko-Aufträge von {fromPerson.name} an eine andere Person übertragen.
+            {t('transferReko.description', { name: fromPerson.name })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
           {targetOptions.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Keine anderen Reko-Personen verfügbar
+              {t('transferReko.noOthers')}
             </p>
           ) : (
             targetOptions.map((person) => (

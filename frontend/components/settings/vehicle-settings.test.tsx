@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 import userEvent from "@testing-library/user-event";
 
 import type { ApiVehicle } from "@/lib/api-client";
@@ -56,7 +57,7 @@ describe("VehicleSettings", () => {
       .mockResolvedValueOnce([created]); // after create
 
     const user = userEvent.setup();
-    render(<VehicleSettings />);
+    renderWithIntl(<VehicleSettings />);
 
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
@@ -80,7 +81,7 @@ describe("VehicleSettings", () => {
 
   it("blocks submit and surfaces a zod error when name is empty", async () => {
     const user = userEvent.setup();
-    render(<VehicleSettings />);
+    renderWithIntl(<VehicleSettings />);
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
@@ -95,7 +96,7 @@ describe("VehicleSettings", () => {
 
   it("warns about unsaved changes when cancelling while dirty", async () => {
     const user = userEvent.setup();
-    render(<VehicleSettings />);
+    renderWithIntl(<VehicleSettings />);
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
@@ -113,7 +114,7 @@ describe("VehicleSettings", () => {
   it("toasts on API failure and keeps the dialog open", async () => {
     createVehicle.mockRejectedValue(new Error("boom"));
     const user = userEvent.setup();
-    render(<VehicleSettings />);
+    renderWithIntl(<VehicleSettings />);
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));

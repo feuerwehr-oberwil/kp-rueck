@@ -85,6 +85,7 @@ import {
   LifeBuoy,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
@@ -105,22 +106,22 @@ import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { useIsMobile } from '@/components/ui/use-mobile';
 
-// Sidebar sections configuration
+// Sidebar sections configuration (labels come from settings.page.sections.*)
 const SECTIONS = [
-  { id: 'general', label: 'Allgemein', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
-  { id: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
-  { id: 'alerting', label: 'Alarmierung', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'gps', label: 'GPS', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'general', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
+  { id: 'notifications', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
+  { id: 'alerting', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'gps', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
   // Sync can rewrite whole tables and points at a database URL — admin-only (matches /api/sync/*).
-  { id: 'sync', label: 'Synchronisation', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
-  { id: 'printer', label: 'Drucker', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'fallback', label: 'Ausfallsicherheit', icon: LifeBuoy, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'users', label: 'Benutzer', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
-  { id: 'personnel', label: 'Personal', icon: Users, group: 'resources', editorOnly: true, adminOnly: false },
-  { id: 'vehicles', label: 'Fahrzeuge', icon: Truck, group: 'resources', editorOnly: true, adminOnly: false },
-  { id: 'materials', label: 'Material', icon: Package, group: 'resources', editorOnly: true, adminOnly: false },
-  { id: 'import', label: 'Import/Export', icon: FileSpreadsheet, group: 'data', editorOnly: true, adminOnly: false },
-  { id: 'audit', label: 'Audit-Protokoll', icon: FileText, group: 'data', editorOnly: true, adminOnly: false },
+  { id: 'sync', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
+  { id: 'printer', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'fallback', icon: LifeBuoy, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'users', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
+  { id: 'personnel', icon: Users, group: 'resources', editorOnly: true, adminOnly: false },
+  { id: 'vehicles', icon: Truck, group: 'resources', editorOnly: true, adminOnly: false },
+  { id: 'materials', icon: Package, group: 'resources', editorOnly: true, adminOnly: false },
+  { id: 'import', icon: FileSpreadsheet, group: 'data', editorOnly: true, adminOnly: false },
+  { id: 'audit', icon: FileText, group: 'data', editorOnly: true, adminOnly: false },
 ] as const;
 
 // Audit log constants
@@ -131,53 +132,36 @@ type SectionId = typeof SECTIONS[number]['id'];
 
 interface SettingConfig {
   key: string;
-  label: string;
-  description: string;
   type: 'number' | 'boolean' | 'text' | 'select';
   unit?: string;
-  options?: { value: string; label: string }[];
+  options?: string[];
 }
 
+// Labels/descriptions/option labels come from settings.page.general.configs.*
 const SETTING_CONFIGS: SettingConfig[] = [
   {
     key: 'home_city',
-    label: 'Heimatort',
-    description: 'Haupteinsatzgebiet für vereinfachte Adressanzeige',
     type: 'text',
   },
   {
     key: 'funkrufname',
-    label: 'Funkrufname',
-    description: 'Funkrufname der Einheit für die Funkdurchsage (z.B. Omega, Gamma)',
     type: 'text',
   },
   {
     key: 'map_mode',
-    label: 'Karten-Modus',
-    description: 'Auto (Online mit Offline-Fallback), Online oder Offline',
     type: 'select',
-    options: [
-      { value: 'auto', label: 'Auto (empfohlen)' },
-      { value: 'online', label: 'Nur Online' },
-      { value: 'offline', label: 'Nur Offline' },
-    ],
+    options: ['auto', 'online', 'offline'],
   },
   {
     key: 'map_style',
-    label: 'Kartenstil',
-    description: 'Visueller Stil der Karte (nur im Online-Modus)',
     type: 'select',
-    options: [
-      { value: 'osm', label: 'OpenStreetMap (Standard)' },
-      { value: 'topo', label: 'Topografisch (Esri)' },
-      { value: 'carto-light', label: 'Voyager / Hell (CARTO)' },
-      { value: 'carto-dark', label: 'Dunkel (CARTO)' },
-    ],
+    options: ['osm', 'topo', 'carto-light', 'carto-dark'],
   },
 ];
 
 export default function SettingsPage() {
   useGlobalNavigation();
+  const t = useTranslations('settings');
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isEditor, isAdmin, isAuthenticated } = useAuth();
@@ -258,7 +242,7 @@ export default function SettingsPage() {
       setAuditEntries(data);
     } catch (err) {
       console.error('Failed to fetch audit logs:', err);
-      setAuditError(err instanceof Error ? err.message : 'Fehler beim Laden');
+      setAuditError(err instanceof Error ? err.message : t('common.loadError'));
     } finally {
       setAuditLoading(false);
     }
@@ -287,8 +271,8 @@ export default function SettingsPage() {
       setServerSettings(data);
     } catch (err) {
       console.error('Failed to fetch settings:', err);
-      setError(err instanceof Error ? err.message : 'Fehler beim Laden');
-      toast.error('Fehler beim Laden der Einstellungen');
+      setError(err instanceof Error ? err.message : t('common.loadError'));
+      toast.error(t('common.loadSettingsError'));
     } finally {
       setLoading(false);
     }
@@ -302,7 +286,7 @@ export default function SettingsPage() {
 
   const updateSetting = async (key: string, value: string) => {
     if (!isEditor) {
-      toast.error('Nur Bearbeiter können Einstellungen ändern');
+      toast.error(t('page.toasts.editorsOnly'));
       return;
     }
     setSaving(key);
@@ -312,7 +296,7 @@ export default function SettingsPage() {
       setServerSettings((prev) => ({ ...prev, [key]: value }));
     } catch (err) {
       console.error(`Failed to update setting ${key}:`, err);
-      toast.error('Fehler beim Speichern');
+      toast.error(t('common.saveError'));
     } finally {
       setSaving(null);
     }
@@ -340,7 +324,7 @@ export default function SettingsPage() {
         previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Vorschau fehlgeschlagen');
+      setImportError(err instanceof Error ? err.message : t('page.errors.previewFailed'));
     } finally {
       setImportLoading(false);
     }
@@ -353,13 +337,17 @@ export default function SettingsPage() {
     try {
       const result = await apiClient.executeExcelImport(selectedFile, importMode);
       setImportSuccess(
-        `Import erfolgreich! ${result.counts.personnel} Personal, ${result.counts.vehicles} Fahrzeuge, ${result.counts.materials} Material importiert.`
+        t('page.import.importSuccess', {
+          personnel: result.counts.personnel,
+          vehicles: result.counts.vehicles,
+          materials: result.counts.materials,
+        })
       );
       setSelectedFile(null);
       setPreview(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Import fehlgeschlagen');
+      setImportError(err instanceof Error ? err.message : t('page.errors.importFailed'));
     } finally {
       setImportLoading(false);
     }
@@ -379,9 +367,9 @@ export default function SettingsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Export erfolgreich');
+      toast.success(t('page.toasts.exportSuccess'));
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Export fehlgeschlagen');
+      setImportError(err instanceof Error ? err.message : t('page.errors.exportFailed'));
     } finally {
       setImportLoading(false);
     }
@@ -400,7 +388,7 @@ export default function SettingsPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      toast.error('Template-Download fehlgeschlagen');
+      toast.error(t('page.toasts.templateDownloadFailed'));
     } finally {
       setImportLoading(false);
     }
@@ -416,7 +404,7 @@ export default function SettingsPage() {
 
   const handleAuditExport = async () => {
     if (!auditExportEventId) {
-      toast.error('Bitte wählen Sie ein Ereignis aus');
+      toast.error(t('page.toasts.selectEvent'));
       return;
     }
     setAuditExportLoading(true);
@@ -435,9 +423,9 @@ export default function SettingsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Audit-Export erfolgreich');
+      toast.success(t('page.toasts.auditExportSuccess'));
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Audit-Export fehlgeschlagen');
+      setImportError(err instanceof Error ? err.message : t('page.errors.auditExportFailed'));
     } finally {
       setAuditExportLoading(false);
     }
@@ -503,12 +491,12 @@ export default function SettingsPage() {
           disabled={!isEditor || isCurrentlySaving}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Wählen..." />
+            <SelectValue placeholder={t('page.general.selectPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
             {config.options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
+              <SelectItem key={option} value={option}>
+                {t(`page.general.configs.${config.key}.options.${option}`)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -555,15 +543,15 @@ export default function SettingsPage() {
               {/* Theme Selection */}
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <Label className="font-medium">Erscheinungsbild</Label>
-                  <p className="text-xs text-muted-foreground">Hell, Dunkel oder System</p>
+                  <Label className="font-medium">{t('page.general.appearance')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('page.general.appearanceHint')}</p>
                 </div>
                 {mounted && (
                   <div className="flex gap-1.5 flex-shrink-0">
                     {([
-                      { value: 'light', icon: Sun, label: 'Hell' },
-                      { value: 'dark', icon: Moon, label: 'Dunkel' },
-                      { value: 'system', icon: Monitor, label: 'System' },
+                      { value: 'light', icon: Sun, label: t('page.general.themeLight') },
+                      { value: 'dark', icon: Moon, label: t('page.general.themeDark') },
+                      { value: 'system', icon: Monitor, label: t('page.general.themeSystem') },
                     ] as const).map(({ value, icon: Icon, label }) => (
                       <button
                         key={value}
@@ -593,15 +581,15 @@ export default function SettingsPage() {
               ) : error ? (
                 <div>
                   <p className="text-destructive">{error}</p>
-                  <Button onClick={fetchSettings} className="mt-4">Erneut versuchen</Button>
+                  <Button onClick={fetchSettings} className="mt-4">{t('common.retry')}</Button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {SETTING_CONFIGS.map((config) => (
                     <div key={config.key} className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
-                        <Label htmlFor={config.key} className="font-medium">{config.label}</Label>
-                        <p className="text-xs text-muted-foreground">{config.description}</p>
+                        <Label htmlFor={config.key} className="font-medium">{t(`page.general.configs.${config.key}.label`)}</Label>
+                        <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className={config.type === 'text' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
@@ -616,7 +604,7 @@ export default function SettingsPage() {
             </Card>
             {!isEditor && (
               <p className="text-sm text-muted-foreground">
-                Nur Bearbeiter können Einstellungen ändern.
+                {t('page.general.editorsOnlyNote')}
               </p>
             )}
           </div>
@@ -634,14 +622,14 @@ export default function SettingsPage() {
         const whatsappFields = [
           {
             key: WHATSAPP_MESSAGE_1_KEY,
-            label: 'Nachricht 1 · Standby',
-            hint: 'Erste Info: KP-Rück aktiv, Telefon mitnehmen, Ablauf.',
+            label: t('page.alerting.message1Label'),
+            hint: t('page.alerting.message1Hint'),
             fallback: DEFAULT_WHATSAPP_MESSAGE_1,
           },
           {
             key: WHATSAPP_MESSAGE_2_KEY,
-            label: 'Nachricht 2 · Einrücken',
-            hint: 'Direkter Aufruf: ins Magazin einrücken.',
+            label: t('page.alerting.message2Label'),
+            hint: t('page.alerting.message2Hint'),
             fallback: DEFAULT_WHATSAPP_MESSAGE_2,
           },
         ];
@@ -649,10 +637,9 @@ export default function SettingsPage() {
           <div className="space-y-6">
             <Card className="p-6 space-y-4">
               <div>
-                <h3 className="font-medium">WhatsApp-Nachrichten</h3>
+                <h3 className="font-medium">{t('page.alerting.whatsappTitle')}</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Vorlagen für die Info-WhatsApp aus der Setup-Checkliste. Beim Senden wird die
-                  gewählte Nachricht in die Zwischenablage kopiert.
+                  {t('page.alerting.whatsappDescription')}
                 </p>
               </div>
               {whatsappFields.map((field) => {
@@ -669,7 +656,7 @@ export default function SettingsPage() {
                         disabled={!isEditor || isCurrentlySaving || value === field.fallback}
                         onClick={() => updateSetting(field.key, field.fallback)}
                       >
-                        Zurücksetzen
+                        {t('common.reset')}
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">{field.hint}</p>
@@ -697,11 +684,10 @@ export default function SettingsPage() {
               return (
                 <Card className="p-6 space-y-4">
                   <div>
-                    <h3 className="font-medium">WhatsApp-Einsatznachricht</h3>
+                    <h3 className="font-medium">{t('page.alerting.incidentTemplateTitle')}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Vorlage für die aus einem Einsatz kopierte WhatsApp-Meldung. Reihenfolge
-                      ändern = Zeilen verschieben. Eine Zeile, deren Platzhalter alle leer sind,
-                      fällt weg. Platzhalter: <code className="font-mono">{'{type}'}</code>,{' '}
+                      {t('page.alerting.incidentTemplateDescription')}{' '}
+                      <code className="font-mono">{'{type}'}</code>,{' '}
                       <code className="font-mono">{'{location}'}</code>,{' '}
                       <code className="font-mono">{'{notes}'}</code>,{' '}
                       <code className="font-mono">{'{contact}'}</code>,{' '}
@@ -715,7 +701,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="font-medium">Vorlage</Label>
+                      <Label className="font-medium">{t('page.alerting.templateLabel')}</Label>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -723,7 +709,7 @@ export default function SettingsPage() {
                         disabled={!isEditor || isCurrentlySaving || value === fallback}
                         onClick={() => updateSetting(key, fallback)}
                       >
-                        Zurücksetzen
+                        {t('common.reset')}
                       </Button>
                     </div>
                     <Textarea
@@ -771,7 +757,7 @@ export default function SettingsPage() {
 
       case 'sync':
         return demoMode ? (
-          <DemoHint text="Synchronisation ist im Demo-Modus nicht verfügbar." />
+          <DemoHint text={t('page.demo.sync')} />
         ) : (
           <div className="space-y-6">
             <SyncStatusCard
@@ -789,7 +775,7 @@ export default function SettingsPage() {
       case 'printer':
         return (
           <div className="space-y-4">
-            <DemoHint text="Druckereinstellungen sind im Demo-Modus nicht verfügbar. Es ist kein physischer Drucker angeschlossen." />
+            <DemoHint text={t('page.demo.printer')} />
             <PrinterSettings />
           </div>
         );
@@ -804,7 +790,7 @@ export default function SettingsPage() {
       case 'users':
         return (
           <div className="space-y-4">
-            <DemoHint text="Benutzerverwaltung ist im Demo-Modus nicht verfügbar." />
+            <DemoHint text={t('page.demo.users')} />
             <UserSettings />
           </div>
         );
@@ -821,7 +807,7 @@ export default function SettingsPage() {
       case 'import':
         return (
           <div className="space-y-6">
-            <DemoHint text="Datenimport ist im Demo-Modus nicht verfügbar. Export und Vorlagen-Download funktionieren normal." />
+            <DemoHint text={t('page.demo.import')} />
             {/* Notifications */}
             {importError && (
               <Card className="p-4 border-destructive bg-destructive/10">
@@ -855,12 +841,12 @@ export default function SettingsPage() {
             <Card className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Export</p>
-                  <p className="text-sm text-muted-foreground">Alle Ressourcen als Excel herunterladen</p>
+                  <p className="font-medium">{t('page.import.exportTitle')}</p>
+                  <p className="text-sm text-muted-foreground">{t('page.import.exportDescription')}</p>
                 </div>
                 <Button onClick={handleExport} disabled={importLoading}>
                   <Download className="h-4 w-4 mr-2" />
-                  Exportieren
+                  {t('page.import.exportButton')}
                 </Button>
               </div>
             </Card>
@@ -869,20 +855,20 @@ export default function SettingsPage() {
             <Card className="p-5">
               <div className="space-y-5">
                 <div>
-                  <p className="font-medium">Import</p>
-                  <p className="text-sm text-muted-foreground">Ressourcen aus Excel-Datei importieren</p>
+                  <p className="font-medium">{t('page.import.importTitle')}</p>
+                  <p className="text-sm text-muted-foreground">{t('page.import.importDescription')}</p>
                 </div>
 
                 {/* Step 1: Template */}
                 <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">1</div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">Vorlage herunterladen</p>
-                    <p className="text-xs text-muted-foreground">Excel-Vorlage mit korrektem Format</p>
+                    <p className="text-sm font-medium">{t('page.import.step1Title')}</p>
+                    <p className="text-xs text-muted-foreground">{t('page.import.step1Description')}</p>
                   </div>
                   <Button onClick={handleDownloadTemplate} disabled={importLoading} variant="outline" size="sm">
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Vorlage
+                    {t('page.import.templateButton')}
                   </Button>
                 </div>
 
@@ -890,7 +876,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">2</div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">Datei auswählen</p>
+                    <p className="text-sm font-medium">{t('page.import.step2Title')}</p>
                     {selectedFile && (
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">{selectedFile.name}</p>
                     )}
@@ -909,7 +895,7 @@ export default function SettingsPage() {
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-md border bg-background hover:bg-accent cursor-pointer text-sm"
                     >
                       <Upload className="h-4 w-4" />
-                      {selectedFile ? 'Ändern' : 'Auswählen'}
+                      {selectedFile ? t('page.import.changeFile') : t('page.import.chooseFile')}
                     </label>
                   </div>
                 </div>
@@ -919,7 +905,7 @@ export default function SettingsPage() {
                   <div className="p-3 bg-muted/50 rounded-lg space-y-3">
                     <div className="flex items-center gap-4">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">3</div>
-                      <p className="text-sm font-medium">Import-Modus wählen</p>
+                      <p className="text-sm font-medium">{t('page.import.step3Title')}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3 ml-12">
                       <button
@@ -929,8 +915,8 @@ export default function SettingsPage() {
                           importMode === 'replace' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
                         }`}
                       >
-                        <p className="font-medium text-sm">Ersetzen</p>
-                        <p className="text-xs text-muted-foreground">Bestehende Daten löschen</p>
+                        <p className="font-medium text-sm">{t('page.import.modeReplace')}</p>
+                        <p className="text-xs text-muted-foreground">{t('page.import.modeReplaceHint')}</p>
                       </button>
                       <button
                         type="button"
@@ -939,8 +925,8 @@ export default function SettingsPage() {
                           importMode === 'append' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
                         }`}
                       >
-                        <p className="font-medium text-sm">Anhängen</p>
-                        <p className="text-xs text-muted-foreground">Zu bestehenden hinzufügen</p>
+                        <p className="font-medium text-sm">{t('page.import.modeAppend')}</p>
+                        <p className="text-xs text-muted-foreground">{t('page.import.modeAppendHint')}</p>
                       </button>
                     </div>
                   </div>
@@ -950,7 +936,7 @@ export default function SettingsPage() {
                 {selectedFile && (
                   <div className="flex items-center gap-3 pt-2 border-t">
                     <Button onClick={handlePreview} disabled={importLoading || !!preview} variant="outline">
-                      Vorschau anzeigen
+                      {t('page.import.showPreview')}
                     </Button>
                     {preview && (
                       <Button
@@ -963,12 +949,12 @@ export default function SettingsPage() {
                         }}
                         disabled={importLoading}
                       >
-                        Jetzt importieren
+                        {t('page.import.importNow')}
                       </Button>
                     )}
                     <Button onClick={resetImport} variant="ghost" size="sm" className="ml-auto">
                       <X className="h-4 w-4 mr-1" />
-                      Zurücksetzen
+                      {t('common.reset')}
                     </Button>
                   </div>
                 )}
@@ -978,21 +964,21 @@ export default function SettingsPage() {
             {/* Preview */}
             {preview && (
               <Card ref={previewRef} className="p-5 space-y-4">
-                <p className="font-medium">Vorschau (erste 10 Zeilen)</p>
+                <p className="font-medium">{t('page.import.previewTitle')}</p>
 
                 {preview.personnel_total > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="h-4 w-4" />
-                      <span className="font-medium text-sm">Personal</span>
+                      <span className="font-medium text-sm">{t('page.sections.personnel')}</span>
                       <Badge variant="secondary">{preview.personnel_total}</Badge>
                     </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Rolle</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead>{t('common.name')}</TableHead>
+                          <TableHead>{t('common.role')}</TableHead>
+                          <TableHead>{t('common.status')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1012,15 +998,15 @@ export default function SettingsPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Truck className="h-4 w-4" />
-                      <span className="font-medium text-sm">Fahrzeuge</span>
+                      <span className="font-medium text-sm">{t('page.sections.vehicles')}</span>
                       <Badge variant="secondary">{preview.vehicles_total}</Badge>
                     </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Typ</TableHead>
-                          <TableHead>Funkrufname</TableHead>
+                          <TableHead>{t('common.name')}</TableHead>
+                          <TableHead>{t('common.type')}</TableHead>
+                          <TableHead>{t('common.radioCallSign')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1040,15 +1026,15 @@ export default function SettingsPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Package className="h-4 w-4" />
-                      <span className="font-medium text-sm">Material</span>
+                      <span className="font-medium text-sm">{t('page.sections.materials')}</span>
                       <Badge variant="secondary">{preview.materials_total}</Badge>
                     </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Typ</TableHead>
-                          <TableHead>Standort</TableHead>
+                          <TableHead>{t('common.name')}</TableHead>
+                          <TableHead>{t('common.type')}</TableHead>
+                          <TableHead>{t('common.location')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1075,11 +1061,9 @@ export default function SettingsPage() {
             <Card className="p-5">
               <div className="space-y-4">
                 <div>
-                  <p className="font-medium">Einsatz-Protokoll exportieren (Excel)</p>
+                  <p className="font-medium">{t('page.audit.exportTitle')}</p>
                   <p className="text-sm text-muted-foreground">
-                    Vollständiges Protokoll eines Ereignisses zur Archivierung und Abrechnung: alle
-                    Einsätze, die komplette Zuweisungshistorie von Personal, Fahrzeugen und Material
-                    mit Zeitstempeln (zugewiesen/freigegeben), Status-Verlauf und Reko-Berichte.
+                    {t('page.audit.exportDescription')}
                   </p>
                 </div>
 
@@ -1091,7 +1075,7 @@ export default function SettingsPage() {
                       disabled={eventsLoading || auditExportLoading}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Ereignis auswählen..." />
+                        <SelectValue placeholder={t('page.audit.selectEventPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {events
@@ -1100,14 +1084,14 @@ export default function SettingsPage() {
                             <SelectItem key={event.id} value={event.id}>
                               {event.name}
                               {event.training_flag && (
-                                <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
+                                <span className="ml-2 text-xs text-muted-foreground">{t('page.audit.trainingTag')}</span>
                               )}
                             </SelectItem>
                           ))}
                         {events.filter(e => e.archived_at).length > 0 && (
                           <>
                             <SelectItem value="_divider" disabled>
-                              — Archiviert —
+                              {t('page.audit.archivedDivider')}
                             </SelectItem>
                             {events
                               .filter(e => e.archived_at)
@@ -1115,7 +1099,7 @@ export default function SettingsPage() {
                                 <SelectItem key={event.id} value={event.id}>
                                   {event.name}
                                   {event.training_flag && (
-                                    <span className="ml-2 text-xs text-muted-foreground">(Training)</span>
+                                    <span className="ml-2 text-xs text-muted-foreground">{t('page.audit.trainingTag')}</span>
                                   )}
                                 </SelectItem>
                               ))}
@@ -1130,7 +1114,7 @@ export default function SettingsPage() {
                     className="w-full sm:w-auto"
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    {auditExportLoading ? 'Exportiere...' : 'Audit exportieren'}
+                    {auditExportLoading ? t('page.audit.exporting') : t('page.audit.exportButton')}
                   </Button>
                 </div>
               </div>
@@ -1138,7 +1122,7 @@ export default function SettingsPage() {
 
             {/* Search - Full width */}
             <Input
-              placeholder="Suche nach Aktion, Ressource, ID, Benutzer oder IP..."
+              placeholder={t('page.audit.searchPlaceholder')}
               value={auditSearchQuery}
               onChange={(e) => setAuditSearchQuery(e.target.value)}
               className="w-full"
@@ -1148,10 +1132,10 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Select value={auditResourceFilter} onValueChange={setAuditResourceFilter}>
                 <SelectTrigger className="w-36 h-9">
-                  <SelectValue placeholder="Ressource" />
+                  <SelectValue placeholder={t('page.audit.resource')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Alle Ressourcen</SelectItem>
+                  <SelectItem value="all">{t('page.audit.allResources')}</SelectItem>
                   {AUDIT_RESOURCE_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
@@ -1159,10 +1143,10 @@ export default function SettingsPage() {
               </Select>
               <Select value={auditActionFilter} onValueChange={setAuditActionFilter}>
                 <SelectTrigger className="w-36 h-9">
-                  <SelectValue placeholder="Aktion" />
+                  <SelectValue placeholder={t('page.audit.action')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Alle Aktionen</SelectItem>
+                  <SelectItem value="all">{t('page.audit.allActions')}</SelectItem>
                   {AUDIT_ACTION_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
@@ -1171,11 +1155,11 @@ export default function SettingsPage() {
               {hasActiveAuditFilters && (
                 <Button variant="ghost" size="sm" onClick={clearAuditFilters} className="h-9">
                   <X className="h-4 w-4 mr-1" />
-                  Filter zurücksetzen
+                  {t('page.audit.clearFilters')}
                 </Button>
               )}
               <span className="text-sm text-muted-foreground ml-auto">
-                {filteredAuditEntries.length} Einträge
+                {t('common.entriesCount', { count: filteredAuditEntries.length })}
               </span>
             </div>
 
@@ -1195,11 +1179,11 @@ export default function SettingsPage() {
             ) : auditError ? (
               <Card className="p-6">
                 <p className="text-destructive">{auditError}</p>
-                <Button onClick={fetchAuditLogs} className="mt-4">Erneut versuchen</Button>
+                <Button onClick={fetchAuditLogs} className="mt-4">{t('common.retry')}</Button>
               </Card>
             ) : filteredAuditEntries.length === 0 ? (
               <Card className="p-8 text-center text-muted-foreground">
-                {hasActiveAuditFilters ? 'Keine Einträge gefunden.' : 'Noch keine Audit-Protokolle vorhanden.'}
+                {hasActiveAuditFilters ? t('page.audit.noEntriesFiltered') : t('page.audit.noEntries')}
               </Card>
             ) : (
               <>
@@ -1208,11 +1192,11 @@ export default function SettingsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-40">Zeit</TableHead>
-                        <TableHead>Aktion</TableHead>
-                        <TableHead>Ressource</TableHead>
-                        <TableHead className="hidden lg:table-cell">Benutzer</TableHead>
-                        <TableHead>Details</TableHead>
+                        <TableHead className="w-40">{t('page.audit.timeHead')}</TableHead>
+                        <TableHead>{t('page.audit.action')}</TableHead>
+                        <TableHead>{t('page.audit.resource')}</TableHead>
+                        <TableHead className="hidden lg:table-cell">{t('page.audit.userHead')}</TableHead>
+                        <TableHead>{t('page.audit.detailsHead')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1230,12 +1214,12 @@ export default function SettingsPage() {
                             <Badge variant="outline">{entry.resource_type}</Badge>
                           </TableCell>
                           <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
-                            {entry.user_id ? `${entry.user_id.substring(0, 8)}...` : <em>System</em>}
+                            {entry.user_id ? `${entry.user_id.substring(0, 8)}...` : <em>{t('page.audit.system')}</em>}
                           </TableCell>
                           <TableCell>
                             {entry.changes_json ? (
                               <details className="cursor-pointer">
-                                <summary className="text-xs text-primary hover:text-primary/80">Anzeigen</summary>
+                                <summary className="text-xs text-primary hover:text-primary/80">{t('page.audit.show')}</summary>
                                 <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
                                   {JSON.stringify(entry.changes_json, null, 2)}
                                 </pre>
@@ -1271,7 +1255,7 @@ export default function SettingsPage() {
                       )}
                       {entry.changes_json && (
                         <details className="mt-2 cursor-pointer">
-                          <summary className="text-xs text-primary">Details anzeigen</summary>
+                          <summary className="text-xs text-primary">{t('page.audit.showDetails')}</summary>
                           <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
                             {JSON.stringify(entry.changes_json, null, 2)}
                           </pre>
@@ -1296,7 +1280,7 @@ export default function SettingsPage() {
         {/* Header */}
         <header className="flex items-center justify-between border-b px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Einstellungen</h1>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
           </div>
           {!isMobile && <PageNavigation currentPage="settings" />}
         </header>
@@ -1310,7 +1294,7 @@ export default function SettingsPage() {
               <nav className="space-y-1">
                 {/* Config group */}
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2">
-                  Konfiguration
+                  {t('page.groups.config')}
                 </p>
                 {visibleSections.filter(s => s.group === 'config').map((section) => {
                   const Icon = section.icon;
@@ -1326,7 +1310,7 @@ export default function SettingsPage() {
                       }`}
                     >
                       <Icon className="h-4 w-4" />
-                      {section.label}
+                      {t(`page.sections.${section.id}`)}
                     </button>
                   );
                 })}
@@ -1335,7 +1319,7 @@ export default function SettingsPage() {
                 {isEditor && (
                   <>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">
-                      Ressourcen
+                      {t('page.groups.resources')}
                     </p>
                     {visibleSections.filter(s => s.group === 'resources').map((section) => {
                       const Icon = section.icon;
@@ -1351,7 +1335,7 @@ export default function SettingsPage() {
                           }`}
                         >
                           <Icon className="h-4 w-4" />
-                          {section.label}
+                          {t(`page.sections.${section.id}`)}
                         </button>
                       );
                     })}
@@ -1362,7 +1346,7 @@ export default function SettingsPage() {
                 {isEditor && (
                   <>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">
-                      Daten
+                      {t('page.groups.data')}
                     </p>
                     {visibleSections.filter(s => s.group === 'data').map((section) => {
                       const Icon = section.icon;
@@ -1378,7 +1362,7 @@ export default function SettingsPage() {
                           }`}
                         >
                           <Icon className="h-4 w-4" />
-                          {section.label}
+                          {t(`page.sections.${section.id}`)}
                         </button>
                       );
                     })}
@@ -1400,7 +1384,7 @@ export default function SettingsPage() {
                   {(['config', 'resources', 'data'] as const).map((group) => {
                     const groupSections = visibleSections.filter(s => s.group === group);
                     if (groupSections.length === 0) return null;
-                    const groupLabel = group === 'config' ? 'Konfiguration' : group === 'resources' ? 'Ressourcen' : 'Daten';
+                    const groupLabel = t(`page.groups.${group}`);
                     return (
                       <div key={group}>
                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1408,7 +1392,7 @@ export default function SettingsPage() {
                         </div>
                         {groupSections.map((section) => (
                           <SelectItem key={section.id} value={section.id}>
-                            {section.label}
+                            {t(`page.sections.${section.id}`)}
                           </SelectItem>
                         ))}
                       </div>
@@ -1435,25 +1419,26 @@ export default function SettingsPage() {
         <AlertDialog open={replaceConfirmOpen} onOpenChange={setReplaceConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Datenimport ersetzen?</AlertDialogTitle>
+              <AlertDialogTitle>{t('page.import.replaceConfirmTitle')}</AlertDialogTitle>
               <AlertDialogDescription>
-                Diese Aktion löscht alle bestehenden Personal-, Fahrzeug- und
-                Materialdaten und ersetzt sie durch den Inhalt der Excel-Datei.
+                {t('page.import.replaceConfirmDescription')}
                 {preview && (
                   <span className="block mt-2">
-                    Importiert werden{' '}
-                    <strong>{preview.personnel_total}</strong> Personal,{' '}
-                    <strong>{preview.vehicles_total}</strong> Fahrzeuge,{' '}
-                    <strong>{preview.materials_total}</strong> Material.
+                    {t.rich('page.import.replaceConfirmCounts', {
+                      personnel: preview.personnel_total,
+                      vehicles: preview.vehicles_total,
+                      materials: preview.materials_total,
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                    })}
                   </span>
                 )}
                 <span className="block mt-2 text-destructive">
-                  Diese Aktion kann nicht rückgängig gemacht werden.
+                  {t('common.irreversible')}
                 </span>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={(event) => {
                   event.preventDefault();
@@ -1462,7 +1447,7 @@ export default function SettingsPage() {
                 }}
                 className={cn(buttonVariants({ variant: 'destructive' }))}
               >
-                Daten ersetzen
+                {t('page.import.replaceConfirmAction')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

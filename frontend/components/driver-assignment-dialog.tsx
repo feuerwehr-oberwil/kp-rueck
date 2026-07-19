@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
+import { useTranslations } from "next-intl"
 
 interface DriverAssignmentDialogProps {
   open: boolean
@@ -52,6 +53,8 @@ export function DriverAssignmentDialog({
   onDriverAssigned,
   removeCrew,
 }: DriverAssignmentDialogProps) {
+  const t = useTranslations('incidents.driver')
+  const tCommon = useTranslations('incidents.common')
   const [searchQuery, setSearchQuery] = useState("")
   const [isAssigning, setIsAssigning] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
@@ -189,20 +192,20 @@ export function DriverAssignmentDialog({
               function_type: 'driver',
               vehicle_id: vehicleId,
             })
-            toast.error('Fehler beim Zuweisen des Fahrers', {
-              description: `${previousDriverName} bleibt Fahrer von ${vehicleName}.`,
+            toast.error(t('assignErrorTitle'), {
+              description: t('previousDriverKept', { driver: previousDriverName ?? '', vehicle: vehicleName }),
             })
           } catch {
             // Compensation failed too — show the real state.
             setLocalDriverId(null)
             setLocalDriverName(null)
             onDriverAssigned()
-            toast.error('Fehler beim Zuweisen des Fahrers', {
-              description: `${vehicleName} hat aktuell keinen Fahrer.`,
+            toast.error(t('assignErrorTitle'), {
+              description: t('noDriverNow', { vehicle: vehicleName }),
             })
           }
         } else {
-          toast.error('Fehler beim Zuweisen des Fahrers')
+          toast.error(t('assignErrorTitle'))
         }
         return
       }
@@ -219,8 +222,8 @@ export function DriverAssignmentDialog({
     } catch (error) {
       // Unassigning the old driver failed — nothing changed server-side.
       console.error('Failed to assign driver:', error)
-      toast.error('Fehler beim Zuweisen des Fahrers', {
-        description: previousDriverName ? `${previousDriverName} bleibt Fahrer von ${vehicleName}.` : undefined,
+      toast.error(t('assignErrorTitle'), {
+        description: previousDriverName ? t('previousDriverKept', { driver: previousDriverName, vehicle: vehicleName }) : undefined,
       })
     } finally {
       setIsAssigning(false)
@@ -272,7 +275,7 @@ export function DriverAssignmentDialog({
       // Keep modal open to allow selecting a new driver
     } catch (error) {
       console.error('Failed to remove driver:', error)
-      toast.error('Fehler beim Entfernen des Fahrers')
+      toast.error(t('removeError'))
     } finally {
       setIsAssigning(false)
     }
@@ -285,12 +288,12 @@ export function DriverAssignmentDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              Fahrer für {vehicleName}
+              {t('title', { vehicle: vehicleName })}
             </DialogTitle>
             <DialogDescription>
               {localDriverName
-                ? `Aktueller Fahrer: ${localDriverName}`
-                : 'Kein Fahrer zugewiesen'
+                ? t('currentDriver', { driver: localDriverName })
+                : t('noDriverAssigned')
               }
             </DialogDescription>
           </DialogHeader>
@@ -303,7 +306,7 @@ export function DriverAssignmentDialog({
                   <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                   <div>
                     <p className="font-medium text-sm">{localDriverName}</p>
-                    <p className="text-xs text-muted-foreground">Aktueller Fahrer</p>
+                    <p className="text-xs text-muted-foreground">{t('currentDriverLabel')}</p>
                   </div>
                 </div>
                 <Button
@@ -327,7 +330,7 @@ export function DriverAssignmentDialog({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Person suchen..."
+                placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -342,7 +345,7 @@ export function DriverAssignmentDialog({
                 {driversGroup.length > 0 && (
                   <>
                     {othersGroup.length > 0 && (
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-1">Fahrer</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-1">{t('driversSection')}</p>
                     )}
                     {driversGroup.map((person) => {
                       const isCurrentDriver = person.id === localDriverId
@@ -380,11 +383,11 @@ export function DriverAssignmentDialog({
                             {hasIncidentConflict && (
                               <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
                                 <AlertTriangle className="h-3 w-3" />
-                                Im Einsatz
+                                {t('inOperation')}
                               </Badge>
                             )}
                             {isCurrentDriver && (
-                              <Badge variant="secondary" className="text-xs">Aktuell</Badge>
+                              <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
                             )}
                           </div>
                         </button>
@@ -397,7 +400,7 @@ export function DriverAssignmentDialog({
                 {othersGroup.length > 0 && (
                   <>
                     {driversGroup.length > 0 && (
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-3">Andere</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-3">{t('othersSection')}</p>
                     )}
                     {othersGroup.map((person) => {
                       const isCurrentDriver = person.id === localDriverId
@@ -435,11 +438,11 @@ export function DriverAssignmentDialog({
                             {hasIncidentConflict && (
                               <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
                                 <AlertTriangle className="h-3 w-3" />
-                                Im Einsatz
+                                {t('inOperation')}
                               </Badge>
                             )}
                             {isCurrentDriver && (
-                              <Badge variant="secondary" className="text-xs">Aktuell</Badge>
+                              <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
                             )}
                           </div>
                         </button>
@@ -453,12 +456,12 @@ export function DriverAssignmentDialog({
                   <div className="text-center py-12">
                     <User className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                     <p className="text-sm font-medium text-foreground mb-1">
-                      {searchQuery ? 'Keine Personen gefunden' : 'Keine verfügbaren Personen'}
+                      {searchQuery ? t('noPersonsFound') : t('noAvailablePersons')}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {searchQuery
-                        ? 'Versuchen Sie einen anderen Suchbegriff'
-                        : 'Alle Personen sind bereits als Fahrer eingeteilt oder nicht eingecheckt'
+                        ? t('tryDifferentSearch')
+                        : t('allAssignedHint')
                       }
                     </p>
                   </div>
@@ -469,7 +472,7 @@ export function DriverAssignmentDialog({
             {/* Footer */}
             <div className="flex justify-end pt-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Schliessen
+                {t('close')}
               </Button>
             </div>
           </div>
@@ -482,21 +485,21 @@ export function DriverAssignmentDialog({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <User className="h-5 w-5 text-primary" />
-              Person ist einem Einsatz zugewiesen
+              {t('conflictTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{conflictDialog.person?.name}</strong> ist aktuell{' '}
-              {conflictDialog.conflictingOperations.length === 1
-                ? `dem Einsatz «${conflictDialog.conflictingOperations[0]?.location}» zugewiesen`
-                : `${conflictDialog.conflictingOperations.length} Einsätzen zugewiesen`
-              }.
-              {' '}Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugeteilt sein.
+              {t.rich('conflictDescription', {
+                name: conflictDialog.person?.name ?? '',
+                count: conflictDialog.conflictingOperations.length,
+                location: conflictDialog.conflictingOperations[0]?.location ?? '',
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{tCommon('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConflictConfirm}>
-              Vom Einsatz entfernen & zuweisen
+              {t('conflictConfirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -17,6 +17,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { MapPin, Check } from "lucide-react"
@@ -60,6 +61,7 @@ export function MapPickerModal({
   initialLon,
   onLocationSelect,
 }: MapPickerModalProps) {
+  const t = useTranslations('map')
   const [selectedLat, setSelectedLat] = useState<number | null>(initialLat ?? null)
   const [selectedLon, setSelectedLon] = useState<number | null>(initialLon ?? null)
   const [isGeocoding, setIsGeocoding] = useState(false)
@@ -175,7 +177,7 @@ export function MapPickerModal({
     if (!isClient) {
       return (
         <div className="h-[400px] rounded-lg overflow-hidden border flex items-center justify-center bg-muted">
-          <div className="text-muted-foreground">Karte wird geladen...</div>
+          <div className="text-muted-foreground">{t('mapPicker.loading')}</div>
         </div>
       )
     }
@@ -216,10 +218,10 @@ export function MapPickerModal({
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
-            Einsatzort auf Karte wählen
+            {t('mapPicker.title')}
           </DialogTitle>
           <DialogDescription>
-            Klicken Sie auf die Karte, um den Einsatzort zu markieren
+            {t('mapPicker.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -233,11 +235,11 @@ export function MapPickerModal({
               <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 {isGeocoding ? (
-                  <div className="text-sm text-muted-foreground">Adresse wird gesucht...</div>
+                  <div className="text-sm text-muted-foreground">{t('mapPicker.searchingAddress')}</div>
                 ) : geocodedAddress ? (
                   <div className="text-sm">{geocodedAddress}</div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">Keine Adresse gefunden</div>
+                  <div className="text-sm text-muted-foreground">{t('mapPicker.noAddress')}</div>
                 )}
                 <div className="text-xs text-muted-foreground font-mono mt-1">
                   {validPin[0].toFixed(8)}, {validPin[1].toFixed(8)}
@@ -255,10 +257,10 @@ export function MapPickerModal({
             className="gap-2"
           >
             <Check className="h-4 w-4" />
-            Standort übernehmen
+            {t('mapPicker.confirm')}
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('mapPicker.cancel')}
           </Button>
         </div>
       </DialogContent>

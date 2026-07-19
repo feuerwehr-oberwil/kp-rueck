@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 import userEvent from "@testing-library/user-event";
 
 import type { ApiPersonnel } from "@/lib/api-client";
@@ -60,7 +61,7 @@ describe("PersonnelSettings", () => {
   it("creates a person on happy-path submit", async () => {
     createPersonnel.mockResolvedValue(apiPerson({ name: "Müller Stefan" }));
     const user = userEvent.setup();
-    render(<PersonnelSettings />);
+    renderWithIntl(<PersonnelSettings />);
     await waitFor(() => expect(getAllPersonnel).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
@@ -82,7 +83,7 @@ describe("PersonnelSettings", () => {
 
   it("warns about unsaved changes when cancelling while dirty", async () => {
     const user = userEvent.setup();
-    render(<PersonnelSettings />);
+    renderWithIntl(<PersonnelSettings />);
     await waitFor(() => expect(getAllPersonnel).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
@@ -96,7 +97,7 @@ describe("PersonnelSettings", () => {
   it("adds and removes a custom tag before submit", async () => {
     createPersonnel.mockResolvedValue(apiPerson());
     const user = userEvent.setup();
-    render(<PersonnelSettings />);
+    renderWithIntl(<PersonnelSettings />);
     await waitFor(() => expect(getAllPersonnel).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));

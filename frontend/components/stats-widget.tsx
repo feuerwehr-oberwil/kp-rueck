@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { apiClient, type ApiEventStats } from '@/lib/api-client'
@@ -35,14 +36,15 @@ function StatCard({ label, value, icon }: StatCardProps) {
 
 // Helper function to get status label with fallback (labels shared with the
 // incident type definitions so board and stats can't drift)
-function getStatusLabel(status: string): string {
-  return (
-    STATUS_LABELS[status as keyof typeof STATUS_LABELS] ||
-    status.charAt(0).toUpperCase() + status.slice(1)
-  )
+function getStatusLabel(t: (key: string) => string, status: string): string {
+  return status in STATUS_LABELS
+    ? t(`statusLabels.${status}`)
+    : status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 export function StatsWidget({ eventId }: { eventId: string }) {
+  const t = useTranslations('common.statsWidget')
+  const tKanban = useTranslations('kanban')
   const [stats, setStats] = useState<ApiEventStats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -55,7 +57,7 @@ export function StatsWidget({ eventId }: { eventId: string }) {
         setStats(data)
       } catch (err) {
         console.error('Failed to fetch stats:', err)
-        setError(err instanceof Error ? err.message : 'Fehler beim Laden der Statistiken')
+        setError(err instanceof Error ? err.message : t('loadError'))
       } finally {
         setIsLoading(false)
       }
@@ -71,7 +73,7 @@ export function StatsWidget({ eventId }: { eventId: string }) {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-sm text-muted-foreground">Statistiken werden geladen...</p>
+          <p className="text-sm text-muted-foreground">{t('loading')}</p>
         </CardContent>
       </Card>
     )
@@ -94,41 +96,41 @@ export function StatsWidget({ eventId }: { eventId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Einsatz-Statistiken</CardTitle>
+        <CardTitle>{t('title')}</CardTitle>
         <CardDescription>
-          Echtzeit-Übersicht der aktuellen Einsatzdaten
+          {t('description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Aktive Einsätze"
+            label={t('activeIncidents')}
             value={totalIncidents}
             icon={<Activity className="h-5 w-5" />}
           />
           <StatCard
-            label="Personal verfügbar"
+            label={t('personnelAvailable')}
             value={`${stats.personnel_available}/${stats.personnel_total}`}
             icon={<Users className="h-5 w-5" />}
           />
           <StatCard
-            label="Ø Einsatzdauer"
-            value={`${stats.avg_duration_minutes} min`}
+            label={t('avgDuration')}
+            value={t('minutesValue', { minutes: stats.avg_duration_minutes })}
             icon={<Clock className="h-5 w-5" />}
           />
           <StatCard
-            label="Auslastung"
+            label={t('utilization')}
             value={`${stats.resource_utilization_percent}%`}
             icon={<TrendingUp className="h-5 w-5" />}
           />
         </div>
 
         <div>
-          <h4 className="text-sm font-medium mb-3">Status-Verteilung</h4>
+          <h4 className="text-sm font-medium mb-3">{t('statusDistribution')}</h4>
           <div className="flex flex-wrap gap-2">
             {Object.entries(stats.status_counts).map(([status, count]) => (
               <Badge key={status} variant="outline" className="px-3 py-1">
-                {getStatusLabel(status)}: {count}
+                {getStatusLabel(tKanban, status)}: {count}
               </Badge>
             ))}
           </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,7 @@ export function MobileOperationActions({
   onDelete,
   availableStatuses,
 }: MobileOperationActionsProps) {
+  const t = useTranslations('kanban')
   const [open, setOpen] = useState(false)
 
   return (
@@ -39,24 +41,24 @@ export function MobileOperationActions({
           variant="ghost"
           size="icon"
           className="min-w-[44px] min-h-[44px] md:min-w-[36px] md:min-h-[36px]"
-          aria-label="Aktionen öffnen"
+          aria-label={t('mobileActions.openAria')}
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Aktionen</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('mobileActions.title')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {/* View Details */}
         <DropdownMenuItem onClick={onView}>
           <Eye className="mr-2 h-4 w-4" />
-          Details anzeigen
+          {t('mobileActions.viewDetails')}
         </DropdownMenuItem>
 
         {/* Status Change Options */}
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs">Status ändern zu:</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs">{t('mobileActions.changeStatusTo')}</DropdownMenuLabel>
         {availableStatuses
           .filter(status => status.value !== operation.status)
           .map(status => (
@@ -78,7 +80,7 @@ export function MobileOperationActions({
         {onEdit && (
           <DropdownMenuItem onClick={onEdit}>
             <Edit className="mr-2 h-4 w-4" />
-            Bearbeiten
+            {t('common.edit')}
           </DropdownMenuItem>
         )}
 
@@ -87,7 +89,7 @@ export function MobileOperationActions({
             onClick={onDelete}
           >
             <Trash2 className="mr-2 h-4 w-4 text-muted-foreground" />
-            Löschen
+            {t('common.delete')}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

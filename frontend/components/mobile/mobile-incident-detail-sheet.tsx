@@ -34,7 +34,8 @@ import {
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { incidentTypeLabels } from "@/lib/incident-types"
+import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
@@ -43,7 +44,6 @@ import { toast } from "sonner"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
-import { OPERATION_STATUS_LABELS as statusLabels } from "@/lib/status-labels"
 
 interface MobileIncidentDetailSheetProps {
   operation: Operation | null
@@ -55,22 +55,19 @@ interface MobileIncidentDetailSheetProps {
   isEditor?: boolean
 }
 
-// Priority visual configuration
+// Priority visual configuration (labels live in the incidents.priority messages)
 const priorityStyles = {
   high: {
     dot: "bg-destructive",
     chevron: "text-destructive",
-    label: "Hoch",
   },
   medium: {
     dot: "bg-orange-500",
     chevron: "text-orange-600 dark:text-orange-400",
-    label: "Mittel",
   },
   low: {
     dot: "bg-green-500",
     chevron: "text-success",
-    label: "Niedrig",
   },
 } as const
 
@@ -86,6 +83,7 @@ export function MobileIncidentDetailSheet({
   onUpdateOperation,
   isEditor = false,
 }: MobileIncidentDetailSheetProps) {
+  const t = useTranslations('incidents')
   const { selectedEvent } = useEvent()
   const { changeStatusToTop } = useOperations()
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
@@ -96,6 +94,9 @@ export function MobileIncidentDetailSheet({
   const [contactValue, setContactValue] = useState("")
   const notesRef = useRef<HTMLTextAreaElement>(null)
   const contactRef = useRef<HTMLInputElement>(null)
+
+  // Byte-identical fallback to the raw type value for unknown types
+  const typeLabel = (type: string) => (type in incidentTypeLabels ? t(`types.${type}`) : type)
 
   // Reset editing state when operation changes or sheet closes
   useEffect(() => {
@@ -185,11 +186,11 @@ export function MobileIncidentDetailSheet({
     // Call synchronously with the promise - Safari will "reserve" clipboard access
     copyToClipboardAsync(messagePromise)
       .then(() => {
-        toast.success("In Zwischenablage kopiert")
+        toast.success(t('mobileDetail.copied'))
       })
       .catch((error) => {
         console.error("Failed to copy WhatsApp message:", error)
-        toast.error("Fehler beim Kopieren")
+        toast.error(t('mobileDetail.copyError'))
       })
       .finally(() => {
         setIsCopyingWhatsApp(false)
@@ -230,10 +231,10 @@ export function MobileIncidentDetailSheet({
             </div>
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-xl text-left">
-                {formatLocation(operation.location) || getIncidentTypeLabel(operation.incidentType)}
+                {formatLocation(operation.location) || typeLabel(operation.incidentType)}
               </SheetTitle>
               <SheetDescription className="text-left mt-1">
-                Einsatz-ID: {operation.id}
+                {t('mobileDetail.incidentId', { id: operation.id })}
               </SheetDescription>
             </div>
           </div>
@@ -250,18 +251,18 @@ export function MobileIncidentDetailSheet({
                 <SelectContent>
                   {statusKeys.map((key) => (
                     <SelectItem key={key} value={key}>
-                      {statusLabels[key]}
+                      {t(`status.${key}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : (
               <Badge variant="secondary" className="text-sm">
-                {statusLabels[operation.status] || operation.status}
+                {t(`status.${operation.status}`)}
               </Badge>
             )}
             <Badge variant="outline" className="text-sm">
-              {getIncidentTypeLabel(operation.incidentType)}
+              {typeLabel(operation.incidentType)}
             </Badge>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
@@ -270,7 +271,7 @@ export function MobileIncidentDetailSheet({
             {operation.hasCompletedReko && (
               <Badge variant="outline" className="gap-1 text-success border-success/30">
                 <FileCheck className="h-3 w-3" />
-                Reko
+                {t('mobileDetail.rekoBadge')}
               </Badge>
             )}
           </div>
@@ -283,7 +284,7 @@ export function MobileIncidentDetailSheet({
                 value={notesValue}
                 onChange={(e) => setNotesValue(e.target.value)}
                 onBlur={handleNotesSave}
-                placeholder="Notiz hinzufügen..."
+                placeholder={t('mobileDetail.notesPlaceholder')}
                 className="min-h-[80px] text-sm"
               />
             ) : (
@@ -301,7 +302,7 @@ export function MobileIncidentDetailSheet({
                 ) : canEdit ? (
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <Pencil className="h-3.5 w-3.5" />
-                    Notiz hinzufügen...
+                    {t('mobileDetail.notesPlaceholder')}
                   </p>
                 ) : null}
               </div>
@@ -313,7 +314,7 @@ export function MobileIncidentDetailSheet({
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-warning" />
-                <span className="font-semibold text-warning text-sm">Gefahren</span>
+                <span className="font-semibold text-warning text-sm">{t('mobileDetail.dangers')}</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {operation.rekoSummary.dangerTypes.map((danger, idx) => (
@@ -325,10 +326,10 @@ export function MobileIncidentDetailSheet({
               {(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
                 <div className="mt-2 text-xs text-muted-foreground">
                   {operation.rekoSummary.personnelCount && (
-                    <span className="mr-3">{operation.rekoSummary.personnelCount} Personen</span>
+                    <span className="mr-3">{t('mobileDetail.personnelCount', { count: operation.rekoSummary.personnelCount })}</span>
                   )}
                   {operation.rekoSummary.estimatedDuration && (
-                    <span>{operation.rekoSummary.estimatedDuration}h geschätzt</span>
+                    <span>{t('mobileDetail.estimatedDuration', { duration: String(operation.rekoSummary.estimatedDuration) })}</span>
                   )}
                 </div>
               )}
@@ -343,7 +344,7 @@ export function MobileIncidentDetailSheet({
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Truck className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Fahrzeuge ({operation.vehicles.length})</span>
+                <span className="text-sm font-medium">{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</span>
               </div>
               {operation.vehicles.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -361,7 +362,7 @@ export function MobileIncidentDetailSheet({
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Keine Fahrzeuge zugewiesen</p>
+                <p className="text-sm text-muted-foreground">{t('mobileDetail.noVehicles')}</p>
               )}
             </div>
 
@@ -369,7 +370,7 @@ export function MobileIncidentDetailSheet({
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Mannschaft ({operation.crew.length})</span>
+                <span className="text-sm font-medium">{t('mobileDetail.crew', { count: operation.crew.length })}</span>
               </div>
               {operation.crew.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -380,7 +381,7 @@ export function MobileIncidentDetailSheet({
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Keine Mannschaft zugewiesen</p>
+                <p className="text-sm text-muted-foreground">{t('mobileDetail.noCrew')}</p>
               )}
             </div>
 
@@ -389,7 +390,7 @@ export function MobileIncidentDetailSheet({
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Material ({operation.materials.length})</span>
+                  <span className="text-sm font-medium">{t('mobileDetail.materials', { count: operation.materials.length })}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {operation.materials.map((matId) => (
@@ -408,7 +409,7 @@ export function MobileIncidentDetailSheet({
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Kontakt / Melder</span>
+              <span className="text-sm font-medium">{t('mobileDetail.contact')}</span>
             </div>
             {editingContact ? (
               <Input
@@ -417,7 +418,7 @@ export function MobileIncidentDetailSheet({
                 onChange={(e) => setContactValue(e.target.value)}
                 onBlur={handleContactSave}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleContactSave() }}
-                placeholder="Kontakt hinzufügen..."
+                placeholder={t('mobileDetail.contactPlaceholder')}
                 className="text-sm"
               />
             ) : (
@@ -432,10 +433,10 @@ export function MobileIncidentDetailSheet({
                 ) : canEdit ? (
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <Pencil className="h-3.5 w-3.5" />
-                    Kontakt hinzufügen...
+                    {t('mobileDetail.contactPlaceholder')}
                   </p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Kein Kontakt</p>
+                  <p className="text-sm text-muted-foreground">{t('mobileDetail.noContact')}</p>
                 )}
               </div>
             )}
@@ -454,7 +455,7 @@ export function MobileIncidentDetailSheet({
             <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
               <Button variant="outline" className="w-full h-12 gap-2">
                 <MapIcon className="h-4 w-4" />
-                Auf Karte anzeigen
+                {t('mobileDetail.showOnMap')}
               </Button>
             </Link>
 
@@ -465,7 +466,7 @@ export function MobileIncidentDetailSheet({
               className="w-full h-12 gap-2"
             >
               <MessageCircle className="h-4 w-4" />
-              {isCopyingWhatsApp ? "Kopiere..." : "WhatsApp Nachricht kopieren"}
+              {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
             </Button>
           </div>
         </div>

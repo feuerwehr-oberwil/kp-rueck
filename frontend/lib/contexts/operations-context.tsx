@@ -9,6 +9,7 @@ import { useEvent } from "./event-context"
 import { usePersonnel, type Person, type PersonStatus } from "./personnel-context"
 import { useMaterials, type Material } from "./materials-context"
 import { toast } from "sonner"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import {
@@ -478,12 +479,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           if (summary?.has_completed_reko) {
             const dangerTypes: string[] = []
             if (summary.dangers_json) {
-              if (summary.dangers_json.fire) dangerTypes.push("Feuer")
-              if (summary.dangers_json.fire_danger) dangerTypes.push("Brandgefahr")
-              if (summary.dangers_json.explosion) dangerTypes.push("Explosion")
-              if (summary.dangers_json.collapse) dangerTypes.push("Einsturz")
-              if (summary.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
-              if (summary.dangers_json.electrical) dangerTypes.push("Elektrisch")
+              if (summary.dangers_json.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
+              if (summary.dangers_json.fire_danger) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fireDanger'))
+              if (summary.dangers_json.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
+              if (summary.dangers_json.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
+              if (summary.dangers_json.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
+              if (summary.dangers_json.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
             }
             op.hasCompletedReko = true
             op.rekoSummary = {
@@ -686,11 +687,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             if (summary?.has_completed_reko) {
               const dangerTypes: string[] = []
               if (summary.dangers_json) {
-                if (summary.dangers_json.fire) dangerTypes.push("Feuer")
-                if (summary.dangers_json.explosion) dangerTypes.push("Explosion")
-                if (summary.dangers_json.collapse) dangerTypes.push("Einsturz")
-                if (summary.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
-                if (summary.dangers_json.electrical) dangerTypes.push("Elektrisch")
+                if (summary.dangers_json.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
+                if (summary.dangers_json.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
+                if (summary.dangers_json.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
+                if (summary.dangers_json.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
+                if (summary.dangers_json.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
               }
               op.hasCompletedReko = true
               op.rekoSummary = {
@@ -994,7 +995,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         .then(() => true)
         .catch(err => {
           console.error("Failed to unassign crew:", err)
-          toast.error("Fehler beim Entfernen", { description: "Die Person konnte nicht entfernt werden." })
+          toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removePersonFailedDescription') })
           setOperations((ops) =>
             ops.map((op) => (op.id === operationId ? operation : op))
           )
@@ -1033,7 +1034,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       apiClient.unassignRekoPersonnel(operationId, rekoPersonId)
         .catch(err => {
           console.error("Failed to unassign reko:", err)
-          toast.error("Fehler beim Entfernen", { description: "Die Reko-Person konnte nicht entfernt werden." })
+          toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeRekoFailedDescription') })
           // Revert on error
           setOperations((ops) =>
             ops.map((op) => (op.id === operationId ? { ...op, assignedReko: operation.assignedReko } : op))
@@ -1085,7 +1086,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       apiClient.unassignResource(operationId, assignmentId)
         .catch(err => {
           console.error("Failed to unassign material:", err)
-          toast.error("Fehler beim Entfernen", { description: "Das Material konnte nicht entfernt werden." })
+          toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeMaterialFailedDescription') })
           setOperations((ops) =>
             ops.map((op) => (op.id === operationId ? operation : op))
           )
@@ -1200,20 +1201,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           console.error("Failed to update operation:", err)
           if (ApiError.isConflictError(err)) {
-            toast.info("Von anderer Person geändert", {
-              description: "Dieser Einsatz wurde gerade von jemand anderem aktualisiert — die Ansicht wurde neu geladen."
+            toast.info(translateOutsideReact('notifications.operations.conflictTitle'), {
+              description: translateOutsideReact('notifications.operations.conflictDescription')
             })
             await refreshOperations()
           } else if (batchedUpdates.status !== undefined) {
             // Status changes are usually drag-drops between columns. If the
             // backend rejects the change, the card visually sits in the wrong
             // column until the next poll — refresh now so it snaps back.
-            toast.error("Status nicht geändert", {
-              description: "Der Einsatz wurde auf den letzten Stand zurückgesetzt.",
+            toast.error(translateOutsideReact('notifications.operations.statusNotChangedTitle'), {
+              description: translateOutsideReact('notifications.operations.statusNotChangedDescription'),
             })
             await refreshOperations()
           } else {
-            toast.error("Fehler beim Aktualisieren", { description: "Der Einsatz konnte nicht aktualisiert werden." })
+            toast.error(translateOutsideReact('notifications.operations.updateFailedTitle'), { description: translateOutsideReact('notifications.operations.updateFailedDescription') })
           }
         } finally {
           if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
@@ -1267,8 +1268,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             // The optimistic order isn't saved — tell the user and pull the
             // authoritative order back (the generic API toast doesn't say the
             // ORDER was reverted).
-            toast.error("Reihenfolge nicht gespeichert", {
-              description: "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
+            toast.error(translateOutsideReact('notifications.operations.reorderFailedTitle'), {
+              description: translateOutsideReact('notifications.operations.reorderFailedDescription'),
             })
             await refreshOperations()
           } finally {
@@ -1377,8 +1378,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (error) {
         console.error("Failed to create operation:", error)
-        toast.error("Einsatz konnte nicht erstellt werden", {
-          description: "Bitte erneut versuchen. Wenn das Problem bestehen bleibt, prüfen Sie die Verbindung.",
+        toast.error(translateOutsideReact('notifications.operations.createFailedTitle'), {
+          description: translateOutsideReact('notifications.operations.createFailedDescription'),
         })
       }
     } else {
@@ -1412,8 +1413,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const recentRemoval = findRecentRemoval(recentRemovalsRef.current, personId, operationId)
     if (recentRemoval) {
       const elapsedSec = Math.round((Date.now() - recentRemoval.removedAt) / 1000)
-      toast.warning(`${personName} war vor ${elapsedSec}s noch auf "${recentRemoval.incidentLabel}"`, {
-        description: "Doppelbelegung — bitte prüfen.",
+      toast.warning(translateOutsideReact('notifications.operations.recentRemovalWarningTitle', { name: personName, seconds: elapsedSec, incident: recentRemoval.incidentLabel }), {
+        description: translateOutsideReact('notifications.operations.recentRemovalWarningDescription'),
       })
       // Don't repeat the warning if the same operator re-confirms the assignment.
       recentRemovalsRef.current.delete(personId)
@@ -1446,10 +1447,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (err) {
         console.error("Failed to assign person:", err)
-        toast.error("Fehler beim Zuweisen", {
+        toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
           description: ApiError.isConflictError(err)
-            ? `${personName} wurde gerade von jemand anderem geändert — bitte erneut versuchen.`
-            : `${personName} konnte nicht zugewiesen werden.`,
+            ? translateOutsideReact('notifications.operations.assignConflictDescription', { name: personName })
+            : translateOutsideReact('notifications.operations.assignFailedDescription', { name: personName }),
         })
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, crew: op.crew.filter(n => n !== personName) } : op))
@@ -1458,8 +1459,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
         )
         // The chip already snapped back — say why, or the operator assumes it stuck.
-        toast.error("Zuweisung fehlgeschlagen", {
-          description: `${personName} konnte nicht zugewiesen werden.`,
+        toast.error(translateOutsideReact('notifications.operations.assignFailedFollowupTitle'), {
+          description: translateOutsideReact('notifications.operations.assignFailedDescription', { name: personName }),
         })
       } finally {
         releaseAssignmentCooldown()
@@ -1507,8 +1508,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         await apiClient.assignRekoPersonnel(operationId, personId)
       } catch (err) {
         console.error("Failed to assign reko person:", err)
-        toast.error("Fehler beim Zuweisen", {
-          description: `${personName} konnte nicht als Reko zugewiesen werden.`,
+        toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
+          description: translateOutsideReact('notifications.operations.assignRekoFailedDescription', { name: personName }),
         })
         // Revert on error
         setOperations((ops) =>
@@ -1523,8 +1524,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           })
         )
         // The reko badge already snapped back — say why, or the operator assumes it stuck.
-        toast.error("Reko-Zuweisung fehlgeschlagen", {
-          description: `${personName} konnte nicht als Reko zugewiesen werden.`,
+        toast.error(translateOutsideReact('notifications.operations.assignRekoFailedTitle'), {
+          description: translateOutsideReact('notifications.operations.assignRekoFailedDescription', { name: personName }),
         })
       } finally {
         releaseAssignmentCooldown()
@@ -1573,10 +1574,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         )
       } catch (err) {
         console.error("Failed to assign material:", err)
-        toast.error("Fehler beim Zuweisen", {
+        toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
           description: ApiError.isConflictError(err)
-            ? `${material.name} wurde gerade von jemand anderem geändert — bitte erneut versuchen.`
-            : `${material.name} konnte nicht zugewiesen werden.`,
+            ? translateOutsideReact('notifications.operations.assignConflictDescription', { name: material.name })
+            : translateOutsideReact('notifications.operations.assignFailedDescription', { name: material.name }),
         })
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, materials: op.materials.filter(id => id !== materialId) } : op))
@@ -1601,7 +1602,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     if (!vehicleId || vehicleId.trim() === '') {
       console.error('[ERROR] Invalid vehicleId:', { vehicleId, vehicleName, operationId })
-      toast.error("Fehler", { description: `Fahrzeug "${vehicleName}" hat keine gültige ID. Bitte laden Sie die Seite neu.` })
+      toast.error(translateOutsideReact('notifications.operations.errorTitle'), { description: translateOutsideReact('notifications.operations.vehicleInvalidIdDescription', { name: vehicleName }) })
       return
     }
 
@@ -1676,10 +1677,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error("Failed to assign vehicle:", err)
-        toast.error("Fehler beim Zuweisen", {
+        toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
           description: ApiError.isConflictError(err)
-            ? `${vehicleName} wurde gerade von jemand anderem geändert — bitte erneut versuchen.`
-            : `${vehicleName} konnte nicht zugewiesen werden.`,
+            ? translateOutsideReact('notifications.operations.assignConflictDescription', { name: vehicleName })
+            : translateOutsideReact('notifications.operations.assignFailedDescription', { name: vehicleName }),
         })
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
@@ -1725,7 +1726,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         .then(() => true)
         .catch(err => {
           console.error("Failed to unassign vehicle:", err)
-          toast.error("Fehler beim Entfernen", { description: "Das Fahrzeug konnte nicht entfernt werden." })
+          toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeVehicleFailedDescription') })
           setOperations((ops) =>
             ops.map((op) => (op.id === operationId ? operation : op))
           )
@@ -1754,14 +1755,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       )
       if (results.some((ok) => !ok)) {
         // removeVehicle already rolled back and toasted the failed ones.
-        toast.error(`${conflict.vehicleName} nicht verschoben`, {
-          description: "Nicht alle Einsätze konnten bereinigt werden — bitte prüfen.",
+        toast.error(translateOutsideReact('notifications.operations.vehicleNotMovedTitle', { name: conflict.vehicleName }), {
+          description: translateOutsideReact('notifications.operations.vehicleNotMovedDescription'),
         })
         return
       }
       const labels = conflict.conflicts.map(c => `"${c.operationLabel}"`).join(", ")
-      toast.info(`${conflict.vehicleName} verschoben`, {
-        description: `Von ${labels} entfernt.`,
+      toast.info(translateOutsideReact('notifications.operations.vehicleMovedTitle', { name: conflict.vehicleName }), {
+        description: translateOutsideReact('notifications.operations.vehicleMovedDescription', { labels }),
       })
     }
 
@@ -1785,8 +1786,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     const action = decideRestoreAction(outcome)
     if (action === "error") {
-      toast.error("Wiederherstellen fehlgeschlagen", {
-        description: "Der Einsatz konnte nicht wiederhergestellt werden.",
+      toast.error(translateOutsideReact('notifications.operations.restoreFailedTitle'), {
+        description: translateOutsideReact('notifications.operations.restoreFailedDescription'),
       })
       return
     }
@@ -1795,7 +1796,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // WS-resurrection suppression to bypass — refresh pulls the card back.
     await refreshOperations()
     if (action === "refresh-success") {
-      toast.success("Einsatz wiederhergestellt")
+      toast.success(translateOutsideReact('notifications.operations.restoredTitle'))
     }
   }
 
@@ -1843,11 +1844,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Offer an undo. Only when the delete was persisted (isLoaded) — a purely
       // local optimistic delete has no backend row to restore.
       if (isLoaded) {
-        toast("Einsatz gelöscht", {
+        toast(translateOutsideReact('notifications.operations.deletedTitle'), {
           description: operation.location,
           duration: 8000,
           action: {
-            label: "Rückgängig",
+            label: translateOutsideReact('notifications.operations.undoLabel'),
             onClick: () => {
               void handleRestore(operationId)
             },

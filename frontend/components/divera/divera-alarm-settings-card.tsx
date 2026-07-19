@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Siren, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -44,20 +45,21 @@ export function DiveraAlarmSettingsCard({
   isEditor,
   saving,
 }: Props) {
+  const t = useTranslations("divera.alarmSettings")
   const enabled = settings[ENABLED_KEY] === "true"
 
   const templateFields = [
     {
       key: ALARM_TITLE_KEY,
-      label: "Stichwort (Titel)",
-      hint: "Push-Titel. Kurz halten. Platzhalter: {type}, {location}, {priority}.",
+      label: t("titleFieldLabel"),
+      hint: t("titleFieldHint"),
       fallback: DEFAULT_ALARM_TITLE_TEMPLATE,
       rows: 2,
     },
     {
       key: ALARM_TEXT_KEY,
-      label: "Alarmtext",
-      hint: "Push-Text. Platzhalter: {notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}.",
+      label: t("textFieldLabel"),
+      hint: t("textFieldHint"),
       fallback: DEFAULT_ALARM_TEXT_TEMPLATE,
       rows: 8,
     },
@@ -104,16 +106,16 @@ export function DiveraAlarmSettingsCard({
   const handleTest = async () => {
     const member = members.find((m) => String(m.divera_id) === testId)
     if (!member) {
-      toast.error("Bitte eine Person auswählen")
+      toast.error(t("selectPersonError"))
       return
     }
     setIsTesting(true)
     try {
       const result = await apiClient.sendDiveraTestAlarm(member.divera_id, member.name)
       if (result.success) {
-        toast.success(`Testalarm gesendet an ${member.name}`)
+        toast.success(t("testSent", { name: member.name }))
       } else {
-        toast.error(result.error || "Testalarm fehlgeschlagen")
+        toast.error(result.error || t("testFailed"))
       }
     } catch {
       // request() surfaces gating/network errors itself.
@@ -128,7 +130,7 @@ export function DiveraAlarmSettingsCard({
         <div>
           <h3 className="font-medium flex items-center gap-2">
             <Siren className="h-4 w-4 text-primary" />
-            Ausalarmierung
+            {t("cardTitle")}
             {providerName && (
               <Badge variant="outline" className="font-normal">
                 {providerName}
@@ -136,10 +138,7 @@ export function DiveraAlarmSettingsCard({
             )}
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Schickt beim Disponieren einen Push-Alarm über den konfigurierten
-            Alarmierungs-Anbieter an die zugewiesenen, verknüpften Personen. Die Nachricht wird
-            aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Benötigt einen
-            Zugangsschlüssel des Anbieters; Personen werden über den Member-Sync verknüpft.
+            {t("cardDescription")}
           </p>
         </div>
         <Switch
@@ -152,11 +151,11 @@ export function DiveraAlarmSettingsCard({
       {enabled && (
         <div className="space-y-4">
           <div>
-            <Label className="font-medium">Vorlagen</Label>
+            <Label className="font-medium">{t("templatesLabel")}</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              Titel und Text werden beim Disponieren aus dem Einsatz erzeugt. Reihenfolge ändern =
-              Zeilen verschieben. Eine Zeile, deren Platzhalter alle leer sind, fällt weg (z.&nbsp;B.{" "}
-              <code className="font-mono">🚒 {"{vehicles}"}</code> ohne Fahrzeuge).
+              {t.rich("templatesHint", {
+                code: (chunks) => <code className="font-mono">{chunks}</code>,
+              })}
             </p>
           </div>
           {templateFields.map((field) => {
@@ -173,7 +172,7 @@ export function DiveraAlarmSettingsCard({
                     disabled={!isEditor || isCurrentlySaving || value === field.fallback}
                     onClick={() => updateSetting(field.key, field.fallback)}
                   >
-                    Zurücksetzen
+                    {t("reset")}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">{field.hint}</p>
@@ -199,20 +198,20 @@ export function DiveraAlarmSettingsCard({
 
       {enabled && (
         <div className="space-y-1.5">
-          <Label className="font-medium">Testalarm</Label>
+          <Label className="font-medium">{t("testTitle")}</Label>
           <p className="text-xs text-muted-foreground">
-            Sendet einen Push-Testalarm an eine einzelne Divera-Person (zur Verbindungsprüfung).
+            {t("testDescription")}
           </p>
           {membersError ? (
             <p className="text-sm text-destructive">
-              Divera-Mitglieder konnten nicht geladen werden (Zugangsschlüssel prüfen).
+              {t("membersError")}
             </p>
           ) : (
             <div className="flex items-center gap-2">
               <Select value={testId} onValueChange={setTestId} disabled={!isEditor}>
                 <SelectTrigger className="flex-1">
                   <SelectValue
-                    placeholder={members.length ? "Person wählen…" : "Lade Divera-Mitglieder…"}
+                    placeholder={members.length ? t("selectPerson") : t("loadingMembers")}
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -225,7 +224,7 @@ export function DiveraAlarmSettingsCard({
               </Select>
               <Button onClick={handleTest} disabled={!isEditor || isTesting || !testId}>
                 {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Siren className="h-4 w-4" />}
-                Testalarm senden
+                {t("sendTest")}
               </Button>
             </div>
           )}

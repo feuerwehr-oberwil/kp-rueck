@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 import userEvent from "@testing-library/user-event";
 
 import type { ApiMaterialResource } from "@/lib/api-client";
@@ -63,7 +64,7 @@ describe("MaterialSettings", () => {
   it("creates a material on happy-path submit (consumable off by default)", async () => {
     createMaterialResource.mockResolvedValue(apiMaterial());
     const user = userEvent.setup();
-    render(<MaterialSettings />);
+    renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
@@ -83,7 +84,7 @@ describe("MaterialSettings", () => {
 
   it("blocks submit when name is empty", async () => {
     const user = userEvent.setup();
-    render(<MaterialSettings />);
+    renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
@@ -96,7 +97,7 @@ describe("MaterialSettings", () => {
 
   it("warns about unsaved changes when cancelling while dirty", async () => {
     const user = userEvent.setup();
-    render(<MaterialSettings />);
+    renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
@@ -110,7 +111,7 @@ describe("MaterialSettings", () => {
   it("toggles consumable via switch and submits with the new value", async () => {
     createMaterialResource.mockResolvedValue(apiMaterial({ consumable: true }));
     const user = userEvent.setup();
-    render(<MaterialSettings />);
+    renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -19,11 +20,12 @@ import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function DisplayBoardPage() {
+  const t = useTranslations('display')
   const { isAuthenticated } = useAuth()
   if (!isAuthenticated) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Bitte melden Sie sich an für die Board-Anzeige.
+        {t('board.loginRequired')}
       </div>
     )
   }
@@ -31,6 +33,7 @@ export default function DisplayBoardPage() {
 }
 
 function BoardDisplay() {
+  const t = useTranslations('display')
   const { operations } = useOperations()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
@@ -120,7 +123,7 @@ function BoardDisplay() {
                 "flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5",
                 column.color
               )}
-              title={`${column.title} – ${ops.length} – zum Aufklappen klicken`}
+              title={t('board.collapsedColumnTitle', { title: column.title, count: ops.length })}
             >
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
               <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
@@ -195,6 +198,7 @@ function DisplayOperationCard({
   isFlashing: boolean
   onClick: () => void
 }) {
+  const t = useTranslations('display')
   const { Icon: PriorityIcon, label: priorityLabel, iconColor: priorityIconColor } =
     priorityVisuals[operation.priority]
 
@@ -220,7 +224,7 @@ function DisplayOperationCard({
         <div className="flex items-start gap-2">
           <PriorityIcon
             className={cn("h-4 w-4 flex-shrink-0 mt-0.5", priorityIconColor)}
-            aria-label={`Priorität: ${priorityLabel}`}
+            aria-label={t('board.priorityAria', { label: priorityLabel })}
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
@@ -269,14 +273,14 @@ function DisplayOperationCard({
         {operation.crew.length > 0 && (
           <div className="flex items-start gap-1.5">
             <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <span className="text-xs text-muted-foreground">{operation.crew.length} Person(en)</span>
+            <span className="text-xs text-muted-foreground">{t('common.personCount', { count: operation.crew.length })}</span>
           </div>
         )}
 
         {operation.materials.length > 0 && (
           <div className="flex items-start gap-1.5">
             <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <span className="text-xs text-muted-foreground">{operation.materials.length} Material(ien)</span>
+            <span className="text-xs text-muted-foreground">{t('board.materialCount', { count: operation.materials.length })}</span>
           </div>
         )}
       </div>
@@ -293,6 +297,7 @@ function IncidentDetailModal({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const t = useTranslations('display')
   const { materials } = useMaterials()
   const { personnel } = usePersonnel()
   const { selectedEvent } = useEvent()
@@ -319,7 +324,7 @@ function IncidentDetailModal({
           <DialogTitle className="flex items-center gap-2">
             <PriorityIcon
               className={cn("h-5 w-5 flex-shrink-0", priorityIconColor)}
-              aria-label={`Priorität: ${priorityLabel}`}
+              aria-label={t('board.priorityAria', { label: priorityLabel })}
             />
             <span className="break-words">{operation.location}</span>
           </DialogTitle>
@@ -347,17 +352,17 @@ function IncidentDetailModal({
           <div className="flex flex-wrap gap-2">
             {operation.nachbarhilfe && (
               <Badge variant="outline" className="gap-1">
-                <Building2 className="h-3 w-3" /> Nachbarhilfe
+                <Building2 className="h-3 w-3" /> {t('board.nachbarhilfe')}
               </Badge>
             )}
             {operation.amWarten && (
               <Badge variant="outline" className="gap-1 border-yellow-500/50 text-yellow-600 dark:text-yellow-400">
-                <Timer className="h-3 w-3" /> Am Warten
+                <Timer className="h-3 w-3" /> {t('board.amWarten')}
               </Badge>
             )}
             {operation.zuFuss && (
               <Badge variant="outline" className="gap-1">
-                <Footprints className="h-3 w-3" /> Zu Fuss
+                <Footprints className="h-3 w-3" /> {t('board.zuFuss')}
               </Badge>
             )}
           </div>
@@ -366,7 +371,7 @@ function IncidentDetailModal({
           {operation.notes && (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <FileText className="h-4 w-4" /> Meldung
+                <FileText className="h-4 w-4" /> {t('board.report')}
               </div>
               <p className="text-sm whitespace-pre-wrap">{operation.notes}</p>
             </div>
@@ -376,7 +381,7 @@ function IncidentDetailModal({
           {operation.contact && (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Phone className="h-4 w-4" /> Kontakt / Melder
+                <Phone className="h-4 w-4" /> {t('board.contact')}
               </div>
               <p className="text-sm">{operation.contact}</p>
             </div>
@@ -386,7 +391,7 @@ function IncidentDetailModal({
           {operation.internalNotes && (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <MessageSquare className="h-4 w-4" /> Notizen
+                <MessageSquare className="h-4 w-4" /> {t('board.notes')}
               </div>
               <p className="text-sm whitespace-pre-wrap">{operation.internalNotes}</p>
             </div>
@@ -396,7 +401,7 @@ function IncidentDetailModal({
           {operation.nachbarhilfe && operation.nachbarhilfeNote && (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Building2 className="h-4 w-4" /> Nachbarhilfe Notiz
+                <Building2 className="h-4 w-4" /> {t('board.nachbarhilfeNote')}
               </div>
               <p className="text-sm">{operation.nachbarhilfeNote}</p>
             </div>
@@ -406,7 +411,7 @@ function IncidentDetailModal({
           {operation.amWarten && operation.amWartenNote && (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Timer className="h-4 w-4" /> Wartegrund
+                <Timer className="h-4 w-4" /> {t('board.waitReason')}
               </div>
               <p className="text-sm">{operation.amWartenNote}</p>
             </div>
@@ -415,7 +420,7 @@ function IncidentDetailModal({
           {/* Crew */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Users className="h-4 w-4" /> Mannschaft ({operation.crew.length})
+              <Users className="h-4 w-4" /> {t('board.crewHeading', { count: operation.crew.length })}
             </div>
             {operation.crew.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -430,14 +435,14 @@ function IncidentDetailModal({
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground/60 italic">Keine Mannschaft zugewiesen</p>
+              <p className="text-sm text-muted-foreground/60 italic">{t('board.noCrew')}</p>
             )}
           </div>
 
           {/* Vehicles */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Truck className="h-4 w-4" /> Fahrzeuge ({operation.vehicles.length})
+              <Truck className="h-4 w-4" /> {t('board.vehiclesHeading', { count: operation.vehicles.length })}
             </div>
             {operation.vehicles.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -449,10 +454,10 @@ function IncidentDetailModal({
                     <Badge key={vehicleName} variant="default" className="text-sm gap-1">
                       {vehicleName}
                       {callsign && <span className="opacity-70">· {callsign}</span>}
-                      {driverName && <span className="opacity-70">· Fahrer: {driverName}</span>}
+                      {driverName && <span className="opacity-70">{t('board.driver', { name: driverName })}</span>}
                       {driverStay !== undefined && (
                         <span className="opacity-70 ml-0.5">
-                          {driverStay ? "(bleibt)" : "(zurück)"}
+                          {driverStay ? t('board.driverStays') : t('board.driverReturns')}
                         </span>
                       )}
                     </Badge>
@@ -460,14 +465,14 @@ function IncidentDetailModal({
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground/60 italic">Keine Fahrzeuge zugewiesen</p>
+              <p className="text-sm text-muted-foreground/60 italic">{t('board.noVehicles')}</p>
             )}
           </div>
 
           {/* Materials */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Package className="h-4 w-4" /> Material ({operation.materials.length})
+              <Package className="h-4 w-4" /> {t('board.materialsHeading', { count: operation.materials.length })}
             </div>
             {materialNames.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -476,7 +481,7 @@ function IncidentDetailModal({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground/60 italic">Kein Material zugewiesen</p>
+              <p className="text-sm text-muted-foreground/60 italic">{t('board.noMaterials')}</p>
             )}
           </div>
 
@@ -484,29 +489,29 @@ function IncidentDetailModal({
           {operation.hasCompletedReko && operation.rekoSummary && (
             <div className="space-y-1.5 border-t pt-3">
               <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <FileCheck className="h-4 w-4" /> Reko-Ergebnis
+                <FileCheck className="h-4 w-4" /> {t('board.rekoResult')}
               </div>
               <div className="space-y-1 text-sm">
                 <p>
-                  <span className="text-muted-foreground">Relevant:</span>{" "}
-                  {operation.rekoSummary.isRelevant ? "Ja" : "Nein"}
+                  <span className="text-muted-foreground">{t('board.relevant')}</span>{" "}
+                  {operation.rekoSummary.isRelevant ? t('common.yes') : t('common.no')}
                 </p>
                 {operation.rekoSummary.hasDangers && (
                   <div className="flex items-start gap-1.5">
                     <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-                    <span>Gefahren: {operation.rekoSummary.dangerTypes.join(", ")}</span>
+                    <span>{t('board.dangers', { types: operation.rekoSummary.dangerTypes.join(", ") })}</span>
                   </div>
                 )}
                 {operation.rekoSummary.personnelCount !== null && (
                   <p>
-                    <span className="text-muted-foreground">Personalbedarf:</span>{" "}
-                    {operation.rekoSummary.personnelCount} Person(en)
+                    <span className="text-muted-foreground">{t('board.personnelNeed')}</span>{" "}
+                    {t('common.personCount', { count: operation.rekoSummary.personnelCount })}
                   </p>
                 )}
                 {operation.rekoSummary.estimatedDuration !== null && (
                   <p>
-                    <span className="text-muted-foreground">Geschätzte Dauer:</span>{" "}
-                    {operation.rekoSummary.estimatedDuration}h
+                    <span className="text-muted-foreground">{t('board.estimatedDuration')}</span>{" "}
+                    {t('board.durationHours', { hours: operation.rekoSummary.estimatedDuration })}
                   </p>
                 )}
               </div>

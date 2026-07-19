@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +15,7 @@ import { apiClient } from '@/lib/api-client'
 import type { NotificationSettings } from '@/lib/types/notification'
 
 export function NotificationSettingsCard() {
+  const t = useTranslations('notifications.settings')
   const { settings, updateSettings } = useNotifications()
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'live' | 'training'>('live')
@@ -59,7 +61,7 @@ export function NotificationSettingsCard() {
       await updateSettings({ ...settings, [key]: value })
       // Success toast is optional - removed to reduce noise
     } catch (error) {
-      toast.error('Fehler beim Speichern der Einstellung')
+      toast.error(t('saveFailed'))
     } finally {
       setSavingKey(null)
     }
@@ -70,15 +72,15 @@ export function NotificationSettingsCard() {
       {/* Warnungen */}
       <Card className="p-6">
       <div className="space-y-1 mb-4">
-        <p className="font-medium">Warnungen</p>
-        <p className="text-xs text-muted-foreground">Welche Warnungstypen angezeigt werden sollen</p>
+        <p className="font-medium">{t('warningsTitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('warningsSubtitle')}</p>
       </div>
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <Label htmlFor="time-alerts" className="font-medium">Zeitbasierte Warnungen</Label>
+            <Label htmlFor="time-alerts" className="font-medium">{t('timeAlertsLabel')}</Label>
             <p className="text-xs text-muted-foreground">
-              Warnung bei Überschreitung von Status-Zeitlimits
+              {t('timeAlertsHint')}
             </p>
           </div>
           <Switch
@@ -91,9 +93,9 @@ export function NotificationSettingsCard() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <Label htmlFor="resource-alerts" className="font-medium">Ressourcen-Warnungen</Label>
+            <Label htmlFor="resource-alerts" className="font-medium">{t('resourceAlertsLabel')}</Label>
             <p className="text-xs text-muted-foreground">
-              Warnung bei knappen Ressourcen oder Personalermüdung
+              {t('resourceAlertsHint')}
             </p>
           </div>
           <Switch
@@ -106,9 +108,9 @@ export function NotificationSettingsCard() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <Label htmlFor="data-quality-alerts" className="font-medium">Datenqualitäts-Warnungen</Label>
+            <Label htmlFor="data-quality-alerts" className="font-medium">{t('dataQualityAlertsLabel')}</Label>
             <p className="text-xs text-muted-foreground">
-              Warnung bei fehlenden Pflichtdaten
+              {t('dataQualityAlertsHint')}
             </p>
           </div>
           <Switch
@@ -121,9 +123,9 @@ export function NotificationSettingsCard() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <Label htmlFor="event-alerts" className="font-medium">Event-Limit-Warnungen</Label>
+            <Label htmlFor="event-alerts" className="font-medium">{t('eventAlertsLabel')}</Label>
             <p className="text-xs text-muted-foreground">
-              Warnung bei Annäherung an Datenbankgrenzen
+              {t('eventAlertsHint')}
             </p>
           </div>
           <Switch
@@ -136,10 +138,9 @@ export function NotificationSettingsCard() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <Label htmlFor="geofence-alerts" className="font-medium">Geofence-Ankunft</Label>
+            <Label htmlFor="geofence-alerts" className="font-medium">{t('geofenceAlertsLabel')}</Label>
             <p className="text-xs text-muted-foreground">
-              Benachrichtigung wenn ein Fahrzeug am Einsatzort eintrifft (GPS). Der Ankunftsradius
-              wird unter Einstellungen → GPS festgelegt.
+              {t('geofenceAlertsHint')}
             </p>
           </div>
           <Switch
@@ -156,22 +157,22 @@ export function NotificationSettingsCard() {
       <Card className="p-6">
       <div className="space-y-4">
         <div>
-          <p className="font-medium">Status-Zeitlimits</p>
+          <p className="font-medium">{t('timeLimitsTitle')}</p>
           <p className="text-xs text-muted-foreground">
-            Warnung erscheint, wenn ein Einsatz länger als angegeben in einem Status verbleibt.
+            {t('timeLimitsSubtitle')}
           </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'live' | 'training')}>
           <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="live">Live-Modus</TabsTrigger>
-            <TabsTrigger value="training">Trainingsmodus</TabsTrigger>
+            <TabsTrigger value="live">{t('liveTab')}</TabsTrigger>
+            <TabsTrigger value="training">{t('trainingTab')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="live" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="live-eingegangen" className="font-medium">Eingegangen (Min)</Label>
+                <Label htmlFor="live-eingegangen" className="font-medium">{t('eingegangenMin')}</Label>
                 <Input
                   id="live-eingegangen"
                   type="number"
@@ -187,7 +188,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-reko" className="font-medium">Reko (Min)</Label>
+                <Label htmlFor="live-reko" className="font-medium">{t('rekoMin')}</Label>
                 <Input
                   id="live-reko"
                   type="number"
@@ -203,7 +204,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-disponiert" className="font-medium">Disponiert (Min)</Label>
+                <Label htmlFor="live-disponiert" className="font-medium">{t('disponiertMin')}</Label>
                 <Input
                   id="live-disponiert"
                   type="number"
@@ -219,7 +220,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-einsatz" className="font-medium">Einsatz (Std)</Label>
+                <Label htmlFor="live-einsatz" className="font-medium">{t('einsatzHours')}</Label>
                 <Input
                   id="live-einsatz"
                   type="number"
@@ -235,7 +236,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-rueckfahrt" className="font-medium">Rückfahrt (Min)</Label>
+                <Label htmlFor="live-rueckfahrt" className="font-medium">{t('rueckfahrtMin')}</Label>
                 <Input
                   id="live-rueckfahrt"
                   type="number"
@@ -251,7 +252,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-archive" className="font-medium">Archivierung (Std)</Label>
+                <Label htmlFor="live-archive" className="font-medium">{t('archiveHours')}</Label>
                 <Input
                   id="live-archive"
                   type="number"
@@ -271,7 +272,7 @@ export function NotificationSettingsCard() {
           <TabsContent value="training" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="training-eingegangen" className="font-medium">Eingegangen (Min)</Label>
+                <Label htmlFor="training-eingegangen" className="font-medium">{t('eingegangenMin')}</Label>
                 <Input
                   id="training-eingegangen"
                   type="number"
@@ -287,7 +288,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-reko" className="font-medium">Reko (Min)</Label>
+                <Label htmlFor="training-reko" className="font-medium">{t('rekoMin')}</Label>
                 <Input
                   id="training-reko"
                   type="number"
@@ -303,7 +304,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-disponiert" className="font-medium">Disponiert (Min)</Label>
+                <Label htmlFor="training-disponiert" className="font-medium">{t('disponiertMin')}</Label>
                 <Input
                   id="training-disponiert"
                   type="number"
@@ -319,7 +320,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-einsatz" className="font-medium">Einsatz (Std)</Label>
+                <Label htmlFor="training-einsatz" className="font-medium">{t('einsatzHours')}</Label>
                 <Input
                   id="training-einsatz"
                   type="number"
@@ -335,7 +336,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-rueckfahrt" className="font-medium">Rückfahrt (Min)</Label>
+                <Label htmlFor="training-rueckfahrt" className="font-medium">{t('rueckfahrtMin')}</Label>
                 <Input
                   id="training-rueckfahrt"
                   type="number"
@@ -351,7 +352,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-archive" className="font-medium">Archivierung (Std)</Label>
+                <Label htmlFor="training-archive" className="font-medium">{t('archiveHours')}</Label>
                 <Input
                   id="training-archive"
                   type="number"
@@ -375,15 +376,15 @@ export function NotificationSettingsCard() {
       <Card className="p-6">
       <div className="space-y-4">
         <div>
-          <p className="font-medium">Schwellenwerte</p>
+          <p className="font-medium">{t('thresholdsTitle')}</p>
           <p className="text-xs text-muted-foreground">
-            Warnung bei Überschreitung von Kapazitätsgrenzen.
+            {t('thresholdsSubtitle')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="fatigue-hours" className="font-medium">Personalermüdung (Std)</Label>
+            <Label htmlFor="fatigue-hours" className="font-medium">{t('fatigueLabel')}</Label>
             <Input
               id="fatigue-hours"
               type="number"
@@ -399,7 +400,7 @@ export function NotificationSettingsCard() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="database-limit" className="font-medium">Datenbank (GB)</Label>
+            <Label htmlFor="database-limit" className="font-medium">{t('databaseLabel')}</Label>
             <Input
               id="database-limit"
               type="number"
@@ -415,7 +416,7 @@ export function NotificationSettingsCard() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="photo-limit" className="font-medium">Foto-Limit (GB)</Label>
+            <Label htmlFor="photo-limit" className="font-medium">{t('photoLabel')}</Label>
             <Input
               id="photo-limit"
               type="number"
@@ -435,10 +436,9 @@ export function NotificationSettingsCard() {
       {/* Material thresholds */}
       <div className="space-y-3 pt-4 border-t">
         <div>
-          <p className="text-sm font-medium">Materialbestand-Schwellenwerte</p>
+          <p className="text-sm font-medium">{t('materialThresholdsTitle')}</p>
           <p className="text-xs text-muted-foreground">
-            Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen.
-            Deaktivieren Sie die Checkbox um Warnungen für eine Kategorie auszublenden.
+            {t('materialThresholdsSubtitle')}
           </p>
         </div>
         <div className="space-y-2">

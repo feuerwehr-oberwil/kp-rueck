@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react"
 import { toast } from "sonner"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { apiClient, type ApiPersonnel } from "@/lib/api-client"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
@@ -86,8 +87,8 @@ export function PersonnelProvider({ children }: { children: ReactNode }) {
         console.error("Failed to load personnel:", error)
         if (!hasShownLoadErrorRef.current) {
           hasShownLoadErrorRef.current = true
-          toast.error("Personal konnte nicht geladen werden", {
-            description: "Die Personalliste ist möglicherweise veraltet.",
+          toast.error(translateOutsideReact('notifications.personnel.loadFailedTitle'), {
+            description: translateOutsideReact('notifications.personnel.loadFailedDescription'),
           })
         }
         return []

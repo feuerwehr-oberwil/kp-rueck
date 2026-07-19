@@ -28,6 +28,8 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
+import { useTranslations } from "next-intl"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -35,7 +37,7 @@ const MapView = dynamic(() => import("@/components/map-view"), {
   loading: () => (
     <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-muted rounded-lg">
       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      <div className="text-sm text-muted-foreground">Karte wird geladen…</div>
+      <div className="text-sm text-muted-foreground">{translateOutsideReact('map.page.loading')}</div>
     </div>
   ),
 })
@@ -49,6 +51,9 @@ function formatTime(date: Date): string {
 
 
 export default function MapPage() {
+  const t = useTranslations('map')
+  const tKanban = useTranslations('kanban')
+  const tIncidents = useTranslations('incidents')
   const { incidents, formatLocation, refreshIncidents } = useIncidents()
   const {
     operations,
@@ -211,9 +216,9 @@ export default function MapPage() {
     }
     const arr = [...map.values()]
     // Empty/none state: surface incidents without a value in this dimension.
-    if (hasNone) arr.push({ key: '__none__', label: 'Ohne Zuweisung', color: COLOR_NONE })
+    if (hasNone) arr.push({ key: '__none__', label: t('common.noAssignment'), color: COLOR_NONE })
     return arr
-  }, [operations, colorBy])
+  }, [operations, colorBy, t])
 
   // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(
@@ -231,8 +236,8 @@ export default function MapPage() {
       return filtered.filter((inc) =>
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-        (INCIDENT_TYPE_LABELS[inc.type as keyof typeof INCIDENT_TYPE_LABELS]?.toLowerCase().includes(lowerQuery)) ||
-        (STATUS_LABELS[inc.status as keyof typeof STATUS_LABELS]?.toLowerCase().includes(lowerQuery))
+        (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
+        (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
     [incidents, searchQuery, statusFilters]
@@ -424,9 +429,9 @@ export default function MapPage() {
         {/* Top header is desktop-only — mobile uses the bottom navbar. */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Lagekarte</h1>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
             <Badge variant="secondary" className="hidden sm:inline-flex">
-              {activeIncidents.length} Aktiv
+              {t('page.activeBadge', { count: activeIncidents.length })}
             </Badge>
           </div>
 
@@ -474,7 +479,7 @@ export default function MapPage() {
           }`}>
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">
-                Einsätze ({activeIncidents.length})
+                {t('page.incidentsHeading', { count: activeIncidents.length })}
               </h2>
 
               {/* Status filter toggles */}
@@ -489,7 +494,7 @@ export default function MapPage() {
                         : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                     }`}
                   >
-                    {STATUS_GROUP_LABELS[group]} ({statusGroupCounts[group]})
+                    {t(`statusGroups.${group}`)} ({statusGroupCounts[group]})
                   </button>
                 ))}
                 <button
@@ -499,10 +504,10 @@ export default function MapPage() {
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                   }`}
-                  title={showLabels ? 'Labels ausblenden (L)' : 'Labels einblenden (L)'}
+                  title={showLabels ? t('page.labelsHide') : t('page.labelsShow')}
                 >
                   <Tag className="h-3 w-3" />
-                  Labels
+                  {t('page.labels')}
                   {!isMobile && <Kbd className="text-[10px]">L</Kbd>}
                 </button>
                 <button
@@ -512,10 +517,10 @@ export default function MapPage() {
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                   }`}
-                  title={showAssignmentLines ? 'Zuweisungslinien ausblenden (I)' : 'Zuweisungslinien einblenden (I)'}
+                  title={showAssignmentLines ? t('page.linesHide') : t('page.linesShow')}
                 >
                   <Route className="h-3 w-3" />
-                  Linien
+                  {t('page.lines')}
                   {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
                 </button>
                 <button
@@ -525,10 +530,10 @@ export default function MapPage() {
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                   }`}
-                  title={showDistances ? 'Distanz Fahrzeug–Einsatz ausblenden' : 'Distanz Fahrzeug–Einsatz einblenden'}
+                  title={showDistances ? t('page.distanceHide') : t('page.distanceShow')}
                 >
                   <Ruler className="h-3 w-3" />
-                  Distanz
+                  {t('page.distance')}
                 </button>
 
                 {/* Färben nach — re-colors incident markers by a chosen dimension */}
@@ -540,14 +545,14 @@ export default function MapPage() {
                           ? 'bg-primary text-primary-foreground border-primary'
                           : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                       }`}
-                      title="Marker einfärben nach"
+                      title={t('common.colorByTitle')}
                     >
                       <Palette className="h-3 w-3" />
-                      Färben: {COLOR_BY_LABELS[colorBy]}
+                      {t('common.colorByButton', { label: COLOR_BY_LABELS[colorBy] })}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-52">
-                    <DropdownMenuLabel>Färben nach</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
                     {(['priority', 'reko', 'vehicle', 'type'] as ColorByDimension[]).map((dim) => (
                       <DropdownMenuItem
                         key={dim}
@@ -583,7 +588,7 @@ export default function MapPage() {
                 <Input
                   id="map-search-input"
                   type="text"
-                  placeholder="Suchen..."
+                  placeholder={t('page.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 pr-8"
@@ -598,7 +603,7 @@ export default function MapPage() {
               <div className="space-y-3">
                 {activeIncidents.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    Keine aktiven Einsätze
+                    {t('common.noActiveIncidents')}
                   </p>
                 ) : (
                   activeIncidents.map((incident) => {
@@ -622,7 +627,7 @@ export default function MapPage() {
                                 className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
                                   incident.priority === "high" ? "bg-red-500" : incident.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
                                 }`}
-                                title={incident.priority === "high" ? "Hohe Priorität" : incident.priority === "medium" ? "Mittlere Priorität" : "Niedrige Priorität"}
+                                title={incident.priority === "high" ? t('common.priorityHigh') : incident.priority === "medium" ? t('common.priorityMedium') : t('common.priorityLow')}
                               />
                               <div className="min-w-0 flex-1">
                                 <h3 className="font-bold text-base leading-tight">
@@ -647,14 +652,14 @@ export default function MapPage() {
                                   <FileText className="h-4 w-4 text-muted-foreground" />
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>Details anzeigen</TooltipContent>
+                              <TooltipContent>{t('page.showDetails')}</TooltipContent>
                             </Tooltip>
                           </div>
 
                           {/* Incident Type */}
                           <div className="flex items-center gap-2">
                             <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm text-muted-foreground">{INCIDENT_TYPE_LABELS[incident.type as keyof typeof INCIDENT_TYPE_LABELS]}</span>
+                            <span className="text-sm text-muted-foreground">{incident.type in INCIDENT_TYPE_LABELS ? tIncidents(`types.${incident.type}`) : incident.type}</span>
                           </div>
 
                           {/* Time and Status */}
@@ -671,7 +676,7 @@ export default function MapPage() {
                               </span>
                             )}
                             <Badge variant="outline" className="text-xs">
-                              {STATUS_LABELS[incident.status as keyof typeof STATUS_LABELS]}
+                              {incident.status in STATUS_LABELS ? tKanban(`statusLabels.${incident.status}`) : incident.status}
                             </Badge>
                           </div>
 

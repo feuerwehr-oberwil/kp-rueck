@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { WifiOff } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { de } from "date-fns/locale";
@@ -17,6 +18,7 @@ import { shouldShowStaleBanner } from "@/lib/stale-data";
  * background even when this is showing.
  */
 export function StaleDataBanner() {
+  const t = useTranslations('common.staleDataBanner');
   const { lastSyncAt } = useOperations();
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>(wsClient.getStatus());
   const [now, setNow] = useState<Date>(() => new Date());
@@ -48,10 +50,10 @@ export function StaleDataBanner() {
       <WifiOff className="h-4 w-4 flex-shrink-0 text-warning" aria-hidden="true" />
       <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
         <span className="font-medium">
-          Verbindung verloren — Daten sind möglicherweise veraltet.
+          {t('connectionLost')}
         </span>
         <span className="text-muted-foreground">
-          Letzte Aktualisierung vor {lastSyncRelative}. Polling läuft im Hintergrund.
+          {t('lastUpdate', { time: lastSyncRelative })}
         </span>
       </div>
     </div>

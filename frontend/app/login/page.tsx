@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useEvent, apiEventToEvent } from '@/lib/contexts/event-context';
 import { apiClient } from '@/lib/api-client';
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { Loader2, LogIn, Shield, Eye, Flame } from 'lucide-react';
 
 export default function LoginPage() {
+  const t = useTranslations('login.page');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -83,7 +85,7 @@ export default function LoginPage() {
       // Viewer-role accounts get the read-only board (kiosk/shared PCs)
       router.push(loggedInUser.role === 'viewer' ? '/viewer' : '/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Benutzername und Passwort.');
+      setError(err instanceof Error ? err.message : t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -112,7 +114,7 @@ export default function LoginPage() {
 
       router.push(role === 'viewer' ? '/viewer' : '/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Demo-Anmeldung fehlgeschlagen.');
+      setError(err instanceof Error ? err.message : t('demoLoginFailed'));
     } finally {
       setLoading(false);
     }
@@ -157,11 +159,11 @@ export default function LoginPage() {
                 KP Rück
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Einsatz-Dashboard
+                {t('subtitle')}
               </p>
               {isDemo && (
                 <span className="mt-2 inline-block rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning border border-warning/30">
-                  Demo-Modus
+                  {t('demoBadge')}
                 </span>
               )}
             </div>
@@ -193,7 +195,7 @@ export default function LoginPage() {
                   ) : (
                     <Shield className="mr-2 h-4 w-4" />
                   )}
-                  Als Editor einloggen
+                  {t('loginAsEditor')}
                 </Button>
                 <Button
                   className="w-full h-11"
@@ -206,7 +208,7 @@ export default function LoginPage() {
                   ) : (
                     <Eye className="mr-2 h-4 w-4" />
                   )}
-                  Als Betrachter einloggen
+                  {t('loginAsViewer')}
                 </Button>
               </div>
             )}
@@ -227,7 +229,7 @@ export default function LoginPage() {
                       <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
                       <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
                     </svg>
-                    Mit Microsoft anmelden
+                    {t('loginWithMicrosoft')}
                   </Button>
                 )}
 
@@ -243,7 +245,7 @@ export default function LoginPage() {
                         className="bg-card px-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
                         onClick={() => setShowPasswordForm(true)}
                       >
-                        Mit Passwort anmelden
+                        {t('loginWithPassword')}
                       </button>
                     </div>
                   </div>
@@ -255,7 +257,7 @@ export default function LoginPage() {
                           <span className="w-full border-t" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-card px-2 text-muted-foreground">oder</span>
+                          <span className="bg-card px-2 text-muted-foreground">{t('or')}</span>
                         </div>
                       </div>
                     )}
@@ -263,12 +265,12 @@ export default function LoginPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="username" className="text-sm font-medium text-muted-foreground">
-                          Benutzername
+                          {t('usernameLabel')}
                         </Label>
                         <Input
                           id="username"
                           type="text"
-                          placeholder="Benutzername"
+                          placeholder={t('usernamePlaceholder')}
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           required
@@ -280,12 +282,12 @@ export default function LoginPage() {
 
                       <div className="space-y-2">
                         <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-                          Passwort
+                          {t('passwordLabel')}
                         </Label>
                         <Input
                           id="password"
                           type="password"
-                          placeholder="Passwort"
+                          placeholder={t('passwordPlaceholder')}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
@@ -306,7 +308,7 @@ export default function LoginPage() {
                       ) : (
                         <LogIn className="mr-2 h-4 w-4" />
                       )}
-                      {loading ? 'Wird angemeldet...' : 'Anmelden'}
+                      {loading ? t('loggingIn') : t('submit')}
                     </Button>
                   </form>
                 )}

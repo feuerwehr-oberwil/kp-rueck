@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -78,6 +80,7 @@ export function SidePanel({
   onRemoveMaterial,
   onRequestComplete,
 }: SidePanelProps) {
+  const t = useTranslations('kanban')
   const [isWideEnough, setIsWideEnough] = useState(false)
 
   // Detect screen width
@@ -116,7 +119,7 @@ export function SidePanel({
             <PanelRight className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Panel ein-/ausblenden</TooltipContent>
+        <TooltipContent>{t('sidePanel.togglePanel')}</TooltipContent>
       </Tooltip>
     )
   }
@@ -133,7 +136,7 @@ export function SidePanel({
             className="gap-1.5 px-3"
           >
             <FileText className="h-4 w-4" />
-            Details
+            {t('sidePanel.details')}
           </Button>
           <Button
             variant={mode === 'map' ? 'secondary' : 'ghost'}
@@ -142,7 +145,7 @@ export function SidePanel({
             className="gap-1.5 px-3"
           >
             <MapIcon className="h-4 w-4" />
-            Karte
+            {t('sidePanel.map')}
           </Button>
         </div>
         <Tooltip>
@@ -155,7 +158,7 @@ export function SidePanel({
               <PanelRightClose className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Schliessen</TooltipContent>
+          <TooltipContent>{t('common.close')}</TooltipContent>
         </Tooltip>
       </div>
 
@@ -222,6 +225,7 @@ function SidePanelDetail({
   onRemoveMaterial: (operationId: string, materialId: string) => void
   onRequestComplete?: (operationId: string) => void
 }) {
+  const t = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const { setOperations } = useOperations()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -255,7 +259,7 @@ function SidePanelDetail({
   // Handler for opening transfer dialog
   const handleOpenTransfer = async () => {
     if (!operation || !selectedEvent) {
-      toast.error('Fehler', { description: 'Kein Event ausgewählt.' })
+      toast.error(t('common.error'), { description: t('common.noEventSelected') })
       return
     }
 
@@ -283,7 +287,7 @@ function SidePanelDetail({
       setTransferDialogOpen(true)
     } catch (error) {
       console.error('Failed to load incidents:', error)
-      toast.error('Fehler beim Laden')
+      toast.error(t('common.loadFailed'))
     }
   }
 
@@ -296,8 +300,8 @@ function SidePanelDetail({
       await apiClient.transferAssignments(operation.id, targetIncidentId)
       setTransferDialogOpen(false)
     } catch (error: any) {
-      toast.error("Fehler beim Übertragen", {
-        description: error?.message || "Die Ressourcen konnten nicht übertragen werden."
+      toast.error(t('common.transferFailed'), {
+        description: error?.message || t('common.transferFailedDescription')
       })
     } finally {
       setIsTransferring(false)
@@ -307,7 +311,7 @@ function SidePanelDetail({
   if (!operation) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground p-4">
-        <p className="text-center text-sm">Klicken Sie auf einen Einsatz, um Details anzuzeigen</p>
+        <p className="text-center text-sm">{t('sidePanel.clickToView')}</p>
       </div>
     )
   }
@@ -326,7 +330,7 @@ function SidePanelDetail({
         {operation.hasCompletedReko && (
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <FileCheck className="h-4 w-4" />
-            <span className="text-xs font-medium">Reko</span>
+            <span className="text-xs font-medium">{t('common.reko')}</span>
           </div>
         )}
       </div>
@@ -346,10 +350,10 @@ function SidePanelDetail({
 
       {/* Meldung - Editable */}
       <div>
-        <Label htmlFor="panel-notes" className="text-xs font-semibold text-muted-foreground">Meldung</Label>
+        <Label htmlFor="panel-notes" className="text-xs font-semibold text-muted-foreground">{t('common.meldung')}</Label>
         <Textarea
           id="panel-notes"
-          placeholder="Notizen, Besonderheiten, Gefahren..."
+          placeholder={t('common.meldungPlaceholder')}
           value={operation.notes}
           onChange={(e) => onUpdate({ notes: e.target.value })}
           className="mt-1 min-h-[80px] text-sm"
@@ -359,13 +363,13 @@ function SidePanelDetail({
       {/* Type & Priority - Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label id="panel-type-label" className="text-xs font-semibold text-muted-foreground">Einsatzart</Label>
+          <Label id="panel-type-label" className="text-xs font-semibold text-muted-foreground">{t('common.einsatzart')}</Label>
           <Select
             value={operation.incidentType}
             onValueChange={(value) => onUpdate({ incidentType: value })}
           >
             <SelectTrigger className="mt-1 h-9 text-sm w-full" aria-labelledby="panel-type-label" tabIndex={0}>
-              <SelectValue placeholder="Auswählen" />
+              <SelectValue placeholder={t('sidePanel.selectPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {incidentTypeKeys.map((typeKey) => (
@@ -378,7 +382,7 @@ function SidePanelDetail({
         </div>
 
         <div>
-          <Label id="panel-priority-label" className="text-xs font-semibold text-muted-foreground">Priorität</Label>
+          <Label id="panel-priority-label" className="text-xs font-semibold text-muted-foreground">{t('common.priority')}</Label>
           <Select
             value={operation.priority}
             onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
@@ -387,9 +391,9 @@ function SidePanelDetail({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="low">Niedrig</SelectItem>
-              <SelectItem value="medium">Mittel</SelectItem>
-              <SelectItem value="high">Hoch</SelectItem>
+              <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
+              <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
+              <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -397,10 +401,10 @@ function SidePanelDetail({
 
       {/* Contact - Editable */}
       <div>
-        <Label htmlFor="panel-contact" className="text-xs font-semibold text-muted-foreground">Kontakt / Melder</Label>
+        <Label htmlFor="panel-contact" className="text-xs font-semibold text-muted-foreground">{t('common.contact')}</Label>
         <Input
           id="panel-contact"
-          placeholder="Name, Telefonnummer..."
+          placeholder={t('common.contactPlaceholder')}
           value={operation.contact}
           onChange={(e) => onUpdate({ contact: e.target.value })}
           className="mt-1 h-9 text-sm"
@@ -409,10 +413,10 @@ function SidePanelDetail({
 
       {/* Internal Notes - Editable */}
       <div>
-        <Label htmlFor="panel-internal" className="text-xs font-semibold text-muted-foreground">Notizen</Label>
+        <Label htmlFor="panel-internal" className="text-xs font-semibold text-muted-foreground">{t('common.notes')}</Label>
         <Textarea
           id="panel-internal"
-          placeholder="Interne Notizen..."
+          placeholder={t('common.internalNotesPlaceholder')}
           value={operation.internalNotes}
           onChange={(e) => onUpdate({ internalNotes: e.target.value })}
           className="mt-1 min-h-[60px] text-sm"
@@ -425,8 +429,8 @@ function SidePanelDetail({
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-muted-foreground" />
             <div>
-              <Label htmlFor="panel-nachbarhilfe" className="text-xs font-semibold">Nachbarhilfe</Label>
-              <p className="text-xs text-muted-foreground">Nachbarfeuerwehr-Beteiligung</p>
+              <Label htmlFor="panel-nachbarhilfe" className="text-xs font-semibold">{t('common.nachbarhilfe')}</Label>
+              <p className="text-xs text-muted-foreground">{t('sidePanel.nachbarhilfeShort')}</p>
             </div>
           </div>
           <Switch
@@ -437,7 +441,7 @@ function SidePanelDetail({
         </div>
         {operation.nachbarhilfe && (
           <Input
-            placeholder="Feuerwehr, Kontakt..."
+            placeholder={t('common.nachbarhilfePlaceholder')}
             value={operation.nachbarhilfeNote || ''}
             onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
             className="h-8 text-sm"
@@ -451,8 +455,8 @@ function SidePanelDetail({
           <div className="flex items-center gap-2">
             <Timer className="h-4 w-4 text-muted-foreground" />
             <div>
-              <Label htmlFor="panel-am-warten" className="text-xs font-semibold">Am Warten</Label>
-              <p className="text-xs text-muted-foreground">Einsatz verzögert / wartet auf Ressourcen</p>
+              <Label htmlFor="panel-am-warten" className="text-xs font-semibold">{t('common.amWarten')}</Label>
+              <p className="text-xs text-muted-foreground">{t('common.amWartenDescription')}</p>
             </div>
           </div>
           <Switch
@@ -463,7 +467,7 @@ function SidePanelDetail({
         </div>
         {operation.amWarten && (
           <Input
-            placeholder="Grund der Verzögerung..."
+            placeholder={t('common.amWartenPlaceholder')}
             value={operation.amWartenNote || ''}
             onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
             className="h-8 text-sm"
@@ -473,7 +477,7 @@ function SidePanelDetail({
 
       {/* Reko Reports Section */}
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground">Rekognoszierungs-Meldungen</Label>
+        <Label className="text-xs font-semibold text-muted-foreground">{t('common.rekoReports')}</Label>
         <div className="mt-1">
           <RekoReportSection
             incidentId={operation.id}
@@ -485,14 +489,14 @@ function SidePanelDetail({
 
       {/* Resource Assignment Section */}
       <div className="space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Zugewiesene Ressourcen</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('common.assignedResources')}</p>
 
         {/* Reko Personnel - separate from Mannschaft */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Search className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Reko</span>
+              <span className="text-xs text-muted-foreground">{t('common.reko')}</span>
             </div>
             <div className="flex gap-1">
               {assignedRekoPersonnel && (
@@ -502,10 +506,10 @@ function SidePanelDetail({
                   onClick={() => setRekoTransferDialogOpen(true)}
                   className="h-6 px-2 gap-1 text-xs"
                   tabIndex={-1}
-                  title="Alle offenen Rekos an andere Person übertragen"
+                  title={t('sidePanel.transferRekoTooltip')}
                 >
                   <ArrowRightLeft className="h-3 w-3" />
-                  Übertragen
+                  {t('sidePanel.transfer')}
                 </Button>
               )}
               <Button
@@ -518,12 +522,12 @@ function SidePanelDetail({
                 {assignedRekoPersonnel ? (
                   <>
                     <ArrowRightLeft className="h-3 w-3" />
-                    Wechseln
+                    {t('common.switch')}
                   </>
                 ) : (
                   <>
                     <Plus className="h-3 w-3" />
-                    Zuweisen
+                    {t('common.assign')}
                   </>
                 )}
               </Button>
@@ -554,7 +558,7 @@ function SidePanelDetail({
                   ) : (
                     <Link2 className="h-3 w-3" />
                   )}
-                  Direkt-Link
+                  {t('common.directLink')}
                 </Button>
                 <Button
                   size="sm"
@@ -569,12 +573,12 @@ function SidePanelDetail({
                   ) : (
                     <LayoutDashboard className="h-3 w-3" />
                   )}
-                  Dashboard
+                  {t('common.dashboard')}
                 </Button>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Keine Reko-Person zugewiesen</p>
+            <p className="text-xs text-muted-foreground">{t('common.noRekoAssigned')}</p>
           )}
         </div>
 
@@ -583,7 +587,7 @@ function SidePanelDetail({
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Mannschaft ({operation.crew.length})</span>
+              <span className="text-xs text-muted-foreground">{t('common.crewCount', { count: operation.crew.length })}</span>
             </div>
             <Button
               size="sm"
@@ -593,7 +597,7 @@ function SidePanelDetail({
               tabIndex={0}
             >
               <Plus className="h-3 w-3" />
-              Hinzufügen
+              {t('common.add')}
             </Button>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -609,14 +613,14 @@ function SidePanelDetail({
                     onClick={() => onRemoveCrew(operation.id, member)}
                     className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     tabIndex={-1}
-                    aria-label={`${member} entfernen`}
+                    aria-label={t('common.removeNamed', { name: member })}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
                 </Badge>
               ))
             ) : (
-              <p className="text-xs text-muted-foreground">Keine Mannschaft</p>
+              <p className="text-xs text-muted-foreground">{t('sidePanel.noCrewShort')}</p>
             )}
           </div>
         </div>
@@ -626,19 +630,19 @@ function SidePanelDetail({
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Fahrzeuge ({operation.vehicles.length})</span>
+              <span className="text-xs text-muted-foreground">{t('common.vehiclesCount', { count: operation.vehicles.length })}</span>
             </div>
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs" tabIndex={0}>
                   <Plus className="h-3 w-3" />
-                  Hinzufügen
+                  {t('common.add')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-2" align="end">
                 <div className="space-y-1">
                   <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                    Fahrzeug zuweisen
+                    {t('common.assignVehicle')}
                   </div>
                   <button
                     onClick={() => onUpdate({ zuFuss: !operation.zuFuss })}
@@ -649,7 +653,7 @@ function SidePanelDetail({
                   >
                     <Footprints className="h-3.5 w-3.5" />
                     <div className="text-left">
-                      <div className="font-medium text-xs">Zu Fuss</div>
+                      <div className="font-medium text-xs">{t('common.zuFuss')}</div>
                     </div>
                   </button>
                   <div className="border-t border-border my-1" />
@@ -686,11 +690,11 @@ function SidePanelDetail({
             {operation.zuFuss && (
               <Badge variant="secondary" className="text-xs gap-1 group">
                 <Footprints className="h-3 w-3" />
-                Zu Fuss
+                {t('common.zuFuss')}
                 <button
                   onClick={() => onUpdate({ zuFuss: false })}
                   className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-                  title="Zu Fuss entfernen"
+                  title={t('common.removeZuFuss')}
                   tabIndex={-1}
                 >
                   <X className="h-2.5 w-2.5" />
@@ -708,7 +712,7 @@ function SidePanelDetail({
                     key={vehicleName}
                     variant="default"
                     className="text-xs gap-1 pr-1 group transition-colors"
-                    title={callsign ? `Funkrufname: ${callsign}` : undefined}
+                    title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                   >
                     {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
                     {assignmentId && (
@@ -726,7 +730,7 @@ function SidePanelDetail({
                             })
                           )
                           apiClient.updateAssignment(operation.id, assignmentId, { driver_stay: newValue }).catch(() => {
-                            toast.error('Fehler beim Aktualisieren')
+                            toast.error(t('common.updateFailed'))
                             setOperations((ops: Operation[]) =>
                               ops.map((op: Operation) => {
                                 if (op.id === operation.id) {
@@ -745,13 +749,13 @@ function SidePanelDetail({
                             ? "bg-white/20 text-white hover:bg-white/30"
                             : "bg-white/10 text-white/60 hover:bg-white/20"
                         )}
-                        title={driverStay ? "Fahrer bleibt vor Ort — klicken für Rückkehr" : "Fahrer kehrt zurück — klicken für vor Ort bleiben"}
+                        title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                         tabIndex={-1}
                       >
                         {driverStay ? (
-                          <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> bleibt</span>
+                          <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> {t('common.driverStays')}</span>
                         ) : (
-                          <span className="flex items-center gap-0.5"><Undo2 className="h-2.5 w-2.5" /> zurück</span>
+                          <span className="flex items-center gap-0.5"><Undo2 className="h-2.5 w-2.5" /> {t('common.driverReturns')}</span>
                         )}
                       </button>
                     )}
@@ -759,7 +763,7 @@ function SidePanelDetail({
                       onClick={() => onRemoveVehicle(operation.id, vehicleName)}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
                       tabIndex={-1}
-                      aria-label={`${vehicleName} entfernen`}
+                      aria-label={t('common.removeNamed', { name: vehicleName })}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -767,7 +771,7 @@ function SidePanelDetail({
                 )
               })
             ) : (
-              <p className="text-xs text-muted-foreground">Keine Fahrzeuge</p>
+              <p className="text-xs text-muted-foreground">{t('sidePanel.noVehiclesShort')}</p>
             )}
           </div>
         </div>
@@ -777,7 +781,7 @@ function SidePanelDetail({
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Material ({operation.materials.length})</span>
+              <span className="text-xs text-muted-foreground">{t('common.materialsCount', { count: operation.materials.length })}</span>
             </div>
             <Button
               size="sm"
@@ -787,7 +791,7 @@ function SidePanelDetail({
               tabIndex={0}
             >
               <Plus className="h-3 w-3" />
-              Hinzufügen
+              {t('common.add')}
             </Button>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -805,7 +809,7 @@ function SidePanelDetail({
                       onClick={() => onRemoveMaterial(operation.id, materialId)}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
                       tabIndex={-1}
-                      aria-label={`${material?.name || materialId} entfernen`}
+                      aria-label={t('common.removeNamed', { name: material?.name || materialId })}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -813,7 +817,7 @@ function SidePanelDetail({
                 )
               })
             ) : (
-              <p className="text-xs text-muted-foreground">Kein Material</p>
+              <p className="text-xs text-muted-foreground">{t('sidePanel.noMaterialShort')}</p>
             )}
           </div>
         </div>
@@ -830,7 +834,7 @@ function SidePanelDetail({
             className="gap-1.5 text-xs"
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp'}
+            {isCopyingWhatsApp ? t('common.copying') : t('sidePanel.whatsapp')}
           </Button>
           <Button
             variant="outline"
@@ -839,7 +843,7 @@ function SidePanelDetail({
             className="gap-1.5 text-xs"
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
-            Übertragen
+            {t('sidePanel.transfer')}
           </Button>
         </div>
         <Button
@@ -849,7 +853,7 @@ function SidePanelDetail({
           className="w-full gap-1.5 text-xs text-destructive hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Löschen
+          {t('common.delete')}
         </Button>
       </div>
 
@@ -857,8 +861,8 @@ function SidePanelDetail({
       <DeleteConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Einsatz wirklich löschen?"
-        description={`Der Einsatz "${formatLocation(operation.location) || getIncidentTypeLabel(operation.incidentType)}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
+        title={t('common.deleteIncidentTitle')}
+        description={t('common.deleteIncidentDescription', { name: formatLocation(operation.location) || getIncidentTypeLabel(operation.incidentType) })}
         onConfirm={() => onDelete(operation.id)}
       />
 
@@ -906,7 +910,7 @@ const SidePanelMapContent = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p className="text-sm">Karte wird geladen...</p>
+        <p className="text-sm">{translateOutsideReact('kanban.sidePanel.mapLoading')}</p>
       </div>
     ),
   }

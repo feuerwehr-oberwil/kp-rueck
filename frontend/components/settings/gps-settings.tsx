@@ -1,6 +1,7 @@
 "use client"
 
 import { Satellite, AlertTriangle } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -47,6 +48,7 @@ export function GpsSettingsCard({
   isEditor,
   saving,
 }: Props) {
+  const t = useTranslations("settings")
   const enabled = settings[MASTER_KEY] === "true"
 
   const arrivalEnabled = settings[ARRIVAL_KEY] === "true"
@@ -64,23 +66,23 @@ export function GpsSettingsCard({
   const tuningFields = [
     {
       key: DEBOUNCE_KEY,
-      label: "Bestätigende Messungen",
-      hint: "Anzahl gültiger GPS-Messungen, bevor eine Regel auslöst (gegen GPS-Zittern). Empfohlen: 2.",
+      label: t("gps.tuning.debounce.label"),
+      hint: t("gps.tuning.debounce.hint"),
     },
     {
       key: MIN_DWELL_KEY,
-      label: "Mindest-Standzeit (Sek.)",
-      hint: "So lange müssen langsame Messungen mindestens auseinanderliegen, bevor eine Regel auslöst. Kurz halten, damit die Meldung schon beim Anhalten kommt. Empfohlen: 10.",
+      label: t("gps.tuning.dwell.label"),
+      hint: t("gps.tuning.dwell.hint"),
     },
     {
       key: FRESHNESS_KEY,
-      label: "Aktualität (Sek.)",
-      hint: "Ältere Messungen werden ignoriert und setzen den Zähler zurück. Grosszügig halten – parkierte Tracker senden nur alle 30–100 Sek. eine Position. Empfohlen: 180.",
+      label: t("gps.tuning.freshness.label"),
+      hint: t("gps.tuning.freshness.hint"),
     },
     {
       key: SPEED_GATE_KEY,
-      label: "Geschwindigkeitsgrenze (km/h)",
-      hint: "Nur unterhalb dieser Geschwindigkeit gilt ein Fahrzeug als stehend (Schritttempo im Hof zählt mit). Empfohlen: 10.",
+      label: t("gps.tuning.speedGate.label"),
+      hint: t("gps.tuning.speedGate.hint"),
     },
   ]
 
@@ -110,7 +112,7 @@ export function GpsSettingsCard({
       <Input
         type="number"
         value={value}
-        placeholder="z. B. 47.4983"
+        placeholder={t("gps.coordPlaceholder")}
         className="w-44"
         step="any"
         onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
@@ -130,14 +132,13 @@ export function GpsSettingsCard({
         <div>
           <h3 className="font-medium flex items-center gap-2">
             <Satellite className="h-4 w-4 text-primary" />
-            GPS-Statusautomatik
+            {t("gps.title")}
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Schaltet zwei GPS-gestützte Regeln frei. <strong>Ankunft</strong> fragt nach, ob ein
-            disponierter Einsatz auf <em>Einsatz</em> gesetzt werden soll, sobald ein zugewiesenes
-            Fahrzeug am Einsatzort steht. <strong>Rückkehr</strong> fragt nach, ob ein Fahrzeug
-            freigegeben werden soll, wenn es ins Magazin zurückkehrt – nie automatisch.
-            Funktioniert auch in Übungen; im Demo-Modus inaktiv.
+            {t.rich("gps.intro", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+              em: (chunks) => <em>{chunks}</em>,
+            })}
           </p>
         </div>
         <Switch
@@ -152,10 +153,9 @@ export function GpsSettingsCard({
           {/* Ankunft (Regel A) — confirm by default, silent is an opt-in */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label className="font-medium">Ankunft am Einsatzort</Label>
+              <Label className="font-medium">{t("gps.arrivalLabel")}</Label>
               <p className="text-xs text-muted-foreground">
-                Fragt nach, ob ein disponierter Einsatz auf „Einsatz“ gesetzt werden soll, sobald
-                ein zugewiesenes Fahrzeug am Einsatzort bestätigt ist.
+                {t("gps.arrivalHint")}
               </p>
             </div>
             <Switch
@@ -169,10 +169,9 @@ export function GpsSettingsCard({
             <div className="ml-4 border-l pl-4 space-y-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <Label className="font-medium text-sm">Automatisch ohne Rückfrage</Label>
+                  <Label className="font-medium text-sm">{t("gps.silentLabel")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Setzt den Einsatz ohne Rückfrage automatisch auf „Einsatz“ – nur bei
-                    zuverlässiger GPS-Abdeckung aktivieren.
+                    {t("gps.silentHint")}
                   </p>
                 </div>
                 <Switch
@@ -185,10 +184,9 @@ export function GpsSettingsCard({
                 <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                   <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                   <span>
-                    Einsätze werden <strong>ohne Rückfrage</strong> anhand von GPS-Daten auf
-                    „Einsatz“ gesetzt. GPS kann ungenau oder lückenhaft sein. Jede automatische
-                    Statusänderung ist im Protokoll als „GPS-Automatik“ vermerkt und lässt sich
-                    wie ein manueller Zug jederzeit rückgängig machen.
+                    {t.rich("gps.silentWarning", {
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                    })}
                   </span>
                 </div>
               )}
@@ -198,10 +196,9 @@ export function GpsSettingsCard({
           {/* Rückkehr (Regel B) — confirm only */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label className="font-medium">Magazin: Freigabe vorschlagen</Label>
+              <Label className="font-medium">{t("gps.returnLabel")}</Label>
               <p className="text-xs text-muted-foreground">
-                Fragt nach, ob ein Fahrzeug freigegeben werden soll, wenn es ins Magazin
-                zurückkehrt. Schliesst den Einsatz nie automatisch.
+                {t("gps.returnHint")}
               </p>
             </div>
             <Switch
@@ -214,28 +211,26 @@ export function GpsSettingsCard({
           {/* Magazin coordinates + radius */}
           <div className="border-t pt-4 space-y-3">
             <div>
-              <Label className="font-medium">Magazin (Heimatbasis)</Label>
+              <Label className="font-medium">{t("gps.stationLabel")}</Label>
               <p className="text-xs text-muted-foreground">
-                Koordinaten des Magazins für die Rückkehr-Regel (Dezimalgrad). Ohne Koordinaten
-                ist die Rückkehr-Erkennung inaktiv.
+                {t("gps.stationHint")}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Breite (lat)</Label>
+                <Label className="text-xs text-muted-foreground">{t("gps.latLabel")}</Label>
                 {renderCoord(STATION_LAT_KEY)}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Länge (lng)</Label>
+                <Label className="text-xs text-muted-foreground">{t("gps.lngLabel")}</Label>
                 {renderCoord(STATION_LNG_KEY)}
               </div>
             </div>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <Label className="font-medium text-sm">Magazinradius (m)</Label>
+                <Label className="font-medium text-sm">{t("gps.stationRadiusLabel")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Wie nah ein Fahrzeug dem Magazin sein muss, damit die Rückkehr erkannt wird. Eng
-                  halten (z. B. 80–120 m), damit vorbeifahrende Fahrzeuge nicht auslösen.
+                  {t("gps.stationRadiusHint")}
                 </p>
               </div>
               <div className="flex-shrink-0">
@@ -248,10 +243,9 @@ export function GpsSettingsCard({
           <div className="border-t pt-4 space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <Label className="font-medium text-sm">Ankunftsradius (m)</Label>
+                <Label className="font-medium text-sm">{t("gps.arrivalRadiusLabel")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Entfernung zum Einsatzort, ab der ein Fahrzeug als angekommen gilt. Gilt für die
-                  Ankunfts-Regel und die Geofence-Ankunftsmeldung.
+                  {t("gps.arrivalRadiusHint")}
                 </p>
               </div>
               <div className="flex-shrink-0">
@@ -262,7 +256,7 @@ export function GpsSettingsCard({
 
           {/* Tuning constants */}
           <div className="border-t pt-4 space-y-3">
-            <Label className="font-medium">Feineinstellungen</Label>
+            <Label className="font-medium">{t("gps.tuningTitle")}</Label>
             {tuningFields.map((field) => (
               <div key={field.key} className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -280,7 +274,7 @@ export function GpsSettingsCard({
 
       {!isEditor && (
         <p className="text-xs text-muted-foreground">
-          Nur Bearbeiter können diese Einstellungen ändern.
+          {t("gps.editorsOnly")}
         </p>
       )}
     </Card>

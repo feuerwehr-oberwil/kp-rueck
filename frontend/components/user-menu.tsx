@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -58,6 +59,7 @@ export function UserMenu({
   onVehicleStatus,
   onPrint,
 }: UserMenuProps = {}) {
+  const t = useTranslations('nav.userMenu');
   const { user, logout, isEditor, isAuthenticated } = useAuth();
   const { selectedEvent } = useEvent();
   const router = useRouter();
@@ -93,7 +95,7 @@ export function UserMenu({
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Export fehlgeschlagen');
+      toast.error(err instanceof Error ? err.message : t('exportFailed'));
     }
   };
 
@@ -230,11 +232,11 @@ export function UserMenu({
   const getStatusText = () => {
     switch (status) {
       case "connected":
-        return "Verbunden";
+        return t('statusConnected');
       case "disconnected":
-        return "Offline";
+        return t('statusOffline');
       case "checking":
-        return "Prüfen...";
+        return t('statusChecking');
     }
   };
 
@@ -263,23 +265,23 @@ export function UserMenu({
   };
 
   const getSyncStatusText = () => {
-    if (syncLoading) return "Prüfen...";
-    if (syncError) return "Fehler";
-    if (!syncStatus) return "Unbekannt";
+    if (syncLoading) return t('statusChecking');
+    if (syncError) return t('statusError');
+    if (!syncStatus) return t('statusUnknown');
 
     if (!syncStatus.railway_healthy) {
-      return "Offline";
+      return t('statusOffline');
     }
 
     if (syncStatus.is_syncing) {
-      return "Synchronisiert...";
+      return t('statusSyncing');
     }
 
     if (isStale) {
-      return "Veraltet";
+      return t('statusStale');
     }
 
-    return "Synchronisiert";
+    return t('statusSynced');
   };
 
   const getWsStatusColor = () => {
@@ -298,13 +300,13 @@ export function UserMenu({
   const getWsStatusText = () => {
     switch (wsStatus) {
       case 'connecting':
-        return 'Verbindet';
+        return t('wsConnecting');
       case 'connected':
-        return 'Echtzeit';
+        return t('wsRealtime');
       case 'disconnected':
-        return 'Offline';
+        return t('statusOffline');
       case 'error':
-        return 'Fehlgeschlagen';
+        return t('wsFailed');
     }
   };
 
@@ -316,10 +318,10 @@ export function UserMenu({
   };
 
   const getPrinterStatusText = () => {
-    if (!printerStatus) return "Nicht verfügbar";
-    if (!printerStatus.enabled) return "Deaktiviert";
-    if (printerStatus.last_error) return "Fehler";
-    return "Bereit";
+    if (!printerStatus) return t('printerUnavailable');
+    if (!printerStatus.enabled) return t('printerDisabled');
+    if (printerStatus.last_error) return t('statusError');
+    return t('printerReady');
   };
 
   const getDiveraStatusColor = () => {
@@ -330,9 +332,9 @@ export function UserMenu({
   };
 
   const getDiveraStatusText = () => {
-    if (!diveraStatus?.configured) return "Nicht konfiguriert";
-    if (diveraStatus.error_count && !diveraStatus.poll_count) return "Fehler";
-    return "Verbunden";
+    if (!diveraStatus?.configured) return t('diveraNotConfigured');
+    if (diveraStatus.error_count && !diveraStatus.poll_count) return t('statusError');
+    return t('statusConnected');
   };
 
   return (
@@ -357,36 +359,36 @@ export function UserMenu({
           {(onNewIncident || onCheckIn || onReko || onVehicleStatus || onPrint) && (
             <>
               <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-                Schnellzugriff
+                {t('quickActions')}
               </DropdownMenuLabel>
               {onNewIncident && (
                 <DropdownMenuItem onClick={onNewIncident} className="cursor-pointer">
                   <Plus className="mr-2 h-4 w-4" />
-                  <span>Neuer Einsatz</span>
+                  <span>{t('newIncident')}</span>
                 </DropdownMenuItem>
               )}
               {onCheckIn && (
                 <DropdownMenuItem onClick={onCheckIn} className="cursor-pointer">
                   <QrCode className="mr-2 h-4 w-4" />
-                  <span>Check-In</span>
+                  <span>{t('checkIn')}</span>
                 </DropdownMenuItem>
               )}
               {onReko && (
                 <DropdownMenuItem onClick={onReko} className="cursor-pointer">
                   <Search className="mr-2 h-4 w-4" />
-                  <span>Reko</span>
+                  <span>{t('reko')}</span>
                 </DropdownMenuItem>
               )}
               {onVehicleStatus && (
                 <DropdownMenuItem onClick={onVehicleStatus} className="cursor-pointer">
                   <Truck className="mr-2 h-4 w-4" />
-                  <span>Fahrzeugstatus</span>
+                  <span>{t('vehicleStatus')}</span>
                 </DropdownMenuItem>
               )}
               {onPrint && (
                 <DropdownMenuItem onClick={onPrint} className="cursor-pointer">
                   <Printer className="mr-2 h-4 w-4" />
-                  <span>Drucken</span>
+                  <span>{t('print')}</span>
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -399,7 +401,7 @@ export function UserMenu({
               <DropdownMenuItem asChild>
                 <Link href="/settings?section=sync" className="cursor-pointer">
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-xs text-muted-foreground">Verbindung</span>
+                    <span className="text-xs text-muted-foreground">{t('connection')}</span>
                     <div className="flex items-center gap-2">
                       <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
                       <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
@@ -417,25 +419,25 @@ export function UserMenu({
               <div className="flex flex-col gap-2 text-sm">
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
-                  <span>API: {getStatusText()}</span>
+                  <span>{t('apiLabel')}: {getStatusText()}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
-                  <span>WebSocket: {getWsStatusText()}</span>
+                  <span>{t('websocketLabel')}: {getWsStatusText()}</span>
                 </div>
                 {!syncConfig?.is_production && (
                   <div className="flex items-center gap-2">
                     <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
-                    <span>Sync: {getSyncStatusText()}</span>
+                    <span>{t('syncLabel')}: {getSyncStatusText()}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
-                  <span>Drucker: {getPrinterStatusText()}</span>
+                  <span>{t('printerLabel')}: {getPrinterStatusText()}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${getDiveraStatusColor()}`} />
-                  <span>Divera: {getDiveraStatusText()}</span>
+                  <span>{t('diveraLabel')}: {getDiveraStatusText()}</span>
                 </div>
               </div>
             </HoverCardContent>
@@ -445,30 +447,30 @@ export function UserMenu({
 
           {/* DISPLAY GROUP */}
           <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-            Anzeige
+            {t('display')}
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
             <Link href="/display" target="_blank" className="cursor-pointer">
               <Monitor className="mr-2 h-4 w-4" />
-              <span>Display-Übersicht</span>
+              <span>{t('displayOverview')}</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/display/map" target="_blank" className="cursor-pointer">
               <Map className="mr-2 h-4 w-4" />
-              <span>Lagekarte</span>
+              <span>{t('situationMap')}</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/display/board" target="_blank" className="cursor-pointer">
               <LayoutGrid className="mr-2 h-4 w-4" />
-              <span>Board</span>
+              <span>{t('board')}</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/display/status" target="_blank" className="cursor-pointer">
               <BarChart3 className="mr-2 h-4 w-4" />
-              <span>Status</span>
+              <span>{t('statusDisplay')}</span>
             </Link>
           </DropdownMenuItem>
 
@@ -476,24 +478,24 @@ export function UserMenu({
 
           {/* MANAGEMENT GROUP */}
           <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
-            Verwaltung
+            {t('management')}
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
             <Link href="/events" className="cursor-pointer">
               <Calendar className="mr-2 h-4 w-4" />
-              <span>Ereignisse</span>
+              <span>{t('events')}</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/settings" className="cursor-pointer">
               <Settings className="mr-2 h-4 w-4" />
-              <span>Einstellungen</span>
+              <span>{t('settings')}</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/divera-pool" className="cursor-pointer">
               <Radio className="mr-2 h-4 w-4" />
-              <span>Divera Notfälle</span>
+              <span>{t('diveraPool')}</span>
             </Link>
           </DropdownMenuItem>
 
@@ -501,13 +503,13 @@ export function UserMenu({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger className="cursor-pointer">
                 <Download className="mr-2 h-4 w-4" />
-                <span>Export</span>
+                <span>{t('export')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent>
                   {!selectedEvent && (
                     <DropdownMenuItem disabled>
-                      <span className="text-muted-foreground">Kein Ereignis ausgewählt</span>
+                      <span className="text-muted-foreground">{t('noEventSelected')}</span>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
@@ -516,7 +518,7 @@ export function UserMenu({
                     className="cursor-pointer"
                   >
                     <FileText className="mr-2 h-4 w-4" />
-                    <span>Bericht (PDF)</span>
+                    <span>{t('reportPdf')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => downloadEventExport('xlsx')}
@@ -524,7 +526,7 @@ export function UserMenu({
                     className="cursor-pointer"
                   >
                     <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    <span>Audit-Export (XLSX)</span>
+                    <span>{t('auditXlsx')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => downloadEventExport('lageblatt')}
@@ -532,7 +534,7 @@ export function UserMenu({
                     className="cursor-pointer"
                   >
                     <ClipboardList className="mr-2 h-4 w-4" />
-                    <span>Lageblatt (A4)</span>
+                    <span>{t('lageblattA4')}</span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
@@ -541,14 +543,14 @@ export function UserMenu({
 
           <DropdownMenuItem onClick={openCommandPalette} className="cursor-pointer">
             <Keyboard className="mr-2 h-4 w-4" />
-            <span>Befehle &amp; Tastaturkürzel</span>
+            <span>{t('commands')}</span>
             <span className="ml-auto text-xs text-muted-foreground">⌘K · ?</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem asChild>
             <Link href="/help" className="cursor-pointer">
               <CircleHelp className="mr-2 h-4 w-4" />
-              <span>Hilfe</span>
+              <span>{t('help')}</span>
             </Link>
           </DropdownMenuItem>
 
@@ -556,7 +558,7 @@ export function UserMenu({
 
           <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
             <LogOut className="mr-2 h-4 w-4" />
-            <span>Abmelden</span>
+            <span>{t('logout')}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
     </DropdownMenu>

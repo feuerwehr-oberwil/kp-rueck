@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Printer } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { PrintView, type PrintOptions } from "./print-view"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -24,6 +25,7 @@ interface PrintOptionsModalProps {
 }
 
 export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps) {
+  const t = useTranslations("print")
   const { operations, personnel, materials } = useOperations()
   const { selectedEvent } = useEvent()
   const isMobile = useIsMobile()
@@ -114,10 +116,10 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
             <SheetHeader className="p-0 mb-4">
               <SheetTitle className="flex items-center gap-2">
                 <Printer className="h-4 w-4" />
-                Status drucken
+                {t("optionsModal.title")}
               </SheetTitle>
               <SheetDescription>
-                Wählen Sie aus, welche Informationen gedruckt werden sollen.
+                {t("optionsModal.description")}
               </SheetDescription>
             </SheetHeader>
 
@@ -131,7 +133,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                   }
                 />
                 <Label htmlFor="includeIncidents" className="cursor-pointer text-sm">
-                  Einsatzliste
+                  {t("common.incidentList")}
                 </Label>
               </div>
 
@@ -144,7 +146,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                   }
                 />
                 <Label htmlFor="includeCompleted" className="cursor-pointer text-sm">
-                  Beendete Einsätze
+                  {t("common.completedIncidents")}
                 </Label>
               </div>
 
@@ -157,7 +159,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                   }
                 />
                 <Label htmlFor="includePersonnel" className="cursor-pointer text-sm">
-                  Personal-Liste
+                  {t("optionsModal.personnelList")}
                 </Label>
               </div>
 
@@ -170,7 +172,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                   }
                 />
                 <Label htmlFor="includeVehicles" className="cursor-pointer text-sm">
-                  Fahrzeug-Status
+                  {t("common.vehicleStatus")}
                 </Label>
               </div>
 
@@ -183,7 +185,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                   }
                 />
                 <Label htmlFor="includeMaterials" className="cursor-pointer text-sm">
-                  Material-Inventar
+                  {t("optionsModal.materialInventory")}
                 </Label>
               </div>
 
@@ -196,7 +198,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                   }
                 />
                 <Label htmlFor="includeMap" className="cursor-pointer text-sm">
-                  Karten-Übersicht
+                  {t("optionsModal.mapOverview")}
                 </Label>
               </div>
             </div>
@@ -204,14 +206,14 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
             {/* Summary and actions */}
             <div className="flex items-center justify-between mt-4 pt-3 border-t">
               <p className="text-xs text-muted-foreground">
-                {operationCount} Einsätze
-                {options.includePersonnel && `, ${personnel.length} Personal`}
-                {options.includeVehicles && `, ${vehicles.length} Fahrzeuge`}
-                {options.includeMaterials && `, ${materials.length} Material`}
+                {t("optionsModal.summaryIncidents", { count: operationCount })}
+                {options.includePersonnel && `, ${t("optionsModal.summaryPersonnel", { count: personnel.length })}`}
+                {options.includeVehicles && `, ${t("optionsModal.summaryVehicles", { count: vehicles.length })}`}
+                {options.includeMaterials && `, ${t("optionsModal.summaryMaterials", { count: materials.length })}`}
               </p>
               <Button size="sm" onClick={handlePrint} disabled={isLoading}>
                 <Printer className="h-3.5 w-3.5 mr-1.5" />
-                Drucken
+                {t("common.print")}
               </Button>
             </div>
           </div>

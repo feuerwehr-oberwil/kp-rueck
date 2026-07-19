@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -51,6 +52,7 @@ const INITIAL_FORM_DATA: RekoFormData = {
 export default function RekoForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const t = useTranslations('reko.form')
 
   const incidentId = searchParams.get('incident_id')
   const token = searchParams.get('token')
@@ -191,7 +193,7 @@ export default function RekoForm() {
       }
     } catch (error) {
       console.error('Failed to mark arrived:', error)
-      toast.error('Fehler beim Melden der Ankunft')
+      toast.error(t('arrivalError'))
     } finally {
       setIsMarkingArrived(false)
     }
@@ -258,7 +260,7 @@ export default function RekoForm() {
   useEffect(() => {
     async function init() {
       if (!incidentId || !token) {
-        setValidationError('Ungültiger Link. Bitte QR-Code erneut scannen.')
+        setValidationError(t('invalidLink'))
         setIsLoading(false)
         return
       }
@@ -267,7 +269,7 @@ export default function RekoForm() {
         // Load incident details and existing draft/report
         const data = await apiClient.getRekoForm(incidentId, token, personnelId)
 
-        setIncidentTitle(data.incident_title || 'Unbekannt')
+        setIncidentTitle(data.incident_title || t('unknownIncident'))
         setIncidentDetails({
           location: data.incident_location || undefined,
           type: data.incident_type || undefined,
@@ -313,8 +315,8 @@ export default function RekoForm() {
         const serverTimestamp = data.updated_at ? new Date(data.updated_at).getTime() : 0
         if (localHasContent && (!serverHasContent || localTimestamp > serverTimestamp)) {
           setFormData(localData!.data)
-          toast.info('Lokale Änderungen wiederhergestellt', {
-            description: 'Ihre zuvor eingegebenen Daten wurden geladen.'
+          toast.info(t('localRestored'), {
+            description: t('localRestoredDescription')
           })
         } else {
           setFormData(serverData)
@@ -322,7 +324,7 @@ export default function RekoForm() {
         setLocalStorageLoaded(true)
       } catch (error) {
         console.error('Failed to load form:', error)
-        setValidationError('Fehler beim Laden des Formulars. Token möglicherweise ungültig.')
+        setValidationError(t('loadError'))
       } finally {
         setIsLoading(false)
       }
@@ -376,7 +378,7 @@ export default function RekoForm() {
     e.preventDefault()
 
     if (formData.is_relevant === null) {
-      toast.error('Bitte "Einsatz relevant?" beantworten')
+      toast.error(t('relevantRequired'))
       return
     }
 
@@ -410,7 +412,7 @@ export default function RekoForm() {
       }, 1000)
     } catch (error) {
       console.error('Submit failed:', error)
-      toast.error('Fehler beim Übermitteln. Bitte erneut versuchen.')
+      toast.error(t('submitError'))
       // Only re-enable submission (and auto-save) after a failed submit
       isSubmittingRef.current = false
       setIsSubmitting(false)
@@ -467,7 +469,7 @@ export default function RekoForm() {
         )}
         {incidentDetails.contact && (
           <div className="mt-2 pt-2 border-t border-border/50">
-            <span className="text-sm text-muted-foreground">Kontakt / Melder: </span>
+            <span className="text-sm text-muted-foreground">{t('contactLabel')}</span>
             <a
               href={`tel:${incidentDetails.contact.replace(/\s/g, '')}`}
               className="text-sm font-medium text-primary hover:underline"
@@ -489,17 +491,17 @@ export default function RekoForm() {
         {isMarkingArrived ? (
           <>
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Melde Ankunft...
+            {t('markingArrival')}
           </>
         ) : arrivedAt ? (
           <>
             <Check className="mr-2 h-5 w-5" />
-            Ankunft gemeldet ({arrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })})
+            {t('arrivalReported', { time: arrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
           </>
         ) : (
           <>
             <MapPin className="mr-2 h-5 w-5" />
-            Ich bin vor Ort
+            {t('imOnSite')}
           </>
         )}
       </Button>
@@ -507,7 +509,7 @@ export default function RekoForm() {
       {/* Section 1: Basic Confirmation */}
       <div className="space-y-3">
         <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Einsatz relevant? *
+          {t('relevantQuestion')}
         </Label>
         <div className="grid grid-cols-2 gap-3">
           <Button
@@ -516,7 +518,7 @@ export default function RekoForm() {
             onClick={() => updateFormData('is_relevant', true)}
             className="h-12 text-base"
           >
-            Ja
+            {t('yes')}
           </Button>
           <Button
             type="button"
@@ -524,7 +526,7 @@ export default function RekoForm() {
             onClick={() => updateFormData('is_relevant', false)}
             className="h-12 text-base"
           >
-            Nein
+            {t('no')}
           </Button>
         </div>
       </div>
@@ -534,17 +536,11 @@ export default function RekoForm() {
       {/* Section 2: Dangers Assessment */}
       <div className="space-y-3">
         <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Gefahren
+          {t('dangers')}
         </Label>
 
         <div className="space-y-2">
-          {[
-            { key: 'fire_danger', label: 'Brandgefahr' },
-            { key: 'explosion', label: 'Explosionsgefahr' },
-            { key: 'collapse', label: 'Einsturzgefahr' },
-            { key: 'chemical', label: 'Gefahrstoffe' },
-            { key: 'electrical', label: 'Elektrische Gefahr' }
-          ].map(({ key, label }) => (
+          {(['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).map((key) => (
             <label
               key={key}
               htmlFor={`danger-${key}`}
@@ -559,13 +555,13 @@ export default function RekoForm() {
                 })}
                 className="h-5 w-5"
               />
-              <span className="text-sm">{label}</span>
+              <span className="text-sm">{t(`dangerLabels.${key}`)}</span>
             </label>
           ))}
         </div>
 
         <div className="pt-2">
-          <Label htmlFor="danger-other" className="text-sm mb-1.5 block">Weitere Gefahren</Label>
+          <Label htmlFor="danger-other" className="text-sm mb-1.5 block">{t('otherDangers')}</Label>
           <Textarea
             id="danger-other"
             value={formData.dangers_json.other_notes || ''}
@@ -573,7 +569,7 @@ export default function RekoForm() {
               ...formData.dangers_json,
               other_notes: e.target.value
             })}
-            placeholder="Beschreibung..."
+            placeholder={t('otherDangersPlaceholder')}
             rows={2}
           />
         </div>
@@ -584,12 +580,12 @@ export default function RekoForm() {
       {/* Section 3: Effort Assessment */}
       <div className="space-y-3">
         <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Aufwand
+          {t('effort')}
         </Label>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="personnel-count" className="text-sm mb-1.5 block">Personal (Anz.)</Label>
+            <Label htmlFor="personnel-count" className="text-sm mb-1.5 block">{t('personnelCount')}</Label>
             <Input
               id="personnel-count"
               type="number"
@@ -600,13 +596,13 @@ export default function RekoForm() {
                 ...formData.effort_json,
                 personnel_count: e.target.value ? parseInt(e.target.value) : null
               })}
-              placeholder="z.B. 10"
+              placeholder={t('personnelPlaceholder')}
               className="h-11"
             />
           </div>
 
           <div>
-            <Label htmlFor="duration" className="text-sm mb-1.5 block">Dauer (Std.)</Label>
+            <Label htmlFor="duration" className="text-sm mb-1.5 block">{t('duration')}</Label>
             <Input
               id="duration"
               type="number"
@@ -618,7 +614,7 @@ export default function RekoForm() {
                 ...formData.effort_json,
                 estimated_duration_hours: e.target.value ? parseFloat(e.target.value) : null
               })}
-              placeholder="z.B. 2"
+              placeholder={t('durationPlaceholder')}
               className="h-11"
             />
           </div>
@@ -630,15 +626,10 @@ export default function RekoForm() {
       {/* Section 4: Power Supply */}
       <div className="space-y-3">
         <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Stromversorgung
+          {t('powerSupply')}
         </Label>
         <div className="grid grid-cols-2 gap-2">
-          {[
-            { value: 'unknown', label: 'Unbekannt' },
-            { value: 'available', label: 'Vorhanden' },
-            { value: 'unavailable', label: 'Nicht vorhanden' },
-            { value: 'emergency_needed', label: 'Notstrom nötig' }
-          ].map(({ value, label }) => (
+          {(['unknown', 'available', 'unavailable', 'emergency_needed'] as const).map((value) => (
             <Button
               key={value}
               type="button"
@@ -646,7 +637,7 @@ export default function RekoForm() {
               onClick={() => updateFormData('power_supply', value)}
               className="h-11 text-sm"
             >
-              {label}
+              {t(`powerLabels.${value}`)}
             </Button>
           ))}
         </div>
@@ -657,7 +648,7 @@ export default function RekoForm() {
       {/* Photo Upload */}
       <div className="space-y-3">
         <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Fotos
+          {t('photos')}
         </Label>
         <PhotoUpload
           photos={formData.photos_json}
@@ -674,27 +665,27 @@ export default function RekoForm() {
       {/* Summary */}
       <div className="space-y-3">
         <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Zusammenfassung
+          {t('summary')}
         </Label>
 
         <div>
-          <Label htmlFor="summary" className="text-sm mb-1.5 block">Kurzzusammenfassung</Label>
+          <Label htmlFor="summary" className="text-sm mb-1.5 block">{t('summaryShort')}</Label>
           <Textarea
             id="summary"
             value={formData.summary_text}
             onChange={(e) => updateFormData('summary_text', e.target.value)}
-            placeholder="Wichtigste Erkenntnisse..."
+            placeholder={t('summaryPlaceholder')}
             rows={3}
           />
         </div>
 
         <div>
-          <Label htmlFor="notes" className="text-sm mb-1.5 block">Zusätzliche Notizen</Label>
+          <Label htmlFor="notes" className="text-sm mb-1.5 block">{t('notes')}</Label>
           <Textarea
             id="notes"
             value={formData.additional_notes}
             onChange={(e) => updateFormData('additional_notes', e.target.value)}
-            placeholder="Weitere Bemerkungen..."
+            placeholder={t('notesPlaceholder')}
             rows={2}
           />
         </div>
@@ -711,12 +702,12 @@ export default function RekoForm() {
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Übermitteln...
+              {t('submitting')}
             </>
           ) : (
             <>
               <Send className="mr-2 h-5 w-5" />
-              Meldung übermitteln
+              {t('submit')}
             </>
           )}
         </Button>
@@ -724,9 +715,9 @@ export default function RekoForm() {
         {/* Auto-save indicator */}
         <p className="text-xs text-center text-muted-foreground">
           {lastSaved ? (
-            <>Gespeichert um {lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</>
+            <>{t('savedAt', { time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}</>
           ) : (
-            <>Wird automatisch gespeichert</>
+            <>{t('autoSave')}</>
           )}
         </p>
       </div>

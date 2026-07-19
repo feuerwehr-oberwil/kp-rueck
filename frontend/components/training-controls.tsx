@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiEmergencyTemplate, type ApiTrainingLocation } from '@/lib/api-client';
@@ -30,6 +31,7 @@ import {
 import { MapPickerModal } from '@/components/location/map-picker-modal';
 
 export function TrainingControls() {
+  const t = useTranslations('training');
   const { selectedEvent } = useEvent();
   const { operations } = useOperations();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -89,13 +91,13 @@ export function TrainingControls() {
     try {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'normal', count: 1 });
       const incident = incidents[0];
-      toast.success('Einsatz generiert', {
+      toast.success(t('controls.toastGenerated'), {
         description: `${incident.title} @ ${incident.location_address}`,
       });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
-      toast.error('Fehler', {
-        description: 'Einsatz konnte nicht generiert werden',
+      toast.error(t('common.error'), {
+        description: t('controls.toastGenerateFailed'),
       });
     } finally {
       setIsGenerating(false);
@@ -107,13 +109,13 @@ export function TrainingControls() {
     try {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'critical', count: 1 });
       const incident = incidents[0];
-      toast.success('Kritischer Einsatz generiert', {
+      toast.success(t('controls.toastGeneratedCritical'), {
         description: `${incident.title} @ ${incident.location_address}`,
       });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
-      toast.error('Fehler', {
-        description: 'Einsatz konnte nicht generiert werden',
+      toast.error(t('common.error'), {
+        description: t('controls.toastGenerateFailed'),
       });
     } finally {
       setIsGenerating(false);
@@ -125,13 +127,13 @@ export function TrainingControls() {
     try {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { count: 1, source: 'intake' });
       const incident = incidents[0];
-      toast.success('Telefon-Alarm generiert', {
+      toast.success(t('controls.toastPhoneGenerated'), {
         description: `${incident.title} @ ${incident.location_address}`,
       });
     } catch (error) {
       console.error('❌ Failed to generate telefon alarm:', error);
-      toast.error('Fehler', {
-        description: 'Telefon-Alarm konnte nicht generiert werden',
+      toast.error(t('common.error'), {
+        description: t('controls.toastPhoneFailed'),
       });
     } finally {
       setIsGenerating(false);
@@ -142,13 +144,13 @@ export function TrainingControls() {
     setIsGenerating(true);
     try {
       const emergency = await apiClient.simulateDiveraAlarm(selectedEvent.id);
-      toast.success('Divera-Alarm im Pool', {
-        description: `${emergency.title} — Übernahme macht der Operator über "Divera Notfälle".`,
+      toast.success(t('controls.toastDiveraInPool'), {
+        description: t('controls.toastDiveraDescription', { title: emergency.title }),
       });
     } catch (error) {
       console.error('❌ Failed to simulate divera alarm:', error);
-      toast.error('Fehler', {
-        description: 'Divera-Alarm konnte nicht simuliert werden',
+      toast.error(t('common.error'), {
+        description: t('controls.toastDiveraFailed'),
       });
     } finally {
       setIsGenerating(false);
@@ -171,12 +173,12 @@ export function TrainingControls() {
           ? { kind: 'pin', ...pinLocation }
           : { kind: 'seeded', locationId: selectedLocationId },
       );
-      toast.success('Einsatz ausgelöst', {
+      toast.success(t('controls.toastDispatched'), {
         description: `${incident.title} @ ${incident.location_address}`,
       });
     } catch {
-      toast.error('Fehler', {
-        description: 'Einsatz konnte nicht ausgelöst werden',
+      toast.error(t('common.error'), {
+        description: t('controls.toastDispatchFailed'),
       });
     } finally {
       setIsDispatching(false);
@@ -214,13 +216,13 @@ export function TrainingControls() {
           : Promise.resolve([]),
       ]);
       const incidents = batches.flat();
-      toast.success(`${incidents.length} Einsätze generiert`, {
+      toast.success(t('controls.toastBurstGenerated', { count: incidents.length }), {
         description: incidents.map(i => i.title).join(', '),
       });
     } catch (error) {
       console.error('❌ Failed to generate burst:', error);
-      toast.error('Fehler', {
-        description: 'Burst konnte nicht generiert werden',
+      toast.error(t('common.error'), {
+        description: t('controls.toastBurstFailed'),
       });
     } finally {
       setIsGenerating(false);
@@ -233,17 +235,17 @@ export function TrainingControls() {
         <div>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-orange-600" />
-            Übungs-Steuerung
+            {t('common.title')}
           </CardTitle>
           <CardDescription>
-            Manuelle Einsatz-Generierung für Training · {operations.length} Einsätze total
+            {t('controls.description', { count: operations.length })}
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Manual Generation Buttons */}
         <div className="space-y-2">
-          <Label>Einzelne Einsätze generieren</Label>
+          <Label>{t('controls.generateSingle')}</Label>
           <div className="grid grid-cols-2 gap-2">
             <Button
               onClick={handleGenerateNormal}
@@ -252,7 +254,7 @@ export function TrainingControls() {
               className="w-full"
             >
               <Droplet className="mr-2 h-4 w-4 text-blue-600" />
-              Normal
+              {t('controls.normal')}
             </Button>
             <Button
               onClick={handleGenerateCritical}
@@ -261,7 +263,7 @@ export function TrainingControls() {
               className="w-full"
             >
               <Flame className="mr-2 h-4 w-4 text-red-600" />
-              Kritisch
+              {t('controls.critical')}
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -272,7 +274,7 @@ export function TrainingControls() {
               className="w-full"
             >
               <Phone className="mr-2 h-4 w-4 text-sky-600" />
-              Telefon-Alarm
+              {t('controls.phoneAlarm')}
             </Button>
             <Button
               onClick={handleGenerateDivera}
@@ -281,11 +283,11 @@ export function TrainingControls() {
               className="w-full"
             >
               <Radio className="mr-2 h-4 w-4 text-orange-600" />
-              Divera-Alarm
+              {t('controls.diveraAlarm')}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung | Telefon: simuliert eine Meldung über den Alarm-Link | Divera: landet im Notfall-Pool — der Operator übernimmt ihn dort (echter Alarmierungs-Weg)
+            {t('controls.generateHint')}
           </p>
         </div>
 
@@ -293,11 +295,11 @@ export function TrainingControls() {
 
         {/* Manual / targeted dispatch */}
         <div className="space-y-2">
-          <Label>Gezielter Einsatz</Label>
+          <Label>{t('controls.targetedDispatch')}</Label>
           <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
             <SelectTrigger className="w-full">
               <SelectValue
-                placeholder={pickerLoaded ? 'Szenario wählen...' : 'Lade Szenarien...'}
+                placeholder={pickerLoaded ? t('controls.scenarioPlaceholder') : t('controls.scenarioLoading')}
               />
             </SelectTrigger>
             <SelectContent className="max-h-72">
@@ -328,7 +330,7 @@ export function TrainingControls() {
                 size="sm"
                 onClick={() => setPinLocation(null)}
                 className="h-9 w-9 sm:h-7 sm:w-7 p-0"
-                title="Pin entfernen"
+                title={t('controls.removePin')}
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
@@ -338,7 +340,7 @@ export function TrainingControls() {
               <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
                 <SelectTrigger className="flex-1">
                   <SelectValue
-                    placeholder={pickerLoaded ? 'Adresse wählen...' : 'Lade Adressen...'}
+                    placeholder={pickerLoaded ? t('controls.addressPlaceholder') : t('controls.addressLoading')}
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
@@ -354,7 +356,7 @@ export function TrainingControls() {
                 size="icon-sm"
                 onClick={() => setPickerOpen(true)}
                 className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] flex-shrink-0"
-                title="Pin auf Karte setzen"
+                title={t('controls.setPin')}
               >
                 <MapPin className="h-4 w-4" />
               </Button>
@@ -366,10 +368,10 @@ export function TrainingControls() {
             className="w-full"
           >
             <Target className="mr-2 h-4 w-4" />
-            Auslösen
+            {t('controls.dispatch')}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Szenario + Adresse aus der Liste — oder Pin direkt auf die Karte setzen.
+            {t('controls.dispatchHint')}
           </p>
         </div>
 
@@ -377,7 +379,7 @@ export function TrainingControls() {
 
         {/* Burst Generation */}
         <div className="space-y-2">
-          <Label>Mehrere Einsätze gleichzeitig</Label>
+          <Label>{t('controls.multipleIncidents')}</Label>
           <Button
             onClick={handleGenerateBurst}
             disabled={isGenerating}
@@ -385,10 +387,10 @@ export function TrainingControls() {
             className="w-full"
           >
             <Zap className="mr-2 h-4 w-4" />
-            Burst (5x zufällig)
+            {t('controls.burst')}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Generiert 5 zufällige Einsätze gleichzeitig
+            {t('controls.burstHint')}
           </p>
         </div>
       </CardContent>

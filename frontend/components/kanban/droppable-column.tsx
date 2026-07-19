@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, memo, useSyncExternalStore } from "react"
+import { useTranslations } from "next-intl"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { DraggableOperation } from "./draggable-operation"
@@ -151,6 +152,8 @@ export const DroppableColumn = memo(function DroppableColumn({
   canDrag,
   onDragActiveChange,
 }: DroppableColumnProps) {
+  const t = useTranslations('kanban')
+  const columnTitle = t(`columns.${column.id}`)
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
@@ -209,11 +212,11 @@ export const DroppableColumn = memo(function DroppableColumn({
         )}
         onClick={() => isCollapsibleColumn ? toggleCollapsible() : setIsManuallyExpanded(true)}
         role="region"
-        aria-label={`${column.title} column (${operations.length} Einsätze)`}
+        aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
       >
         <div className="flex flex-col items-center gap-2 py-3">
           <span className="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
-            {column.title}
+            {columnTitle}
           </span>
           <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
         </div>
@@ -228,7 +231,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         column.color
       )}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{column.title}</h2>
+          <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{columnTitle}</h2>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
               {operations.length}
@@ -237,7 +240,7 @@ export const DroppableColumn = memo(function DroppableColumn({
               <button
                 onClick={toggleCollapsible}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
-                title="Spalte einklappen"
+                title={t('column.collapse')}
               >
                 ←
               </button>
@@ -253,12 +256,12 @@ export const DroppableColumn = memo(function DroppableColumn({
           isOver && operations.length === 0 && "drop-zone-active"
         )}
         role="region"
-        aria-label={`${column.title} column`}
+        aria-label={t('column.ariaLabel', { title: columnTitle })}
       >
         {/* Empty state hint when dragging over */}
         {isOver && operations.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-sm text-foreground/70 font-medium">Einsatz hier ablegen</p>
+            <p className="text-sm text-foreground/70 font-medium">{t('column.dropHere')}</p>
           </div>
         )}
 
@@ -269,7 +272,7 @@ export const DroppableColumn = memo(function DroppableColumn({
               onClick={() => setIsManuallyExpanded(false)}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              Keine Einsätze
+              {t('column.empty')}
             </button>
           </div>
         )}
