@@ -201,7 +201,7 @@
       "thermoPrint": "Thermodruck",
       "trainingControl": "Übungs-Steuerung",
       "settings": "Einstellungen",
-      "diveraPool": "Divera Notfälle",
+      "diveraPool": "Alarmeingang",
       "helpDocs": "Hilfe & Dokumentation",
       "management": "Verwaltung",
       "support": "Support",
@@ -385,7 +385,7 @@
       "radioAnd": "und",
       "radioSpecial": "Besonderes:",
       "copyWhatsapp": "WhatsApp-Nachricht kopieren",
-      "sendDivera": "Divera-Alarm senden"
+      "sendDivera": "Aufgebot senden"
     },
     "card": {
       "priorityHighAria": "Hohe Priorität",
@@ -458,7 +458,7 @@
       "noMaterial": "Kein Material zugewiesen",
       "changeStatus": "Status ändern",
       "copyWhatsapp": "WhatsApp kopieren",
-      "diveraAlarm": "Divera-Alarm",
+      "diveraAlarm": "Aufgebot",
       "allVehiclesAssigned": "Alle Fahrzeuge zugewiesen"
     },
     "sidePanel": {
@@ -1571,14 +1571,14 @@
       "errorTitle": "Fehler",
       "attachError": "Notfälle konnten nicht angehängt werden",
       "notLoggedIn": "Nicht angemeldet",
-      "title": "Divera Notfälle",
+      "title": "Alarmeingang",
       "entriesCount": "{count} Einträge",
       "searchPlaceholder": "Suchen...",
       "selectedClear": "{count} ausgewählt — Aufheben",
       "attach": "Anhängen",
       "loading": "Lädt...",
-      "demoTitle": "Divera ist im Demo-Modus nicht verfügbar",
-      "demoDescription": "Diese Seite zeigt eingehende Alarme von <b>Divera 24/7</b> an. Im Demo-Modus ist keine Divera-Verbindung konfiguriert.",
+      "demoTitle": "Alarmeingang ist im Demo-Modus nicht verfügbar",
+      "demoDescription": "Diese Seite zeigt eingehende Alarme an — aus <b>DIVERA 24/7</b> oder über die offene Webhook-Schnittstelle. Im Demo-Modus ist keine Alarmierungs-Anbindung konfiguriert.",
       "noResults": "Keine Treffer",
       "noEmergencies": "Keine Notfälle vorhanden",
       "resetSearch": "Suche zurücksetzen",
@@ -1591,11 +1591,12 @@
       "eventTraining": "{name} (Übung)",
       "cancel": "Abbrechen",
       "attaching": "Wird angehängt...",
-      "trainingOnlyHint": "Übungs-Alarme können nur an Übungen angehängt werden."
+      "trainingOnlyHint": "Übungs-Alarme können nur an Übungen angehängt werden.",
+      "newAlarmGeneric": "Neuer Alarm"
     },
     "alarmSettings": {
-      "cardTitle": "Divera-Ausalarmierung",
-      "cardDescription": "Schickt beim Disponieren einen Divera-Push-Alarm an die zugewiesenen, mit Divera verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Benötigt einen Divera-Zugangsschlüssel; Personen werden über den Member-Sync verknüpft.",
+      "cardTitle": "Ausalarmierung",
+      "cardDescription": "Schickt beim Disponieren einen Push-Alarm über den konfigurierten Alarmierungs-Anbieter an die zugewiesenen, verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Benötigt einen Zugangsschlüssel des Anbieters; Personen werden über den Member-Sync verknüpft.",
       "titleFieldLabel": "Stichwort (Titel)",
       "titleFieldHint": "Push-Titel. Kurz halten. Platzhalter: '{type}, {location}, {priority}'.",
       "textFieldLabel": "Alarmtext",
@@ -1614,14 +1615,14 @@
       "sendTest": "Testalarm senden"
     },
     "sendDialog": {
-      "noRecipientsError": "Keine mit Divera verknüpften Empfänger ausgewählt",
-      "sent": "Divera-Alarm gesendet an {count} Person(en)",
-      "sentWithSkipped": "Divera-Alarm gesendet an {count} Person(en), {skipped} übersprungen",
+      "noRecipientsError": "Keine verknüpften Empfänger ausgewählt",
+      "sent": "Aufgebot gesendet an {count} Person(en)",
+      "sentWithSkipped": "Aufgebot gesendet an {count} Person(en), {skipped} übersprungen",
       "simulatedTitle": "Übung: Alarm simuliert",
-      "simulatedDescription": "In der Übung wird kein echter Alarm an Divera gesendet.",
-      "sendError": "Divera-Alarm konnte nicht gesendet werden",
-      "title": "Divera-Alarm senden",
-      "description": "{location} — nur ausgewählte, mit Divera verknüpfte Personen werden alarmiert.",
+      "simulatedDescription": "In der Übung wird kein echter Alarm gesendet.",
+      "sendError": "Aufgebot konnte nicht gesendet werden",
+      "title": "Aufgebot senden",
+      "description": "{location} — nur ausgewählte, mit der Alarmierung verknüpfte Personen werden alarmiert.",
       "recipients": "Empfänger ({count})",
       "noAssigned": "Diesem Einsatz ist keine Person zugewiesen.",
       "driverBadge": "Fahrer",

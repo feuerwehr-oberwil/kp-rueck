@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { formatDiveraMessage, formatDiveraTitle } from "@/lib/divera-formatter"
+import { formatAlarmMessage, formatAlarmTitle } from "@/lib/divera-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -91,11 +91,11 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
     // resolves, the fields stay empty and the send button is disabled, so we can
     // never POST a blank message just because the fetch hadn't finished.
     let cancelled = false
-    getMessageTemplates().then(({ diveraTitle, diveraText }) => {
+    getMessageTemplates().then(({ alarmTitle, alarmText }) => {
       if (cancelled) return
       const isTraining = selectedEvent?.training_flag ?? false
-      const baseTitle = formatDiveraTitle(operation, diveraTitle)
-      const body = formatDiveraMessage({ operation, materials, template: diveraText })
+      const baseTitle = formatAlarmTitle(operation, alarmTitle)
+      const body = formatAlarmMessage({ operation, materials, template: alarmText })
       // In a training event no real alarm is sent (the backend simulates it). Make
       // that unmistakable in the message itself so nobody mistakes it for a callout.
       setTitle((isTraining ? `ÜBUNG: ${baseTitle}` : baseTitle).slice(0, 50))

@@ -13,11 +13,11 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import {
   renderMessageTemplate,
-  DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE,
-  DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE,
+  DEFAULT_ALARM_TITLE_TEMPLATE,
+  DEFAULT_ALARM_TEXT_TEMPLATE,
 } from "@/lib/message-template"
 
-interface FormatDiveraMessageOptions {
+interface FormatAlarmMessageOptions {
   operation: Operation
   materials: Material[]
   /** Editable template; falls back to the built-in default when omitted. */
@@ -25,13 +25,13 @@ interface FormatDiveraMessageOptions {
 }
 
 /** Alarm title (Stichwort), e.g. "KP: Elementarereignis". */
-export function formatDiveraTitle(operation: Operation, template?: string): string {
+export function formatAlarmTitle(operation: Operation, template?: string): string {
   const values: Record<string, string> = {
     type: getIncidentTypeLabel(operation.incidentType),
     location: operation.location?.trim() || "",
     priority: operation.priority || "",
   }
-  return renderMessageTemplate(template || DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE, values)
+  return renderMessageTemplate(template || DEFAULT_ALARM_TITLE_TEMPLATE, values)
 }
 
 /** Render the assigned-vehicles section content (callsign + stay/return, no driver). */
@@ -64,7 +64,7 @@ function buildMaterials(operation: Operation, materials: Material[]): string {
 }
 
 /** Plain-text alarm body for Divera. */
-export function formatDiveraMessage({ operation, materials, template }: FormatDiveraMessageOptions): string {
+export function formatAlarmMessage({ operation, materials, template }: FormatAlarmMessageOptions): string {
   const type = getIncidentTypeLabel(operation.incidentType)
   const location = operation.location?.trim() || ""
   const values: Record<string, string> = {
@@ -77,7 +77,7 @@ export function formatDiveraMessage({ operation, materials, template }: FormatDi
     crew: operation.crew.length > 0 ? operation.crew.join(", ") : "",
     materials: buildMaterials(operation, materials),
   }
-  const rendered = renderMessageTemplate(template || DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE, values)
+  const rendered = renderMessageTemplate(template || DEFAULT_ALARM_TEXT_TEMPLATE, values)
   if (rendered.trim().length > 0) return rendered
   // The default body is all optional sections (notes/crew/vehicles/materials); a
   // minimal incident leaves every line empty and the renderer drops them all,

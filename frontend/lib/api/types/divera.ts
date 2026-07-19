@@ -4,7 +4,12 @@
 
 export interface ApiDiveraEmergency {
   id: string // UUID
-  divera_id: number
+  /** Delivering system: "divera", "webhook", or a custom per-sender slug. */
+  source: string
+  /** Sender-side alarm id (dedupe key); null on older rows. */
+  source_id: string | null
+  /** Divera's internal id — null for alarms from the generic webhook. */
+  divera_id: number | null
   /** e.g., "E-123" */
   divera_number: string | null
   title: string

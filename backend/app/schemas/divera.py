@@ -28,12 +28,15 @@ class DiveraWebhookPayload(BaseModel):
 
 
 class DiveraEmergencyResponse(BaseModel):
-    """Divera emergency response schema."""
+    """Pool alarm response schema (Divera or generic-webhook alarms)."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    divera_id: int
+    # Provider-neutral provenance; divera_id only exists on Divera alarms.
+    source: str = "divera"
+    source_id: str | None = None
+    divera_id: int | None = None
     divera_number: str | None = None
     title: str
     text: str | None = None

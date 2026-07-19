@@ -67,7 +67,7 @@ async def _assign(db_session, incident, person):
 
 
 async def _enable_alarm(db_session):
-    db_session.add(Setting(key="divera.alarm_enabled", value="true"))
+    db_session.add(Setting(key="alerting.enabled", value="true"))
     await db_session.commit()
 
 
@@ -112,7 +112,7 @@ async def test_alarm_blocked_when_no_access_key(
 async def test_alarm_blocked_when_disabled(
     editor_client: AsyncClient, alarm_incident: Incident, configured_key
 ):
-    # divera.alarm_enabled defaults to false (no Setting row created)
+    # alerting.enabled defaults to false (no Setting row created)
     resp = await editor_client.post(
         f"/api/divera/incidents/{alarm_incident.id}/alarm",
         json={"personnel_ids": [str(uuid4())]},
@@ -422,10 +422,78 @@ async def test_test_alarm_success_targets_divera_user(
 async def test_test_alarm_blocked_when_disabled(
     editor_client: AsyncClient, configured_key
 ):
-    # divera.alarm_enabled defaults to false (no Setting row created)
+    # alerting.enabled defaults to false (no Setting row created)
     with patch.object(divera_alarm, "send_alarm", new=AsyncMock()) as mock_send:
         resp = await editor_client.post(
             "/api/divera/test-alarm", json={"divera_user_id": 999001}
         )
     assert resp.status_code == 403
     mock_send.assert_not_called()
+
+
+# ============================================
+# Provider-neutral identity resolution
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_resolves_recipient_via_identity_table(
+    editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key
+):
+    """A person linked only via personnel_external_identities (no legacy
+    divera_user_id column value) is addressable for outbound alarms."""
+    from app.models import PersonnelExternalIdentity
+
+    await _enable_alarm(db_session)
+    person = await _make_person(db_session, "Neutral Linked", divera_user_id=None)
+    db_session.add(
+        PersonnelExternalIdentity(
+            personnel_id=person.id, provider="divera", external_id="777001"
+        )
+    )
+    await db_session.commit()
+    await _assign(db_session, alarm_incident, person)
+
+    mock_send = AsyncMock(return_value={"id": 4242, "count_recipients": 1})
+    with patch.object(divera_alarm, "send_alarm", new=mock_send):
+        resp = await editor_client.post(
+            f"/api/divera/incidents/{alarm_incident.id}/alarm",
+            json={"personnel_ids": [str(person.id)]},
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert [r["name"] for r in body["sent"]] == ["Neutral Linked"]
+    assert body["sent"][0]["divera_user_id"] == 777001
+    assert mock_send.call_args.kwargs["user_cluster_relation"] == [777001]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_identity_table_wins_over_legacy_column(
+    editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key
+):
+    """When both exist, the neutral identity table is authoritative."""
+    from app.models import PersonnelExternalIdentity
+
+    await _enable_alarm(db_session)
+    person = await _make_person(db_session, "Both Linked", divera_user_id=111111)
+    db_session.add(
+        PersonnelExternalIdentity(
+            personnel_id=person.id, provider="divera", external_id="222222"
+        )
+    )
+    await db_session.commit()
+    await _assign(db_session, alarm_incident, person)
+
+    mock_send = AsyncMock(return_value={"id": 1, "count_recipients": 1})
+    with patch.object(divera_alarm, "send_alarm", new=mock_send):
+        resp = await editor_client.post(
+            f"/api/divera/incidents/{alarm_incident.id}/alarm",
+            json={"personnel_ids": [str(person.id)]},
+        )
+
+    assert resp.status_code == 200
+    assert mock_send.call_args.kwargs["user_cluster_relation"] == [222222]

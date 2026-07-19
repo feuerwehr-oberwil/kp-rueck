@@ -64,3 +64,25 @@ export interface ApiAuditLog {
   ip_address: string | null
   user_agent: string | null
 }
+
+// Provider capability registry (GET /api/integrations)
+export interface ApiProviderCapability {
+  /** Provider slug ("divera", "traccar") or null when only built-ins are available. */
+  provider: string | null
+  display_name: string | null
+  configured: boolean
+  capabilities: string[]
+}
+
+export interface ApiIntegrations {
+  /** Inbound alarm delivery into the pool */
+  alarms: ApiProviderCapability
+  /** Outbound alerting (Ausalarmierung) */
+  alerting: ApiProviderCapability
+  /** Personnel roster sync */
+  personnel: ApiProviderCapability
+  /** Vehicle GPS tracking */
+  vehicles: ApiProviderCapability
+  /** Always-available ingest paths (not providers) */
+  builtin_alarm_paths: string[]
+}

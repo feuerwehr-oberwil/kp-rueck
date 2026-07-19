@@ -29,6 +29,8 @@ async def create_divera_emergency(
     emergency = models.DiveraEmergency(
         divera_id=payload.id,
         divera_number=payload.number,
+        source="divera",
+        source_id=str(payload.id),
         title=payload.title,
         text=payload.text,
         address=payload.address,
@@ -43,6 +45,49 @@ async def create_divera_emergency(
     await db.refresh(emergency)
 
     return emergency
+
+
+async def create_alarm_emergency(
+    db: AsyncSession,
+    alarm: schemas.AlarmIn,
+) -> models.DiveraEmergency:
+    """Create a pool alarm from the generic webhook (POST /api/alarms).
+
+    Raises:
+        IntegrityError: If (source, source_id) already exists (concurrent redelivery)
+    """
+    emergency = models.DiveraEmergency(
+        divera_id=None,
+        divera_number=alarm.number,
+        source=alarm.source,
+        source_id=alarm.source_id,
+        title=alarm.title,
+        text=alarm.text,
+        address=alarm.address,
+        latitude=alarm.lat,
+        longitude=alarm.lng,
+        raw_payload_json=alarm.model_dump(),
+    )
+
+    db.add(emergency)
+    await db.commit()
+    await db.refresh(emergency)
+
+    return emergency
+
+
+async def get_emergency_by_source(
+    db: AsyncSession,
+    source: str,
+    source_id: str,
+) -> models.DiveraEmergency | None:
+    """Get a pool alarm by its provider-neutral identity (for deduplication)."""
+    result = await db.execute(
+        select(models.DiveraEmergency)
+        .where(models.DiveraEmergency.source == source)
+        .where(models.DiveraEmergency.source_id == source_id)
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_divera_emergency_by_id(
