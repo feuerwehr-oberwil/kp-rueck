@@ -34,6 +34,7 @@ export default function DisplayBoardPage() {
 
 function BoardDisplay() {
   const t = useTranslations('display')
+  const tk = useTranslations('kanban')
   const { operations } = useOperations()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
@@ -123,14 +124,14 @@ function BoardDisplay() {
                 "flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5",
                 column.color
               )}
-              title={t('board.collapsedColumnTitle', { title: column.title, count: ops.length })}
+              title={t('board.collapsedColumnTitle', { title: tk(`columns.${column.id}`), count: ops.length })}
             >
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
               <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                 {ops.length}
               </span>
               <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
-                {column.title}
+                {tk(`columns.${column.id}`)}
               </span>
             </button>
           )
@@ -147,7 +148,7 @@ function BoardDisplay() {
               onClick={column.collapsible ? () => toggleColumn(column.id) : undefined}
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{column.title}</h2>
+                <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{tk(`columns.${column.id}`)}</h2>
                 <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                   {ops.length}
                 </span>

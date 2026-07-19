@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { CheckCircle, Circle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,21 +15,23 @@ interface ChecklistTaskItemProps {
 
 const priorityConfig = {
   critical: {
-    badge: <Badge variant="destructive" className="text-xs">Erforderlich</Badge>,
+    badgeVariant: 'destructive' as const,
     borderClass: 'border-destructive/30'
   },
   recommended: {
-    badge: <Badge variant="secondary" className="text-xs">Empfohlen</Badge>,
+    badgeVariant: 'secondary' as const,
     borderClass: 'border-yellow-200 dark:border-yellow-800'
   },
   optional: {
-    badge: <Badge variant="outline" className="text-xs">Optional</Badge>,
+    badgeVariant: 'outline' as const,
     borderClass: 'border-border'
   }
 }
 
 export function ChecklistTaskItem({ task, onComplete }: ChecklistTaskItemProps) {
+  const t = useTranslations('checklist.priority')
   const config = priorityConfig[task.priority]
+  const badge = <Badge variant={config.badgeVariant} className="text-xs">{t(task.priority)}</Badge>
 
   return (
     <div
@@ -58,7 +61,7 @@ export function ChecklistTaskItem({ task, onComplete }: ChecklistTaskItemProps) 
           )}>
             {task.title}
           </span>
-          {config.badge}
+          {badge}
 
           {/* Metadata badge */}
           {task.metadata?.details && (

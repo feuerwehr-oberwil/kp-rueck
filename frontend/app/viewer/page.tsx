@@ -226,13 +226,14 @@ interface ViewerColumnProps {
 
 function ViewerColumn({ column, incidents }: ViewerColumnProps) {
   const t = useTranslations('viewer')
+  const tk = useTranslations('kanban')
   return (
     <div className="flex min-w-[320px] max-w-[420px] flex-1 flex-col">
       <div className={cn(
         'mb-2 rounded-lg border border-border px-3 py-2',
         column.color
       )}>
-        <h2 className="text-balance text-sm font-semibold text-foreground">{column.title}</h2>
+        <h2 className="text-balance text-sm font-semibold text-foreground">{tk(`columns.${column.id}`)}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{t('common.incidentCount', { count: incidents.length })}</p>
       </div>
 

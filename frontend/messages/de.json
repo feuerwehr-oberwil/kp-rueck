@@ -115,7 +115,9 @@
     "meta": {
       "title": "KP Rück Dashboard",
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
-    }
+    },
+    "dismissAllToasts": "Alle schliessen",
+    "redirecting": "Weiterleitung..."
   },
   "nav": {
     "userMenu": {
@@ -207,6 +209,12 @@
       "support": "Support",
       "account": "Konto",
       "logout": "Abmelden"
+    },
+    "pageNav": {
+      "main": "Hauptnavigation",
+      "kanban": "Kanban Board",
+      "map": "Lagekarte",
+      "events": "Ereignisse"
     }
   },
   "kanban": {
@@ -526,6 +534,11 @@
     "material": {
       "consumable": "Verbrauchsmaterial",
       "consumableUnlimited": "Verbrauchsmaterial (unbegrenzt)"
+    },
+    "shortcuts": {
+      "refreshing": "Aktualisiere...",
+      "refreshed": "Aktualisiert",
+      "refreshFailed": "Aktualisierung fehlgeschlagen"
     }
   },
   "incidents": {
@@ -879,6 +892,12 @@
       "open": "Offen",
       "active": "Aktiv",
       "completed": "Beendet"
+    },
+    "colorBy": {
+      "priority": "Priorität",
+      "reko": "Reko-Person",
+      "vehicle": "Fahrzeug",
+      "type": "Einsatzart"
     }
   },
   "settings": {
@@ -1310,6 +1329,17 @@
       "empty": "Keine Fahrzeuge vorhanden.",
       "deleteTitle": "Fahrzeug löschen",
       "deleteDescription": "Sind Sie sicher, dass Sie das Fahrzeug \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "validation": {
+      "nameRequired": "Name ist erforderlich",
+      "roleRequired": "Rolle ist erforderlich",
+      "callsignRequired": "Funkrufname ist erforderlich",
+      "max40": "Maximal 40 Zeichen",
+      "max80": "Maximal 80 Zeichen",
+      "max120": "Maximal 120 Zeichen",
+      "orderNumber": "Reihenfolge muss eine Zahl sein",
+      "orderInt": "Reihenfolge muss eine ganze Zahl sein",
+      "orderMin1": "Mindestens 1"
     }
   },
   "login": {
@@ -1440,7 +1470,10 @@
       "camera": "Kamera",
       "gallery": "Galerie",
       "uploading": "Wird hochgeladen...",
-      "noPhotos": "Noch keine Fotos hochgeladen"
+      "noPhotos": "Noch keine Fotos hochgeladen",
+      "loadFailed": "Bild konnte nicht geladen werden",
+      "canvasUnavailable": "Canvas nicht verfügbar",
+      "conversionFailed": "Konvertierung fehlgeschlagen"
     },
     "form": {
       "arrivalError": "Fehler beim Melden der Ankunft",
@@ -1489,7 +1522,26 @@
       "submitting": "Übermitteln...",
       "submit": "Meldung übermitteln",
       "savedAt": "Gespeichert um {time}",
-      "autoSave": "Wird automatisch gespeichert"
+      "autoSave": "Wird automatisch gespeichert",
+      "summaries": {
+        "notRelevant": [
+          "Fehlalarm. Vor Ort keine Gefahr und kein Handlungsbedarf festgestellt.",
+          "Lage bereits durch Anwohner geklärt. Kein Einsatz der Feuerwehr nötig.",
+          "Vermeintlicher Rauch war Wasserdampf. Keine weiteren Massnahmen erforderlich.",
+          "Bei Eintreffen nichts vorgefunden. Einsatz kann abgeschlossen werden.",
+          "Meldung hat sich nicht bestätigt. Keine Einsatzkräfte erforderlich."
+        ],
+        "low": [
+          "Lage übersichtlich und stabil. Einsatz mit kleinem Aufgebot durchführbar.",
+          "Geringe Beeinträchtigung. Situation gut unter Kontrolle.",
+          "Einsatzstelle gut zugänglich, überschaubarer Aufwand."
+        ],
+        "high": [
+          "Mehrere Gefahren festgestellt. Verstärkung und zusätzliches Material nötig.",
+          "Ausgedehnte Lage, mehrere Bereiche betroffen. Längerer Einsatz zu erwarten.",
+          "Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich."
+        ]
+      }
     },
     "reportSection": {
       "onSiteSince": "vor Ort seit {time}",
@@ -1556,6 +1608,69 @@
       "description": "Board-Snapshot auf Thermodrucker drucken.",
       "personnelOverview": "Personal-Übersicht",
       "printing": "Wird gedruckt..."
+    },
+    "view": {
+      "mapLoading": "Karte wird geladen...",
+      "title": "KP RÜCK STATUSÜBERSICHT",
+      "eventLabel": "Event",
+      "printedLabel": "Gedruckt",
+      "mapOverview": "EINSATZÜBERSICHT KARTE",
+      "statusHeading": {
+        "incoming": "EINGEGANGEN",
+        "ready": "REKO",
+        "rekoDone": "REKO ABGESCHLOSSEN",
+        "enroute": "DISPONIERT",
+        "active": "EINSATZ",
+        "returning": "BEENDET / RÜCKFAHRT",
+        "complete": "ABGESCHLOSSEN"
+      },
+      "priority": {
+        "high": "HOCH",
+        "medium": "MITTEL",
+        "low": "TIEF"
+      },
+      "danger": {
+        "fire": "Brand",
+        "explosion": "Explosion",
+        "collapse": "Einsturz",
+        "chemical": "Chemie",
+        "electrical": "Elektrik",
+        "radiation": "Strahlung",
+        "water": "Wasser",
+        "traffic": "Verkehr"
+      },
+      "typ": "Typ",
+      "personal": "Personal",
+      "fahrzeuge": "Fahrzeuge",
+      "material": "Material",
+      "kontakt": "Kontakt",
+      "reko": "Reko",
+      "persCount": "~{count} Pers.",
+      "durationHours": "~{count}h",
+      "driverPrefix": "Fahrer",
+      "meldung": "Meldung",
+      "interneNotizen": "Interne Notizen",
+      "personalHeading": "PERSONAL ({count} eingecheckt)",
+      "statusCol": "Status",
+      "nameCol": "Name",
+      "funktionCol": "Funktion",
+      "inUse": "Im Einsatz",
+      "available": "Verfügbar",
+      "fahrzeugeHeading": "FAHRZEUGE ({count})",
+      "fahrzeugCol": "Fahrzeug",
+      "typCol": "Typ",
+      "funkrufnameCol": "Funkrufname",
+      "materialHeading": "MATERIAL ({count})",
+      "materialCol": "Material",
+      "kategorieCol": "Kategorie",
+      "footer": "KP Rück - Notfall-Ausdruck"
+    },
+    "map": {
+      "noCoordinates": "Keine Einsätze mit Koordinaten vorhanden",
+      "loading": "Karte wird geladen...",
+      "legendHigh": "Hoch",
+      "legendMedium": "Mittel",
+      "legendLow": "Niedrig"
     }
   },
   "divera": {
@@ -1850,7 +1965,9 @@
       "title": "404 - Seite nicht gefunden",
       "description": "Die angeforderte Seite existiert nicht.",
       "home": "Zur Startseite"
-    }
+    },
+    "networkError": "Keine Verbindung zum Server",
+    "microsoftLoginFailed": "Microsoft-Anmeldung fehlgeschlagen"
   },
   "training": {
     "common": {
@@ -2062,49 +2179,59 @@
   "checklist": {
     "tasks": {
       "send-first-whatsapp": {
-        "title": "Erste Info-WhatsApp senden"
+        "title": "Erste Info-WhatsApp senden",
+        "description": "Mannschaft über Ereignis informieren"
       },
       "personnel-checkin": {
         "title": "Personal einchecken",
-        "details": "{count, plural, one {# Person} other {# Personen}} eingecheckt"
+        "details": "{count, plural, one {# Person} other {# Personen}} eingecheckt",
+        "description": "Mindestens 3 Personen für Einsatzbereitschaft"
       },
       "share-reko-link": {
-        "title": "Reko-Link teilen"
+        "title": "Reko-Link teilen",
+        "description": "Reko-Personal Zugang zum Reko-Dashboard geben"
       },
       "share-alarm-link": {
-        "title": "Alarm-Link teilen"
+        "title": "Alarm-Link teilen",
+        "description": "Telefon-/Walk-in-Meldungen ermöglichen"
       },
       "assign-reko": {
         "title": "Reko-Offiziere bestimmen",
-        "details": "{count, plural, one {# Reko-Offizier} other {# Reko-Offiziere}} zugewiesen"
+        "details": "{count, plural, one {# Reko-Offizier} other {# Reko-Offiziere}} zugewiesen",
+        "description": "Mindestens 1 Person für Rekognoszierung"
       },
       "assign-drivers": {
         "title": "Fahrzeug-Fahrer zuweisen",
-        "details": "{count}/{total} Fahrzeuge haben Fahrer"
+        "details": "{count}/{total} Fahrzeuge haben Fahrer",
+        "description": "Alle Fahrzeuge benötigen einen Fahrer"
       },
       "assign-magazin": {
         "title": "Magazin-Personal zuweisen",
         "detailsAssigned": "{count, plural, one {# Person} other {# Personen}} zugewiesen",
-        "detailsNotAssigned": "Noch nicht zugewiesen"
+        "detailsNotAssigned": "Noch nicht zugewiesen",
+        "description": "Optional: Person für Material-Ausgabe"
       },
       "printer-ready": {
         "title": "Drucker bereit",
         "detailsDisabled": "Drucker deaktiviert",
         "detailsOnline": "Drucker erreichbar",
         "detailsOffline": "Print-Service offline",
-        "testPrint": "Testdruck"
+        "testPrint": "Testdruck",
+        "description": "Testdruck bestätigt, dass Einsatzzettel gedruckt werden können"
       },
       "fallback-ready": {
         "title": "Papier-Fallback aktivieren",
         "detailsActive": "Snapshot-Routine aktiv",
         "detailsInactive": "Kein automatischer Board-Snapshot eingerichtet",
-        "setup": "Einrichten"
+        "setup": "Einrichten",
+        "description": "Auto-Druck (Thermo) oder Lageblatt Auto-Download für den Ausfall"
       },
       "configure-map-mode": {
         "title": "Offline-Karten einrichten",
         "detailsAvailable": "Offline-Karten verfügbar",
         "detailsNotSetup": "Nicht eingerichtet",
-        "mapSetup": "Karten-Setup"
+        "mapSetup": "Karten-Setup",
+        "description": "Optional: Karten ohne Internet nutzen"
       }
     },
     "actions": {
@@ -2135,7 +2262,18 @@
       "copyError": "Fehler beim Kopieren",
       "whatsappSend": "WhatsApp senden",
       "message1": "Nachricht 1 · Standby",
-      "message2": "Nachricht 2 · Einrücken"
+      "message2": "Nachricht 2 · Einrücken",
+      "checkInTitle": "Personal Check-In",
+      "checkInSubtitle": "QR scannen zum Einchecken — funktioniert ohne Anmeldung.",
+      "rekoTitle": "Reko-Dashboard",
+      "rekoSubtitle": "Reko-Personal sieht Zuweisungen und füllt Formulare aus — ohne Anmeldung.",
+      "alarmTitle": "Alarm-Link",
+      "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) — ohne Anmeldung."
+    },
+    "priority": {
+      "critical": "Erforderlich",
+      "recommended": "Empfohlen",
+      "optional": "Optional"
     }
   },
   "display": {

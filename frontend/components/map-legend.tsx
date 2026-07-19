@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { Truck, ChevronDown, Info } from "lucide-react"
 import { PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { COLOR_BY_LABELS, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
 // Status border color (matches map-view.tsx)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -95,7 +95,7 @@ export function MapLegend({
       {/* Fill Legend — "Färben nach" groups when active, else priority */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          {coloring ? COLOR_BY_LABELS[colorBy] : t('legend.priority')}
+          {coloring ? t(`colorBy.${colorBy}`) : t('legend.priority')}
         </p>
         <div className="space-y-1.5">
           {coloring ? (

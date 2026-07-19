@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -78,6 +79,7 @@ interface PrintableMapProps {
 }
 
 export default function PrintableMap({ operations }: PrintableMapProps) {
+  const t = useTranslations("print.map")
   const [isReady, setIsReady] = useState(false)
 
   // Filter operations with valid coordinates
@@ -105,7 +107,7 @@ export default function PrintableMap({ operations }: PrintableMapProps) {
   if (mappableOperations.length === 0) {
     return (
       <div className="h-[250px] bg-gray-100 flex items-center justify-center text-gray-500 text-sm border border-gray-300">
-        Keine Einsätze mit Koordinaten vorhanden
+        {t("noCoordinates")}
       </div>
     )
   }
@@ -113,7 +115,7 @@ export default function PrintableMap({ operations }: PrintableMapProps) {
   if (!isReady) {
     return (
       <div className="h-[250px] bg-gray-100 flex items-center justify-center text-gray-500 text-sm">
-        Karte wird geladen...
+        {t("loading")}
       </div>
     )
   }
@@ -152,15 +154,15 @@ export default function PrintableMap({ operations }: PrintableMapProps) {
       <div className="flex justify-center gap-4 mt-1 text-[10px]">
         <div className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-full bg-red-500 border border-white"></span>
-          <span>Hoch</span>
+          <span>{t("legendHigh")}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-full bg-yellow-500 border border-white"></span>
-          <span>Mittel</span>
+          <span>{t("legendMedium")}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-full bg-green-500 border border-white"></span>
-          <span>Niedrig</span>
+          <span>{t("legendLow")}</span>
         </div>
       </div>
     </div>
