@@ -65,6 +65,7 @@ import {
   type ApiDiveraAlarmResult,
   type ApiDiveraMemberPreview,
   type ApiDiveraPollingStatus,
+  type ApiIntegrations,
   type SendDiveraAlarmOptions,
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
@@ -1220,6 +1221,11 @@ class ApiClient {
   /** Divera polling/connection status — for the Verbindung indicator. */
   async getDiveraPollingStatus(): Promise<ApiDiveraPollingStatus> {
     return this.request<ApiDiveraPollingStatus>('/api/divera/polling/status')
+  }
+
+  /** Provider capability registry — which integrations are configured, per domain. */
+  async getIntegrations(): Promise<ApiIntegrations> {
+    return this.request<ApiIntegrations>('/api/integrations')
   }
 
   // Sync endpoints

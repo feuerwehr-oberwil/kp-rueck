@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { formatDiveraMessage, formatDiveraTitle } from "@/lib/divera-formatter"
+import { formatAlarmMessage, formatAlarmTitle } from "@/lib/divera-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -89,11 +89,11 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
     // resolves, the fields stay empty and the send button is disabled, so we can
     // never POST a blank message just because the fetch hadn't finished.
     let cancelled = false
-    getMessageTemplates().then(({ diveraTitle, diveraText }) => {
+    getMessageTemplates().then(({ alarmTitle, alarmText }) => {
       if (cancelled) return
       const isTraining = selectedEvent?.training_flag ?? false
-      const baseTitle = formatDiveraTitle(operation, diveraTitle)
-      const body = formatDiveraMessage({ operation, materials, template: diveraText })
+      const baseTitle = formatAlarmTitle(operation, alarmTitle)
+      const body = formatAlarmMessage({ operation, materials, template: alarmText })
       // In a training event no real alarm is sent (the backend simulates it). Make
       // that unmistakable in the message itself so nobody mistakes it for a callout.
       setTitle((isTraining ? `ÜBUNG: ${baseTitle}` : baseTitle).slice(0, 50))
@@ -126,7 +126,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       .filter((r) => selected.has(r.person.id) && r.person.diveraUserId)
       .map((r) => r.person.id)
     if (personnelIds.length === 0) {
-      toast.error("Keine mit Divera verknüpften Empfänger ausgewählt")
+      toast.error("Keine verknüpften Empfänger ausgewählt")
       return
     }
     setIsSending(true)
@@ -142,14 +142,14 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
         const skippedNote = result.skipped.length > 0 ? `, ${result.skipped.length} übersprungen` : ""
         if (result.simulated) {
           toast.success("Übung: Alarm simuliert", {
-            description: "In der Übung wird kein echter Alarm an Divera gesendet.",
+            description: "In der Übung wird kein echter Alarm gesendet.",
           })
         } else {
-          toast.success(`Divera-Alarm gesendet an ${result.sent.length} Person(en)${skippedNote}`)
+          toast.success(`Aufgebot gesendet an ${result.sent.length} Person(en)${skippedNote}`)
         }
         onOpenChange(false)
       } else {
-        toast.error(result.error || "Divera-Alarm konnte nicht gesendet werden")
+        toast.error(result.error || "Aufgebot konnte nicht gesendet werden")
       }
     } catch {
       // request() already surfaces a toast for gating/network errors.
@@ -164,10 +164,10 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Siren className="h-4 w-4 text-primary" />
-            Divera-Alarm senden
+            Aufgebot senden
           </DialogTitle>
           <DialogDescription>
-            {operation.location} — nur ausgewählte, mit Divera verknüpfte Personen werden alarmiert.
+            {operation.location} — nur ausgewählte, mit der Alarmierung verknüpfte Personen werden alarmiert.
           </DialogDescription>
         </DialogHeader>
 

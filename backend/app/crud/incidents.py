@@ -196,11 +196,22 @@ async def create_incident(
     incident: schemas.IncidentCreate,
     current_user: User,
     request: Request,
+    *,
+    source: str | None = None,
+    source_ref: str | None = None,
 ) -> Incident:
-    """Create new incident with audit logging."""
+    """Create new incident with audit logging.
+
+    ``source``/``source_ref`` carry alarm provenance when the incident is
+    created from a pool alarm ("divera" or a generic-webhook slug + the
+    alarm's id in that system); dashboard creations keep the "operator"
+    default.
+    """
     db_incident = Incident(
         **incident.model_dump(),
         created_by=current_user.id,
+        **({"source": source} if source else {}),
+        source_ref=source_ref,
     )
 
     db.add(db_incident)

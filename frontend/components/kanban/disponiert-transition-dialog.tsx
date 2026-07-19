@@ -160,7 +160,7 @@ export function DisponierTransitionDialog({
                 onClick={() => onSendDivera(operation)}
               >
                 <Siren className="h-4 w-4" />
-                Divera-Alarm senden
+                Aufgebot senden
               </Button>
             )}
 

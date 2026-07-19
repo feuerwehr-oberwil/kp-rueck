@@ -56,8 +56,8 @@ export function renderMessageTemplate(
 // Keep the defaults below in sync with DEFAULT_SETTINGS in the backend
 // (app/services/settings.py).
 export const WHATSAPP_INCIDENT_TEMPLATE_KEY = "whatsapp.incident_template"
-export const DIVERA_ALARM_TITLE_KEY = "divera.alarm_title_template"
-export const DIVERA_ALARM_TEXT_KEY = "divera.alarm_text_template"
+export const ALARM_TITLE_KEY = "alerting.title_template"
+export const ALARM_TEXT_KEY = "alerting.text_template"
 
 export const DEFAULT_WHATSAPP_INCIDENT_TEMPLATE = `🚨 *{type}*
 📍 {location}
@@ -73,9 +73,9 @@ export const DEFAULT_WHATSAPP_INCIDENT_TEMPLATE = `🚨 *{type}*
 
 _Erstellt: {timestamp}_`
 
-export const DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE = "KP: {type}"
+export const DEFAULT_ALARM_TITLE_TEMPLATE = "KP: {type}"
 
-export const DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE = `📝 {notes}
+export const DEFAULT_ALARM_TEXT_TEMPLATE = `📝 {notes}
 ☎️ {contact}
 📋 {internal_notes}
 
@@ -85,8 +85,8 @@ export const DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE = `📝 {notes}
 
 export interface MessageTemplates {
   whatsappIncident: string
-  diveraTitle: string
-  diveraText: string
+  alarmTitle: string
+  alarmText: string
 }
 
 /**
@@ -104,7 +104,7 @@ export async function getMessageTemplates(): Promise<MessageTemplates> {
   }
   return {
     whatsappIncident: settings[WHATSAPP_INCIDENT_TEMPLATE_KEY] || DEFAULT_WHATSAPP_INCIDENT_TEMPLATE,
-    diveraTitle: settings[DIVERA_ALARM_TITLE_KEY] || DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE,
-    diveraText: settings[DIVERA_ALARM_TEXT_KEY] || DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE,
+    alarmTitle: settings[ALARM_TITLE_KEY] || DEFAULT_ALARM_TITLE_TEMPLATE,
+    alarmText: settings[ALARM_TEXT_KEY] || DEFAULT_ALARM_TEXT_TEMPLATE,
   }
 }

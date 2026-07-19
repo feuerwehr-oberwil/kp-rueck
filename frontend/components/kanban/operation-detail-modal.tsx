@@ -890,7 +890,7 @@ export function OperationDetailModal({
               className="border border-border"
             >
               <Siren className="h-4 w-4" />
-              Divera-Alarm
+              Aufgebot
             </Button>
           )}
           <Button

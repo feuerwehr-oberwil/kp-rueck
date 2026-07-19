@@ -44,8 +44,11 @@ export interface ApiIncident {
   status: IncidentStatus
   /** Manual sort order within a status column (lower = higher on the board) */
   position: number
-  /** Origin of the alarm: "operator" (dashboard) or "intake" (public token form) */
+  /** Origin of the alarm: "operator" (dashboard), "intake" (public token form),
+   *  "divera", or the source slug of a generic-webhook sender. */
   source: string
+  /** The alarm's id in the delivering system, when created from a pool alarm. */
+  source_ref?: string | null
   description: string | null
   contact: string | null
   internal_notes: string | null

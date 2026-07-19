@@ -94,6 +94,23 @@ curl -X POST "https://<backend>/api/alarms" \
 
 Alle drei Wege führen in denselben Pool und dieselbe Auto-Anhängen-Logik.
 
+## Capability-Registry
+
+`GET /api/integrations` (angemeldet) zeigt pro Bereich, welcher Anbieter
+konfiguriert ist — Alarmeingang, Ausalarmierung, Personal-Sync (DIVERA),
+Fahrzeug-GPS (Traccar) — inklusive Fähigkeiten. Das Frontend rendert die
+Anbieter-Namen aus dieser Antwort statt sie fest zu verdrahten; die
+generische Webhook-Schnittstelle und das Meldeformular sind immer verfügbar
+und werden bewusst nicht als «Anbieter» geführt.
+
+Die Ausalarmierung läuft intern über ein Provider-Protokoll
+(`backend/app/services/alerting/`): ein neuer Anbieter (z. B. Alamos) ist ein
+Modul, das `send_alarm(...)` implementiert, plus ein Eintrag in der Registry —
+kein Umbau am Endpunkt oder an der Personen-Verknüpfung nötig
+(`personnel_external_identities` speichert Identitäten pro Anbieter).
+
+Für Drucker gilt dasselbe Muster: siehe `docs/PRINT-AGENT-PROTOCOL.md`.
+
 ## Eigenes System anbinden (Adapter-Muster)
 
 Wenn das sendende System keine frei konfigurierbaren Webhooks kann (z.B. nur

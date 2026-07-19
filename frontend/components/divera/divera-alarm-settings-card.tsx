@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Siren, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -17,14 +18,14 @@ import {
 import { apiClient } from "@/lib/api-client"
 import type { ApiDiveraMemberPreview } from "@/lib/api/types"
 import {
-  DIVERA_ALARM_TITLE_KEY,
-  DIVERA_ALARM_TEXT_KEY,
-  DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE,
-  DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE,
+  ALARM_TITLE_KEY,
+  ALARM_TEXT_KEY,
+  DEFAULT_ALARM_TITLE_TEMPLATE,
+  DEFAULT_ALARM_TEXT_TEMPLATE,
 } from "@/lib/message-template"
 import { toast } from "sonner"
 
-const ENABLED_KEY = "divera.alarm_enabled"
+const ENABLED_KEY = "alerting.enabled"
 
 interface Props {
   settings: Record<string, string>
@@ -47,17 +48,17 @@ export function DiveraAlarmSettingsCard({
 
   const templateFields = [
     {
-      key: DIVERA_ALARM_TITLE_KEY,
+      key: ALARM_TITLE_KEY,
       label: "Stichwort (Titel)",
       hint: "Push-Titel. Kurz halten. Platzhalter: {type}, {location}, {priority}.",
-      fallback: DEFAULT_DIVERA_ALARM_TITLE_TEMPLATE,
+      fallback: DEFAULT_ALARM_TITLE_TEMPLATE,
       rows: 2,
     },
     {
-      key: DIVERA_ALARM_TEXT_KEY,
+      key: ALARM_TEXT_KEY,
       label: "Alarmtext",
       hint: "Push-Text. Platzhalter: {notes}, {contact}, {internal_notes}, {vehicles}, {crew}, {materials}.",
-      fallback: DEFAULT_DIVERA_ALARM_TEXT_TEMPLATE,
+      fallback: DEFAULT_ALARM_TEXT_TEMPLATE,
       rows: 8,
     },
   ]
@@ -68,6 +69,21 @@ export function DiveraAlarmSettingsCard({
   const [membersError, setMembersError] = useState(false)
   const [testId, setTestId] = useState<string>("")
   const [isTesting, setIsTesting] = useState(false)
+  // Configured alerting provider from the capability registry (badge in header)
+  const [providerName, setProviderName] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    apiClient
+      .getIntegrations()
+      .then((integrations) => {
+        if (!cancelled) setProviderName(integrations.alerting.display_name)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!enabled) return
@@ -112,13 +128,18 @@ export function DiveraAlarmSettingsCard({
         <div>
           <h3 className="font-medium flex items-center gap-2">
             <Siren className="h-4 w-4 text-primary" />
-            Divera-Ausalarmierung
+            Ausalarmierung
+            {providerName && (
+              <Badge variant="outline" className="font-normal">
+                {providerName}
+              </Badge>
+            )}
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Schickt beim Disponieren einen Divera-Push-Alarm an die zugewiesenen, mit Divera
-            verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort,
-            Details als Text). Benötigt einen Divera-Zugangsschlüssel; Personen werden über den
-            Member-Sync verknüpft.
+            Schickt beim Disponieren einen Push-Alarm über den konfigurierten
+            Alarmierungs-Anbieter an die zugewiesenen, verknüpften Personen. Die Nachricht wird
+            aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Benötigt einen
+            Zugangsschlüssel des Anbieters; Personen werden über den Member-Sync verknüpft.
           </p>
         </div>
         <Switch
