@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 import userEvent from "@testing-library/user-event";
 
 const mockPush = vi.fn();
@@ -69,7 +70,7 @@ beforeEach(() => {
 describe("LoginPage demo sandbox flow", () => {
   it("creates a sandbox and selects it on demo-editor login", async () => {
     const user = userEvent.setup();
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     await user.click(await screen.findByRole("button", { name: /Als Editor einloggen/i }));
 
@@ -84,7 +85,7 @@ describe("LoginPage demo sandbox flow", () => {
   it("still navigates when the sandbox call fails", async () => {
     mockCreateDemoSandbox.mockRejectedValue(new Error("429 Too Many Requests"));
     const user = userEvent.setup();
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     await user.click(await screen.findByRole("button", { name: /Als Editor einloggen/i }));
 
@@ -96,7 +97,7 @@ describe("LoginPage demo sandbox flow", () => {
 
   it("does not create a sandbox on demo-viewer login", async () => {
     const user = userEvent.setup();
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     await user.click(await screen.findByRole("button", { name: /Als Betrachter einloggen/i }));
 
