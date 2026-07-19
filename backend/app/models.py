@@ -104,8 +104,9 @@ class Personnel(Base):
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
 
-    # Divera 24/7 link: user_cluster_relation id used to target this person in
-    # outbound alarms. Nullable — only set when synced from / matched to Divera.
+    # DEPRECATED dual-write: superseded by PersonnelExternalIdentity
+    # (provider="divera"). Kept in sync for one compatibility release, then
+    # removed. Do not add new readers.
     divera_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     # Check-in tracking
@@ -131,6 +132,32 @@ class Personnel(Base):
         Index("idx_personnel_checked_in", "checked_in"),
         Index("idx_personnel_availability", "availability"),
         Index("idx_personnel_role_sort_order", "role_sort_order"),
+    )
+
+
+class PersonnelExternalIdentity(Base):
+    """Provider-neutral link between a local person and their id in an external system.
+
+    Providers (Divera, Alamos, …) attach identity to canonical local personnel
+    instead of vendor columns on the personnel table. One row per person per
+    provider; ``external_id`` is opaque (Divera: user_cluster_relation id).
+    Disconnecting a provider deletes rows here, never local personnel.
+    """
+
+    __tablename__ = "personnel_external_identities"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    personnel_id: Mapped[UUID] = mapped_column(
+        ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    external_id: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("provider", "external_id", name="uq_personnel_ext_provider_external_id"),
+        UniqueConstraint("personnel_id", "provider", name="uq_personnel_ext_personnel_provider"),
     )
 
 
@@ -320,9 +347,12 @@ class Incident(Base):
     zu_fuss: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )  # Personnel go by foot (not by vehicle)
-    # Where the alarm originated: "operator" (created in the dashboard by a logged-in user) or
-    # "intake" (created via the public token-gated alarm form by a phone operator / walk-in).
+    # Where the alarm originated: "operator" (created in the dashboard by a logged-in user),
+    # "intake" (public token-gated alarm form), "divera", or the source slug of a
+    # generic-webhook sender. source_ref is the alarm's id in that system (pool
+    # source_id), set when an incident is created from a pool alarm.
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="operator", server_default="operator")
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Manual sort order within a status column (lower = higher on the board). Operators
     # reorder cards to prioritize alarms; this is the persisted, shared order.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

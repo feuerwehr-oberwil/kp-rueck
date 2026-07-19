@@ -220,7 +220,7 @@ export default function DiveraPoolPage() {
       {/* Header */}
       <header className="flex items-center justify-between border-b px-6 py-2 min-h-14">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Divera Notfälle</h1>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Alarmeingang</h1>
           <Badge variant="secondary" className="hidden sm:inline-flex">
             {emergencies.length} Einträge
           </Badge>
@@ -288,10 +288,12 @@ export default function DiveraPoolPage() {
             {demoMode && !searchQuery ? (
               <div className="flex flex-col items-center gap-3 max-w-sm text-center">
                 <Info className="h-8 w-8 text-amber-500" />
-                <p className="font-medium text-foreground">Divera ist im Demo-Modus nicht verfügbar</p>
+                <p className="font-medium text-foreground">Alarmeingang ist im Demo-Modus nicht verfügbar</p>
                 <p className="text-sm">
-                  Diese Seite zeigt eingehende Alarme von <span className="font-medium">Divera 24/7</span> an.
-                  Im Demo-Modus ist keine Divera-Verbindung konfiguriert.
+                  Diese Seite zeigt eingehende Alarme an — aus{" "}
+                  <span className="font-medium">DIVERA 24/7</span> oder über die offene
+                  Webhook-Schnittstelle. Im Demo-Modus ist keine Alarmierungs-Anbindung
+                  konfiguriert.
                 </p>
               </div>
             ) : (

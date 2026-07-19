@@ -64,15 +64,16 @@ DEFAULT_SETTINGS = {
         "\n"
         "_Erstellt: {timestamp}_"
     ),
-    # Divera outbound alarm (ausalarmierung) — optional, OFF by default. Only takes
-    # effect when a DIVERA_ACCESS_KEY is also configured. Installations that don't
-    # use Divera leave this off and see no Divera send UI. Channels are push-only.
+    # Outbound alarm (Ausalarmierung) — optional, OFF by default. Only takes
+    # effect when an alerting provider is configured (currently: DIVERA_ACCESS_KEY).
+    # Installations without a provider leave this off and see no send UI.
     # The alarm title/text are rendered from these templates (same engine as the
     # WhatsApp template). The dialog renders client-side and sends the result; the
     # backend only renders these as a fallback (see _render_alarm_template).
-    "divera.alarm_enabled": "false",  # Master toggle for sending alarms to Divera
-    "divera.alarm_title_template": "KP: {type}",  # Push title (Stichwort)
-    "divera.alarm_text_template": (
+    # Renamed from divera.alarm_* in migration e5b2c9d4a8f1.
+    "alerting.enabled": "false",  # Master toggle for outbound alarms
+    "alerting.title_template": "KP: {type}",  # Push title (Stichwort)
+    "alerting.text_template": (
         "📝 {notes}\n"
         "☎️ {contact}\n"
         "📋 {internal_notes}\n"

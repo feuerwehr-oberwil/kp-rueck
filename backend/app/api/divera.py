@@ -15,12 +15,13 @@ from ..config import settings
 from ..crud import assignments as assignments_crud
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
+from ..crud import external_identities as identities_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..services import divera_alarm
+from ..services import alerting, divera_alarm
 from ..services import settings as settings_service
 from ..services.audit import log_action
 from ..services.divera_intake import (
@@ -232,12 +233,14 @@ async def attach_emergency_to_event(
     # Derive incident (type/priority inferred from title/text)
     incident_create = incident_create_from_emergency(emergency, request_data.event_id)
 
-    # Create the incident
+    # Create the incident, carrying the alarm's provenance onto the board card
     incident = await incidents_crud.create_incident(
         db=db,
         incident=incident_create,
         current_user=current_user,
         request=request,
+        source=emergency.source or "divera",
+        source_ref=emergency.source_id,
     )
 
     # Link emergency to event and incident
@@ -317,6 +320,8 @@ async def bulk_attach_emergencies(
                 incident=incident_create,
                 current_user=current_user,
                 request=request,
+                source=emergency.source or "divera",
+                source_ref=emergency.source_id,
             )
 
             # Link emergency
@@ -471,8 +476,8 @@ async def execute_personnel_sync(
 
 # Outbound alarm (ausalarmierung). Defaults live in DEFAULT_SETTINGS so the
 # settings editor, the GET response and this fallback all agree.
-DEFAULT_ALARM_TITLE = settings_service.DEFAULT_SETTINGS["divera.alarm_title_template"]
-DEFAULT_ALARM_TEXT = settings_service.DEFAULT_SETTINGS["divera.alarm_text_template"]
+DEFAULT_ALARM_TITLE = settings_service.DEFAULT_SETTINGS["alerting.title_template"]
+DEFAULT_ALARM_TEXT = settings_service.DEFAULT_SETTINGS["alerting.text_template"]
 
 _TOKEN_RE = re.compile(r"\{(\w+)\}")
 
@@ -525,26 +530,28 @@ async def send_incident_alarm(
 ):
     """Send an outbound Divera alarm to selected personnel assigned to an incident.
 
-    Editor role. Off by default: requires ``divera.alarm_enabled = true`` and a
-    configured access key. Never sends for training events or in demo mode.
-    Recipients are restricted to personnel actually assigned to the incident;
-    anyone not linked to Divera is skipped and reported, not silently dropped.
+    Editor role. Off by default: requires ``alerting.enabled = true`` and a
+    configured alerting provider. Never sends for training events or in demo
+    mode. Recipients are restricted to personnel actually assigned to the
+    incident; anyone not linked to the provider is skipped and reported, not
+    silently dropped.
     """
-    if not settings.divera_access_key:
+    provider = alerting.get_provider()
+    if provider is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Divera access key not configured",
+            detail="Kein Alarmierungs-Provider konfiguriert",
         )
-    enabled = await settings_service.get_setting_value(db, "divera.alarm_enabled", "false")
+    enabled = await settings_service.get_setting_value(db, "alerting.enabled", "false")
     if enabled.lower() != "true":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Divera-Ausalarmierung ist deaktiviert",
+            detail="Ausalarmierung ist deaktiviert",
         )
     if settings.demo_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Divera-Ausalarmierung ist im Demo-Modus deaktiviert",
+            detail="Ausalarmierung ist im Demo-Modus deaktiviert",
         )
 
     incident = await incidents_crud.get_incident(db, incident_id)
@@ -573,8 +580,15 @@ async def send_incident_alarm(
             if fn.function_type == "driver" and fn.vehicle_id in assigned_vehicle_ids:
                 assigned_personnel_ids.add(fn.personnel_id)
 
+    # Provider-side ids come from the neutral identity table; the deprecated
+    # personnel.divera_user_id column is a read fallback for one release.
+    identity_map = await identities_crud.get_identity_map(
+        db, provider.slug, list(request_data.personnel_ids)
+    )
+
     sent: list[schemas.DiveraAlarmRecipient] = []
     skipped: list[schemas.DiveraAlarmRecipient] = []
+    external_ids: dict[UUID, str] = {}
     for pid in request_data.personnel_ids:
         person = await personnel_crud.get_personnel(db, pid)
         if person is None:
@@ -586,16 +600,24 @@ async def send_incident_alarm(
                 )
             )
             continue
-        if not person.divera_user_id:
+        external_id = identity_map.get(pid)
+        if external_id is None and provider.slug == "divera" and person.divera_user_id:
+            external_id = str(person.divera_user_id)
+        if not external_id:
             skipped.append(
                 schemas.DiveraAlarmRecipient(
-                    personnel_id=pid, name=person.name, reason="nicht mit Divera verknüpft"
+                    personnel_id=pid,
+                    name=person.name,
+                    reason=f"nicht mit {provider.display_name} verknüpft",
                 )
             )
             continue
+        external_ids[pid] = external_id
         sent.append(
             schemas.DiveraAlarmRecipient(
-                personnel_id=pid, name=person.name, divera_user_id=person.divera_user_id
+                personnel_id=pid,
+                name=person.name,
+                divera_user_id=int(external_id) if external_id.isdigit() else None,
             )
         )
 
@@ -607,7 +629,7 @@ async def send_incident_alarm(
             foreign_id=foreign_id,
             sent=[],
             skipped=skipped,
-            error="Keine mit Divera verknüpften Empfänger — nichts gesendet",
+            error=f"Keine mit {provider.display_name} verknüpften Empfänger — nichts gesendet",
         )
 
     # Prefer the client-rendered override (it can fill crew/vehicle/material names
@@ -617,7 +639,7 @@ async def send_incident_alarm(
     title = (request_data.title or "").strip()
     if not title:
         title = _render_alarm_template(
-            await settings_service.get_setting_value(db, "divera.alarm_title_template", DEFAULT_ALARM_TITLE),
+            await settings_service.get_setting_value(db, "alerting.title_template", DEFAULT_ALARM_TITLE),
             incident,
         ).strip()
     if not title:
@@ -626,16 +648,17 @@ async def send_incident_alarm(
     text = (request_data.text or "").strip()
     if not text:
         text = _render_alarm_template(
-            await settings_service.get_setting_value(db, "divera.alarm_text_template", DEFAULT_ALARM_TEXT),
+            await settings_service.get_setting_value(db, "alerting.text_template", DEFAULT_ALARM_TEXT),
             incident,
         ).strip()
     if not text:
         text = _render_alarm_template(DEFAULT_ALARM_TEXT, incident).strip() or (incident.title or "Alarm")
 
-    # Training: simulate the send end-to-end but make NO external Divera request.
+    # Training: simulate the send end-to-end but make NO external request.
     if is_training:
         logger.info(
-            "Training: simulating Divera alarm for incident %s (%d recipient(s), no external call)",
+            "Training: simulating %s alarm for incident %s (%d recipient(s), no external call)",
+            provider.slug,
             incident_id,
             len(sent),
         )
@@ -649,8 +672,8 @@ async def send_incident_alarm(
         )
 
     try:
-        data = await divera_alarm.send_alarm(
-            user_cluster_relation=[r.divera_user_id for r in sent],
+        result = await provider.send_alarm(
+            external_ids=[external_ids[r.personnel_id] for r in sent],
             title=title,
             text=text,
             foreign_id=foreign_id,
@@ -658,13 +681,15 @@ async def send_incident_alarm(
             address=incident.location_address,
             lat=float(incident.location_lat) if incident.location_lat is not None else None,
             lng=float(incident.location_lng) if incident.location_lng is not None else None,
-            send_push=request_data.send_push,
-            send_sms=request_data.send_sms,
-            send_call=request_data.send_call,
-            send_mail=request_data.send_mail,
+            channels=alerting.AlarmChannels(
+                push=request_data.send_push,
+                sms=request_data.send_sms,
+                call=request_data.send_call,
+                mail=request_data.send_mail,
+            ),
         )
-    except divera_alarm.DiveraAlarmError as e:
-        logger.error("Divera alarm failed for incident %s: %s", incident_id, e)
+    except alerting.AlarmSendError as e:
+        logger.error("%s alarm failed for incident %s: %s", provider.slug, incident_id, e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
 
     await log_action(
@@ -674,6 +699,7 @@ async def send_incident_alarm(
         resource_id=incident_id,
         user=current_user,
         changes={
+            "provider": provider.slug,
             "recipients": [str(r.personnel_id) for r in sent],
             "channels": {
                 "push": request_data.send_push,
@@ -681,7 +707,7 @@ async def send_incident_alarm(
                 "call": request_data.send_call,
                 "mail": request_data.send_mail,
             },
-            "divera_alarm_id": data.get("id"),
+            "divera_alarm_id": result.provider_alarm_id,
         },
         request=request,
     )
@@ -689,10 +715,10 @@ async def send_incident_alarm(
     return schemas.DiveraAlarmResponse(
         success=True,
         foreign_id=foreign_id,
-        divera_alarm_id=data.get("id"),
+        divera_alarm_id=result.provider_alarm_id,
         sent=sent,
         skipped=skipped,
-        count_recipients=data.get("count_recipients"),
+        count_recipients=result.count_recipients,
     )
 
 
@@ -739,16 +765,16 @@ async def send_test_alarm(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Divera access key not configured",
         )
-    enabled = await settings_service.get_setting_value(db, "divera.alarm_enabled", "false")
+    enabled = await settings_service.get_setting_value(db, "alerting.enabled", "false")
     if enabled.lower() != "true":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Divera-Ausalarmierung ist deaktiviert",
+            detail="Ausalarmierung ist deaktiviert",
         )
     if settings.demo_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Divera-Ausalarmierung ist im Demo-Modus deaktiviert",
+            detail="Ausalarmierung ist im Demo-Modus deaktiviert",
         )
 
     name = request_data.name or "Testperson"

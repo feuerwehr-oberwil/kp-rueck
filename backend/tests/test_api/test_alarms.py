@@ -319,6 +319,9 @@ async def test_alarm_auto_attaches_to_active_event(
     assert incident.type == "brandbekaempfung"
     assert incident.priority == "high"
     assert incident.status == "eingegangen"
+    # Alarm provenance flows onto the board card
+    assert incident.source == "leitstelle"
+    assert incident.source_ref == "A-2026-001"
 
     row = (
         await db_session.execute(
@@ -390,3 +393,37 @@ async def test_divera_webhook_rows_carry_divera_source(
     ).scalar_one()
     assert row.source == "divera"
     assert row.source_id == "424242"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_manual_attach_carries_provenance(
+    client: AsyncClient, db_session: AsyncSession, webhook_secret: str, test_editor
+):
+    """Manually attaching a generic alarm stamps source/source_ref on the incident."""
+    with patch("app.api.alarms.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await _post(client, alarm_payload())
+    emergency_id = response.json()["emergency_id"]
+
+    event = Event(id=uuid4(), name="Manual Attach Event", training_flag=False, created_at=datetime.now(UTC))
+    db_session.add(event)
+    await db_session.commit()
+
+    login = await client.post(
+        "/api/auth/login", data={"username": "fixture_editor", "password": "testpassword1234"}
+    )
+    assert login.status_code == 200
+
+    attach = await client.post(
+        f"/api/divera/emergencies/{emergency_id}/attach", json={"event_id": str(event.id)}
+    )
+    assert attach.status_code == 201
+    body = attach.json()
+    assert body["source"] == "leitstelle"
+    assert body["source_ref"] == "A-2026-001"
+
+    incident = (
+        await db_session.execute(select(Incident).where(Incident.id == body["id"]))
+    ).scalar_one()
+    assert incident.source == "leitstelle"
+    assert incident.source_ref == "A-2026-001"

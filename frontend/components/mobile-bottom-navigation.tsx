@@ -78,7 +78,7 @@ export function MobileBottomNavigation({
   // its own section below since it needs the live event list).
   const secondaryItems = [
     { id: 'settings', label: 'Einstellungen', icon: Settings, href: '/settings', category: 'Verwaltung' },
-    { id: 'divera', label: 'Divera Notfälle', icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
+    { id: 'divera', label: 'Alarmeingang', icon: Radio, href: '/divera-pool', category: 'Verwaltung' },
     { id: 'help', label: 'Hilfe & Dokumentation', icon: HelpCircle, href: '/help', category: 'Support' },
   ]
 

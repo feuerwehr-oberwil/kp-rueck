@@ -194,6 +194,9 @@ class IncidentResponse(IncidentBase):
     event_id: UUID
     position: int = 0
     source: str = "operator"
+    # The alarm's id in the delivering system (pool source_id), when the
+    # incident was created from a pool alarm.
+    source_ref: str | None = None
     created_at: datetime
     updated_at: datetime
     created_by: UUID | None = None
