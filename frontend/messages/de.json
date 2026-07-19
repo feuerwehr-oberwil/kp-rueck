@@ -458,7 +458,8 @@
       "noMaterial": "Kein Material zugewiesen",
       "changeStatus": "Status ändern",
       "copyWhatsapp": "WhatsApp kopieren",
-      "diveraAlarm": "Divera-Alarm"
+      "diveraAlarm": "Divera-Alarm",
+      "allVehiclesAssigned": "Alle Fahrzeuge zugewiesen"
     },
     "sidePanel": {
       "togglePanel": "Panel ein-/ausblenden",
@@ -1772,6 +1773,32 @@
       "photoLabel": "Foto-Limit (GB)",
       "materialThresholdsTitle": "Materialbestand-Schwellenwerte",
       "materialThresholdsSubtitle": "Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen. Deaktivieren Sie die Checkbox um Warnungen für eine Kategorie auszublenden."
+    },
+    "toasts": {
+      "criticalTitle": "Kritische Warnung",
+      "warningTitle": "Warnung",
+      "infoTitle": "Information"
+    },
+    "sidebar": {
+      "title": "Benachrichtigungen",
+      "bellAria": "Benachrichtigungen {unread}",
+      "bellUnread": "{count} ungelesene",
+      "activeHeading": "Aktiv",
+      "dismissAll": "Alle schliessen",
+      "historyHeading": "Verlauf",
+      "emptyTitle": "Keine aktiven Benachrichtigungen",
+      "emptySubtitle": "Alles ist in Ordnung",
+      "dismissAria": "Benachrichtigung schliessen",
+      "closePanel": "Panel schliessen (B)"
+    },
+    "card": {
+      "severityCritical": "Kritisch",
+      "severityWarning": "Warnung",
+      "severityInfo": "Info",
+      "timeDays": "vor {days}d",
+      "timeHours": "vor {hours}h",
+      "timeMinutes": "vor {minutes}m",
+      "justNow": "gerade eben"
     }
   },
   "help": {
@@ -1810,6 +1837,17 @@
       "description": "Diese Ansicht hat einen unerwarteten Fehler festgestellt. Bitte versuchen Sie es erneut.",
       "errorId": "Fehler-ID: {digest}",
       "retry": "Erneut versuchen",
+      "home": "Zur Startseite"
+    },
+    "mapError": {
+      "title": "Kartenfehler",
+      "description": "Die Karte konnte nicht geladen werden. Dies kann an einem Netzwerkproblem oder fehlenden Kartendaten liegen.",
+      "retry": "Erneut versuchen",
+      "home": "Zum Kanban"
+    },
+    "notFound": {
+      "title": "404 - Seite nicht gefunden",
+      "description": "Die angeforderte Seite existiert nicht.",
       "home": "Zur Startseite"
     }
   },

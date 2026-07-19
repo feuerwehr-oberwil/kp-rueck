@@ -1,6 +1,7 @@
 "use client"
 
 import { memo } from "react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, Truck, Users, ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle } from "lucide-react"
@@ -34,6 +35,9 @@ const priorityStyles = {
 
 
 function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIncidentCardProps) {
+  const t = useTranslations("incidents.card")
+  const tCard = useTranslations("kanban.card")
+  const tDetail = useTranslations("incidents.mobileDetail")
   const priority = operation.priority || "low"
   const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
 
@@ -61,11 +65,11 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
             aria-hidden="true"
           />
           {priority === "high" ? (
-            <ChevronUp className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label="Hohe Prioritat" />
+            <ChevronUp className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label={tCard("priorityHighAria")} />
           ) : priority === "medium" ? (
-            <Minus className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label="Mittlere Prioritat" />
+            <Minus className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label={tCard("priorityMediumAria")} />
           ) : (
-            <ChevronDown className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label="Niedrige Prioritat" />
+            <ChevronDown className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label={tCard("priorityLowAria")} />
           )}
         </div>
 
@@ -87,12 +91,12 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
               {getOperationStatusLabel(operation.status)}
             </Badge>
             {operation.hasCompletedReko && (
-              <span title="Reko ausgefullt">
+              <span title={t("rekoCompleted")}>
                 <FileCheck className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
               </span>
             )}
             {operation.rekoSummary?.hasDangers && (
-              <span title="Gefahren">
+              <span title={tDetail("dangers")}>
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               </span>
             )}

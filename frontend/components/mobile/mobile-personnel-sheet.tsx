@@ -121,7 +121,7 @@ export function MobilePersonnelSheet({
                           </span>
                           {person.isReko && (
                             <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
-                              Reko
+                              {t("rekoBadge")}
                             </Badge>
                           )}
                         </div>
@@ -168,7 +168,7 @@ export function MobilePersonnelSheet({
 
           {filteredPersonnel.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              Keine Personen gefunden
+              {t("noResults")}
             </div>
           )}
         </div>

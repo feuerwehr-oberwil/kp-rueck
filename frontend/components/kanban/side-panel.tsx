@@ -558,7 +558,7 @@ function SidePanelDetail({
                   ) : (
                     <Link2 className="h-3 w-3" />
                   )}
-                  Direkt-Link
+                  {t('common.directLink')}
                 </Button>
                 <Button
                   size="sm"
@@ -573,12 +573,12 @@ function SidePanelDetail({
                   ) : (
                     <LayoutDashboard className="h-3 w-3" />
                   )}
-                  Dashboard
+                  {t('common.dashboard')}
                 </Button>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Keine Reko-Person zugewiesen</p>
+            <p className="text-xs text-muted-foreground">{t('common.noRekoAssigned')}</p>
           )}
         </div>
 
@@ -587,7 +587,7 @@ function SidePanelDetail({
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Mannschaft ({operation.crew.length})</span>
+              <span className="text-xs text-muted-foreground">{t('common.crewCount', { count: operation.crew.length })}</span>
             </div>
             <Button
               size="sm"
@@ -597,7 +597,7 @@ function SidePanelDetail({
               tabIndex={0}
             >
               <Plus className="h-3 w-3" />
-              Hinzufügen
+              {t('common.add')}
             </Button>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -613,14 +613,14 @@ function SidePanelDetail({
                     onClick={() => onRemoveCrew(operation.id, member)}
                     className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     tabIndex={-1}
-                    aria-label={`${member} entfernen`}
+                    aria-label={t('common.removeNamed', { name: member })}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
                 </Badge>
               ))
             ) : (
-              <p className="text-xs text-muted-foreground">Keine Mannschaft</p>
+              <p className="text-xs text-muted-foreground">{t('sidePanel.noCrewShort')}</p>
             )}
           </div>
         </div>
@@ -630,19 +630,19 @@ function SidePanelDetail({
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Fahrzeuge ({operation.vehicles.length})</span>
+              <span className="text-xs text-muted-foreground">{t('common.vehiclesCount', { count: operation.vehicles.length })}</span>
             </div>
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs" tabIndex={0}>
                   <Plus className="h-3 w-3" />
-                  Hinzufügen
+                  {t('common.add')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-2" align="end">
                 <div className="space-y-1">
                   <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                    Fahrzeug zuweisen
+                    {t('common.assignVehicle')}
                   </div>
                   <button
                     onClick={() => onUpdate({ zuFuss: !operation.zuFuss })}
@@ -653,7 +653,7 @@ function SidePanelDetail({
                   >
                     <Footprints className="h-3.5 w-3.5" />
                     <div className="text-left">
-                      <div className="font-medium text-xs">Zu Fuss</div>
+                      <div className="font-medium text-xs">{t('common.zuFuss')}</div>
                     </div>
                   </button>
                   <div className="border-t border-border my-1" />
@@ -690,11 +690,11 @@ function SidePanelDetail({
             {operation.zuFuss && (
               <Badge variant="secondary" className="text-xs gap-1 group">
                 <Footprints className="h-3 w-3" />
-                Zu Fuss
+                {t('common.zuFuss')}
                 <button
                   onClick={() => onUpdate({ zuFuss: false })}
                   className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-                  title="Zu Fuss entfernen"
+                  title={t('common.removeZuFuss')}
                   tabIndex={-1}
                 >
                   <X className="h-2.5 w-2.5" />
@@ -712,7 +712,7 @@ function SidePanelDetail({
                     key={vehicleName}
                     variant="default"
                     className="text-xs gap-1 pr-1 group transition-colors"
-                    title={callsign ? `Funkrufname: ${callsign}` : undefined}
+                    title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                   >
                     {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
                     {assignmentId && (
@@ -730,7 +730,7 @@ function SidePanelDetail({
                             })
                           )
                           apiClient.updateAssignment(operation.id, assignmentId, { driver_stay: newValue }).catch(() => {
-                            toast.error('Fehler beim Aktualisieren')
+                            toast.error(t('common.updateFailed'))
                             setOperations((ops: Operation[]) =>
                               ops.map((op: Operation) => {
                                 if (op.id === operation.id) {
@@ -749,13 +749,13 @@ function SidePanelDetail({
                             ? "bg-white/20 text-white hover:bg-white/30"
                             : "bg-white/10 text-white/60 hover:bg-white/20"
                         )}
-                        title={driverStay ? "Fahrer bleibt vor Ort — klicken für Rückkehr" : "Fahrer kehrt zurück — klicken für vor Ort bleiben"}
+                        title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                         tabIndex={-1}
                       >
                         {driverStay ? (
-                          <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> bleibt</span>
+                          <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> {t('common.driverStays')}</span>
                         ) : (
-                          <span className="flex items-center gap-0.5"><Undo2 className="h-2.5 w-2.5" /> zurück</span>
+                          <span className="flex items-center gap-0.5"><Undo2 className="h-2.5 w-2.5" /> {t('common.driverReturns')}</span>
                         )}
                       </button>
                     )}
@@ -763,7 +763,7 @@ function SidePanelDetail({
                       onClick={() => onRemoveVehicle(operation.id, vehicleName)}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
                       tabIndex={-1}
-                      aria-label={`${vehicleName} entfernen`}
+                      aria-label={t('common.removeNamed', { name: vehicleName })}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -771,7 +771,7 @@ function SidePanelDetail({
                 )
               })
             ) : (
-              <p className="text-xs text-muted-foreground">Keine Fahrzeuge</p>
+              <p className="text-xs text-muted-foreground">{t('sidePanel.noVehiclesShort')}</p>
             )}
           </div>
         </div>
@@ -781,7 +781,7 @@ function SidePanelDetail({
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Material ({operation.materials.length})</span>
+              <span className="text-xs text-muted-foreground">{t('common.materialsCount', { count: operation.materials.length })}</span>
             </div>
             <Button
               size="sm"
@@ -791,7 +791,7 @@ function SidePanelDetail({
               tabIndex={0}
             >
               <Plus className="h-3 w-3" />
-              Hinzufügen
+              {t('common.add')}
             </Button>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -809,7 +809,7 @@ function SidePanelDetail({
                       onClick={() => onRemoveMaterial(operation.id, materialId)}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
                       tabIndex={-1}
-                      aria-label={`${material?.name || materialId} entfernen`}
+                      aria-label={t('common.removeNamed', { name: material?.name || materialId })}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -817,7 +817,7 @@ function SidePanelDetail({
                 )
               })
             ) : (
-              <p className="text-xs text-muted-foreground">Kein Material</p>
+              <p className="text-xs text-muted-foreground">{t('sidePanel.noMaterialShort')}</p>
             )}
           </div>
         </div>
@@ -834,7 +834,7 @@ function SidePanelDetail({
             className="gap-1.5 text-xs"
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            {isCopyingWhatsApp ? 'Kopiere...' : 'WhatsApp'}
+            {isCopyingWhatsApp ? t('common.copying') : t('sidePanel.whatsapp')}
           </Button>
           <Button
             variant="outline"
@@ -843,7 +843,7 @@ function SidePanelDetail({
             className="gap-1.5 text-xs"
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
-            Übertragen
+            {t('sidePanel.transfer')}
           </Button>
         </div>
         <Button
@@ -853,7 +853,7 @@ function SidePanelDetail({
           className="w-full gap-1.5 text-xs text-destructive hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Löschen
+          {t('common.delete')}
         </Button>
       </div>
 
@@ -861,8 +861,8 @@ function SidePanelDetail({
       <DeleteConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Einsatz wirklich löschen?"
-        description={`Der Einsatz "${formatLocation(operation.location) || getIncidentTypeLabel(operation.incidentType)}" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.`}
+        title={t('common.deleteIncidentTitle')}
+        description={t('common.deleteIncidentDescription', { name: formatLocation(operation.location) || getIncidentTypeLabel(operation.incidentType) })}
         onConfirm={() => onDelete(operation.id)}
       />
 
@@ -910,7 +910,7 @@ const SidePanelMapContent = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p className="text-sm">Karte wird geladen...</p>
+        <p className="text-sm">{translateOutsideReact('kanban.sidePanel.mapLoading')}</p>
       </div>
     ),
   }

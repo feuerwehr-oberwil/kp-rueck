@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
@@ -57,6 +58,8 @@ function cleanupOldToastIds(): Set<string> {
 export function NotificationToasts() {
   const { notifications, dismissNotification, isSidebarOpen } = useNotifications()
   const isMobile = useIsMobile()
+  const tCommon = useTranslations('kanban.common')
+  const tToasts = useTranslations('notifications.toasts')
 
   // Initialize with previously shown notification IDs from localStorage
   // Clean up IDs older than 24 hours on component mount
@@ -111,24 +114,24 @@ export function NotificationToasts() {
         // Dismiss notification when toast is closed by any means
         onDismiss: () => dismissNotification(notification.id),
         action: notification.severity === 'critical' ? {
-          label: 'Schliessen',
+          label: tCommon('close'),
           // Close the toast, which will trigger onDismiss callback
           onClick: () => toast.dismiss(notification.id),
         } : undefined,
       }
 
       if (notification.severity === 'critical') {
-        toast.error('Kritische Warnung', {
+        toast.error(tToasts('criticalTitle'), {
           ...toastOptions,
           duration: Infinity, // Manual dismiss only
         })
       } else if (notification.severity === 'warning') {
-        toast.warning('Warnung', {
+        toast.warning(tToasts('warningTitle'), {
           ...toastOptions,
           duration: 5000,
         })
       } else {
-        toast.info('Information', {
+        toast.info(tToasts('infoTitle'), {
           ...toastOptions,
           duration: 3000,
         })
