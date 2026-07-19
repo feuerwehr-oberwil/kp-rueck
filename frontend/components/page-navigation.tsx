@@ -6,6 +6,7 @@
  * Desktop-focused - core views only, secondary items moved to UserMenu
  */
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationBellTrigger } from '@/components/notifications/notification-bell-trigger';
@@ -34,9 +35,10 @@ export function PageNavigation({
   onVehicleStatus,
   onPrint,
 }: PageNavigationProps) {
+  const t = useTranslations('nav.pageNav');
   return (
     // Desktop only — on mobile navigation lives in the bottom navbar.
-    <nav aria-label="Hauptnavigation" className="hidden md:flex items-center gap-1 md:gap-2">
+    <nav aria-label={t('main')} className="hidden md:flex items-center gap-1 md:gap-2">
         {/* Kanban Icon */}
         <Link href="/" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
@@ -44,7 +46,7 @@ export function PageNavigation({
             size="icon"
             className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'kanban' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
             disabled={currentPage === 'kanban' || !hasSelectedEvent}
-            title="Kanban Board"
+            title={t('kanban')}
           >
             <List className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
@@ -57,7 +59,7 @@ export function PageNavigation({
             size="icon"
             className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'map' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
             disabled={currentPage === 'map' || !hasSelectedEvent}
-            title="Lagekarte"
+            title={t('map')}
           >
             <MapIcon className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
@@ -70,7 +72,7 @@ export function PageNavigation({
             size="icon"
             className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'events' ? 'opacity-40 cursor-default' : ''}`}
             disabled={currentPage === 'events'}
-            title="Ereignisse"
+            title={t('events')}
           >
             <Calendar className="h-4 w-4 md:h-5 md:w-5" />
           </Button>

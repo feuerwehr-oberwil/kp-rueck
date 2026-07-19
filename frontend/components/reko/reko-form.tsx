@@ -163,24 +163,10 @@ export default function RekoForm() {
     }
   }
 
-  // Summaries that match the situation, kept generic but natural.
-  const NOT_RELEVANT_SUMMARIES = [
-    'Fehlalarm. Vor Ort keine Gefahr und kein Handlungsbedarf festgestellt.',
-    'Lage bereits durch Anwohner geklärt. Kein Einsatz der Feuerwehr nötig.',
-    'Vermeintlicher Rauch war Wasserdampf. Keine weiteren Massnahmen erforderlich.',
-    'Bei Eintreffen nichts vorgefunden. Einsatz kann abgeschlossen werden.',
-    'Meldung hat sich nicht bestätigt. Keine Einsatzkräfte erforderlich.',
-  ]
-  const LOW_SEVERITY_SUMMARIES = [
-    'Lage übersichtlich und stabil. Einsatz mit kleinem Aufgebot durchführbar.',
-    'Geringe Beeinträchtigung. Situation gut unter Kontrolle.',
-    'Einsatzstelle gut zugänglich, überschaubarer Aufwand.',
-  ]
-  const HIGH_SEVERITY_SUMMARIES = [
-    'Mehrere Gefahren festgestellt. Verstärkung und zusätzliches Material nötig.',
-    'Ausgedehnte Lage, mehrere Bereiche betroffen. Längerer Einsatz zu erwarten.',
-    'Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich.',
-  ]
+  // Summaries that match the situation, kept generic but natural (localized).
+  const NOT_RELEVANT_SUMMARIES = t.raw('summaries.notRelevant') as string[]
+  const LOW_SEVERITY_SUMMARIES = t.raw('summaries.low') as string[]
+  const HIGH_SEVERITY_SUMMARIES = t.raw('summaries.high') as string[]
 
   const handleMarkArrived = async () => {
     if (!incidentId || !token || arrivedAt) return

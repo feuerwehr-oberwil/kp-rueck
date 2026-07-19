@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Ruler, Loader2, Palette, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { colorGroupFor, COLOR_BY_LABELS, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
+import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -548,7 +548,7 @@ export default function MapPage() {
                       title={t('common.colorByTitle')}
                     >
                       <Palette className="h-3 w-3" />
-                      {t('common.colorByButton', { label: COLOR_BY_LABELS[colorBy] })}
+                      {t('common.colorByButton', { label: t(`colorBy.${colorBy}`) })}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-52">
@@ -561,7 +561,7 @@ export default function MapPage() {
                         onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
                         className="cursor-pointer justify-between"
                       >
-                        {COLOR_BY_LABELS[dim]}
+                        {t(`colorBy.${dim}`)}
                         {colorBy === dim && <Check className="h-3.5 w-3.5" />}
                       </DropdownMenuItem>
                     ))}

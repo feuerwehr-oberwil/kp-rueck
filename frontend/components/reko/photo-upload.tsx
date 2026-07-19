@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Camera, Upload, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import { translateOutsideReact } from '@/lib/i18n-messages'
 import { getApiUrl } from '@/lib/env'
 
 // Always convert image file to JPEG via canvas before upload.
@@ -34,7 +35,7 @@ async function convertToJpeg(file: File): Promise<File> {
       }
       img.onerror = () => {
         URL.revokeObjectURL(url)
-        reject(new Error('Bild konnte nicht geladen werden'))
+        reject(new Error(translateOutsideReact('reko.photoUpload.loadFailed')))
       }
       img.src = url
     })
@@ -48,7 +49,7 @@ async function convertToJpeg(file: File): Promise<File> {
   canvas.height = imgHeight
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    throw new Error('Canvas nicht verfügbar')
+    throw new Error(translateOutsideReact('reko.photoUpload.canvasUnavailable'))
   }
 
   if (bitmap) {
@@ -62,7 +63,7 @@ async function convertToJpeg(file: File): Promise<File> {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error('Konvertierung fehlgeschlagen'))
+          reject(new Error(translateOutsideReact('reko.photoUpload.conversionFailed')))
           return
         }
         const converted = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {

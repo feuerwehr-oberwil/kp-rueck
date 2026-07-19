@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { toast } from "sonner"
 
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { openCommandPalette } from "@/components/ui/command-palette"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { UseGPrefixNavigation } from "./use-g-prefix-navigation"
@@ -268,14 +269,14 @@ export function useKanbanShortcuts(
       // Refresh
       if ((e.key === "r" || e.key === "R" || e.key === "F5") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
-        const toastId = toast.loading("Aktualisiere...")
+        const toastId = toast.loading(translateOutsideReact("kanban.shortcuts.refreshing"))
         actions
           .onRefresh()
           .then(() => {
-            toast.success("Aktualisiert", { id: toastId, duration: 1500 })
+            toast.success(translateOutsideReact("kanban.shortcuts.refreshed"), { id: toastId, duration: 1500 })
           })
           .catch(() => {
-            toast.error("Aktualisierung fehlgeschlagen", { id: toastId })
+            toast.error(translateOutsideReact("kanban.shortcuts.refreshFailed"), { id: toastId })
           })
         return
       }

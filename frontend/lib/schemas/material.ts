@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { translateOutsideReact } from "@/lib/i18n-messages";
 
 export const materialStatusSchema = z.enum(["available", "unavailable"]);
 
@@ -6,11 +7,11 @@ export const materialFormSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Name ist erforderlich")
-    .max(120, "Maximal 120 Zeichen"),
-  type: z.string().trim().max(80, "Maximal 80 Zeichen"),
+    .min(1, translateOutsideReact("settings.validation.nameRequired"))
+    .max(120, translateOutsideReact("settings.validation.max120")),
+  type: z.string().trim().max(80, translateOutsideReact("settings.validation.max80")),
   status: materialStatusSchema,
-  location: z.string().trim().max(80, "Maximal 80 Zeichen"),
+  location: z.string().trim().max(80, translateOutsideReact("settings.validation.max80")),
   consumable: z.boolean(),
 });
 

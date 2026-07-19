@@ -101,7 +101,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'send-first-whatsapp',
       title: translateOutsideReact('checklist.tasks.send-first-whatsapp.title'),
-      description: 'Mannschaft über Ereignis informieren',
+      description: translateOutsideReact('checklist.tasks.send-first-whatsapp.description'),
       icon: MessageCircle,
       priority: 'recommended',
       isWhatsApp: true,
@@ -112,7 +112,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'personnel-checkin',
       title: translateOutsideReact('checklist.tasks.personnel-checkin.title'),
-      description: 'Mindestens 3 Personen für Einsatzbereitschaft',
+      description: translateOutsideReact('checklist.tasks.personnel-checkin.description'),
       icon: Users,
       priority: 'critical',
       completed: params.checkedInPersonnel >= 3,
@@ -127,7 +127,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'share-reko-link',
       title: translateOutsideReact('checklist.tasks.share-reko-link.title'),
-      description: 'Reko-Personal Zugang zum Reko-Dashboard geben',
+      description: translateOutsideReact('checklist.tasks.share-reko-link.description'),
       icon: Map,
       priority: 'recommended',
       completed: false,
@@ -138,7 +138,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'share-alarm-link',
       title: translateOutsideReact('checklist.tasks.share-alarm-link.title'),
-      description: 'Telefon-/Walk-in-Meldungen ermöglichen',
+      description: translateOutsideReact('checklist.tasks.share-alarm-link.description'),
       icon: MessageCircle,
       priority: 'recommended',
       completed: false,
@@ -149,7 +149,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'assign-reko',
       title: translateOutsideReact('checklist.tasks.assign-reko.title'),
-      description: 'Mindestens 1 Person für Rekognoszierung',
+      description: translateOutsideReact('checklist.tasks.assign-reko.description'),
       icon: Users,
       priority: 'recommended',
       completed: params.rekoOfficers >= 1,
@@ -163,7 +163,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'assign-drivers',
       title: translateOutsideReact('checklist.tasks.assign-drivers.title'),
-      description: 'Alle Fahrzeuge benötigen einen Fahrer',
+      description: translateOutsideReact('checklist.tasks.assign-drivers.description'),
       icon: Truck,
       priority: 'critical',
       completed: params.driverAssignments >= params.totalVehicles && params.totalVehicles > 0,
@@ -178,7 +178,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'assign-magazin',
       title: translateOutsideReact('checklist.tasks.assign-magazin.title'),
-      description: 'Optional: Person für Material-Ausgabe',
+      description: translateOutsideReact('checklist.tasks.assign-magazin.description'),
       icon: Package,
       priority: 'optional',
       completed: params.magazinStaff >= 1,
@@ -193,7 +193,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'printer-ready',
       title: translateOutsideReact('checklist.tasks.printer-ready.title'),
-      description: 'Testdruck bestätigt, dass Einsatzzettel gedruckt werden können',
+      description: translateOutsideReact('checklist.tasks.printer-ready.description'),
       icon: Printer,
       priority: 'recommended',
       // Not blocking when the printer is intentionally disabled; otherwise the
@@ -221,7 +221,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'fallback-ready',
       title: translateOutsideReact('checklist.tasks.fallback-ready.title'),
-      description: 'Auto-Druck (Thermo) oder Lageblatt Auto-Download für den Ausfall',
+      description: translateOutsideReact('checklist.tasks.fallback-ready.description'),
       icon: LifeBuoy,
       priority: 'recommended',
       completed: params.fallbackReady,
@@ -244,7 +244,7 @@ export function generateChecklistTasks(params: {
     {
       id: 'configure-map-mode',
       title: translateOutsideReact('checklist.tasks.configure-map-mode.title'),
-      description: 'Optional: Karten ohne Internet nutzen',
+      description: translateOutsideReact('checklist.tasks.configure-map-mode.description'),
       icon: Map,
       priority: 'optional',
       completed: params.mapTilesAvailable,
