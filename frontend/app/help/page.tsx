@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { PageNavigation } from '@/components/page-navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -19,6 +20,7 @@ interface TocItem {
 }
 
 export default function HelpPage() {
+  const t = useTranslations('help.page');
   const { selectedEvent } = useEvent();
   const { isAuthenticated } = useAuth();
   const isMobile = useIsMobile();
@@ -37,11 +39,11 @@ export default function HelpPage() {
           const text = await response.text();
           setContent(text);
         } else {
-          setContent('# Fehler\n\nDer Hilfeinhalt konnte nicht geladen werden.');
+          setContent(t('loadError'));
         }
       } catch (error) {
         console.error('Failed to load help content:', error);
-        setContent('# Fehler\n\nDer Hilfeinhalt konnte nicht geladen werden.');
+        setContent(t('loadError'));
       } finally {
         setIsLoading(false);
       }
@@ -231,7 +233,7 @@ export default function HelpPage() {
       {/* Header */}
       <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Hilfe</h1>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('title')}</h1>
         </div>
         <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
           {!isMobile && isAuthenticated && (
@@ -248,7 +250,7 @@ export default function HelpPage() {
             <ScrollArea className="h-full">
               <nav className="p-4">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Inhalt
+                  {t('toc')}
                 </p>
                 <ul className="space-y-1">
                   {tableOfContents.map(({ id, text }) => (
@@ -278,7 +280,7 @@ export default function HelpPage() {
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <p className="mt-4 text-muted-foreground">Lädt...</p>
+                <p className="mt-4 text-muted-foreground">{t('loading')}</p>
               </div>
             ) : (
               <div className="prose prose-slate dark:prose-invert max-w-none">

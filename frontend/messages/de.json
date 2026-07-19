@@ -2194,7 +2194,8 @@
       "showCompleted": "Abgeschlossen anzeigen",
       "completedColumn": "ABGESCHLOSSEN ({count})",
       "incidentsHeading": "Einsätze ({count})",
-      "footerReadOnly": "Nur-Lesen-Ansicht - Automatische Aktualisierung alle 5 Sekunden"
+      "footerReadOnly": "Nur-Lesen-Ansicht - Automatische Aktualisierung alle 5 Sekunden",
+      "kanbanView": "Kanban"
     },
     "map": {
       "legend": "Legende",

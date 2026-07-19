@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,6 +56,7 @@ export function ResourceAssignmentDialog({
   zuFuss = false,
   onToggleZuFuss,
 }: ResourceAssignmentDialogProps) {
+  const t = useTranslations('kanban')
   const { materialGroups } = useMaterials()
   const [searchQuery, setSearchQuery] = useState("")
   const [searchFocused, setSearchFocused] = useState(false)
@@ -316,24 +318,24 @@ export function ResourceAssignmentDialog({
   const getDialogTitle = () => {
     switch (resourceType) {
       case 'crew':
-        return 'Mannschaft zuweisen'
+        return t('common.assignCrew')
       case 'vehicles':
-        return 'Fahrzeuge zuweisen'
+        return t('assignmentDialog.titleVehicles')
       case 'materials':
-        return 'Material zuweisen'
+        return t('common.assignMaterial')
       default:
-        return 'Ressourcen zuweisen'
+        return t('assignmentDialog.titleDefault')
     }
   }
 
   const getDialogDescription = () => {
     switch (resourceType) {
       case 'crew':
-        return `${selectedPersonnel.size} ausgewählt, ${selectablePersonnel.length} verfügbar`
+        return t('assignmentDialog.selectedCount', { selected: selectedPersonnel.size, available: selectablePersonnel.length })
       case 'vehicles':
-        return `${assignedVehicles.length} Fahrzeug(e) zugewiesen${zuFuss ? ', Zu Fuss' : ''}`
+        return t('assignmentDialog.vehiclesAssigned', { count: assignedVehicles.length }) + (zuFuss ? t('assignmentDialog.zuFussSuffix') : '')
       case 'materials':
-        return `${selectedMaterials.size} ausgewählt, ${selectableMaterials.length} verfügbar`
+        return t('assignmentDialog.selectedCount', { selected: selectedMaterials.size, available: selectableMaterials.length })
       default:
         return ''
     }
@@ -397,7 +399,7 @@ export function ResourceAssignmentDialog({
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Suchen..."
+              placeholder={t('common.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setSearchFocused(true)}
@@ -421,7 +423,7 @@ export function ResourceAssignmentDialog({
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
-                Alle
+                {t('assignmentDialog.all')}
               </button>
               {categories.map((cat) => (
                 <button
@@ -494,8 +496,8 @@ export function ResourceAssignmentDialog({
                         <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       )}
                       <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">Zu Fuss</p>
-                        <p className="text-xs text-muted-foreground truncate">Kein Fahrzeug</p>
+                        <p className="font-medium text-sm truncate">{t('common.zuFuss')}</p>
+                        <p className="text-xs text-muted-foreground truncate">{t('assignmentDialog.noVehicle')}</p>
                       </div>
                     </button>
                   )}
@@ -586,15 +588,15 @@ export function ResourceAssignmentDialog({
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {groupOrigins && <span>{groupOrigins} · </span>}
-                                  {selectedCount}/{groupMats.length} ausgewählt
+                                  {t('assignmentDialog.groupSelected', { selected: selectedCount, total: groupMats.length })}
                                 </p>
                               </div>
                             </div>
                             {allSelected && (
-                              <Badge variant="secondary" className="text-xs animate-scale-in">Alle</Badge>
+                              <Badge variant="secondary" className="text-xs animate-scale-in">{t('assignmentDialog.all')}</Badge>
                             )}
                             {someSelected && !allSelected && (
-                              <Badge variant="secondary" className="text-xs animate-scale-in">Teilweise</Badge>
+                              <Badge variant="secondary" className="text-xs animate-scale-in">{t('assignmentDialog.partial')}</Badge>
                             )}
                           </button>
                         </div>
@@ -675,10 +677,10 @@ export function ResourceAssignmentDialog({
                 <div className="text-center py-12 animate-fade-in-up">
                   <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                   <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? 'Keine Personen gefunden' : 'Keine auswählbaren Personen'}
+                    {searchQuery ? t('assignmentDialog.noPersonsFound') : t('assignmentDialog.noSelectablePersons')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Personen sind anderen Einsätzen zugewiesen'}
+                    {searchQuery ? t('assignmentDialog.tryOtherSearch') : t('assignmentDialog.allPersonsAssigned')}
                   </p>
                 </div>
               )}
@@ -686,10 +688,10 @@ export function ResourceAssignmentDialog({
                 <div className="text-center py-12 animate-fade-in-up">
                   <Truck className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                   <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? 'Keine Fahrzeuge gefunden' : 'Keine verfügbaren Fahrzeuge'}
+                    {searchQuery ? t('assignmentDialog.noVehiclesFound') : t('assignmentDialog.noAvailableVehicles')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Fahrzeuge sind bereits zugewiesen'}
+                    {searchQuery ? t('assignmentDialog.tryOtherSearch') : t('assignmentDialog.allVehiclesAssigned')}
                   </p>
                 </div>
               )}
@@ -697,10 +699,10 @@ export function ResourceAssignmentDialog({
                 <div className="text-center py-12 animate-fade-in-up">
                   <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                   <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? 'Keine Materialien gefunden' : 'Keine auswählbaren Materialien'}
+                    {searchQuery ? t('assignmentDialog.noMaterialsFound') : t('assignmentDialog.noSelectableMaterials')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {searchQuery ? 'Versuchen Sie einen anderen Suchbegriff' : 'Alle Materialien sind anderen Einsätzen zugewiesen'}
+                    {searchQuery ? t('assignmentDialog.tryOtherSearch') : t('assignmentDialog.allMaterialsAssigned')}
                   </p>
                 </div>
               )}
@@ -711,17 +713,17 @@ export function ResourceAssignmentDialog({
           <div className="flex justify-end gap-2 pt-2">
             {(resourceType === 'crew' || resourceType === 'materials') && (
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Abbrechen
+                {t('common.cancel')}
               </Button>
             )}
             <Button
               onClick={resourceType === 'vehicles' ? () => onOpenChange(false) : handleConfirm}
               className="hover-delight"
             >
-              Fertig
+              {t('common.done')}
               {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
                 <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-primary-foreground/20 rounded">
-                  Änderungen
+                  {t('assignmentDialog.changes')}
                 </span>
               )}
             </Button>

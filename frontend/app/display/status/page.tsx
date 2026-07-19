@@ -1,6 +1,8 @@
 "use client"
 
 import { useMemo } from "react"
+import { useTranslations } from "next-intl"
+import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
@@ -31,14 +33,16 @@ const STATUS_BG: Record<string, string> = {
 }
 
 export default function DisplayStatusPage() {
+  const t = useTranslations('display.status')
   const { isAuthenticated } = useAuth()
   if (!isAuthenticated) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Zugang erforderlich</div>
+    return <div className="flex h-full items-center justify-center text-muted-foreground">{t('accessRequired')}</div>
   }
   return <SituationBoard />
 }
 
 function SituationBoard() {
+  const t = useTranslations('display.status')
   const { stats, vehicleStatus, operations, personnel, materials } = useStatusData()
 
   const incidentsByStatus = useMemo(() => {
@@ -74,15 +78,15 @@ function SituationBoard() {
     const sorted = [...personnel].sort((a, b) => {
       if (a.role !== b.role) {
         if (a.roleSortOrder !== b.roleSortOrder) return a.roleSortOrder - b.roleSortOrder
-        return a.role.localeCompare(b.role, "de")
+        return a.role.localeCompare(b.role, getActiveLocale())
       }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return a.name.localeCompare(b.name, "de")
+      return a.name.localeCompare(b.name, getActiveLocale())
     })
     const groups: { role: string; people: Person[] }[] = []
     const roleMap = new Map<string, Person[]>()
     for (const p of sorted) {
-      const role = p.role || "Andere"
+      const role = p.role || t('otherRole')
       if (!roleMap.has(role)) {
         const arr: Person[] = []
         roleMap.set(role, arr)
@@ -97,10 +101,10 @@ function SituationBoard() {
     const sorted = [...materials].sort((a, b) => {
       if (a.category !== b.category) {
         if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
-        return a.category.localeCompare(b.category, "de")
+        return a.category.localeCompare(b.category, getActiveLocale())
       }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return a.name.localeCompare(b.name, "de")
+      return a.name.localeCompare(b.name, getActiveLocale())
     })
     const groups: { category: string; items: Material[] }[] = []
     const catMap = new Map<string, Material[]>()
@@ -124,10 +128,10 @@ function SituationBoard() {
       {/* ── Column 1: Vehicles ── */}
       <div className="flex flex-col border-r border-border overflow-hidden">
         <PanelHeader
-          title="Fahrzeuge"
+          title={t('vehicles')}
           count={vehicleStatus.length}
 
-          subtitle={`${vehicleStatus.length - deployed} verfügbar · ${deployed} im Einsatz`}
+          subtitle={t('availableDeployed', { available: vehicleStatus.length - deployed, deployed })}
         />
         <div className="flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2">
           {vehicleStatus.map((v) => (
@@ -139,14 +143,14 @@ function SituationBoard() {
       {/* ── Column 2: Active Incidents ── */}
       <div className="flex flex-col border-r border-border overflow-hidden">
         <PanelHeader
-          title="Einsätze"
+          title={t('incidents')}
           count={totalActiveOps}
 
-          subtitle={`${stats.incomingCount} eingegangen · ${stats.activeOperations - stats.incomingCount} in Bearbeitung`}
+          subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
         />
         <div className="flex-1 overflow-y-auto">
           {incidentsByStatus.length === 0 ? (
-            <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">Keine aktiven Einsätze</div>
+            <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">{t('noActiveIncidents')}</div>
           ) : (
             incidentsByStatus.map(({ colDef, ops }) => (
               <div key={colDef.id}>
@@ -174,10 +178,10 @@ function SituationBoard() {
       {/* ── Column 3: Personnel ── */}
       <div className="flex flex-col border-r border-border overflow-hidden">
         <PanelHeader
-          title="Personal"
+          title={t('personnel')}
           count={personnel.length}
 
-          subtitle={`${stats.personnelAvailable} verfügbar · ${assignedPersonnelCount} im Einsatz`}
+          subtitle={t('availableDeployed', { available: stats.personnelAvailable, deployed: assignedPersonnelCount })}
         />
         <div className="flex-1 overflow-y-auto">
           {groupedPersonnel.map(({ role, people }) => (
@@ -200,10 +204,10 @@ function SituationBoard() {
       {/* ── Column 4: Materials ── */}
       <div className="flex flex-col overflow-hidden">
         <PanelHeader
-          title="Material"
+          title={t('material')}
           count={materials.length}
 
-          subtitle={`${materials.length - assignedMaterialCount} verfügbar · ${assignedMaterialCount} im Einsatz`}
+          subtitle={t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
         />
         <div className="flex-1 overflow-y-auto">
           {groupedMaterials.map(({ category, items }) => {
@@ -223,7 +227,7 @@ function SituationBoard() {
             )
           })}
           {materials.length === 0 && (
-            <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">Kein Material erfasst</div>
+            <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">{t('noMaterial')}</div>
           )}
         </div>
       </div>
@@ -317,6 +321,7 @@ function PersonRow({ person: p, assignedLocation }: { person: Person; assignedLo
 }
 
 function MaterialRow({ material: m, assignedLocation }: { material: Material; assignedLocation?: string }) {
+  const t = useTranslations('display.status')
   const isAssigned = m.status === "assigned"
   return (
     <div className="flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm">
@@ -325,7 +330,7 @@ function MaterialRow({ material: m, assignedLocation }: { material: Material; as
       {isAssigned && assignedLocation ? (
         <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedLocation}</span>
       ) : (
-        !isAssigned && <span className="text-[10px] xl:text-xs text-muted-foreground shrink-0">verfügbar</span>
+        !isAssigned && <span className="text-[10px] xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
       )}
     </div>
   )

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -37,12 +38,12 @@ const statusOrder: Record<string, number> = {
   complete: 6,
 }
 
-// Status groups for filtering
+// Status groups for filtering — labels render via t(`filters.${id}`)
 const statusGroups = [
-  { id: "active", label: "Aktiv", statuses: ["active", "enroute"] },
-  { id: "incoming", label: "Neu", statuses: ["incoming", "ready", "rekoDone"] },
-  { id: "returning", label: "Rückfahrt", statuses: ["returning"] },
-  { id: "complete", label: "Abgeschlossen", statuses: ["complete"] },
+  { id: "active", statuses: ["active", "enroute"] },
+  { id: "incoming", statuses: ["incoming", "ready", "rekoDone"] },
+  { id: "returning", statuses: ["returning"] },
+  { id: "complete", statuses: ["complete"] },
 ]
 
 export function MobileIncidentListView({
@@ -57,6 +58,7 @@ export function MobileIncidentListView({
   isTraining = false,
   isLoading = false,
 }: MobileIncidentListViewProps) {
+  const t = useTranslations('incidents.mobileList')
   const { selectedEvent } = useEvent()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
@@ -129,7 +131,7 @@ export function MobileIncidentListView({
           <div className="flex items-center gap-2 mb-3 min-w-0">
             <h1 className="text-lg font-bold tracking-tight truncate">{selectedEvent.name}</h1>
             {selectedEvent.training_flag && (
-              <Badge variant="secondary" className="flex-shrink-0">Übung</Badge>
+              <Badge variant="secondary" className="flex-shrink-0">{t('trainingBadge')}</Badge>
             )}
           </div>
         )}
@@ -141,7 +143,7 @@ export function MobileIncidentListView({
           <Link href="/training" className="mb-3 block">
             <Button className="w-full min-h-[48px] gap-2 bg-orange-600 text-white hover:bg-orange-700">
               <Sparkles className="h-4 w-4" />
-              Übungs-Einsatz erstellen
+              {t('createTrainingIncident')}
             </Button>
           </Link>
         )}
@@ -151,7 +153,7 @@ export function MobileIncidentListView({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Einsatz suchen..."
+            placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10"
@@ -166,7 +168,7 @@ export function MobileIncidentListView({
             onClick={() => setActiveFilter(null)}
             className="flex-shrink-0 min-h-[44px] px-4"
           >
-            Alle ({operations.length})
+            {t('all', { count: operations.length })}
           </Button>
           {statusGroups.map(group => (
             <Button
@@ -176,7 +178,7 @@ export function MobileIncidentListView({
               onClick={() => setActiveFilter(activeFilter === group.id ? null : group.id)}
               className="flex-shrink-0 min-h-[44px] px-4"
             >
-              {group.label} ({statusCounts[group.id]})
+              {t(`filters.${group.id}`)} ({statusCounts[group.id]})
             </Button>
           ))}
         </div>
@@ -194,8 +196,8 @@ export function MobileIncidentListView({
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground">
               {searchQuery || activeFilter
-                ? "Keine Einsätze gefunden"
-                : "Keine aktiven Einsätze"}
+                ? t('noResults')
+                : t('noActive')}
             </p>
           </div>
         ) : (

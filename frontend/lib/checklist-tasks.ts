@@ -1,5 +1,6 @@
 import { LucideIcon, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { translateOutsideReact } from '@/lib/i18n-messages'
 import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/components/settings/fallback-settings'
 
 export interface ChecklistAction {
@@ -90,8 +91,8 @@ export function generateChecklistTasks(params: {
   // A link row prints the QR when a printer is reachable, otherwise copies the link.
   const linkAction = (onCopy: () => void, onPrint: () => void): ChecklistAction =>
     printerAvailable
-      ? { label: 'QR drucken', icon: Printer, variant: 'default', onClick: onPrint }
-      : { label: 'Link kopieren', icon: Copy, variant: 'default', onClick: onCopy }
+      ? { label: translateOutsideReact('checklist.actions.printQr'), icon: Printer, variant: 'default', onClick: onPrint }
+      : { label: translateOutsideReact('checklist.actions.copyLink'), icon: Copy, variant: 'default', onClick: onCopy }
 
   return [
     // 1. Send first WhatsApp notification (two-message picker, handled in component).
@@ -99,7 +100,7 @@ export function generateChecklistTasks(params: {
     // operator can re-copy as often as needed and check it off when truly sent.
     {
       id: 'send-first-whatsapp',
-      title: 'Erste Info-WhatsApp senden',
+      title: translateOutsideReact('checklist.tasks.send-first-whatsapp.title'),
       description: 'Mannschaft über Ereignis informieren',
       icon: MessageCircle,
       priority: 'recommended',
@@ -110,14 +111,14 @@ export function generateChecklistTasks(params: {
     // 2. Check in personnel (Critical) — share link or print QR
     {
       id: 'personnel-checkin',
-      title: 'Personal einchecken',
+      title: translateOutsideReact('checklist.tasks.personnel-checkin.title'),
       description: 'Mindestens 3 Personen für Einsatzbereitschaft',
       icon: Users,
       priority: 'critical',
       completed: params.checkedInPersonnel >= 3,
       metadata: {
         count: params.checkedInPersonnel,
-        details: `${params.checkedInPersonnel} Person${params.checkedInPersonnel !== 1 ? 'en' : ''} eingecheckt`
+        details: translateOutsideReact('checklist.tasks.personnel-checkin.details', { count: params.checkedInPersonnel })
       },
       actionButtons: [linkAction(params.onCopyCheckInLink, params.onPrintCheckInLink)]
     },
@@ -125,7 +126,7 @@ export function generateChecklistTasks(params: {
     // 3. Share Reko link — share link or print QR
     {
       id: 'share-reko-link',
-      title: 'Reko-Link teilen',
+      title: translateOutsideReact('checklist.tasks.share-reko-link.title'),
       description: 'Reko-Personal Zugang zum Reko-Dashboard geben',
       icon: Map,
       priority: 'recommended',
@@ -136,7 +137,7 @@ export function generateChecklistTasks(params: {
     // 4. Share Alarm link — share link or print QR
     {
       id: 'share-alarm-link',
-      title: 'Alarm-Link teilen',
+      title: translateOutsideReact('checklist.tasks.share-alarm-link.title'),
       description: 'Telefon-/Walk-in-Meldungen ermöglichen',
       icon: MessageCircle,
       priority: 'recommended',
@@ -147,21 +148,21 @@ export function generateChecklistTasks(params: {
     // 5. Assign reconnaissance officers (bullet reminder, no action)
     {
       id: 'assign-reko',
-      title: 'Reko-Offiziere bestimmen',
+      title: translateOutsideReact('checklist.tasks.assign-reko.title'),
       description: 'Mindestens 1 Person für Rekognoszierung',
       icon: Users,
       priority: 'recommended',
       completed: params.rekoOfficers >= 1,
       metadata: {
         count: params.rekoOfficers,
-        details: `${params.rekoOfficers} Reko-Offizier${params.rekoOfficers !== 1 ? 'e' : ''} zugewiesen`
+        details: translateOutsideReact('checklist.tasks.assign-reko.details', { count: params.rekoOfficers })
       }
     },
 
     // 6. Assign drivers (bullet reminder, no action)
     {
       id: 'assign-drivers',
-      title: 'Fahrzeug-Fahrer zuweisen',
+      title: translateOutsideReact('checklist.tasks.assign-drivers.title'),
       description: 'Alle Fahrzeuge benötigen einen Fahrer',
       icon: Truck,
       priority: 'critical',
@@ -169,29 +170,29 @@ export function generateChecklistTasks(params: {
       metadata: {
         count: params.driverAssignments,
         total: params.totalVehicles,
-        details: `${params.driverAssignments}/${params.totalVehicles} Fahrzeuge haben Fahrer`
+        details: translateOutsideReact('checklist.tasks.assign-drivers.details', { count: params.driverAssignments, total: params.totalVehicles })
       }
     },
 
     // 7. Assign magazin staff (bullet reminder, no action)
     {
       id: 'assign-magazin',
-      title: 'Magazin-Personal zuweisen',
+      title: translateOutsideReact('checklist.tasks.assign-magazin.title'),
       description: 'Optional: Person für Material-Ausgabe',
       icon: Package,
       priority: 'optional',
       completed: params.magazinStaff >= 1,
       metadata: {
         details: params.magazinStaff >= 1
-          ? `${params.magazinStaff} Person${params.magazinStaff !== 1 ? 'en' : ''} zugewiesen`
-          : 'Noch nicht zugewiesen'
+          ? translateOutsideReact('checklist.tasks.assign-magazin.detailsAssigned', { count: params.magazinStaff })
+          : translateOutsideReact('checklist.tasks.assign-magazin.detailsNotAssigned')
       }
     },
 
     // 8. Printer reachable — verify each callout (config is one-time, reachability is not)
     {
       id: 'printer-ready',
-      title: 'Drucker bereit',
+      title: translateOutsideReact('checklist.tasks.printer-ready.title'),
       description: 'Testdruck bestätigt, dass Einsatzzettel gedruckt werden können',
       icon: Printer,
       priority: 'recommended',
@@ -201,14 +202,14 @@ export function generateChecklistTasks(params: {
       completed: !params.printerEnabled || params.printerAgentOnline,
       metadata: {
         details: !params.printerEnabled
-          ? 'Drucker deaktiviert'
+          ? translateOutsideReact('checklist.tasks.printer-ready.detailsDisabled')
           : params.printerAgentOnline
-            ? 'Drucker erreichbar'
-            : 'Print-Service offline'
+            ? translateOutsideReact('checklist.tasks.printer-ready.detailsOnline')
+            : translateOutsideReact('checklist.tasks.printer-ready.detailsOffline')
       },
       actionButtons: [
         {
-          label: 'Testdruck',
+          label: translateOutsideReact('checklist.tasks.printer-ready.testPrint'),
           icon: Printer,
           variant: 'default',
           onClick: params.onTestPrint
@@ -219,19 +220,19 @@ export function generateChecklistTasks(params: {
     // 9. Paper fallback armed — a snapshot must exist OUTSIDE the system when it fails
     {
       id: 'fallback-ready',
-      title: 'Papier-Fallback aktivieren',
+      title: translateOutsideReact('checklist.tasks.fallback-ready.title'),
       description: 'Auto-Druck (Thermo) oder Lageblatt Auto-Download für den Ausfall',
       icon: LifeBuoy,
       priority: 'recommended',
       completed: params.fallbackReady,
       metadata: {
         details: params.fallbackReady
-          ? 'Snapshot-Routine aktiv'
-          : 'Kein automatischer Board-Snapshot eingerichtet'
+          ? translateOutsideReact('checklist.tasks.fallback-ready.detailsActive')
+          : translateOutsideReact('checklist.tasks.fallback-ready.detailsInactive')
       },
       actionButtons: [
         {
-          label: 'Einrichten',
+          label: translateOutsideReact('checklist.tasks.fallback-ready.setup'),
           icon: LifeBuoy,
           variant: 'outline',
           onClick: params.onOpenFallbackSettings
@@ -242,17 +243,19 @@ export function generateChecklistTasks(params: {
     // 10. Configure offline maps (Optional)
     {
       id: 'configure-map-mode',
-      title: 'Offline-Karten einrichten',
+      title: translateOutsideReact('checklist.tasks.configure-map-mode.title'),
       description: 'Optional: Karten ohne Internet nutzen',
       icon: Map,
       priority: 'optional',
       completed: params.mapTilesAvailable,
       metadata: {
-        details: params.mapTilesAvailable ? 'Offline-Karten verfügbar' : 'Nicht eingerichtet'
+        details: params.mapTilesAvailable
+          ? translateOutsideReact('checklist.tasks.configure-map-mode.detailsAvailable')
+          : translateOutsideReact('checklist.tasks.configure-map-mode.detailsNotSetup')
       },
       actionButtons: [
         {
-          label: 'Karten-Setup',
+          label: translateOutsideReact('checklist.tasks.configure-map-mode.mapSetup'),
           icon: Map,
           variant: 'outline',
           onClick: params.onShowTileSetup
