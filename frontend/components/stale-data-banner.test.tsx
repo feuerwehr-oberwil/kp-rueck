@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { screen, act } from "@testing-library/react";
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 import type { WebSocketStatus } from "@/lib/websocket-client";
 
@@ -36,21 +37,21 @@ describe("StaleDataBanner", () => {
   it("renders nothing while the WebSocket is connected", () => {
     mockWsStatus = "connected";
     mockLastSyncAt = new Date(Date.now() - 10 * 60_000);
-    const { container } = render(<StaleDataBanner />);
+    const { container } = renderWithIntl(<StaleDataBanner />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it("renders nothing when there has never been a successful sync", () => {
     mockWsStatus = "disconnected";
     mockLastSyncAt = null;
-    const { container } = render(<StaleDataBanner />);
+    const { container } = renderWithIntl(<StaleDataBanner />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it("renders the warning when WS is disconnected and last sync is stale", () => {
     mockWsStatus = "disconnected";
     mockLastSyncAt = new Date(Date.now() - 60_000);
-    render(<StaleDataBanner />);
+    renderWithIntl(<StaleDataBanner />);
     expect(
       screen.getByText(/Verbindung verloren/i),
     ).toBeInTheDocument();
@@ -60,7 +61,7 @@ describe("StaleDataBanner", () => {
   it("re-renders when wsClient signals reconnection", () => {
     mockWsStatus = "disconnected";
     mockLastSyncAt = new Date(Date.now() - 60_000);
-    render(<StaleDataBanner />);
+    renderWithIntl(<StaleDataBanner />);
     expect(screen.getByText(/Verbindung verloren/i)).toBeInTheDocument();
 
     act(() => {
