@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Bell, X, AlertTriangle, Info, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,6 +22,8 @@ interface NotificationCardProps {
 }
 
 function NotificationCard({ notification, onDismiss, onClickIncident }: NotificationCardProps) {
+  const t = useTranslations('notifications.card')
+  const tSidebar = useTranslations('notifications.sidebar')
   const getSeverityStyles = (severity: NotificationSeverity) => {
     switch (severity) {
       case 'critical':
@@ -56,20 +59,20 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
     const hours = Math.floor(minutes / 60)
     const days = Math.floor(hours / 24)
 
-    if (days > 0) return `vor ${days}d`
-    if (hours > 0) return `vor ${hours}h`
-    if (minutes > 0) return `vor ${minutes}m`
-    return 'gerade eben'
+    if (days > 0) return t('timeDays', { days })
+    if (hours > 0) return t('timeHours', { hours })
+    if (minutes > 0) return t('timeMinutes', { minutes })
+    return t('justNow')
   }
 
   const getSeverityLabel = (severity: NotificationSeverity) => {
     switch (severity) {
       case 'critical':
-        return 'Kritisch'
+        return t('severityCritical')
       case 'warning':
-        return 'Warnung'
+        return t('severityWarning')
       case 'info':
-        return 'Info'
+        return t('severityInfo')
     }
   }
 
@@ -117,7 +120,7 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
             size="icon"
             className="flex-shrink-0 h-7 w-7 hover:bg-background/80"
             onClick={() => onDismiss(notification.id)}
-            aria-label="Benachrichtigung schliessen"
+            aria-label={tSidebar('dismissAria')}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -134,6 +137,7 @@ interface NotificationSidebarProps {
 }
 
 export function NotificationSidebar({ onClickIncident, open: controlledOpen, onOpenChange }: NotificationSidebarProps = {}) {
+  const t = useTranslations('notifications.sidebar')
   const [internalOpen, setInternalOpen] = useState(false)
   const isOpen = controlledOpen ?? internalOpen
   const setIsOpen = onOpenChange ?? setInternalOpen
@@ -151,7 +155,7 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
           variant="ghost"
           size="icon"
           className="relative rounded-lg"
-          aria-label={`Benachrichtigungen ${unreadCount > 0 ? `${unreadCount} ungelesene` : ''}`}
+          aria-label={t('bellAria', { unread: unreadCount > 0 ? t('bellUnread', { count: unreadCount }) : '' })}
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
@@ -164,7 +168,7 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
 
       <SheetContent side="right" className="w-full sm:w-96 overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Benachrichtigungen</SheetTitle>
+          <SheetTitle>{t('title')}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-4 px-2 space-y-4">
@@ -172,7 +176,7 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  Aktiv
+                  {t('activeHeading')}
                   <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
                     {activeNotifications.length}
                   </span>
@@ -182,9 +186,9 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
                   size="sm"
                   onClick={dismissAllNotifications}
                   className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                  aria-label="Alle schliessen"
+                  aria-label={t('dismissAll')}
                 >
-                  Alle schliessen
+                  {t('dismissAll')}
                 </Button>
               </div>
               <div className="space-y-2">
@@ -208,14 +212,14 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
               <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-muted mb-4">
                 <Bell className="h-8 w-8 opacity-40" />
               </div>
-              <p className="text-sm font-medium">Keine aktiven Benachrichtigungen</p>
-              <p className="text-xs mt-1">Alles ist in Ordnung</p>
+              <p className="text-sm font-medium">{t('emptyTitle')}</p>
+              <p className="text-xs mt-1">{t('emptySubtitle')}</p>
             </div>
           )}
 
           {historicalNotifications.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Verlauf</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('historyHeading')}</h3>
               <div className="space-y-2">
                 {historicalNotifications.map((notification) => (
                   <NotificationCard

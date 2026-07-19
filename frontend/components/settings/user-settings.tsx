@@ -367,32 +367,32 @@ export function UserSettings() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neuer Benutzer</DialogTitle>
+            <DialogTitle>{t('users.newUser')}</DialogTitle>
             <DialogDescription>
-              Erstellen Sie ein neues Benutzerkonto.
+              {t('users.createDialogDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Benutzername</Label>
+              <Label htmlFor="username">{t('users.usernameLabel')}</Label>
               <Input
                 id="username"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                placeholder="max.muster"
+                placeholder={t('users.usernamePlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="display_name">Anzeigename</Label>
+              <Label htmlFor="display_name">{t('users.displayNameLabel')}</Label>
               <Input
                 id="display_name"
                 value={formData.display_name}
                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                placeholder="Max Mustermann"
+                placeholder={t('users.displayNamePlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Passwort</Label>
+              <Label htmlFor="password">{t('users.passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -401,7 +401,7 @@ export function UserSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">Rolle</Label>
+              <Label htmlFor="role">{t('users.roleLabel')}</Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
@@ -410,22 +410,22 @@ export function UserSettings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="editor">Bearbeiter</SelectItem>
-                  <SelectItem value="viewer">Betrachter</SelectItem>
-                  <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="editor">{t('users.roles.editor')}</SelectItem>
+                  <SelectItem value="viewer">{t('users.roles.viewer')}</SelectItem>
+                  <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Administratoren können Benutzer verwalten.
+                {t('users.adminsHint')}
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={submitting}>
-              {submitting ? 'Erstelle...' : 'Erstellen'}
+              {submitting ? t('users.creating') : t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -435,14 +435,14 @@ export function UserSettings() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Benutzer bearbeiten</DialogTitle>
+            <DialogTitle>{t('users.editDialogTitle')}</DialogTitle>
             <DialogDescription>
-              Ändern Sie die Benutzerdaten.
+              {t('users.editDialogDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit_username">Benutzername</Label>
+              <Label htmlFor="edit_username">{t('users.usernameLabel')}</Label>
               <Input
                 id="edit_username"
                 value={formData.username}
@@ -450,7 +450,7 @@ export function UserSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_display_name">Anzeigename</Label>
+              <Label htmlFor="edit_display_name">{t('users.displayNameLabel')}</Label>
               <Input
                 id="edit_display_name"
                 value={formData.display_name}
@@ -458,7 +458,7 @@ export function UserSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_role">Rolle</Label>
+              <Label htmlFor="edit_role">{t('users.roleLabel')}</Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
@@ -468,24 +468,24 @@ export function UserSettings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="editor">Bearbeiter</SelectItem>
-                  <SelectItem value="viewer">Betrachter</SelectItem>
-                  <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="editor">{t('users.roles.editor')}</SelectItem>
+                  <SelectItem value="viewer">{t('users.roles.viewer')}</SelectItem>
+                  <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
                 </SelectContent>
               </Select>
               {selectedUser?.id === currentUser?.id && (
                 <p className="text-xs text-muted-foreground">
-                  Sie können Ihre eigene Rolle nicht ändern.
+                  {t('users.ownRoleHint')}
                 </p>
               )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleUpdate} disabled={submitting}>
-              {submitting ? 'Speichere...' : 'Speichern'}
+              {submitting ? t('users.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -495,29 +495,29 @@ export function UserSettings() {
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Passwort zurücksetzen</DialogTitle>
+            <DialogTitle>{t('users.resetPasswordTitle')}</DialogTitle>
             <DialogDescription>
-              Setzen Sie ein neues Passwort für {selectedUser?.display_name || selectedUser?.username}.
+              {t('users.resetPasswordDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="new_password">Neues Passwort</Label>
+              <Label htmlFor="new_password">{t('users.newPasswordLabel')}</Label>
               <Input
                 id="new_password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Neues Passwort eingeben"
+                placeholder={t('users.newPasswordPlaceholder')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleResetPassword} disabled={submitting || !newPassword}>
-              {submitting ? 'Setze zurück...' : 'Passwort setzen'}
+              {submitting ? t('users.resetting') : t('users.setPassword')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -527,19 +527,18 @@ export function UserSettings() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Benutzer deaktivieren?</AlertDialogTitle>
+            <AlertDialogTitle>{t('users.deactivateTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Der Benutzer {selectedUser?.display_name || selectedUser?.username} wird deaktiviert
-              und kann sich nicht mehr anmelden. Diese Aktion kann rückgängig gemacht werden.
+              {t('users.deactivateDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {submitting ? 'Deaktiviere...' : 'Deaktivieren'}
+              {submitting ? t('users.deactivating') : t('users.deactivateAction')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -549,19 +548,18 @@ export function UserSettings() {
       <AlertDialog open={permanentDeleteDialogOpen} onOpenChange={setPermanentDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Benutzer endgültig löschen?</AlertDialogTitle>
+            <AlertDialogTitle>{t('users.permanentDeleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Der Benutzer {selectedUser?.display_name || selectedUser?.username} wird unwiderruflich
-              gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+              {t('users.permanentDeleteDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handlePermanentDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {submitting ? 'Lösche...' : 'Endgültig löschen'}
+              {submitting ? t('users.deleting') : t('users.permanentDeleteAction')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
