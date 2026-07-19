@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
-import { OPERATION_STATUS_LABELS as STATUS_LABELS } from '@/lib/status-labels';
+import { getOperationStatusLabel } from '@/lib/status-labels';
 import {
   Users,
   ClipboardCheck,
@@ -215,7 +215,7 @@ export function TrainingSimulationControls() {
 
       if ((result.scheduled?.length ?? 0) > 0) {
         toast.success(t('checkinsScheduled', { count: result.scheduled!.length }), {
-          description: t('checkinsScheduledDescription', { minutes: result.trickle_minutes }),
+          description: t('checkinsScheduledDescription', { minutes: result.trickle_minutes ?? checkinMinutes }),
         });
       } else if (result.checked_in.length === 0) {
         toast.info(t('noMorePersons'), {
@@ -311,7 +311,7 @@ export function TrainingSimulationControls() {
                           {op.location || op.incidentType}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {STATUS_LABELS[op.status]}
+                          {getOperationStatusLabel(op.status)}
                           {started && ` · ${t('since', { time: getTimeSince(started) })}`}
                           {/* The "beendet" report lives ONLY here — the board is
                               informed in the exercise itself (e.g. via radio). */}

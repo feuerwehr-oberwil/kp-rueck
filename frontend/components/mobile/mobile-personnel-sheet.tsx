@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -21,6 +22,7 @@ export function MobilePersonnelSheet({
   personnel,
   operations,
 }: MobilePersonnelSheetProps) {
+  const t = useTranslations("incidents.mobilePersonnel")
   const [searchQuery, setSearchQuery] = useState("")
 
   // Filter personnel by search
@@ -39,7 +41,7 @@ export function MobilePersonnelSheet({
   const groupedPersonnel = useMemo(() => {
     const groups: Record<string, Person[]> = {}
     filteredPersonnel.forEach((person) => {
-      const role = person.role || "Andere"
+      const role = person.role || t("roleOther")
       if (!groups[role]) groups[role] = []
       groups[role].push(person)
     })
@@ -67,10 +69,10 @@ export function MobilePersonnelSheet({
         <SheetHeader className="pb-4 border-b mb-4">
           <SheetTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Personal
+            {t("title")}
           </SheetTitle>
           <SheetDescription>
-            {availableCount}/{personnel.length} verfügbar
+            {t("availableCount", { available: availableCount, total: personnel.length })}
           </SheetDescription>
         </SheetHeader>
 
@@ -79,7 +81,7 @@ export function MobilePersonnelSheet({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Personal suchen..."
+            placeholder={t("searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10"
@@ -155,7 +157,7 @@ export function MobilePersonnelSheet({
                             : "text-amber-700 border-amber-200 dark:text-amber-400 dark:border-amber-800/50"
                         )}
                       >
-                        {person.status === "available" ? "Verfügbar" : "Zugewiesen"}
+                        {person.status === "available" ? t("available") : t("assigned")}
                       </Badge>
                     </div>
                   )

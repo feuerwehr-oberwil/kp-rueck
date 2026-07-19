@@ -111,6 +111,10 @@
       "toggleZuFuss": "Zu Fuss umschalten",
       "assignVehicle": "Fahrzeug {number} zuweisen/entfernen",
       "deleteIncident": "Einsatz löschen"
+    },
+    "meta": {
+      "title": "KP Rück Dashboard",
+      "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     }
   },
   "nav": {
@@ -869,6 +873,11 @@
       "noAddress": "Keine Adresse gefunden",
       "confirm": "Standort übernehmen",
       "cancel": "Abbrechen"
+    },
+    "statusGroups": {
+      "open": "Offen",
+      "active": "Aktiv",
+      "completed": "Beendet"
     }
   },
   "settings": {
@@ -2189,6 +2198,13 @@
     },
     "map": {
       "legend": "Legende",
+      "priority": "Priorität",
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig"
+    },
+    "legend": {
+      "title": "Legende",
       "priority": "Priorität",
       "high": "Hoch",
       "medium": "Mittel",

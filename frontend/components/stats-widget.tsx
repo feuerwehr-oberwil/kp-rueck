@@ -36,15 +36,15 @@ function StatCard({ label, value, icon }: StatCardProps) {
 
 // Helper function to get status label with fallback (labels shared with the
 // incident type definitions so board and stats can't drift)
-function getStatusLabel(status: string): string {
-  return (
-    STATUS_LABELS[status as keyof typeof STATUS_LABELS] ||
-    status.charAt(0).toUpperCase() + status.slice(1)
-  )
+function getStatusLabel(t: (key: string) => string, status: string): string {
+  return status in STATUS_LABELS
+    ? t(`statusLabels.${status}`)
+    : status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 export function StatsWidget({ eventId }: { eventId: string }) {
   const t = useTranslations('common.statsWidget')
+  const tKanban = useTranslations('kanban')
   const [stats, setStats] = useState<ApiEventStats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -130,7 +130,7 @@ export function StatsWidget({ eventId }: { eventId: string }) {
           <div className="flex flex-wrap gap-2">
             {Object.entries(stats.status_counts).map(([status, count]) => (
               <Badge key={status} variant="outline" className="px-3 py-1">
-                {getStatusLabel(status)}: {count}
+                {getStatusLabel(tKanban, status)}: {count}
               </Badge>
             ))}
           </div>

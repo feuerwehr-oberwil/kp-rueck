@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
+import { translateOutsideReact } from '@/lib/i18n-messages'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import type { Operation } from '@/lib/contexts/operations-context'
@@ -67,11 +68,11 @@ export function useRekoNotifications(
             // Extract danger types
             const dangerTypes: string[] = []
             if (report.dangers_json) {
-              if (report.dangers_json.fire) dangerTypes.push("Feuer")
-              if (report.dangers_json.explosion) dangerTypes.push("Explosion")
-              if (report.dangers_json.collapse) dangerTypes.push("Einsturz")
-              if (report.dangers_json.chemical) dangerTypes.push("Gefahrstoffe")
-              if (report.dangers_json.electrical) dangerTypes.push("Elektrisch")
+              if (report.dangers_json.fire) dangerTypes.push(translateOutsideReact("notifications.operations.dangerTypes.fire"))
+              if (report.dangers_json.explosion) dangerTypes.push(translateOutsideReact("notifications.operations.dangerTypes.explosion"))
+              if (report.dangers_json.collapse) dangerTypes.push(translateOutsideReact("notifications.operations.dangerTypes.collapse"))
+              if (report.dangers_json.chemical) dangerTypes.push(translateOutsideReact("notifications.operations.dangerTypes.chemical"))
+              if (report.dangers_json.electrical) dangerTypes.push(translateOutsideReact("notifications.operations.dangerTypes.electrical"))
             }
 
             // Update operation with REKO summary immediately

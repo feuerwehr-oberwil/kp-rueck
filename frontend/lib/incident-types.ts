@@ -1,3 +1,5 @@
+import { translateOutsideReact } from '@/lib/i18n-messages'
+
 // Incident types mapping - matches database constraint
 export const incidentTypeLabels: Record<string, string> = {
   brandbekaempfung: 'Brandbekämpfung',
@@ -34,7 +36,7 @@ export const incidentTypeKeys = (() => {
   return sorted
 })()
 
-// Helper function to format incident types to German labels
+// Helper function to format incident types to localized labels
 export function getIncidentTypeLabel(type: string): string {
-  return incidentTypeLabels[type] || type
+  return type in incidentTypeLabels ? translateOutsideReact(`incidents.types.${type}`) : type
 }

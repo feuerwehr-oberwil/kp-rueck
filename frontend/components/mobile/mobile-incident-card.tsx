@@ -8,7 +8,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
-import { OPERATION_STATUS_LABELS as statusLabels } from "@/lib/status-labels"
+import { getOperationStatusLabel } from "@/lib/status-labels"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -84,7 +84,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
               {getIncidentTypeLabel(operation.incidentType)}
             </Badge>
             <Badge variant="secondary" className="text-xs px-1.5 py-0">
-              {statusLabels[operation.status] || operation.status}
+              {getOperationStatusLabel(operation.status)}
             </Badge>
             {operation.hasCompletedReko && (
               <span title="Reko ausgefullt">

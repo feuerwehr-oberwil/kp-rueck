@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet"
 import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { useTranslations } from "next-intl"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
@@ -175,6 +176,8 @@ export default function SidePanelMapContent({
   onSwitchToDetail,
   formatLocation,
 }: SidePanelMapContentProps) {
+  const t = useTranslations("kanban.sidePanelMap")
+  const tIncidents = useTranslations("incidents")
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
 
   // Vehicle positions from Traccar GPS
@@ -259,7 +262,7 @@ export default function SidePanelMapContent({
   if (mappableOperations.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground p-4">
-        <p className="text-center text-sm">Keine Einsätze mit gültigen Koordinaten</p>
+        <p className="text-center text-sm">{t("noCoordinates")}</p>
       </div>
     )
   }
@@ -329,20 +332,20 @@ export default function SidePanelMapContent({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-red-500" />
-            <span>Hoch</span>
+            <span>{tIncidents("priority.high")}</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-yellow-500" />
-            <span>Mittel</span>
+            <span>{tIncidents("priority.medium")}</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span>Niedrig</span>
+            <span>{tIncidents("priority.low")}</span>
           </div>
           {assignedVehiclePositions.length > 0 && (
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-sm bg-blue-500" />
-              <span>Fahrzeug</span>
+              <span>{t("vehicle")}</span>
             </div>
           )}
         </div>
