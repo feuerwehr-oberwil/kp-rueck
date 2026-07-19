@@ -6,6 +6,7 @@ name from the original schemas.py is re-exported here.
 """
 
 # noqa: F401, F403 — wildcard re-exports are the point of this barrel
+from .alarms import *  # noqa: F401, F403
 from .assignments import *  # noqa: F401, F403
 from .audit import *  # noqa: F401, F403
 from .common import *  # noqa: F401, F403
