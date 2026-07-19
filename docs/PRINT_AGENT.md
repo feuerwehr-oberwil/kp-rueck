@@ -1,6 +1,8 @@
-# Thermal Print Agent
+# Print Agent
 
-The print agent connects the KP Rueck dashboard to a 58mm ESC/POS thermal printer. It runs locally (e.g. on a Raspberry Pi) and polls the backend for pending print jobs.
+The print agent connects the KP Rueck dashboard to a printer on the local network. It runs locally (e.g. on a Raspberry Pi) and polls the backend for pending print jobs.
+
+> **The backend print queue is transport-neutral.** Jobs are stored as structured JSON — the backend knows nothing about ESC/POS, paper widths, or any printer brand. The bundled agent (`print-agent/`) is the *reference* implementation for a 58 mm ESC/POS thermal printer, but any department can point their own agent at the same four endpoints and render the jobs however they like (a CUPS/A4 laser printer, a PDF spooler, a second printer). See [Writing your own agent](#writing-your-own-agent) below. This mirrors the alarm connectors ([docs/ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)): the core stays vendor-neutral, the device-specific part lives at the edge.
 
 ## Architecture
 
@@ -32,12 +34,14 @@ This means ~60 requests/hour when idle (instead of ~1800 at a fixed 2s interval)
 
 ## Print Jobs
 
-Two job types are supported:
+Each job carries a `job_type` and a structured JSON `payload`. The agent decides how to render each type; nothing about the format is fixed by the backend.
 
-| Job Type | Trigger | Content |
+| `job_type` | Trigger | Content |
 |---|---|---|
-| **Assignment Slip** | Incident moved to "Disponiert" or "Einsatz" (auto), or manual "Thermo" button | Location, incident type, priority, description, vehicles, crew, materials |
-| **Board Snapshot** | "Thermo" button → confirmation sheet with options | Event overview, incidents (with crew/materials/description), vehicle status, individual personnel list |
+| `assignment` | Incident moved to "Disponiert" or "Einsatz" (auto), or manual "Thermo" button | Location, incident type, priority, description, vehicles, crew, materials |
+| `board` | "Thermo" button → confirmation sheet with options | Event overview, incidents (with crew/materials/description), vehicle status, individual personnel list |
+| `qr_code` | QR slip action | Encoded content + label (e.g. a check-in link) |
+| `test` | Settings → connection test | Static test content |
 
 Auto-printing triggers when:
 - Printer is enabled in settings (`printer.enabled = true`)
@@ -54,16 +58,39 @@ A 30-second deduplication window prevents duplicate prints for the same incident
 - **Font A**: ~22 characters/line (used for titles, list items, separators)
 - **Font B**: ~32 characters/line (used for descriptions only)
 
-## API Endpoints (No Auth Required)
+## API Endpoints (Agent)
 
-These endpoints are used by the print agent and don't require authentication:
+These four endpoints are the entire contract between the backend and any agent:
 
 | Endpoint | Method | Description |
 |---|---|---|
 | `/api/print/config/` | GET | Fetch printer IP/port/enabled from backend settings |
-| `/api/print/jobs/pending/` | GET | Fetch pending print jobs |
+| `/api/print/jobs/pending/` | GET | Fetch pending print jobs (JSON payloads) |
 | `/api/print/jobs/{id}/claim/` | PATCH | Claim a job (status → printing) |
 | `/api/print/jobs/{id}/complete/` | PATCH | Report job completion or failure |
+
+**Authentication:** the agent endpoints authenticate with the `X-Agent-Token` header, matched against the backend's `PRINT_AGENT_TOKEN` environment variable. When the variable is unset the endpoints are open — intended only for isolated LAN installs; **always set it for a cloud-hosted backend.**
+
+**Reliability:** every poll doubles as a heartbeat (the backend shows the agent online for ~30 s after the last one). Jobs stuck in `printing` for over 120 s are re-offered, and failed jobs are retried up to 3 times — so an agent may crash and restart at any time without losing jobs.
+
+## Writing your own agent
+
+Because the queue is just JSON, a custom agent is a small poll loop against the four endpoints above — no dependency on the reference code:
+
+```python
+while True:
+    jobs = GET("/api/print/jobs/pending/", headers={"X-Agent-Token": TOKEN})
+    for job in jobs:
+        PATCH(f"/api/print/jobs/{job['id']}/claim/", headers=...)
+        try:
+            render_and_print(job["job_type"], job["payload"])   # your device logic
+            PATCH(f"/api/print/jobs/{job['id']}/complete/", json={"status": "completed"}, headers=...)
+        except Exception as e:
+            PATCH(f"/api/print/jobs/{job['id']}/complete/", json={"status": "failed", "error": str(e)}, headers=...)
+    sleep(5 if jobs else 60)
+```
+
+Render each `job_type` however your hardware needs — the reference agent (`print-agent/agent.py`) uses python-escpos for a 58 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
 
 ## Local Development
 

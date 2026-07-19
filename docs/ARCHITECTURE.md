@@ -41,8 +41,9 @@ graph TB
         printer["Thermal Printer<br/><small>ESC/POS over network</small>"]
     end
 
-    subgraph external["External Services"]
-        divera["Divera 24/7<br/><small>Alarm webhooks + polling</small>"]
+    subgraph external["External Services (all optional)"]
+        anyhook["Any dispatch system<br/><small>POST /api/alarms webhook</small>"]
+        divera["Divera 24/7<br/><small>alarm in/out · roster sync</small>"]
         traccar["Traccar<br/><small>GPS vehicle tracking</small>"]
         osm["OpenStreetMap<br/><small>Online map tiles</small>"]
     end
@@ -65,6 +66,7 @@ graph TB
 
     ws_server -->|broadcast| ws_client
 
+    anyhook -.->|webhook| routes
     divera -.->|webhook| routes
     services -.->|poll| divera
     services -.->|poll| traccar
@@ -98,7 +100,7 @@ graph TB
 | **Middleware Stack** | CORS, audit logging, security headers, rate limiting |
 | **CRUD Layer** | Async database operations with eager loading (prevents N+1 queries) |
 | **WebSocket Manager** | Socket.IO server, room-based broadcasting per event |
-| **Services** | Business logic: Divera polling, sync, training auto-generation, photo storage, exports |
+| **Services** | Business logic: alarm intake + inference (`divera_intake`), outbound alerting providers (`alerting/`), Divera/Traccar polling, sync, training auto-generation, photo storage, exports |
 | **Auth / Tokens** | JWT generation, validation, blocklist, role-based access |
 
 ### Database (PostgreSQL 16)
@@ -333,21 +335,33 @@ sequenceDiagram
     A->>B: PATCH /api/print/jobs/{id}/complete
 ```
 
-### Divera Alarm Import
+### Alarm Import
+
+Alarms reach the intake pool from **any** dispatch system through the generic,
+provider-neutral `POST /api/alarms` webhook (see
+[ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)); Divera is one built-in adapter
+that funnels into the same pool, inference, and auto-attach logic. All paths
+store to `divera_emergencies` with `source`/`source_id` provenance.
 
 ```mermaid
 sequenceDiagram
+    participant X as Any dispatch system
     participant D as Divera 24/7
     participant B as Backend
     participant WS as Socket.IO
     participant C as All Clients
 
-    alt Webhook (preferred)
-        D->>B: POST /api/divera/webhook
-        B->>B: Store in divera_emergencies
+    alt Generic webhook (any system)
+        X->>B: POST /api/alarms (secret + source/source_id)
+        B->>B: Store in divera_emergencies (source=slug)
         B->>WS: Broadcast new alarm
         WS->>C: Show alarm notification
-    else Polling (fallback)
+    else Divera webhook (adapter)
+        D->>B: POST /api/divera/webhook
+        B->>B: Store in divera_emergencies (source=divera)
+        B->>WS: Broadcast new alarm
+        WS->>C: Show alarm notification
+    else Divera polling (fallback)
         loop Every 30s (when clients connected)
             B->>D: GET /api/v2/alarms
             D-->>B: Alarm list
