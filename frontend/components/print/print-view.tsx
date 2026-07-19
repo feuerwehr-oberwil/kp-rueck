@@ -1,14 +1,16 @@
 "use client"
 
 import { forwardRef } from "react"
+import { useTranslations } from "next-intl"
 import type { Operation, Person, Material } from "@/lib/contexts/operations-context"
 import type { ApiVehicle } from "@/lib/api-client"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import dynamic from "next/dynamic"
 
 // Dynamically import Leaflet components (no SSR)
 const PrintableMapInner = dynamic(() => import("./printable-map"), {
   ssr: false,
-  loading: () => <div className="h-[300px] bg-gray-100 flex items-center justify-center text-gray-500">Karte wird geladen...</div>,
+  loading: () => <div className="h-[300px] bg-gray-100 flex items-center justify-center text-gray-500">{translateOutsideReact("print.view.mapLoading")}</div>,
 })
 
 export interface PrintOptions {
@@ -30,31 +32,18 @@ interface PrintViewProps {
   vehicleDrivers?: Map<string, string> // vehicle name -> driver name
 }
 
-const STATUS_ORDER: Record<string, { label: string; order: number }> = {
-  incoming: { label: "EINGEGANGEN", order: 1 },
-  ready: { label: "REKO", order: 2 },
-  rekoDone: { label: "REKO ABGESCHLOSSEN", order: 3 },
-  enroute: { label: "DISPONIERT", order: 4 },
-  active: { label: "EINSATZ", order: 5 },
-  returning: { label: "BEENDET / RÜCKFAHRT", order: 6 },
-  complete: { label: "ABGESCHLOSSEN", order: 7 },
-}
+// Reko danger types with a print.view.danger.* label (others fall back to the raw key).
+const DANGER_KEYS = ["fire", "explosion", "collapse", "chemical", "electrical", "radiation", "water", "traffic"]
 
-const PRIORITY_LABELS: Record<string, string> = {
-  high: "HOCH",
-  medium: "MITTEL",
-  low: "TIEF",
-}
-
-const DANGER_LABELS: Record<string, string> = {
-  fire: "Brand",
-  explosion: "Explosion",
-  collapse: "Einsturz",
-  chemical: "Chemie",
-  electrical: "Elektrik",
-  radiation: "Strahlung",
-  water: "Wasser",
-  traffic: "Verkehr",
+// Column display order (labels come from the print.view.statusHeading messages).
+const STATUS_ORDER: Record<string, number> = {
+  incoming: 1,
+  ready: 2,
+  rekoDone: 3,
+  enroute: 4,
+  active: 5,
+  returning: 6,
+  complete: 7,
 }
 
 function formatTime(date: Date): string {
@@ -73,6 +62,8 @@ function formatDateTime(date: Date): string {
 
 export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
   ({ eventName, operations, personnel, vehicles, materials, options, vehicleDrivers }, ref) => {
+    const t = useTranslations("print.view")
+
     // Filter operations based on options
     const filteredOperations = options.includeCompleted
       ? operations
@@ -92,7 +83,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
 
     // Sort statuses by their defined order
     const sortedStatuses = Object.keys(operationsByStatus).sort(
-      (a, b) => (STATUS_ORDER[a]?.order ?? 99) - (STATUS_ORDER[b]?.order ?? 99)
+      (a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99)
     )
 
     // Filter personnel (only checked-in / available + assigned)
@@ -116,10 +107,10 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
       <div ref={ref} className="print-view print-only bg-white text-black p-4 font-sans text-xs">
         {/* Header */}
         <div className="border-b-2 border-black pb-2 mb-4">
-          <h1 className="text-lg font-bold">KP RÜCK STATUSÜBERSICHT</h1>
+          <h1 className="text-lg font-bold">{t("title")}</h1>
           <div className="flex justify-between text-sm">
-            <span>Event: {eventName}</span>
-            <span>Gedruckt: {formatDateTime(new Date())}</span>
+            <span>{t("eventLabel")}: {eventName}</span>
+            <span>{t("printedLabel")}: {formatDateTime(new Date())}</span>
           </div>
         </div>
 
@@ -127,7 +118,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {options.includeMap && filteredOperations.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
             <h2 className="font-bold border-b border-black mb-2 text-sm">
-              EINSATZÜBERSICHT KARTE
+              {t("mapOverview")}
             </h2>
             <PrintableMapInner operations={filteredOperations} />
           </div>
@@ -136,12 +127,11 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {/* Incidents by Status */}
         {options.includeIncidents && sortedStatuses.map((status) => {
           const statusOps = operationsByStatus[status]
-          const statusInfo = STATUS_ORDER[status]
 
           return (
             <div key={status} className="mb-4">
               <h2 className="font-bold border-b border-black mb-2 text-sm">
-                {statusInfo?.label ?? status.toUpperCase()} ({statusOps.length})
+                {status in STATUS_ORDER ? t(`statusHeading.${status}`) : status.toUpperCase()} ({statusOps.length})
               </h2>
 
               {/* Card-style layout for each incident */}
@@ -154,7 +144,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     </div>
                     <div className="text-right text-[10px]">
                       <span className={op.priority === "high" ? "font-bold" : ""}>
-                        {PRIORITY_LABELS[op.priority] ?? op.priority}
+                        {["high", "medium", "low"].includes(op.priority) ? t(`priority.${op.priority}`) : op.priority}
                       </span>
                       {" | "}
                       {formatTime(op.dispatchTime)}
@@ -166,29 +156,29 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     {/* Left column */}
                     <div className="flex-1">
                       <div className="mb-1">
-                        <span className="font-semibold">Typ:</span> {op.incidentType}
+                        <span className="font-semibold">{t("typ")}:</span> {op.incidentType}
                       </div>
                       {op.crew.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">Personal:</span> {op.crew.join(", ")}
+                          <span className="font-semibold">{t("personal")}:</span> {op.crew.join(", ")}
                         </div>
                       )}
                       {op.vehicles.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">Fahrzeuge:</span>{" "}
+                          <span className="font-semibold">{t("fahrzeuge")}:</span>{" "}
                           {op.vehicles.map((vName) => {
                             const driverName = vehicleDrivers?.get(vName)
                             const callsign = op.vehicleCallsigns.get(vName)
                             const parts = [vName]
                             if (callsign) parts[0] = `${vName} · ${callsign}`
-                            if (driverName) return `${parts[0]} (Fahrer: ${driverName})`
+                            if (driverName) return `${parts[0]} (${t("driverPrefix")}: ${driverName})`
                             return parts[0]
                           }).join(", ")}
                         </div>
                       )}
                       {op.materials.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">Material:</span> {getMaterialNames(op.materials)}
+                          <span className="font-semibold">{t("material")}:</span> {getMaterialNames(op.materials)}
                         </div>
                       )}
                     </div>
@@ -197,24 +187,24 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     <div className="flex-1">
                       {op.contact && (
                         <div className="mb-1">
-                          <span className="font-semibold">Kontakt:</span> {op.contact}
+                          <span className="font-semibold">{t("kontakt")}:</span> {op.contact}
                         </div>
                       )}
                       {op.hasCompletedReko && op.rekoSummary && (
                         <div className="mb-1">
-                          <span className="font-semibold">Reko:</span>{" "}
+                          <span className="font-semibold">{t("reko")}:</span>{" "}
                           {op.rekoSummary.hasDangers && op.rekoSummary.dangerTypes.length > 0 && (
                             <span>
                               {op.rekoSummary.dangerTypes
-                                .map((d) => DANGER_LABELS[d] ?? d)
+                                .map((d) => (DANGER_KEYS.includes(d) ? t(`danger.${d}`) : d))
                                 .join(", ")}
                             </span>
                           )}
                           {op.rekoSummary.personnelCount && (
-                            <span> | ~{op.rekoSummary.personnelCount} Pers.</span>
+                            <span> | {t("persCount", { count: op.rekoSummary.personnelCount })}</span>
                           )}
                           {op.rekoSummary.estimatedDuration && (
-                            <span> | ~{op.rekoSummary.estimatedDuration}h</span>
+                            <span> | {t("durationHours", { count: op.rekoSummary.estimatedDuration })}</span>
                           )}
                         </div>
                       )}
@@ -224,12 +214,12 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                   {/* Full width fields */}
                   {op.notes && (
                     <div className="mt-1 pt-1 border-t border-gray-200">
-                      <span className="font-semibold">Meldung:</span> {op.notes}
+                      <span className="font-semibold">{t("meldung")}:</span> {op.notes}
                     </div>
                   )}
                   {op.internalNotes && (
                     <div className="mt-1 text-gray-600">
-                      <span className="font-semibold">Interne Notizen:</span> {op.internalNotes}
+                      <span className="font-semibold">{t("interneNotizen")}:</span> {op.internalNotes}
                     </div>
                   )}
                 </div>
@@ -242,21 +232,21 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {options.includePersonnel && filteredPersonnel.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
             <h2 className="font-bold border-b border-black mb-2 text-sm">
-              PERSONAL ({filteredPersonnel.length} eingecheckt)
+              {t("personalHeading", { count: filteredPersonnel.length })}
             </h2>
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b border-gray-400">
-                  <th className="text-left p-1">Status</th>
-                  <th className="text-left p-1">Name</th>
-                  <th className="text-left p-1">Funktion</th>
+                  <th className="text-left p-1">{t("statusCol")}</th>
+                  <th className="text-left p-1">{t("nameCol")}</th>
+                  <th className="text-left p-1">{t("funktionCol")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredPersonnel.map((person) => (
                   <tr key={person.id} className="border-b border-gray-200">
                     <td className="p-1">
-                      {person.status === "assigned" ? "Im Einsatz" : "Verfügbar"}
+                      {person.status === "assigned" ? t("inUse") : t("available")}
                     </td>
                     <td className="p-1">{person.name}</td>
                     <td className="p-1">{person.role}</td>
@@ -271,22 +261,22 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {options.includeVehicles && vehicles.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
             <h2 className="font-bold border-b border-black mb-2 text-sm">
-              FAHRZEUGE ({vehicles.length})
+              {t("fahrzeugeHeading", { count: vehicles.length })}
             </h2>
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b border-gray-400">
-                  <th className="text-left p-1">Status</th>
-                  <th className="text-left p-1">Fahrzeug</th>
-                  <th className="text-left p-1">Typ</th>
-                  <th className="text-left p-1">Funkrufname</th>
+                  <th className="text-left p-1">{t("statusCol")}</th>
+                  <th className="text-left p-1">{t("fahrzeugCol")}</th>
+                  <th className="text-left p-1">{t("typCol")}</th>
+                  <th className="text-left p-1">{t("funkrufnameCol")}</th>
                 </tr>
               </thead>
               <tbody>
                 {vehicles.map((vehicle) => (
                   <tr key={vehicle.id} className="border-b border-gray-200">
                     <td className="p-1">
-                      {vehicle.status === "assigned" ? "Im Einsatz" : vehicle.status === "available" ? "Verfügbar" : vehicle.status}
+                      {vehicle.status === "assigned" ? t("inUse") : vehicle.status === "available" ? t("available") : vehicle.status}
                     </td>
                     <td className="p-1">{vehicle.name}</td>
                     <td className="p-1">{vehicle.type}</td>
@@ -302,21 +292,21 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         {options.includeMaterials && filteredMaterials.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
             <h2 className="font-bold border-b border-black mb-2 text-sm">
-              MATERIAL ({filteredMaterials.length})
+              {t("materialHeading", { count: filteredMaterials.length })}
             </h2>
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b border-gray-400">
-                  <th className="text-left p-1">Status</th>
-                  <th className="text-left p-1">Material</th>
-                  <th className="text-left p-1">Kategorie</th>
+                  <th className="text-left p-1">{t("statusCol")}</th>
+                  <th className="text-left p-1">{t("materialCol")}</th>
+                  <th className="text-left p-1">{t("kategorieCol")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredMaterials.map((material) => (
                   <tr key={material.id} className="border-b border-gray-200">
                     <td className="p-1">
-                      {material.status === "assigned" ? "Im Einsatz" : "Verfügbar"}
+                      {material.status === "assigned" ? t("inUse") : t("available")}
                     </td>
                     <td className="p-1">{material.name}</td>
                     <td className="p-1">{material.category}</td>
@@ -329,7 +319,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
 
         {/* Footer */}
         <div className="border-t border-black pt-2 mt-4 text-[10px] text-gray-500">
-          KP Rück - Notfall-Ausdruck | {formatDateTime(new Date())}
+          {t("footer")} | {formatDateTime(new Date())}
         </div>
       </div>
     )

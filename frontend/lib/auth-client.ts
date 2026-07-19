@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from './env';
+import { translateOutsideReact } from './i18n-messages';
 
 export interface User {
   id: string;
@@ -225,7 +226,7 @@ export async function microsoftLogin(code: string): Promise<User> {
     });
 
     if (!response.ok) {
-      let detail = 'Microsoft-Anmeldung fehlgeschlagen';
+      let detail = translateOutsideReact('errors.microsoftLoginFailed');
       try {
         const errorData = await response.json();
         detail = errorData.detail || detail;

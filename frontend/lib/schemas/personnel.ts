@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { translateOutsideReact } from "@/lib/i18n-messages";
 
 export const personnelAvailabilitySchema = z.enum([
   "available",
@@ -9,13 +10,13 @@ export const personnelFormSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Name ist erforderlich")
-    .max(120, "Maximal 120 Zeichen"),
+    .min(1, translateOutsideReact("settings.validation.nameRequired"))
+    .max(120, translateOutsideReact("settings.validation.max120")),
   role: z
     .string()
     .trim()
-    .min(1, "Rolle ist erforderlich")
-    .max(80, "Maximal 80 Zeichen"),
+    .min(1, translateOutsideReact("settings.validation.roleRequired"))
+    .max(80, translateOutsideReact("settings.validation.max80")),
   availability: personnelAvailabilitySchema,
   tags: z.array(z.string().trim().min(1).max(40)),
 });

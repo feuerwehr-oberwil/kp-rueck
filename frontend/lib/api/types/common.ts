@@ -1,6 +1,7 @@
 /**
  * Shared / cross-domain API types.
  */
+import { translateOutsideReact } from "@/lib/i18n-messages"
 
 /**
  * Custom API error class that includes HTTP status code
@@ -31,7 +32,7 @@ export class ApiError extends Error {
  * happened. Polling GETs still resolve to undefined instead (soft degrade).
  */
 export class NetworkError extends Error {
-  constructor(message: string = 'Keine Verbindung zum Server') {
+  constructor(message: string = translateOutsideReact('errors.networkError')) {
     super(message)
     this.name = 'NetworkError'
   }

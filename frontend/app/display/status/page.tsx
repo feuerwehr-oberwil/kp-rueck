@@ -43,6 +43,7 @@ export default function DisplayStatusPage() {
 
 function SituationBoard() {
   const t = useTranslations('display.status')
+  const tk = useTranslations('kanban')
   const { stats, vehicleStatus, operations, personnel, materials } = useStatusData()
 
   const incidentsByStatus = useMemo(() => {
@@ -157,7 +158,7 @@ function SituationBoard() {
                 <div className={cn("px-3 xl:px-4 py-1.5 xl:py-2 border-b border-border", colDef.color)}>
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] xl:text-xs font-bold text-foreground/70 uppercase tracking-wider">
-                      {colDef.title}
+                      {tk(`columns.${colDef.id}`)}
                     </span>
                     <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-md bg-foreground/10 text-foreground text-[10px] xl:text-xs font-bold tabular-nums">
                       {ops.length}

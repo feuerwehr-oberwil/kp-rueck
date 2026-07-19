@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { translateOutsideReact } from "@/lib/i18n-messages";
 
 export const vehicleStatusSchema = z.enum(["available", "unavailable"]);
 
@@ -6,19 +7,19 @@ export const vehicleFormSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Name ist erforderlich")
-    .max(80, "Maximal 80 Zeichen"),
-  type: z.string().trim().max(80, "Maximal 80 Zeichen").optional().default(""),
+    .min(1, translateOutsideReact("settings.validation.nameRequired"))
+    .max(80, translateOutsideReact("settings.validation.max80")),
+  type: z.string().trim().max(80, translateOutsideReact("settings.validation.max80")).optional().default(""),
   display_order: z
-    .number({ message: "Reihenfolge muss eine Zahl sein" })
-    .int("Reihenfolge muss eine ganze Zahl sein")
-    .min(1, "Mindestens 1"),
+    .number({ message: translateOutsideReact("settings.validation.orderNumber") })
+    .int(translateOutsideReact("settings.validation.orderInt"))
+    .min(1, translateOutsideReact("settings.validation.orderMin1")),
   status: vehicleStatusSchema,
   radio_call_sign: z
     .string()
     .trim()
-    .min(1, "Funkrufname ist erforderlich")
-    .max(40, "Maximal 40 Zeichen"),
+    .min(1, translateOutsideReact("settings.validation.callsignRequired"))
+    .max(40, translateOutsideReact("settings.validation.max40")),
 });
 
 export type VehicleFormValues = z.input<typeof vehicleFormSchema>;

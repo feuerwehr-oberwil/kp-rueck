@@ -10,7 +10,7 @@ import { apiClient, type ApiIncident } from "@/lib/api-client"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { Loader2, Palette, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { colorGroupFor, COLOR_BY_LABELS, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -175,7 +175,7 @@ function AuthenticatedDisplayMap({
               title={tMap('common.colorByTitle')}
             >
               <Palette className="h-3 w-3" />
-              {tMap('common.colorByButton', { label: COLOR_BY_LABELS[colorBy] })}
+              {tMap('common.colorByButton', { label: tMap(`colorBy.${colorBy}`) })}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
@@ -186,7 +186,7 @@ function AuthenticatedDisplayMap({
                 onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
                 className="cursor-pointer justify-between"
               >
-                {COLOR_BY_LABELS[dim]}
+                {tMap(`colorBy.${dim}`)}
                 {colorBy === dim && <Check className="h-3.5 w-3.5" />}
               </DropdownMenuItem>
             ))}
