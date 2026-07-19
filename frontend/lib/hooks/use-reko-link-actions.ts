@@ -4,6 +4,7 @@ import { useCallback, useState } from "react"
 import { toast } from "sonner"
 
 import { apiClient } from "@/lib/api-client"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { copyToClipboard } from "@/lib/utils"
 
 export type RekoLinkCopied = "direct" | "dashboard" | null
@@ -54,7 +55,7 @@ export function useRekoLinkActions({
 
   const copyDirectLink = useCallback(async () => {
     if (!incidentId || !assignedReko) {
-      toast.error("Keine Reko-Person zugewiesen")
+      toast.error(translateOutsideReact('notifications.rekoLinks.noRekoAssigned'))
       return
     }
     setIsCopying(true)
@@ -63,12 +64,12 @@ export function useRekoLinkActions({
       const fullUrl = `${window.location.origin}${response.link}`
       await copyToClipboard(fullUrl)
       flashCopied("direct")
-      toast.success("Direkt-Link kopiert", {
-        description: `Formular-Link für ${assignedReko.name}`,
+      toast.success(translateOutsideReact('notifications.rekoLinks.directCopiedTitle'), {
+        description: translateOutsideReact('notifications.rekoLinks.directCopiedDescription', { name: assignedReko.name }),
       })
     } catch (error) {
       console.error("Failed to copy direct reko link:", error)
-      toast.error("Fehler beim Kopieren")
+      toast.error(translateOutsideReact('notifications.rekoLinks.copyFailed'))
     } finally {
       setIsCopying(false)
     }
@@ -76,7 +77,7 @@ export function useRekoLinkActions({
 
   const copyDashboardLink = useCallback(async () => {
     if (!eventId) {
-      toast.error("Kein Event ausgewählt")
+      toast.error(translateOutsideReact('notifications.rekoLinks.noEventSelected'))
       return
     }
     setIsCopying(true)
@@ -85,12 +86,12 @@ export function useRekoLinkActions({
       const fullUrl = `${window.location.origin}${response.link}`
       await copyToClipboard(fullUrl)
       flashCopied("dashboard")
-      toast.success("Dashboard-Link kopiert", {
-        description: "Reko-Personal kann ihre Zuweisungen sehen",
+      toast.success(translateOutsideReact('notifications.rekoLinks.dashboardCopiedTitle'), {
+        description: translateOutsideReact('notifications.rekoLinks.dashboardCopiedDescription'),
       })
     } catch (error) {
       console.error("Failed to copy dashboard link:", error)
-      toast.error("Fehler beim Kopieren")
+      toast.error(translateOutsideReact('notifications.rekoLinks.copyFailed'))
     } finally {
       setIsCopying(false)
     }

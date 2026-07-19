@@ -10,7 +10,120 @@
   "reko": {},
   "print": {},
   "divera": {},
-  "notifications": {},
+  "notifications": {
+    "auth": {
+      "sessionExpiredTitle": "Sitzung abgelaufen",
+      "sessionExpiredDescription": "Bitte melden Sie sich erneut an."
+    },
+    "materials": {
+      "loadFailedTitle": "Material konnte nicht geladen werden",
+      "loadFailedDescription": "Die Materialliste ist möglicherweise veraltet.",
+      "groupsLoadFailed": "Materialgruppen konnten nicht geladen werden"
+    },
+    "personnel": {
+      "loadFailedTitle": "Personal konnte nicht geladen werden",
+      "loadFailedDescription": "Die Personalliste ist möglicherweise veraltet."
+    },
+    "center": {
+      "dismissFailedTitle": "Meldung konnte nicht ausgeblendet werden",
+      "dismissFailedCount": "{count, plural, one {# Meldung konnte nicht ausgeblendet werden} other {# Meldungen konnten nicht ausgeblendet werden}}",
+      "dismissAllFailedTitle": "Meldungen konnten nicht ausgeblendet werden",
+      "settingsSaveFailedTitle": "Einstellungen konnten nicht gespeichert werden",
+      "retryDescription": "Bitte erneut versuchen."
+    },
+    "operations": {
+      "removeFailedTitle": "Fehler beim Entfernen",
+      "removePersonFailedDescription": "Die Person konnte nicht entfernt werden.",
+      "removeRekoFailedDescription": "Die Reko-Person konnte nicht entfernt werden.",
+      "removeMaterialFailedDescription": "Das Material konnte nicht entfernt werden.",
+      "removeVehicleFailedDescription": "Das Fahrzeug konnte nicht entfernt werden.",
+      "conflictTitle": "Von anderer Person geändert",
+      "conflictDescription": "Dieser Einsatz wurde gerade von jemand anderem aktualisiert — die Ansicht wurde neu geladen.",
+      "statusNotChangedTitle": "Status nicht geändert",
+      "statusNotChangedDescription": "Der Einsatz wurde auf den letzten Stand zurückgesetzt.",
+      "updateFailedTitle": "Fehler beim Aktualisieren",
+      "updateFailedDescription": "Der Einsatz konnte nicht aktualisiert werden.",
+      "reorderFailedTitle": "Reihenfolge nicht gespeichert",
+      "reorderFailedDescription": "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
+      "createFailedTitle": "Einsatz konnte nicht erstellt werden",
+      "createFailedDescription": "Bitte erneut versuchen. Wenn das Problem bestehen bleibt, prüfen Sie die Verbindung.",
+      "recentRemovalWarningTitle": "{name} war vor {seconds}s noch auf \"{incident}\"",
+      "recentRemovalWarningDescription": "Doppelbelegung — bitte prüfen.",
+      "assignFailedTitle": "Fehler beim Zuweisen",
+      "assignConflictDescription": "{name} wurde gerade von jemand anderem geändert — bitte erneut versuchen.",
+      "assignFailedDescription": "{name} konnte nicht zugewiesen werden.",
+      "assignFailedFollowupTitle": "Zuweisung fehlgeschlagen",
+      "assignRekoFailedTitle": "Reko-Zuweisung fehlgeschlagen",
+      "assignRekoFailedDescription": "{name} konnte nicht als Reko zugewiesen werden.",
+      "errorTitle": "Fehler",
+      "vehicleInvalidIdDescription": "Fahrzeug \"{name}\" hat keine gültige ID. Bitte laden Sie die Seite neu.",
+      "vehicleNotMovedTitle": "{name} nicht verschoben",
+      "vehicleNotMovedDescription": "Nicht alle Einsätze konnten bereinigt werden — bitte prüfen.",
+      "vehicleMovedTitle": "{name} verschoben",
+      "vehicleMovedDescription": "Von {labels} entfernt.",
+      "restoreFailedTitle": "Wiederherstellen fehlgeschlagen",
+      "restoreFailedDescription": "Der Einsatz konnte nicht wiederhergestellt werden.",
+      "restoredTitle": "Einsatz wiederhergestellt",
+      "deletedTitle": "Einsatz gelöscht",
+      "undoLabel": "Rückgängig",
+      "deleteFailedTitle": "Fehler beim Löschen",
+      "deleteFailedDescription": "Der Einsatz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+      "dangerTypes": {
+        "fire": "Feuer",
+        "fireDanger": "Brandgefahr",
+        "explosion": "Explosion",
+        "collapse": "Einsturz",
+        "chemical": "Gefahrstoffe",
+        "electrical": "Elektrisch"
+      }
+    },
+    "railway": {
+      "backOnlineTitle": "Railway ist wieder online!",
+      "backOnlineDescription": "Lokale Änderungen zu Railway synchronisieren?",
+      "syncNowLabel": "Jetzt synchronisieren",
+      "syncing": "Synchronisiere zu Railway...",
+      "syncSuccess": "Erfolgreich zu Railway synchronisiert",
+      "syncFailed": "Synchronisation zu Railway fehlgeschlagen"
+    },
+    "rekoLinks": {
+      "noRekoAssigned": "Keine Reko-Person zugewiesen",
+      "directCopiedTitle": "Direkt-Link kopiert",
+      "directCopiedDescription": "Formular-Link für {name}",
+      "copyFailed": "Fehler beim Kopieren",
+      "noEventSelected": "Kein Event ausgewählt",
+      "dashboardCopiedTitle": "Dashboard-Link kopiert",
+      "dashboardCopiedDescription": "Reko-Personal kann ihre Zuweisungen sehen"
+    },
+    "whatsapp": {
+      "copiedTitle": "In Zwischenablage kopiert",
+      "copiedDescription": "Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.",
+      "copyFailedTitle": "Fehler beim Kopieren",
+      "copyFailedDescription": "Die Nachricht konnte nicht in die Zwischenablage kopiert werden."
+    },
+    "gpsSim": {
+      "arrived": "angekommen",
+      "etaMinutes": "noch ~{minutes} min {seconds}s",
+      "etaSeconds": "noch ~{seconds}s"
+    },
+    "trainingActions": {
+      "rekoArrived": "Reko vor Ort",
+      "rekoReport": "Reko-Meldung",
+      "driveToIncident": "Fahrt zu Einsatz",
+      "vehicleOnScene": "Fahrzeug vor Ort",
+      "fieldComplete": "Einsatz beendet",
+      "driveToMagazin": "Rückfahrt Magazin"
+    }
+  },
   "help": {},
-  "errors": {}
+  "errors": {
+    "api": {
+      "title": "API Fehler",
+      "noErrorDetails": "Keine Fehlerdetails verfügbar",
+      "connectionTitle": "Verbindungsfehler",
+      "connectionDescription": "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
+      "unknown": "Unbekannter Fehler",
+      "photoUploadFailed": "Foto-Upload fehlgeschlagen",
+      "uploadTimeout": "Upload-Zeitüberschreitung - bitte erneut versuchen"
+    }
+  }
 }

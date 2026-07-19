@@ -9,6 +9,7 @@ import { getApiUrl } from '@/lib/env'
 import { isValidUUID } from '@/lib/utils/validation'
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 import { toast } from 'sonner'
+import { translateOutsideReact } from '@/lib/i18n-messages'
 
 interface NotificationContextValue {
   notifications: Notification[]
@@ -162,8 +163,8 @@ export function NotificationProvider({
 
       if (!response.ok) {
         console.error('Failed to dismiss notification:', response.statusText)
-        toast.error('Meldung konnte nicht ausgeblendet werden', {
-          description: 'Bitte erneut versuchen.',
+        toast.error(translateOutsideReact('notifications.center.dismissFailedTitle'), {
+          description: translateOutsideReact('notifications.center.retryDescription'),
         })
         return
       }
@@ -174,8 +175,8 @@ export function NotificationProvider({
       )
     } catch (error) {
       console.error('Error dismissing notification:', error)
-      toast.error('Meldung konnte nicht ausgeblendet werden', {
-        description: 'Bitte erneut versuchen.',
+      toast.error(translateOutsideReact('notifications.center.dismissFailedTitle'), {
+        description: translateOutsideReact('notifications.center.retryDescription'),
       })
     }
   }
@@ -217,10 +218,8 @@ export function NotificationProvider({
       if (failedCount > 0) {
         console.error(`Failed to dismiss ${failedCount} notifications`)
         toast.error(
-          failedCount === 1
-            ? '1 Meldung konnte nicht ausgeblendet werden'
-            : `${failedCount} Meldungen konnten nicht ausgeblendet werden`,
-          { description: 'Bitte erneut versuchen.' }
+          translateOutsideReact('notifications.center.dismissFailedCount', { count: failedCount }),
+          { description: translateOutsideReact('notifications.center.retryDescription') }
         )
       }
 
@@ -231,8 +230,8 @@ export function NotificationProvider({
       }
     } catch (error) {
       console.error('Error dismissing all notifications:', error)
-      toast.error('Meldungen konnten nicht ausgeblendet werden', {
-        description: 'Bitte erneut versuchen.',
+      toast.error(translateOutsideReact('notifications.center.dismissAllFailedTitle'), {
+        description: translateOutsideReact('notifications.center.retryDescription'),
       })
     }
   }
@@ -252,8 +251,8 @@ export function NotificationProvider({
 
       if (!response.ok) {
         console.error('Failed to update notification settings:', response.statusText)
-        toast.error('Einstellungen konnten nicht gespeichert werden', {
-          description: 'Bitte erneut versuchen.',
+        toast.error(translateOutsideReact('notifications.center.settingsSaveFailedTitle'), {
+          description: translateOutsideReact('notifications.center.retryDescription'),
         })
         return
       }
@@ -262,8 +261,8 @@ export function NotificationProvider({
       setSettings(updated)
     } catch (error) {
       console.error('Error updating notification settings:', error)
-      toast.error('Einstellungen konnten nicht gespeichert werden', {
-        description: 'Bitte erneut versuchen.',
+      toast.error(translateOutsideReact('notifications.center.settingsSaveFailedTitle'), {
+        description: translateOutsideReact('notifications.center.retryDescription'),
       })
     }
   }

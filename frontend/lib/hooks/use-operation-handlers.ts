@@ -1,4 +1,5 @@
 import { toast } from 'sonner'
+import { translateOutsideReact } from '@/lib/i18n-messages'
 import type { Operation } from '@/lib/contexts/operations-context'
 
 interface UseOperationHandlersProps {
@@ -47,8 +48,8 @@ export function useOperationHandlers({
       await deleteOperation(operationId)
     } catch (error) {
       console.error('Failed to delete operation:', error)
-      toast.error("Fehler beim Löschen", {
-        description: "Der Einsatz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+      toast.error(translateOutsideReact('notifications.operations.deleteFailedTitle'), {
+        description: translateOutsideReact('notifications.operations.deleteFailedDescription'),
       })
     }
   }
