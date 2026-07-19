@@ -82,18 +82,18 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
   )
 
   const checkInMeta = {
-    title: 'Personal Check-In',
-    subtitle: 'QR scannen zum Einchecken — funktioniert ohne Anmeldung.',
+    title: t('checkInTitle'),
+    subtitle: t('checkInSubtitle'),
     copyLabel: t('checkInCopyLabel'),
   }
   const rekoMeta = {
-    title: 'Reko-Dashboard',
-    subtitle: 'Reko-Personal sieht Zuweisungen und füllt Formulare aus — ohne Anmeldung.',
+    title: t('rekoTitle'),
+    subtitle: t('rekoSubtitle'),
     copyLabel: t('rekoCopyLabel'),
   }
   const alarmMeta = {
-    title: 'Alarm-Link',
-    subtitle: 'Neue Alarme erfassen (Telefon/Walk-in) — ohne Anmeldung.',
+    title: t('alarmTitle'),
+    subtitle: t('alarmSubtitle'),
     copyLabel: t('alarmCopyLabel'),
   }
 

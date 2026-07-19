@@ -1,6 +1,7 @@
 'use client'
 
 import { useTheme } from 'next-themes'
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { Toaster as Sonner, ToasterProps, useSonner, toast } from 'sonner'
 
@@ -26,6 +27,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
 const DismissAllToasts = () => {
   const { toasts } = useSonner()
+  const t = useTranslations('common')
 
   if (toasts.length <= 1) return null
 
@@ -40,7 +42,7 @@ const DismissAllToasts = () => {
       className="fixed bottom-16 right-4 min-[600px]:right-24 z-[9999] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur-sm transition-colors hover:text-foreground hover:bg-card"
     >
       <X className="h-3.5 w-3.5" />
-      Alle schliessen
+      {t('dismissAllToasts')}
     </button>
   )
 }

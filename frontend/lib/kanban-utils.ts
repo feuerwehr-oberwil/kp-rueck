@@ -32,13 +32,7 @@ export interface ColorGroup {
   color: string
 }
 
-// German labels for the "Färben nach" dimensions.
-export const COLOR_BY_LABELS: Record<ColorByDimension, string> = {
-  priority: "Priorität",
-  reko: "Reko-Person",
-  vehicle: "Fahrzeug",
-  type: "Einsatzart",
-}
+// Labels for the "Färben nach" dimensions live in messages under `map.colorBy.*`.
 
 // Neutral grey for incidents with no value in the active dimension (e.g. no
 // Reko/vehicle assigned yet) — surfaced as an "Ohne Zuweisung" legend entry.

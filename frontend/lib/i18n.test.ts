@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import de from '@/messages/de.json'
 
-type Messages = { [key: string]: string | Messages }
+type Messages = { [key: string]: string | string[] | Messages }
 
 function collectLeaves(obj: Messages, prefix = ''): Array<[string, string]> {
   const leaves: Array<[string, string]> = []
   for (const [key, value] of Object.entries(obj)) {
     const path = prefix ? `${prefix}.${key}` : key
     if (typeof value === 'string') leaves.push([path, value])
+    else if (Array.isArray(value)) value.forEach((v, i) => leaves.push([`${path}.${i}`, v]))
     else leaves.push(...collectLeaves(value, path))
   }
   return leaves
