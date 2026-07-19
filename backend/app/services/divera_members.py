@@ -170,6 +170,7 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
     from uuid import UUID
 
     from .. import schemas
+    from ..crud import external_identities as identities_crud
     from ..crud import personnel as personnel_crud
 
     created = 0
@@ -177,7 +178,8 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
     linked = 0  # existing people backfilled with their Divera id
 
     # Create new personnel, storing the Divera user_cluster_relation id so they
-    # can be targeted directly by outbound alarms.
+    # can be targeted directly by outbound alarms. Identity lives in the
+    # provider-neutral table; divera_user_id stays as a deprecated dual-write.
     for item in preview["new"]:
         member = item["member"]
         personnel_data = schemas.PersonnelCreate(
@@ -188,7 +190,7 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
         divera_id = member.get("divera_id")
         if divera_id:
             person.divera_user_id = divera_id
-            await db.commit()
+            await identities_crud.set_identity(db, person.id, "divera", str(divera_id))
             linked += 1
 
     # Backfill the Divera id on existing matches that don't have it yet. The id
@@ -201,7 +203,7 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
         person = await personnel_crud.get_personnel(db, UUID(existing_id))
         if person is not None and person.divera_user_id != divera_id:
             person.divera_user_id = divera_id
-            await db.commit()
+            await identities_crud.set_identity(db, person.id, "divera", str(divera_id))
             linked += 1
 
     # Delete stale personnel

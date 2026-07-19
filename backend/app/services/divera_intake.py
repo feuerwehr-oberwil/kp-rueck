@@ -233,7 +233,13 @@ async def _auto_attach(
         return None
 
     data = incident_create_from_emergency(emergency, event.id)
-    incident = models.Incident(**data.model_dump(), created_by=None)
+    incident = models.Incident(
+        **data.model_dump(),
+        created_by=None,
+        # Alarm provenance flows onto the board card
+        source=emergency.source or "divera",
+        source_ref=emergency.source_id,
+    )
     db.add(incident)
     await db.flush()
 

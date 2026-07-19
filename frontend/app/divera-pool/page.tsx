@@ -98,7 +98,11 @@ export default function DiveraPoolPage() {
     const unsubscribe = wsClient.on('divera_emergency_received', (data: any) => {
       const emergency = data.emergency as ApiDiveraEmergency;
       toast({
-        title: emergency.is_training ? t('newAlarmTraining') : t('newEmergency'),
+        title: emergency.is_training
+          ? t('newAlarmTraining')
+          : emergency.source && emergency.source !== 'divera'
+            ? t('newAlarmGeneric')
+            : t('newEmergency'),
         description: data.auto_attached
           ? t('autoAttached', { title: emergency.title })
           : emergency.title,
@@ -127,7 +131,8 @@ export default function DiveraPoolPage() {
       emergency.title.toLowerCase().includes(query) ||
       emergency.text?.toLowerCase().includes(query) ||
       emergency.address?.toLowerCase().includes(query) ||
-      emergency.divera_number?.toLowerCase().includes(query)
+      emergency.divera_number?.toLowerCase().includes(query) ||
+      emergency.source?.toLowerCase().includes(query)
     );
   });
 
@@ -356,6 +361,12 @@ export default function DiveraPoolPage() {
                               className="mr-2 border-orange-500/60 text-orange-600 dark:text-orange-400 align-middle"
                             >
                               {t('trainingBadge')}
+                            </Badge>
+                          )}
+                          {/* Alarms from the generic webhook show their sender slug */}
+                          {!emergency.is_training && emergency.source && emergency.source !== 'divera' && (
+                            <Badge variant="outline" className="mr-2 align-middle uppercase">
+                              {emergency.source}
                             </Badge>
                           )}
                           {emergency.title}

@@ -17,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -103,8 +104,9 @@ class Personnel(Base):
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
 
-    # Divera 24/7 link: user_cluster_relation id used to target this person in
-    # outbound alarms. Nullable — only set when synced from / matched to Divera.
+    # DEPRECATED dual-write: superseded by PersonnelExternalIdentity
+    # (provider="divera"). Kept in sync for one compatibility release, then
+    # removed. Do not add new readers.
     divera_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     # Check-in tracking
@@ -130,6 +132,32 @@ class Personnel(Base):
         Index("idx_personnel_checked_in", "checked_in"),
         Index("idx_personnel_availability", "availability"),
         Index("idx_personnel_role_sort_order", "role_sort_order"),
+    )
+
+
+class PersonnelExternalIdentity(Base):
+    """Provider-neutral link between a local person and their id in an external system.
+
+    Providers (Divera, Alamos, …) attach identity to canonical local personnel
+    instead of vendor columns on the personnel table. One row per person per
+    provider; ``external_id`` is opaque (Divera: user_cluster_relation id).
+    Disconnecting a provider deletes rows here, never local personnel.
+    """
+
+    __tablename__ = "personnel_external_identities"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    personnel_id: Mapped[UUID] = mapped_column(
+        ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    external_id: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("provider", "external_id", name="uq_personnel_ext_provider_external_id"),
+        UniqueConstraint("personnel_id", "provider", name="uq_personnel_ext_personnel_provider"),
     )
 
 
@@ -319,9 +347,12 @@ class Incident(Base):
     zu_fuss: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )  # Personnel go by foot (not by vehicle)
-    # Where the alarm originated: "operator" (created in the dashboard by a logged-in user) or
-    # "intake" (created via the public token-gated alarm form by a phone operator / walk-in).
+    # Where the alarm originated: "operator" (created in the dashboard by a logged-in user),
+    # "intake" (public token-gated alarm form), "divera", or the source slug of a
+    # generic-webhook sender. source_ref is the alarm's id in that system (pool
+    # source_id), set when an incident is created from a pool alarm.
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="operator", server_default="operator")
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Manual sort order within a status column (lower = higher on the board). Operators
     # reorder cards to prioritize alarms; this is the persisted, shared order.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
@@ -744,15 +775,27 @@ class PrintJob(Base):
 
 
 class DiveraEmergency(Base):
-    """Divera 24/7 emergency received via webhook - stored for selective attachment to Events."""
+    """Alarm in the intake pool, stored for selective attachment to Events.
+
+    Alarms arrive from Divera 24/7 (webhook/poller) or from any other dispatch
+    system via the generic webhook (POST /api/alarms). Provenance lives in
+    `source` (slug) + `source_id` (opaque sender id, used for idempotent
+    dedupe); `divera_id` only exists on Divera-delivered alarms.
+    """
 
     __tablename__ = "divera_emergencies"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
-    # Divera identifiers for deduplication
-    divera_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True, index=True)
+    # Divera identifiers for deduplication (NULL for generic-webhook alarms)
+    divera_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True, index=True)
     divera_number: Mapped[str | None] = mapped_column(String(50), nullable=True)  # e.g., "E-123"
+
+    # Provider-neutral provenance: which system delivered the alarm ("divera",
+    # "webhook", or a custom per-sender slug) and its id there. Matches the
+    # 20-char budget of incidents.source so the slug can flow onto incidents.
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="divera", server_default="divera")
+    source_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Emergency details from Divera
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -793,8 +836,15 @@ class DiveraEmergency(Base):
         Index("idx_divera_emergencies_attached", "attached_to_event_id"),
         Index("idx_divera_emergencies_archived", "is_archived"),
         Index("idx_divera_emergencies_is_training", "is_training"),
+        Index(
+            "uq_divera_emergencies_source_source_id",
+            "source",
+            "source_id",
+            unique=True,
+            postgresql_where=sa_text("source_id IS NOT NULL"),
+        ),
     )
 
     def __repr__(self):
         status = "attached" if self.attached_to_event_id else "unattached"
-        return f"<DiveraEmergency {self.divera_id} ({status})>"
+        return f"<DiveraEmergency {self.source}:{self.source_id} ({status})>"
