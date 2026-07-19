@@ -1,6 +1,7 @@
 'use client'
 
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, ArrowLeft } from 'lucide-react'
@@ -8,6 +9,7 @@ import { CheckCircle2, ArrowLeft } from 'lucide-react'
 export default function RekoSuccessPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const t = useTranslations('reko.success')
   const incidentId = searchParams.get('id')
   const returnTo = searchParams.get('return_to')
 
@@ -30,17 +32,17 @@ export default function RekoSuccessPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
             <CheckCircle2 className="h-10 w-10 text-blue-600" />
           </div>
-          <CardTitle>Meldung übermittelt</CardTitle>
+          <CardTitle>{t('title')}</CardTitle>
           <CardDescription>
-            Ihre Rekognoszierungs-Meldung wurde erfolgreich an die Einsatzleitung übermittelt.
+            {t('description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center text-sm text-muted-foreground">
-            <p>Sie können dieses Fenster nun schliessen oder zur Übersicht zurückkehren.</p>
+            <p>{t('closeHint')}</p>
             {incidentId && (
               <p className="mt-2">
-                Einsatz-ID: <code className="text-xs">{incidentId}</code>
+                {t('incidentIdLabel')} <code className="text-xs">{incidentId}</code>
               </p>
             )}
           </div>
@@ -50,7 +52,7 @@ export default function RekoSuccessPage() {
             className="w-full"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Zurück zur Übersicht
+            {t('backToOverview')}
           </Button>
         </CardContent>
       </Card>

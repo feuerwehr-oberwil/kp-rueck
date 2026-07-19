@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Camera, Upload, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -93,6 +94,7 @@ export default function PhotoUpload({
   token,
   onPhotosChange
 }: PhotoUploadProps) {
+  const t = useTranslations('reko.photoUpload')
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -117,13 +119,13 @@ export default function PhotoUpload({
       const uploadPromises = Array.from(files).map(async (file) => {
         // Validate file type
         if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} ist kein Bild`)
+          toast.error(t('notAnImage', { name: file.name }))
           return null
         }
 
         // Validate file size (max 10MB, before conversion)
         if (file.size > 10 * 1024 * 1024) {
-          toast.error(`${file.name} ist zu gross (max 10MB)`)
+          toast.error(t('tooLarge', { name: file.name }))
           return null
         }
 
@@ -161,11 +163,7 @@ export default function PhotoUpload({
       const failed = results.filter((result) => result.status === 'rejected')
       if (failed.length > 0) {
         failed.forEach((result) => console.error('Upload failed:', result.reason))
-        toast.error(
-          failed.length === 1
-            ? '1 Foto konnte nicht hochgeladen werden'
-            : `${failed.length} Fotos konnten nicht hochgeladen werden`
-        )
+        toast.error(t('uploadFailed', { count: failed.length }))
       }
     } finally {
       setIsUploading(false)
@@ -194,7 +192,7 @@ export default function PhotoUpload({
       onPhotosChange(current => current.filter(f => f !== filename))
     } catch (error) {
       console.error('Delete failed:', error)
-      toast.error('Foto konnte nicht gelöscht werden')
+      toast.error(t('deleteFailed'))
     }
   }
 
@@ -222,7 +220,7 @@ export default function PhotoUpload({
           className="flex-1"
         >
           <Camera className="mr-2 h-4 w-4" />
-          Kamera
+          {t('camera')}
         </Button>
 
         <Button
@@ -233,7 +231,7 @@ export default function PhotoUpload({
           className="flex-1"
         >
           <Upload className="mr-2 h-4 w-4" />
-          Galerie
+          {t('gallery')}
         </Button>
       </div>
 
@@ -283,14 +281,14 @@ export default function PhotoUpload({
       {isUploading && (
         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Wird hochgeladen...
+          {t('uploading')}
         </div>
       )}
 
       {/* Info */}
       {photos.length === 0 && !isUploading && (
         <p className="text-sm text-muted-foreground text-center py-4">
-          Noch keine Fotos hochgeladen
+          {t('noPhotos')}
         </p>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -35,6 +36,7 @@ export function PersonContextMenu({
   personnelId,
   personnelName,
 }: PersonContextMenuProps) {
+  const t = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const { operations, removeCrew, refreshOperations } = useOperations()
   const [vehicles, setVehicles] = useState<Array<{ id: string; name: string }>>([])
@@ -130,12 +132,12 @@ export function PersonContextMenu({
       const errorDetail = error?.message || error?.response?.data?.detail || ''
 
       if (errorDetail.includes('already has a driver')) {
-        toast.error('Fahrzeug bereits zugewiesen', {
-          description: 'Dieses Fahrzeug hat bereits einen Fahrer. Bitte entfernen Sie zuerst den aktuellen Fahrer.',
+        toast.error(t('personMenu.vehicleTaken'), {
+          description: t('personMenu.vehicleTakenDescription'),
         })
       } else {
-        const errorMessage = errorDetail || 'Funktion konnte nicht zugewiesen werden'
-        toast.error('Fehler', { description: errorMessage })
+        const errorMessage = errorDetail || t('personMenu.assignFailed')
+        toast.error(t('common.error'), { description: errorMessage })
       }
     } finally {
       setLoading(false)
@@ -172,8 +174,8 @@ export function PersonContextMenu({
       refreshOperations()
     } catch (error: any) {
       console.error('Failed to unassign function:', error)
-      const errorMessage = error?.response?.data?.detail || 'Funktion konnte nicht entfernt werden'
-      toast.error('Fehler', { description: errorMessage })
+      const errorMessage = error?.response?.data?.detail || t('personMenu.unassignFailed')
+      toast.error(t('common.error'), { description: errorMessage })
     } finally {
       setLoading(false)
     }
@@ -182,11 +184,11 @@ export function PersonContextMenu({
   const getFunctionLabel = (functionType: FunctionType) => {
     switch (functionType) {
       case 'driver':
-        return 'Fahrer'
+        return t('personMenu.driver')
       case 'reko':
-        return 'Reko'
+        return t('common.reko')
       case 'magazin':
-        return 'Magazin'
+        return t('common.magazin')
       default:
         return functionType
     }
@@ -249,7 +251,7 @@ export function PersonContextMenu({
           >
             {hasFunction('reko') && <Check className="mr-2 h-4 w-4" />}
             <Binoculars className={`mr-2 h-4 w-4 ${!hasFunction('reko') ? 'ml-6' : ''}`} />
-            Reko
+            {t('common.reko')}
           </ContextMenuItem>
 
           <ContextMenuItem
@@ -263,7 +265,7 @@ export function PersonContextMenu({
           >
             {hasFunction('magazin') && <Check className="mr-2 h-4 w-4" />}
             <Package2 className={`mr-2 h-4 w-4 ${!hasFunction('magazin') ? 'ml-6' : ''}`} />
-            Magazin
+            {t('common.magazin')}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -272,20 +274,27 @@ export function PersonContextMenu({
       <AlertDialog open={conflictDialog.open} onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Person ist einem Einsatz zugewiesen</AlertDialogTitle>
+            <AlertDialogTitle>{t('personMenu.conflictTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{personnelName}</strong> ist aktuell{' '}
-              {conflictDialog.conflictingOperations.length === 1
-                ? `dem Einsatz «${conflictDialog.conflictingOperations[0]?.location}» zugewiesen`
-                : `${conflictDialog.conflictingOperations.length} Einsätzen zugewiesen`
-              }.
-              {' '}Als {getFunctionLabel(conflictDialog.functionType)} kann die Person nicht gleichzeitig einem Einsatz zugeteilt sein.
+              {t.rich('personMenu.conflictDescription', {
+                strong: (chunks) => <strong>{chunks}</strong>,
+                name: personnelName,
+                assignment:
+                  conflictDialog.conflictingOperations.length === 1
+                    ? t('personMenu.conflictAssignedOne', {
+                        location: conflictDialog.conflictingOperations[0]?.location ?? '',
+                      })
+                    : t('personMenu.conflictAssignedMany', {
+                        count: conflictDialog.conflictingOperations.length,
+                      }),
+                function: getFunctionLabel(conflictDialog.functionType),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConflictConfirm}>
-              Vom Einsatz entfernen & zuweisen
+              {t('personMenu.confirmAction')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

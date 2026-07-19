@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useSearchParams, usePathname } from "next/navigation"
@@ -9,14 +10,15 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 const displayPages = [
-  { href: "/display/map", label: "Karte", icon: Map },
-  { href: "/display/board", label: "Board", icon: LayoutGrid },
-  { href: "/display/status", label: "Status", icon: BarChart3 },
-]
+  { href: "/display/map", labelKey: "pageMap", icon: Map },
+  { href: "/display/board", labelKey: "pageBoard", icon: LayoutGrid },
+  { href: "/display/status", labelKey: "pageStatus", icon: BarChart3 },
+] as const
 
 const HIDE_DELAY = 8000 // ms before header auto-hides
 
 function ConnectionIndicator() {
+  const t = useTranslations('display')
   const [online, setOnline] = useState(true)
 
   useEffect(() => {
@@ -34,7 +36,7 @@ function ConnectionIndicator() {
   }, [])
 
   return (
-    <div className="flex items-center gap-1.5" title={online ? "Verbunden" : "Verbindung unterbrochen"}>
+    <div className="flex items-center gap-1.5" title={online ? t('layout.connected') : t('layout.disconnected')}>
       {online ? (
         <Wifi className="h-4 w-4 text-success" />
       ) : (
@@ -49,6 +51,7 @@ export default function DisplayLayout({
 }: {
   children: React.ReactNode
 }) {
+  const t = useTranslations('display')
   const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -132,7 +135,7 @@ export default function DisplayLayout({
           <Link
             href={isIndexPage ? "/" : "/display"}
             className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
-            title={isIndexPage ? "Zurück zum Editor" : "Display-Übersicht"}
+            title={isIndexPage ? t('layout.backToEditor') : t('layout.displayOverview')}
           >
             <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
           </Link>
@@ -142,7 +145,7 @@ export default function DisplayLayout({
           <h1 className="text-sm font-semibold tracking-tight text-foreground">{eventName}</h1>
           {isTraining && (
             <span className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded">
-              Übung
+              {t('layout.training')}
             </span>
           )}
         </div>
@@ -165,7 +168,7 @@ export default function DisplayLayout({
                     )}
                   >
                     <p.icon className="h-3 w-3" />
-                    <span>{p.label}</span>
+                    <span>{t(`layout.${p.labelKey}`)}</span>
                   </Link>
                 )
               })}
@@ -179,7 +182,7 @@ export default function DisplayLayout({
           <button
             onClick={toggleFullscreen}
             className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
-            title={isFullscreen ? "Vollbild beenden" : "Vollbild"}
+            title={isFullscreen ? t('layout.exitFullscreen') : t('layout.fullscreen')}
           >
             {isFullscreen ? (
               <Minimize className="h-3.5 w-3.5 text-muted-foreground" />

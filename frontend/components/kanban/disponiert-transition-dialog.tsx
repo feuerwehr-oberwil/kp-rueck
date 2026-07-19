@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Copy, Check, Printer, X, Radio, Siren } from "lucide-react"
 import {
   Dialog,
@@ -40,6 +41,7 @@ export function DisponierTransitionDialog({
   diveraEnabled,
   onSendDivera,
 }: DisponiertTransitionDialogProps) {
+  const t = useTranslations('kanban')
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
 
@@ -55,7 +57,7 @@ export function DisponierTransitionDialog({
     })
     await copyToClipboard(message)
     setWhatsappCopied(true)
-    toast.success("WhatsApp-Nachricht kopiert")
+    toast.success(t('disponiert.whatsappCopied'))
     setTimeout(() => setWhatsappCopied(false), 2000)
   }
 
@@ -63,15 +65,15 @@ export function DisponierTransitionDialog({
     setIsPrinting(true)
     try {
       await apiClient.queueAssignmentPrint(operation.id)
-      toast.success("Druckauftrag gesendet")
+      toast.success(t('common.printJobSent'))
     } catch {
-      toast.error("Drucken fehlgeschlagen")
+      toast.error(t('common.printFailed'))
     } finally {
       setIsPrinting(false)
     }
   }
 
-  const location = operation.location || "[Adresse]"
+  const location = operation.location || t('disponiert.addressPlaceholder')
   const crewList = operation.crew.length > 0
     ? operation.crew.join(", ")
     : null
@@ -83,7 +85,7 @@ export function DisponierTransitionDialog({
           // radio call matches what WhatsApp/Divera already announce.
           const stay = operation.vehicleDriverStay?.get(name)
           if (stay === undefined) return name
-          return `${name} (${stay ? "bleibt vor Ort" : "kehrt zurück"})`
+          return `${name} (${stay ? t('disponiert.staysOnSite') : t('disponiert.returns')})`
         })
         .join(", ")
     : null
@@ -108,9 +110,9 @@ export function DisponierTransitionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Einsatz disponiert</DialogTitle>
+          <DialogTitle>{t('disponiert.title')}</DialogTitle>
           <DialogDescription>
-            {operation.location} → Disponiert
+            {t('disponiert.description', { location: operation.location })}
           </DialogDescription>
         </DialogHeader>
 
@@ -119,10 +121,10 @@ export function DisponierTransitionDialog({
           <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Radio className="h-4 w-4 text-muted-foreground" />
-              Funkdurchsage
+              {t('disponiert.funkdurchsage')}
             </div>
             <p className="text-sm text-muted-foreground italic leading-relaxed">
-              &quot;An alle {funkrufname}, neuer Einsatz: <span className="font-semibold text-foreground">{location}</span>, es rücken aus{crewList ? <> <span className="font-semibold text-foreground">{crewList}</span></> : null}{isZuFuss ? <> <span className="font-semibold text-foreground">zu Fuss</span></> : vehicleList ? <> mit <span className="font-semibold text-foreground">{vehicleList}</span></> : null}{materialNames ? <> und <span className="font-semibold text-foreground">{materialNames}</span></> : null}.{rekoDangers ? <> Besonderes: <span className="font-semibold text-foreground">{rekoDangers}</span>.</> : null}&quot;
+              &quot;{t('disponiert.radioIntro', { funkrufname })} <span className="font-semibold text-foreground">{location}</span>{t('disponiert.radioDeploySuffix')}{crewList ? <> <span className="font-semibold text-foreground">{crewList}</span></> : null}{isZuFuss ? <> <span className="font-semibold text-foreground">{t('disponiert.radioZuFuss')}</span></> : vehicleList ? <> {t('disponiert.radioWith')} <span className="font-semibold text-foreground">{vehicleList}</span></> : null}{materialNames ? <> {t('disponiert.radioAnd')} <span className="font-semibold text-foreground">{materialNames}</span></> : null}.{rekoDangers ? <> {t('disponiert.radioSpecial')} <span className="font-semibold text-foreground">{rekoDangers}</span>.</> : null}&quot;
             </p>
           </div>
 
@@ -138,7 +140,7 @@ export function DisponierTransitionDialog({
               ) : (
                 <Copy className="h-4 w-4" />
               )}
-              WhatsApp-Nachricht kopieren
+              {t('disponiert.copyWhatsapp')}
             </Button>
 
             {printerEnabled && (
@@ -149,7 +151,7 @@ export function DisponierTransitionDialog({
                 disabled={isPrinting}
               >
                 <Printer className="h-4 w-4" />
-                Einsatzzettel drucken
+                {t('common.printSlip')}
               </Button>
             )}
 
@@ -160,7 +162,7 @@ export function DisponierTransitionDialog({
                 onClick={() => onSendDivera(operation)}
               >
                 <Siren className="h-4 w-4" />
-                Divera-Alarm senden
+                {t('disponiert.sendDivera')}
               </Button>
             )}
 
@@ -170,7 +172,7 @@ export function DisponierTransitionDialog({
               onClick={() => onOpenChange(false)}
             >
               <X className="h-4 w-4" />
-              Schliessen
+              {t('common.close')}
             </Button>
           </div>
         </div>

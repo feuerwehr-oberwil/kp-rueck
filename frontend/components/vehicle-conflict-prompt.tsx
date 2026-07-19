@@ -1,6 +1,7 @@
 "use client"
 
 import { Truck } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +24,8 @@ import {
  * (kanban drag-drop, map, command palette, context menu, assignment dialog).
  */
 export function VehicleConflictPrompt() {
+  const t = useTranslations('incidents.vehicleConflict')
+  const tCommon = useTranslations('incidents.common')
   const { vehicleConflict, resolveVehicleConflict, cancelVehicleConflict } = useOperations()
 
   if (!vehicleConflict) return null
@@ -36,35 +39,38 @@ export function VehicleConflictPrompt() {
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-primary" />
-            Fahrzeug bereits im Einsatz
+            {t('title')}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            <span className="font-medium text-foreground">{vehicleName}</span> ist bereits zugewiesen
+            {t.rich('alreadyAssigned', {
+              vehicle: vehicleName,
+              strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })}
             {conflictLabels.length === 1 ? (
-              <> auf »{conflictLabels[0]}«.</>
+              <> {t('assignedToSingle', { label: conflictLabels[0] })}</>
             ) : (
               <>
-                {" "}auf:
+                {" "}{t('assignedToMultiple')}
                 <span className="mt-1 block">
                   {conflictLabels.map((label) => (
-                    <span key={label} className="block">• {label}</span>
+                    <span key={label} className="block">{t('bullet', { label })}</span>
                   ))}
                 </span>
               </>
             )}
-            {" "}Soll das Fahrzeug hierher verschoben werden, oder auf beiden Einsätzen bleiben?
+            {" "}{t('question')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="sm:justify-between">
           <Button variant="ghost" onClick={cancelVehicleConflict}>
-            Abbrechen
+            {tCommon('cancel')}
           </Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => resolveVehicleConflict("keep")}>
-              Mehrfach zuweisen
+              {t('keepBoth')}
             </Button>
             <Button onClick={() => resolveVehicleConflict("move")}>
-              Hierher verschieben
+              {t('moveHere')}
             </Button>
           </div>
         </AlertDialogFooter>
