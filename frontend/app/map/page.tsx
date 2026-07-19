@@ -52,6 +52,8 @@ function formatTime(date: Date): string {
 
 export default function MapPage() {
   const t = useTranslations('map')
+  const tKanban = useTranslations('kanban')
+  const tIncidents = useTranslations('incidents')
   const { incidents, formatLocation, refreshIncidents } = useIncidents()
   const {
     operations,
@@ -234,8 +236,8 @@ export default function MapPage() {
       return filtered.filter((inc) =>
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-        (INCIDENT_TYPE_LABELS[inc.type as keyof typeof INCIDENT_TYPE_LABELS]?.toLowerCase().includes(lowerQuery)) ||
-        (STATUS_LABELS[inc.status as keyof typeof STATUS_LABELS]?.toLowerCase().includes(lowerQuery))
+        (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
+        (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
     [incidents, searchQuery, statusFilters]
@@ -492,7 +494,7 @@ export default function MapPage() {
                         : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                     }`}
                   >
-                    {STATUS_GROUP_LABELS[group]} ({statusGroupCounts[group]})
+                    {t(`statusGroups.${group}`)} ({statusGroupCounts[group]})
                   </button>
                 ))}
                 <button
@@ -657,7 +659,7 @@ export default function MapPage() {
                           {/* Incident Type */}
                           <div className="flex items-center gap-2">
                             <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm text-muted-foreground">{INCIDENT_TYPE_LABELS[incident.type as keyof typeof INCIDENT_TYPE_LABELS]}</span>
+                            <span className="text-sm text-muted-foreground">{incident.type in INCIDENT_TYPE_LABELS ? tIncidents(`types.${incident.type}`) : incident.type}</span>
                           </div>
 
                           {/* Time and Status */}
@@ -674,7 +676,7 @@ export default function MapPage() {
                               </span>
                             )}
                             <Badge variant="outline" className="text-xs">
-                              {STATUS_LABELS[incident.status as keyof typeof STATUS_LABELS]}
+                              {incident.status in STATUS_LABELS ? tKanban(`statusLabels.${incident.status}`) : incident.status}
                             </Badge>
                           </div>
 

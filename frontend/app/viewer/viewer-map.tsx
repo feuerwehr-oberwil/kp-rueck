@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { MapContainer, TileLayer, Marker, useMap, Tooltip } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -103,27 +104,28 @@ function LegendMarker({ fillColor, opacity = 1 }: { fillColor: string; opacity?:
 
 // Simple always-visible legend
 function ViewerMapLegend() {
+  const t = useTranslations('viewer.legend')
   return (
     <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-30 min-w-[140px]">
-      <h3 className="font-semibold text-xs mb-2">Legende</h3>
+      <h3 className="font-semibold text-xs mb-2">{t('title')}</h3>
 
       {/* Priority Legend */}
       <div className="space-y-1">
         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-          Priorität
+          {t('priority')}
         </p>
         <div className="space-y-0.5">
           <div className="flex items-center gap-1.5">
             <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} />
-            <span className="text-[11px]">Hoch</span>
+            <span className="text-[11px]">{t('high')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} />
-            <span className="text-[11px]">Mittel</span>
+            <span className="text-[11px]">{t('medium')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} />
-            <span className="text-[11px]">Niedrig</span>
+            <span className="text-[11px]">{t('low')}</span>
           </div>
         </div>
       </div>
