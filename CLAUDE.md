@@ -187,8 +187,16 @@ Incidents: `/api/incidents` (GET, POST, PUT, DELETE)
 Personnel: `/api/personnel` (GET, POST, PUT)
 Vehicles: `/api/vehicles` (GET, POST, PUT)
 Materials: `/api/materials` (GET, POST, PUT)
+Alarm intake: `/api/alarms` (POST) — provider-neutral webhook, any dispatch system; Divera adapter at `/api/divera/webhook`
+Integrations: `/api/integrations` (GET) — capability registry (which provider is configured per domain)
 
 Full docs: http://localhost:8000/docs (Swagger UI)
+
+**Integration seams** (provider-neutral, see `docs/ALARM-INTEGRATIONS.md`):
+- Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach); the pool table carries `source`/`source_id` provenance, incidents carry `source`/`source_ref`.
+- Outbound alerting (Ausalarmierung) goes through the `AlarmProvider` protocol in `services/alerting/` (Divera = first adapter).
+- Personnel provider identity lives in `personnel_external_identities` (`personnel.divera_user_id` is a deprecated dual-write, removable next release).
+- Printing: transport-neutral job queue + pull agent (`docs/PRINT_AGENT.md`).
 
 ## Environment Variables
 
@@ -271,10 +279,12 @@ open http://localhost:8080
 
 ## Important Files & Documentation
 
-- `ARCHITECTURE.md` - System architecture and technical design
-- `README.md` - Setup instructions and feature overview
+- `README.md` - Product overview, quick start, and architecture summary
+- `CHANGELOG.md` - Feature history (Keep a Changelog format)
+- `docs/README.md` - Documentation index (start here for all docs)
+- `docs/ARCHITECTURE.md` - System architecture and technical design
+- `docs/ALARM-INTEGRATIONS.md` - Provider-neutral alarm webhook + integration registry
 - `docs/RAILWAY.md` - Railway deployment guide
-- `CONFIGURATION_SETTINGS.md` - System configuration and settings management
 - `docs/OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
 - `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs

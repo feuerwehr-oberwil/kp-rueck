@@ -109,7 +109,7 @@ Modul, das `send_alarm(...)` implementiert, plus ein Eintrag in der Registry —
 kein Umbau am Endpunkt oder an der Personen-Verknüpfung nötig
 (`personnel_external_identities` speichert Identitäten pro Anbieter).
 
-Für Drucker gilt dasselbe Muster: siehe `docs/PRINT-AGENT-PROTOCOL.md`.
+Für Drucker gilt dasselbe Muster: siehe [docs/PRINT_AGENT.md](PRINT_AGENT.md).
 
 ## Eigenes System anbinden (Adapter-Muster)
 
