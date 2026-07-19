@@ -49,8 +49,10 @@ import {
   type MaterialFormValues,
 } from '@/lib/schemas/material';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 export function MaterialSettings() {
+  const t = useTranslations('settings');
   const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<ApiMaterialResource | null>(null);
@@ -100,8 +102,8 @@ export function MaterialSettings() {
         // GET degraded to undefined after retries — keep previous state instead
         // of crashing the sort memos with a non-iterable value.
         if (materials.length === 0) {
-          toast.error('Material konnte nicht geladen werden', {
-            description: 'Bitte Seite neu laden.',
+          toast.error(t('materials.loadError'), {
+            description: t('common.reloadPage'),
           });
         }
         return;
@@ -123,8 +125,8 @@ export function MaterialSettings() {
       closeDialog();
     } catch (error) {
       console.error('Failed to save material:', error);
-      toast.error('Fehler beim Speichern des Materials', {
-        description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.',
+      toast.error(t('materials.saveError'), {
+        description: t('common.checkInputRetry'),
       });
     }
   });
@@ -162,8 +164,8 @@ export function MaterialSettings() {
       await loadMaterials();
     } catch (error) {
       console.error('Failed to delete material:', error);
-      toast.error('Fehler beim Löschen des Materials', {
-        description: 'Das Material konnte nicht gelöscht werden. Versuchen Sie es erneut.',
+      toast.error(t('materials.deleteError'), {
+        description: t('materials.deleteErrorDescription'),
       });
     } finally {
       setMaterialToDelete(null);
@@ -273,22 +275,22 @@ export function MaterialSettings() {
     <div className="space-y-4">
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="list">Materialliste</TabsTrigger>
-          <TabsTrigger value="groups">Gruppen</TabsTrigger>
-          <TabsTrigger value="sort">Kategorien sortieren</TabsTrigger>
+          <TabsTrigger value="list">{t('materials.tabList')}</TabsTrigger>
+          <TabsTrigger value="groups">{t('materials.tabGroups')}</TabsTrigger>
+          <TabsTrigger value="sort">{t('common.sortCategoriesTab')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
           <div className="flex justify-end">
             <Button onClick={handleOpenCreate}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Material hinzufügen
+              {t('materials.addButton')}
             </Button>
             <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>
-                    {editingMaterial ? 'Material bearbeiten' : 'Neues Material hinzufügen'}
+                    {editingMaterial ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
                   </DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
@@ -298,11 +300,11 @@ export function MaterialSettings() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Name</FormLabel>
+                          <FormLabel>{t('common.name')}</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
-                              placeholder="z.B. Tauchpumpe Gr."
+                              placeholder={t('materials.namePlaceholder')}
                               autoFocus
                             />
                           </FormControl>
@@ -315,12 +317,12 @@ export function MaterialSettings() {
                       name="type"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Typ</FormLabel>
+                          <FormLabel>{t('common.type')}</FormLabel>
                           <div className="flex gap-2">
                             <FormControl>
                               <Input
                                 {...field}
-                                placeholder="z.B. Pumpe, Schlauch"
+                                placeholder={t('materials.typePlaceholder')}
                                 className="flex-1"
                               />
                             </FormControl>
@@ -358,12 +360,12 @@ export function MaterialSettings() {
                       name="location"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Standort</FormLabel>
+                          <FormLabel>{t('common.location')}</FormLabel>
                           <div className="flex gap-2">
                             <FormControl>
                               <Input
                                 {...field}
-                                placeholder="z.B. TLF, Pio, Depot"
+                                placeholder={t('materials.locationPlaceholder')}
                                 className="flex-1"
                               />
                             </FormControl>
@@ -401,7 +403,7 @@ export function MaterialSettings() {
                       name="status"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Status</FormLabel>
+                          <FormLabel>{t('common.status')}</FormLabel>
                           <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
                               <SelectTrigger>
@@ -409,8 +411,8 @@ export function MaterialSettings() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="available">Verfügbar</SelectItem>
-                              <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
+                              <SelectItem value="available">{t('common.available')}</SelectItem>
+                              <SelectItem value="unavailable">{t('common.unavailable')}</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -423,9 +425,9 @@ export function MaterialSettings() {
                       render={({ field }) => (
                         <FormItem className="flex items-center justify-between rounded-lg border p-3 space-y-0">
                           <div className="space-y-0.5">
-                            <FormLabel>Verbrauchsmaterial</FormLabel>
+                            <FormLabel>{t('materials.consumableLabel')}</FormLabel>
                             <p className="text-xs text-muted-foreground">
-                              Unbegrenzt verfügbar, keine Zuordnung nötig
+                              {t('materials.consumableHint')}
                             </p>
                           </div>
                           <FormControl>
@@ -444,11 +446,11 @@ export function MaterialSettings() {
                         onClick={guard.requestClose}
                         disabled={isSaving}
                       >
-                        Abbrechen
+                        {t('common.cancel')}
                       </Button>
                       <Button type="submit" disabled={isSaving}>
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {editingMaterial ? 'Aktualisieren' : 'Erstellen'}
+                        {editingMaterial ? t('common.update') : t('common.create')}
                       </Button>
                     </div>
                   </form>
@@ -464,28 +466,28 @@ export function MaterialSettings() {
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('name')}
                 >
-                  Name<SortIndicator column="name" />
+                  {t('common.name')}<SortIndicator column="name" />
                 </TableHead>
                 <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('location')}
                 >
-                  Kategorie<SortIndicator column="location" />
+                  {t('materials.categoryHead')}<SortIndicator column="location" />
                 </TableHead>
                 <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('status')}
                 >
-                  Status<SortIndicator column="status" />
+                  {t('common.status')}<SortIndicator column="status" />
                 </TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
+                <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedMaterials.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                    Kein Material vorhanden.
+                    {t('materials.empty')}
                   </TableCell>
                 </TableRow>
               )}
@@ -508,7 +510,7 @@ export function MaterialSettings() {
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
-                      {material.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
+                      {material.status === 'available' ? t('common.available') : t('common.unavailable')}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -543,8 +545,8 @@ export function MaterialSettings() {
 
         <TabsContent value="sort">
           <CategorySortOrder
-            title="Standort-Sortierung"
-            description="Ziehen Sie die Standorte, um deren Reihenfolge in der Anzeige zu ändern. Material wird nach dieser Sortierung gruppiert."
+            title={t('materials.sortTitle')}
+            description={t('materials.sortDescription')}
             categories={locationCategories}
             onSave={handleSaveLocationSortOrder}
           />
@@ -554,8 +556,8 @@ export function MaterialSettings() {
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Material löschen"
-        description={`Sind Sie sicher, dass Sie das Material "${materialToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        title={t('materials.deleteTitle')}
+        description={t('materials.deleteDescription', { name: materialToDelete?.name ?? '' })}
         onConfirm={handleDeleteConfirm}
       />
 
@@ -574,6 +576,7 @@ function MaterialGroupSettings({
   materials: ApiMaterialResource[]
   onRefresh: () => void
 }) {
+  const t = useTranslations('settings')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<ApiMaterialGroup | null>(null)
   const [groupName, setGroupName] = useState('')
@@ -621,7 +624,7 @@ function MaterialGroupSettings({
       onRefresh()
     } catch (error) {
       console.error('Failed to save group:', error)
-      toast.error('Fehler beim Speichern der Gruppe')
+      toast.error(t('materials.groups.saveError'))
     } finally {
       setIsSaving(false)
     }
@@ -634,7 +637,7 @@ function MaterialGroupSettings({
       onRefresh()
     } catch (error) {
       console.error('Failed to delete group:', error)
-      toast.error('Fehler beim Löschen der Gruppe')
+      toast.error(t('materials.groups.deleteError'))
     } finally {
       setGroupToDelete(null)
     }
@@ -658,26 +661,26 @@ function MaterialGroupSettings({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Materialgruppen fassen mehrere Einzelmaterialien zu einem Block zusammen (z.B. &quot;Modul 1&quot;).
+          {t('materials.groups.intro')}
         </p>
         <Button onClick={handleOpenCreate} size="sm">
           <PlusCircle className="mr-2 h-4 w-4" />
-          Gruppe erstellen
+          {t('materials.groups.createButton')}
         </Button>
       </div>
 
       {groups.length === 0 ? (
         <div className="text-center text-muted-foreground py-8 text-sm">
-          Keine Gruppen vorhanden. Erstellen Sie eine neue Gruppe.
+          {t('materials.groups.empty')}
         </div>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Kategorie</TableHead>
-              <TableHead>Materialien</TableHead>
-              <TableHead className="text-right">Aktionen</TableHead>
+              <TableHead>{t('common.name')}</TableHead>
+              <TableHead>{t('materials.categoryHead')}</TableHead>
+              <TableHead>{t('materials.groups.materialsHead')}</TableHead>
+              <TableHead className="text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -692,7 +695,7 @@ function MaterialGroupSettings({
                 <TableCell className="text-sm text-muted-foreground">
                   {group.materials.length > 0
                     ? group.materials.map(m => m.name).join(', ')
-                    : <span className="italic">Keine Materialien</span>
+                    : <span className="italic">{t('materials.groups.noMaterials')}</span>
                   }
                 </TableCell>
                 <TableCell className="text-right">
@@ -712,26 +715,26 @@ function MaterialGroupSettings({
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{editingGroup ? 'Gruppe bearbeiten' : 'Neue Gruppe erstellen'}</DialogTitle>
+            <DialogTitle>{editingGroup ? t('materials.groups.dialogEditTitle') : t('materials.groups.dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 flex-1 overflow-y-auto">
             <div className="space-y-1.5">
-              <Label htmlFor="group-name">Name</Label>
+              <Label htmlFor="group-name">{t('common.name')}</Label>
               <Input
                 id="group-name"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                placeholder="z.B. Modul 1"
+                placeholder={t('materials.groups.namePlaceholder')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="group-location">Standort</Label>
+              <Label htmlFor="group-location">{t('common.location')}</Label>
               <Select
                 value={groupLocation}
                 onValueChange={(value) => setGroupLocation(value)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Standort auswählen" />
+                  <SelectValue placeholder={t('materials.groups.locationPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {existingLocations.map(l => (
@@ -741,10 +744,10 @@ function MaterialGroupSettings({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Materialien auswählen</Label>
+              <Label>{t('materials.groups.selectMaterials')}</Label>
               <div className="mt-2 space-y-1 max-h-[250px] overflow-y-auto border rounded-md p-2">
                 {availableMaterials.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Keine verfügbaren Materialien</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t('materials.groups.noAvailableMaterials')}</p>
                 ) : (
                   availableMaterials.map((mat) => (
                     <label
@@ -766,10 +769,10 @@ function MaterialGroupSettings({
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={isSaving || !groupName.trim()}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editingGroup ? 'Aktualisieren' : 'Erstellen'}
+              {editingGroup ? t('common.update') : t('common.create')}
             </Button>
           </div>
         </DialogContent>
@@ -778,8 +781,8 @@ function MaterialGroupSettings({
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Gruppe löschen"
-        description={`Sind Sie sicher, dass Sie die Gruppe "${groupToDelete?.name}" löschen möchten? Die Materialien werden nicht gelöscht, nur die Gruppierung aufgelöst.`}
+        title={t('materials.groups.deleteTitle')}
+        description={t('materials.groups.deleteDescription', { name: groupToDelete?.name ?? '' })}
         onConfirm={handleDelete}
       />
     </div>

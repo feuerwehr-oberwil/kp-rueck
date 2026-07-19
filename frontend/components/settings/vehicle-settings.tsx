@@ -45,10 +45,12 @@ import {
   type VehicleFormValues,
 } from '@/lib/schemas/vehicle';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 type SortColumn = 'display_order' | 'name' | 'radio_call_sign' | 'status';
 
 export function VehicleSettings() {
+  const t = useTranslations('settings');
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<ApiVehicle | null>(null);
@@ -85,8 +87,8 @@ export function VehicleSettings() {
         // GET degraded to undefined after retries — keep previous state instead
         // of crashing the sort memos with a non-iterable value.
         if (vehicles.length === 0) {
-          toast.error('Fahrzeuge konnten nicht geladen werden', {
-            description: 'Bitte Seite neu laden.',
+          toast.error(t('vehicles.loadError'), {
+            description: t('common.reloadPage'),
           });
         }
         return;
@@ -150,8 +152,8 @@ export function VehicleSettings() {
       closeDialog();
     } catch (error) {
       console.error('Failed to save vehicle:', error);
-      toast.error('Fehler beim Speichern des Fahrzeugs', {
-        description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.',
+      toast.error(t('vehicles.saveError'), {
+        description: t('common.checkInputRetry'),
       });
     }
   });
@@ -192,8 +194,8 @@ export function VehicleSettings() {
       await loadVehicles();
     } catch (error) {
       console.error('Failed to delete vehicle:', error);
-      toast.error('Fehler beim Löschen des Fahrzeugs', {
-        description: 'Das Fahrzeug konnte nicht gelöscht werden. Versuchen Sie es erneut.',
+      toast.error(t('vehicles.deleteError'), {
+        description: t('vehicles.deleteErrorDescription'),
       });
     } finally {
       setVehicleToDelete(null);
@@ -207,13 +209,13 @@ export function VehicleSettings() {
       <div className="flex justify-end">
         <Button onClick={handleOpenCreate}>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Fahrzeug hinzufügen
+          {t('vehicles.addButton')}
         </Button>
         <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingVehicle ? 'Fahrzeug bearbeiten' : 'Neues Fahrzeug hinzufügen'}
+                {editingVehicle ? t('vehicles.dialogEditTitle') : t('vehicles.dialogCreateTitle')}
               </DialogTitle>
             </DialogHeader>
             <Form {...form}>
@@ -223,11 +225,11 @@ export function VehicleSettings() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                      <FormLabel>{t('common.name')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="z.B. TLF, Pio, Mowa"
+                          placeholder={t('vehicles.namePlaceholder')}
                           autoFocus
                         />
                       </FormControl>
@@ -240,7 +242,7 @@ export function VehicleSettings() {
                   name="display_order"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Reihenfolge (Tastaturkürzel)</FormLabel>
+                      <FormLabel>{t('vehicles.orderLabel')}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -253,7 +255,7 @@ export function VehicleSettings() {
                           onBlur={field.onBlur}
                           name={field.name}
                           ref={field.ref}
-                          placeholder="z.B. 1, 2, 3"
+                          placeholder={t('vehicles.orderPlaceholder')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -265,9 +267,9 @@ export function VehicleSettings() {
                   name="radio_call_sign"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Funkrufname</FormLabel>
+                      <FormLabel>{t('common.radioCallSign')}</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="z.B. Omega 1, Omega 2" />
+                        <Input {...field} placeholder={t('vehicles.radioPlaceholder')} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -278,7 +280,7 @@ export function VehicleSettings() {
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Status</FormLabel>
+                      <FormLabel>{t('common.status')}</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
@@ -286,8 +288,8 @@ export function VehicleSettings() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="available">Verfügbar</SelectItem>
-                          <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
+                          <SelectItem value="available">{t('common.available')}</SelectItem>
+                          <SelectItem value="unavailable">{t('common.unavailable')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -301,11 +303,11 @@ export function VehicleSettings() {
                     onClick={guard.requestClose}
                     disabled={isSaving}
                   >
-                    Abbrechen
+                    {t('common.cancel')}
                   </Button>
                   <Button type="submit" disabled={isSaving}>
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {editingVehicle ? 'Aktualisieren' : 'Erstellen'}
+                    {editingVehicle ? t('common.update') : t('common.create')}
                   </Button>
                 </div>
               </form>
@@ -327,28 +329,28 @@ export function VehicleSettings() {
               className="cursor-pointer hover:bg-muted/50 select-none"
               onClick={() => handleSort('name')}
             >
-              Name<SortIndicator column="name" />
+              {t('common.name')}<SortIndicator column="name" />
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50 select-none"
               onClick={() => handleSort('radio_call_sign')}
             >
-              Funkrufname<SortIndicator column="radio_call_sign" />
+              {t('common.radioCallSign')}<SortIndicator column="radio_call_sign" />
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50 select-none"
               onClick={() => handleSort('status')}
             >
-              Status<SortIndicator column="status" />
+              {t('common.status')}<SortIndicator column="status" />
             </TableHead>
-            <TableHead className="text-right">Aktionen</TableHead>
+            <TableHead className="text-right">{t('common.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sortedVehicles.length === 0 && (
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                Keine Fahrzeuge vorhanden.
+                {t('vehicles.empty')}
               </TableCell>
             </TableRow>
           )}
@@ -367,7 +369,7 @@ export function VehicleSettings() {
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  {vehicle.status === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
+                  {vehicle.status === 'available' ? t('common.available') : t('common.unavailable')}
                 </span>
               </TableCell>
               <TableCell className="text-right">
@@ -386,8 +388,8 @@ export function VehicleSettings() {
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Fahrzeug löschen"
-        description={`Sind Sie sicher, dass Sie das Fahrzeug "${vehicleToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        title={t('vehicles.deleteTitle')}
+        description={t('vehicles.deleteDescription', { name: vehicleToDelete?.name ?? '' })}
         onConfirm={handleDeleteConfirm}
       />
 

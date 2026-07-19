@@ -40,15 +40,15 @@ import {
 import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Admin',
-  editor: 'Bearbeiter',
-  viewer: 'Betrachter',
-};
+import { useTranslations } from 'next-intl';
 
 export function UserSettings() {
+  const t = useTranslations('settings');
   const { user: currentUser } = useAuth();
+  const roleLabel = (role: string) =>
+    role === 'admin' || role === 'editor' || role === 'viewer'
+      ? t(`users.roles.${role}`)
+      : role;
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +79,7 @@ export function UserSettings() {
       setUsers(data);
     } catch (err) {
       console.error('Failed to fetch users:', err);
-      setError(err instanceof Error ? err.message : 'Fehler beim Laden');
+      setError(err instanceof Error ? err.message : t('common.loadError'));
     } finally {
       setLoading(false);
     }
@@ -91,7 +91,7 @@ export function UserSettings() {
 
   const handleCreate = async () => {
     if (!formData.username || !formData.password) {
-      toast.error('Benutzername und Passwort sind erforderlich');
+      toast.error(t('users.toasts.requiredFields'));
       return;
     }
     setSubmitting(true);
@@ -105,7 +105,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to create user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Erstellen', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
+      toast.error(err instanceof Error ? err.message : t('users.toasts.createError'), { description: t('common.checkInputRetry') });
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +126,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to update user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Aktualisieren', { description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.' });
+      toast.error(err instanceof Error ? err.message : t('users.toasts.updateError'), { description: t('common.checkInputRetry') });
     } finally {
       setSubmitting(false);
     }
@@ -142,7 +142,7 @@ export function UserSettings() {
       setNewPassword('');
     } catch (err) {
       console.error('Failed to reset password:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Zurücksetzen', { description: 'Das Passwort konnte nicht zurückgesetzt werden. Versuchen Sie es erneut.' });
+      toast.error(err instanceof Error ? err.message : t('users.toasts.resetError'), { description: t('users.toasts.resetErrorDescription') });
     } finally {
       setSubmitting(false);
     }
@@ -158,7 +158,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to delete user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Deaktivieren', { description: 'Der Benutzer konnte nicht deaktiviert werden. Versuchen Sie es erneut.' });
+      toast.error(err instanceof Error ? err.message : t('users.toasts.deactivateError'), { description: t('users.toasts.deactivateErrorDescription') });
     } finally {
       setSubmitting(false);
     }
@@ -171,7 +171,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to reactivate user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Reaktivieren', { description: 'Der Benutzer konnte nicht reaktiviert werden. Versuchen Sie es erneut.' });
+      toast.error(err instanceof Error ? err.message : t('users.toasts.reactivateError'), { description: t('users.toasts.reactivateErrorDescription') });
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +187,7 @@ export function UserSettings() {
       fetchUsers();
     } catch (err) {
       console.error('Failed to permanently delete user:', err);
-      toast.error(err instanceof Error ? err.message : 'Fehler beim Löschen', { description: 'Der Benutzer konnte nicht gelöscht werden. Versuchen Sie es erneut.' });
+      toast.error(err instanceof Error ? err.message : t('users.toasts.deleteError'), { description: t('users.toasts.deleteErrorDescription') });
     } finally {
       setSubmitting(false);
     }
@@ -221,7 +221,7 @@ export function UserSettings() {
   };
 
   const formatLastLogin = (lastLogin: string | null) => {
-    if (!lastLogin) return 'Nie';
+    if (!lastLogin) return t('users.never');
     return new Date(lastLogin).toLocaleString('de-CH', {
       day: '2-digit',
       month: '2-digit',
@@ -253,7 +253,7 @@ export function UserSettings() {
     return (
       <Card className="p-6">
         <p className="text-destructive">{error}</p>
-        <Button onClick={fetchUsers} className="mt-4">Erneut versuchen</Button>
+        <Button onClick={fetchUsers} className="mt-4">{t('common.retry')}</Button>
       </Card>
     );
   }
@@ -264,7 +264,7 @@ export function UserSettings() {
       <div className="flex justify-end">
         <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Neuer Benutzer
+          {t('users.newUser')}
         </Button>
       </div>
 
@@ -287,11 +287,11 @@ export function UserSettings() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{user.display_name || user.username}</span>
                     <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                      {ROLE_LABELS[user.role] ?? user.role}
+                      {roleLabel(user.role)}
                     </Badge>
                     {!user.is_active && (
                       <Badge variant="outline" className="text-muted-foreground">
-                        Deaktiviert
+                        {t('users.deactivated')}
                       </Badge>
                     )}
                   </div>
@@ -302,7 +302,7 @@ export function UserSettings() {
                 {/* Last-login column: aligned across rows so stale accounts
                     stand out at a glance (was buried in the subtitle). */}
                 <div className="hidden sm:block text-right shrink-0">
-                  <p className="text-xs text-muted-foreground">Letzter Login</p>
+                  <p className="text-xs text-muted-foreground">{t('users.lastLogin')}</p>
                   <p className="text-sm tabular-nums">{formatLastLogin(user.last_login)}</p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -310,7 +310,7 @@ export function UserSettings() {
                     variant="ghost"
                     size="icon"
                     onClick={() => openEditDialog(user)}
-                    title="Bearbeiten"
+                    title={t('users.editTooltip')}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -318,7 +318,7 @@ export function UserSettings() {
                     variant="ghost"
                     size="icon"
                     onClick={() => openPasswordDialog(user)}
-                    title="Passwort zurücksetzen"
+                    title={t('users.resetPasswordTitle')}
                   >
                     <Key className="h-4 w-4" />
                   </Button>
@@ -327,7 +327,7 @@ export function UserSettings() {
                       variant="ghost"
                       size="icon"
                       onClick={() => openDeleteDialog(user)}
-                      title="Deaktivieren"
+                      title={t('users.deactivateAction')}
                       className="text-destructive hover:text-destructive"
                     >
                       <UserX className="h-4 w-4" />
@@ -339,7 +339,7 @@ export function UserSettings() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleReactivate(user)}
-                        title="Reaktivieren"
+                        title={t('users.reactivateTooltip')}
                         className="text-success hover:text-success"
                         disabled={submitting}
                       >
@@ -349,7 +349,7 @@ export function UserSettings() {
                         variant="ghost"
                         size="icon"
                         onClick={() => openPermanentDeleteDialog(user)}
-                        title="Endgültig löschen"
+                        title={t('users.permanentDeleteAction')}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />

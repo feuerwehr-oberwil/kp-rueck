@@ -17,6 +17,7 @@ import { ClipboardList, LifeBuoy, Printer, MonitorDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useEvent } from '@/lib/contexts/event-context';
+import { useTranslations } from 'next-intl';
 
 /** localStorage key for the per-device Lageblatt auto-download (15 min). */
 export const LAGEBLATT_AUTODOWNLOAD_KEY = 'kp-lageblatt-autodownload';
@@ -48,6 +49,7 @@ export function downloadLageblatt(eventId: string, eventName: string) {
 }
 
 export function FallbackSettings() {
+  const t = useTranslations('settings');
   const { selectedEvent } = useEvent();
   const [loaded, setLoaded] = useState(false);
   const [autoPrint, setAutoPrint] = useState(false);
@@ -65,7 +67,7 @@ export function FallbackSettings() {
         setPrinterEnabled(settings['printer.enabled'] === 'true');
         setIntervalMin(settings['fallback.auto_print_interval_min'] || '15');
       })
-      .catch(() => toast.error('Einstellungen konnten nicht geladen werden'))
+      .catch(() => toast.error(t('fallback.loadFailed')))
       .finally(() => setLoaded(true));
     setAutoDownload(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true');
   }, []);
@@ -76,7 +78,7 @@ export function FallbackSettings() {
       await apiClient.updateSetting(key, value);
       return true;
     } catch {
-      toast.error('Einstellung konnte nicht gespeichert werden');
+      toast.error(t('fallback.saveFailed'));
       return false;
     } finally {
       setSaving(null);
@@ -101,12 +103,12 @@ export function FallbackSettings() {
     localStorage.setItem(LAGEBLATT_AUTODOWNLOAD_KEY, on ? 'true' : 'false');
     window.dispatchEvent(new Event(LAGEBLATT_AUTODOWNLOAD_EVENT));
     if (on) {
-      toast.success('Lageblatt Auto-Download aktiv', {
-        description: 'Dieses Gerät lädt alle 15 Minuten ein aktuelles Lageblatt herunter.',
+      toast.success(t('fallback.autoDownloadActive'), {
+        description: t('fallback.autoDownloadActiveDescription'),
       });
       if (selectedEvent) {
         downloadLageblatt(selectedEvent.id, selectedEvent.name).catch(() =>
-          toast.error('Lageblatt konnte nicht heruntergeladen werden')
+          toast.error(t('fallback.downloadFailed'))
         );
       }
     }
@@ -118,7 +120,7 @@ export function FallbackSettings() {
     try {
       await downloadLageblatt(selectedEvent.id, selectedEvent.name);
     } catch {
-      toast.error('Lageblatt konnte nicht heruntergeladen werden');
+      toast.error(t('fallback.downloadFailed'));
     } finally {
       setDownloading(false);
     }
@@ -130,11 +132,10 @@ export function FallbackSettings() {
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <LifeBuoy className="h-5 w-5" />
-            Ausfallsicherheit
+            {t('fallback.title')}
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Hält den aktuellen Board-Stand ausserhalb des Systems bereit — auf Papier und auf
-            diesem Gerät. Vorgehen im Ausfall: siehe Ausfall-SOP (docs/AUSFALL_SOP.md).
+            {t('fallback.intro')}
           </p>
         </div>
 
@@ -143,12 +144,11 @@ export function FallbackSettings() {
           <div className="min-w-0">
             <Label htmlFor="fallback-auto-print" className="font-medium flex items-center gap-2">
               <Printer className="h-4 w-4" />
-              Board automatisch drucken (Thermo)
+              {t('fallback.autoPrintLabel')}
             </Label>
             <p className="text-xs text-muted-foreground">
-              Druckt regelmässig einen Board-Schnappschuss, solange ein Live-Ereignis aktiv ist —
-              nur wenn sich etwas geändert hat
-              {!printerEnabled && loaded ? ' — benötigt aktivierten Drucker (Einstellungen → Drucker)' : ''}
+              {t('fallback.autoPrintHint')}
+              {!printerEnabled && loaded ? t('fallback.autoPrintPrinterRequired') : ''}
             </p>
           </div>
           <Switch
@@ -162,8 +162,8 @@ export function FallbackSettings() {
         {autoPrint && (
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="fallback-interval" className="font-medium">Druck-Intervall (Minuten)</Label>
-              <p className="text-xs text-muted-foreground">Frühestens alle 5, spätestens alle 120 Minuten</p>
+              <Label htmlFor="fallback-interval" className="font-medium">{t('fallback.intervalLabel')}</Label>
+              <p className="text-xs text-muted-foreground">{t('fallback.intervalHint')}</p>
             </div>
             <div className="flex-shrink-0 w-24">
               <Input
@@ -185,11 +185,10 @@ export function FallbackSettings() {
           <div className="min-w-0">
             <Label htmlFor="fallback-auto-download" className="font-medium flex items-center gap-2">
               <MonitorDown className="h-4 w-4" />
-              Lageblatt Auto-Download (dieses Gerät)
+              {t('fallback.autoDownloadLabel')}
             </Label>
             <p className="text-xs text-muted-foreground">
-              Lädt alle 15 Minuten ein aktuelles Lageblatt (PDF) in den Download-Ordner — bleibt
-              auch ohne Netz lesbar und druckbar. Gilt nur für dieses Gerät.
+              {t('fallback.autoDownloadHint')}
             </p>
           </div>
           <Switch
@@ -204,15 +203,15 @@ export function FallbackSettings() {
           <div className="min-w-0">
             <Label className="font-medium flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
-              Lageblatt jetzt herunterladen
+              {t('fallback.manualLabel')}
             </Label>
             <p className="text-xs text-muted-foreground">
-              A4-Führungsformular (BL/BS-Layout) mit allen Einsatzdetails
-              {!selectedEvent ? ' — kein Ereignis ausgewählt' : ''}
+              {t('fallback.manualHint')}
+              {!selectedEvent ? t('fallback.manualNoEvent') : ''}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleManualDownload} disabled={!selectedEvent || downloading}>
-            Herunterladen
+            {t('fallback.downloadButton')}
           </Button>
         </div>
       </div>
