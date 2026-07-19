@@ -21,6 +21,7 @@ setup_logging(
 logger = get_logger(__name__)
 
 from .api.admin import router as admin_router
+from .api.alarms import router as alarms_router
 from .api.assignments import bulk_router as assignments_bulk_router
 from .api.assignments import router as assignments_router
 from .api.audit import router as audit_router
@@ -405,6 +406,7 @@ app.add_middleware(RequestIDMiddleware)
 # Include routers
 app.include_router(health_router)  # No prefix - available at /health
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
+app.include_router(alarms_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
 app.include_router(divera_router, prefix=settings.api_v1_prefix)

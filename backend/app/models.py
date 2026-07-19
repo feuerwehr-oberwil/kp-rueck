@@ -17,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -744,15 +745,27 @@ class PrintJob(Base):
 
 
 class DiveraEmergency(Base):
-    """Divera 24/7 emergency received via webhook - stored for selective attachment to Events."""
+    """Alarm in the intake pool, stored for selective attachment to Events.
+
+    Alarms arrive from Divera 24/7 (webhook/poller) or from any other dispatch
+    system via the generic webhook (POST /api/alarms). Provenance lives in
+    `source` (slug) + `source_id` (opaque sender id, used for idempotent
+    dedupe); `divera_id` only exists on Divera-delivered alarms.
+    """
 
     __tablename__ = "divera_emergencies"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
-    # Divera identifiers for deduplication
-    divera_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True, index=True)
+    # Divera identifiers for deduplication (NULL for generic-webhook alarms)
+    divera_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True, index=True)
     divera_number: Mapped[str | None] = mapped_column(String(50), nullable=True)  # e.g., "E-123"
+
+    # Provider-neutral provenance: which system delivered the alarm ("divera",
+    # "webhook", or a custom per-sender slug) and its id there. Matches the
+    # 20-char budget of incidents.source so the slug can flow onto incidents.
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="divera", server_default="divera")
+    source_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Emergency details from Divera
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -793,8 +806,15 @@ class DiveraEmergency(Base):
         Index("idx_divera_emergencies_attached", "attached_to_event_id"),
         Index("idx_divera_emergencies_archived", "is_archived"),
         Index("idx_divera_emergencies_is_training", "is_training"),
+        Index(
+            "uq_divera_emergencies_source_source_id",
+            "source",
+            "source_id",
+            unique=True,
+            postgresql_where=sa_text("source_id IS NOT NULL"),
+        ),
     )
 
     def __repr__(self):
         status = "attached" if self.attached_to_event_id else "unattached"
-        return f"<DiveraEmergency {self.divera_id} ({status})>"
+        return f"<DiveraEmergency {self.source}:{self.source_id} ({status})>"
