@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -12,6 +13,7 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const t = useTranslations('errors.appError')
   useEffect(() => {
     // Log the error to console for debugging
     console.error('Application error:', error)
@@ -28,11 +30,10 @@ export default function Error({
 
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-foreground">
-            Ein Fehler ist aufgetreten
+            {t('title')}
           </h1>
           <p className="text-muted-foreground">
-            Die Anwendung hat einen unerwarteten Fehler festgestellt.
-            Bitte versuchen Sie es erneut.
+            {t('description')}
           </p>
         </div>
 
@@ -43,7 +44,7 @@ export default function Error({
             </p>
             {error.digest && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Fehler-ID: {error.digest}
+                {t('errorId', { digest: error.digest })}
               </p>
             )}
           </div>
@@ -52,12 +53,12 @@ export default function Error({
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button onClick={reset} className="gap-2">
             <RefreshCw className="h-4 w-4" />
-            Erneut versuchen
+            {t('retry')}
           </Button>
           <Button variant="outline" asChild>
             <Link href="/" className="gap-2">
               <Home className="h-4 w-4" />
-              Zur Startseite
+              {t('home')}
             </Link>
           </Button>
         </div>

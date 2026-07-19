@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { apiClient } from '@/lib/api-client'
 import { useEvent } from '@/lib/contexts/event-context'
 import { X } from 'lucide-react'
@@ -15,6 +16,7 @@ interface DemoStatus {
 }
 
 export function DemoBanner() {
+  const t = useTranslations('common.demoBanner')
   const { selectedEvent } = useEvent()
   const [demoStatus, setDemoStatus] = useState<DemoStatus | null>(null)
   const [secondsLeft, setSecondsLeft] = useState<number>(0)
@@ -90,8 +92,8 @@ export function DemoBanner() {
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm">
         <div className="text-center space-y-4">
           <div className="animate-spin h-8 w-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto" />
-          <h2 className="text-xl font-semibold text-foreground">Demo wird zurückgesetzt...</h2>
-          <p className="text-muted-foreground text-sm">Die Seite wird in wenigen Sekunden neu geladen.</p>
+          <h2 className="text-xl font-semibold text-foreground">{t('resettingTitle')}</h2>
+          <p className="text-muted-foreground text-sm">{t('resettingDescription')}</p>
         </div>
       </div>
     )
@@ -105,11 +107,11 @@ export function DemoBanner() {
 
   let timeText: string
   if (hours > 0) {
-    timeText = `${hours}h ${displayMinutes}min`
+    timeText = t('timeHoursMinutes', { hours, minutes: displayMinutes })
   } else if (minutes > 0) {
-    timeText = `${minutes} min`
+    timeText = t('timeMinutes', { minutes })
   } else {
-    timeText = `${secondsLeft}s`
+    timeText = t('timeSeconds', { seconds: secondsLeft })
   }
 
   const isSandbox = selectedEvent?.name.startsWith(SANDBOX_EVENT_PREFIX) ?? false
@@ -118,13 +120,13 @@ export function DemoBanner() {
     <div className="flex-shrink-0 z-50 flex items-center justify-center gap-2 bg-amber-500/90 px-4 py-1.5 text-sm font-medium text-amber-950 backdrop-blur-sm">
       <span>
         {isSandbox
-          ? `Demo-Modus — dies ist deine persönliche Übungslage · Reset in ${timeText}`
-          : `Demo-Modus — wird in ${timeText} zurückgesetzt`}
+          ? t('sandboxMessage', { time: timeText })
+          : t('resetMessage', { time: timeText })}
       </span>
       <button
         onClick={() => setDismissed(true)}
         className="ml-2 rounded p-0.5 hover:bg-amber-600/30 transition-colors"
-        aria-label="Banner schliessen"
+        aria-label={t('closeBanner')}
       >
         <X className="h-3.5 w-3.5" />
       </button>

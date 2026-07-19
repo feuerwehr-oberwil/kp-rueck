@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Button } from '@/components/ui/button'
 
@@ -17,6 +18,7 @@ interface RouteErrorProps {
  * we don't end up with nine near-identical copies of the same JSX.
  */
 export default function RouteError({ error, reset }: RouteErrorProps) {
+  const t = useTranslations('errors.routeError')
   useEffect(() => {
     console.error('Route error:', error)
   }, [error])
@@ -32,11 +34,10 @@ export default function RouteError({ error, reset }: RouteErrorProps) {
 
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-foreground">
-            Ein Fehler ist aufgetreten
+            {t('title')}
           </h1>
           <p className="text-muted-foreground">
-            Diese Ansicht hat einen unerwarteten Fehler festgestellt.
-            Bitte versuchen Sie es erneut.
+            {t('description')}
           </p>
         </div>
 
@@ -47,7 +48,7 @@ export default function RouteError({ error, reset }: RouteErrorProps) {
             </p>
             {error.digest && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Fehler-ID: {error.digest}
+                {t('errorId', { digest: error.digest })}
               </p>
             )}
           </div>
@@ -56,12 +57,12 @@ export default function RouteError({ error, reset }: RouteErrorProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button onClick={reset} className="gap-2">
             <RefreshCw className="h-4 w-4" />
-            Erneut versuchen
+            {t('retry')}
           </Button>
           <Button variant="outline" asChild>
             <Link href="/" className="gap-2">
               <Home className="h-4 w-4" />
-              Zur Startseite
+              {t('home')}
             </Link>
           </Button>
         </div>

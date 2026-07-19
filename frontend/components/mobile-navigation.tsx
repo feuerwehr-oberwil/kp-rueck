@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Menu, List, Map as MapIcon, Calendar, Settings, HelpCircle, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationSidebar } from '@/components/notifications/notification-sidebar';
 import { ReactNode } from 'react';
@@ -31,54 +32,55 @@ interface NavItem {
   requiresEvent?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  {
-    href: '/',
-    icon: List,
-    label: 'Kanban',
-    description: 'Übersichtsboard',
-    requiresEvent: true,
-  },
-  {
-    href: '/map',
-    icon: MapIcon,
-    label: 'Karte',
-    description: 'Lagekarte',
-    requiresEvent: true,
-  },
-  // Hidden on mobile - Combined view not optimized for small screens
-  // {
-  //   href: '/combined',
-  //   icon: LayoutGrid,
-  //   label: 'Kombiniert',
-  //   description: 'Kanban & Karte',
-  //   requiresEvent: true,
-  // },
-  {
-    href: '/events',
-    icon: Calendar,
-    label: 'Ereignisse',
-    description: 'Ereignisverwaltung',
-  },
-];
-
-const SETTINGS_ITEMS: NavItem[] = [
-  {
-    href: '/settings',
-    icon: Settings,
-    label: 'Einstellungen',
-    description: 'Konfiguration & Verwaltung',
-  },
-  {
-    href: '/help',
-    icon: HelpCircle,
-    label: 'Hilfe',
-    description: 'Dokumentation',
-  },
-];
-
 export function MobileNavigation({ open, onOpenChange, children, hasSelectedEvent = true }: MobileNavigationProps) {
+  const t = useTranslations('nav.mobileNav');
   const pathname = usePathname();
+
+  const NAV_ITEMS: NavItem[] = [
+    {
+      href: '/',
+      icon: List,
+      label: t('kanban'),
+      description: t('kanbanDescription'),
+      requiresEvent: true,
+    },
+    {
+      href: '/map',
+      icon: MapIcon,
+      label: t('map'),
+      description: t('mapDescription'),
+      requiresEvent: true,
+    },
+    // Hidden on mobile - Combined view not optimized for small screens
+    // {
+    //   href: '/combined',
+    //   icon: LayoutGrid,
+    //   label: 'Kombiniert',
+    //   description: 'Kanban & Karte',
+    //   requiresEvent: true,
+    // },
+    {
+      href: '/events',
+      icon: Calendar,
+      label: t('events'),
+      description: t('eventsDescription'),
+    },
+  ];
+
+  const SETTINGS_ITEMS: NavItem[] = [
+    {
+      href: '/settings',
+      icon: Settings,
+      label: t('settings'),
+      description: t('settingsDescription'),
+    },
+    {
+      href: '/help',
+      icon: HelpCircle,
+      label: t('help'),
+      description: t('helpDescription'),
+    },
+  ];
 
   const isActive = (href: string) => {
     if (href === '/') {
@@ -92,7 +94,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden">
           <Menu className="h-6 w-6" />
-          <span className="sr-only">Menu öffnen</span>
+          <span className="sr-only">{t('openMenu')}</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-80 flex flex-col p-0">
@@ -121,7 +123,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
             {/* Views Section */}
             <div>
               <h3 className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider mb-4 px-3">
-                Ansichten
+                {t('views')}
               </h3>
               <nav className="space-y-1.5">
                 {NAV_ITEMS.map((item) => {
@@ -175,7 +177,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
             {/* Management Section */}
             <div>
               <h3 className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider mb-4 px-3">
-                Verwaltung
+                {t('management')}
               </h3>
               <nav className="space-y-1.5">
                 {SETTINGS_ITEMS.map((item) => {

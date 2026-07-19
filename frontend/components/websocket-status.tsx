@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { cn } from "@/lib/utils"
 import { WifiOff, Wifi, Loader2, AlertCircle } from "lucide-react"
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/tooltip"
 
 export function WebSocketStatus() {
+  const t = useTranslations('common.websocketStatus')
   const [status, setStatus] = useState<WebSocketStatus>('disconnected')
 
   useEffect(() => {
@@ -38,13 +40,13 @@ export function WebSocketStatus() {
   const getStatusText = () => {
     switch (status) {
       case 'connecting':
-        return 'Verbindung wird hergestellt...'
+        return t('connecting')
       case 'connected':
-        return 'Echtzeit-Updates aktiv'
+        return t('connected')
       case 'disconnected':
-        return 'Offline - Polling aktiv'
+        return t('disconnected')
       case 'error':
-        return 'Verbindungsfehler - Polling aktiv'
+        return t('error')
     }
   }
 
@@ -77,10 +79,10 @@ export function WebSocketStatus() {
         <TooltipContent>
           <p className="text-sm">
             {status === 'connected'
-              ? 'Änderungen werden in Echtzeit übertragen'
+              ? t('tooltipConnected')
               : status === 'connecting'
-              ? 'Verbindung zum Server wird hergestellt'
-              : 'Daten werden alle 5 Sekunden aktualisiert'}
+              ? t('tooltipConnecting')
+              : t('tooltipPolling')}
           </p>
         </TooltipContent>
       </Tooltip>
