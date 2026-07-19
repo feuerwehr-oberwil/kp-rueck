@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
 // (backend/app/services/training_autogen_task.py). All knobs are plain
 // settings; the monitor picks changes up within ~5s — no restart needed.
 export function TrainingAutogenControls() {
+  const t = useTranslations('training.autogen');
   const { selectedEvent } = useEvent();
   const [loaded, setLoaded] = useState(false);
   const [enabled, setEnabled] = useState(false);
@@ -57,7 +59,7 @@ export function TrainingAutogenControls() {
       await apiClient.updateSetting(key, value);
       return true;
     } catch {
-      toast.error('Einstellung konnte nicht gespeichert werden');
+      toast.error(t('saveFailed'));
       return false;
     } finally {
       setSaving(false);
@@ -70,10 +72,10 @@ export function TrainingAutogenControls() {
       setEnabled(!on);
       return;
     }
-    toast.success(on ? 'Automatik gestartet' : 'Automatik gestoppt', {
+    toast.success(on ? t('started') : t('stopped'), {
       description: on
-        ? `Neue Alarme alle ~${intervalMin} Min (erste 30 Min doppeltes Tempo).`
-        : 'Es werden keine Einsätze mehr automatisch generiert.',
+        ? t('startedDescription', { interval: intervalMin })
+        : t('stoppedDescription'),
     });
   };
 
@@ -101,24 +103,24 @@ export function TrainingAutogenControls() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Timer className="h-5 w-5 text-emerald-600" />
-              Automatik
+              {t('title')}
             </CardTitle>
             <CardDescription>
-              Generiert laufend neue Einsätze — du beobachtest, statt Knöpfe zu drücken
+              {t('description')}
             </CardDescription>
           </div>
           <Switch
             checked={enabled}
             onCheckedChange={handleToggle}
             disabled={!loaded || saving}
-            aria-label="Automatik ein/aus"
+            aria-label={t('toggleAria')}
           />
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="autogen-interval">Intervall (Min)</Label>
+            <Label htmlFor="autogen-interval">{t('intervalLabel')}</Label>
             <Input
               id="autogen-interval"
               type="number"
@@ -131,7 +133,7 @@ export function TrainingAutogenControls() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="autogen-max">Max. Einsätze</Label>
+            <Label htmlFor="autogen-max">{t('maxLabel')}</Label>
             <Input
               id="autogen-max"
               type="number"
@@ -145,25 +147,23 @@ export function TrainingAutogenControls() {
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>Alarmweg</Label>
+          <Label>{t('alarmPath')}</Label>
           <Select value={mode} onValueChange={(v) => handleModeChange(v as 'board' | 'divera')}>
             <SelectTrigger className="w-full" disabled={!loaded}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="board">Direkt aufs Board</SelectItem>
-              <SelectItem value="divera">Über Divera-Pool (echter Alarmierungs-Weg)</SelectItem>
+              <SelectItem value="board">{t('modeBoard')}</SelectItem>
+              <SelectItem value="divera">{t('modeDivera')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <p className="text-xs text-muted-foreground">
-          Wirkt auf die neueste aktive Übung. In den ersten 30 Minuten läuft die Generierung mit
-          doppeltem Tempo (heisse Phase). &quot;Über Divera-Pool&quot; lässt Alarme im Notfall-Pool
-          eingehen — der Operator übernimmt sie dort wie im Ernstfall.
+          {t('hint')}
         </p>
         {enabled && (
           <Button variant="outline" size="sm" className="w-full" onClick={() => handleToggle(false)}>
-            Automatik stoppen
+            {t('stop')}
           </Button>
         )}
       </CardContent>

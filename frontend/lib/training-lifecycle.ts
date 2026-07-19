@@ -1,4 +1,5 @@
 import type { Operation, OperationStatus } from "./contexts/operations-context"
+import { translateOutsideReact } from "./i18n-messages"
 
 // ── Training conductor: FIELD lifecycle steps ────────────────────────────────
 // Drives the "Nächste Aktionen" console in the Übungs-Steuerung. The trainer
@@ -74,14 +75,14 @@ export function nextActions(op: Operation, opts?: { gpsSim?: boolean }): NextAct
   switch (op.status) {
     case "ready":
       if (!op.rekoArrivedAt) {
-        return [{ key: "reko_arrived", label: "Reko vor Ort", kind: "reko_arrived", dueAfterSec: DUE.rekoArrived }]
+        return [{ key: "reko_arrived", label: translateOutsideReact('notifications.trainingActions.rekoArrived'), kind: "reko_arrived", dueAfterSec: DUE.rekoArrived }]
       }
-      return [{ key: "reko_report", label: "Reko-Meldung", kind: "reko_report", dueAfterSec: DUE.rekoReport }]
+      return [{ key: "reko_report", label: translateOutsideReact('notifications.trainingActions.rekoReport'), kind: "reko_report", dueAfterSec: DUE.rekoReport }]
     case "enroute":
       if (opts?.gpsSim && op.coordinates && op.vehicles.length > 0) {
-        return [{ key: "drive_to_incident", label: "Fahrt zu Einsatz", kind: "gps_drive", dueAfterSec: DUE.driveStart }]
+        return [{ key: "drive_to_incident", label: translateOutsideReact('notifications.trainingActions.driveToIncident'), kind: "gps_drive", dueAfterSec: DUE.driveStart }]
       }
-      return [{ key: "vehicle_on_scene", label: "Fahrzeug vor Ort", kind: "status", targetStatus: "active", dueAfterSec: DUE.vehicleOnScene }]
+      return [{ key: "vehicle_on_scene", label: translateOutsideReact('notifications.trainingActions.vehicleOnScene'), kind: "status", targetStatus: "active", dueAfterSec: DUE.vehicleOnScene }]
     case "active": {
       // On scene, the trainer holds both levers: report "Einsatz beendet"
       // (once) and/or send the vehicles home early (drop-off). After the
@@ -89,10 +90,10 @@ export function nextActions(op: Operation, opts?: { gpsSim?: boolean }): NextAct
       // a vehicle already back home never hides the beendet report.
       const actions: NextAction[] = []
       if (!op.fieldCompleteReportedAt) {
-        actions.push({ key: "field_complete", label: "Einsatz beendet", kind: "field_complete", dueAfterSec: DUE.incidentDone })
+        actions.push({ key: "field_complete", label: translateOutsideReact('notifications.trainingActions.fieldComplete'), kind: "field_complete", dueAfterSec: DUE.incidentDone })
       }
       if (opts?.gpsSim && op.vehicles.length > 0) {
-        const action: NextAction = { key: "drive_to_magazin", label: "Rückfahrt Magazin", kind: "gps_return", dueAfterSec: DUE.returnStart }
+        const action: NextAction = { key: "drive_to_magazin", label: translateOutsideReact('notifications.trainingActions.driveToMagazin'), kind: "gps_return", dueAfterSec: DUE.returnStart }
         if (op.fieldCompleteReportedAt) actions.unshift(action)
         else actions.push(action)
       }
@@ -102,7 +103,7 @@ export function nextActions(op: Operation, opts?: { gpsSim?: boolean }): NextAct
       // Operator already moved the card to Rückführung — vehicles still assigned
       // should actually drive home so the release prompt can fire.
       if (opts?.gpsSim && op.vehicles.length > 0) {
-        return [{ key: "drive_to_magazin", label: "Rückfahrt Magazin", kind: "gps_return", dueAfterSec: DUE.driveStart }]
+        return [{ key: "drive_to_magazin", label: translateOutsideReact('notifications.trainingActions.driveToMagazin'), kind: "gps_return", dueAfterSec: DUE.driveStart }]
       }
       return []
     // "incoming" (operator tasks Reko) and "rekoDone" (operator disponiert) are

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +35,8 @@ const TESTDRUCK_AGENT_ACTIVE_WINDOW_MS = 15 * 60 * 1000;
 type TestDruckPhase = 'queued' | 'printing' | 'done' | null;
 
 export function PrinterSettings() {
+  const t = useTranslations('settings.printer');
+  const tCommon = useTranslations('settings.common');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [printerStatus, setPrinterStatus] = useState<ApiPrinterStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +71,7 @@ export function PrinterSettings() {
       savedSettingsRef.current = { ...data };
     } catch (error) {
       console.error('Failed to load settings:', error);
-      toast.error('Fehler beim Laden der Einstellungen');
+      toast.error(tCommon('loadSettingsError'));
     } finally {
       setLoading(false);
     }
@@ -99,7 +102,7 @@ export function PrinterSettings() {
       loadPrinterStatus();
     } catch (error) {
       console.error(`Failed to update setting ${key}:`, error);
-      toast.error('Fehler beim Speichern');
+      toast.error(tCommon('saveError'));
     } finally {
       setSaving(null);
     }
@@ -111,16 +114,16 @@ export function PrinterSettings() {
       const status = await loadPrinterStatus();
 
       if (!status?.enabled || !status.ip) {
-        toast.info('Drucker ist nicht aktiviert oder konfiguriert');
+        toast.info(t('toasts.notConfigured'));
       } else if (!status.agent_online) {
-        toast.error('Print-Service (Raspberry Pi) ist offline – er meldet sich nicht beim Backend.');
+        toast.error(t('toasts.serviceOfflineBackend'));
       } else if (status.last_error) {
-        toast.error(`Letzter Druckauftrag fehlgeschlagen: ${status.last_error}`);
+        toast.error(t('toasts.lastJobFailed', { error: status.last_error }));
       } else {
-        toast.success('Print-Service online und Drucker konfiguriert');
+        toast.success(t('toasts.serviceOnlineConfigured'));
       }
     } catch (error) {
-      toast.error('Verbindungstest fehlgeschlagen');
+      toast.error(t('toasts.connectionTestFailed'));
     } finally {
       setTestingConnection(false);
     }
@@ -141,7 +144,7 @@ export function PrinterSettings() {
     try {
       const job = await apiClient.queueTestPrint();
       const start = Date.now();
-      toast.info('Testdruck eingereiht – warte auf Drucker…');
+      toast.info(t('toasts.testQueued'));
 
       // Estimate how long until the Pi picks up the job, mirroring the agent's
       // own active/idle decision: if it processed a job recently it's polling
@@ -151,7 +154,7 @@ export function PrinterSettings() {
       const lastJobAt = preStatus?.last_job_at ? new Date(preStatus.last_job_at).getTime() : 0;
       const agentActive = lastJobAt > 0 && Date.now() - lastJobAt < TESTDRUCK_AGENT_ACTIVE_WINDOW_MS;
       const expectedMs = agentActive ? TESTDRUCK_ACTIVE_POLL_MS : TESTDRUCK_IDLE_POLL_MS;
-      setTestEta(agentActive ? 'in ~5 s' : 'in ~60 s');
+      setTestEta(agentActive ? t('etaActive') : t('etaIdle'));
 
       // Smooth fill toward the expected pickup window, capped at 90% while the
       // job is still pending so it never claims completion early.
@@ -192,18 +195,18 @@ export function PrinterSettings() {
         phase = 'done';
         setTestPhase('done');
         setTestProgress(100);
-        toast.success('Testdruck erfolgreich gedruckt – das System ist bereit.');
+        toast.success(t('toasts.testSuccess'));
       } else if (result.status === 'failed') {
         // Job was claimed and failed → agent is alive, the printer is the problem.
-        toast.error(`Drucker-Fehler: ${result.error_message ?? 'Drucker nicht erreichbar'}`);
+        toast.error(t('toasts.printerError', { error: result.error_message ?? t('toasts.printerUnreachable') }));
       } else if (bailedServiceOffline) {
-        toast.error('Print-Service (Raspberry Pi) ist offline – der Auftrag wird nicht abgeholt.');
+        toast.error(t('toasts.serviceOfflineJob'));
       } else {
-        toast.warning('Testdruck noch in der Warteschlange – der Agent verarbeitet ihn in Kürze.');
+        toast.warning(t('toasts.testStillQueued'));
       }
     } catch (error) {
       console.error('Test print failed:', error);
-      toast.error('Testdruck konnte nicht gestartet werden');
+      toast.error(t('toasts.testStartFailed'));
     } finally {
       if (ticker) clearInterval(ticker);
       setTestingPrint(false);
@@ -248,7 +251,7 @@ export function PrinterSettings() {
         <div className="flex gap-2">
           <Info className="h-4 w-4 text-info flex-shrink-0 mt-0.5" />
           <p className="text-sm text-info-foreground">
-            Der Print-Agent muss auf dem Kommandoposten-Netzwerk laufen und Zugriff auf den Drucker haben.
+            {t('infoBanner')}
           </p>
         </div>
       </Card>
@@ -261,7 +264,7 @@ export function PrinterSettings() {
               {printerStatus?.enabled ? (
                 <>
                   <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium">Drucker aktiviert</span>
+                  <span className="text-sm font-medium">{t('printerEnabled')}</span>
                   {printerStatus.ip && (
                     <span className="text-sm text-muted-foreground">
                       ({printerStatus.ip}:{printerStatus.port})
@@ -271,7 +274,7 @@ export function PrinterSettings() {
               ) : (
                 <>
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Drucker deaktiviert</span>
+                  <span className="text-sm text-muted-foreground">{t('printerDisabled')}</span>
                 </>
               )}
             </div>
@@ -281,13 +284,13 @@ export function PrinterSettings() {
                 {printerStatus.agent_online ? (
                   <>
                     <CheckCircle className="h-4 w-4 text-success" />
-                    <span className="text-sm font-medium">Print-Service online</span>
+                    <span className="text-sm font-medium">{t('serviceOnline')}</span>
                   </>
                 ) : (
                   <>
                     <AlertCircle className="h-4 w-4 text-destructive" />
-                    <span className="text-sm text-destructive">Print-Service offline</span>
-                    <span className="text-xs text-muted-foreground">(Raspberry Pi meldet sich nicht)</span>
+                    <span className="text-sm text-destructive">{t('serviceOffline')}</span>
+                    <span className="text-xs text-muted-foreground">{t('serviceOfflineHint')}</span>
                   </>
                 )}
               </div>
@@ -307,15 +310,15 @@ export function PrinterSettings() {
       {/* Configuration Card */}
       <Card className="p-6">
         <div className="space-y-1 mb-4">
-          <p className="font-medium">Drucker-Konfiguration</p>
-          <p className="text-xs text-muted-foreground">Einstellungen für den Thermodrucker</p>
+          <p className="font-medium">{t('configTitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('configSubtitle')}</p>
         </div>
         <div className="space-y-4">
           {/* Enable/Disable Toggle */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="printer-enabled" className="font-medium">Drucker aktiviert</Label>
-              <p className="text-xs text-muted-foreground">Aktiviert die Thermodrucker-Funktionen</p>
+              <Label htmlFor="printer-enabled" className="font-medium">{t('printerEnabled')}</Label>
+              <p className="text-xs text-muted-foreground">{t('enabledHint')}</p>
             </div>
             <Switch
               id="printer-enabled"
@@ -330,8 +333,8 @@ export function PrinterSettings() {
           {/* IP Address */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="printer-ip" className="font-medium">IP-Adresse</Label>
-              <p className="text-xs text-muted-foreground">Netzwerk-IP des Thermodruckers</p>
+              <Label htmlFor="printer-ip" className="font-medium">{t('ipLabel')}</Label>
+              <p className="text-xs text-muted-foreground">{t('ipHint')}</p>
             </div>
             <div className="flex-shrink-0 w-48">
               <Input
@@ -355,8 +358,8 @@ export function PrinterSettings() {
           {/* Port */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="printer-port" className="font-medium">Port</Label>
-              <p className="text-xs text-muted-foreground">ESC/POS Standard-Port (normalerweise 9100)</p>
+              <Label htmlFor="printer-port" className="font-medium">{t('portLabel')}</Label>
+              <p className="text-xs text-muted-foreground">{t('portHint')}</p>
             </div>
             <div className="flex-shrink-0 w-24">
               <Input
@@ -380,8 +383,8 @@ export function PrinterSettings() {
           {/* Auto-print on Anfahrt */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="auto-anfahrt" className="font-medium">Auto-Druck bei Anfahrt</Label>
-              <p className="text-xs text-muted-foreground">Einsatzzettel automatisch drucken bei Status &quot;Einsatz&quot;</p>
+              <Label htmlFor="auto-anfahrt" className="font-medium">{t('autoAnfahrtLabel')}</Label>
+              <p className="text-xs text-muted-foreground">{t('autoAnfahrtHint')}</p>
             </div>
             <Switch
               id="auto-anfahrt"
@@ -406,7 +409,7 @@ export function PrinterSettings() {
               ) : (
                 <CheckCircle className="h-4 w-4 mr-2" />
               )}
-              Verbindung testen
+              {t('testConnection')}
             </Button>
             <Button
               variant="default"
@@ -419,7 +422,7 @@ export function PrinterSettings() {
               ) : (
                 <Printer className="h-4 w-4 mr-2" />
               )}
-              Testdruck
+              {t('testPrint')}
             </Button>
           </div>
 
@@ -433,11 +436,11 @@ export function PrinterSettings() {
                   ) : (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   )}
-                  {testPhase === 'queued' && 'Warte auf Print-Agent (Pi)…'}
-                  {testPhase === 'printing' && 'Drucke…'}
-                  {testPhase === 'done' && 'Fertig gedruckt'}
+                  {testPhase === 'queued' && t('phaseQueued')}
+                  {testPhase === 'printing' && t('phasePrinting')}
+                  {testPhase === 'done' && t('phaseDone')}
                 </span>
-                {testPhase === 'queued' && testEta && <span>Abholung {testEta}</span>}
+                {testPhase === 'queued' && testEta && <span>{t('pickup', { eta: testEta })}</span>}
               </div>
               <Progress value={testProgress} />
             </div>
@@ -450,36 +453,32 @@ export function PrinterSettings() {
         <details className="group">
           <summary className="flex items-center gap-2 cursor-pointer font-medium text-sm">
             <Printer className="h-4 w-4" />
-            So funktioniert der Thermodruck
+            {t('howItWorks')}
           </summary>
           <div className="mt-3 space-y-3 text-sm text-muted-foreground">
             <div className="space-y-1.5">
-              <p className="font-medium text-foreground">Aufbau</p>
+              <p className="font-medium text-foreground">{t('setupTitle')}</p>
               <p>
-                Ein Print-Agent (Raspberry Pi) im Kommandoposten-Netzwerk fragt das Backend
-                regelmässig nach neuen Druckaufträgen ab und sendet diese an den Thermodrucker.
+                {t('setupText')}
               </p>
             </div>
             <div className="space-y-1.5">
-              <p className="font-medium text-foreground">Druckaufträge</p>
+              <p className="font-medium text-foreground">{t('jobsTitle')}</p>
               <ul className="list-disc list-inside space-y-1">
-                <li><strong>Einsatzzettel</strong> — wird automatisch gedruckt wenn ein Einsatz auf &quot;Disponiert&quot; oder &quot;Einsatz&quot; gesetzt wird, oder manuell über das Kontextmenü</li>
-                <li><strong>Board-Snapshot</strong> — über den &quot;Thermo&quot;-Button in der Fussleiste, mit Optionen für abgeschlossene Einsätze, Fahrzeuge und Personal</li>
+                <li>{t.rich('jobEinsatzzettel', { strong: (chunks) => <strong>{chunks}</strong> })}</li>
+                <li>{t.rich('jobBoardSnapshot', { strong: (chunks) => <strong>{chunks}</strong> })}</li>
               </ul>
             </div>
             <div className="space-y-1.5">
-              <p className="font-medium text-foreground">Polling-Verhalten</p>
+              <p className="font-medium text-foreground">{t('pollingTitle')}</p>
               <p>
-                Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag
-                wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit Folgeaufträge
-                schneller verarbeitet werden.
+                {t('pollingText')}
               </p>
             </div>
             <div className="space-y-1.5">
-              <p className="font-medium text-foreground">Netzwerk</p>
+              <p className="font-medium text-foreground">{t('networkTitle')}</p>
               <p>
-                Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker.
-                Nur ausgehende Verbindungen — keine Portfreigaben nötig.
+                {t('networkText')}
               </p>
             </div>
           </div>

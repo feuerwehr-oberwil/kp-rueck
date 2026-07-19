@@ -17,6 +17,8 @@ import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
+import { useTranslations } from "next-intl"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 
 // Fix Leaflet default icon issue with Next.js
 import icon from "leaflet/dist/images/marker-icon.png"
@@ -66,7 +68,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false, 
         50% { opacity: 0.72; }
       }
     </style>
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" tabindex="0" role="button" aria-label="Einsatz: ${a11yLabel}" style="${pulse} transition: all 0.2s ease; opacity: ${borderStyle.opacity}; outline: none;">
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" tabindex="0" role="button" aria-label="${translateOutsideReact('map.view.markerAria', { label: a11yLabel })}" style="${pulse} transition: all 0.2s ease; opacity: ${borderStyle.opacity}; outline: none;">
       <!-- Drop shadow filter -->
       <defs>
         <filter id="shadow-${incident.id}" x="-20%" y="-20%" width="140%" height="140%">
@@ -412,6 +414,7 @@ function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Inciden
 
 // Warning banner for incidents without valid coordinates
 function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: Incident[]; onIncidentClick?: (incidentId: string) => void }) {
+  const t = useTranslations('map')
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (incidents.length === 0) return null
@@ -421,10 +424,10 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
       <div
         className="flex items-center gap-2 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
-        title="Klicken zum Erweitern"
+        title={t('view.clickToExpand')}
       >
         <span className="font-semibold">
-          ⚠️ {incidents.length} Einsatz{incidents.length !== 1 ? "e" : ""} ohne gültige Koordinaten
+          {t('view.missingCoords', { count: incidents.length })}
         </span>
         <span className="text-sm ml-auto">
           {isExpanded ? "▼" : "▶"}
@@ -441,7 +444,7 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
                 e.stopPropagation()
                 onIncidentClick?.(incident.id)
               }}
-              title="Klicken um zu Einsatz zu navigieren"
+              title={t('view.clickToNavigate')}
             >
               <span className="font-medium">• {incident.title}</span>
             </li>
@@ -464,6 +467,7 @@ function MapModeIndicator({
   isAuto: boolean
   onReset: () => void
 }) {
+  const t = useTranslations('map')
   const isOnline = effectiveMode === 'online'
   const showFallbackIndicator = isAuto && !isOnline
 
@@ -478,10 +482,10 @@ function MapModeIndicator({
             : 'bg-warning/15 border border-warning text-warning-foreground'
           }
         `}
-        title={`Karten-Modus: ${preferredMode} (${isOnline ? 'Online' : 'Offline'})`}
+        title={t('view.modeTitle', { mode: preferredMode, status: isOnline ? t('common.online') : t('common.offline') })}
       >
         {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-        <span>{isOnline ? 'Online' : 'Offline'}</span>
+        <span>{isOnline ? t('common.online') : t('common.offline')}</span>
       </div>
 
       {/* Retry button (shown when in auto mode and fell back to offline) */}
@@ -489,10 +493,10 @@ function MapModeIndicator({
         <button
           onClick={onReset}
           className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-md text-sm font-medium bg-info/15 border border-info text-info-foreground hover:bg-info/25 transition-colors"
-          title="Online-Modus erneut versuchen"
+          title={t('view.retryOnlineTitle')}
         >
           <RefreshCw className="h-4 w-4" />
-          <span>Neu versuchen</span>
+          <span>{t('view.retry')}</span>
         </button>
       )}
     </div>
@@ -533,8 +537,9 @@ export default function MapView({
   colorBy = "priority",
   colorGroups = [],
 }: MapViewProps) {
+  const t = useTranslations('map')
   const { incidents, formatLocation } = useIncidents()
-  const [firestationName, setFirestationName] = useState<string>("Feuerwehr")
+  const [firestationName, setFirestationName] = useState<string>(() => t('view.firestationFallback'))
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
     47.51637699933488, 7.561800450458299,
   ])
@@ -809,7 +814,7 @@ export default function MapView({
       ref={mapWrapperRef}
       className="relative w-full h-full rounded-lg overflow-hidden"
       role="region"
-      aria-label="Einsatzkarte — Pfeiltasten zum Verschieben, Tab zum Markieren"
+      aria-label={t('view.mapAria')}
     >
       <MapContainer
         center={center}
@@ -847,7 +852,7 @@ export default function MapView({
             zIndexOffset={-100}
           >
             <Tooltip direction="top" offset={[0, -VEHICLE_PILL_HEIGHT / 2]}>
-              <span>Magazin</span>
+              <span>{t('view.magazin')}</span>
             </Tooltip>
           </Marker>
         )}
@@ -914,7 +919,7 @@ export default function MapView({
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground">
-                        {vehicle.status === 'online' ? 'Online' : 'Offline'}
+                        {vehicle.status === 'online' ? t('common.online') : t('common.offline')}
                       </div>
                     </div>
                   ))}

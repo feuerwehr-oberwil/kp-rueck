@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
 import { apiClient, type ApiIncident, type ApiEvent } from '@/lib/api-client'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -42,8 +43,8 @@ function mapApiStatus(apiStatus: string): OperationStatus {
 }
 
 // Format location address
-function formatLocation(address: string | null): string {
-  if (!address) return 'Unbekannt'
+function formatLocation(address: string | null, unknownLabel: string): string {
+  if (!address) return unknownLabel
   // Split by comma and take first part (street address)
   const parts = address.split(',')
   return parts[0].trim()
@@ -72,6 +73,7 @@ interface ViewerIncidentCardProps {
 }
 
 function ViewerIncidentCard({ incident, isExpanded = false, onClick }: ViewerIncidentCardProps) {
+  const t = useTranslations('viewer')
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Auto-update time every minute
@@ -117,7 +119,7 @@ function ViewerIncidentCard({ incident, isExpanded = false, onClick }: ViewerInc
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-base text-foreground leading-tight break-words">
-                {formatLocation(incident.location_address || incident.title)}
+                {formatLocation(incident.location_address || incident.title, t('common.unknown'))}
               </h3>
               {incident.title && incident.location_address && incident.title !== incident.location_address && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
@@ -137,8 +139,8 @@ function ViewerIncidentCard({ incident, isExpanded = false, onClick }: ViewerInc
                 }`}
                 title={
                   incident.has_completed_reko
-                    ? 'Reko-Bericht ausgefüllt'
-                    : 'Reko vor Ort'
+                    ? t('card.rekoCompleted')
+                    : t('card.rekoOnSite')
                 }
               >
                 <Binoculars
@@ -169,7 +171,7 @@ function ViewerIncidentCard({ incident, isExpanded = false, onClick }: ViewerInc
           </div>
           <span
             className={cn('font-mono text-xs', ageChipClass(statusChangedAt))}
-            title={isOverOneHour ? `In diesem Status seit über 1 Stunde` : undefined}
+            title={isOverOneHour ? t('card.overOneHour') : undefined}
           >
             {getTimeSince(statusChangedAt)}
           </span>
@@ -223,6 +225,7 @@ interface ViewerColumnProps {
 }
 
 function ViewerColumn({ column, incidents }: ViewerColumnProps) {
+  const t = useTranslations('viewer')
   return (
     <div className="flex min-w-[320px] max-w-[420px] flex-1 flex-col">
       <div className={cn(
@@ -230,7 +233,7 @@ function ViewerColumn({ column, incidents }: ViewerColumnProps) {
         column.color
       )}>
         <h2 className="text-balance text-sm font-semibold text-foreground">{column.title}</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">{incidents.length} Einsätze</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{t('common.incidentCount', { count: incidents.length })}</p>
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-2 rounded-lg min-h-[200px]">
@@ -246,6 +249,7 @@ function ViewerColumn({ column, incidents }: ViewerColumnProps) {
 }
 
 export default function ViewerPage() {
+  const t = useTranslations('viewer')
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const { user, loading: authLoading, logout } = useAuth()
@@ -301,8 +305,8 @@ export default function ViewerPage() {
       if (!hasDataRef.current) {
         setError(
           token
-            ? 'Ungültiger oder abgelaufener Link. Bitte fordern Sie einen neuen Link an.'
-            : 'Daten konnten nicht geladen werden.'
+            ? t('page.invalidLink')
+            : t('page.loadFailed')
         )
       }
     } finally {
@@ -326,14 +330,14 @@ export default function ViewerPage() {
           if (preferred) {
             setSelectedEvent(apiEventToEvent(preferred))
           } else {
-            setError('Keine Ereignisse verfügbar.')
+            setError(t('page.noEvents'))
             setLoading(false)
           }
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setError('Ereignisse konnten nicht geladen werden.')
+          setError(t('page.eventsLoadFailed'))
           setLoading(false)
         }
       })
@@ -347,7 +351,7 @@ export default function ViewerPage() {
     if (!token && !isAuthMode) {
       // No link token and not logged in.
       if (!authLoading) {
-        setError('Zugriffscode fehlt. Bitte fordern Sie einen Link vom Editor an oder melden Sie sich an.')
+        setError(t('page.missingToken'))
         setLoading(false)
       }
       return
@@ -400,7 +404,7 @@ export default function ViewerPage() {
         <div className="max-w-md text-center">
           <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <div className="text-destructive text-xl font-semibold mb-2">
-            Zugriff erforderlich
+            {t('page.accessRequired')}
           </div>
           <div className="text-muted-foreground">{error}</div>
         </div>
@@ -426,9 +430,9 @@ export default function ViewerPage() {
         >
           <WifiOff className="h-4 w-4 flex-shrink-0" />
           <span>
-            Verbindung gestört — letzter Stand{' '}
-            {lastRefresh.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} Uhr.
-            Aktualisierung läuft weiter.
+            {t('page.staleBanner', {
+              time: lastRefresh.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            })}
           </span>
         </div>
       )}
@@ -437,10 +441,10 @@ export default function ViewerPage() {
       <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <h1 className="text-xl md:text-2xl font-bold tracking-tight truncate">
-            {event?.name || 'Ereignis'}
+            {event?.name || t('page.eventFallback')}
           </h1>
           {event?.training_flag && (
-            <Badge variant="secondary" className="flex-shrink-0">Übung</Badge>
+            <Badge variant="secondary" className="flex-shrink-0">{t('common.training')}</Badge>
           )}
         </div>
 
@@ -454,12 +458,12 @@ export default function ViewerPage() {
                 if (ev) setSelectedEvent(apiEventToEvent(ev))
               }}
               className="h-8 max-w-[12rem] rounded-lg border border-border bg-muted/50 px-2 text-sm"
-              aria-label="Ereignis wählen"
+              aria-label={t('page.selectEvent')}
             >
               {availableEvents.map((ev) => (
                 <option key={ev.id} value={ev.id}>
                   {ev.name}
-                  {ev.training_flag ? ' (Übung)' : ''}
+                  {ev.training_flag ? t('page.trainingSuffix') : ''}
                 </option>
               ))}
             </select>
@@ -474,7 +478,7 @@ export default function ViewerPage() {
               onClick={() => setViewMode('kanban')}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Kanban</span>
+              <span className="hidden sm:inline text-xs">{t('page.kanbanView')}</span>
             </Button>
             <Button
               variant={viewMode === 'map' ? 'secondary' : 'ghost'}
@@ -483,14 +487,14 @@ export default function ViewerPage() {
               onClick={() => setViewMode('map')}
             >
               <MapIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Karte</span>
+              <span className="hidden sm:inline text-xs">{t('page.mapView')}</span>
             </Button>
           </div>
 
           {/* Viewer banner */}
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
             <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Nur-Lesen</span>
+            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{t('page.readOnly')}</span>
           </div>
 
           {/* Refresh indicator */}
@@ -523,7 +527,7 @@ export default function ViewerPage() {
               }}
             >
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">Abmelden</span>
+              <span className="hidden sm:inline text-xs">{t('page.logout')}</span>
             </Button>
           )}
         </div>
@@ -550,11 +554,11 @@ export default function ViewerPage() {
                   <button
                     onClick={() => setShowCompleted((v) => !v)}
                     className="flex w-10 flex-shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 text-xs font-semibold tracking-wide text-muted-foreground transition-colors hover:bg-muted/50"
-                    title={showCompleted ? 'Abgeschlossen ausblenden' : 'Abgeschlossen anzeigen'}
+                    title={showCompleted ? t('page.hideCompleted') : t('page.showCompleted')}
                   >
                     {showCompleted ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                     <span className="[writing-mode:vertical-rl] rotate-180">
-                      ABGESCHLOSSEN ({completeIncidents.length})
+                      {t('page.completedColumn', { count: completeIncidents.length })}
                     </span>
                   </button>
                   {showCompleted && (
@@ -580,13 +584,13 @@ export default function ViewerPage() {
           <aside className="w-80 border-l border-border bg-card/30 backdrop-blur-sm overflow-y-auto flex-shrink-0 hidden md:block">
             <div className="p-4">
               <h2 className="text-lg font-bold mb-3">
-                Einsätze ({activeIncidents.length})
+                {t('page.incidentsHeading', { count: activeIncidents.length })}
               </h2>
 
               <div className="space-y-3">
                 {activeIncidents.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    Keine aktiven Einsätze
+                    {t('common.noActiveIncidents')}
                   </p>
                 ) : (
                   activeIncidents.map((incident) => (
@@ -611,11 +615,11 @@ export default function ViewerPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Eye className="h-4 w-4" />
-            <span className="hidden sm:inline">Nur-Lesen-Ansicht - Automatische Aktualisierung alle 5 Sekunden</span>
-            <span className="sm:hidden">Nur-Lesen</span>
+            <span className="hidden sm:inline">{t('page.footerReadOnly')}</span>
+            <span className="sm:hidden">{t('page.readOnly')}</span>
           </div>
           <div className="text-xs text-muted-foreground">
-            {incidents.length} Einsätze
+            {t('common.incidentCount', { count: incidents.length })}
           </div>
         </div>
       </footer>

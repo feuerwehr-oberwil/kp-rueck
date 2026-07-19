@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Truck, ChevronDown, Info } from "lucide-react"
 import { PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -55,6 +56,7 @@ export function MapLegend({
   colorBy?: ColorByDimension
   colorGroups?: ColorGroup[]
 }) {
+  const t = useTranslations('map')
   // For priority the markers use the built-in priority colours (static legend
   // below). For reko/vehicle/type the fill encodes that dimension, so swap the
   // Priorität section for the active grouping's colours.
@@ -71,10 +73,10 @@ export function MapLegend({
       <button
         onClick={() => setOpen(true)}
         className="absolute bottom-4 right-4 z-30 flex items-center gap-1.5 rounded-full bg-card/95 backdrop-blur-sm border border-border px-3 py-1.5 text-xs font-medium shadow-lg hover:bg-card"
-        aria-label="Legende anzeigen"
+        aria-label={t('legend.show')}
       >
         <Info className="h-3.5 w-3.5 text-muted-foreground" />
-        Legende
+        {t('legend.title')}
       </button>
     )
   }
@@ -84,16 +86,16 @@ export function MapLegend({
       <button
         onClick={() => setOpen(false)}
         className="flex items-center justify-between w-full mb-3"
-        aria-label="Legende ausblenden"
+        aria-label={t('legend.hide')}
       >
-        <h3 className="font-bold text-sm">Legende</h3>
+        <h3 className="font-bold text-sm">{t('legend.title')}</h3>
         <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>
 
       {/* Fill Legend — "Färben nach" groups when active, else priority */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          {coloring ? COLOR_BY_LABELS[colorBy] : "Priorität"}
+          {coloring ? COLOR_BY_LABELS[colorBy] : t('legend.priority')}
         </p>
         <div className="space-y-1.5">
           {coloring ? (
@@ -107,15 +109,15 @@ export function MapLegend({
             <>
               <div className="flex items-center gap-2">
                 <LegendMarker fillColor={PRIORITY_MARKER_COLORS.high} dasharray="none" />
-                <span className="text-xs">Hohe Priorität</span>
+                <span className="text-xs">{t('common.priorityHigh')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <LegendMarker fillColor={PRIORITY_MARKER_COLORS.medium} dasharray="none" />
-                <span className="text-xs">Mittlere Priorität</span>
+                <span className="text-xs">{t('common.priorityMedium')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <LegendMarker fillColor={PRIORITY_MARKER_COLORS.low} dasharray="none" />
-                <span className="text-xs">Niedrige Priorität</span>
+                <span className="text-xs">{t('common.priorityLow')}</span>
               </div>
             </>
           )}
@@ -125,20 +127,20 @@ export function MapLegend({
       {/* Status Legend */}
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Status (Rahmen)
+          {t('legend.statusFrame')}
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <LegendMarker fillColor="#9ca3af" dasharray="4,3" />
-            <span className="text-xs">Offen</span>
+            <span className="text-xs">{t('legend.statusOpen')}</span>
           </div>
           <div className="flex items-center gap-2">
             <LegendMarker fillColor="#9ca3af" dasharray="none" />
-            <span className="text-xs">Aktiv</span>
+            <span className="text-xs">{t('legend.statusActive')}</span>
           </div>
           <div className="flex items-center gap-2">
             <LegendMarker fillColor="#9ca3af" dasharray="2,2" opacity={0.6} />
-            <span className="text-xs">Beendet</span>
+            <span className="text-xs">{t('legend.statusCompleted')}</span>
           </div>
         </div>
       </div>
@@ -146,27 +148,27 @@ export function MapLegend({
       {/* Vehicle Legend */}
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Fahrzeuge (GPS)
+          {t('legend.vehiclesGps')}
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-blue-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label="Fahrzeug online">
+            <div className="w-6 h-6 rounded bg-blue-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label={t('legend.vehicleOnline')}>
               <Truck className="w-4 h-4 text-white" aria-hidden="true" />
             </div>
-            <span className="text-xs">Online</span>
+            <span className="text-xs">{t('common.online')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gray-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label="Fahrzeug offline">
+            <div className="w-6 h-6 rounded bg-gray-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label={t('legend.vehicleOffline')}>
               <Truck className="w-4 h-4 text-white" aria-hidden="true" />
             </div>
-            <span className="text-xs">Offline</span>
+            <span className="text-xs">{t('common.offline')}</span>
           </div>
         </div>
       </div>
       {/* Assignment Lines Legend */}
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Zuweisungen
+          {t('legend.assignments')}
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
@@ -179,7 +181,7 @@ export function MapLegend({
                 strokeLinecap="round"
               />
             </svg>
-            <span className="text-xs">Fahrzeug → Einsatz</span>
+            <span className="text-xs">{t('legend.vehicleToIncident')}</span>
           </div>
         </div>
       </div>

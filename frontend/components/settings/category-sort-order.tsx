@@ -9,6 +9,7 @@ import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indi
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GripVertical, Save } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 interface Category {
@@ -33,6 +34,7 @@ function SortableItem({
   index: number;
   isDragging: boolean;
 }) {
+  const t = useTranslations('settings');
   const ref = useRef<HTMLDivElement>(null);
   const dragHandleRef = useRef<HTMLDivElement>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
@@ -86,8 +88,8 @@ function SortableItem({
         <GripVertical className="h-5 w-5 text-muted-foreground" />
       </div>
       <div className="flex-1">
-        <div className="font-medium">{category.name || '(Keine Rolle)'}</div>
-        <div className="text-sm text-muted-foreground">{category.count} Einträge</div>
+        <div className="font-medium">{category.name || t('categorySort.noCategory')}</div>
+        <div className="text-sm text-muted-foreground">{t('common.entriesCount', { count: category.count })}</div>
       </div>
       <div className="text-sm text-muted-foreground">#{category.sort_order}</div>
       {closestEdge && <DropIndicator edge={closestEdge} />}
@@ -96,6 +98,7 @@ function SortableItem({
 }
 
 export function CategorySortOrder({ title, description, categories: initialCategories, onSave }: CategorySortOrderProps) {
+  const t = useTranslations('settings');
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -168,8 +171,8 @@ export function CategorySortOrder({ title, description, categories: initialCateg
       setHasChanges(false);
     } catch (error) {
       console.error('Failed to save sort order:', error);
-      toast.error('Fehler beim Speichern', {
-        description: 'Die Sortierung konnte nicht gespeichert werden.',
+      toast.error(t('common.saveError'), {
+        description: t('categorySort.saveErrorDescription'),
       });
     } finally {
       setIsSaving(false);
@@ -185,7 +188,7 @@ export function CategorySortOrder({ title, description, categories: initialCateg
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Keine Kategorien vorhanden. Fügen Sie zuerst Einträge hinzu.
+            {t('categorySort.empty')}
           </p>
         </CardContent>
       </Card>
@@ -207,7 +210,7 @@ export function CategorySortOrder({ title, description, categories: initialCateg
             className="gap-2"
           >
             <Save className="h-4 w-4" />
-            {isSaving ? 'Speichert...' : 'Speichern'}
+            {isSaving ? t('categorySort.savingButton') : t('common.save')}
           </Button>
         </div>
       </CardHeader>
@@ -226,7 +229,7 @@ export function CategorySortOrder({ title, description, categories: initialCateg
         {hasChanges && (
           <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              Sie haben ungespeicherte Änderungen. Klicken Sie auf "Speichern", um die neue Reihenfolge zu übernehmen.
+              {t('categorySort.unsavedChanges')}
             </p>
           </div>
         )}

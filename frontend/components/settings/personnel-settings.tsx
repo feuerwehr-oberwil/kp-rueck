@@ -52,8 +52,11 @@ import {
   type PersonnelFormValues,
 } from '@/lib/schemas/personnel';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
+import { getActiveLocale } from '@/lib/i18n-messages';
 
 export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) {
+  const t = useTranslations('settings');
   const [personnel, setPersonnel] = useState<ApiPersonnel[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPersonnel, setEditingPersonnel] = useState<ApiPersonnel | null>(null);
@@ -103,8 +106,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         // GET degraded to undefined after retries — keep previous state instead
         // of crashing the sort memos with a non-iterable value.
         if (personnel.length === 0) {
-          toast.error('Personal konnte nicht geladen werden', {
-            description: 'Bitte Seite neu laden.',
+          toast.error(t('personnel.loadError'), {
+            description: t('common.reloadPage'),
           });
         }
         return;
@@ -154,8 +157,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       closeDialog();
     } catch (error) {
       console.error('Failed to save personnel:', error);
-      toast.error('Fehler beim Speichern', {
-        description: 'Überprüfen Sie die Eingabe und versuchen Sie es erneut.',
+      toast.error(t('common.saveError'), {
+        description: t('common.checkInputRetry'),
       });
     }
   });
@@ -187,8 +190,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       setPersonnel((prev) => prev.filter((p) => p.id !== personnelToDelete.id));
     } catch (error) {
       console.error('Failed to delete personnel:', error);
-      toast.error('Fehler beim Löschen', {
-        description: 'Die Person konnte nicht gelöscht werden. Versuchen Sie es erneut.',
+      toast.error(t('personnel.deleteError'), {
+        description: t('personnel.deleteErrorDescription'),
       });
     } finally {
       setPersonnelToDelete(null);
@@ -286,7 +289,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         sort_order: data.sort_order,
         count: data.count,
       }))
-      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, getActiveLocale()));
   }, [personnel]);
 
   const handleSaveRoleSortOrder = async (categories: Array<{ name: string; sort_order: number }>) => {
@@ -312,7 +315,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       setSyncPreview(preview);
     } catch (error) {
       console.error('Failed to fetch sync preview:', error);
-      setSyncError(error instanceof Error ? error.message : 'Fehler beim Laden der Vorschau');
+      setSyncError(error instanceof Error ? error.message : t('personnel.syncPreviewError'));
     } finally {
       setIsSyncLoading(false);
     }
@@ -323,15 +326,15 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
     try {
       const result = await apiClient.executeDiveraSync({ remove_stale: removeStale });
       const parts = [];
-      if (result.created > 0) parts.push(`${result.created} erstellt`);
-      if (result.deleted > 0) parts.push(`${result.deleted} gelöscht`);
-      if (result.unchanged > 0) parts.push(`${result.unchanged} unverändert`);
-      toast.success(`Synchronisation abgeschlossen: ${parts.join(', ')}`);
+      if (result.created > 0) parts.push(t('personnel.syncCreated', { count: result.created }));
+      if (result.deleted > 0) parts.push(t('personnel.syncDeleted', { count: result.deleted }));
+      if (result.unchanged > 0) parts.push(t('personnel.syncUnchanged', { count: result.unchanged }));
+      toast.success(t('personnel.syncComplete', { parts: parts.join(', ') }));
       setIsSyncDialogOpen(false);
       await loadPersonnel();
     } catch (error) {
       console.error('Failed to execute sync:', error);
-      toast.error('Fehler bei der Synchronisation', { description: 'Die Verbindung zu Divera konnte nicht hergestellt werden. Versuchen Sie es erneut.' });
+      toast.error(t('personnel.syncError'), { description: t('personnel.syncErrorDescription') });
     } finally {
       setIsSyncExecuting(false);
     }
@@ -346,8 +349,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
     <div className="space-y-4">
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="list">Personalliste</TabsTrigger>
-          <TabsTrigger value="sort">Kategorien sortieren</TabsTrigger>
+          <TabsTrigger value="list">{t('personnel.tabList')}</TabsTrigger>
+          <TabsTrigger value="sort">{t('common.sortCategoriesTab')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
@@ -355,12 +358,12 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
             {!demoMode && (
               <Button variant="outline" onClick={handleOpenSyncDialog}>
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Von Divera synchronisieren
+                {t('personnel.syncButton')}
               </Button>
             )}
             <Button onClick={handleOpenCreate}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Personal hinzufügen
+              {t('personnel.addButton')}
             </Button>
           </div>
 
@@ -371,29 +374,29 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('name')}
                 >
-                  Name<SortIndicator column="name" />
+                  {t('common.name')}<SortIndicator column="name" />
                 </TableHead>
                 <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('role')}
                 >
-                  Rolle<SortIndicator column="role" />
+                  {t('common.role')}<SortIndicator column="role" />
                 </TableHead>
-                <TableHead>Tags</TableHead>
+                <TableHead>{t('personnel.tags')}</TableHead>
                 <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => handleSort('availability')}
                 >
-                  Verfügbarkeit<SortIndicator column="availability" />
+                  {t('personnel.availability')}<SortIndicator column="availability" />
                 </TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
+                <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedPersonnel.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    Kein Personal vorhanden.
+                    {t('personnel.empty')}
                   </TableCell>
                 </TableRow>
               )}
@@ -420,7 +423,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
-                      {person.availability === 'available' ? 'Verfügbar' : 'Nicht verfügbar'}
+                      {person.availability === 'available' ? t('common.available') : t('common.unavailable')}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -447,8 +450,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
 
         <TabsContent value="sort">
           <CategorySortOrder
-            title="Rollen-Sortierung"
-            description="Ziehen Sie die Rollen, um deren Reihenfolge in der Anzeige zu ändern. Personal wird nach dieser Sortierung gruppiert."
+            title={t('personnel.sortTitle')}
+            description={t('personnel.sortDescription')}
             categories={roleCategories}
             onSave={handleSaveRoleSortOrder}
           />
@@ -460,7 +463,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingPersonnel ? 'Personal bearbeiten' : 'Neue Person hinzufügen'}
+              {editingPersonnel ? t('personnel.dialogEditTitle') : t('personnel.dialogCreateTitle')}
             </DialogTitle>
           </DialogHeader>
           <Form {...form}>
@@ -470,11 +473,11 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>{t('common.name')}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="Nachname Vorname"
+                        placeholder={t('personnel.namePlaceholder')}
                         autoFocus
                       />
                     </FormControl>
@@ -493,7 +496,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     field.value === '';
                   return (
                     <FormItem>
-                      <FormLabel htmlFor="role">Rolle / Grad</FormLabel>
+                      <FormLabel htmlFor="role">{t('personnel.roleLabel')}</FormLabel>
                       {existingRoles.length > 0 ? (
                         <>
                           <Select
@@ -518,7 +521,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Rolle auswählen" />
+                                <SelectValue placeholder={t('personnel.rolePlaceholder')} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -527,7 +530,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                                   {role}
                                 </SelectItem>
                               ))}
-                              <SelectItem value="__custom__">Andere...</SelectItem>
+                              <SelectItem value="__custom__">{t('personnel.roleCustomOption')}</SelectItem>
                             </SelectContent>
                           </Select>
                           {showCustomInput && (
@@ -540,7 +543,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                                 })
                               }
                               onBlur={field.onBlur}
-                              placeholder="Neue Rolle eingeben"
+                              placeholder={t('personnel.roleCustomPlaceholder')}
                               className="mt-1.5"
                             />
                           )}
@@ -550,7 +553,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                           <Input
                             {...field}
                             id="role"
-                            placeholder="z.B. Offiziere, Wachtmeister"
+                            placeholder={t('personnel.roleExamplePlaceholder')}
                           />
                         </FormControl>
                       )}
@@ -565,7 +568,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                 name="availability"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Verfügbarkeit</FormLabel>
+                    <FormLabel>{t('personnel.availability')}</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
@@ -573,8 +576,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="available">Verfügbar</SelectItem>
-                        <SelectItem value="unavailable">Nicht verfügbar</SelectItem>
+                        <SelectItem value="available">{t('common.available')}</SelectItem>
+                        <SelectItem value="unavailable">{t('common.unavailable')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -583,7 +586,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               />
 
               <div className="space-y-1.5">
-                <Label>Tags</Label>
+                <Label>{t('personnel.tags')}</Label>
                 {/* Currently assigned tags */}
                 {tags.length > 0 && (
                   <div className="flex gap-1.5 flex-wrap">
@@ -628,7 +631,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                         addCustomTag();
                       }
                     }}
-                    placeholder="Neuer Tag"
+                    placeholder={t('personnel.newTagPlaceholder')}
                     className="h-8 text-sm"
                   />
                   <Button
@@ -639,7 +642,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     disabled={!newTag.trim()}
                     className="h-8 px-3"
                   >
-                    Hinzufügen
+                    {t('personnel.addTag')}
                   </Button>
                 </div>
               </div>
@@ -651,11 +654,11 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                   onClick={guard.requestClose}
                   disabled={isSaving}
                 >
-                  Abbrechen
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={submitDisabled}>
                   {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingPersonnel ? 'Speichern' : 'Erstellen'}
+                  {editingPersonnel ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>
             </form>
@@ -666,8 +669,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Person löschen"
-        description={`Sind Sie sicher, dass Sie "${personnelToDelete?.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        title={t('personnel.deleteTitle')}
+        description={t('personnel.deleteDescription', { name: personnelToDelete?.name ?? '' })}
         onConfirm={handleDeleteConfirm}
       />
 
@@ -677,13 +680,13 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Divera Personal synchronisieren</DialogTitle>
+            <DialogTitle>{t('personnel.syncDialogTitle')}</DialogTitle>
           </DialogHeader>
 
           {isSyncLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <span className="ml-3 text-muted-foreground">Lade Vorschau von Divera...</span>
+              <span className="ml-3 text-muted-foreground">{t('personnel.syncLoading')}</span>
             </div>
           )}
 
@@ -698,19 +701,19 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               <div className="overflow-y-auto min-h-0 flex-1 pr-2">
                 <div className="space-y-2">
                   <SyncSection
-                    title="Neu"
+                    title={t('personnel.syncSectionNew')}
                     items={syncPreview.new}
                     badgeVariant="default"
                     defaultOpen={syncPreview.new.length > 0}
                   />
                   <SyncSection
-                    title="Unverändert"
+                    title={t('personnel.syncSectionUnchanged')}
                     items={syncPreview.unchanged}
                     badgeVariant="outline"
                     defaultOpen={false}
                   />
                   <SyncSection
-                    title="Nicht in Divera"
+                    title={t('personnel.syncSectionNotInDivera')}
                     items={syncPreview.not_in_divera}
                     badgeVariant="destructive"
                     defaultOpen={syncPreview.not_in_divera.length > 0}
@@ -727,21 +730,21 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                       onCheckedChange={(checked) => setRemoveStale(checked === true)}
                     />
                     <label htmlFor="remove-stale" className="text-sm cursor-pointer">
-                      {syncPreview.not_in_divera.length} Person(en) entfernen, die nicht in Divera vorhanden sind
+                      {t('personnel.removeStaleLabel', { count: syncPreview.not_in_divera.length })}
                     </label>
                   </div>
                 )}
 
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsSyncDialogOpen(false)} disabled={isSyncExecuting}>
-                    Abbrechen
+                    {t('common.cancel')}
                   </Button>
                   <Button
                     onClick={handleExecuteSync}
                     disabled={isSyncExecuting || (syncPreview.new.length === 0 && !removeStale)}
                   >
                     {isSyncExecuting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Synchronisieren
+                    {t('personnel.syncExecuteButton')}
                   </Button>
                 </div>
               </div>

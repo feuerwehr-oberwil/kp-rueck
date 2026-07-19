@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { MapPin, AlertCircle, Search } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
-import { INCIDENT_TYPE_LABELS } from "@/lib/types/incidents"
+import { useTranslations } from "next-intl"
 
 interface TransferIncidentDialogProps {
   open: boolean
@@ -33,6 +33,7 @@ export function TransferIncidentDialog({
   onTransfer,
   isTransferring = false,
 }: TransferIncidentDialogProps) {
+  const t = useTranslations('incidents')
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
 
@@ -57,7 +58,7 @@ export function TransferIncidentDialog({
       return (
         inc.title.toLowerCase().includes(search) ||
         inc.location_address?.toLowerCase().includes(search) ||
-        INCIDENT_TYPE_LABELS[inc.type].toLowerCase().includes(search) ||
+        t(`types.${inc.type}`).toLowerCase().includes(search) ||
         inc.description?.toLowerCase().includes(search)
       )
     })
@@ -69,9 +70,9 @@ export function TransferIncidentDialog({
         overlayClassName="backdrop-blur-none"
       >
         <DialogHeader>
-          <DialogTitle>Ressourcen übertragen</DialogTitle>
+          <DialogTitle>{t('transfer.title')}</DialogTitle>
           <DialogDescription>
-            Alle Zuweisungen von &quot;{sourceIncident.title}&quot; zu einem anderen Einsatz übertragen
+            {t('transfer.description', { title: sourceIncident.title })}
           </DialogDescription>
         </DialogHeader>
 
@@ -80,7 +81,7 @@ export function TransferIncidentDialog({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Einsatz suchen (Titel, Adresse, Art)..."
+            placeholder={t('transfer.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
@@ -93,13 +94,13 @@ export function TransferIncidentDialog({
               <AlertCircle className="h-12 w-12 mb-3" />
               {searchTerm.trim() ? (
                 <>
-                  <p>Keine Einsätze gefunden</p>
-                  <p className="text-sm">Versuchen Sie einen anderen Suchbegriff</p>
+                  <p>{t('transfer.noResults')}</p>
+                  <p className="text-sm">{t('transfer.tryDifferentSearch')}</p>
                 </>
               ) : (
                 <>
-                  <p>Keine anderen Einsätze verfügbar</p>
-                  <p className="text-sm">Es müssen mindestens zwei Einsätze vorhanden sein</p>
+                  <p>{t('transfer.noOtherIncidents')}</p>
+                  <p className="text-sm">{t('transfer.needTwoIncidents')}</p>
                 </>
               )}
             </div>
@@ -133,7 +134,7 @@ export function TransferIncidentDialog({
                   {/* Incident type and priority */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">
-                      {INCIDENT_TYPE_LABELS[incident.type]}
+                      {t(`types.${incident.type}`)}
                     </Badge>
                     <Badge
                       variant={
@@ -145,15 +146,11 @@ export function TransferIncidentDialog({
                       }
                       className="text-xs"
                     >
-                      {incident.priority === "high"
-                        ? "Hoch"
-                        : incident.priority === "medium"
-                        ? "Mittel"
-                        : "Niedrig"}
+                      {t(`priority.${incident.priority}`)}
                     </Badge>
                     {incident.assigned_vehicles.length > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        {incident.assigned_vehicles.length} Fahrzeug(e)
+                        {t('transfer.vehicleCount', { count: incident.assigned_vehicles.length })}
                       </span>
                     )}
                   </div>
@@ -165,13 +162,13 @@ export function TransferIncidentDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isTransferring}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleTransfer}
             disabled={!selectedIncidentId || isTransferring}
           >
-            {isTransferring ? "Übertrage..." : "Übertragen"}
+            {isTransferring ? t('transfer.transferring') : t('transfer.transfer')}
           </Button>
         </DialogFooter>
       </DialogContent>

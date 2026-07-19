@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Loader2, Eye, EyeOff, Info } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { apiClient } from '@/lib/api-client'
 import type { SyncConfig } from '@/types/sync'
 
 export function SyncConfigCard() {
+  const t = useTranslations('sync.config')
   const [config, setConfig] = useState<SyncConfig | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -37,7 +39,7 @@ export function SyncConfigCard() {
       setRailwayDatabaseUrl(data.railway_database_url)
       setConflictBuffer(data.sync_conflict_buffer_seconds || 5)
     } catch (error) {
-      toast.error('Fehler beim Laden der Synchronisations-Konfiguration')
+      toast.error(t('loadFailed'))
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -56,7 +58,7 @@ export function SyncConfigCard() {
       await apiClient.updateSyncConfig(newConfig)
       setConfig(newConfig)
     } catch (error) {
-      toast.error('Fehler beim Speichern der Konfiguration')
+      toast.error(t('saveFailed'))
       console.error(error)
     } finally {
       setIsSaving(false)
@@ -80,8 +82,8 @@ export function SyncConfigCard() {
   return (
     <Card className="p-6">
       <div className="space-y-1 mb-4">
-        <p className="font-medium">Synchronisations-Konfiguration</p>
-        <p className="text-xs text-muted-foreground">Einstellungen für automatische Datensynchronisation</p>
+        <p className="font-medium">{t('title')}</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="space-y-4">
         {isLoading ? (
@@ -93,11 +95,9 @@ export function SyncConfigCard() {
           <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
             <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-sm font-medium">Synchronisationsfunktion nur lokal verfügbar</p>
+              <p className="text-sm font-medium">{t('productionOnlyTitle')}</p>
               <p className="text-sm text-muted-foreground">
-                Die Synchronisationsfunktion ist nur für lokale Instanzen verfügbar.
-                Auf Railway (Produktion) ist die Synchronisation deaktiviert, da Railway
-                als zentrale Datenquelle dient.
+                {t('productionOnlyText')}
               </p>
             </div>
           </div>
@@ -105,7 +105,7 @@ export function SyncConfigCard() {
           <>
             {/* Railway Database URL - full width since it's a long input */}
             <div className="space-y-2">
-              <Label htmlFor="railway-database-url" className="font-medium">Railway PostgreSQL Verbindung</Label>
+              <Label htmlFor="railway-database-url" className="font-medium">{t('railwayUrlLabel')}</Label>
               <div className="relative">
                 <Input
                   id="railway-database-url"
@@ -132,7 +132,7 @@ export function SyncConfigCard() {
               </div>
               {isInternalUrl && (
                 <p className="text-sm text-amber-600 dark:text-amber-400">
-                  ⚠️ Interne Railway-URL erkannt. Verwenden Sie die <strong>öffentliche</strong> URL (Variables → DATABASE_PUBLIC_URL).
+                  {t.rich('internalUrlWarning', { strong: (chunks) => <strong>{chunks}</strong> })}
                 </p>
               )}
             </div>
@@ -140,8 +140,8 @@ export function SyncConfigCard() {
             {/* Sync Interval */}
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <Label htmlFor="sync-interval" className="font-medium">Intervall</Label>
-                <p className="text-xs text-muted-foreground">Automatische Synchronisation</p>
+                <Label htmlFor="sync-interval" className="font-medium">{t('intervalLabel')}</Label>
+                <p className="text-xs text-muted-foreground">{t('intervalHint')}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Input
@@ -153,15 +153,15 @@ export function SyncConfigCard() {
                   onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 2)}
                   className="w-20"
                 />
-                <span className="text-xs text-muted-foreground">Min</span>
+                <span className="text-xs text-muted-foreground">{t('minutesUnit')}</span>
               </div>
             </div>
 
             {/* Auto-sync on create */}
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <Label htmlFor="auto-sync" className="font-medium">Auto-Sync bei Erstellung</Label>
-                <p className="text-xs text-muted-foreground">Sofortige Sync nach neuen Einsätzen/Ereignissen</p>
+                <Label htmlFor="auto-sync" className="font-medium">{t('autoSyncLabel')}</Label>
+                <p className="text-xs text-muted-foreground">{t('autoSyncHint')}</p>
               </div>
               <Switch
                 id="auto-sync"
@@ -173,8 +173,8 @@ export function SyncConfigCard() {
             {/* Conflict Buffer */}
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <Label htmlFor="conflict-buffer" className="font-medium">Konflikt-Puffer</Label>
-                <p className="text-xs text-muted-foreground">Lokale Änderungen gewinnen bei gleichen Zeitstempeln</p>
+                <Label htmlFor="conflict-buffer" className="font-medium">{t('conflictBufferLabel')}</Label>
+                <p className="text-xs text-muted-foreground">{t('conflictBufferHint')}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Input
@@ -186,7 +186,7 @@ export function SyncConfigCard() {
                   onChange={(e) => setConflictBuffer(parseInt(e.target.value) || 5)}
                   className="w-20"
                 />
-                <span className="text-xs text-muted-foreground">Sek</span>
+                <span className="text-xs text-muted-foreground">{t('secondsUnit')}</span>
               </div>
             </div>
 
@@ -200,10 +200,10 @@ export function SyncConfigCard() {
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Speichert...
+                    {t('saving')}
                   </>
                 ) : (
-                  'Änderungen speichern'
+                  t('saveChanges')
                 )}
               </Button>
             </div>

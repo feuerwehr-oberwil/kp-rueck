@@ -12,8 +12,10 @@ import type { Incident } from "@/lib/types/incidents"
 import { KANBAN_COLUMNS } from "@/lib/types/incidents"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 
 export function IncidentsKanban() {
+  const t = useTranslations('incidents')
   const { incidents, isLoading, error, refreshIncidents, trainingMode, setTrainingMode } = useIncidents()
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -53,8 +55,8 @@ export function IncidentsKanban() {
       setTransferDialogOpen(false)
       refreshIncidents()
     } catch (error: any) {
-      toast.error("Fehler beim Übertragen", {
-        description: error?.message || "Die Ressourcen konnten nicht übertragen werden."
+      toast.error(t('kanban.transferErrorTitle'), {
+        description: error?.message || t('kanban.transferErrorDescription')
       })
     } finally {
       setIsTransferring(false)
@@ -64,7 +66,7 @@ export function IncidentsKanban() {
   if (!isMounted) {
     return (
       <div className="flex h-screen items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">Laden...</div>
+        <div className="text-muted-foreground">{t('kanban.loading')}</div>
       </div>
     )
   }
@@ -77,7 +79,7 @@ export function IncidentsKanban() {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-2xl shadow-lg">
             🚒
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Einsatzübersicht (Incidents)</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('kanban.title')}</h1>
         </div>
 
         <div className="flex items-center gap-4">
@@ -89,7 +91,7 @@ export function IncidentsKanban() {
               onClick={() => setTrainingMode(!trainingMode)}
               className={trainingMode ? "bg-amber-500 hover:bg-amber-600" : ""}
             >
-              {trainingMode ? "Übungsmodus" : "Live-Modus"}
+              {trainingMode ? t('kanban.trainingMode') : t('kanban.liveMode')}
             </Button>
           </div>
 
@@ -102,13 +104,13 @@ export function IncidentsKanban() {
             className="gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Aktualisieren
+            {t('kanban.refresh')}
           </Button>
 
           {/* Create button */}
           <Button onClick={handleCreateClick} size="sm" variant="secondary" className="gap-2">
             <Plus className="h-4 w-4" />
-            Neuer Einsatz
+            {t('kanban.newIncident')}
           </Button>
         </div>
       </header>
@@ -116,7 +118,7 @@ export function IncidentsKanban() {
       {/* Error message */}
       {error && (
         <div className="bg-destructive/10 text-destructive px-6 py-3 border-b border-destructive/20">
-          <p className="text-sm font-medium">Fehler: {error}</p>
+          <p className="text-sm font-medium">{t('kanban.errorPrefix', { error })}</p>
         </div>
       )}
 
@@ -135,10 +137,10 @@ export function IncidentsKanban() {
                   className={`mb-3 rounded-lg ${column.color} border border-border px-4 py-3 transition-all`}
                 >
                   <h2 className="text-balance text-sm font-semibold text-foreground">
-                    {column.title}
+                    {t(`columns.${column.id}`)}
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {columnIncidents.length} Einsätze
+                    {t('kanban.columnCount', { count: columnIncidents.length })}
                   </p>
                 </div>
 
@@ -146,7 +148,7 @@ export function IncidentsKanban() {
                 <div className="flex-1 space-y-3 overflow-y-auto p-2 rounded-lg min-h-[200px]">
                   {columnIncidents.length === 0 ? (
                     <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                      Keine Einsätze
+                      {t('kanban.emptyColumn')}
                     </div>
                   ) : (
                     columnIncidents.map((incident) => (
@@ -173,16 +175,19 @@ export function IncidentsKanban() {
       <footer className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-6 py-3">
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Gesamt: <span className="font-medium text-foreground">{incidents.length}</span> Einsätze
+            {t.rich('kanban.total', {
+              count: incidents.length,
+              b: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })}
             {trainingMode && (
               <Badge variant="outline" className="ml-2 bg-amber-500/10 text-amber-500 border-amber-500/20">
-                Nur Übungen
+                {t('kanban.trainingOnly')}
               </Badge>
             )}
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Zum Bearbeiten auf Einsatzkarte klicken
+            {t('kanban.editHint')}
           </div>
         </div>
       </footer>

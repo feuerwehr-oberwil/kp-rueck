@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { getActiveLocale } from '@/lib/i18n-messages'
 import { apiClient, type ApiRekoDashboardPersonnel, type ApiRekoDashboardAssignment } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { User, Clock, FileText, ArrowLeft, CheckCircle } from 'lucide-react'
@@ -32,6 +34,8 @@ function clearSelectedPersonCookie() {
 export default function RekoDashboardPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const t = useTranslations('reko.dashboard')
+  const tCommon = useTranslations('reko.common')
 
   const [personnel, setPersonnel] = useState<ApiRekoDashboardPersonnel[]>([])
   const [selectedPerson, setSelectedPerson] = useState<ApiRekoDashboardPersonnel | null>(null)
@@ -58,7 +62,7 @@ export default function RekoDashboardPage() {
 
   // Sort personnel alphabetically by name for stable ordering (no reordering when status changes)
   const sortedPersonnel = useMemo(() => {
-    return [...personnel].sort((a, b) => a.name.localeCompare(b.name, 'de'))
+    return [...personnel].sort((a, b) => a.name.localeCompare(b.name, getActiveLocale()))
   }, [personnel])
 
   const loadPersonnel = useCallback(async () => {
@@ -72,7 +76,7 @@ export default function RekoDashboardPage() {
       setEventName(data.event_name)
     } catch (error) {
       console.error('Failed to load Reko personnel:', error)
-      setError('Ungültiger oder abgelaufener Code. Bitte Link erneut anfordern.')
+      setError(t('invalidCode'))
     } finally {
       setLoading(false)
     }
@@ -96,7 +100,7 @@ export default function RekoDashboardPage() {
   // Initial load
   useEffect(() => {
     if (!token) {
-      setError('Zugriffscode fehlt. Bitte Link vom Editor anfordern.')
+      setError(t('missingCode'))
       setLoading(false)
       return
     }
@@ -208,7 +212,7 @@ export default function RekoDashboardPage() {
         })
         .catch((error) => {
           console.error('Failed to generate Reko link:', error)
-          alert('Fehler beim Öffnen des Reko-Formulars. Bitte versuchen Sie es erneut.')
+          alert(t('openFormError'))
         })
     }
   }
@@ -219,7 +223,7 @@ export default function RekoDashboardPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md text-center">
           <div className="text-destructive text-xl font-semibold mb-2">
-            Zugriff erforderlich
+            {t('accessRequired')}
           </div>
           <div className="text-muted-foreground">{error}</div>
         </div>
@@ -233,7 +237,7 @@ export default function RekoDashboardPage() {
       <div className="min-h-screen bg-background p-4 pb-20">
         {/* Header */}
         <div className="max-w-md mx-auto mb-8">
-          <h1 className="text-2xl font-semibold text-center mb-1">Reko</h1>
+          <h1 className="text-2xl font-semibold text-center mb-1">{t('title')}</h1>
           {eventName && (
             <p className="text-sm text-muted-foreground text-center">
               {eventName}
@@ -245,7 +249,7 @@ export default function RekoDashboardPage() {
         <div className="max-w-md mx-auto space-y-3">
           {loading ? null : sortedPersonnel.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground animate-in fade-in duration-300">
-              Keine Reko-Personen verfügbar
+              {t('noPersonnel')}
             </div>
           ) : (
             sortedPersonnel.map(person => (
@@ -272,12 +276,12 @@ export default function RekoDashboardPage() {
                   {person.open_count > 0 ? (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium">
                       <span className="h-2.5 w-2.5 rounded-full bg-success" />
-                      {person.open_count} offen
+                      {t('openCount', { count: person.open_count })}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
                       <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-                      {person.done_count} fertig
+                      {t('doneCount', { count: person.done_count })}
                     </span>
                   )}
                 </div>
@@ -301,7 +305,7 @@ export default function RekoDashboardPage() {
           className="mb-4 -ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          Zurück
+          {tCommon('back')}
         </Button>
 
         <div className="flex items-center gap-3">
@@ -324,9 +328,9 @@ export default function RekoDashboardPage() {
             <div className="h-12 w-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
               <Clock className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="font-medium mb-1">Warte auf Zuweisung</p>
+            <p className="font-medium mb-1">{t('waitingTitle')}</p>
             <p className="text-sm text-muted-foreground">
-              Neue Einsätze erscheinen hier automatisch
+              {t('waitingDescription')}
             </p>
           </div>
         ) : (
@@ -354,7 +358,7 @@ export default function RekoDashboardPage() {
                   {assignment.has_completed_reko && (
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-medium mt-2">
                       <CheckCircle className="h-3 w-3" />
-                      {isHistorical ? 'Früher abgeschlossen' : 'Beendet'}
+                      {isHistorical ? t('completedEarlier') : t('completed')}
                     </span>
                   )}
                 </div>
@@ -367,7 +371,7 @@ export default function RekoDashboardPage() {
                   size="lg"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  {assignment.has_completed_reko ? 'Ergänzung hinzufügen' : 'Formular öffnen'}
+                  {assignment.has_completed_reko ? t('addSupplement') : t('openForm')}
                 </Button>
               </div>
             )

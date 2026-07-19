@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, act, waitFor } from "@testing-library/react";
+import { screen, act, waitFor } from "@testing-library/react";
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 import userEvent from "@testing-library/user-event";
 
 const mockVehicles = [
@@ -51,7 +52,7 @@ describe("TrainingGpsSimulation drive rows", () => {
         started_at: new Date().toISOString(),
       },
     ];
-    const { container } = render(<TrainingGpsSimulation />);
+    const { container } = renderWithIntl(<TrainingGpsSimulation />);
     await waitFor(() => expect(screen.getByText(/Rückkehr Magazin/)).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /Rückfahrt/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Stopp/ })).toBeInTheDocument();
@@ -72,7 +73,7 @@ describe("TrainingGpsSimulation drive rows", () => {
         started_at: new Date().toISOString(),
       },
     ];
-    render(<TrainingGpsSimulation />);
+    renderWithIntl(<TrainingGpsSimulation />);
     const btn = await screen.findByRole("button", { name: /Rückfahrt/ });
     await act(async () => {
       await userEvent.click(btn);
@@ -83,7 +84,7 @@ describe("TrainingGpsSimulation drive rows", () => {
   });
 
   it("vehicles are sorted by display_order (TLF before Pio)", async () => {
-    render(<TrainingGpsSimulation />);
+    renderWithIntl(<TrainingGpsSimulation />);
     await waitFor(() => expect(screen.getByText("TLF")).toBeInTheDocument());
     const names = Array.from(document.querySelectorAll(".w-24")).map((el) => el.textContent);
     expect(names).toEqual(["TLF", "Pio"]);

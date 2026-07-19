@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Printer } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useIsMobile } from "@/components/ui/use-mobile"
 
 export interface ThermoPrintOptions {
@@ -29,6 +30,7 @@ interface ThermoOptionsSheetProps {
 }
 
 export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: ThermoOptionsSheetProps) {
+  const t = useTranslations("print")
   const isMobile = useIsMobile()
   const [options, setOptions] = useState<ThermoPrintOptions>({
     includeIncidents: true,
@@ -64,10 +66,10 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
           <SheetHeader className="p-0 mb-4">
             <SheetTitle className="flex items-center gap-2">
               <Printer className="h-4 w-4" />
-              Thermodruck
+              {t("thermoSheet.title")}
             </SheetTitle>
             <SheetDescription>
-              Board-Snapshot auf Thermodrucker drucken.
+              {t("thermoSheet.description")}
             </SheetDescription>
           </SheetHeader>
 
@@ -81,7 +83,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
                 }
               />
               <Label htmlFor="thermoIncludeIncidents" className="cursor-pointer text-sm">
-                Einsatzliste
+                {t("common.incidentList")}
               </Label>
             </div>
 
@@ -94,7 +96,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
                 }
               />
               <Label htmlFor="thermoIncludeCompleted" className="cursor-pointer text-sm">
-                Beendete Einsätze
+                {t("common.completedIncidents")}
               </Label>
             </div>
 
@@ -107,7 +109,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
                 }
               />
               <Label htmlFor="thermoIncludeVehicles" className="cursor-pointer text-sm">
-                Fahrzeug-Status
+                {t("common.vehicleStatus")}
               </Label>
             </div>
 
@@ -120,7 +122,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
                 }
               />
               <Label htmlFor="thermoIncludePersonnel" className="cursor-pointer text-sm">
-                Personal-Übersicht
+                {t("thermoSheet.personnelOverview")}
               </Label>
             </div>
           </div>
@@ -128,7 +130,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
           <div className="flex items-center justify-end mt-4 pt-3 border-t">
             <Button size="sm" onClick={handlePrint} disabled={isPrinting}>
               <Printer className="h-3.5 w-3.5 mr-1.5" />
-              {isPrinting ? 'Wird gedruckt...' : 'Drucken'}
+              {isPrinting ? t("thermoSheet.printing") : t("common.print")}
             </Button>
           </div>
         </div>

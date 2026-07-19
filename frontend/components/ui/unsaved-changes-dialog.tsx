@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,20 +28,21 @@ export function UnsavedChangesDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "Ungespeicherte Änderungen",
-  description = "Sie haben Änderungen vorgenommen, die nicht gespeichert wurden. Wenn Sie schliessen, gehen diese Änderungen verloren.",
-  confirmText = "Verwerfen",
-  cancelText = "Weiter bearbeiten",
+  title,
+  description,
+  confirmText,
+  cancelText,
 }: UnsavedChangesDialogProps) {
+  const t = useTranslations("common.unsavedChangesDialog");
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          <AlertDialogTitle>{title ?? t("title")}</AlertDialogTitle>
+          <AlertDialogDescription>{description ?? t("description")}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel>{cancelText ?? t("cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault();
@@ -48,7 +50,7 @@ export function UnsavedChangesDialog({
             }}
             className={cn(buttonVariants({ variant: "destructive" }))}
           >
-            {confirmText}
+            {confirmText ?? t("confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

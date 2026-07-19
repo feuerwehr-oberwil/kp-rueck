@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { microsoftLogin } from '@/lib/auth-client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ function CallbackProgress() {
 }
 
 export default function MicrosoftCallbackPage() {
+  const t = useTranslations('login.callback');
   const searchParams = useSearchParams();
   const hasRun = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +54,12 @@ export default function MicrosoftCallbackPage() {
     const errorDescription = searchParams.get('error_description');
 
     if (errorParam) {
-      setError(errorDescription || `Microsoft-Fehler: ${errorParam}`);
+      setError(errorDescription || t('microsoftError', { error: errorParam }));
       return;
     }
 
     if (!code) {
-      setError('Kein Autorisierungscode erhalten');
+      setError(t('noAuthCode'));
       return;
     }
 
@@ -66,8 +68,9 @@ export default function MicrosoftCallbackPage() {
         window.location.href = '/';
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Microsoft-Anmeldung fehlgeschlagen');
+        setError(err instanceof Error ? err.message : t('microsoftLoginFailed'));
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   return (
@@ -81,10 +84,10 @@ export default function MicrosoftCallbackPage() {
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-destructive/10 border border-destructive/20">
                   <Flame className="h-7 w-7 text-destructive" strokeWidth={1.5} />
                 </div>
-                <div className="mb-1 text-base font-semibold text-foreground">Anmeldung fehlgeschlagen</div>
+                <div className="mb-1 text-base font-semibold text-foreground">{t('loginFailed')}</div>
                 <p className="mb-6 text-sm text-muted-foreground">{error}</p>
                 <Button asChild variant="outline" className="w-full">
-                  <a href="/login">Zurück zur Anmeldung</a>
+                  <a href="/login">{t('backToLogin')}</a>
                 </Button>
               </>
             ) : (
@@ -93,7 +96,7 @@ export default function MicrosoftCallbackPage() {
                   <Flame className="h-7 w-7 text-primary" strokeWidth={1.5} />
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">KP Rück</h1>
-                <p className="text-sm text-muted-foreground mb-6">Anmeldung wird verarbeitet...</p>
+                <p className="text-sm text-muted-foreground mb-6">{t('processing')}</p>
                 <CallbackProgress />
               </>
             )}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Material } from "@/lib/contexts/operations-context"
@@ -14,6 +15,7 @@ interface DraggableMaterialProps {
 }
 
 export function DraggableMaterial({ material, onClick, disabled }: DraggableMaterialProps) {
+  const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -53,8 +55,8 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
           {/* Status indicator - icon only, muted colors */}
           <div
             className="flex items-center justify-center h-4 w-4 rounded flex-shrink-0 text-muted-foreground"
-            aria-label={isConsumable ? "Verbrauchsmaterial" : material.status === "available" ? "Verfügbar" : "Im Einsatz"}
-            title={isConsumable ? "Verbrauchsmaterial (unbegrenzt)" : material.status === "available" ? "Verfügbar" : "Im Einsatz"}
+            aria-label={isConsumable ? t('material.consumable') : material.status === "available" ? t('common.available') : t('common.inUse')}
+            title={isConsumable ? t('material.consumableUnlimited') : material.status === "available" ? t('common.available') : t('common.inUse')}
           >
             {isConsumable ? (
               <InfinityIcon className="h-3.5 w-3.5" />

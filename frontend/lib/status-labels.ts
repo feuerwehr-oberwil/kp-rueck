@@ -8,6 +8,7 @@
  */
 
 import type { OperationStatus } from "@/lib/contexts/operations-context"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 
 export const OPERATION_STATUS_LABELS: Record<OperationStatus, string> = {
   incoming: "Eingegangen",
@@ -17,4 +18,11 @@ export const OPERATION_STATUS_LABELS: Record<OperationStatus, string> = {
   active: "Einsatz",
   returning: "Rückfahrt",
   complete: "Abgeschlossen",
+}
+
+// Localized lookup — the const above stays as the key domain (and de fallback).
+export function getOperationStatusLabel(status: string): string {
+  return status in OPERATION_STATUS_LABELS
+    ? translateOutsideReact(`incidents.status.${status}`)
+    : status
 }

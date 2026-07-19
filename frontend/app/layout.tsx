@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale, getMessages, getTranslations } from 'next-intl/server'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/contexts/auth-context'
@@ -31,25 +33,32 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
 })
 
-export const metadata: Metadata = {
-  title: 'KP Rück Dashboard',
-  description: 'Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr.',
-  icons: {
-    icon: '/icon.svg',
-    shortcut: '/icon.svg',
-    apple: '/apple-icon.svg',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('common.meta')
+  return {
+    title: t('title'),
+    description: t('description'),
+    icons: {
+      icon: '/icon.svg',
+      shortcut: '/icon.svg',
+      apple: '/apple-icon.svg',
+    },
+  }
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const locale = await getLocale()
+  const messages = await getMessages()
+
   return (
-    <html lang="de" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <TopLoadingBar />
+        <NextIntlClientProvider locale={locale} messages={messages}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -81,6 +90,7 @@ export default function RootLayout({
             </EventProvider>
           </AuthProvider>
         </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   )

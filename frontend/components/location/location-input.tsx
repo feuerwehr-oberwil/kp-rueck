@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useRef } from "react"
+import { useTranslations } from "next-intl"
 import dynamic from "next/dynamic"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -53,6 +54,7 @@ export function LocationInput({
   autoFocus = false,
   error = false,
 }: LocationInputProps) {
+  const t = useTranslations('map')
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
   const [addressSearchQuery, setAddressSearchQuery] = useState("")
   const [addressResults, setAddressResults] = useState<SearchResult[]>([])
@@ -188,13 +190,13 @@ export function LocationInput({
     if (parsed.success) {
       onCoordinatesChange(parsed.lat, parsed.lon)
       setCoordinateError(null)
-      setParseSuccess(parsed.error || `Format erkannt: ${parsed.format}`)
+      setParseSuccess(parsed.error || t('locationInput.formatDetected', { format: parsed.format }))
 
       // Check region
       const regionCheck = checkRegion(parsed.lat, parsed.lon)
       setCoordinateWarning(regionCheck.warning || null)
     } else {
-      setCoordinateError(parsed.error || "Ungültiges Format")
+      setCoordinateError(parsed.error || t('locationInput.invalidFormat'))
       setCoordinateWarning(null)
       setParseSuccess(null)
     }
@@ -203,7 +205,7 @@ export function LocationInput({
   const handleSwapCoordinates = () => {
     if (latitude !== null && longitude !== null) {
       onCoordinatesChange(longitude, latitude)
-      setParseSuccess("Koordinaten wurden getauscht")
+      setParseSuccess(t('locationInput.coordinatesSwapped'))
       setTimeout(() => setParseSuccess(null), 3000)
     }
   }
@@ -240,9 +242,9 @@ export function LocationInput({
       <div className="min-h-[40px]">
         <div className="flex items-center gap-1">
           <Label htmlFor="location_address" className="text-sm font-semibold text-muted-foreground">
-            Einsatzort (Adresse)
+            {t('locationInput.addressLabel')}
           </Label>
-          <span className="text-destructive" title="Pflichtfeld">*</span>
+          <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
         </div>
         <div className="flex items-start gap-2 mt-2">
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
@@ -260,7 +262,7 @@ export function LocationInput({
                 disabled={disabled}
               >
                 <span className="truncate">
-                  {address || "Adresse eingeben oder suchen..."}
+                  {address || t('locationInput.addressPlaceholder')}
                 </span>
                 <MapPin className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
@@ -270,7 +272,7 @@ export function LocationInput({
                 <div className="p-2 border-b">
                   <Input
                     ref={searchInputRef}
-                    placeholder="Adresse suchen..."
+                    placeholder={t('locationInput.searchPlaceholder')}
                     value={addressSearchQuery}
                     onChange={(e) => setAddressSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -286,13 +288,13 @@ export function LocationInput({
                 <div className="overflow-y-auto">
                   {isSearching && (
                     <div className="p-4 text-sm text-muted-foreground text-center">
-                      Suche läuft...
+                      {t('locationInput.searching')}
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length >= 3 && (
                     <div className="py-1">
                       <div className="px-3 py-2 text-sm text-muted-foreground text-center">
-                        Keine Adressen gefunden.
+                        {t('locationInput.noResults')}
                       </div>
                       <button
                         type="button"
@@ -305,9 +307,9 @@ export function LocationInput({
                       >
                         <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">&laquo;{addressSearchQuery.trim()}&raquo; übernehmen</div>
+                          <div className="font-medium truncate">{t('locationInput.useFreetext', { query: addressSearchQuery.trim() })}</div>
                           <div className="text-xs text-muted-foreground">
-                            Als Freitext ohne Koordinaten
+                            {t('locationInput.freetextNote')}
                           </div>
                         </div>
                       </button>
@@ -315,7 +317,7 @@ export function LocationInput({
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length < 3 && (
                     <div className="p-4 text-sm text-muted-foreground text-center">
-                      Mindestens 3 Zeichen eingeben
+                      {t('locationInput.minChars')}
                     </div>
                   )}
                   {!isSearching && addressResults.length > 0 && (
@@ -350,7 +352,7 @@ export function LocationInput({
             size="icon"
             onClick={() => setMapPickerOpen(true)}
             disabled={disabled}
-            title="Auf Karte wählen"
+            title={t('locationInput.pickOnMap')}
             tabIndex={-1}
           >
             <Map className="h-4 w-4" />
@@ -363,7 +365,7 @@ export function LocationInput({
             size="icon"
             onClick={() => setShowCoordinates(!showCoordinates)}
             disabled={disabled}
-            title="Koordinaten eingeben"
+            title={t('locationInput.enterCoordinates')}
             tabIndex={-1}
           >
             <Navigation className="h-4 w-4" />
@@ -384,13 +386,13 @@ export function LocationInput({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold text-muted-foreground">
-                Koordinaten (alle Formate)
+                {t('locationInput.coordinatesLabel')}
               </Label>
               {hasValidCoordinates && !coordinateError && (
                 <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
                   <MapPin className="h-3.5 w-3.5" />
                   <Check className="h-3.5 w-3.5" />
-                  <span className="font-medium">Gültig</span>
+                  <span className="font-medium">{t('locationInput.valid')}</span>
                 </div>
               )}
             </div>
@@ -399,7 +401,7 @@ export function LocationInput({
               <Input
                 value={coordinateInput}
                 onChange={(e) => handleCoordinatePaste(e.target.value)}
-                placeholder="47.5164, 7.5618 oder Swiss LV95 oder URL einfügen"
+                placeholder={t('locationInput.coordinatesPlaceholder')}
                 disabled={disabled || !showCoordinates}
                 className={cn(
                   coordinateError && "border-red-500",
@@ -415,7 +417,7 @@ export function LocationInput({
                   size="icon"
                   onClick={handleSwapCoordinates}
                   disabled={disabled || !showCoordinates}
-                  title="Lat/Lng vertauschen"
+                  title={t('locationInput.swapLatLng')}
                   tabIndex={-1}
                 >
                   <ArrowUpDown className="h-4 w-4" />
@@ -430,7 +432,7 @@ export function LocationInput({
                   size="icon"
                   onClick={handleClearLocation}
                   disabled={disabled || !showCoordinates}
-                  title="Standort löschen"
+                  title={t('locationInput.clearLocation')}
                   tabIndex={-1}
                 >
                   <X className="h-4 w-4" />
@@ -462,7 +464,7 @@ export function LocationInput({
 
             {/* Format Help */}
             <div className="text-xs text-muted-foreground">
-              Unterstützte Formate: Dezimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96"N), Google Maps URL
+              {t('locationInput.supportedFormats')}
             </div>
           </div>
         </div>

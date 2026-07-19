@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Bell, X, AlertTriangle, Info, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useNotifications } from '@/lib/contexts/notification-context'
@@ -14,6 +15,8 @@ interface NotificationCardProps {
 }
 
 function NotificationCard({ notification, onDismiss, onClickIncident }: NotificationCardProps) {
+  const t = useTranslations('notifications.card')
+  const tSidebar = useTranslations('notifications.sidebar')
   const getSeverityStyles = (severity: NotificationSeverity) => {
     switch (severity) {
       case 'critical':
@@ -49,20 +52,20 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
     const hours = Math.floor(minutes / 60)
     const days = Math.floor(hours / 24)
 
-    if (days > 0) return `vor ${days}d`
-    if (hours > 0) return `vor ${hours}h`
-    if (minutes > 0) return `vor ${minutes}m`
-    return 'gerade eben'
+    if (days > 0) return t('timeDays', { days })
+    if (hours > 0) return t('timeHours', { hours })
+    if (minutes > 0) return t('timeMinutes', { minutes })
+    return t('justNow')
   }
 
   const getSeverityLabel = (severity: NotificationSeverity) => {
     switch (severity) {
       case 'critical':
-        return 'Kritisch'
+        return t('severityCritical')
       case 'warning':
-        return 'Warnung'
+        return t('severityWarning')
       case 'info':
-        return 'Info'
+        return t('severityInfo')
     }
   }
 
@@ -110,7 +113,7 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
             size="icon"
             className="flex-shrink-0 h-7 w-7 hover:bg-background/80"
             onClick={() => onDismiss(notification.id)}
-            aria-label="Benachrichtigung schliessen"
+            aria-label={tSidebar('dismissAria')}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -121,6 +124,7 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
 }
 
 export function PersistentNotificationSidebar() {
+  const t = useTranslations('notifications.sidebar')
   const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
   const isMobile = useIsMobile()
 
@@ -146,14 +150,14 @@ export function PersistentNotificationSidebar() {
       <header className="flex items-center justify-between px-4 py-2 min-h-14 border-b border-border/50 bg-card/95 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Benachrichtigungen</h2>
+          <h2 className="text-base font-semibold">{t('title')}</h2>
           {activeNotifications.length > 0 && (
             <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
               {activeNotifications.length}
             </span>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={closeSidebar} className="h-8 w-8" title="Panel schliessen (B)">
+        <Button variant="ghost" size="icon" onClick={closeSidebar} className="h-8 w-8" title={t('closePanel')}>
           <X className="h-4 w-4" />
         </Button>
       </header>
@@ -165,7 +169,7 @@ export function PersistentNotificationSidebar() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                Aktiv
+                {t('activeHeading')}
                 <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
                   {activeNotifications.length}
                 </span>
@@ -175,9 +179,9 @@ export function PersistentNotificationSidebar() {
                 size="sm"
                 onClick={dismissAllNotifications}
                 className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                aria-label="Alle schliessen"
+                aria-label={t('dismissAll')}
               >
-                Alle schliessen
+                {t('dismissAll')}
               </Button>
             </div>
             <div className="space-y-2">
@@ -199,15 +203,15 @@ export function PersistentNotificationSidebar() {
             <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-muted mb-4">
               <Bell className="h-8 w-8 opacity-40" />
             </div>
-            <p className="text-sm font-medium">Keine aktiven Benachrichtigungen</p>
-            <p className="text-xs mt-1">Alles ist in Ordnung</p>
+            <p className="text-sm font-medium">{t('emptyTitle')}</p>
+            <p className="text-xs mt-1">{t('emptySubtitle')}</p>
           </div>
         )}
 
         {/* Historical notifications */}
         {historicalNotifications.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-muted-foreground mb-2">Verlauf</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('historyHeading')}</h3>
             <div className="space-y-2">
               {historicalNotifications.map((notification) => (
                 <NotificationCard key={notification.id} notification={notification} onClickIncident={navigateToIncident} />

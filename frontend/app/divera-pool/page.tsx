@@ -34,10 +34,12 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { Link2, RefreshCw, Search, Check, Info } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { de } from 'date-fns/locale';
+import { useTranslations } from 'next-intl';
+import { getDateFnsLocale } from '@/lib/date-locale';
 
 export default function DiveraPoolPage() {
   useGlobalNavigation();
+  const t = useTranslations('divera.pool');
   const { isAuthenticated, isEditor } = useAuth();
   const { selectedEvent: currentEvent } = useEvent();
   const [emergencies, setEmergencies] = useState<ApiDiveraEmergency[]>([]);
@@ -97,12 +99,12 @@ export default function DiveraPoolPage() {
       const emergency = data.emergency as ApiDiveraEmergency;
       toast({
         title: emergency.is_training
-          ? 'Neuer Alarm (ÜBUNG)'
+          ? t('newAlarmTraining')
           : emergency.source && emergency.source !== 'divera'
-            ? 'Neuer Alarm'
-            : 'Neuer Divera-Notfall',
+            ? t('newAlarmGeneric')
+            : t('newEmergency'),
         description: data.auto_attached
-          ? `${emergency.title} — automatisch angehängt`
+          ? t('autoAttached', { title: emergency.title })
           : emergency.title,
         duration: 10000,
       });
@@ -166,8 +168,8 @@ export default function DiveraPoolPage() {
       if (emergencyIds.length === 1) {
         await apiClient.attachEmergencyToEvent(emergencyIds[0], selectedEventId);
         toast({
-          title: 'Erfolgreich angehängt',
-          description: '1 Notfall wurde dem Ereignis zugewiesen',
+          title: t('attachedSuccess'),
+          description: t('attachedOne'),
         });
       } else {
         const { created, errors } = await apiClient.bulkAttachEmergencies(emergencyIds, selectedEventId);
@@ -175,13 +177,17 @@ export default function DiveraPoolPage() {
           // Partial success — tell the operator exactly how many actually attached.
           toast({
             variant: 'destructive',
-            title: 'Teilweise angehängt',
-            description: `${created.length} von ${emergencyIds.length} zugewiesen, ${errors.length} fehlgeschlagen.`,
+            title: t('partiallyAttached'),
+            description: t('partiallyAttachedDescription', {
+              created: created.length,
+              total: emergencyIds.length,
+              failed: errors.length,
+            }),
           });
         } else {
           toast({
-            title: 'Erfolgreich angehängt',
-            description: `${created.length} Notfälle wurden dem Ereignis zugewiesen`,
+            title: t('attachedSuccess'),
+            description: t('attachedMany', { count: created.length }),
           });
         }
       }
@@ -193,8 +199,8 @@ export default function DiveraPoolPage() {
       console.error('Failed to attach emergencies:', error);
       toast({
         variant: 'destructive',
-        title: 'Fehler',
-        description: 'Notfälle konnten nicht angehängt werden',
+        title: t('errorTitle'),
+        description: t('attachError'),
       });
     } finally {
       setAttaching(false);
@@ -203,14 +209,14 @@ export default function DiveraPoolPage() {
 
   const formatTimeAgo = (timestamp: string) => {
     try {
-      return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de });
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: getDateFnsLocale() });
     } catch {
       return timestamp;
     }
   };
 
   if (!isAuthenticated) {
-    return <div className="p-8 text-center text-muted-foreground">Nicht angemeldet</div>;
+    return <div className="p-8 text-center text-muted-foreground">{t('notLoggedIn')}</div>;
   }
 
   const hasSelection = selectedEmergencies.size > 0;
@@ -220,9 +226,9 @@ export default function DiveraPoolPage() {
       {/* Header */}
       <header className="flex items-center justify-between border-b px-6 py-2 min-h-14">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Alarmeingang</h1>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('title')}</h1>
           <Badge variant="secondary" className="hidden sm:inline-flex">
-            {emergencies.length} Einträge
+            {t('entriesCount', { count: emergencies.length })}
           </Badge>
         </div>
         <PageNavigation currentPage="divera" hasSelectedEvent={true} />
@@ -234,7 +240,7 @@ export default function DiveraPoolPage() {
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Suchen..."
+              placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9"
@@ -260,7 +266,7 @@ export default function DiveraPoolPage() {
                   onClick={() => setSelectedEmergencies(new Set())}
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
-                  {selectedEmergencies.size} ausgewählt — Aufheben
+                  {t('selectedClear', { count: selectedEmergencies.size })}
                 </button>
               )}
               <Button
@@ -270,7 +276,7 @@ export default function DiveraPoolPage() {
                 className="h-9"
               >
                 <Link2 className="mr-2 h-4 w-4" />
-                Anhängen
+                {t('attach')}
               </Button>
             </>
           )}
@@ -281,30 +287,29 @@ export default function DiveraPoolPage() {
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         {loading ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
-            Lädt...
+            {t('loading')}
           </div>
         ) : filteredEmergencies.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             {demoMode && !searchQuery ? (
               <div className="flex flex-col items-center gap-3 max-w-sm text-center">
                 <Info className="h-8 w-8 text-amber-500" />
-                <p className="font-medium text-foreground">Alarmeingang ist im Demo-Modus nicht verfügbar</p>
+                <p className="font-medium text-foreground">{t('demoTitle')}</p>
                 <p className="text-sm">
-                  Diese Seite zeigt eingehende Alarme an — aus{" "}
-                  <span className="font-medium">DIVERA 24/7</span> oder über die offene
-                  Webhook-Schnittstelle. Im Demo-Modus ist keine Alarmierungs-Anbindung
-                  konfiguriert.
+                  {t.rich('demoDescription', {
+                    b: (chunks) => <span className="font-medium">{chunks}</span>,
+                  })}
                 </p>
               </div>
             ) : (
               <>
-                <p>{searchQuery ? 'Keine Treffer' : 'Keine Notfälle vorhanden'}</p>
+                <p>{searchQuery ? t('noResults') : t('noEmergencies')}</p>
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
                     className="mt-2 text-sm text-primary hover:underline"
                   >
-                    Suche zurücksetzen
+                    {t('resetSearch')}
                   </button>
                 )}
               </>
@@ -355,7 +360,7 @@ export default function DiveraPoolPage() {
                               variant="outline"
                               className="mr-2 border-orange-500/60 text-orange-600 dark:text-orange-400 align-middle"
                             >
-                              ÜBUNG
+                              {t('trainingBadge')}
                             </Badge>
                           )}
                           {/* Alarms from the generic webhook show their sender slug */}
@@ -384,12 +389,12 @@ export default function DiveraPoolPage() {
                         </span>
                         {isAssigned && (
                           <span className="text-xs text-muted-foreground">
-                            Zugewiesen
+                            {t('assigned')}
                           </span>
                         )}
                         {isArchived && !isAssigned && (
                           <span className="text-xs text-muted-foreground">
-                            Archiviert
+                            {t('archived')}
                           </span>
                         )}
                       </div>
@@ -408,9 +413,9 @@ export default function DiveraPoolPage() {
       <Dialog open={showAttachDialog} onOpenChange={setShowAttachDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>An Ereignis anhängen</DialogTitle>
+            <DialogTitle>{t('attachDialogTitle')}</DialogTitle>
             <DialogDescription>
-              {selectedEmergencies.size} {selectedEmergencies.size === 1 ? 'Notfall wird' : 'Notfälle werden'} dem gewählten Ereignis zugewiesen.
+              {t('attachDialogDescription', { count: selectedEmergencies.size })}
             </DialogDescription>
           </DialogHeader>
 
@@ -421,36 +426,35 @@ export default function DiveraPoolPage() {
                     text from the lazily-mounted SelectItems, which aren't mounted
                     until the dropdown is first opened, so a preset value would
                     otherwise show the placeholder. */}
-                <SelectValue placeholder="Ereignis wählen...">
+                <SelectValue placeholder={t('selectEventPlaceholder')}>
                   {(() => {
                     const selected = attachableEvents.find((e) => e.id === selectedEventId);
                     if (!selected) return undefined;
-                    return `${selected.name}${selected.training_flag ? ' (Übung)' : ''}`;
+                    return selected.training_flag ? t('eventTraining', { name: selected.name }) : selected.name;
                   })()}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {attachableEvents.map((event) => (
                   <SelectItem key={event.id} value={event.id}>
-                    {event.name}
-                    {event.training_flag && ' (Übung)'}
+                    {event.training_flag ? t('eventTraining', { name: event.name }) : event.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {hasTrainingSelection && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Übungs-Alarme können nur an Übungen angehängt werden.
+                {t('trainingOnlyHint')}
               </p>
             )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" onClick={() => setShowAttachDialog(false)}>
-              Abbrechen
+              {t('cancel')}
             </Button>
             <Button onClick={handleAttach} disabled={!selectedEventId || attaching}>
-              {attaching ? 'Wird angehängt...' : 'Anhängen'}
+              {attaching ? t('attaching') : t('attach')}
             </Button>
           </DialogFooter>
         </DialogContent>

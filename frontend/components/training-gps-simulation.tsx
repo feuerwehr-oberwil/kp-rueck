@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiGpsSimDrive, type ApiVehicle } from '@/lib/api-client';
@@ -30,6 +31,8 @@ const MAGAZIN_TARGET = '__magazin__';
  * the arrival/return prompts.
  */
 export function TrainingGpsSimulation() {
+  const t = useTranslations('training.gpsSim');
+  const tCommon = useTranslations('training.common');
   const { selectedEvent } = useEvent();
   const { operations } = useOperations();
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
@@ -120,7 +123,7 @@ export function TrainingGpsSimulation() {
       await Promise.all(drives.map((d) => apiClient.setGpsSimulationSpeed(d.vehicle_id, newSpeed)));
       await refreshDrives();
     } catch {
-      toast.error('Tempo konnte nicht geändert werden');
+      toast.error(t('speedChangeFailed'));
     }
   };
 
@@ -140,8 +143,8 @@ export function TrainingGpsSimulation() {
     if (target !== MAGAZIN_TARGET) {
       const op = operations.find((o) => o.id === target);
       if (op && op.status !== 'enroute') {
-        toast.info('Hinweis: Ankunftsmeldung kommt nur bei Status «Disponiert»', {
-          description: 'Der Einsatz steht aktuell nicht auf Disponiert — die Fahrt läuft, aber ohne Ankunfts-Abfrage.',
+        toast.info(t('arrivalHintTitle'), {
+          description: t('arrivalHintDescription'),
         });
       }
     }
@@ -155,8 +158,8 @@ export function TrainingGpsSimulation() {
       });
       await refreshDrives();
     } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : 'Simulation konnte nicht gestartet werden';
-      toast.error('Fehler', { description: detail });
+      const detail = error instanceof Error ? error.message : t('startFailed');
+      toast.error(tCommon('error'), { description: detail });
     } finally {
       setBusy(vehicle.id, false);
     }
@@ -175,8 +178,8 @@ export function TrainingGpsSimulation() {
       });
       await refreshDrives();
     } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : 'Rückfahrt konnte nicht gestartet werden';
-      toast.error('Fehler', { description: detail });
+      const detail = error instanceof Error ? error.message : t('returnFailed');
+      toast.error(tCommon('error'), { description: detail });
     } finally {
       setBusy(vehicle.id, false);
     }
@@ -188,7 +191,7 @@ export function TrainingGpsSimulation() {
       await apiClient.stopGpsSimulation(vehicleId);
       await refreshDrives();
     } catch {
-      toast.error('Simulation konnte nicht gestoppt werden');
+      toast.error(t('stopFailed'));
     } finally {
       if (vehicleId) setBusy(vehicleId, false);
     }
@@ -201,17 +204,16 @@ export function TrainingGpsSimulation() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Satellite className="h-5 w-5 text-purple-600" />
-              GPS-Simulation
+              {t('title')}
             </CardTitle>
             <CardDescription>
-              Schickt ein Fahrzeug auf eine simulierte Fahrt — Karte, Distanzen und die
-              Ankunfts-/Rückkehr-Meldungen verhalten sich wie mit echtem GPS
+              {t('description')}
             </CardDescription>
           </div>
           {drives.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => handleStop()}>
               <Square className="mr-1.5 h-3.5 w-3.5" />
-              Alle stoppen
+              {t('stopAll')}
             </Button>
           )}
         </div>
@@ -231,11 +233,11 @@ export function TrainingGpsSimulation() {
             className="flex-1"
           />
           <span className="w-16 flex-shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-            {Math.round(speedKmh)} km/h
+            {t('speed', { speed: Math.round(speedKmh) })}
           </span>
         </div>
         {vehicles.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Keine Fahrzeuge vorhanden.</p>
+          <p className="text-xs text-muted-foreground">{t('noVehicles')}</p>
         ) : (
           sortedVehicles.map((vehicle) => {
             const drive = driveFor(vehicle.id);
@@ -253,7 +255,7 @@ export function TrainingGpsSimulation() {
                   <>
                     <div className="min-w-0 flex-1 text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">
-                        {drive.kind === 'magazin' ? 'Rückkehr Magazin' : `→ ${drive.target_label}`}
+                        {drive.kind === 'magazin' ? t('returnMagazin') : `→ ${drive.target_label}`}
                       </span>
                       {' · '}
                       {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
@@ -267,10 +269,10 @@ export function TrainingGpsSimulation() {
                         onClick={() => handleReturn(vehicle)}
                         size="sm"
                         className="flex-shrink-0"
-                        title="Zurück zum Magazin fahren (z.B. nur Material abgeliefert)"
+                        title={t('returnTitle')}
                       >
                         <Home className="mr-1.5 h-3.5 w-3.5" />
-                        Rückfahrt
+                        {t('returnButton')}
                       </Button>
                     )}
                     <Button
@@ -281,7 +283,7 @@ export function TrainingGpsSimulation() {
                       className="flex-shrink-0"
                     >
                       <Square className="mr-1.5 h-3.5 w-3.5" />
-                      Stopp
+                      {t('stopButton')}
                     </Button>
                   </>
                 ) : (
@@ -291,7 +293,7 @@ export function TrainingGpsSimulation() {
                       onValueChange={(v) => setTargets((prev) => ({ ...prev, [vehicle.id]: v }))}
                     >
                       <SelectTrigger className="h-8 flex-1 text-xs">
-                        <SelectValue placeholder="Ziel wählen…" />
+                        <SelectValue placeholder={t('targetPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {incidentTargets.map((t) => (
@@ -302,7 +304,7 @@ export function TrainingGpsSimulation() {
                         <SelectItem value={MAGAZIN_TARGET}>
                           <span className="flex items-center gap-1.5">
                             <Home className="h-3.5 w-3.5" />
-                            Magazin (Rückkehr)
+                            {t('magazinTarget')}
                           </span>
                         </SelectItem>
                       </SelectContent>
@@ -314,7 +316,7 @@ export function TrainingGpsSimulation() {
                       className="flex-shrink-0"
                     >
                       <Play className="mr-1.5 h-3.5 w-3.5" />
-                      Fahrt starten
+                      {t('startDrive')}
                     </Button>
                   </>
                 )}
@@ -323,10 +325,7 @@ export function TrainingGpsSimulation() {
           })
         )}
         <p className="text-xs text-muted-foreground pt-1">
-          Fahrten laufen in gerader Linie (inkl. Umwegfaktor), bremsen vor dem Ziel ab und stoppen
-          automatisch nach 30 Minuten. Das Tempo gilt für alle Fahrzeuge — Ändern während der Fahrt
-          passt laufende Fahrten an. Rückfahrten starten am zugewiesenen Einsatzort. Gesperrt,
-          solange ein Ernstfall-Ereignis aktive Einsätze hat.
+          {t('footer')}
         </p>
       </CardContent>
     </Card>

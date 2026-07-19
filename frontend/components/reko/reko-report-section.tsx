@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -21,6 +22,7 @@ interface RekoReportSectionProps {
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
 
 export default function RekoReportSection({ incidentId, onRequestComplete }: RekoReportSectionProps) {
+  const t = useTranslations('reko.reportSection')
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [arrivedAt, setArrivedAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -83,7 +85,7 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
         <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
           <MapPin className="h-4 w-4" />
           <p className="text-sm">
-            vor Ort seit {arrivedDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
+            {t('onSiteSince', { time: arrivedDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
           </p>
         </div>
       )
@@ -91,7 +93,7 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
     return (
       <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
         <FileText className="h-4 w-4" />
-        <p className="text-sm">Noch keine Reko-Meldung</p>
+        <p className="text-sm">{t('noReport')}</p>
       </div>
     )
   }
@@ -113,7 +115,7 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
         <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50" tabIndex={-1}>
             <History className="h-3 w-3" />
-            <span>{previousReports.length} frühere Meldung{previousReports.length > 1 ? 'en' : ''}</span>
+            <span>{t('previousReports', { count: previousReports.length })}</span>
             <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-1 pt-1">
@@ -138,6 +140,7 @@ interface RekoReportCardProps {
 }
 
 function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCardProps) {
+  const t = useTranslations('reko.reportSection')
   function getPhotoUrl(filename: string): string {
     const apiUrl = getApiUrl()
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
@@ -155,7 +158,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           <div className="flex-1">
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">
-                {report.is_relevant ? 'Einsatz relevant' : 'Kein Einsatz nötig'}
+                {report.is_relevant ? t('relevant') : t('notNeeded')}
               </span>
               <div className="flex items-center gap-2">
                 {report.submitted_by_personnel_name && (
@@ -174,7 +177,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
                     onClick={onRequestComplete}
                   >
                     <CheckCheck className="mr-1 h-3.5 w-3.5" />
-                    Einsatz abschliessen
+                    {t('completeIncident')}
                   </Button>
                 )}
               </div>
@@ -198,15 +201,15 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             <div>
               <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                Gefahren
+                {t('dangers')}
               </h5>
               <div className="flex flex-wrap gap-2">
-                {report.dangers_json.fire && <Badge variant="destructive">Feuer</Badge>}
-                {report.dangers_json.fire_danger && <Badge variant="destructive">Brandgefahr</Badge>}
-                {report.dangers_json.explosion && <Badge variant="destructive">Explosion</Badge>}
-                {report.dangers_json.collapse && <Badge variant="destructive">Einsturz</Badge>}
-                {report.dangers_json.chemical && <Badge variant="destructive">Gefahrstoffe</Badge>}
-                {report.dangers_json.electrical && <Badge variant="destructive">Elektrisch</Badge>}
+                {report.dangers_json.fire && <Badge variant="destructive">{t('dangerBadges.fire')}</Badge>}
+                {report.dangers_json.fire_danger && <Badge variant="destructive">{t('dangerBadges.fire_danger')}</Badge>}
+                {report.dangers_json.explosion && <Badge variant="destructive">{t('dangerBadges.explosion')}</Badge>}
+                {report.dangers_json.collapse && <Badge variant="destructive">{t('dangerBadges.collapse')}</Badge>}
+                {report.dangers_json.chemical && <Badge variant="destructive">{t('dangerBadges.chemical')}</Badge>}
+                {report.dangers_json.electrical && <Badge variant="destructive">{t('dangerBadges.electrical')}</Badge>}
               </div>
               {report.dangers_json.other_notes && (
                 <p className="text-sm text-muted-foreground mt-2">
@@ -226,20 +229,20 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             <div>
               <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                Aufwand
+                {t('effort')}
               </h5>
               <div className="text-sm space-y-1">
                 {report.effort_json.personnel_count && (
-                  <p>Personal: {report.effort_json.personnel_count} Personen</p>
+                  <p>{t('personnel', { count: report.effort_json.personnel_count })}</p>
                 )}
                 {report.effort_json.estimated_duration_hours && (
-                  <p>Dauer: {report.effort_json.estimated_duration_hours} Stunden</p>
+                  <p>{t('duration', { hours: report.effort_json.estimated_duration_hours })}</p>
                 )}
                 {report.effort_json.vehicles_needed && report.effort_json.vehicles_needed.length > 0 && (
-                  <p>Fahrzeuge: {report.effort_json.vehicles_needed.join(', ')}</p>
+                  <p>{t('vehicles', { list: report.effort_json.vehicles_needed.join(', ') })}</p>
                 )}
                 {report.effort_json.equipment_needed && report.effort_json.equipment_needed.length > 0 && (
-                  <p>Ausrüstung: {report.effort_json.equipment_needed.join(', ')}</p>
+                  <p>{t('equipment', { list: report.effort_json.equipment_needed.join(', ') })}</p>
                 )}
               </div>
             </div>
@@ -250,12 +253,12 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             <div>
               <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-muted-foreground" />
-                Stromversorgung
+                {t('powerSupply')}
               </h5>
               <p className="text-sm">
-                {report.power_supply === 'available' && 'Vorhanden'}
-                {report.power_supply === 'unavailable' && 'Nicht vorhanden'}
-                {report.power_supply === 'emergency_needed' && 'Notstrom benötigt'}
+                {report.power_supply === 'available' && t('powerAvailable')}
+                {report.power_supply === 'unavailable' && t('powerUnavailable')}
+                {report.power_supply === 'emergency_needed' && t('powerEmergencyNeeded')}
               </p>
             </div>
           )}
@@ -263,7 +266,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           {/* Photos */}
           {report.photos_json && report.photos_json.length > 0 && (
             <div>
-              <h5 className="font-medium text-sm mb-2">Fotos ({report.photos_json.length})</h5>
+              <h5 className="font-medium text-sm mb-2">{t('photosCount', { count: report.photos_json.length })}</h5>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {report.photos_json.map((filename, index) => (
                   <a
@@ -276,7 +279,9 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
                   >
                     <img
                       src={getPhotoUrl(filename)}
-                      alt={`Reko-Foto ${index + 1}${report.submitted_by_personnel_name ? ` von ${report.submitted_by_personnel_name}` : ''}`}
+                      alt={report.submitted_by_personnel_name
+                        ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
+                        : t('photoAlt', { number: index + 1 })}
                       className="w-full h-full object-cover"
                     />
                   </a>
@@ -295,7 +300,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           {/* Additional Notes */}
           {report.additional_notes && (
             <div>
-              <h5 className="font-medium text-sm mb-2">Zusätzliche Notizen</h5>
+              <h5 className="font-medium text-sm mb-2">{t('additionalNotes')}</h5>
               <p className="text-sm text-muted-foreground">{report.additional_notes}</p>
             </div>
           )}
@@ -303,11 +308,11 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           {/* Metadata */}
           <div className="text-xs text-muted-foreground border-t pt-2 mt-4">
             {report.submitted_by_personnel_name && (
-              <p>Reko von: {report.submitted_by_personnel_name}</p>
+              <p>{t('rekoBy', { name: report.submitted_by_personnel_name })}</p>
             )}
-            <p>Übermittelt: {new Date(report.submitted_at).toLocaleString('de-CH')}</p>
+            <p>{t('submittedAt', { date: new Date(report.submitted_at).toLocaleString('de-CH') })}</p>
             {report.updated_at !== report.submitted_at && (
-              <p>Aktualisiert: {new Date(report.updated_at).toLocaleString('de-CH')}</p>
+              <p>{t('updatedAt', { date: new Date(report.updated_at).toLocaleString('de-CH') })}</p>
             )}
           </div>
         </div>
@@ -318,6 +323,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
 
 // Compact version for previous reports
 function RekoReportCardCompact({ report, incidentId }: RekoReportCardProps) {
+  const t = useTranslations('reko.reportSection')
   function getPhotoUrl(filename: string): string {
     const apiUrl = getApiUrl()
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
@@ -343,7 +349,7 @@ function RekoReportCardCompact({ report, incidentId }: RekoReportCardProps) {
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-xs">
-              {report.is_relevant ? 'Relevant' : 'Nicht relevant'}
+              {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
             </span>
             <span className="text-xs text-muted-foreground">
               {new Date(report.submitted_at).toLocaleDateString('de-CH')}
@@ -361,11 +367,11 @@ function RekoReportCardCompact({ report, incidentId }: RekoReportCardProps) {
             {hasDangers && (
               <span className="flex items-center gap-1 text-destructive">
                 <AlertTriangle className="h-3 w-3" />
-                Gefahren
+                {t('dangers')}
               </span>
             )}
             {report.photos_json && report.photos_json.length > 0 && (
-              <span>{report.photos_json.length} Foto{report.photos_json.length > 1 ? 's' : ''}</span>
+              <span>{t('photoCount', { count: report.photos_json.length })}</span>
             )}
           </div>
 

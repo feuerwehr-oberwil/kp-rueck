@@ -12,10 +12,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { useTranslations } from "next-intl"
 import { useGlobalNavigation } from "@/lib/hooks/use-global-navigation"
 
 export default function TrainingPage() {
   useGlobalNavigation()
+  const t = useTranslations("training")
   const { selectedEvent, isEventLoaded } = useEvent()
   const router = useRouter()
 
@@ -29,7 +31,7 @@ export default function TrainingPage() {
   if (!selectedEvent) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">Laden...</div>
+        <div className="text-muted-foreground">{t("page.loading")}</div>
       </div>
     )
   }
@@ -39,7 +41,7 @@ export default function TrainingPage() {
       <ProtectedRoute>
         <div className="flex h-full flex-col bg-background text-foreground">
           <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-2 min-h-14">
-            <h1 className="text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t("common.title")}</h1>
             <PageNavigation
               currentPage="training"
               hasSelectedEvent={!!selectedEvent}
@@ -50,8 +52,7 @@ export default function TrainingPage() {
             <Alert variant="destructive" className="max-w-md">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Die Übungs-Steuerung ist nur für Trainingsereignisse verfügbar.
-                Das aktuelle Ereignis ist kein Training.
+                {t("page.notTraining")}
               </AlertDescription>
             </Alert>
           </main>
@@ -66,7 +67,7 @@ export default function TrainingPage() {
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sm:px-6 py-2 min-h-14">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Übungs-Steuerung</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t("common.title")}</h1>
           <PageNavigation
             currentPage="training"
             hasSelectedEvent={!!selectedEvent}

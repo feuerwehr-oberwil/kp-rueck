@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Info, Loader2, ArrowRight, UserPlus, UserMinus, Truck, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -19,6 +20,7 @@ interface IncidentTimelinePopoverProps {
  * Static load on open; subscribe to WS later (B2 v2) if operators need it.
  */
 export function IncidentTimelinePopover({ incidentId }: IncidentTimelinePopoverProps) {
+  const t = useTranslations('kanban')
   const [open, setOpen] = useState(false)
   const [events, setEvents] = useState<ApiIncidentTimelineEvent[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -32,11 +34,11 @@ export function IncidentTimelinePopover({ incidentId }: IncidentTimelinePopoverP
       setEvents(result.events)
     } catch (err) {
       console.error("Failed to load timeline:", err)
-      setError("Verlauf konnte nicht geladen werden.")
+      setError(t('timeline.loadFailed'))
     } finally {
       setIsLoading(false)
     }
-  }, [incidentId])
+  }, [incidentId, t])
 
   useEffect(() => {
     if (open) loadTimeline()
@@ -49,7 +51,7 @@ export function IncidentTimelinePopover({ incidentId }: IncidentTimelinePopoverP
           variant="ghost"
           size="icon-sm"
           className="text-muted-foreground hover:text-foreground"
-          aria-label="Verlauf anzeigen"
+          aria-label={t('timeline.showAria')}
         >
           <Info className="h-4 w-4" />
         </Button>
@@ -64,8 +66,8 @@ export function IncidentTimelinePopover({ incidentId }: IncidentTimelinePopoverP
         onTouchMove={(e) => e.stopPropagation()}
       >
         <div className="border-b border-border px-4 py-2.5 shrink-0">
-          <h3 className="text-sm font-semibold">Verlauf</h3>
-          <p className="text-xs text-muted-foreground">Statusänderungen und Zuweisungen</p>
+          <h3 className="text-sm font-semibold">{t('timeline.title')}</h3>
+          <p className="text-xs text-muted-foreground">{t('timeline.subtitle')}</p>
         </div>
         <div className="flex-1 overflow-y-auto min-h-0">
           {isLoading && (
@@ -77,7 +79,7 @@ export function IncidentTimelinePopover({ incidentId }: IncidentTimelinePopoverP
             <div className="px-4 py-6 text-sm text-destructive">{error}</div>
           )}
           {!isLoading && !error && events && events.length === 0 && (
-            <div className="px-4 py-6 text-sm text-muted-foreground">Noch keine Einträge.</div>
+            <div className="px-4 py-6 text-sm text-muted-foreground">{t('timeline.empty')}</div>
           )}
           {!isLoading && !error && events && events.length > 0 && (
             <ol className="divide-y divide-border">
@@ -128,9 +130,15 @@ function EventIcon({ event }: { event: ApiIncidentTimelineEvent }) {
 }
 
 function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
+  const t = useTranslations('kanban')
+  // Translate known statuses; unknown values fall back to the raw status string.
+  const statusLabel = (status: string | null | undefined): string => {
+    if (!status) return "—"
+    return status in STATUS_LABELS ? t(`statusLabels.${status}`) : status
+  }
   if (event.event_type === "status_change") {
-    const from = event.from_status ? STATUS_LABELS[event.from_status as keyof typeof STATUS_LABELS] ?? event.from_status : "—"
-    const to = event.to_status ? STATUS_LABELS[event.to_status as keyof typeof STATUS_LABELS] ?? event.to_status : "—"
+    const from = statusLabel(event.from_status)
+    const to = statusLabel(event.to_status)
     return (
       <>
         <span className="text-muted-foreground">{from}</span>
@@ -141,9 +149,9 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
   }
 
   if (event.event_type === "assignment") {
-    const verb = event.assignment_action === "unassigned" ? "entfernt" : "zugewiesen"
+    const verb = event.assignment_action === "unassigned" ? t('timeline.removed') : t('timeline.assigned')
     const verbClass = event.assignment_action === "unassigned" ? "text-muted-foreground" : "text-foreground"
-    const name = event.resource_name ?? "(unbekannt)"
+    const name = event.resource_name ?? t('timeline.unknown')
     return (
       <>
         <span className="text-foreground font-medium">{name}</span>

@@ -7,6 +7,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { translateOutsideReact } from '../i18n-messages';
 import { getCurrentUser, login as apiLogin, microsoftLogin as apiMicrosoftLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
 
 interface AuthContextType {
@@ -47,8 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userRef.current) return; // already logged out / public token page
       userRef.current = null;
       setUser(null);
-      toast.error('Sitzung abgelaufen', {
-        description: 'Bitte melden Sie sich erneut an.',
+      toast.error(translateOutsideReact('notifications.auth.sessionExpiredTitle'), {
+        description: translateOutsideReact('notifications.auth.sessionExpiredDescription'),
       });
     };
     window.addEventListener('kp:session-expired', handleSessionExpired);

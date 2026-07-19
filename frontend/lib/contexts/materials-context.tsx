@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react"
 import { toast } from "sonner"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { apiClient, type ApiMaterialResource, type ApiMaterialGroup } from "@/lib/api-client"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
@@ -84,8 +85,8 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
         console.error("Failed to load materials:", error)
         if (!hasShownMaterialsErrorRef.current) {
           hasShownMaterialsErrorRef.current = true
-          toast.error("Material konnte nicht geladen werden", {
-            description: "Die Materialliste ist möglicherweise veraltet.",
+          toast.error(translateOutsideReact('notifications.materials.loadFailedTitle'), {
+            description: translateOutsideReact('notifications.materials.loadFailedDescription'),
           })
         }
         return []
@@ -105,7 +106,7 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
       console.error("Failed to load material groups:", error)
       if (!hasShownGroupsErrorRef.current) {
         hasShownGroupsErrorRef.current = true
-        toast.error("Materialgruppen konnten nicht geladen werden")
+        toast.error(translateOutsideReact('notifications.materials.groupsLoadFailed'))
       }
     }
   }, [])

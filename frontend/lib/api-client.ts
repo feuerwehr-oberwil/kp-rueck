@@ -5,6 +5,7 @@
 
 import { getApiUrl } from './env'
 import { toast } from '@/hooks/use-toast'
+import { translateOutsideReact } from './i18n-messages'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
 // Re-export every API type so existing consumers (`import { type ApiX } from '@/lib/api-client'`)
@@ -130,7 +131,7 @@ class ApiClient {
           try {
             errorText = await response.text()
           } catch (e) {
-            errorText = 'Keine Fehlerdetails verfügbar'
+            errorText = translateOutsideReact('errors.api.noErrorDetails')
           }
 
           // Don't log 401 errors for sync config - expected when not authenticated
@@ -186,7 +187,7 @@ class ApiClient {
           if (!skipToast && response.status !== 401 && !isConflict) {
             toast({
               variant: "destructive",
-              title: "API Fehler",
+              title: translateOutsideReact('errors.api.title'),
               description: errorMessage,
             })
           }
@@ -217,8 +218,8 @@ class ApiClient {
           if (!skipToast) {
             toast({
               variant: "destructive",
-              title: "Verbindungsfehler",
-              description: "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
+              title: translateOutsideReact('errors.api.connectionTitle'),
+              description: translateOutsideReact('errors.api.connectionDescription'),
             })
           }
           if (isGetRequest) {
@@ -241,7 +242,7 @@ class ApiClient {
     if (lastError) {
       throw lastError
     }
-    throw new Error('Unbekannter Fehler')
+    throw new Error(translateOutsideReact('errors.api.unknown'))
   }
 
   // Audit Logs
@@ -787,7 +788,7 @@ class ApiClient {
 
       if (!response.ok) {
         // Parse backend error message for specific errors (file size, quota, invalid type)
-        let errorMessage = 'Foto-Upload fehlgeschlagen'
+        let errorMessage = translateOutsideReact('errors.api.photoUploadFailed')
         try {
           const errorData = await response.json()
           if (errorData.detail) {
@@ -803,7 +804,7 @@ class ApiClient {
     } catch (error) {
       clearTimeout(timeoutId)
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Upload-Zeitüberschreitung - bitte erneut versuchen')
+        throw new Error(translateOutsideReact('errors.api.uploadTimeout'))
       }
       throw error
     }

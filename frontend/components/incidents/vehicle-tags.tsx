@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { X, Plus, Truck, Check } from 'lucide-react'
+import { useTranslations } from "next-intl"
 import { apiClient, type ApiVehicle } from "@/lib/api-client"
 import type { AssignedVehicle } from "@/lib/types/incidents"
 
@@ -20,6 +21,8 @@ interface VehicleTagsProps {
  * Displays assigned vehicles as tags/badges and allows adding/removing vehicles
  */
 export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly = false }: VehicleTagsProps) {
+  const tCommon = useTranslations("kanban.common")
+  const tDetail = useTranslations("kanban.detail")
   const [allVehicles, setAllVehicles] = useState<ApiVehicle[]>([])
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -142,7 +145,7 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
           key={vehicle.assignment_id}
           variant="outline"
           className="gap-1 pr-1 group hover:bg-destructive/20 transition-colors text-xs"
-          title={callsign ? `Funkrufname: ${callsign}` : undefined}
+          title={callsign ? tCommon('funkrufname', { callsign }) : undefined}
         >
           <Truck className="h-3 w-3" />
           <span>{vehicle.name}{callsign ? ` · ${callsign}` : ''}</span>
@@ -151,7 +154,7 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
               onClick={(e) => handleUnassignVehicle(vehicle.assignment_id, vehicle.vehicle_id, e)}
               disabled={loadingVehicleId === vehicle.assignment_id}
               className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-              title="Fahrzeug entfernen"
+              title={tDetail('removeVehicle')}
             >
               {loadingVehicleId === vehicle.assignment_id ? (
                 <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -172,7 +175,7 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
               variant="ghost"
               size="sm"
               className="h-6 px-2 gap-1 text-xs"
-              title="Fahrzeug zuweisen"
+              title={tCommon('assignVehicle')}
             >
               <Plus className="h-3 w-3" />
               <Truck className="h-3 w-3" />
@@ -181,11 +184,11 @@ export function VehicleTags({ incidentId, assignedVehicles, onUpdate, readOnly =
           <PopoverContent className="w-64 p-2" align="start">
             <div className="space-y-1">
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                Fahrzeug zuweisen
+                {tCommon('assignVehicle')}
               </div>
               {availableVehicles.length === 0 ? (
                 <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                  {allVehicles.length === 0 ? "Lade Fahrzeuge..." : "Alle Fahrzeuge zugewiesen"}
+                  {allVehicles.length === 0 ? tDetail('loadingVehicles') : tDetail('allVehiclesAssigned')}
                 </div>
               ) : (
                 availableVehicles.map((vehicle) => (

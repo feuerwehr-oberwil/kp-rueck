@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Siren, Loader2, Link2Off } from "lucide-react"
 import {
   Dialog,
@@ -37,6 +38,7 @@ interface Recipient {
 }
 
 export function DiveraSendDialog({ open, onOpenChange, operation, materials }: DiveraSendDialogProps) {
+  const t = useTranslations("divera.sendDialog")
   const { personnel } = usePersonnel()
   const { selectedEvent } = useEvent()
 
@@ -126,7 +128,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       .filter((r) => selected.has(r.person.id) && r.person.diveraUserId)
       .map((r) => r.person.id)
     if (personnelIds.length === 0) {
-      toast.error("Keine verknüpften Empfänger ausgewählt")
+      toast.error(t("noRecipientsError"))
       return
     }
     setIsSending(true)
@@ -139,17 +141,20 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
         send_push: true, // push only — no SMS/call/mail
       })
       if (result.success) {
-        const skippedNote = result.skipped.length > 0 ? `, ${result.skipped.length} übersprungen` : ""
         if (result.simulated) {
-          toast.success("Übung: Alarm simuliert", {
-            description: "In der Übung wird kein echter Alarm gesendet.",
+          toast.success(t("simulatedTitle"), {
+            description: t("simulatedDescription"),
           })
         } else {
-          toast.success(`Aufgebot gesendet an ${result.sent.length} Person(en)${skippedNote}`)
+          toast.success(
+            result.skipped.length > 0
+              ? t("sentWithSkipped", { count: result.sent.length, skipped: result.skipped.length })
+              : t("sent", { count: result.sent.length }),
+          )
         }
         onOpenChange(false)
       } else {
-        toast.error(result.error || "Aufgebot konnte nicht gesendet werden")
+        toast.error(result.error || t("sendError"))
       }
     } catch {
       // request() already surfaces a toast for gating/network errors.
@@ -164,10 +169,10 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Siren className="h-4 w-4 text-primary" />
-            Aufgebot senden
+            {t("title")}
           </DialogTitle>
           <DialogDescription>
-            {operation.location} — nur ausgewählte, mit der Alarmierung verknüpfte Personen werden alarmiert.
+            {t("description", { location: operation.location })}
           </DialogDescription>
         </DialogHeader>
 
@@ -175,11 +180,11 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           {/* Recipients */}
           <div className="space-y-1.5">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              Empfänger ({selectedLinkedCount})
+              {t("recipients", { count: selectedLinkedCount })}
             </Label>
             {recipients.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Diesem Einsatz ist keine Person zugewiesen.
+                {t("noAssigned")}
               </p>
             ) : (
               <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
@@ -200,17 +205,17 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                       <span className="flex-1 truncate">{r.person.name}</span>
                       {r.isDriverRow && (
                         <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                          Fahrer
+                          {t("driverBadge")}
                         </Badge>
                       )}
                       {linked ? (
                         <Badge variant="secondary" className="text-[10px]">
-                          verknüpft
+                          {t("linked")}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
                           <Link2Off className="h-3 w-3" />
-                          nicht verknüpft
+                          {t("notLinked")}
                         </Badge>
                       )}
                     </label>
@@ -223,7 +228,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           {/* Message */}
           <div className="space-y-1.5">
             <Label htmlFor="divera-title" className="text-xs uppercase tracking-wide text-muted-foreground">
-              Titel
+              {t("titleLabel")}
             </Label>
             <Input
               id="divera-title"
@@ -235,10 +240,10 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="divera-text" className="text-xs uppercase tracking-wide text-muted-foreground">
-                Text
+                {t("textLabel")}
               </Label>
               <span className={`text-[11px] ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}>
-                {text.length}/1000{text.length > 1000 ? " · wird gekürzt" : ""}
+                {text.length > 1000 ? t("charCountTruncated", { count: text.length }) : t("charCount", { count: text.length })}
               </span>
             </div>
             <Textarea
@@ -253,7 +258,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           {/* Priority */}
           <div className="flex items-center justify-between">
             <Label htmlFor="divera-priority" className="text-sm">
-              Priorität (Sonderrechte)
+              {t("priorityLabel")}
             </Label>
             <Switch id="divera-priority" checked={priority} onCheckedChange={setPriority} />
           </div>
@@ -261,7 +266,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-1">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSending}>
-              Abbrechen
+              {t("cancel")}
             </Button>
             <Button onClick={handleSend} disabled={isSending || selectedLinkedCount === 0 || !templatesReady}>
               {isSending ? (
@@ -269,7 +274,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
               ) : (
                 <Siren className="h-4 w-4" />
               )}
-              Alarm senden ({selectedLinkedCount})
+              {t("send", { count: selectedLinkedCount })}
             </Button>
           </div>
         </div>

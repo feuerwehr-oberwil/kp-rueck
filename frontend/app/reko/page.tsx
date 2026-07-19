@@ -2,12 +2,14 @@
 
 import { Suspense } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import RekoForm from '@/components/reko/reko-form'
 import { Button } from '@/components/ui/button'
 import { Loader2, ArrowLeft } from 'lucide-react'
 
 export default function RekoPage() {
   const router = useRouter()
+  const t = useTranslations('reko.common')
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -27,7 +29,7 @@ export default function RekoPage() {
           className="mb-4 -ml-3"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          Zurück
+          {t('back')}
         </Button>
 
         <Suspense fallback={<RekoFormSkeleton />}>

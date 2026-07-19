@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations, type Operation } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiGpsSimDrive, type ApiVehicle } from '@/lib/api-client';
@@ -15,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
-import { OPERATION_STATUS_LABELS as STATUS_LABELS } from '@/lib/status-labels';
+import { getOperationStatusLabel } from '@/lib/status-labels';
 import {
   Users,
   ClipboardCheck,
@@ -57,6 +58,8 @@ const ACTION_ICONS: Record<string, typeof MapPin> = {
 
 
 export function TrainingSimulationControls() {
+  const t = useTranslations('training.simulation');
+  const tCommon = useTranslations('training.common');
   const { selectedEvent } = useEvent();
   const { operations, changeStatusToTop } = useOperations();
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -174,8 +177,8 @@ export function TrainingSimulationControls() {
         const rolling = new Set(drives.filter((d) => d.kind === target).map((d) => d.vehicle_name));
         const toSend = vehicles.filter((v) => op.vehicles.includes(v.name) && !rolling.has(v.name));
         if (toSend.length === 0) {
-          toast.error('Kein Fahrzeug für die Fahrt gefunden', {
-            description: 'Die zugewiesenen Fahrzeuge sind unbekannt oder bereits unterwegs.',
+          toast.error(t('noVehicleFound'), {
+            description: t('noVehicleFoundDescription'),
           });
           return;
         }
@@ -197,8 +200,8 @@ export function TrainingSimulationControls() {
       }
     } catch (error: unknown) {
       console.error('Failed to advance incident:', error);
-      const detail = error instanceof Error ? error.message : 'Aktion fehlgeschlagen';
-      toast.error('Fehler', { description: detail });
+      const detail = error instanceof Error ? error.message : t('actionFailed');
+      toast.error(tCommon('error'), { description: detail });
     } finally {
       setAdvancing(op.id, false);
     }
@@ -211,18 +214,18 @@ export function TrainingSimulationControls() {
       const result = await apiClient.simulateCheckin(selectedEvent.id, checkinCount, checkinMinutes);
 
       if ((result.scheduled?.length ?? 0) > 0) {
-        toast.success(`${result.scheduled!.length} Check-ins geplant`, {
-          description: `Die Personen checken über die nächsten ${result.trickle_minutes} Minuten ein.`,
+        toast.success(t('checkinsScheduled', { count: result.scheduled!.length }), {
+          description: t('checkinsScheduledDescription', { minutes: result.trickle_minutes ?? checkinMinutes }),
         });
       } else if (result.checked_in.length === 0) {
-        toast.info('Keine weiteren Personen verfügbar', {
-          description: 'Alle verfügbaren Personen sind bereits eingecheckt.',
+        toast.info(t('noMorePersons'), {
+          description: t('noMorePersonsDescription'),
         });
       }
     } catch (error: unknown) {
       console.error('Failed to simulate check-in:', error);
       const detail = error instanceof Error ? error.message : undefined;
-      toast.error('Fehler beim Simulieren der Check-ins', { description: detail });
+      toast.error(t('checkinFailed'), { description: detail });
     } finally {
       setIsCheckingIn(false);
     }
@@ -240,21 +243,21 @@ export function TrainingSimulationControls() {
     try {
       if (inject === 'escalate') {
         await apiClient.simulateEscalation(selectedEvent.id, op.id);
-        toast.success('Lage verschärft', {
-          description: 'Priorität hoch — Lagemeldung ist auf der Karte und in den Meldungen.',
+        toast.success(t('escalated'), {
+          description: t('escalatedDescription'),
         });
       } else if (inject === 'reinforcement') {
         const result = await apiClient.simulateReinforcement(selectedEvent.id, op.id);
-        toast.success('Verstärkung angefordert', { description: result.message });
+        toast.success(t('reinforcementRequested'), { description: result.message });
       } else {
         const result = await apiClient.simulateVehicleBreakdown(selectedEvent.id, op.id);
-        toast.success(`Fahrzeug ${result.vehicle_name} ausgefallen`, {
-          description: 'Der Operator muss Ersatz disponieren.',
+        toast.success(t('vehicleBrokenDown', { name: result.vehicle_name }), {
+          description: t('vehicleBrokenDownDescription'),
         });
       }
     } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : 'Inject fehlgeschlagen';
-      toast.error('Fehler', { description: detail });
+      const detail = error instanceof Error ? error.message : t('injectFailed');
+      toast.error(tCommon('error'), { description: detail });
     } finally {
       setAdvancing(op.id, false);
     }
@@ -266,10 +269,10 @@ export function TrainingSimulationControls() {
         <div>
           <CardTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-purple-600" />
-            Feld-Simulation
+            {t('title')}
           </CardTitle>
           <CardDescription>
-            Simuliert Aktionen, die normalerweise von Personen im Feld ausgeführt werden
+            {t('description')}
           </CardDescription>
         </div>
       </CardHeader>
@@ -279,11 +282,11 @@ export function TrainingSimulationControls() {
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
             <ChevronRight className="h-4 w-4" />
-            Nächste Aktionen
+            {t('nextActions')}
           </Label>
           {rows.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              Keine offene Feldaktion. Reko aufbieten / disponieren macht der Operator am Board.
+              {t('noOpenActions')}
             </p>
           ) : (
             <>
@@ -308,12 +311,12 @@ export function TrainingSimulationControls() {
                           {op.location || op.incidentType}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {STATUS_LABELS[op.status]}
-                          {started && ` · seit ${getTimeSince(started)}`}
+                          {getOperationStatusLabel(op.status)}
+                          {started && ` · ${t('since', { time: getTimeSince(started) })}`}
                           {/* The "beendet" report lives ONLY here — the board is
                               informed in the exercise itself (e.g. via radio). */}
                           {op.fieldCompleteReportedAt && op.status === 'active' && (
-                            <span className="text-emerald-600 dark:text-emerald-400"> · Feld meldet: beendet</span>
+                            <span className="text-emerald-600 dark:text-emerald-400"> · {t('fieldComplete')}</span>
                           )}
                         </div>
                       </div>
@@ -344,7 +347,7 @@ export function TrainingSimulationControls() {
                             variant={due && isPrimary ? 'default' : 'outline'}
                             size="sm"
                             className="flex-shrink-0"
-                            title={due && isPrimary ? 'Empfohlene nächste Aktion' : undefined}
+                            title={due && isPrimary ? t('recommendedAction') : undefined}
                           >
                             <Icon className="mr-1.5 h-3.5 w-3.5" />
                             {action.label}
@@ -360,28 +363,28 @@ export function TrainingSimulationControls() {
                             size="sm"
                             disabled={busy}
                             className="flex-shrink-0 px-2"
-                            title="Inject: Lage verschärfen, Verstärkung, Fahrzeugausfall"
+                            title={t('injectTitle')}
                           >
                             <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Inject</DropdownMenuLabel>
+                          <DropdownMenuLabel>{t('inject')}</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleInject(op, 'escalate')}>
                             <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
-                            Lage verschärft sich
+                            {t('injectEscalate')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'reinforcement')}>
                             <Megaphone className="mr-2 h-4 w-4 text-amber-600" />
-                            Verstärkung anfordern
+                            {t('injectReinforcement')}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleInject(op, 'breakdown')}
                             disabled={op.vehicles.length === 0}
                           >
                             <Wrench className="mr-2 h-4 w-4 text-zinc-500" />
-                            Fahrzeug fällt aus
+                            {t('injectBreakdown')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -390,7 +393,7 @@ export function TrainingSimulationControls() {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). &quot;Fahrt zu Einsatz&quot; und &quot;Rückfahrt Magazin&quot; starten GPS-Fahrten — Ankunft und Rückkehr melden sich über die GPS-Abfrage. &quot;Einsatz beendet&quot; erscheint nur hier — das Board informierst du selbst (z.B. per Funk).
+                {t('footer')}
               </p>
             </>
           )}
@@ -402,7 +405,7 @@ export function TrainingSimulationControls() {
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Personal einchecken
+            {t('checkinLabel')}
           </Label>
           <div className="flex items-center gap-2">
             <Input
@@ -421,10 +424,10 @@ export function TrainingSimulationControls() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">sofort</SelectItem>
-                <SelectItem value="5">über 5 Min</SelectItem>
-                <SelectItem value="10">über 10 Min</SelectItem>
-                <SelectItem value="15">über 15 Min</SelectItem>
+                <SelectItem value="0">{t('immediately')}</SelectItem>
+                <SelectItem value="5">{t('overMinutes', { count: 5 })}</SelectItem>
+                <SelectItem value="10">{t('overMinutes', { count: 10 })}</SelectItem>
+                <SelectItem value="15">{t('overMinutes', { count: 15 })}</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -435,11 +438,11 @@ export function TrainingSimulationControls() {
               className="flex-1"
             >
               <Users className="mr-2 h-4 w-4" />
-              {isCheckingIn ? 'Wird eingecheckt...' : 'Einchecken'}
+              {isCheckingIn ? t('checkingIn') : t('checkin')}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Checkt zufällige verfügbare Personen ein — sofort oder gestaffelt, wie AdF wirklich eintreffen
+            {t('checkinHint')}
           </p>
         </div>
       </CardContent>

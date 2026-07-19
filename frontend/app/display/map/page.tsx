@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
@@ -28,6 +29,7 @@ const MapView = dynamic(() => import("@/components/map-view"), {
  * - Viewer token (?token=xxx) (polls independently)
  */
 export default function DisplayMapPage() {
+  const t = useTranslations('display')
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
   const { isAuthenticated } = useAuth()
@@ -80,7 +82,7 @@ export default function DisplayMapPage() {
   // No auth, no token
   return (
     <div className="flex h-full items-center justify-center text-muted-foreground">
-      Bitte melden Sie sich an oder verwenden Sie einen Zugangscode (?token=xxx)
+      {t('map.authRequired')}
     </div>
   )
 }
@@ -94,6 +96,7 @@ function AuthenticatedDisplayMap({
   onMarkerClick: (id: string) => void
   panTrigger: number
 }) {
+  const tMap = useTranslations('map')
   const { refreshIncidents } = useIncidents()
   const { operations } = useOperations()
 
@@ -142,9 +145,9 @@ function AuthenticatedDisplayMap({
       else hasNone = true
     }
     const arr = [...map.values()]
-    if (hasNone) arr.push({ key: '__none__', label: 'Ohne Zuweisung', color: COLOR_NONE })
+    if (hasNone) arr.push({ key: '__none__', label: tMap('common.noAssignment'), color: COLOR_NONE })
     return arr
-  }, [operations, colorBy])
+  }, [operations, colorBy, tMap])
 
   return (
     <div className="relative w-full h-full">
@@ -169,14 +172,14 @@ function AuthenticatedDisplayMap({
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-background/80 text-muted-foreground border-border hover:bg-muted'
               }`}
-              title="Marker einfärben nach"
+              title={tMap('common.colorByTitle')}
             >
               <Palette className="h-3 w-3" />
-              Färben: {COLOR_BY_LABELS[colorBy]}
+              {tMap('common.colorByButton', { label: COLOR_BY_LABELS[colorBy] })}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>Färben nach</DropdownMenuLabel>
+            <DropdownMenuLabel>{tMap('common.colorByMenuLabel')}</DropdownMenuLabel>
             {(['priority', 'reko', 'vehicle', 'type'] as ColorByDimension[]).map((dim) => (
               <DropdownMenuItem
                 key={dim}
@@ -220,9 +223,10 @@ function TokenDisplayMap({
 }) {
   // Token mode doesn't have contexts, so MapView won't have data.
   // Show a message pointing to editor auth for full functionality.
+  const t = useTranslations('display')
   return (
     <div className="flex h-full items-center justify-center text-muted-foreground">
-      <p>Kartenanzeige erfordert Editor-Zugang für GPS-Daten.</p>
+      <p>{t('map.tokenModeUnsupported')}</p>
     </div>
   )
 }

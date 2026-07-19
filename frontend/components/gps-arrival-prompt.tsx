@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 
 interface ArrivalPrompt {
   incidentId: string
@@ -37,6 +38,7 @@ interface ArrivalPrompt {
  * settings, …) the modal would only interrupt; the bell notification still covers it.
  */
 export function GpsArrivalPrompt() {
+  const t = useTranslations('incidents.gpsArrival')
   const { isEditor } = useAuth()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ArrivalPrompt | null>(null)
@@ -66,12 +68,12 @@ export function GpsArrivalPrompt() {
       // same incident simply refreshes the open dialog.
       setPrompt({
         incidentId: payload.incident_id,
-        vehicleName: payload.vehicle_name || "Fahrzeug",
-        incidentLabel: payload.incident_label || "Einsatz",
+        vehicleName: payload.vehicle_name || t('fallbackVehicle'),
+        incidentLabel: payload.incident_label || t('fallbackIncident'),
       })
     })
     return () => unsubscribe()
-  }, [isEditor, onOperatorPage])
+  }, [isEditor, onOperatorPage, t])
 
   // Auto-close if the incident leaves Disponiert while the dialog is open
   // (operator moved the card themselves on another screen).
@@ -94,10 +96,10 @@ export function GpsArrivalPrompt() {
     try {
       // Rule A only fires from status exactly `disponiert`, so that is the from-status.
       await apiClient.updateIncidentStatus(prompt.incidentId, "disponiert", "einsatz")
-      toast.success(`${prompt.incidentLabel} auf Einsatz gesetzt`)
+      toast.success(t('movedToActive', { label: prompt.incidentLabel }))
       setPrompt(null)
     } catch {
-      toast.error("Statusänderung fehlgeschlagen")
+      toast.error(t('statusChangeFailed'))
     } finally {
       setAdvancing(false)
     }
@@ -109,19 +111,22 @@ export function GpsArrivalPrompt() {
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
-            Fahrzeug am Einsatzort
+            {t('title')}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            <span className="font-medium text-foreground">{prompt.vehicleName}</span> ist beim
-            Einsatz »{prompt.incidentLabel}« angekommen. Auf Einsatz setzen?
+            {t.rich('description', {
+              vehicle: prompt.vehicleName,
+              label: prompt.incidentLabel,
+              strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="sm:justify-between">
           <Button variant="ghost" onClick={() => setPrompt(null)} disabled={advancing}>
-            Nicht verschieben
+            {t('decline')}
           </Button>
           <Button onClick={handleAdvance} disabled={advancing}>
-            Auf Einsatz setzen
+            {t('confirm')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
