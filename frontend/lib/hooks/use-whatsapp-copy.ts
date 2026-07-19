@@ -8,6 +8,7 @@ import {
   type ApiRekoReportResponse,
 } from "@/lib/api-client"
 import type { Material, Operation } from "@/lib/contexts/operations-context"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 import { copyToClipboardAsync } from "@/lib/utils"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
@@ -72,14 +73,14 @@ export function useWhatsAppCopy({
 
     copyToClipboardAsync(messagePromise)
       .then(() => {
-        toast.success("In Zwischenablage kopiert", {
-          description: "Die Einsatzmeldung wurde für WhatsApp formatiert kopiert.",
+        toast.success(translateOutsideReact('notifications.whatsapp.copiedTitle'), {
+          description: translateOutsideReact('notifications.whatsapp.copiedDescription'),
         })
       })
       .catch((error) => {
         console.error("Failed to copy WhatsApp message:", error)
-        toast.error("Fehler beim Kopieren", {
-          description: "Die Nachricht konnte nicht in die Zwischenablage kopiert werden.",
+        toast.error(translateOutsideReact('notifications.whatsapp.copyFailedTitle'), {
+          description: translateOutsideReact('notifications.whatsapp.copyFailedDescription'),
         })
       })
       .finally(() => {

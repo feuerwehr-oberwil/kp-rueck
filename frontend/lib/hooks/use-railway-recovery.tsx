@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
+import { translateOutsideReact } from '@/lib/i18n-messages'
 import { apiClient } from '@/lib/api-client'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import type { SyncStatusResponse } from '@/types/sync'
@@ -31,22 +32,22 @@ export function useRailwayRecovery(
     // Detect Railway recovery (unhealthy → healthy transition)
     if (wasUnhealthy && isNowHealthy && !isSidebarOpen) {
       // Show recovery notification with action to sync (only if sidebar is closed)
-      toast.success('Railway ist wieder online!', {
-        description: 'Lokale Änderungen zu Railway synchronisieren?',
+      toast.success(translateOutsideReact('notifications.railway.backOnlineTitle'), {
+        description: translateOutsideReact('notifications.railway.backOnlineDescription'),
         duration: 10000, // 10 seconds
         action: {
-          label: 'Jetzt synchronisieren',
+          label: translateOutsideReact('notifications.railway.syncNowLabel'),
           onClick: async () => {
             try {
-              toast.loading('Synchronisiere zu Railway...')
+              toast.loading(translateOutsideReact('notifications.railway.syncing'))
               await apiClient.triggerSyncToRailway()
-              toast.success('Erfolgreich zu Railway synchronisiert')
+              toast.success(translateOutsideReact('notifications.railway.syncSuccess'))
               onRecovery?.()
             } catch (error) {
               toast.error(
                 error instanceof Error
                   ? error.message
-                  : 'Synchronisation zu Railway fehlgeschlagen'
+                  : translateOutsideReact('notifications.railway.syncFailed')
               )
             }
           },
