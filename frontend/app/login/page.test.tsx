@@ -95,16 +95,19 @@ describe("LoginPage demo sandbox flow", () => {
     expect(screen.queryByText(/fehlgeschlagen/i)).not.toBeInTheDocument();
   });
 
-  it("does not create a sandbox on demo-viewer login", async () => {
+  it("creates its own sandbox on demo-viewer login", async () => {
     const user = userEvent.setup();
     renderWithIntl(<LoginPage />);
 
     await user.click(await screen.findByRole("button", { name: /Als Betrachter einloggen/i }));
 
-    // Viewer logins land on the read-only board, not the editor kanban.
+    // Viewers also get their own Demo-Lage (not a shared base event), then land
+    // on the read-only board.
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/viewer"));
     expect(mockLogin).toHaveBeenCalledWith("demo-viewer", "demo123");
-    expect(mockCreateDemoSandbox).not.toHaveBeenCalled();
-    expect(mockSetSelectedEvent).not.toHaveBeenCalled();
+    expect(mockCreateDemoSandbox).toHaveBeenCalled();
+    expect(mockSetSelectedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: SANDBOX_EVENT_ID }),
+    );
   });
 });
