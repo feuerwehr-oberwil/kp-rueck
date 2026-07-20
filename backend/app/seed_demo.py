@@ -8,7 +8,7 @@ per-session sandbox endpoint (POST /api/demo/sandbox): it fills an existing
 event with the demo scenario, looking up the shared resources by name.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import bcrypt
@@ -129,94 +129,9 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     now = datetime.now()
 
     # ============================================
-    # INCIDENTS (~12, all statuses, Oberwil BL flood scenario)
+    # INCIDENT (single active Einsatz, Oberwil BL)
     # ============================================
     incidents_data = [
-        # --- eingegangen (3) ---
-        {
-            "title": "Wasserschaden Keller",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Mühlegasse 12, 4104 Oberwil",
-            "location_lat": 47.5148,
-            "location_lng": 7.6125,
-            "status": "eingegangen",
-            "description": "Wasser im Keller nach Starkregen. Bewohner melden ca. 20cm Wasser.",
-        },
-        {
-            "title": "Wassereintritt Schulhaus",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Schulgasse 10, 4104 Oberwil",
-            "location_lat": 47.5170,
-            "location_lng": 7.6135,
-            "status": "eingegangen",
-            "description": "Wasser dringt durch Lichtschächte ins Untergeschoss des Schulhauses ein. Hauswart vor Ort.",
-        },
-        {
-            "title": "Verstopfter Bachdurchlass",
-            "type": "elementarereignis",
-            "priority": "low",
-            "location_address": "Marbachweg 3, 4104 Oberwil",
-            "location_lat": 47.5105,
-            "location_lng": 7.6090,
-            "status": "eingegangen",
-            "description": "Durchlass am Marbach mit Geschwemmsel verstopft, Wasser staut sich Richtung Wohnquartier.",
-        },
-        # --- reko (2) ---
-        {
-            "title": "Überflutung Tiefgarage",
-            "type": "elementarereignis",
-            "priority": "high",
-            "location_address": "Hauptstrasse 95, 4104 Oberwil",
-            "location_lat": 47.5162,
-            "location_lng": 7.6152,
-            "status": "reko",
-            "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
-        },
-        {
-            "title": "Hangrutsch droht",
-            "type": "elementarereignis",
-            "priority": "high",
-            "location_address": "Bielstrasse 18, 4104 Oberwil",
-            "location_lat": 47.5200,
-            "location_lng": 7.6075,
-            "status": "reko",
-            "description": "Durchnässter Hang oberhalb der Liegenschaft in Bewegung. Anwohner besorgt, Abklärung nötig.",
-        },
-        # --- reko_done (1) ---
-        {
-            "title": "Unterführung überflutet",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Bahnhofstrasse 4, 4104 Oberwil",
-            "location_lat": 47.5143,
-            "location_lng": 7.6189,
-            "status": "reko_done",
-            "description": "Fussgängerunterführung beim Bahnhof unter Wasser. Reko abgeschlossen: Pumpeneinsatz nötig.",
-        },
-        # --- disponiert (2) ---
-        {
-            "title": "Keller auspumpen Gewerbebetrieb",
-            "type": "elementarereignis",
-            "priority": "high",
-            "location_address": "Bottmingerstrasse 40, 4104 Oberwil",
-            "location_lat": 47.5175,
-            "location_lng": 7.6098,
-            "status": "disponiert",
-            "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
-        },
-        {
-            "title": "Wasser in Arztpraxis",
-            "type": "elementarereignis",
-            "priority": "high",
-            "location_address": "Konsumstrasse 9, 4104 Oberwil",
-            "location_lat": 47.5158,
-            "location_lng": 7.6118,
-            "status": "disponiert",
-            "description": "Wassereintritt in Praxisräume im Hochparterre. Medizinische Geräte gefährdet.",
-        },
-        # --- einsatz (2) ---
         {
             "title": "Wasser im Keller EFH",
             "type": "elementarereignis",
@@ -226,40 +141,6 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "location_lng": 7.6167,
             "status": "einsatz",
             "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
-        },
-        {
-            "title": "Pumpeneinsatz Mehrfamilienhaus",
-            "type": "elementarereignis",
-            "priority": "high",
-            "location_address": "Therwilerstrasse 25, 4104 Oberwil",
-            "location_lat": 47.5132,
-            "location_lng": 7.6103,
-            "status": "einsatz",
-            "description": "Waschküche und Keller von MFH überflutet. Zwei Pumpen im Einsatz, Wasserstand sinkt.",
-        },
-        # --- einsatz_beendet (1) ---
-        {
-            "title": "Baum auf Strasse",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Allschwilerstrasse 61, 4104 Oberwil",
-            "location_lat": 47.5188,
-            "location_lng": 7.6112,
-            "status": "einsatz_beendet",
-            "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
-            "completed_at": now - timedelta(minutes=45),
-        },
-        # --- abschluss (1) ---
-        {
-            "title": "Ölspur Industriegebiet",
-            "type": "oelwehr",
-            "priority": "low",
-            "location_address": "Im Käppeli 5, 4104 Oberwil",
-            "location_lat": 47.5121,
-            "location_lng": 7.6183,
-            "status": "abschluss",
-            "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
-            "completed_at": now - timedelta(minutes=90),
         },
     ]
 
@@ -272,39 +153,52 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     await db.flush()
 
     # ============================================
-    # INCIDENT ASSIGNMENTS
+    # PERSONNEL CHECK-INS (event attendance)
+    # A realistic subset of the roster is already checked in so the board's
+    # personnel panel is pre-populated with available firefighters.
     # ============================================
-    def assign(incident_title: str, resource_type: str, resource, unassigned_at: datetime | None = None):
+    checked_in_names = [
+        "Müller Hans",
+        "Schneider Peter",
+        "Weber Martin",
+        "Hoffmann Lisa",
+        "Schmidt Daniel",
+        "Koch René",
+        "Steiner Lukas",
+        "Meier Andrea",
+        "Zimmermann Fabian",
+        "Wyss Fabio",
+    ]
+    for name in checked_in_names:
+        db.add(
+            models.EventAttendance(
+                id=uuid4(),
+                event_id=event.id,
+                personnel_id=person[name].id,
+                checked_in=True,
+                checked_in_at=now,
+            )
+        )
+
+    # ============================================
+    # INCIDENT ASSIGNMENTS (crew + vehicle + pumps on site)
+    # ============================================
+    def assign(incident_title: str, resource_type: str, resource):
         return models.IncidentAssignment(
             id=uuid4(),
             incident_id=incidents[incident_title].id,
             resource_type=resource_type,
             resource_id=resource.id,
             assigned_by=editor_id,
-            unassigned_at=unassigned_at,
         )
 
-    completed_at = now - timedelta(minutes=45)
     assignments = [
-        # Disponiert: vehicles on the way
-        assign("Keller auspumpen Gewerbebetrieb", "vehicle", vehicle["Pio"]),
-        assign("Wasser in Arztpraxis", "vehicle", vehicle["Trawa"]),
-        # Einsatz: full crews on site
         assign("Wasser im Keller EFH", "vehicle", vehicle["TLF"]),
         assign("Wasser im Keller EFH", "personnel", person["Müller Hans"]),
         assign("Wasser im Keller EFH", "personnel", person["Hoffmann Lisa"]),
         assign("Wasser im Keller EFH", "personnel", person["Zimmermann Fabian"]),
         assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Gr.", "TLF")]),
         assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Kl.", "TLF")]),
-        assign("Pumpeneinsatz Mehrfamilienhaus", "vehicle", vehicle["Mawa"]),
-        assign("Pumpeneinsatz Mehrfamilienhaus", "personnel", person["Koch René"]),
-        assign("Pumpeneinsatz Mehrfamilienhaus", "personnel", person["Wyss Fabio"]),
-        assign("Pumpeneinsatz Mehrfamilienhaus", "material", material[("Tauchpumpe Gr.", "Pio")]),
-        assign("Pumpeneinsatz Mehrfamilienhaus", "material", material[("Wassersauger", "Pio")]),
-        # Einsatz beendet: had resources, now unassigned
-        assign("Baum auf Strasse", "vehicle", vehicle["Mowa"], unassigned_at=completed_at),
-        assign("Baum auf Strasse", "personnel", person["Schmidt Daniel"], unassigned_at=completed_at),
-        assign("Baum auf Strasse", "material", material[("Motorsäge Gr.", "Pio")], unassigned_at=completed_at),
     ]
     for assignment in assignments:
         db.add(assignment)
@@ -315,8 +209,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     special_functions_data = [
         (person["Müller Hans"], "driver", vehicle["TLF"]),
         (person["Weber Martin"], "driver", vehicle["Pio"]),
-        (person["Hoffmann Lisa"], "driver", vehicle["Mowa"]),
-        (person["Fischer Thomas"], "reko", None),
+        (person["Schmidt Daniel"], "reko", None),
         (person["Steiner Lukas"], "magazin", None),
     ]
     special_functions = [
@@ -347,21 +240,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         )
 
     transitions = [
-        # Unterführung (reko_done)
-        transition("Unterführung überflutet", "eingegangen", "reko", "Reko-Trupp aufgeboten"),
-        transition("Unterführung überflutet", "reko", "reko_done", "Pumpeneinsatz nötig, kein Personenrisiko"),
-        # Pumpeneinsatz MFH (einsatz)
-        transition("Pumpeneinsatz Mehrfamilienhaus", "eingegangen", "disponiert", "Mawa disponiert"),
-        transition("Pumpeneinsatz Mehrfamilienhaus", "disponiert", "einsatz", "Vor Ort, Pumpen laufen"),
-        # Baum auf Strasse (einsatz_beendet)
-        transition("Baum auf Strasse", "eingegangen", "disponiert", "Mowa disponiert"),
-        transition("Baum auf Strasse", "disponiert", "einsatz", "Vor Ort eingetroffen"),
-        transition("Baum auf Strasse", "einsatz", "einsatz_beendet", "Baum beseitigt, Strasse frei"),
-        # Ölspur (abschluss)
-        transition("Ölspur Industriegebiet", "eingegangen", "disponiert"),
-        transition("Ölspur Industriegebiet", "disponiert", "einsatz"),
-        transition("Ölspur Industriegebiet", "einsatz", "einsatz_beendet", "Ölspur beseitigt"),
-        transition("Ölspur Industriegebiet", "einsatz_beendet", "abschluss", "Rapport erstellt"),
+        transition("Wasser im Keller EFH", "eingegangen", "disponiert", "TLF disponiert"),
+        transition("Wasser im Keller EFH", "disponiert", "einsatz", "Vor Ort, Pumpen laufen"),
     ]
     for t in transitions:
         db.add(t)
@@ -474,7 +354,8 @@ async def seed_demo_database() -> None:
             print("    - demo-editor / demo123 (editor)")
             print("    - demo-viewer / demo123 (viewer)")
             print(f"  - 1 event: {event.name}")
-            print("  - 12 incidents across all statuses")
+            print("  - 1 incident (active Einsatz)")
+            print("  - 10 personnel checked in")
 
         except Exception as e:
             print(f"❌ Error seeding demo database: {e}")
