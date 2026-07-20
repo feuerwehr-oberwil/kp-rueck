@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import CurrentAdmin, CurrentEditor
+from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import audit_engine, engine, get_db
 from ..middleware.rate_limit import RateLimits, limiter
@@ -184,7 +184,7 @@ async def demo_status():
 @limiter.limit(RateLimits.DEMO_SANDBOX)
 async def create_demo_sandbox(
     request: Request,
-    current_user: CurrentEditor,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Create a fresh per-visitor sandbox event with the demo scenario.
@@ -194,6 +194,10 @@ async def create_demo_sandbox(
     stay shared. At the cap, returns the oldest sandbox instead (graceful
     degradation back to shared-board behavior — never an error). Sandboxes
     are garbage-collected by the periodic demo reset.
+
+    Any authenticated demo user may call this — viewers too — so viewers land
+    on their own Demo-Lage instead of a shared base event. This is safe because
+    the endpoint 404s outside demo mode.
     """
     if not settings.demo_mode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)

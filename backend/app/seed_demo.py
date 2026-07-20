@@ -320,29 +320,15 @@ async def seed_demo_database() -> None:
                 db.add(setting)
 
             # ============================================
-            # 3. EVENT
+            # 3. SHARED RESOURCES (vehicles, personnel, materials)
             # ============================================
-            print("Creating demo event...")
-
-            event = models.Event(
-                id=uuid4(),
-                name="Hochwasser Oberwil",
-                training_flag=False,
-            )
-            db.add(event)
-            await db.flush()
-
-            # ============================================
-            # 4-6. SHARED RESOURCES (vehicles, personnel, materials)
-            # ============================================
+            # No base event/scenario is seeded here. Every demo visitor —
+            # editor AND viewer — auto-creates their own "Demo-Lage #xxxx"
+            # sandbox on login via POST /api/demo/sandbox, which fills it from
+            # seed_demo_event_content(). Seeding only the shared resources avoids
+            # a generic shared event nobody owns.
             print("Creating shared resources...")
             await seed_demo_shared_resources(db)
-
-            # ============================================
-            # 7. EVENT CONTENT (incidents, assignments, ...)
-            # ============================================
-            print("Creating demo incidents...")
-            await seed_demo_event_content(db, event)
 
             # ============================================
             # COMMIT
@@ -353,9 +339,7 @@ async def seed_demo_database() -> None:
             print("  Demo users:")
             print("    - demo-editor / demo123 (editor)")
             print("    - demo-viewer / demo123 (viewer)")
-            print(f"  - 1 event: {event.name}")
-            print("  - 1 incident (active Einsatz)")
-            print("  - 10 personnel checked in")
+            print("  - shared resources only; each login creates its own Demo-Lage sandbox")
 
         except Exception as e:
             print(f"❌ Error seeding demo database: {e}")

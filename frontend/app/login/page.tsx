@@ -99,17 +99,16 @@ export default function LoginPage() {
     try {
       await login(demoUsername, 'demo123');
 
-      // Editors get their own sandbox event so simultaneous demo visitors
-      // don't fight over the same board. Best-effort: any failure falls
-      // back to the normal post-login flow.
-      if (role === 'editor') {
-        try {
-          const sandbox = await apiClient.createDemoSandbox();
-          const apiEvent = await apiClient.getEvent(sandbox.event_id, { skipToast: true });
-          setSelectedEvent(apiEventToEvent(apiEvent));
-        } catch (sandboxErr) {
-          console.warn('Demo-Sandbox konnte nicht erstellt werden:', sandboxErr);
-        }
+      // Every demo visitor — editor and viewer — gets their own sandbox event
+      // so simultaneous visitors don't share a board and nobody lands on a
+      // generic base event. Best-effort: any failure falls back to the normal
+      // post-login flow.
+      try {
+        const sandbox = await apiClient.createDemoSandbox();
+        const apiEvent = await apiClient.getEvent(sandbox.event_id, { skipToast: true });
+        setSelectedEvent(apiEventToEvent(apiEvent));
+      } catch (sandboxErr) {
+        console.warn('Demo-Sandbox konnte nicht erstellt werden:', sandboxErr);
       }
 
       router.push(role === 'viewer' ? '/viewer' : '/');

@@ -51,7 +51,7 @@ class TestDemoSandbox:
         assert event.archived_at is None
 
         incidents = (await db_session.execute(select(Incident).where(Incident.event_id == event_id))).scalars().all()
-        assert len(incidents) >= 10
+        assert len(incidents) == 1
 
         incident_ids = [i.id for i in incidents]
         assignment_count = (
@@ -126,15 +126,29 @@ class TestDemoSandbox:
         response = await client.post("/api/demo/sandbox")
         assert response.status_code == 401
 
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_viewer_can_create_sandbox(
+        self, viewer_client: AsyncClient, demo_mode, shared_resources
+    ):
+        # Viewers get their own Demo-Lage too (not a shared base event), so the
+        # sandbox endpoint must accept read-only demo users.
+        response = await viewer_client.post("/api/demo/sandbox")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["reused"] is False
+        assert body["name"].startswith(DEMO_SANDBOX_PREFIX)
+
 
 class TestSeedDemoEventContent:
     """Regression: the shared content function fills an event with the full scenario."""
 
     @pytest.mark.asyncio
-    async def test_covers_all_statuses(self, db_session: AsyncSession, shared_resources):
+    async def test_single_active_incident_with_checkins(self, db_session: AsyncSession, shared_resources):
+        from app.models import EventAttendance
         from app.seed_demo import seed_demo_event_content
 
-        event = Event(id=uuid4(), name="Hochwasser Oberwil", training_flag=False)
+        event = Event(id=uuid4(), name=f"{DEMO_SANDBOX_PREFIX}test", training_flag=False)
         db_session.add(event)
         await db_session.commit()
 
@@ -142,16 +156,17 @@ class TestSeedDemoEventContent:
         await db_session.commit()
 
         incidents = (await db_session.execute(select(Incident).where(Incident.event_id == event.id))).scalars().all()
-        statuses = {i.status for i in incidents}
-        assert len(incidents) >= 12
-        assert statuses == {
-            "eingegangen",
-            "reko",
-            "reko_done",
-            "disponiert",
-            "einsatz",
-            "einsatz_beendet",
-            "abschluss",
-        }
-        # Map view: every incident has coordinates
+        assert len(incidents) == 1
+        assert incidents[0].status == "einsatz"
+        # Map view: the incident has coordinates
         assert all(i.location_lat and i.location_lng for i in incidents)
+
+        # A realistic subset of personnel is pre-checked-in for this event
+        checked_in = (
+            await db_session.execute(
+                select(func.count(EventAttendance.id)).where(
+                    EventAttendance.event_id == event.id, EventAttendance.checked_in
+                )
+            )
+        ).scalar()
+        assert checked_in == 10
