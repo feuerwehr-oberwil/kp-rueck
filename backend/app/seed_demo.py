@@ -137,8 +137,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "type": "elementarereignis",
             "priority": "medium",
             "location_address": "Langegasse 28, 4104 Oberwil",
-            "location_lat": 47.5139,
-            "location_lng": 7.6167,
+            "location_lat": 47.5148,
+            "location_lng": 7.5643,
             "status": "einsatz",
             "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
         },
@@ -301,8 +301,8 @@ async def seed_demo_database() -> None:
 
             demo_settings = [
                 ("firestation_name", "Feuerwehr Oberwil"),
-                ("firestation_latitude", "47.5154"),
-                ("firestation_longitude", "7.6140"),
+                ("firestation_latitude", "47.51637699933488"),
+                ("firestation_longitude", "7.561800450458299"),
                 ("home_city", "Oberwil, BL"),
                 ("polling_interval_ms", "5000"),
                 ("training_mode", "false"),
