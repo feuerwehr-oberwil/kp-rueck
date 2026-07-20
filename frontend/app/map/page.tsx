@@ -451,8 +451,8 @@ export default function MapPage() {
         </header>
 
         <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
-          {/* Map - full height on desktop, half height on mobile */}
-          <main className={`p-4 ${isMobile ? 'h-[60vh]' : 'flex-1'}`}>
+          {/* Map - full height on desktop, ~45vh on mobile so the incident list gets real room */}
+          <main className={`p-4 ${isMobile ? 'h-[45vh] flex-shrink-0' : 'flex-1'}`}>
             <MapView
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
@@ -477,7 +477,10 @@ export default function MapPage() {
               ? 'flex-1 border-t border-border'
               : 'w-80 border-l border-border flex-shrink-0'
           }`}>
-            <div className="p-4">
+            {/* On mobile the fixed bottom navbar overlays the page, so pad the
+                scrollable list past it (nav height + safe-area) — otherwise the
+                last incidents sit behind the bar and can't be scrolled into view. */}
+            <div className={`p-4 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''}`}>
               <h2 className="text-lg font-bold mb-3">
                 {t('page.incidentsHeading', { count: activeIncidents.length })}
               </h2>
