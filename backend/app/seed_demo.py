@@ -9,7 +9,7 @@ event with the demo scenario, looking up the shared resources by name.
 """
 
 from datetime import datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import bcrypt
 from sqlalchemy import delete, select
@@ -17,6 +17,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models
 from .database import async_session_maker
+
+# Stable UUIDs for the demo users. The demo reset truncates + re-seeds the
+# users table every few hours; using fixed IDs (instead of uuid4()) means a
+# pre-reset session token's `sub` still resolves to a user afterwards, so
+# logged-in demo visitors are not kicked out with "Sitzung abgelaufen" on
+# every reset cycle.
+DEMO_EDITOR_ID = UUID("de300000-0000-0000-0000-0000000ed170")
+DEMO_VIEWER_ID = UUID("de300000-0000-0000-0000-000000001e70")
 
 
 async def seed_demo_shared_resources(db: AsyncSession) -> None:
@@ -386,7 +394,7 @@ async def seed_demo_database() -> None:
             viewer_hash = bcrypt.hashpw(b"demo123", bcrypt.gensalt()).decode("utf-8")
 
             editor_user = models.User(
-                id=uuid4(),
+                id=DEMO_EDITOR_ID,
                 username="demo-editor",
                 password_hash=editor_hash,
                 role="editor",
@@ -396,7 +404,7 @@ async def seed_demo_database() -> None:
             db.add(editor_user)
 
             viewer_user = models.User(
-                id=uuid4(),
+                id=DEMO_VIEWER_ID,
                 username="demo-viewer",
                 password_hash=viewer_hash,
                 role="viewer",
