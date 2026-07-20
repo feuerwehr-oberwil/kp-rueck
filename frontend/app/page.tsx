@@ -725,11 +725,24 @@ export default function FireStationDashboard() {
   const [checklistProgress, setChecklistProgress] = useState({ completed: 0, total: 0 })
   const autoOpenedEventRef = useRef<string | null>(null)
 
+  // The setup checklist is an operational aid for real callouts (printer, real
+  // check-in workflow, offline maps). It's noise in the public demo, so hide it
+  // there entirely. Fetched once — demo mode never changes mid-session.
+  const [isDemo, setIsDemo] = useState(false)
+  useEffect(() => {
+    apiClient.getDemoStatus().then((s) => setIsDemo(!!s?.demo)).catch(() => {})
+  }, [])
+
   // Poll readiness progress so the persistent "Bereitschaft" badge stays live
   // even while the popover is closed. Rare users forget the steps, not the app —
   // keeping "what still needs doing" visible at a glance, every callout.
   useEffect(() => {
     if (!selectedEvent || !isMounted) return
+    // Disabled in the demo — keep progress empty so the badge/popover never show.
+    if (isDemo) {
+      setChecklistProgress({ completed: 0, total: 0 })
+      return
+    }
     let cancelled = false
     const load = async () => {
       try {
@@ -745,7 +758,7 @@ export default function FireStationDashboard() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [selectedEvent, isMounted])
+  }, [selectedEvent, isMounted, isDemo])
 
   // Auto-open the checklist once per event whenever setup is still incomplete
   // (regardless of event age), then hand off to the persistent button so it
