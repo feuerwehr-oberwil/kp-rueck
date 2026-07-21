@@ -18,7 +18,6 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  Info,
 } from 'lucide-react';
 import { apiClient, type ApiPrinterStatus } from '@/lib/api-client';
 import { Progress } from '@/components/ui/progress';
@@ -246,15 +245,6 @@ export function PrinterSettings() {
 
   return (
     <div className="space-y-4">
-      {/* Info banner */}
-      <Card className="p-3 border-info/30 bg-info/5">
-        <div className="flex gap-2">
-          <Info className="h-4 w-4 text-info flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-info-foreground">
-            {t('infoBanner')}
-          </p>
-        </div>
-      </Card>
 
       {/* Status */}
       <Card className="p-4">

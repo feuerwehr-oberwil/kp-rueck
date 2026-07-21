@@ -20,10 +20,21 @@ import { useEvent } from '@/lib/contexts/event-context';
 import { useTranslations } from 'next-intl';
 import { DemoLock } from '@/components/settings/demo-lock';
 
-/** localStorage key for the per-device Lageblatt auto-download (15 min). */
+/** localStorage key for the per-device Lageblatt auto-download. */
 export const LAGEBLATT_AUTODOWNLOAD_KEY = 'kp-lageblatt-autodownload';
-/** Fired after the key changes so an already-mounted UserMenu picks it up. */
+/** localStorage key for the per-device download interval, in minutes. */
+export const LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY = 'kp-lageblatt-autodownload-interval';
+/** Default download interval in minutes. */
+export const LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN = 15;
+/** Fired after either key changes so an already-mounted UserMenu picks it up. */
 export const LAGEBLATT_AUTODOWNLOAD_EVENT = 'kp-lageblatt-autodownload-changed';
+
+/** Read + clamp the per-device download interval (minutes) from localStorage. */
+export function readLageblattInterval(): number {
+  const raw = parseInt(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY) || '', 10);
+  if (Number.isNaN(raw)) return LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN;
+  return Math.max(5, Math.min(120, raw));
+}
 
 export function downloadLageblatt(eventId: string, eventName: string) {
   return apiClient.exportEventLageblatt(eventId).then((blob) => {
@@ -58,6 +69,7 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
   const [interval, setIntervalMin] = useState('15');
   const [saving, setSaving] = useState<string | null>(null);
   const [autoDownload, setAutoDownload] = useState(false);
+  const [downloadInterval, setDownloadInterval] = useState(String(LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN));
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
@@ -71,6 +83,7 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
       .catch(() => toast.error(t('fallback.loadFailed')))
       .finally(() => setLoaded(true));
     setAutoDownload(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true');
+    setDownloadInterval(String(readLageblattInterval()));
   }, []);
 
   const saveSetting = async (key: string, value: string): Promise<boolean> => {
@@ -104,15 +117,20 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
     localStorage.setItem(LAGEBLATT_AUTODOWNLOAD_KEY, on ? 'true' : 'false');
     window.dispatchEvent(new Event(LAGEBLATT_AUTODOWNLOAD_EVENT));
     if (on) {
+      // No immediate download — the first one runs at the next interval tick so
+      // enabling this never triggers a surprise download. "Jetzt herunterladen"
+      // covers the on-demand case.
       toast.success(t('fallback.autoDownloadActive'), {
-        description: t('fallback.autoDownloadActiveDescription'),
+        description: t('fallback.autoDownloadActiveDescription', { minutes: readLageblattInterval() }),
       });
-      if (selectedEvent) {
-        downloadLageblatt(selectedEvent.id, selectedEvent.name).catch(() =>
-          toast.error(t('fallback.downloadFailed'))
-        );
-      }
     }
+  };
+
+  const handleDownloadIntervalBlur = (raw: string) => {
+    const clamped = String(Math.max(5, Math.min(120, parseInt(raw) || LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN)));
+    setDownloadInterval(clamped);
+    localStorage.setItem(LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY, clamped);
+    window.dispatchEvent(new Event(LAGEBLATT_AUTODOWNLOAD_EVENT));
   };
 
   const handleManualDownload = async () => {
@@ -200,6 +218,26 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
             onCheckedChange={handleAutoDownloadToggle}
           />
         </div>
+
+        {autoDownload && (
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="fallback-download-interval" className="font-medium">{t('fallback.autoDownloadIntervalLabel')}</Label>
+              <p className="text-xs text-muted-foreground">{t('fallback.autoDownloadIntervalHint')}</p>
+            </div>
+            <div className="flex-shrink-0 w-24">
+              <Input
+                id="fallback-download-interval"
+                type="number"
+                min={5}
+                max={120}
+                value={downloadInterval}
+                onChange={(e) => setDownloadInterval(e.target.value)}
+                onBlur={(e) => handleDownloadIntervalBlur(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Manual export */}
         <div className="flex items-center justify-between gap-4">

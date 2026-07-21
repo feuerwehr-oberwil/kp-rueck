@@ -7,7 +7,7 @@
       "resetMessage": "Demo-Modus — wird in {time} zurückgesetzt",
       "closeBanner": "Banner schliessen",
       "timeHoursMinutes": "{hours}h {minutes}min",
-      "timeMinutes": "{minutes} min",
+      "timeMinutes": "{minutes} min.",
       "timeSeconds": "{seconds}s"
     },
     "protectedButton": {
@@ -46,7 +46,7 @@
       "activeIncidents": "Aktive Einsätze",
       "personnelAvailable": "Personal verfügbar",
       "avgDuration": "Ø Einsatzdauer",
-      "minutesValue": "{minutes} min",
+      "minutesValue": "{minutes} min.",
       "utilization": "Auslastung",
       "statusDistribution": "Status-Verteilung"
     },
@@ -687,7 +687,11 @@
       "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugeteilt sein.",
-      "conflictConfirm": "Vom Einsatz entfernen & zuweisen"
+      "conflictConfirm": "Vom Einsatz entfernen & zuweisen",
+      "drivesVehicle": "Fährt {vehicle}",
+      "reassignTitle": "Fahrer wechseln",
+      "reassignDescription": "<strong>{name}</strong> fährt aktuell <strong>{fromVehicle}</strong>. Als Fahrer von <strong>{vehicle}</strong> übernehmen? Der bisherige Einsatz als Fahrer wird beendet.",
+      "reassignConfirm": "Übernehmen"
     },
     "vehicleConflict": {
       "title": "Fahrzeug bereits im Einsatz",
@@ -1078,7 +1082,7 @@
       "loadFailed": "Einstellungen konnten nicht geladen werden",
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "autoDownloadActive": "Lageblatt Auto-Download aktiv",
-      "autoDownloadActiveDescription": "Dieses Gerät lädt alle 15 Minuten ein aktuelles Lageblatt herunter.",
+      "autoDownloadActiveDescription": "Erster Download in ~{minutes} Min., danach alle {minutes} Min. auf diesem Gerät.",
       "downloadFailed": "Lageblatt konnte nicht heruntergeladen werden",
       "title": "Ausfallsicherheit",
       "intro": "Hält den aktuellen Board-Stand ausserhalb des Systems bereit — auf Papier und auf diesem Gerät. Vorgehen im Ausfall: siehe Ausfall-SOP (docs/AUSFALL_SOP.md).",
@@ -1088,7 +1092,9 @@
       "intervalLabel": "Druck-Intervall (Minuten)",
       "intervalHint": "Frühestens alle 5, spätestens alle 120 Minuten",
       "autoDownloadLabel": "Lageblatt Auto-Download (dieses Gerät)",
-      "autoDownloadHint": "Lädt alle 15 Minuten ein aktuelles Lageblatt (PDF) in den Download-Ordner — bleibt auch ohne Netz lesbar und druckbar. Gilt nur für dieses Gerät.",
+      "autoDownloadHint": "Lädt regelmässig ein aktuelles Lageblatt (PDF) in den Download-Ordner — bleibt auch ohne Netz lesbar und druckbar. Der erste Download startet beim nächsten Intervall, nicht sofort. Gilt nur für dieses Gerät.",
+      "autoDownloadIntervalLabel": "Download-Intervall (Min.)",
+      "autoDownloadIntervalHint": "Frühestens alle 5, spätestens alle 120 Minuten",
       "manualLabel": "Lageblatt jetzt herunterladen",
       "manualHint": "A4-Führungsformular (BL/BS-Layout) mit allen Einsatzdetails",
       "manualNoEvent": " — kein Ereignis ausgewählt",
@@ -1117,19 +1123,19 @@
       "tuning": {
         "debounce": {
           "label": "Bestätigende Messungen",
-          "hint": "Anzahl gültiger GPS-Messungen, bevor eine Regel auslöst (gegen GPS-Zittern). Empfohlen: 2."
+          "hint": "Anzahl gültiger GPS-Messungen, bevor eine Regel auslöst (gegen GPS-Zittern). Empfohlen: 2"
         },
         "dwell": {
           "label": "Mindest-Standzeit (Sek.)",
-          "hint": "So lange müssen langsame Messungen mindestens auseinanderliegen, bevor eine Regel auslöst. Kurz halten, damit die Meldung schon beim Anhalten kommt. Empfohlen: 10."
+          "hint": "So lange müssen langsame Messungen mindestens auseinanderliegen, bevor eine Regel auslöst. Kurz halten, damit die Meldung schon beim Anhalten kommt. Empfohlen: 10"
         },
         "freshness": {
           "label": "Aktualität (Sek.)",
-          "hint": "Ältere Messungen werden ignoriert und setzen den Zähler zurück. Grosszügig halten – parkierte Tracker senden nur alle 30–100 Sek. eine Position. Empfohlen: 180."
+          "hint": "Ältere Messungen werden ignoriert und setzen den Zähler zurück. Grosszügig halten – parkierte Tracker senden nur alle 30–100 Sek. eine Position. Empfohlen: 180"
         },
         "speedGate": {
           "label": "Geschwindigkeitsgrenze (km/h)",
-          "hint": "Nur unterhalb dieser Geschwindigkeit gilt ein Fahrzeug als stehend (Schritttempo im Hof zählt mit). Empfohlen: 10."
+          "hint": "Nur unterhalb dieser Geschwindigkeit gilt ein Fahrzeug als stehend (Schritttempo im Hof zählt mit). Empfohlen: 10"
         }
       },
       "editorsOnly": "Nur Bearbeiter können diese Einstellungen ändern."
@@ -1141,6 +1147,7 @@
       "deleteErrorDescription": "Das Material konnte nicht gelöscht werden. Versuchen Sie es erneut.",
       "tabList": "Materialliste",
       "tabGroups": "Gruppen",
+      "thresholdsLink": "Warnschwellen für Materialbestand festlegen",
       "addButton": "Material hinzufügen",
       "dialogEditTitle": "Material bearbeiten",
       "dialogCreateTitle": "Neues Material hinzufügen",
@@ -1199,7 +1206,7 @@
       "rolePlaceholder": "Rolle auswählen",
       "roleCustomOption": "Andere...",
       "roleCustomPlaceholder": "Neue Rolle eingeben",
-      "roleExamplePlaceholder": "z. B. Offiziere, Wachtmeister",
+      "roleExamplePlaceholder": "z. B. Offizier, Wachtmeister",
       "newTagPlaceholder": "Neuer Tag",
       "addTag": "Hinzufügen",
       "deleteTitle": "Person löschen",
@@ -1230,7 +1237,6 @@
       "etaActive": "in ~5 s",
       "etaIdle": "in ~60 s",
       "pickup": "Abholung {eta}",
-      "infoBanner": "Der Print-Agent muss auf dem Kommandoposten-Netzwerk laufen und Zugriff auf den Drucker haben.",
       "printerEnabled": "Drucker aktiviert",
       "printerDisabled": "Drucker deaktiviert",
       "serviceOnline": "Print-Service online",
@@ -1848,7 +1854,7 @@
     },
     "gpsSim": {
       "arrived": "angekommen",
-      "etaMinutes": "noch ~{minutes} min {seconds}s",
+      "etaMinutes": "noch ~{minutes} min. {seconds}s",
       "etaSeconds": "noch ~{seconds}s"
     },
     "trainingActions": {
@@ -1863,7 +1869,7 @@
       "saveFailed": "Fehler beim Speichern der Einstellung",
       "warningsTitle": "Warnungen",
       "warningsSubtitle": "Welche Warnungstypen angezeigt werden sollen",
-      "timeAlertsLabel": "Zeitbasierte Warnungen",
+      "timeAlertsLabel": "Zeit-Warnungen",
       "timeAlertsHint": "Warnung bei Überschreitung von Status-Zeitlimits",
       "resourceAlertsLabel": "Ressourcen-Warnungen",
       "resourceAlertsHint": "Warnung bei knappen Ressourcen oder Personalermüdung",
@@ -1877,19 +1883,20 @@
       "timeLimitsSubtitle": "Warnung erscheint, wenn ein Einsatz länger als angegeben in einem Status verbleibt.",
       "liveTab": "Live-Modus",
       "trainingTab": "Trainingsmodus",
-      "eingegangenMin": "Eingegangen (Min)",
-      "rekoMin": "Reko (Min)",
-      "disponiertMin": "Disponiert (Min)",
-      "einsatzHours": "Einsatz (Std)",
-      "rueckfahrtMin": "Rückfahrt (Min)",
-      "archiveHours": "Archivierung (Std)",
+      "eingegangenMin": "Eingegangen (Min.)",
+      "rekoMin": "Reko (Min.)",
+      "disponiertMin": "Disponiert (Min.)",
+      "einsatzHours": "Einsatz (Std.)",
+      "rueckfahrtMin": "Rückfahrt (Min.)",
+      "archiveHours": "Archivierung (Std.)",
       "thresholdsTitle": "Schwellenwerte",
       "thresholdsSubtitle": "Warnung bei Überschreitung von Kapazitätsgrenzen.",
-      "fatigueLabel": "Personalermüdung (Std)",
+      "fatigueLabel": "Personalermüdung (Std.)",
       "databaseLabel": "Datenbank (GB)",
       "photoLabel": "Foto-Limit (GB)",
       "materialThresholdsTitle": "Materialbestand-Schwellenwerte",
-      "materialThresholdsSubtitle": "Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen. Deaktivieren Sie die Checkbox um Warnungen für eine Kategorie auszublenden."
+      "materialThresholdsSubtitle": "Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen. Deaktivieren Sie die Checkbox um Warnungen für eine Kategorie auszublenden.",
+      "materialThresholdsManageLink": "Material verwalten"
     },
     "toasts": {
       "criticalTitle": "Kritische Warnung",
@@ -2019,7 +2026,7 @@
       "title": "Automatik",
       "description": "Generiert laufend neue Einsätze — du beobachtest, statt Knöpfe zu drücken",
       "toggleAria": "Automatik ein/aus",
-      "intervalLabel": "Intervall (Min)",
+      "intervalLabel": "Intervall (Min.)",
       "maxLabel": "Max. Einsätze",
       "alarmPath": "Alarmweg",
       "modeBoard": "Direkt aufs Board",

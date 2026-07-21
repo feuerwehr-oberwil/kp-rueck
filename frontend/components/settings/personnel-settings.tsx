@@ -43,6 +43,7 @@ import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
+import { DemoLock } from './demo-lock';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
@@ -354,6 +355,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
+          <DemoLock active={demoMode} className="space-y-4">
           <div className="flex justify-end gap-2">
             {!demoMode && (
               <Button variant="outline" onClick={handleOpenSyncDialog}>
@@ -446,6 +448,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               ))}
             </TableBody>
           </Table>
+          </DemoLock>
         </TabsContent>
 
         <TabsContent value="sort">
@@ -454,6 +457,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
             description={t('personnel.sortDescription')}
             categories={roleCategories}
             onSave={handleSaveRoleSortOrder}
+            readOnly={demoMode}
           />
         </TabsContent>
       </Tabs>

@@ -807,11 +807,8 @@ export default function SettingsPage() {
         );
 
       case 'personnel':
-        return (
-          <DemoLock active={demoMode}>
-            <PersonnelSettings demoMode={demoMode} />
-          </DemoLock>
-        );
+        // Lock is applied inside so the "Sortierung" tab stays viewable in demo.
+        return <PersonnelSettings demoMode={demoMode} />;
 
       case 'vehicles':
         return (
@@ -821,11 +818,8 @@ export default function SettingsPage() {
         );
 
       case 'materials':
-        return (
-          <DemoLock active={demoMode}>
-            <MaterialSettings />
-          </DemoLock>
-        );
+        // Lock is applied inside so the "Sortierung" tab stays viewable in demo.
+        return <MaterialSettings demoMode={demoMode} />;
 
       case 'import':
         return (

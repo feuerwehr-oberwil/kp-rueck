@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -440,6 +442,13 @@ export function NotificationSettingsCard() {
           <p className="text-xs text-muted-foreground">
             {t('materialThresholdsSubtitle')}
           </p>
+          <Link
+            href="/settings?section=materials"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            {t('materialThresholdsManageLink')}
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
         <div className="space-y-2">
           {materialTypes.map((materialType) => {

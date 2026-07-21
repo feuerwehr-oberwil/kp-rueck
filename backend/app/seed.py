@@ -590,13 +590,13 @@ async def seed_database() -> None:
             # Generic personnel (common Swiss surnames)
             personnel_data = [
                 # Offiziere (Officers)
-                {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-                {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-                {"name": "Fischer Thomas", "role": "Offiziere", "availability": "available", "tags": []},
-                {"name": "Meyer Stefan", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-                {"name": "Wagner Klaus", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Becker Andreas", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
+                {"name": "Müller Hans", "role": "Offizier", "availability": "available", "tags": ["F"]},
+                {"name": "Schneider Peter", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
+                {"name": "Weber Martin", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
+                {"name": "Fischer Thomas", "role": "Offizier", "availability": "available", "tags": []},
+                {"name": "Meyer Stefan", "role": "Offizier", "availability": "available", "tags": ["F"]},
+                {"name": "Wagner Klaus", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
+                {"name": "Becker Andreas", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
                 # Wachtmeister (Sergeants)
                 {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
                 {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
