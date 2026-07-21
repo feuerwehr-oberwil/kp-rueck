@@ -1655,7 +1655,7 @@ export default function FireStationDashboard() {
                   <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.keys(groupedPersonnel).map((role) => (
                       <div key={role}>
-                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground tracking-wide">{role}</h3>
+                        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground tracking-wide">{role}</h3>
                         <div className="space-y-2">
                           {groupedPersonnel[role as PersonRole]?.map((person) => (
                             <DraggablePerson
@@ -1822,7 +1822,7 @@ export default function FireStationDashboard() {
                       }
                       return (
                         <div key={category}>
-                          <h3 className="mb-2 text-xs font-semibold text-muted-foreground tracking-wide">{category}</h3>
+                          <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground tracking-wide">{category}</h3>
                           <div className="space-y-2">
                             {/* Material groups/blocks */}
                             {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
