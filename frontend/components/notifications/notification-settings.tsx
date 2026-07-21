@@ -152,6 +152,29 @@ export function NotificationSettingsCard() {
             disabled={savingKey === 'enabled_geofence_alerts'}
           />
         </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <Label htmlFor="toast-duration" className="font-medium">{t('toastDurationLabel')}</Label>
+            <p className="text-xs text-muted-foreground">{t('toastDurationHint')}</p>
+          </div>
+          <div className="flex-shrink-0 w-24">
+            <Input
+              id="toast-duration"
+              type="number"
+              min={2}
+              max={30}
+              defaultValue={settings.toast_duration_seconds}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value)
+                if (!isNaN(val) && val !== settings.toast_duration_seconds) {
+                  updateSetting('toast_duration_seconds', Math.max(2, Math.min(30, val)))
+                }
+              }}
+              disabled={savingKey === 'toast_duration_seconds'}
+            />
+          </div>
+        </div>
       </div>
       </Card>
 

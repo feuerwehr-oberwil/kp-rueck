@@ -92,6 +92,10 @@ class NotificationSettings(BaseModel):
     enabled_data_quality_alerts: bool = True
     enabled_event_alerts: bool = True
 
+    # How long non-critical notification toasts stay on screen (seconds).
+    # Critical toasts always require manual dismissal regardless of this.
+    toast_duration_seconds: int = 8
+
     def get_threshold_minutes(self, status: str, is_training: bool) -> int:
         """Get threshold in minutes for a given status and mode."""
         prefix = "training" if is_training else "live"

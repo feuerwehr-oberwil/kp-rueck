@@ -271,8 +271,9 @@ export default function RekoDashboardPage() {
                   )}
                 </div>
 
-                {/* Status: green = actively open reko(s), grey = done / nothing open ("fertig") */}
-                <div className="flex-shrink-0">
+                {/* Status: green = actively open reko(s), grey = done / nothing open ("fertig").
+                    Total below shows every incident ever assigned so the dispatcher sees load. */}
+                <div className="flex-shrink-0 text-right">
                   {person.open_count > 0 ? (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium">
                       <span className="h-2.5 w-2.5 rounded-full bg-success" />
@@ -283,6 +284,11 @@ export default function RekoDashboardPage() {
                       <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
                       {t('doneCount', { count: person.done_count })}
                     </span>
+                  )}
+                  {person.assignment_count > 0 && (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {t('totalCount', { count: person.assignment_count })}
+                    </div>
                   )}
                 </div>
               </button>

@@ -2563,6 +2563,7 @@ export default function FireStationDashboard() {
           open={!!transferSourceOp}
           onOpenChange={(open) => !open && setTransferSourceOp(null)}
           sourceIncident={transferSourceOp as unknown as Incident}
+          sourceName={transferSourceOp?.location}
           availableIncidents={transferAvailableIncidents}
           onTransfer={handleTransfer}
           isTransferring={isTransferring}

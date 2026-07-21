@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight } from "lucide-react"
 import { type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { getActiveLocale } from "@/lib/i18n-messages"
 import { cn } from "@/lib/utils"
 
 interface ResourceAssignmentDialogProps {
@@ -65,6 +66,9 @@ export function ResourceAssignmentDialog({
   // Quick category filter (null = all): rank for crew, depot/location for
   // material, type for vehicles. Sits as chips below the search.
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  // Vehicles-only quick filter: when on, show only vehicles already assigned to
+  // this incident.
+  const [showOnlyAssignedVehicles, setShowOnlyAssignedVehicles] = useState(false)
 
   // Local selection state for crew and materials (deferred assignment)
   // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
@@ -92,10 +96,12 @@ export function ResourceAssignmentDialog({
       setSearchQuery("")
       setSearchFocused(false)
       setCategoryFilter(null)
+      setShowOnlyAssignedVehicles(false)
     }
   }, [open])
   useEffect(() => {
     setCategoryFilter(null)
+    setShowOnlyAssignedVehicles(false)
   }, [resourceType])
 
   // Get resources that can be shown in the dialog
@@ -149,13 +155,26 @@ export function ResourceAssignmentDialog({
     )
   }, [selectablePersonnel, searchQuery, categoryFilter])
 
+  // Sort the final crew list by role sort order, then assigned-first, then name.
+  const sortedFilteredPersonnel = useMemo(() => {
+    return [...filteredPersonnel].sort((a, b) => {
+      if (a.role !== b.role) {
+        if (a.roleSortOrder !== b.roleSortOrder) return a.roleSortOrder - b.roleSortOrder
+        return a.role.localeCompare(b.role, getActiveLocale())
+      }
+      if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
+      return a.name.localeCompare(b.name, getActiveLocale())
+    })
+  }, [filteredPersonnel])
+
   const filteredVehicles = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return availableVehicles.filter(v =>
       (!query || v.name.toLowerCase().includes(query) || v.type.toLowerCase().includes(query)) &&
-      (!categoryFilter || v.type === categoryFilter)
+      (!categoryFilter || v.type === categoryFilter) &&
+      (!showOnlyAssignedVehicles || assignedVehicles.includes(v.name))
     )
-  }, [availableVehicles, searchQuery, categoryFilter])
+  }, [availableVehicles, searchQuery, categoryFilter, showOnlyAssignedVehicles, assignedVehicles])
 
   const filteredMaterials = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -172,6 +191,19 @@ export function ResourceAssignmentDialog({
       return false
     })
   }, [selectableMaterials, searchQuery, materialGroups, categoryFilter])
+
+  // Sort the material list by category sort order, then assigned-first, then
+  // name — feeds the group split so order within each group respects the setting.
+  const sortedFilteredMaterials = useMemo(() => {
+    return [...filteredMaterials].sort((a, b) => {
+      if (a.category !== b.category) {
+        if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
+        return a.category.localeCompare(b.category, getActiveLocale())
+      }
+      if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
+      return a.name.localeCompare(b.name, getActiveLocale())
+    })
+  }, [filteredMaterials])
 
   // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
   const isPersonSelected = (personName: string) => selectedPersonnel.has(personName)
@@ -247,7 +279,7 @@ export function ResourceAssignmentDialog({
 
     // Collect materials by group
     const groupMap = new Map<string, Material[]>()
-    for (const m of filteredMaterials) {
+    for (const m of sortedFilteredMaterials) {
       const groupId = m.groupId
       const group = groupId ? materialGroups.find(g => g.id === groupId) : null
       if (group) {
@@ -264,7 +296,7 @@ export function ResourceAssignmentDialog({
     }
 
     return { groups, ungrouped }
-  }, [filteredMaterials, materialGroups])
+  }, [sortedFilteredMaterials, materialGroups])
 
   // Commit changes when "Fertig" is clicked (for crew and materials)
   const handleConfirm = () => {
@@ -442,13 +474,30 @@ export function ResourceAssignmentDialog({
             </div>
           )}
 
+          {/* Vehicles-only quick filter: show only vehicles already assigned. */}
+          {resourceType === 'vehicles' && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setShowOnlyAssignedVehicles((v) => !v)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                  showOnlyAssignedVehicles
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                {t('common.onlyAssignedVehicles')}
+              </button>
+            </div>
+          )}
+
           {/* Resource List — flexes to fill the space between chips and footer,
               so the list scrolls internally and the dialog never exceeds 85dvh. */}
           <ScrollArea className="flex-1 min-h-0 pr-4">
             <div className="space-y-2">
               {resourceType === 'crew' && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {filteredPersonnel.map((person) => {
+                  {sortedFilteredPersonnel.map((person) => {
                     const isSelected = isPersonSelected(person.name)
                     const wasJustAssigned = justAssigned === person.id
                     return (

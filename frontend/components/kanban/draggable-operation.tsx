@@ -361,7 +361,7 @@ function DraggableOperationBase({
           )}
 
           {/* Resource assignments - show names with quick removal */}
-          {(operation.assignedReko || operation.crew.length > 0 || operation.zuFuss || operation.vehicles.length > 0 || operation.materials.length > 0) && (
+          {(operation.assignedReko || operation.crew.length > 0 || operation.zuFuss || operation.vehicles.length > 0 || operation.materials.length > 0 || operation.nachbarhilfe) && (
             <div className="border-t pt-3 space-y-1.5 text-xs">
               {/* Assigned Reko Person */}
               {operation.assignedReko && (
@@ -580,6 +580,16 @@ function DraggableOperationBase({
                         </>
                       )
                     })()}
+                  </div>
+                </div>
+              )}
+              {operation.nachbarhilfe && (
+                <div className="flex items-start gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="flex flex-wrap items-center gap-1 min-w-0">
+                    <span className="text-muted-foreground break-words">
+                      {operation.nachbarhilfeNote || t('common.nachbarhilfe')}
+                    </span>
                   </div>
                 </div>
               )}

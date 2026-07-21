@@ -56,8 +56,10 @@ function cleanupOldToastIds(): Set<string> {
 }
 
 export function NotificationToasts() {
-  const { notifications, dismissNotification, isSidebarOpen } = useNotifications()
+  const { notifications, dismissNotification, isSidebarOpen, settings } = useNotifications()
   const isMobile = useIsMobile()
+  // Non-critical toast lifetime (ms), configurable in notification settings.
+  const toastDurationMs = Math.max(2, settings.toast_duration_seconds || 8) * 1000
   const tCommon = useTranslations('kanban.common')
   const tToasts = useTranslations('notifications.toasts')
 
@@ -128,12 +130,12 @@ export function NotificationToasts() {
       } else if (notification.severity === 'warning') {
         toast.warning(tToasts('warningTitle'), {
           ...toastOptions,
-          duration: 5000,
+          duration: toastDurationMs,
         })
       } else {
         toast.info(tToasts('infoTitle'), {
           ...toastOptions,
-          duration: 3000,
+          duration: toastDurationMs,
         })
       }
     })
@@ -148,7 +150,7 @@ export function NotificationToasts() {
       toast.dismiss(notification.id)
       // Keep in shownToastIds to prevent re-showing
     })
-  }, [notifications, dismissNotification, isSidebarOpen])
+  }, [notifications, dismissNotification, isSidebarOpen, toastDurationMs])
 
   return (
     <Toaster
@@ -158,7 +160,7 @@ export function NotificationToasts() {
       offset="96px"
       closeButton
       expand={false}
-      duration={5000}
+      duration={toastDurationMs}
       toastOptions={{
         classNames: {
           toast: 'group shadow-lg',

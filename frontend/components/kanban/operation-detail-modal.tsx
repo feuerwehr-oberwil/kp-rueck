@@ -937,6 +937,7 @@ export function OperationDetailModal({
         open={transferDialogOpen}
         onOpenChange={setTransferDialogOpen}
         sourceIncident={operation as unknown as Incident}
+        sourceName={operation.location}
         availableIncidents={availableIncidents}
         onTransfer={handleTransfer}
         isTransferring={isTransferring}
