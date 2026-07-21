@@ -13,7 +13,6 @@ import { NotificationProvider } from '@/lib/contexts/notification-context'
 import { CommandPaletteProvider } from '@/lib/contexts/command-palette-context'
 import { NotificationToasts } from '@/components/notifications/notification-toasts'
 import { DismissAllToasts } from '@/components/ui/sonner'
-import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
 import { AppShell } from '@/components/app-shell'
 import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
@@ -77,7 +76,6 @@ export default async function RootLayout({
                         </AppShell>
                         <NotificationToasts />
                         <DismissAllToasts />
-                        <PersistentNotificationSidebar />
                         <VehicleDriverPrompt />
                         <VehicleConflictPrompt />
                         <GpsReleasePrompt />
