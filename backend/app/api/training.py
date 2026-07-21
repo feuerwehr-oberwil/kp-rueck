@@ -128,10 +128,18 @@ async def generate_emergencies(
     if request.source not in ["operator", "intake"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source must be 'operator' or 'intake'")
 
-    # Generate emergencies
-    incidents = await generate_training_emergency(
-        db, event_id, category=request.category, count=request.count, source=request.source
-    )
+    # Generate emergencies. If the training template/location pool was never seeded
+    # the generator raises ValueError — surface that as a clean 503 (with CORS headers,
+    # so the browser shows the message instead of an opaque NetworkError) rather than a 500.
+    try:
+        incidents = await generate_training_emergency(
+            db, event_id, category=request.category, count=request.count, source=request.source
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Keine Übungs-Szenarien vorhanden. Bitte zuerst die Übungsdaten seeden.",
+        ) from exc
 
     # Convert to response models and broadcast WebSocket updates
     responses = []
