@@ -125,12 +125,32 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         # Ölwehr
         {"name": "Ölbindemittel", "type": "Ölwehr", "location": "Magazin", "status": "available", "consumable": True},
         {"name": "Ölsperre", "type": "Ölwehr", "location": "Pio", "status": "available"},
-        # A separate module location + an unlimited consumable example
-        {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+        # An unlimited consumable example
         {"name": "Triopan / Absperrband", "type": "Verbrauchsmaterial", "location": "Magazin", "status": "available", "consumable": True},
     ]
     for m in materials_data:
         db.add(models.Material(id=uuid4(), **m))
+
+    # A transportable "Pumpenmodul" currently loaded on the Trawa — a material
+    # group of three pumps that move together with the vehicle.
+    pump_module = models.MaterialGroup(
+        id=uuid4(),
+        name="Pumpenmodul",
+        location="Trawa",
+        description="Pumpenmodul, aufgeladen auf Trawa",
+    )
+    db.add(pump_module)
+    for pump in ("Tauchpumpe Gr.", "Tauchpumpe Kl.", "Tauchpumpe S-Gr."):
+        db.add(
+            models.Material(
+                id=uuid4(),
+                name=pump,
+                type="Tauchpumpen",
+                location="Trawa",
+                status="available",
+                group_id=pump_module.id,
+            )
+        )
 
     await db.flush()
 
