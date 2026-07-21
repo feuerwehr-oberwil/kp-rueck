@@ -342,7 +342,7 @@ Bei Trainings-Ereignissen erscheint in den Einstellungen die **Übungs-Steuerung
 | **Burst (5×)** | Fünf zufällige Einsätze auf einmal |
 | **Gezielter Einsatz** | Bestimmtes Szenario an einer gewählten Adresse oder einem Karten-Pin |
 
-Jede Generierung bestätigt mit einer kurzen Meldung (Toast), welcher Einsatz erzeugt wurde — so ist sofort sichtbar, dass etwas passiert ist, und man klickt nicht versehentlich mehrfach (z.B. auf „Burst") und erzeugt zu viele Einsätze.
+Jede Generierung bestätigt mit einer kurzen Meldung (Toast), welcher Einsatz erzeugt wurde — so ist sofort sichtbar, dass etwas passiert ist, und man klickt nicht versehentlich mehrfach (z. B. auf „Burst") und erzeugt zu viele Einsätze.
 
 ### Demo-Sandbox
 
@@ -363,7 +363,7 @@ Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gült
 
 ### Alarm-Link (Telefon / Walk-in)
 
-Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis des restlichen Systems — z.B. jemand am Telefon oder am Schalter (Walk-in).
+Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis des restlichen Systems — z. B. jemand am Telefon oder am Schalter (Walk-in).
 
 **Erstellen:** Toolbar → "Alarm" (Sirenen-Symbol) generiert einen Link bzw. QR-Code, der pro Ereignis **30 Tage** gültig ist. Einmal generieren, beim Telefon-Arbeitsplatz aufhängen oder als Lesezeichen speichern.
 
@@ -432,7 +432,7 @@ Die lokale Instanz läuft unter `http://localhost:3000`.
 
 ## Thermodrucker
 
-Druckt Einsatzzettel und Board-Snapshots auf einem 58mm ESC/POS Thermodrucker (z.B. Epson TM-T20).
+Druckt Einsatzzettel und Board-Snapshots auf einem 58mm ESC/POS Thermodrucker (z. B. Epson TM-T20).
 
 ### Aufbau
 

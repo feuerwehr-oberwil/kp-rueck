@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useTranslations } from 'next-intl';
+import { DemoLock } from '@/components/settings/demo-lock';
 
 /** localStorage key for the per-device Lageblatt auto-download (15 min). */
 export const LAGEBLATT_AUTODOWNLOAD_KEY = 'kp-lageblatt-autodownload';
@@ -48,7 +49,7 @@ export function downloadLageblatt(eventId: string, eventName: string) {
   });
 }
 
-export function FallbackSettings() {
+export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
   const { selectedEvent } = useEvent();
   const [loaded, setLoaded] = useState(false);
@@ -139,46 +140,48 @@ export function FallbackSettings() {
           </p>
         </div>
 
-        {/* Server-side: automatic thermal snapshots */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="fallback-auto-print" className="font-medium flex items-center gap-2">
-              <Printer className="h-4 w-4" />
-              {t('fallback.autoPrintLabel')}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t('fallback.autoPrintHint')}
-              {!printerEnabled && loaded ? t('fallback.autoPrintPrinterRequired') : ''}
-            </p>
-          </div>
-          <Switch
-            id="fallback-auto-print"
-            checked={autoPrint}
-            onCheckedChange={handleAutoPrintToggle}
-            disabled={!loaded || saving === 'fallback.auto_print_enabled'}
-          />
-        </div>
-
-        {autoPrint && (
+        {/* Server-side: automatic thermal snapshots (shared setting → locked in demo) */}
+        <DemoLock active={demoMode} className="space-y-6">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="fallback-interval" className="font-medium">{t('fallback.intervalLabel')}</Label>
-              <p className="text-xs text-muted-foreground">{t('fallback.intervalHint')}</p>
+              <Label htmlFor="fallback-auto-print" className="font-medium flex items-center gap-2">
+                <Printer className="h-4 w-4" />
+                {t('fallback.autoPrintLabel')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('fallback.autoPrintHint')}
+                {!printerEnabled && loaded ? t('fallback.autoPrintPrinterRequired') : ''}
+              </p>
             </div>
-            <div className="flex-shrink-0 w-24">
-              <Input
-                id="fallback-interval"
-                type="number"
-                min={5}
-                max={120}
-                value={interval}
-                onChange={(e) => setIntervalMin(e.target.value)}
-                onBlur={(e) => handleIntervalBlur(e.target.value)}
-                disabled={saving === 'fallback.auto_print_interval_min'}
-              />
-            </div>
+            <Switch
+              id="fallback-auto-print"
+              checked={autoPrint}
+              onCheckedChange={handleAutoPrintToggle}
+              disabled={!loaded || saving === 'fallback.auto_print_enabled'}
+            />
           </div>
-        )}
+
+          {autoPrint && (
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <Label htmlFor="fallback-interval" className="font-medium">{t('fallback.intervalLabel')}</Label>
+                <p className="text-xs text-muted-foreground">{t('fallback.intervalHint')}</p>
+              </div>
+              <div className="flex-shrink-0 w-24">
+                <Input
+                  id="fallback-interval"
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={interval}
+                  onChange={(e) => setIntervalMin(e.target.value)}
+                  onBlur={(e) => handleIntervalBlur(e.target.value)}
+                  disabled={saving === 'fallback.auto_print_interval_min'}
+                />
+              </div>
+            </div>
+          )}
+        </DemoLock>
 
         {/* Device-side: Lageblatt auto-download */}
         <div className="flex items-center justify-between gap-4">
