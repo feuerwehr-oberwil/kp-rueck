@@ -159,11 +159,11 @@ export function ResourceAssignmentDialog({
   const sortedFilteredPersonnel = useMemo(() => {
     return [...filteredPersonnel].sort((a, b) => {
       if (a.role !== b.role) {
-        if (a.roleSortOrder !== b.roleSortOrder) return a.roleSortOrder - b.roleSortOrder
-        return a.role.localeCompare(b.role, getActiveLocale())
+        if (a.roleSortOrder !== b.roleSortOrder) return (a.roleSortOrder ?? 0) - (b.roleSortOrder ?? 0)
+        return (a.role ?? "").localeCompare(b.role ?? "", getActiveLocale())
       }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return a.name.localeCompare(b.name, getActiveLocale())
+      return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
     })
   }, [filteredPersonnel])
 
@@ -197,11 +197,11 @@ export function ResourceAssignmentDialog({
   const sortedFilteredMaterials = useMemo(() => {
     return [...filteredMaterials].sort((a, b) => {
       if (a.category !== b.category) {
-        if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
-        return a.category.localeCompare(b.category, getActiveLocale())
+        if (a.categorySortOrder !== b.categorySortOrder) return (a.categorySortOrder ?? 0) - (b.categorySortOrder ?? 0)
+        return (a.category ?? "").localeCompare(b.category ?? "", getActiveLocale())
       }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return a.name.localeCompare(b.name, getActiveLocale())
+      return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
     })
   }, [filteredMaterials])
 
