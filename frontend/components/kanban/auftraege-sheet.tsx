@@ -81,8 +81,8 @@ interface AuftraegeSheetProps {
   onAssignResource: (resourceType: "crew" | "vehicles" | "materials", operationId: string) => void
   /** Opens the existing OperationDetailModal for a stop. */
   onOpenDetail: (operationId: string) => void
-  /** Placeholder — the Routen-Editor modal is built in the next phase. */
-  onOpenRoutenEditor?: (groupId: string) => void
+  /** Opens the Routen-Editor modal for a route; optional stop to centre/focus on. */
+  onOpenRoutenEditor?: (groupId: string, focusIncidentId?: string) => void
 }
 
 export function AuftraegeSheet({
@@ -281,7 +281,7 @@ export function AuftraegeSheet({
                 onSetMode={(mode) => updateGroup(group.id, { mode })}
                 onRequestDelete={() => setDeleteId(group.id)}
                 onAddStop={() => onAddStop(group.id)}
-                onOpenRoutenEditor={() => onOpenRoutenEditor?.(group.id)}
+                onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
                 onAssignResource={onAssignResource}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
@@ -338,7 +338,7 @@ interface AuftragCardProps {
   onSetMode: (mode: IncidentGroupMode) => void
   onRequestDelete: () => void
   onAddStop: () => void
-  onOpenRoutenEditor: () => void
+  onOpenRoutenEditor: (focusIncidentId?: string) => void
   onAssignResource: (resourceType: "crew" | "vehicles" | "materials", operationId: string) => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
@@ -511,16 +511,7 @@ function AuftragCard({
               <Plus className="h-3.5 w-3.5" />
               {t("addStop")}
             </Button>
-            {/* Placeholder — Routen-Editor modal is built in the next phase. */}
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5"
-              onClick={() => {
-                // TODO(routen-editor): open RoutenEditorModal for this Auftrag.
-                onOpenRoutenEditor()
-              }}
-            >
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onOpenRoutenEditor()}>
               <MapIcon className="h-3.5 w-3.5" />
               {t("routenEditor")}
             </Button>
@@ -556,7 +547,7 @@ interface StopRowProps {
   onRemove: () => void
   onMarkDone: () => void
   onOpenDetail: () => void
-  onOpenMap: () => void
+  onOpenMap: (focusIncidentId?: string) => void
 }
 
 function StopRow({ groupId, incidentId, index, op, onRemove, onMarkDone, onOpenDetail, onOpenMap }: StopRowProps) {
@@ -626,15 +617,12 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onMarkDone, onOpenD
         <StateIcon className={cn("h-4 w-4 flex-shrink-0", stateClass)} />
         <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>
         <span className={cn("text-xs flex-shrink-0 hidden sm:inline", stateClass)}>{stateLabel}</span>
-        {/* [Karte] — opens the Routen-Editor later; no-op placeholder for now. */}
+        {/* [Karte] — opens the Routen-Editor centred on this stop. */}
         <Button
           size="sm"
           variant="ghost"
           className="h-7 px-2 text-xs flex-shrink-0"
-          onClick={() => {
-            // TODO(routen-editor): pan the Routen-Editor to this stop's marker.
-            onOpenMap()
-          }}
+          onClick={() => onOpenMap(incidentId)}
         >
           {t("map")}
         </Button>
