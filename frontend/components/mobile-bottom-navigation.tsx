@@ -165,7 +165,7 @@ export function MobileBottomNavigation({
               {/* Ereignis Section — current event + quick switch (replaces the
                   top-bar event switcher, which is hidden on mobile). */}
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('event')}
                 </h3>
                 <div className="space-y-2">
@@ -222,7 +222,7 @@ export function MobileBottomNavigation({
               {(isEditor || selectedEvent?.training_flag) && (
               <>
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('quickActions')}
                 </h3>
                 <div className="space-y-1">
@@ -352,7 +352,7 @@ export function MobileBottomNavigation({
 
               {/* Verwaltung Section */}
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('management')}
                 </h3>
                 <div className="space-y-2">
@@ -381,7 +381,7 @@ export function MobileBottomNavigation({
 
               {/* Support Section */}
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('support')}
                 </h3>
                 <div className="space-y-2">
@@ -409,7 +409,7 @@ export function MobileBottomNavigation({
               {/* Account Section */}
               <Separator />
               <div className="animate-category-fade">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('account')}
                 </h3>
                 <div className="space-y-2">

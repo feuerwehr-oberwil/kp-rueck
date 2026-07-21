@@ -122,7 +122,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
           <div className="space-y-8">
             {/* Views Section */}
             <div>
-              <h3 className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider mb-4 px-3">
+              <h3 className="text-[11px] font-semibold text-muted-foreground/80 tracking-wider mb-4 px-3">
                 {t('views')}
               </h3>
               <nav className="space-y-1.5">
@@ -176,7 +176,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
 
             {/* Management Section */}
             <div>
-              <h3 className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider mb-4 px-3">
+              <h3 className="text-[11px] font-semibold text-muted-foreground/80 tracking-wider mb-4 px-3">
                 {t('management')}
               </h3>
               <nav className="space-y-1.5">

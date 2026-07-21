@@ -179,7 +179,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
         <div className="space-y-4">
           {/* Recipients */}
           <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            <Label className="text-xs tracking-wide text-muted-foreground">
               {t("recipients", { count: selectedLinkedCount })}
             </Label>
             {recipients.length === 0 ? (
@@ -227,7 +227,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
 
           {/* Message */}
           <div className="space-y-1.5">
-            <Label htmlFor="divera-title" className="text-xs uppercase tracking-wide text-muted-foreground">
+            <Label htmlFor="divera-title" className="text-xs tracking-wide text-muted-foreground">
               {t("titleLabel")}
             </Label>
             <Input
@@ -239,7 +239,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="divera-text" className="text-xs uppercase tracking-wide text-muted-foreground">
+              <Label htmlFor="divera-text" className="text-xs tracking-wide text-muted-foreground">
                 {t("textLabel")}
               </Label>
               <span className={`text-[11px] ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}>

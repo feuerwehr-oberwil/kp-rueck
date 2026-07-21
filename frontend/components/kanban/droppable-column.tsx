@@ -231,7 +231,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         column.color
       )}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{columnTitle}</h2>
+          <h2 className="text-sm font-bold tracking-tight text-foreground">{columnTitle}</h2>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
               {operations.length}

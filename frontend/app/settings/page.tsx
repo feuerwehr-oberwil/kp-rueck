@@ -1311,7 +1311,7 @@ export default function SettingsPage() {
             <aside className="w-56 border-r bg-muted/30 p-4 overflow-y-auto">
               <nav className="space-y-1">
                 {/* Config group */}
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2">
+                <p className="text-xs font-semibold text-muted-foreground tracking-wide px-3 py-2">
                   {t('page.groups.config')}
                 </p>
                 {visibleSections.filter(s => s.group === 'config').map((section) => {
@@ -1336,7 +1336,7 @@ export default function SettingsPage() {
                 {/* Resources group */}
                 {isEditor && (
                   <>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">
+                    <p className="text-xs font-semibold text-muted-foreground tracking-wide px-3 py-2 mt-4">
                       {t('page.groups.resources')}
                     </p>
                     {visibleSections.filter(s => s.group === 'resources').map((section) => {
@@ -1363,7 +1363,7 @@ export default function SettingsPage() {
                 {/* Data group */}
                 {isEditor && (
                   <>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 mt-4">
+                    <p className="text-xs font-semibold text-muted-foreground tracking-wide px-3 py-2 mt-4">
                       {t('page.groups.data')}
                     </p>
                     {visibleSections.filter(s => s.group === 'data').map((section) => {
@@ -1405,7 +1405,7 @@ export default function SettingsPage() {
                     const groupLabel = t(`page.groups.${group}`);
                     return (
                       <div key={group}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
                           {groupLabel}
                         </div>
                         {groupSections.map((section) => (

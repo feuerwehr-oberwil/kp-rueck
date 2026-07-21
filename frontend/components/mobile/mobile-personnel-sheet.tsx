@@ -92,7 +92,7 @@ export function MobilePersonnelSheet({
         <div className="space-y-5">
           {Object.entries(groupedPersonnel).map(([role, people]) => (
             <div key={role}>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <h3 className="text-xs font-semibold text-muted-foreground tracking-wide mb-2">
                 {role} ({people.length})
               </h3>
               <div className="space-y-1.5">
