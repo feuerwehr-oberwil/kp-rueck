@@ -130,13 +130,25 @@ function DraggableOperationBase({
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const { materialGroups } = useMaterials()
-  const { groups } = useGroups()
+  const { groups, getGroupResources } = useGroups()
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
   // the page via a window event (mirrors the driver-assignment-changed pattern),
   // avoiding prop threading through the column/side-panel render trees.
   const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragSeq = auftrag ? auftrag.stopIds.indexOf(operation.id) + 1 : 0
+  // Grouped incidents carry no resources themselves — the route owns them. Read
+  // the route's resource roll-up for the card chip summary.
+  const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+  const auftragSummary = auftragResources
+    ? [
+        auftragResources.vehicles.map((v) => v.name).join(', '),
+        auftragResources.personnel.length ? t('card.auftragPersSummary', { count: auftragResources.personnel.length }) : '',
+        auftragResources.materials.length ? t('card.auftragMatSummary', { count: auftragResources.materials.length }) : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : ''
 
   // Handle thermal print
   const handlePrint = async () => {
@@ -347,26 +359,6 @@ function DraggableOperationBase({
             <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
 
-          {/* Auftrag (route) membership chip */}
-          {auftrag && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
-              }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted transition-colors max-w-full"
-              title={t('card.auftragChipTooltip', { name: auftrag.name })}
-            >
-              <span
-                className="h-2 w-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
-              />
-              <span className="truncate">{auftrag.name}</span>
-              <span className="tabular-nums flex-shrink-0">· {auftragSeq}/{auftrag.stopIds.length}</span>
-            </button>
-          )}
-
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -424,7 +416,7 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {operation.crew.length > 0 && (
+              {!auftrag && operation.crew.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
@@ -462,7 +454,7 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {(operation.zuFuss || operation.vehicles.length > 0) && (
+              {!auftrag && (operation.zuFuss || operation.vehicles.length > 0) && (
                 <div className="flex items-start gap-1.5">
                   <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
@@ -526,7 +518,7 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {operation.materials.length > 0 && (
+              {!auftrag && operation.materials.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
@@ -625,6 +617,35 @@ function DraggableOperationBase({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Auftrag (route) membership chip — sits below the personnel/vehicles
+              section. Resources now live on the Auftrag, so the chip carries the
+              route name, stop sequence, and the route's resource roll-up. */}
+          {auftrag && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
+              }}
+              className="flex w-full items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
+              title={t('card.auftragChipTooltip', { name: auftrag.name })}
+            >
+              <Waypoints className="h-3 w-3 flex-shrink-0" />
+              <span
+                className="h-2 w-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
+              />
+              <span className="truncate font-medium text-foreground/80">{auftrag.name}</span>
+              <span className="tabular-nums flex-shrink-0">{auftragSeq}/{auftrag.stopIds.length}</span>
+              {auftragSummary && (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <span className="truncate">{auftragSummary}</span>
+                </>
+              )}
+            </button>
           )}
 
           {/* Reko Summary */}
