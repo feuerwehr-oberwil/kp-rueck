@@ -1922,7 +1922,10 @@
       "title": "Hilfe",
       "toc": "Inhalt",
       "loading": "Lädt...",
-      "loadError": "# Fehler\n\nDer Hilfeinhalt konnte nicht geladen werden."
+      "loadError": "# Fehler\n\nDer Hilfeinhalt konnte nicht geladen werden.",
+      "searchPlaceholder": "Hilfe durchsuchen",
+      "searchClear": "Suche zurücksetzen",
+      "searchNoResults": "Keine Treffer"
     }
   },
   "errors": {

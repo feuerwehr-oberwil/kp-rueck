@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { Search, X } from 'lucide-react';
 import { PageNavigation } from '@/components/page-navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -17,6 +19,58 @@ interface TocItem {
   id: string;
   text: string;
   level: number;
+  search?: string;
+}
+
+// Extract plain text from React children (which may contain nested <mark>
+// elements once search highlighting is applied) so heading ids stay stable.
+function getNodeText(node: any): string {
+  if (node == null) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(getNodeText).join('');
+  if (typeof node === 'object' && node.props) return getNodeText(node.props.children);
+  return '';
+}
+
+// rehype plugin: wrap case-insensitive matches of `query` in <mark> elements,
+// skipping code/pre so keyboard shortcuts and code stay untouched.
+function rehypeHighlight(options: { query?: string }) {
+  const query = (options?.query ?? '').toLowerCase();
+  return (tree: any) => {
+    if (query.length < 2) return;
+
+    const visit = (node: any) => {
+      if (!node.children || node.children.length === 0) return;
+      if (node.tagName === 'code' || node.tagName === 'pre') return;
+
+      const next: any[] = [];
+      for (const child of node.children) {
+        if (child.type === 'text' && child.value.toLowerCase().includes(query)) {
+          const value: string = child.value;
+          const lower = value.toLowerCase();
+          let i = 0;
+          let idx: number;
+          while ((idx = lower.indexOf(query, i)) !== -1) {
+            if (idx > i) next.push({ type: 'text', value: value.slice(i, idx) });
+            next.push({
+              type: 'element',
+              tagName: 'mark',
+              properties: {},
+              children: [{ type: 'text', value: value.slice(idx, idx + query.length) }],
+            });
+            i = idx + query.length;
+          }
+          if (i < value.length) next.push({ type: 'text', value: value.slice(i) });
+        } else {
+          visit(child);
+          next.push(child);
+        }
+      }
+      node.children = next;
+    };
+
+    visit(tree);
+  };
 }
 
 export default function HelpPage() {
@@ -28,6 +82,7 @@ export default function HelpPage() {
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load markdown content
   useEffect(() => {
@@ -52,29 +107,47 @@ export default function HelpPage() {
     loadContent();
   }, []);
 
-  // Extract table of contents from markdown (h2 only)
+  // Extract table of contents from markdown (h2 only), capturing each
+  // section's body text so search can match content, not just headings.
   const tableOfContents = useMemo<TocItem[]>(() => {
     if (!content) return [];
 
     const headingRegex = /^(#{2})\s+(.+)$/gm;
     const toc: TocItem[] = [];
+    const matches: { level: number; text: string; end: number; start: number }[] = [];
     let match;
 
     while ((match = headingRegex.exec(content)) !== null) {
-      const level = match[1].length;
-      const text = match[2];
-      const id = text
+      matches.push({
+        level: match[1].length,
+        text: match[2],
+        start: match.index,
+        end: headingRegex.lastIndex,
+      });
+    }
+
+    matches.forEach((m, i) => {
+      const bodyEnd = i + 1 < matches.length ? matches[i + 1].start : content.length;
+      const body = content.slice(m.end, bodyEnd);
+      const id = m.text
         .toLowerCase()
         .replace(/[`]/g, '')
         .replace(/[^a-z0-9äöüß\s-]/g, '')
         .replace(/\s+/g, '-')
         .trim();
 
-      toc.push({ id, text, level });
-    }
+      toc.push({ id, text: m.text, level: m.level, search: (m.text + ' ' + body).toLowerCase() });
+    });
 
     return toc;
   }, [content]);
+
+  // Filter the TOC by the search query (matches heading + section body text)
+  const filteredToc = useMemo<TocItem[]>(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return tableOfContents;
+    return tableOfContents.filter((item) => item.search?.includes(query));
+  }, [tableOfContents, searchQuery]);
 
   // Track active section on scroll
   useEffect(() => {
@@ -183,7 +256,7 @@ export default function HelpPage() {
       </h1>
     ),
     h2: ({ children, ...props }: any) => {
-      const text = String(children);
+      const text = getNodeText(children);
       const id = text
         .toLowerCase()
         .replace(/[`]/g, '')
@@ -197,7 +270,7 @@ export default function HelpPage() {
       );
     },
     h3: ({ children, ...props }: any) => {
-      const text = String(children);
+      const text = getNodeText(children);
       const id = text
         .toLowerCase()
         .replace(/[`]/g, '')
@@ -226,6 +299,12 @@ export default function HelpPage() {
         {children}
       </strong>
     ),
+    // Search highlight
+    mark: ({ children, ...props }: any) => (
+      <mark className="bg-primary/25 text-foreground rounded px-0.5" {...props}>
+        {children}
+      </mark>
+    ),
   };
 
   return (
@@ -249,26 +328,51 @@ export default function HelpPage() {
           <aside className="w-56 border-r border-border/50 bg-card/30 flex-shrink-0">
             <ScrollArea className="h-full">
               <nav className="p-4">
+                <div className="relative mb-3">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t('searchPlaceholder')}
+                    aria-label={t('searchPlaceholder')}
+                    className="h-8 pl-8 pr-8 text-sm"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      aria-label={t('searchClear')}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                   {t('toc')}
                 </p>
-                <ul className="space-y-1">
-                  {tableOfContents.map(({ id, text }) => (
-                    <li key={id}>
-                      <button
-                        onClick={() => scrollToSection(id)}
-                        className={cn(
-                          "text-left w-full text-sm py-1 px-2 rounded transition-colors hover:bg-muted",
-                          activeSection === id
-                            ? "text-primary font-medium bg-muted"
-                            : "text-muted-foreground"
-                        )}
-                      >
-                        {text.replace(/`/g, '')}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                {filteredToc.length === 0 ? (
+                  <p className="text-sm text-muted-foreground px-2 py-1">{t('searchNoResults')}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {filteredToc.map(({ id, text }) => (
+                      <li key={id}>
+                        <button
+                          onClick={() => scrollToSection(id)}
+                          className={cn(
+                            "text-left w-full text-sm py-1 px-2 rounded transition-colors hover:bg-muted",
+                            activeSection === id
+                              ? "text-primary font-medium bg-muted"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          {text.replace(/`/g, '')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </nav>
             </ScrollArea>
           </aside>
@@ -286,6 +390,7 @@ export default function HelpPage() {
               <div className="prose prose-slate dark:prose-invert max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[[rehypeHighlight, { query: searchQuery.trim() }]]}
                   components={markdownComponents}
                 >
                   {content}
