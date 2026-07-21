@@ -174,14 +174,19 @@ async def create_incident(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
-    # Demo mode: cap total incidents at 30
+    # Demo mode: cap incidents per event at 50 (the demo seed itself creates
+    # ~21 per sandbox, so a global cap would make manual creation impossible).
     if settings.demo_mode:
-        count_result = await db.execute(select(sa_func.count()).select_from(models.Incident))
-        total_incidents = count_result.scalar() or 0
-        if total_incidents >= 30:
+        count_result = await db.execute(
+            select(sa_func.count())
+            .select_from(models.Incident)
+            .where(models.Incident.event_id == incident.event_id)
+        )
+        event_incidents = count_result.scalar() or 0
+        if event_incidents >= 50:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Demo-Modus: Maximale Anzahl Einsätze (30) erreicht. Die Demo wird regelmässig zurückgesetzt.",
+                detail="Demo-Modus: Maximale Anzahl Einsätze (50) erreicht. Die Demo wird regelmässig zurückgesetzt.",
             )
 
     # Create incident
