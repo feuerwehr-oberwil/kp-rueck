@@ -383,6 +383,15 @@ async def broadcast_incident_update(incident_data: dict, action: str = "update")
     )
 
 
+async def broadcast_group_update(group_data: dict, action: str = "update"):
+    """Broadcast Auftrag (incident group) updates to all clients in operations room.
+
+    Membership/stop changes additionally ride the existing incident_update path
+    (a stop's group_id changing is an incident update).
+    """
+    await ws_manager.broadcast_update("group_update", {"action": action, "data": group_data}, room="operations")
+
+
 async def broadcast_personnel_update(personnel_data: dict, action: str = "update"):
     """Broadcast personnel updates to all clients in operations room."""
     await ws_manager.broadcast_update("personnel_update", {"action": action, "data": personnel_data}, room="operations")

@@ -12,6 +12,7 @@ from .audit import *  # noqa: F401, F403
 from .common import *  # noqa: F401, F403
 from .divera import *  # noqa: F401, F403
 from .events import *  # noqa: F401, F403
+from .groups import *  # noqa: F401, F403
 from .incidents import *  # noqa: F401, F403
 from .materials import *  # noqa: F401, F403
 from .notifications import *  # noqa: F401, F403

@@ -135,10 +135,25 @@ async def get_sync_version(
     a_count = a_row[0] or 0
     a_latest = a_row[1]
 
+    # Also fold in Auftrag (incident group) changes so the polling fallback
+    # notices group create/rename/reorder even if a group_update WS event is missed.
+    group_result = await db.execute(
+        select(
+            sa_func.count(models.IncidentGroup.id),
+            sa_func.max(models.IncidentGroup.updated_at),
+        )
+        .where(models.IncidentGroup.event_id == event_id)
+        .where(models.IncidentGroup.deleted_at.is_(None))
+    )
+    g_row = group_result.one()
+    g_count = g_row[0] or 0
+    g_latest = g_row[1]
+
     # Combine into version string
     latest_str = latest.isoformat() if latest else "0"
     a_latest_str = a_latest.isoformat() if a_latest else "0"
-    version = f"{count}-{latest_str}-{a_count}-{a_latest_str}"
+    g_latest_str = g_latest.isoformat() if g_latest else "0"
+    version = f"{count}-{latest_str}-{a_count}-{a_latest_str}-{g_count}-{g_latest_str}"
     return {"version": version}
 
 

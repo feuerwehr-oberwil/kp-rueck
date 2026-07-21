@@ -237,6 +237,9 @@ class Event(Base):
 
     # Relationships
     incidents: Mapped[list["Incident"]] = relationship("Incident", back_populates="event", cascade="all, delete-orphan")
+    incident_groups: Mapped[list["IncidentGroup"]] = relationship(
+        "IncidentGroup", back_populates="event", cascade="all, delete-orphan"
+    )
     attendance_records: Mapped[list["EventAttendance"]] = relationship(
         "EventAttendance", back_populates="event", cascade="all, delete-orphan"
     )
@@ -357,6 +360,14 @@ class Incident(Base):
     # Manual sort order within a status column (lower = higher on the board). Operators
     # reorder cards to prioritize alarms; this is the persisted, shared order.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # Auftrag (incident group) membership. An incident may be a "stop" in one
+    # ordered route (IncidentGroup). SET NULL so deleting an Auftrag leaves its
+    # stops on the board, ungrouped. group_position mirrors `position` exactly:
+    # order of the stop within its Auftrag.
+    group_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incident_groups.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    group_position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -410,7 +421,69 @@ class Incident(Base):
         Index("idx_incidents_created_at", "created_at"),
         # Supports ORDER BY position within an event's status column.
         Index("idx_incidents_event_status_position", "event_id", "status", "position"),
+        # Supports ORDER BY group_position within an Auftrag (incident group).
+        Index("idx_incidents_group_position", "group_id", "group_position"),
     )
+
+
+# ============================================
+# INCIDENT GROUPS (Aufträge — multi-stop routes)
+# ============================================
+
+
+class IncidentGroup(Base):
+    """Auftrag - an ordered, lightweight container grouping incidents into a route.
+
+    User-facing term is "Auftrag" (plural "Aufträge"). An Auftrag is a checklist
+    over real incidents: each member incident (a "stop") stays a first-class
+    Incident with its own status/reko/priority/print/GPS. The group itself has no
+    lifecycle of its own — its "state" is the derived roll-up of its stops'
+    statuses. Mirrors the Incident conventions (UUID PK, event scope, soft delete,
+    `position`).
+    """
+
+    __tablename__ = "incident_groups"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Event relationship (event-scoped like incidents; cascade-deleted with the event)
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    event: Mapped["Event"] = relationship("Event", back_populates="incident_groups")
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(20), nullable=True)  # hex/token for map+board tint
+    # 'squad' (vehicle + crew move together) or 'vehicle_only' (shuttle / Pendeldienst:
+    # only the vehicle's route is shared, crew assigned per-incident). Drives the
+    # copy-picker default + header label.
+    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="squad", server_default="squad")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Order among Aufträge in the event (mirrors Incident.position).
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    created_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    creator: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by])
+    # Member stops. The FK lives on incidents.group_id. viewonly + no cascade so
+    # deleting a group never deletes its incidents (they stay on the board).
+    incidents: Mapped[list["Incident"]] = relationship(
+        "Incident",
+        primaryjoin="IncidentGroup.id == Incident.group_id",
+        order_by="Incident.group_position",
+        viewonly=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint("mode IN ('squad', 'vehicle_only')", name="valid_group_mode"),
+        Index("idx_incident_groups_event_position", "event_id", "position"),
+    )
+
+    def __repr__(self):
+        return f"<IncidentGroup {self.name} (mode={self.mode})>"
 
 
 # ============================================
