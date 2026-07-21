@@ -67,6 +67,8 @@ export function NewEmergencyModal({
     vehicleAssignments: new Map(),
     vehicleCallsigns: new Map() as Map<string, string>,
     vehicleDriverStay: new Map() as Map<string, boolean>,
+    groupId: null as string | null,
+    groupPosition: 0,
   })
 
   // Form validation state
@@ -121,6 +123,8 @@ export function NewEmergencyModal({
       vehicleAssignments: new Map(),
       vehicleCallsigns: new Map(),
       vehicleDriverStay: new Map(),
+      groupId: null,
+      groupPosition: 0,
     })
     setTouched({})
     setShowValidationErrors(false)

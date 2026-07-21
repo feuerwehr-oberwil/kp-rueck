@@ -429,6 +429,8 @@ function apiIncidentToOperation(a: ApiIncident): Operation {
     amWarten: a.am_warten ?? false,
     amWartenNote: a.am_warten_note ?? "",
     zuFuss: a.zu_fuss ?? false,
+    groupId: a.group_id ?? null,
+    groupPosition: a.group_position ?? 0,
     source: a.source,
     statusChangedAt: a.status_changed_at ? new Date(a.status_changed_at) : null,
     hasCompletedReko: a.has_completed_reko,
