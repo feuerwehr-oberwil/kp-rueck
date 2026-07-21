@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, Eye, Plus, ChevronRight } from 'lucide-react'
+import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, MonitorDown, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -25,7 +25,7 @@ interface MobileBottomNavigationProps {
   hasSelectedEvent?: boolean
   onCheckIn?: () => void
   onReko?: () => void
-  onViewer?: () => void
+  onDisplay?: () => void
   onPersonnel?: () => void
   onVehicleStatus?: () => void
   onPrint?: () => void
@@ -38,7 +38,7 @@ export function MobileBottomNavigation({
   hasSelectedEvent = true,
   onCheckIn,
   onReko,
-  onViewer,
+  onDisplay,
   onPersonnel,
   onVehicleStatus,
   onPrint,
@@ -256,18 +256,18 @@ export function MobileBottomNavigation({
                     </Button>
                   )}
 
-                  {/* Viewer QR/Link */}
-                  {isEditor && onViewer && (
+                  {/* Display share QR/Link */}
+                  {isEditor && onDisplay && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
                       onClick={() => {
                         setSheetOpen(false)
-                        setTimeout(() => onViewer(), 350)
+                        setTimeout(() => onDisplay(), 350)
                       }}
                     >
-                      <Eye className="h-5 w-5" />
-                      <span>{t('viewer')}</span>
+                      <MonitorDown className="h-5 w-5" />
+                      <span>{t('display')}</span>
                     </Button>
                   )}
 

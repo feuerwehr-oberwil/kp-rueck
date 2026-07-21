@@ -103,7 +103,7 @@ describe("LoginPage demo sandbox flow", () => {
 
     // Viewers also get their own Demo-Lage (not a shared base event), then land
     // on the read-only board.
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/viewer"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/display/board"));
     expect(mockLogin).toHaveBeenCalledWith("demo-viewer", "demo123");
     expect(mockCreateDemoSandbox).toHaveBeenCalled();
     expect(mockSetSelectedEvent).toHaveBeenCalledWith(

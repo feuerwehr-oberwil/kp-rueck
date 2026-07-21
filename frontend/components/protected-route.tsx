@@ -64,8 +64,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         }
       });
     } else if (!loading && user?.role === 'viewer') {
-      // Viewer accounts only ever see the read-only board
-      router.push('/viewer');
+      // Viewer accounts only ever see the read-only display board
+      router.push('/display/board');
     }
   }, [user, loading, router]);
 
@@ -113,7 +113,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return null;
-  // Redirecting viewers to /viewer — don't flash the editor board
+  // Redirecting viewers to /display/board — don't flash the editor board
   if (user.role === 'viewer') return null;
 
   return <>{children}</>;

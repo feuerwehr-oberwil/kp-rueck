@@ -196,7 +196,7 @@
       "quickActions": "Schnellzugriff",
       "checkInQr": "Check-In QR-Code",
       "reko": "Reko",
-      "viewer": "Viewer",
+      "display": "Display",
       "personnel": "Personal",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
@@ -340,12 +340,12 @@
       "selectEventFirst": "Bitte wählen Sie zuerst ein Ereignis aus.",
       "qrGenerateFailed": "QR-Code konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
       "rekoLinkFailed": "Reko-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
-      "viewerLinkFailed": "Viewer-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
+      "displayLinkFailed": "Display-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
       "alarmLinkFailed": "Alarm-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
       "materialReturned": "Material zurückgegeben",
       "readiness": "Bereitschaft",
       "checkIn": "Check-In",
-      "viewer": "Viewer",
+      "display": "Display",
       "alarm": "Alarm",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
@@ -359,9 +359,9 @@
       "rekoSheetTitle": "Reko Dashboard",
       "rekoSheetDescription": "QR-Code scannen oder Link teilen für Reko-Personal",
       "rekoSheetHint": "Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.",
-      "viewerSheetTitle": "Viewer-Link",
-      "viewerSheetDescription": "QR-Code scannen oder Link teilen für Nur-Lesen-Ansicht",
-      "viewerSheetHint": "Jeder mit diesem Link kann die aktuelle Einsatzübersicht sehen. Funktioniert ohne Anmeldung, nur Lesen.",
+      "displaySheetTitle": "Display teilen",
+      "displaySheetDescription": "QR-Code scannen oder Link teilen für die Display-Übersicht (Nur-Lesen)",
+      "displaySheetHint": "Jeder mit diesem Link sieht die aktuelle Einsatzübersicht auf einem Display. Funktioniert ohne Anmeldung, nur Lesen.",
       "alarmSheetTitle": "Alarm-Link",
       "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z. B. Telefon / Walk-in)",
       "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung."
@@ -2357,54 +2357,22 @@
       "otherRole": "Andere",
       "noMaterial": "Kein Material erfasst",
       "available": "verfügbar"
-    }
-  },
-  "viewer": {
-    "common": {
-      "unknown": "Unbekannt",
-      "noActiveIncidents": "Keine aktiven Einsätze",
-      "incidentCount": "{count} Einsätze",
-      "training": "Übung"
     },
-    "card": {
+    "tokenBoard": {
+      "unknown": "Unbekannt",
+      "incidentCount": "{count} Einsätze",
+      "training": "Übung",
       "rekoCompleted": "Reko-Bericht ausgefüllt",
       "rekoOnSite": "Reko vor Ort",
-      "overOneHour": "In diesem Status seit über 1 Stunde"
-    },
-    "page": {
-      "invalidLink": "Ungültiger oder abgelaufener Link. Bitte fordern Sie einen neuen Link an.",
-      "loadFailed": "Daten konnten nicht geladen werden.",
-      "noEvents": "Keine Ereignisse verfügbar.",
-      "eventsLoadFailed": "Ereignisse konnten nicht geladen werden.",
-      "missingToken": "Zugriffscode fehlt. Bitte fordern Sie einen Link vom Editor an oder melden Sie sich an.",
-      "accessRequired": "Zugriff erforderlich",
+      "overOneHour": "In diesem Status seit über 1 Stunde",
+      "invalidLink": "Ungültiger oder abgelaufener Link. Bitte einen neuen Link anfordern.",
       "staleBanner": "Verbindung gestört — letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
       "eventFallback": "Ereignis",
-      "selectEvent": "Ereignis wählen",
-      "trainingSuffix": " (Übung)",
-      "mapView": "Karte",
       "readOnly": "Nur-Lesen",
-      "logout": "Abmelden",
       "hideCompleted": "Abgeschlossen ausblenden",
       "showCompleted": "Abgeschlossen anzeigen",
       "completedColumn": "ABGESCHLOSSEN ({count})",
-      "incidentsHeading": "Einsätze ({count})",
-      "footerReadOnly": "Nur-Lesen-Ansicht - Automatische Aktualisierung alle 5 Sekunden",
-      "kanbanView": "Kanban"
-    },
-    "map": {
-      "legend": "Legende",
-      "priority": "Priorität",
-      "high": "Hoch",
-      "medium": "Mittel",
-      "low": "Niedrig"
-    },
-    "legend": {
-      "title": "Legende",
-      "priority": "Priorität",
-      "high": "Hoch",
-      "medium": "Mittel",
-      "low": "Niedrig"
+      "footerReadOnly": "Nur-Lesen-Ansicht — Automatische Aktualisierung alle 5 Sekunden"
     }
   },
   "intake": {
