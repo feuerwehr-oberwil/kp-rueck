@@ -127,13 +127,13 @@ export function getIncidentAge(createdAt: Date): {
   if (ageMinutes < 15) {
     return { label: 'Neu', color: 'bg-emerald-500', showWarning: false }
   } else if (ageMinutes < 60) {
-    return { label: `${ageMinutes} min`, color: 'bg-yellow-500', showWarning: false }
+    return { label: `${ageMinutes} min.`, color: 'bg-yellow-500', showWarning: false }
   } else if (ageMinutes < 120) {
     const hours = (ageMinutes / 60).toFixed(1)
-    return { label: `${hours} Std`, color: 'bg-orange-500', showWarning: false }
+    return { label: `${hours} Std.`, color: 'bg-orange-500', showWarning: false }
   } else {
     const hours = Math.floor(ageMinutes / 60)
-    return { label: `${hours} Std`, color: 'bg-red-500', showWarning: true }
+    return { label: `${hours} Std.`, color: 'bg-red-500', showWarning: true }
   }
 }
 
