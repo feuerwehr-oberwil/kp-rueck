@@ -112,11 +112,28 @@ export default function MapPage() {
   const [colorBy, setColorBy] = useState<ColorByDimension>('priority')
   useEffect(() => {
     const saved = localStorage.getItem(COLOR_BY_STORAGE_KEY)
-    if (saved === 'reko' || saved === 'vehicle' || saved === 'type' || saved === 'priority') setColorBy(saved)
+    if (saved === 'reko' || saved === 'vehicle' || saved === 'type' || saved === 'priority' || saved === 'auftrag') setColorBy(saved)
   }, [])
   const setColorByPersisted = (value: ColorByDimension) => {
     setColorBy(value)
     if (typeof window !== 'undefined') localStorage.setItem(COLOR_BY_STORAGE_KEY, value)
+  }
+  // Remembers the coloring active before "Aufträge anzeigen" auto-switched to
+  // color-by-Auftrag, so turning routes back off restores the prior dimension.
+  const preRoutesColorByRef = useRef<ColorByDimension>('priority')
+  // Turning route display ON auto-colours markers by Auftrag (non-persisted, so a
+  // reload with routes hidden doesn't get stuck on it); OFF reverts the dimension.
+  const toggleGroupRoutes = () => {
+    setShowGroupRoutes((prev) => {
+      const next = !prev
+      if (next) {
+        preRoutesColorByRef.current = colorBy
+        setColorBy('auftrag')
+      } else if (colorBy === 'auftrag') {
+        setColorBy(preRoutesColorByRef.current)
+      }
+      return next
+    })
   }
   const [focusVehicleName, setFocusVehicleName] = useState<string | null>(null)
   const [focusVehicleTrigger, setFocusVehicleTrigger] = useState(0)
@@ -250,11 +267,11 @@ export default function MapPage() {
     if (colorBy === 'priority') return undefined
     const m = new Map<string, string>()
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy)
+      const g = colorGroupFor(op, colorBy, groups)
       m.set(op.id, g ? g.color : COLOR_NONE) // grey when nothing assigned yet
     }
     return m
-  }, [operations, colorBy])
+  }, [operations, colorBy, groups])
 
   const colorLegend = useMemo<ColorGroup[]>(() => {
     // Priority falls back to the static legend section in MapLegend.
@@ -262,15 +279,18 @@ export default function MapPage() {
     const map = new Map<string, ColorGroup>()
     let hasNone = false
     for (const op of operations) {
-      const g = colorGroupFor(op, colorBy)
+      const g = colorGroupFor(op, colorBy, groups)
       if (g) { if (!map.has(g.key)) map.set(g.key, g) }
       else hasNone = true
     }
     const arr = [...map.values()]
     // Empty/none state: surface incidents without a value in this dimension.
-    if (hasNone) arr.push({ key: '__none__', label: t('common.noAssignment'), color: COLOR_NONE })
+    if (hasNone) {
+      const noneLabel = colorBy === 'auftrag' ? t('common.noAuftrag') : t('common.noAssignment')
+      arr.push({ key: '__none__', label: noneLabel, color: COLOR_NONE })
+    }
     return arr
-  }, [operations, colorBy, t])
+  }, [operations, colorBy, groups, t])
 
   // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(
@@ -632,7 +652,7 @@ export default function MapPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-52">
                     <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
-                    {(['priority', 'reko', 'vehicle', 'type'] as ColorByDimension[]).map((dim) => (
+                    {(['priority', 'reko', 'vehicle', 'type', 'auftrag'] as ColorByDimension[]).map((dim) => (
                       <DropdownMenuItem
                         key={dim}
                         // Keep the menu open on select so the legend below updates
@@ -662,7 +682,7 @@ export default function MapPage() {
 
                 {/* Aufträge (route) display — available to all viewers */}
                 <button
-                  onClick={() => setShowGroupRoutes(!showGroupRoutes)}
+                  onClick={toggleGroupRoutes}
                   className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
                     showGroupRoutes
                       ? 'bg-primary text-primary-foreground border-primary'

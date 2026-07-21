@@ -723,6 +723,11 @@ export default function FireStationDashboard() {
       onToggleLeftSidebar: () => setShowLeftSidebar(prev => !prev),
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
       onToggleVehicleStatus: () => setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles'),
+      onToggleAuftraege: () => setActiveFooterSheet(prev => {
+        if (prev === 'auftraege') return null
+        setAuftraegeFocusGroupId(null)
+        return 'auftraege'
+      }),
       onToggleNotifications: toggleNotificationSidebar,
       onToggleSidePanel: () =>
         setSidePanelMode(prev => (prev === 'collapsed' ? 'detail' : 'collapsed')),
@@ -918,8 +923,9 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle footer is non-modal: keep F able to toggle it off.
-        (!!activeFooterSheet && activeFooterSheet !== 'vehicles') ||
+        // Vehicle + Aufträge footers are non-modal on desktop: keep their toggle
+        // keys (F / A) able to close them again.
+        (!!activeFooterSheet && activeFooterSheet !== 'vehicles' && activeFooterSheet !== 'auftraege') ||
         deleteDialogOpen,
       sidePanelOpen: sidePanelMode !== 'collapsed',
       hoveredOperationId,
@@ -963,6 +969,12 @@ export default function FireStationDashboard() {
       },
       onToggleVehicleFooter: () =>
         setActiveFooterSheet((prev) => (prev === 'vehicles' ? null : 'vehicles')),
+      onToggleAuftraege: () =>
+        setActiveFooterSheet((prev) => {
+          if (prev === 'auftraege') return null
+          setAuftraegeFocusGroupId(null)
+          return 'auftraege'
+        }),
       onToggleLeftSidebar: () => setShowLeftSidebar((prev) => !prev),
       onToggleRightSidebar: () => setShowRightSidebar((prev) => !prev),
       onToggleSidePanel: () =>
@@ -1029,17 +1041,28 @@ export default function FireStationDashboard() {
 
   // Lock the board scroll while a non-modal footer slide-up sheet is open. These
   // desktop sheets don't dim/trap the screen, so the board would otherwise scroll
-  // behind them (odd UI churn). We only touch the board container's overflow (not
-  // document.body) so we never fight Radix's own scroll-lock on modal sheets.
-  // Mobile sheets are modal and full-screen, so this is desktop-only + reversible.
+  // behind them (odd UI churn). The board has TWO scroll axes on separate
+  // elements: `#kanban-main` scrolls horizontally, and each Kanban column body
+  // (`[data-board-scroll]`) scrolls its cards vertically — locking only the outer
+  // container left the columns scrollable. So we lock the outer container plus
+  // every column scroller, and restore each element's prior overflow on close.
+  // We never touch document.body, so Radix's own scroll-lock on modal sheets is
+  // untouched. Mobile sheets are modal + full-screen, so this is desktop-only.
   useEffect(() => {
     if (isMobile || !activeFooterSheet) return
     const main = document.getElementById('kanban-main')
     if (!main) return
-    const prev = main.style.overflow
-    main.style.overflow = 'hidden'
+    const locked: Array<{ el: HTMLElement; prev: string }> = []
+    const lock = (el: HTMLElement) => {
+      locked.push({ el, prev: el.style.overflow })
+      el.style.overflow = 'hidden'
+    }
+    lock(main)
+    main.querySelectorAll<HTMLElement>('[data-board-scroll]').forEach(lock)
     return () => {
-      main.style.overflow = prev
+      locked.forEach(({ el, prev }) => {
+        el.style.overflow = prev
+      })
     }
   }, [activeFooterSheet, isMobile])
 

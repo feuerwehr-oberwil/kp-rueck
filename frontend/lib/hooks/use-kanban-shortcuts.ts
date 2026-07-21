@@ -55,6 +55,8 @@ export interface KanbanShortcutsActions {
   onFocusMaterial: () => void
   /** Toggle the vehicle status footer sheet. */
   onToggleVehicleFooter: () => void
+  /** Toggle the Aufträge (routes) footer sheet. */
+  onToggleAuftraege: () => void
   /** Toggle the personnel (left) sidebar visibility. */
   onToggleLeftSidebar: () => void
   /** Toggle the material (right) sidebar visibility. */
@@ -218,6 +220,11 @@ export function useKanbanShortcuts(
       if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         actions.onOpenNewEmergency()
+        return
+      }
+      if ((e.key === "a" || e.key === "A") && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        actions.onToggleAuftraege()
         return
       }
 

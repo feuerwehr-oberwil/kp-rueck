@@ -82,6 +82,7 @@
       "groupActions": "Aktionen",
       "newIncident": "Neuer Einsatz",
       "vehicleStatus": "Fahrzeugstatus",
+      "auftraege": "Aufträge öffnen",
       "refreshData": "Daten aktualisieren",
       "groupView": "Ansicht",
       "personnelSidebar": "Personal-Seitenleiste",
@@ -654,7 +655,11 @@
       "inRoute": "Aktuell in Auftrag «{name}»",
       "createNew": "Neuer Einsatz",
       "cancel": "Abbrechen",
-      "confirm": "{count} hinzufügen"
+      "confirm": "{count} hinzufügen",
+      "viewList": "Liste",
+      "viewMap": "Karte",
+      "mapLoading": "Karte wird geladen …",
+      "mapEmpty": "Keine verorteten Einsätze auf der Karte."
     },
     "auftragPicker": {
       "title": "An Auftrag verteilen",
@@ -946,6 +951,7 @@
       "priorityMedium": "Mittlere Priorität",
       "priorityLow": "Niedrige Priorität",
       "noAssignment": "Ohne Zuweisung",
+      "noAuftrag": "Kein Auftrag",
       "colorByTitle": "Marker einfärben nach",
       "colorByButton": "Färben: {label}",
       "colorByMenuLabel": "Färben nach",
@@ -1071,7 +1077,8 @@
       "priority": "Priorität",
       "reko": "Reko-Person",
       "vehicle": "Fahrzeug",
-      "type": "Einsatzart"
+      "type": "Einsatzart",
+      "auftrag": "Auftrag"
     }
   },
   "settings": {
