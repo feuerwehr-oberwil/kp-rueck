@@ -219,20 +219,20 @@
   },
   "kanban": {
     "columns": {
-      "incoming": "EINGEGANGEN",
-      "ready": "REKO",
-      "rekoDone": "REKO ABGESCHLOSSEN",
-      "enroute": "DISPONIERT / ANFAHRT",
-      "active": "EINSATZ",
-      "returning": "BEENDET / RÜCKFAHRT",
-      "complete": "ABGESCHLOSSEN",
-      "eingegangen": "EINGEGANGEN",
-      "reko": "REKO",
-      "reko_done": "REKO ABGESCHLOSSEN",
-      "disponiert": "DISPONIERT / ANFAHRT",
-      "einsatz": "EINSATZ",
-      "einsatz_beendet": "EINSATZ BEENDET",
-      "abschluss": "ABSCHLUSS"
+      "incoming": "Eingegangen",
+      "ready": "Reko",
+      "rekoDone": "Reko abgeschlossen",
+      "enroute": "Disponiert / Anfahrt",
+      "active": "Einsatz",
+      "returning": "Beendet / Rückfahrt",
+      "complete": "Abgeschlossen",
+      "eingegangen": "Eingegangen",
+      "reko": "Reko",
+      "reko_done": "Reko abgeschlossen",
+      "disponiert": "Disponiert / Anfahrt",
+      "einsatz": "Einsatz",
+      "einsatz_beendet": "Einsatz beendet",
+      "abschluss": "Abschluss"
     },
     "statusLabels": {
       "eingegangen": "Eingegangen",
@@ -376,8 +376,17 @@
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
-      "description": "<hl>{location}</hl> wird disponiert, es {count, plural, one {fehlt} other {fehlen}} aber noch <hl>{list}</hl>. Möchtest du zuerst zuweisen oder trotzdem fortfahren?",
+      "checklistIntro": "<hl>{location}</hl> wird disponiert. Weise die fehlenden Ressourcen zu oder disponiere trotzdem.",
+      "personalSummary": "{count, plural, one {# Person} other {# Personen}}",
+      "mittelSummary": "{count, plural, one {# Mittel} other {# Mittel}}",
+      "done": "Disponieren",
       "dispatchAnyway": "Trotzdem disponieren"
+    },
+    "returningVehicle": {
+      "title": "Kein Fahrzeug zugewiesen",
+      "description": "<hl>{location}</hl> wird beendet – aber es ist kein Fahrzeug zugewiesen. Die Mannschaft müsste zu Fuss zurück.",
+      "assignVehicle": "Fahrzeug zuweisen",
+      "endAnyway": "Trotzdem beenden"
     },
     "rekoMissing": {
       "description": "<hl>{location}</hl> wurde in die Reko-Spalte verschoben, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchtest du jetzt jemanden zuweisen oder trotzdem fortfahren?",

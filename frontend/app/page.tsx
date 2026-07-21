@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users, Footprints } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -121,6 +121,7 @@ export default function FireStationDashboard() {
   const tDash = useTranslations('kanban.dashboard')
   const tRes = useTranslations('kanban.resources')
   const tMissing = useTranslations('kanban.missingResources')
+  const tReturning = useTranslations('kanban.returningVehicle')
   const tReko = useTranslations('kanban.rekoMissing')
   const tRekoForm = useTranslations('kanban.rekoFormMissing')
   const tMat = useTranslations('kanban.materialDecision')
@@ -289,11 +290,14 @@ export default function FireStationDashboard() {
   // (Personal, Fahrzeuge or Mittel), hold it here to make the operator
   // acknowledge what's missing before dispatching.
   const [missingResourcesAckOp, setMissingResourcesAckOp] = useState<Operation | null>(null)
-  // When the operator clicks "Zuweisen" from the missing-resources gate, we open the
-  // assignment dialog and remember the incident id here. When that dialog closes, we
-  // open the DisponierTransitionDialog for this incident so the Funk/Divera step isn't
-  // skipped. Only set on the missing-resources path — normal assignments are unaffected.
-  const [disponiertAfterAssignOpId, setDisponiertAfterAssignOpId] = useState<string | null>(null)
+  // Gate before einsatz → beendet/rückfahrt: if no vehicle is assigned the crew would
+  // have to walk back, so make the operator acknowledge (or assign one first).
+  const [returningVehicleAckOp, setReturningVehicleAckOp] = useState<Operation | null>(null)
+  // When the operator picks a category from one of the resource gates, we close the gate,
+  // open the assignment dialog, and remember here where to return once it closes: back to
+  // the checklist ('missing') or the returning warning ('returning'). Only set on the gate
+  // paths — normal per-category assignments are unaffected.
+  const [assignReturnTo, setAssignReturnTo] = useState<{ kind: 'missing' | 'returning'; opId: string } | null>(null)
   // Resource transfer ("Ressourcen übertragen") opened from the card context menu.
   const [transferSourceOp, setTransferSourceOp] = useState<Operation | null>(null)
   const [transferAvailableIncidents, setTransferAvailableIncidents] = useState<Incident[]>([])
@@ -513,6 +517,15 @@ export default function FireStationDashboard() {
     }
   }, [operations, getMissingResources])
 
+  // Gate before einsatz → beendet/rückfahrt: warn if the crew has no vehicle to drive
+  // back (walking back with the gear is what we're trying to avoid). Skipped for zu-Fuss
+  // incidents, where returning on foot is expected.
+  const triggerReturningVehicleCheck = useCallback((operationId: string) => {
+    const op = operations.find(o => o.id === operationId)
+    if (!op) return
+    if (!op.zuFuss && op.vehicles.length === 0) setReturningVehicleAckOp(op)
+  }, [operations])
+
   // When a card enters REKO without a reko person assigned, prompt the operator
   // to assign one (mirrors the missing-resources gate before disponieren).
   const triggerRekoCheck = useCallback((operationId: string) => {
@@ -545,6 +558,9 @@ export default function FireStationDashboard() {
     const operation = operations.find(op => op.id === operationId)
     if (!operation || operation.status === "complete") return
     updateOperation(operationId, { status: "complete" })
+    // Completing from the Reko-Meldung "Einsatz abschliessen" button should also
+    // dismiss the detail modal — the incident just moved to ABGESCHLOSSEN.
+    setDetailModalOpen(false)
     promptMaterialDecision(operationId)
   }, [operations, updateOperation, promptMaterialDecision])
 
@@ -609,9 +625,10 @@ export default function FireStationDashboard() {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
       if (newStatus === "ready") triggerRekoCheck(operationId)
       if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
+      if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
       if (newStatus === "complete") promptMaterialDecision(operationId)
     }
-  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, promptMaterialDecision])
+  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck, promptMaterialDecision])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -916,6 +933,7 @@ export default function FireStationDashboard() {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
       if (newStatus === "ready") triggerRekoCheck(operationId)
       if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
+      if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
       // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
       // (which keeps materials). Just prompt the material decision here.
       if (newStatus === "complete") promptMaterialDecision(operationId)
@@ -1230,6 +1248,15 @@ export default function FireStationDashboard() {
     setAssignmentDialogOpen(true)
   }
 
+  // Open the assignment dialog for one category from a resource gate, remembering to
+  // return to that gate ('missing' checklist / 'returning' warning) once it closes.
+  const openGateAssign = (category: 'crew' | 'vehicles' | 'materials', opId: string, kind: 'missing' | 'returning') => {
+    setMissingResourcesAckOp(null)
+    setReturningVehicleAckOp(null)
+    setAssignReturnTo({ kind, opId })
+    handleOpenAssignmentDialog(category, opId)
+  }
+
   // Handle Reko assignment dialog (from context menu)
   const handleOpenRekoAssignDialog = (operationId: string) => {
     setRekoAssignOperationId(operationId)
@@ -1522,7 +1549,7 @@ export default function FireStationDashboard() {
                   <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.keys(groupedPersonnel).map((role) => (
                       <div key={role}>
-                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{role}</h3>
+                        <h3 className="mb-2 text-xs font-semibold text-muted-foreground tracking-wide">{role}</h3>
                         <div className="space-y-2">
                           {groupedPersonnel[role as PersonRole]?.map((person) => (
                             <DraggablePerson
@@ -1690,7 +1717,7 @@ export default function FireStationDashboard() {
                       }
                       return (
                         <div key={category}>
-                          <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</h3>
+                          <h3 className="mb-2 text-xs font-semibold text-muted-foreground tracking-wide">{category}</h3>
                           <div className="space-y-2">
                             {/* Material groups/blocks */}
                             {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
@@ -2027,14 +2054,21 @@ export default function FireStationDashboard() {
         open={assignmentDialogOpen}
         onOpenChange={(open) => {
           setAssignmentDialogOpen(open)
-          // If this assignment dialog was opened from the missing-resources
-          // "Zuweisen" path, open the disponiert info modal on close so the
-          // Funk/Divera step still happens.
-          if (!open && disponiertAfterAssignOpId) {
-            const opId = disponiertAfterAssignOpId
-            setDisponiertAfterAssignOpId(null)
-            const op = operations.find(o => o.id === opId)
-            if (op) setDisponiertDialogOp(op)
+          // If this dialog was opened from a resource gate, return to that gate on close
+          // so the operator sees the updated state (checklist) or a resolved warning.
+          if (!open && assignReturnTo) {
+            const { kind, opId } = assignReturnTo
+            setAssignReturnTo(null)
+            const fresh = operations.find(o => o.id === opId)
+            if (!fresh) return
+            if (kind === 'missing') {
+              // Reopen the checklist so remaining gaps stay visible and the operator
+              // can finish assigning (or dispatch anyway) from the same overview.
+              setMissingResourcesAckOp(fresh)
+            } else {
+              // Returning warning: only re-show it if a vehicle is still missing.
+              if (!fresh.zuFuss && fresh.vehicles.length === 0) setReturningVehicleAckOp(fresh)
+            }
           }
         }}
         resourceType={assignmentResourceType}
@@ -2489,7 +2523,8 @@ export default function FireStationDashboard() {
         isPrinting={isPrintingBoard}
       />
 
-      {/* Missing-resources acknowledgment — gate before disponieren */}
+      {/* Missing-resources checklist — gate before disponieren. Each still-missing
+          category can be assigned inline; the operator returns here after each. */}
       <AlertDialog
         open={!!missingResourcesAckOp}
         onOpenChange={(open) => !open && setMissingResourcesAckOp(null)}
@@ -2501,14 +2536,48 @@ export default function FireStationDashboard() {
               {tMissing('title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {missingResourcesAckOp && tMissing.rich('description', {
+              {missingResourcesAckOp && tMissing.rich('checklistIntro', {
                 location: missingResourcesAckOp.location,
-                count: getMissingResources(missingResourcesAckOp).length,
-                list: getMissingResources(missingResourcesAckOp).map((r) => tRes(r)).join(", "),
                 hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {missingResourcesAckOp && (() => {
+            const op = missingResourcesAckOp
+            const rows = [
+              { key: 'crew' as const, icon: Users, filled: op.crew.length > 0, summary: tMissing('personalSummary', { count: op.crew.length }) },
+              { key: 'vehicles' as const, icon: Truck, filled: op.zuFuss || op.vehicles.length > 0, summary: op.zuFuss ? tCommon('zuFuss') : op.vehicles.join(', ') },
+              { key: 'materials' as const, icon: Package, filled: op.materials.length > 0, summary: tMissing('mittelSummary', { count: op.materials.length }) },
+            ]
+            return (
+              <div className="space-y-1.5 py-1">
+                {rows.map(({ key, icon: Icon, filled, summary }) => (
+                  <div key={key} className="flex items-center gap-3 rounded-md border px-3 py-2">
+                    {filled
+                      ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
+                      : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning" />}
+                    <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium">{tRes(key)}</div>
+                      {filled && summary && <div className="truncate text-xs text-muted-foreground">{summary}</div>}
+                    </div>
+                    {!filled && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 flex-shrink-0 px-2 text-xs"
+                        onClick={() => openGateAssign(key, op.id, 'missing')}
+                      >
+                        {tCommon('assign')}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
           <AlertDialogFooter className="sm:justify-between">
             <Button
               variant="ghost"
@@ -2520,22 +2589,47 @@ export default function FireStationDashboard() {
               {tMissing('dispatchAnyway')}
             </Button>
             <Button
+              disabled={!missingResourcesAckOp || getMissingResources(missingResourcesAckOp).length > 0}
               onClick={() => {
-                const op = missingResourcesAckOp
+                setDisponiertDialogOp(missingResourcesAckOp)
                 setMissingResourcesAckOp(null)
-                if (!op) return
-                // Open the assignment dialog on the first still-missing category so
-                // the operator can fill the gap instead of just acknowledging it.
-                const firstMissing = getMissingResources(op)[0]
-                if (firstMissing) {
-                  // Remember to open the disponiert info modal once assigning is done,
-                  // so the Funk/WhatsApp/Print/Divera step is never skipped.
-                  setDisponiertAfterAssignOpId(op.id)
-                  handleOpenAssignmentDialog(firstMissing, op.id)
-                }
               }}
             >
-              {tCommon('assign')}
+              {tMissing('done')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* No-vehicle warning — gate before einsatz → beendet/rückfahrt */}
+      <AlertDialog
+        open={!!returningVehicleAckOp}
+        onOpenChange={(open) => !open && setReturningVehicleAckOp(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Footprints className="h-5 w-5 text-warning" />
+              {tReturning('title')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {returningVehicleAckOp && tReturning.rich('description', {
+                location: returningVehicleAckOp.location,
+                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-between">
+            <Button variant="ghost" onClick={() => setReturningVehicleAckOp(null)}>
+              {tReturning('endAnyway')}
+            </Button>
+            <Button
+              onClick={() => {
+                const op = returningVehicleAckOp
+                if (op) openGateAssign('vehicles', op.id, 'returning')
+              }}
+            >
+              {tReturning('assignVehicle')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

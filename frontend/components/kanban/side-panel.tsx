@@ -12,8 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
-import { cn } from "@/lib/utils"
-import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Users, Truck, Package, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2 } from "lucide-react"
+import { cn, sanitizePhoneInput } from "@/lib/utils"
+import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Users, Truck, Package, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Phone } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type Operation, type Material, useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -411,6 +411,31 @@ function SidePanelDetail({
         />
       </div>
 
+      {/* Contact phone - Editable */}
+      <div>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="panel-contact-phone" className="text-xs font-semibold text-muted-foreground">{t('common.contactPhone')}</Label>
+          {operation.contactPhone.trim() && (
+            <a
+              href={`tel:${operation.contactPhone.replace(/\s+/g, '')}`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              <Phone className="h-3 w-3" />
+              {t('common.callContact')}
+            </a>
+          )}
+        </div>
+        <Input
+          id="panel-contact-phone"
+          type="tel"
+          inputMode="tel"
+          placeholder={t('common.contactPhonePlaceholder')}
+          value={operation.contactPhone}
+          onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
+          className="mt-1 h-9 text-sm"
+        />
+      </div>
+
       {/* Internal Notes - Editable */}
       <div>
         <Label htmlFor="panel-internal" className="text-xs font-semibold text-muted-foreground">{t('common.notes')}</Label>
@@ -489,7 +514,7 @@ function SidePanelDetail({
 
       {/* Resource Assignment Section */}
       <div className="space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('common.assignedResources')}</p>
+        <p className="text-xs font-semibold text-muted-foreground tracking-wide">{t('common.assignedResources')}</p>
 
         {/* Reko Personnel - separate from Mannschaft */}
         <div className="space-y-2">
