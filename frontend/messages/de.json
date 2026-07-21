@@ -394,9 +394,14 @@
       "assignReko": "Reko-Person zuweisen"
     },
     "materialDecision": {
-      "title": "Material vor Ort gelassen?",
-      "description": "<hl>{location}</hl> wurde abgeschlossen und hat noch <hl>{count}</hl> Mittel zugewiesen. Wurde das Material vor Ort gelassen oder kommt es zurück ins Magazin?",
-      "returnMaterial": "Material zurück",
+      "title": "Material vor Ort oder ins Magazin?",
+      "description": "<hl>{location}</hl> wurde abgeschlossen. Entscheide pro Mittel, ob es vor Ort blieb oder zurück ins Magazin kommt.",
+      "toMagazinShort": "Magazin",
+      "onSiteShort": "Vor Ort",
+      "toastToMagazin": "Ins Magazin zurück",
+      "toastOnSite": "Vor Ort gelassen",
+      "confirm": "Bestätigen",
+      "cancel": "Abbrechen",
       "leftOnSite": "Vor Ort gelassen"
     },
     "disponiert": {
