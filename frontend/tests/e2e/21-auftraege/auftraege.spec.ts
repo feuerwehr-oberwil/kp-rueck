@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '../../fixtures/auth.fixture';
+import { test, expect } from '../../fixtures/auth.fixture';
+import type { Page } from '@playwright/test';
 
 /**
  * Aufträge (multi-stop routing) E2E coverage.
@@ -107,7 +108,7 @@ async function resourceIds(
 async function selectEventInUI(page: Page, eventId: string): Promise<void> {
   await page.goto('/');
   await page.evaluate(
-    ([key, id]) => window.localStorage.setItem(key, id),
+    ([key, id]: readonly [string, string]) => window.localStorage.setItem(key, id),
     [SELECTED_EVENT_KEY, eventId] as const,
   );
   await page.reload();

@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft } from 'lucide-react'
+import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -57,6 +57,8 @@ interface DraggableOperationProps {
   onRequestComplete?: () => void
   /** Editor-only: open the "Ressourcen übertragen" dialog for this incident. */
   onTransfer?: () => void
+  /** Editor-only: open the Auftrag picker to distribute this incident into a route. */
+  onDistributeToAuftrag?: () => void
   showMeldung?: boolean
   printerEnabled?: boolean
   /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
@@ -112,6 +114,7 @@ function DraggableOperationBase({
   onToggleZuFuss,
   onRequestComplete,
   onTransfer,
+  onDistributeToAuftrag,
   showMeldung,
   printerEnabled,
   doubleBookedCrewNames,
@@ -666,7 +669,7 @@ function DraggableOperationBase({
         </ContextMenuItem>
 
         {/* Zuweisen — reko, crew, vehicle, material, and resource transfer */}
-        {(onAssignReko || onAssignResource || onTransfer) && (
+        {(onAssignReko || onAssignResource || onTransfer || onDistributeToAuftrag) && (
           <>
             <ContextMenuSeparator />
             {onAssignReko && (
@@ -695,6 +698,12 @@ function DraggableOperationBase({
               <ContextMenuItem onClick={() => onTransfer()}>
                 <ArrowRightLeft className="mr-2 h-4 w-4" />
                 {t('common.transferResources')}
+              </ContextMenuItem>
+            )}
+            {onDistributeToAuftrag && (
+              <ContextMenuItem onClick={() => onDistributeToAuftrag()}>
+                <Waypoints className="mr-2 h-4 w-4" />
+                {t('common.distributeToAuftrag')}
               </ContextMenuItem>
             )}
           </>

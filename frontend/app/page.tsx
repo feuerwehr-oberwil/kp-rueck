@@ -24,7 +24,9 @@ import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
 import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, type GroupResourceType } from "@/lib/api-client"
+import { IncidentPickerDialog } from "@/components/kanban/incident-picker-dialog"
+import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { QRCodeSVG } from 'qrcode.react'
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 import { useNotifications } from "@/lib/contexts/notification-context"
@@ -98,7 +100,7 @@ export default function FireStationDashboard() {
     isLoading,
     isLoaded
   } = useOperations()
-  const { groups, addStops: addStopsToGroup, copySquad: copyGroupSquad } = useGroups()
+  const { groups, addStops: addStopsToGroup, copySquad: copyGroupSquad, createGroup } = useGroups()
 
   // Keep the top progress bar visible for the whole pre-ready window — auth
   // check, event resolution and the first data load — so there's never a blank
@@ -247,6 +249,13 @@ export default function FireStationDashboard() {
   // Routen-Editor modal: the Auftrag being edited + an optional stop to centre on.
   const [routenEditorGroupId, setRoutenEditorGroupId] = useState<string | null>(null)
   const [routenEditorFocusIncidentId, setRoutenEditorFocusIncidentId] = useState<string | null>(null)
+  // "+ Stop" incident picker: the route existing incidents are added to as stops.
+  const [stopPickerGroupId, setStopPickerGroupId] = useState<string | null>(null)
+  // "An Auftrag verteilen" picker: the incident being distributed into a route.
+  const [auftragPickerIncidentId, setAuftragPickerIncidentId] = useState<string | null>(null)
+  // Route-level resource assign: after the assignment dialog closes (having
+  // assigned to the first stop), fan the choice out to the rest via copySquad.
+  const [routeAssignFanOut, setRouteAssignFanOut] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -987,6 +996,22 @@ export default function FireStationDashboard() {
     return () => window.removeEventListener('kp:open-auftraege', handler)
   }, [])
 
+  // Lock the board scroll while a non-modal footer slide-up sheet is open. These
+  // desktop sheets don't dim/trap the screen, so the board would otherwise scroll
+  // behind them (odd UI churn). We only touch the board container's overflow (not
+  // document.body) so we never fight Radix's own scroll-lock on modal sheets.
+  // Mobile sheets are modal and full-screen, so this is desktop-only + reversible.
+  useEffect(() => {
+    if (isMobile || !activeFooterSheet) return
+    const main = document.getElementById('kanban-main')
+    if (!main) return
+    const prev = main.style.overflow
+    main.style.overflow = 'hidden'
+    return () => {
+      main.style.overflow = prev
+    }
+  }, [activeFooterSheet, isMobile])
+
   // Use shared resource filtering hook — sidebar search takes priority, top search also filters
   const effectivePersonnelQuery = personnelSearchQuery || searchQuery
   const effectiveMaterialQuery = materialSearchQuery || searchQuery
@@ -1303,6 +1328,41 @@ export default function FireStationDashboard() {
     setReturningVehicleAckOpId(null)
     setAssignReturnTo({ kind, opId })
     handleOpenAssignmentDialog(category, opId)
+  }
+
+  // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
+  // an incident already in another route MOVES it (addStops reassigns group_id).
+  const handleConfirmAddStops = async (incidentIds: string[]) => {
+    if (!stopPickerGroupId || incidentIds.length === 0) return
+    const ok = await addStopsToGroup(stopPickerGroupId, incidentIds)
+    if (ok) toast.success(tDash('stopsAddedToast', { count: incidentIds.length }))
+  }
+
+  // "An Auftrag verteilen" — open the route picker for a single incident.
+  const handleDistributeToAuftrag = (operationId: string) => {
+    setAuftragPickerIncidentId(operationId)
+  }
+
+  const handleChooseAuftrag = async (groupId: string) => {
+    if (!auftragPickerIncidentId) return
+    const ok = await addStopsToGroup(groupId, [auftragPickerIncidentId])
+    if (ok) {
+      const group = groups.find((g) => g.id === groupId)
+      toast.success(tDash('distributedToast', { name: group?.name ?? '' }))
+    }
+  }
+
+  // Route-level resource assign: open the standard dialog on the first stop, then
+  // fan the choice out to every other stop of the route once the dialog closes.
+  const handleAssignRouteResource = (resourceType: 'crew' | 'vehicles' | 'materials', groupId: string) => {
+    const group = groups.find((g) => g.id === groupId)
+    const firstStopId = group?.stopIds[0]
+    if (!group || !firstStopId) {
+      toast.error(tDash('routeNoStops'))
+      return
+    }
+    setRouteAssignFanOut({ groupId, resourceType })
+    handleOpenAssignmentDialog(resourceType, firstStopId)
   }
 
   // Handle Reko assignment dialog (from context menu)
@@ -1664,6 +1724,7 @@ export default function FireStationDashboard() {
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
                       onTransfer={isEditor ? handleOpenTransfer : undefined}
+                      onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
                       showMeldung={showMeldung}
                       printerEnabled={printerEnabled}
                       doubleBookedCrewNames={doubleBookedPersons.names}
@@ -2103,6 +2164,7 @@ export default function FireStationDashboard() {
         diveraEnabled={diveraEnabled}
         onSendDivera={(op) => setDiveraDialogOp(op)}
         onRequestComplete={isEditor ? requestCompletion : undefined}
+        onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
       />
 
       <NewEmergencyModal
@@ -2131,6 +2193,21 @@ export default function FireStationDashboard() {
             // returning warning self-dismisses once a vehicle is present.
             if (kind === 'missing') setMissingResourcesAckOpId(opId)
             else setReturningVehicleAckOpId(opId)
+          }
+          // Route-level assign: the first stop just got the resource(s); fan the same
+          // choice out to every other stop of the route via copySquad.
+          if (!open && routeAssignFanOut) {
+            const { groupId, resourceType } = routeAssignFanOut
+            setRouteAssignFanOut(null)
+            const group = groups.find((g) => g.id === groupId)
+            const firstStopId = group?.stopIds[0]
+            if (group && firstStopId && group.stopIds.length > 1) {
+              const grt: GroupResourceType =
+                resourceType === 'crew' ? 'personnel' : resourceType === 'vehicles' ? 'vehicle' : 'material'
+              copyGroupSquad(groupId, firstStopId, [grt]).then((result) => {
+                if (result) toast.success(tDash('routeResourceToast', { copied: result.copied, skipped: result.skipped }))
+              })
+            }
           }
         }}
         resourceType={assignmentResourceType}
@@ -2553,11 +2630,8 @@ export default function FireStationDashboard() {
         open={auftraegeSheetOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'auftraege' && setActiveFooterSheet(null)}
         focusGroupId={auftraegeFocusGroupId}
-        onAddStop={(groupId) => {
-          setNewEmergencyGroupId(groupId)
-          setNewEmergencyModalOpen(true)
-        }}
-        onAssignResource={handleOpenAssignmentDialog}
+        onAddStop={(groupId) => setStopPickerGroupId(groupId)}
+        onAssignRouteResource={handleAssignRouteResource}
         onOpenDetail={handleOpenIncidentFromNotification}
         onOpenRoutenEditor={(groupId, focusIncidentId) => {
           setRoutenEditorGroupId(groupId)
@@ -2576,6 +2650,34 @@ export default function FireStationDashboard() {
         }}
         groupId={routenEditorGroupId}
         focusIncidentId={routenEditorFocusIncidentId}
+      />
+
+      {/* "+ Stop" — pick existing incidents to add as stops to a route */}
+      <IncidentPickerDialog
+        open={stopPickerGroupId !== null}
+        onOpenChange={(open) => !open && setStopPickerGroupId(null)}
+        operations={operations}
+        groups={groups}
+        targetGroupId={stopPickerGroupId}
+        onConfirm={handleConfirmAddStops}
+        onCreateNew={() => {
+          setNewEmergencyGroupId(stopPickerGroupId)
+          setNewEmergencyModalOpen(true)
+        }}
+      />
+
+      {/* "An Auftrag verteilen" — distribute one incident into a route */}
+      <AuftragPickerDialog
+        open={auftragPickerIncidentId !== null}
+        onOpenChange={(open) => !open && setAuftragPickerIncidentId(null)}
+        groups={groups}
+        currentGroupId={
+          auftragPickerIncidentId
+            ? operations.find((op) => op.id === auftragPickerIncidentId)?.groupId ?? null
+            : null
+        }
+        onChoose={handleChooseAuftrag}
+        onCreate={(name) => createGroup({ name })}
       />
 
       {/* Delete Operation Confirmation Dialog */}
