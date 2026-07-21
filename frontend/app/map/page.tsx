@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Ruler, Loader2, Palette, Check } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Ruler, Loader2, Palette, Check, Waypoints, Milestone } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
 import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
@@ -64,7 +67,8 @@ export default function MapPage() {
     deleteOperation
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isEditor } = useAuth()
+  const { groups, createGroup, addStops } = useGroups()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -91,6 +95,19 @@ export default function MapPage() {
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [showDistances, setShowDistances] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
+  // Aufträge route display (all viewers) + editor-only Routenplanung mode.
+  const [showGroupRoutes, setShowGroupRoutes] = useState(false)
+  const [planningActive, setPlanningActive] = useState(false)
+  const [planningGroupId, setPlanningGroupId] = useState<string | null>(null)
+  const [planningAddMode, setPlanningAddMode] = useState(false)
+  const [planningFocusStopId, setPlanningFocusStopId] = useState<string | null>(null)
+  // Shared routing hook — active only while planning a selected group.
+  const planning = useRoutePlanning(planningActive ? planningGroupId : null)
+  // id → Operation lookup for the GroupRoutes overlay (stops are real incidents).
+  const operationsById = useMemo(
+    () => new Map(operations.map((op) => [op.id, op] as const)),
+    [operations],
+  )
   // Marker coloring ("Färben nach") — defaults to priority (the original styling).
   const [colorBy, setColorBy] = useState<ColorByDimension>('priority')
   useEffect(() => {
@@ -124,6 +141,19 @@ export default function MapPage() {
   })
 
   const handleIncidentClick = (incidentId: string) => {
+    // In Routenplanung mode with a selected route, clicking an incident marker
+    // adds that incident to the route instead of selecting it on the map.
+    if (planningActive && planningGroupId) {
+      const group = groups.find((g) => g.id === planningGroupId)
+      if (group?.stopIds.includes(incidentId)) {
+        toast.info(t('planning.stopAlreadyOnRoute'))
+      } else {
+        void addStops(planningGroupId, [incidentId]).then((ok) => {
+          if (ok) toast.success(t('planning.stopAdded'))
+        })
+      }
+      return
+    }
     if (incidentId === selectedIncidentId) {
       // Re-clicking same incident - trigger pan
       setPanTrigger(prev => prev + 1)
@@ -132,6 +162,28 @@ export default function MapPage() {
       setSelectedIncidentId(incidentId)
       broadcast("incident:selected", incidentId)
     }
+  }
+
+  // Enter/exit Routenplanung; entering forces the route overlay on.
+  const enterPlanning = () => {
+    setPlanningActive(true)
+    setPlanningGroupId((prev) => prev ?? groups[0]?.id ?? null)
+  }
+  const exitPlanning = () => {
+    setPlanningActive(false)
+    setPlanningAddMode(false)
+    setPlanningFocusStopId(null)
+  }
+
+  // Create a new Auftrag from the panel and select it for planning.
+  const handleCreatePlanningGroup = async (name: string, color: string) => {
+    const created = await createGroup({ name, color })
+    if (created) setPlanningGroupId(created.id)
+  }
+
+  // Empty-map click while "Stop hinzufügen" is active → append a geocoded stop.
+  const handleMapAddStop = (lat: number, lng: number) => {
+    void planning.addStopAtLatLng(lat, lng)
   }
 
   const handleDetailsClick = (incident: Incident) => {
@@ -468,6 +520,15 @@ export default function MapPage() {
               markerAccents={markerAccents}
               colorBy={colorBy}
               colorGroups={colorLegend}
+              showGroupRoutes={showGroupRoutes || planningActive}
+              groups={groups}
+              operationsById={operationsById}
+              focusGroupId={planningActive ? planningGroupId : null}
+              highlightGroupStopId={planningActive ? planningFocusStopId : null}
+              onGroupStopMarkerClick={planningActive ? setPlanningFocusStopId : undefined}
+              onMapClick={
+                planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
+              }
             />
           </main>
 
@@ -480,7 +541,22 @@ export default function MapPage() {
             {/* On mobile the fixed bottom navbar overlays the page, so pad the
                 scrollable list past it (nav height + safe-area) — otherwise the
                 last incidents sit behind the bar and can't be scrolled into view. */}
-            <div className={`p-4 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''}`}>
+            <div className={`p-4 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''} ${planningActive ? 'h-full' : ''}`}>
+              {planningActive ? (
+                <RoutenplanungPanel
+                  groups={groups}
+                  groupId={planningGroupId}
+                  onGroupIdChange={setPlanningGroupId}
+                  onCreateGroup={handleCreatePlanningGroup}
+                  addMode={planningAddMode}
+                  onAddModeChange={setPlanningAddMode}
+                  focusStopId={planningFocusStopId}
+                  onFocusStopChange={setPlanningFocusStopId}
+                  planning={planning}
+                  onExit={exitPlanning}
+                />
+              ) : (
+              <>
               <h2 className="text-lg font-bold mb-3">
                 {t('page.incidentsHeading', { count: activeIncidents.length })}
               </h2>
@@ -583,6 +659,32 @@ export default function MapPage() {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {/* Aufträge (route) display — available to all viewers */}
+                <button
+                  onClick={() => setShowGroupRoutes(!showGroupRoutes)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
+                    showGroupRoutes
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                  title={showGroupRoutes ? t('page.groupRoutesHide') : t('page.groupRoutesShow')}
+                >
+                  <Waypoints className="h-3 w-3" />
+                  {t('page.groupRoutes')}
+                </button>
+
+                {/* Routenplanung — editor-only route building on the big map */}
+                {isEditor && (
+                  <button
+                    onClick={enterPlanning}
+                    className="px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                    title={t('page.routePlanning')}
+                  >
+                    <Milestone className="h-3 w-3" />
+                    {t('page.routePlanning')}
+                  </button>
+                )}
               </div>
 
               {/* Search bar */}
@@ -749,6 +851,8 @@ export default function MapPage() {
                   })
                 )}
               </div>
+              </>
+              )}
             </div>
           </aside>
         </div>

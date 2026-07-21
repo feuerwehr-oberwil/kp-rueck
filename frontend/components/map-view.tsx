@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react"
-import { MapContainer, TileLayer, Marker, useMap, Tooltip } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Tooltip } from "react-leaflet"
 import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
-import { useIncidents } from "@/lib/contexts/operations-context"
+import { useIncidents, type Operation } from "@/lib/contexts/operations-context"
 import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incidents"
+import type { IncidentGroup } from "@/lib/types/groups"
+import { GroupRoutes } from "./map/group-routes"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
@@ -275,6 +277,16 @@ function createMagazinIcon(): L.DivIcon {
   })
 }
 
+// Routenplanung: forward empty-map clicks to the caller (add-stop mode). Only
+// mounted while planning + "Stop hinzufügen" is active; marker clicks don't
+// reach here (Leaflet stops their propagation to the map).
+function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (e) => onClick(e.latlng.lat, e.latlng.lng),
+  })
+  return null
+}
+
 // Component that tracks zoom level for conditional label rendering
 function ZoomWatcher({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
   const map = useMap()
@@ -519,6 +531,14 @@ interface MapViewProps {
   markerAccents?: Map<string, string> // incidentId -> fill colour ("Färben nach")
   colorBy?: ColorByDimension // active "Färben nach" dimension (for the legend)
   colorGroups?: ColorGroup[] // legend entries for the active dimension
+  // Aufträge (incident group) routes — read-only polyline display + Routenplanung.
+  showGroupRoutes?: boolean // draw the numbered route polylines (off by default)
+  groups?: IncidentGroup[] // Aufträge to draw
+  operationsById?: Map<string, Operation> // stop lookup (stops are real incidents)
+  focusGroupId?: string | null // emphasize one route, dim the rest (planning)
+  highlightGroupStopId?: string | null // highlight one stop marker (focused stop)
+  onGroupStopMarkerClick?: (incidentId: string) => void // click a numbered stop marker
+  onMapClick?: (lat: number, lng: number) => void // empty-map click (add-stop mode)
   // Token/read-only display: feed data directly instead of auth-only contexts
   // and API fetches. When incidentsOverride is set, the map runs in token mode
   // (no getVehicles/getVehiclePositions/getAllSettings/WS).
@@ -542,6 +562,13 @@ export default function MapView({
   markerAccents,
   colorBy = "priority",
   colorGroups = [],
+  showGroupRoutes = false,
+  groups,
+  operationsById,
+  focusGroupId = null,
+  highlightGroupStopId = null,
+  onGroupStopMarkerClick,
+  onMapClick,
   incidentsOverride,
   vehiclesOverride,
   positionsOverride,
@@ -960,6 +987,20 @@ export default function MapView({
           visible={showAssignmentLines}
           showDistances={showDistances}
         />
+
+        {/* Auftrag (incident group) route polylines + numbered stop markers */}
+        {showGroupRoutes && groups && operationsById && (
+          <GroupRoutes
+            groups={groups}
+            operationsById={operationsById}
+            focusGroupId={focusGroupId}
+            onMarkerClick={onGroupStopMarkerClick}
+            highlightIncidentId={highlightGroupStopId}
+          />
+        )}
+
+        {/* Routenplanung: empty-map click adds a stop (only when a handler is set) */}
+        {onMapClick && <MapClickHandler onClick={onMapClick} />}
 
         {/* Vehicle breadcrumb trails */}
         <VehicleTrails enabled={traccarConfigured} />
