@@ -29,6 +29,8 @@ interface NewEmergencyModalProps {
   onOpenChange: (open: boolean) => void
   onCreateOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   nextOperationId: string
+  /** When set, the created incident is attached to this Auftrag (streamlined "+ Stop"). */
+  defaultGroupId?: string | null
 }
 
 export function NewEmergencyModal({
@@ -36,6 +38,7 @@ export function NewEmergencyModal({
   onOpenChange,
   onCreateOperation,
   nextOperationId,
+  defaultGroupId = null,
 }: NewEmergencyModalProps) {
   const t = useTranslations('kanban')
   const [formData, setFormData] = useState({
@@ -74,6 +77,14 @@ export function NewEmergencyModal({
   // Form validation state
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [showValidationErrors, setShowValidationErrors] = useState(false)
+
+  // When opened as an Auftrag "+ Stop", stamp the preset group so the created
+  // incident is attached at creation. Cleared again by the reset on submit/close.
+  useEffect(() => {
+    if (open) {
+      setFormData((prev) => ({ ...prev, groupId: defaultGroupId }))
+    }
+  }, [open, defaultGroupId])
 
   // Validation rules
   const isLocationValid = formData.location.trim().length > 0

@@ -1340,6 +1340,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           contact: operation.contact || null,
           contact_phone: operation.contactPhone || null,
           internal_notes: operation.internalNotes || null,
+          // Attach to an Auftrag at creation when the caller preset a group
+          // (streamlined "+ Stop" flow) — backend stamps group_position.
+          group_id: operation.groupId ?? null,
         }
 
         const apiIncident = await apiClient.createIncident(incidentData)

@@ -97,6 +97,8 @@ export interface ApiIncidentCreate {
   internal_notes?: string | null
   nachbarhilfe?: boolean
   nachbarhilfe_note?: string | null
+  /** Attach the new incident to an Auftrag (incident group) on creation. */
+  group_id?: string | null
 }
 
 export interface ApiIncidentUpdate {

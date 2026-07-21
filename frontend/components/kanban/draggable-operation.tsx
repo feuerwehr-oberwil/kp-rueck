@@ -19,6 +19,7 @@ import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/prag
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { getTimeSince, ageChipClass } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
@@ -126,6 +127,13 @@ function DraggableOperationBase({
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const { materialGroups } = useMaterials()
+  const { groups } = useGroups()
+
+  // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
+  // the page via a window event (mirrors the driver-assignment-changed pattern),
+  // avoiding prop threading through the column/side-panel render trees.
+  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const auftragSeq = auftrag ? auftrag.stopIds.indexOf(operation.id) + 1 : 0
 
   // Handle thermal print
   const handlePrint = async () => {
@@ -335,6 +343,26 @@ function DraggableOperationBase({
             <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
+
+          {/* Auftrag (route) membership chip */}
+          {auftrag && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted transition-colors max-w-full"
+              title={t('card.auftragChipTooltip', { name: auftrag.name })}
+            >
+              <span
+                className="h-2 w-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
+              />
+              <span className="truncate">{auftrag.name}</span>
+              <span className="tabular-nums flex-shrink-0">· {auftragSeq}/{auftrag.stopIds.length}</span>
+            </button>
+          )}
 
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -754,6 +782,8 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.amWarten === nextProps.operation.amWarten &&
     prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
     prevProps.operation.source === nextProps.operation.source &&
+    prevProps.operation.groupId === nextProps.operation.groupId &&
+    prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
     prevProps.operation.crew.every((c, i) => c === nextProps.operation.crew[i]) &&
     prevProps.operation.materials.length === nextProps.operation.materials.length &&

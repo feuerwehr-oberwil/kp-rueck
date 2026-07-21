@@ -372,7 +372,8 @@
       },
       "alarmSheetTitle": "Alarm-Link",
       "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z. B. Telefon / Walk-in)",
-      "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung."
+      "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.",
+      "auftraege": "Aufträge"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -444,7 +445,8 @@
       "markAmWarten": "Als Am Warten markieren",
       "completeIncident": "Einsatz abschliessen",
       "showOnMapMenu": "Auf Karte zeigen",
-      "printing": "Drucke..."
+      "printing": "Drucke...",
+      "auftragChipTooltip": "Auftrag: {name}"
     },
     "column": {
       "ariaLabelWithCount": "{title} column ({count} Einsätze)",
@@ -575,6 +577,51 @@
       "description": "<hl>{location}</hl> wird als «Reko abgeschlossen» markiert, es wurde aber noch kein Reko-Formular ausgefüllt. Möchtest du die Reko-Details öffnen oder trotzdem abschliessen?",
       "proceedAnyway": "Trotzdem abschliessen",
       "openReko": "Reko-Details öffnen"
+    },
+    "auftraege": {
+      "title": "Aufträge",
+      "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Squad übergeben.",
+      "newAuftrag": "Neuer Auftrag",
+      "defaultName": "Auftrag {n}",
+      "namePlaceholder": "Auftragsname",
+      "create": "Erstellen",
+      "cancel": "Abbrechen",
+      "empty": "Noch keine Aufträge. Erstelle einen, um Einsätze zu einer Route zu bündeln.",
+      "noStops": "Noch keine Stops. Zieh Karten hierher oder füge einen Stop hinzu.",
+      "noSquad": "kein Squad",
+      "noVehicle": "kein Fahrzeug",
+      "pendeldienst": "Pendeldienst",
+      "persLabel": "{count} Pers",
+      "progress": "{done}/{total} erledigt",
+      "modeSquad": "Squad",
+      "modeVehicleOnly": "Nur Fahrzeug",
+      "toggle": "Auftrag auf-/zuklappen",
+      "rename": "Umbenennen",
+      "delete": "Auftrag löschen",
+      "addStop": "Stop",
+      "routenEditor": "Routen-Editor",
+      "assignSquad": "Squad zuweisen",
+      "assignVehicle": "Fahrzeug",
+      "assignCrew": "Personen",
+      "assignMaterial": "Material",
+      "copyToAll": "Auf alle übernehmen",
+      "copyPickerTitle": "Was übernehmen?",
+      "resource_vehicle": "Fahrzeug",
+      "resource_personnel": "Personen",
+      "resource_material": "Material",
+      "copyConfirm": "Übernehmen",
+      "copyToast": "Auf {copied} Stops übernommen · {skipped} bereits zugewiesen",
+      "deleteTitle": "Auftrag löschen?",
+      "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur die Route wird entfernt.",
+      "deleteConfirm": "Löschen",
+      "stateDone": "erledigt",
+      "stateActive": "läuft",
+      "stateOpen": "offen",
+      "map": "Karte",
+      "dragStop": "Stop verschieben",
+      "openDetail": "Details öffnen",
+      "markDone": "Als erledigt markieren",
+      "removeStop": "Stop entfernen"
     }
   },
   "incidents": {
