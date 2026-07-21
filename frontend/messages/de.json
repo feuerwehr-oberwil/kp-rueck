@@ -551,6 +551,12 @@
       "refreshing": "Aktualisiere...",
       "refreshed": "Aktualisiert",
       "refreshFailed": "Aktualisierung fehlgeschlagen"
+    },
+    "rekoFormMissing": {
+      "title": "Reko-Formular nicht ausgefüllt",
+      "description": "<hl>{location}</hl> wird als «Reko abgeschlossen» markiert, es wurde aber noch kein Reko-Formular ausgefüllt. Möchtest du die Reko-Details öffnen oder trotzdem abschliessen?",
+      "proceedAnyway": "Trotzdem abschliessen",
+      "openReko": "Reko-Details öffnen"
     }
   },
   "incidents": {

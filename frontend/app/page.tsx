@@ -122,6 +122,7 @@ export default function FireStationDashboard() {
   const tRes = useTranslations('kanban.resources')
   const tMissing = useTranslations('kanban.missingResources')
   const tReko = useTranslations('kanban.rekoMissing')
+  const tRekoForm = useTranslations('kanban.rekoFormMissing')
   const tMat = useTranslations('kanban.materialDecision')
 
   // Ref for highlight timeout cleanup
@@ -300,6 +301,9 @@ export default function FireStationDashboard() {
   // Moving a card into REKO without a reko person assigned holds it here so the
   // operator can assign someone (who then receives the reko form) or proceed anyway.
   const [rekoMissingAckOp, setRekoMissingAckOp] = useState<Operation | null>(null)
+  // Moving a card into REKO ABGESCHLOSSEN without a completed reko form holds it
+  // here so the operator can open the reko details or acknowledge and proceed.
+  const [rekoFormMissingAckOp, setRekoFormMissingAckOp] = useState<Operation | null>(null)
   // When an incident is completed while it still has materials assigned, hold it
   // here so the operator decides: release the materials ("Material zurück") or
   // leave them on site ("Vor Ort gelassen"). Completion itself has already
@@ -516,6 +520,15 @@ export default function FireStationDashboard() {
     if (op && !op.assignedReko) setRekoMissingAckOp(op)
   }, [operations])
 
+  // When a card is moved into REKO ABGESCHLOSSEN without a completed reko form,
+  // inform the operator (mirrors the missing reko-person gate). The happy path —
+  // a submitted form — auto-transitions and sets hasCompletedReko, so this only
+  // fires on a manual move without a filled-out form.
+  const triggerRekoFormCheck = useCallback((operationId: string) => {
+    const op = operations.find(o => o.id === operationId)
+    if (op && !op.hasCompletedReko) setRekoFormMissingAckOp(op)
+  }, [operations])
+
   // After an incident is completed, prompt the operator to decide what to do with
   // any materials that are still assigned (completion keeps them by default). Called
   // from every completion path: drag-to-ABGESCHLOSSEN, move-right, and the card's
@@ -595,9 +608,10 @@ export default function FireStationDashboard() {
       updateOperation(operationId, { status: newStatus })
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
       if (newStatus === "ready") triggerRekoCheck(operationId)
+      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
       if (newStatus === "complete") promptMaterialDecision(operationId)
     }
-  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck, promptMaterialDecision])
+  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, promptMaterialDecision])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -901,6 +915,7 @@ export default function FireStationDashboard() {
     onStatusChange: (operationId, newStatus) => {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId)
       if (newStatus === "ready") triggerRekoCheck(operationId)
+      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
       // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
       // (which keeps materials). Just prompt the material decision here.
       if (newStatus === "complete") promptMaterialDecision(operationId)
@@ -2556,6 +2571,44 @@ export default function FireStationDashboard() {
               }}
             >
               {tReko('assignReko')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reko form not filled — gate when moving a card into REKO ABGESCHLOSSEN */}
+      <AlertDialog
+        open={!!rekoFormMissingAckOp}
+        onOpenChange={(open) => !open && setRekoFormMissingAckOp(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+              {tRekoForm('title')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {rekoFormMissingAckOp && tRekoForm.rich('description', {
+                location: rekoFormMissingAckOp.location,
+                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-between">
+            <Button variant="ghost" onClick={() => setRekoFormMissingAckOp(null)}>
+              {tRekoForm('proceedAnyway')}
+            </Button>
+            <Button
+              onClick={() => {
+                const op = rekoFormMissingAckOp
+                setRekoFormMissingAckOp(null)
+                if (op) {
+                  setSelectedOperationId(op.id)
+                  setDetailModalOpen(true)
+                }
+              }}
+            >
+              {tRekoForm('openReko')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
