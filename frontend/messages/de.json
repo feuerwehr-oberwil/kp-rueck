@@ -622,6 +622,30 @@
       "openDetail": "Details öffnen",
       "markDone": "Als erledigt markieren",
       "removeStop": "Stop entfernen"
+    },
+    "routenEditorModal": {
+      "title": "Routen-Editor",
+      "description": "Stops auf der Karte anordnen: klicken zum Hinzufügen, ziehen zum Umsortieren, optimieren.",
+      "order": "Reihenfolge",
+      "addStopToggle": "Stop hinzufügen",
+      "addStopHint": "Klick auf die Karte platziert einen neuen Stop.",
+      "addingStop": "Stop wird hinzugefügt …",
+      "startFrom": "Start ab:",
+      "startMagazin": "Magazin",
+      "startVehicle": "Fahrzeug-GPS",
+      "startFirst": "Erster Stop",
+      "optimize": "Reihenfolge optimieren",
+      "applyPreview": "Übernehmen",
+      "discardPreview": "Verwerfen",
+      "previewNotice": "Vorgeschlagene Reihenfolge – {count} Stops verschoben.",
+      "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
+      "applied": "Reihenfolge übernommen.",
+      "done": "Fertig",
+      "noStops": "Noch keine Stops in diesem Auftrag.",
+      "mapLoading": "Karte wird geladen …",
+      "dragStop": "Stop verschieben",
+      "noCoords": "Dieser Stop hat keine Koordinaten und liegt nicht auf der Route.",
+      "noCoordsBadge": "kein Ort"
     }
   },
   "incidents": {

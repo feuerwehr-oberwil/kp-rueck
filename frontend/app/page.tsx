@@ -21,6 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
+import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
@@ -243,6 +244,9 @@ export default function FireStationDashboard() {
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
   const [newEmergencyGroupId, setNewEmergencyGroupId] = useState<string | null>(null)
+  // Routen-Editor modal: the Auftrag being edited + an optional stop to centre on.
+  const [routenEditorGroupId, setRoutenEditorGroupId] = useState<string | null>(null)
+  const [routenEditorFocusIncidentId, setRoutenEditorFocusIncidentId] = useState<string | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -2555,8 +2559,23 @@ export default function FireStationDashboard() {
         }}
         onAssignResource={handleOpenAssignmentDialog}
         onOpenDetail={handleOpenIncidentFromNotification}
-        // TODO(routen-editor): open the RoutenEditorModal (next phase). No-op for now.
-        onOpenRoutenEditor={() => {}}
+        onOpenRoutenEditor={(groupId, focusIncidentId) => {
+          setRoutenEditorGroupId(groupId)
+          setRoutenEditorFocusIncidentId(focusIncidentId ?? null)
+        }}
+      />
+
+      {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
+      <RoutenEditorModal
+        open={routenEditorGroupId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRoutenEditorGroupId(null)
+            setRoutenEditorFocusIncidentId(null)
+          }
+        }}
+        groupId={routenEditorGroupId}
+        focusIncidentId={routenEditorFocusIncidentId}
       />
 
       {/* Delete Operation Confirmation Dialog */}
