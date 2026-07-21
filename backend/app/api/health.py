@@ -214,7 +214,9 @@ async def create_demo_sandbox(
 
     from ..seed_demo import seed_demo_event_content
 
-    event = Event(name=f"{DEMO_SANDBOX_PREFIX}{secrets.token_hex(2)}", training_flag=False)
+    # Demo sandboxes are training events so the /training dispatching tools
+    # (autogen, simulation, GPS sim) work out of the box for demo visitors.
+    event = Event(name=f"{DEMO_SANDBOX_PREFIX}{secrets.token_hex(2)}", training_flag=True)
     db.add(event)
     await db.flush()
     await seed_demo_event_content(db, event)

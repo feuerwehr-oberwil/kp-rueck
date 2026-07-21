@@ -48,6 +48,7 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Schneider Peter", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
         {"name": "Weber Martin", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
         {"name": "Fischer Thomas", "role": "Offizier", "availability": "available", "tags": []},
+        {"name": "Ackermann Reto", "role": "Offizier", "availability": "available", "tags": ["F"]},
         # Wachtmeister
         {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
         {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
@@ -55,11 +56,20 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
         {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
         {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
+        {"name": "Bühler Nadja", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Frei Marc", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
+        {"name": "Suter Beat", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Widmer Anna", "role": "Wachtmeister", "availability": "available", "tags": ["Hö"]},
         # Korporal
         {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
         {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
         {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
         {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Gerber Elias", "role": "Korporal", "availability": "available", "tags": ["F"]},
+        {"name": "Lüthi Sophie", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Kaufmann Nico", "role": "Korporal", "availability": "available", "tags": ["Fw"]},
+        {"name": "Moser Lea", "role": "Korporal", "availability": "available", "tags": ["F"]},
+        {"name": "Wenger Tim", "role": "Korporal", "availability": "available", "tags": []},
         # Mannschaft
         {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
         {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
@@ -67,10 +77,19 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
         {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
         {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Berger Yves", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Christen Mia", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Vogel Timo", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Egli Sarah", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Bianchi Luca", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+        {"name": "Portmann Jonas", "role": "Mannschaft", "availability": "available", "tags": []},
     ]
     for p in personnel_data:
         db.add(models.Personnel(id=uuid4(), **p))
 
+    # Storage locations: the three vehicles (TLF / Pio / MoWa) plus a single
+    # "Magazin" depot. (Earlier demo data had separate "Modul"/"Bühne"
+    # locations — consolidated into Magazin.)
     materials_data = [
         # Tauchpumpen
         {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
@@ -79,19 +98,33 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
         {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
         {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-        {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+        {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Magazin", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Magazin", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Magazin", "status": "available"},
         # Wassersauger
         {"name": "Wassersauger", "type": "Wassersauger", "location": "Pio", "status": "available"},
         {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
-        {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Magazin", "status": "available"},
         # Generatoren
         {"name": "Generator", "type": "Generatoren", "location": "TLF", "status": "available"},
         {"name": "Generator", "type": "Generatoren", "location": "MoWa", "status": "available"},
+        {"name": "Generator", "type": "Generatoren", "location": "Magazin", "status": "available"},
         # Sägen
         {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Pio", "status": "available"},
         {"name": "Motorsäge Kl.", "type": "Sägen", "location": "Pio", "status": "available"},
-        # Spannungsprüfer
+        {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Magazin", "status": "available"},
+        # Elektrowerkzeug
         {"name": "Spannungsprüfer", "type": "Elektrowerkzeug", "location": "MoWa", "status": "available"},
+        {"name": "Trennschleifer", "type": "Elektrowerkzeug", "location": "Magazin", "status": "available"},
+        # Beleuchtung
+        {"name": "Lichtmast", "type": "Beleuchtung", "location": "MoWa", "status": "available"},
+        {"name": "Flutlichtstrahler", "type": "Beleuchtung", "location": "Magazin", "status": "available"},
+        # Ölwehr
+        {"name": "Ölbindemittel", "type": "Ölwehr", "location": "Magazin", "status": "available"},
+        {"name": "Ölsperre", "type": "Ölwehr", "location": "Pio", "status": "available"},
+        # Schläuche
+        {"name": "Schlauch B", "type": "Schläuche", "location": "TLF", "status": "available"},
+        {"name": "Schlauch C", "type": "Schläuche", "location": "TLF", "status": "available"},
     ]
     for m in materials_data:
         db.add(models.Material(id=uuid4(), **m))
