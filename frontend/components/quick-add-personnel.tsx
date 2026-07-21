@@ -13,9 +13,12 @@ interface QuickAddPersonnelProps {
   onPersonAdded: (newPerson?: { id: string; name: string; checked_in: boolean }) => Promise<void>
   /** Optional token for auto-check-in after creation */
   checkInToken?: string
+  /** Optional guard: return true if a person with this name already exists.
+   *  Prevents creating indistinguishable same-name duplicates at check-in. */
+  isNameTaken?: (name: string) => boolean
 }
 
-export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPersonnelProps) {
+export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: QuickAddPersonnelProps) {
   const t = useTranslations('incidents.quickAdd')
   const tCommon = useTranslations('incidents.common')
   const [showAddForm, setShowAddForm] = useState(false)
@@ -28,8 +31,14 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
   const addingRef = useRef(false)
 
   const addNewPerson = async () => {
-    if (!newPersonName.trim()) return
+    const trimmedName = newPersonName.trim()
+    if (!trimmedName) return
     if (addingRef.current) return
+    // Disallow indistinguishable same-name duplicates
+    if (isNameTaken?.(trimmedName)) {
+      toast.error(t('duplicateTitle'), { description: t('duplicateDescription') })
+      return
+    }
     addingRef.current = true
 
     setAddingPerson(true)

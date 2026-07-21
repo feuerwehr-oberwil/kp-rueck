@@ -125,6 +125,9 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         # Schläuche
         {"name": "Schlauch B", "type": "Schläuche", "location": "TLF", "status": "available"},
         {"name": "Schlauch C", "type": "Schläuche", "location": "TLF", "status": "available"},
+        # A separate module location + an unlimited consumable example
+        {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+        {"name": "Triopan / Absperrband", "type": "Verbrauchsmaterial", "location": "Magazin", "status": "available", "consumable": True},
     ]
     for m in materials_data:
         db.add(models.Material(id=uuid4(), **m))
@@ -331,6 +334,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "location_lng": 7.5624,
             "status": "einsatz",
             "description": "Zimmerbrand, Löscharbeiten laufen, eine Person gerettet.",
+            "nachbarhilfe": True,
+            "nachbarhilfe_note": "Nachbarwehr Therwil aufgeboten",
         },
         # --- BEENDET / RÜCKFAHRT (2) ---
         {
@@ -406,26 +411,40 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     # personnel panel is pre-populated with available firefighters.
     # ============================================
     checked_in_names = [
+        # Offiziere
         "Müller Hans",
         "Schneider Peter",
         "Weber Martin",
+        "Fischer Thomas",
+        "Ackermann Reto",
+        # Wachtmeister
         "Hoffmann Lisa",
         "Schmidt Daniel",
         "Koch René",
-        "Steiner Lukas",
-        "Meier Andrea",
-        "Zimmermann Fabian",
-        "Wyss Fabio",
-        # Reko-capable (F-tagged) + crew used by the staffed/reko incidents below
+        "Baumann Michael",
         "Keller Marco",
         "Brunner Sarah",
+        "Bühler Nadja",
         "Frei Marc",
         "Suter Beat",
-        "Baumann Michael",
-        "Graf Sven",
         "Widmer Anna",
-        "Künzli Klara",
+        # Korporal
+        "Steiner Lukas",
+        "Meier Andrea",
+        "Graf Sven",
         "Roth Til",
+        "Gerber Elias",
+        "Lüthi Sophie",
+        "Kaufmann Nico",
+        "Moser Lea",
+        "Wenger Tim",
+        # Mannschaft (first 6)
+        "Zimmermann Fabian",
+        "Wyss Fabio",
+        "Künzli Klara",
+        "Studer Samuel",
+        "Schwarz Jan",
+        "Hartmann Mischa",
     ]
     for name in checked_in_names:
         db.add(
@@ -451,20 +470,17 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         )
 
     assignments = [
-        assign("Wasser im Keller EFH", "vehicle", vehicle["TLF"]),
-        assign("Wasser im Keller EFH", "personnel", person["Müller Hans"]),
+        assign("Wasser im Keller EFH", "vehicle", vehicle["Trawa"]),
+        assign("Wasser im Keller EFH", "personnel", person["Schneider Peter"]),
         assign("Wasser im Keller EFH", "personnel", person["Hoffmann Lisa"]),
         assign("Wasser im Keller EFH", "personnel", person["Zimmermann Fabian"]),
         assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Gr.", "TLF")]),
         assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Kl.", "TLF")]),
-        # Second active Einsatz — Wohnungsbrand
-        assign("Wohnungsbrand 2. OG", "vehicle", vehicle["Mowa"]),
-        assign("Wohnungsbrand 2. OG", "personnel", person["Koch René"]),
-        assign("Wohnungsbrand 2. OG", "personnel", person["Meier Andrea"]),
-        assign("Wohnungsbrand 2. OG", "personnel", person["Künzli Klara"]),
-        # Disponiert — Fahrzeugbrand on the way
-        assign("Fahrzeugbrand Parkplatz", "vehicle", vehicle["Trawa"]),
-        assign("Fahrzeugbrand Parkplatz", "personnel", person["Schneider Peter"]),
+        # Wohnungsbrand is covered by the neighbouring brigade (Nachbarwehr),
+        # so it has no own vehicle/crew — see the nachbarhilfe flag on the incident.
+        # Disponiert — Fahrzeugbrand fought with the TLF
+        assign("Fahrzeugbrand Parkplatz", "vehicle", vehicle["TLF"]),
+        assign("Fahrzeugbrand Parkplatz", "personnel", person["Müller Hans"]),
         assign("Fahrzeugbrand Parkplatz", "personnel", person["Graf Sven"]),
         # Winding down — Betriebsstoffe Garage
         assign("Auslaufende Betriebsstoffe Garage", "vehicle", vehicle["Mawa"]),
@@ -646,7 +662,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         transition("Wasser im Keller EFH", "eingegangen", "disponiert", "TLF disponiert"),
         transition("Wasser im Keller EFH", "disponiert", "einsatz", "Vor Ort, Pumpen laufen"),
         # Wohnungsbrand — eingegangen → disponiert → einsatz
-        transition("Wohnungsbrand 2. OG", "eingegangen", "disponiert", "Mowa disponiert"),
+        transition("Wohnungsbrand 2. OG", "eingegangen", "disponiert", "Nachbarwehr aufgeboten"),
         transition("Wohnungsbrand 2. OG", "disponiert", "einsatz", "Löscharbeiten laufen"),
         # Fahrzeugbrand — eingegangen → disponiert
         transition("Fahrzeugbrand Parkplatz", "eingegangen", "disponiert", "Trawa auf Anfahrt"),

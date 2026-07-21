@@ -209,6 +209,9 @@ export default function CheckInPage() {
             setSearchTerm('')
           }}
           checkInToken={token || undefined}
+          isNameTaken={(name) =>
+            personnel.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase())
+          }
         />
       </div>
 
