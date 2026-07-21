@@ -1,0 +1,559 @@
+"""Tests for Auftrag (incident group) CRUD operations.
+
+Covers plan 12 (docs/plans/12-auftrag-multi-stop-routing.md):
+- create/list/update/soft-delete a group; list excludes soft-deleted
+- stop_ids returned in group_position order; progress counts done stops
+- soft delete nulls group_id on stops (incidents survive)
+- reorder groups & stops (enumerate positions; unknown ids ignored)
+- add stops (append at end; cross-event rejected) / remove stop
+- copy-squad: squad mode copies vehicle + personnel to siblings, idempotent,
+  reko personnel excluded; vehicle_only mode + resource_types filter
+"""
+
+from unittest.mock import MagicMock
+from uuid import uuid4
+
+import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import schemas
+from app.crud import assignments as assignment_crud
+from app.crud import groups as groups_crud
+from app.models import (
+    Event,
+    EventSpecialFunction,
+    Incident,
+    IncidentGroup,
+    Material,
+    Personnel,
+    User,
+    Vehicle,
+)
+
+# ============================================
+# Fixtures
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def test_user(db_session: AsyncSession) -> User:
+    """Create a test editor user."""
+    user = User(
+        id=uuid4(),
+        username="group_test_editor",
+        password_hash="hashed_password",
+        role="editor",
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_event(db_session: AsyncSession) -> Event:
+    """Create a test event."""
+    event = Event(id=uuid4(), name="Group Test Event", training_flag=False)
+    db_session.add(event)
+    await db_session.commit()
+    await db_session.refresh(event)
+    return event
+
+
+@pytest_asyncio.fixture
+async def second_event(db_session: AsyncSession) -> Event:
+    """A separate event for cross-event rejection tests."""
+    event = Event(id=uuid4(), name="Other Event", training_flag=False)
+    db_session.add(event)
+    await db_session.commit()
+    await db_session.refresh(event)
+    return event
+
+
+@pytest.fixture
+def mock_request():
+    """Create a mock FastAPI request (audit logging needs .client/.headers)."""
+    request = MagicMock()
+    request.client = MagicMock()
+    request.client.host = "127.0.0.1"
+    request.headers.get = MagicMock(return_value=None)
+    return request
+
+
+async def _make_incident(
+    db: AsyncSession,
+    event: Event,
+    user: User,
+    *,
+    title: str = "Stop",
+    status: str = "eingegangen",
+) -> Incident:
+    """Create and persist a plain incident belonging to ``event``."""
+    incident = Incident(
+        id=uuid4(),
+        title=title,
+        type="brandbekaempfung",
+        priority="medium",
+        location_address=f"{title} Street 1",
+        status=status,
+        event_id=event.id,
+        created_by=user.id,
+    )
+    db.add(incident)
+    await db.commit()
+    await db.refresh(incident)
+    return incident
+
+
+async def _make_group(
+    db: AsyncSession,
+    event: Event,
+    user: User,
+    request,
+    *,
+    name: str = "Sturm-Route West",
+    mode: str = "squad",
+) -> IncidentGroup:
+    return await groups_crud.create_group(
+        db,
+        schemas.IncidentGroupCreate(name=name, event_id=event.id, mode=mode),
+        user,
+        request,
+    )
+
+
+# ============================================
+# CRUD: create / list / update / soft-delete
+# ============================================
+
+
+class TestGroupLifecycle:
+    async def test_create_and_list_group(self, db_session, test_event, test_user, mock_request):
+        group = await _make_group(db_session, test_event, test_user, mock_request, name="Route A")
+        assert group.id is not None
+        assert group.name == "Route A"
+        assert group.position == 0
+        assert group.mode == "squad"
+
+        responses = await groups_crud.list_groups_by_event(db_session, test_event.id)
+        assert len(responses) == 1
+        assert responses[0].id == group.id
+        assert responses[0].name == "Route A"
+        assert responses[0].stop_ids == []
+        assert responses[0].progress.total == 0
+        assert responses[0].progress.done == 0
+
+    async def test_create_appends_position(self, db_session, test_event, test_user, mock_request):
+        g0 = await _make_group(db_session, test_event, test_user, mock_request, name="A")
+        g1 = await _make_group(db_session, test_event, test_user, mock_request, name="B")
+        assert g0.position == 0
+        assert g1.position == 1
+
+    async def test_update_group(self, db_session, test_event, test_user, mock_request):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        updated = await groups_crud.update_group(
+            db_session,
+            group.id,
+            schemas.IncidentGroupUpdate(name="Renamed", color="#ff0000", mode="vehicle_only"),
+            test_user,
+            mock_request,
+        )
+        assert updated is not None
+        assert updated.name == "Renamed"
+        assert updated.color == "#ff0000"
+        assert updated.mode == "vehicle_only"
+
+    async def test_list_excludes_soft_deleted(self, db_session, test_event, test_user, mock_request):
+        keep = await _make_group(db_session, test_event, test_user, mock_request, name="Keep")
+        drop = await _make_group(db_session, test_event, test_user, mock_request, name="Drop")
+
+        await groups_crud.soft_delete_group(db_session, drop.id, test_user, mock_request)
+
+        responses = await groups_crud.list_groups_by_event(db_session, test_event.id)
+        assert [r.id for r in responses] == [keep.id]
+
+    async def test_stop_ids_in_group_position_order_and_progress(
+        self, db_session, test_event, test_user, mock_request
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        i1 = await _make_incident(db_session, test_event, test_user, title="First", status="einsatz_beendet")
+        i2 = await _make_incident(db_session, test_event, test_user, title="Second", status="abschluss")
+        i3 = await _make_incident(db_session, test_event, test_user, title="Third", status="eingegangen")
+
+        # Attach in a specific order -> group_position stamps 0,1,2 in that order.
+        await groups_crud.add_stops_to_group(
+            db_session, group.id, [i1.id, i2.id, i3.id], test_user, mock_request
+        )
+
+        response = await groups_crud.build_group_response(db_session, group)
+        assert response.stop_ids == [i1.id, i2.id, i3.id]
+        # done = stops in einsatz_beendet / abschluss (i1 + i2)
+        assert response.progress.total == 3
+        assert response.progress.done == 2
+
+        # Reordering the stops re-orders stop_ids in the response.
+        await groups_crud.reorder_group_stops(db_session, group.id, [i3.id, i1.id, i2.id])
+        response2 = await groups_crud.build_group_response(db_session, group)
+        assert response2.stop_ids == [i3.id, i1.id, i2.id]
+
+
+# ============================================
+# Delete leaves stops on the board
+# ============================================
+
+
+class TestSoftDeleteLeavesStops:
+    async def test_soft_delete_nulls_group_id_and_keeps_incidents(
+        self, db_session, test_event, test_user, mock_request
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        i1 = await _make_incident(db_session, test_event, test_user, title="A")
+        i2 = await _make_incident(db_session, test_event, test_user, title="B")
+        await groups_crud.add_stops_to_group(db_session, group.id, [i1.id, i2.id], test_user, mock_request)
+
+        await groups_crud.soft_delete_group(db_session, group.id, test_user, mock_request)
+
+        # Incidents still exist (not deleted), and their group_id is nulled.
+        for inc in (i1, i2):
+            await db_session.refresh(inc)
+            assert inc.deleted_at is None
+            assert inc.group_id is None
+
+        # Group no longer listed.
+        responses = await groups_crud.list_groups_by_event(db_session, test_event.id)
+        assert responses == []
+
+
+# ============================================
+# Reorder groups & stops
+# ============================================
+
+
+class TestReorder:
+    async def test_reorder_groups_persists_positions(self, db_session, test_event, test_user, mock_request):
+        g0 = await _make_group(db_session, test_event, test_user, mock_request, name="A")
+        g1 = await _make_group(db_session, test_event, test_user, mock_request, name="B")
+        g2 = await _make_group(db_session, test_event, test_user, mock_request, name="C")
+
+        count = await groups_crud.reorder_groups(db_session, test_event.id, [g2.id, g0.id, g1.id])
+        assert count == 3
+
+        for g in (g0, g1, g2):
+            await db_session.refresh(g)
+        assert g2.position == 0
+        assert g0.position == 1
+        assert g1.position == 2
+
+    async def test_reorder_groups_ignores_unknown_ids(self, db_session, test_event, test_user, mock_request):
+        g0 = await _make_group(db_session, test_event, test_user, mock_request, name="A")
+        g1 = await _make_group(db_session, test_event, test_user, mock_request, name="B")
+        stale = uuid4()
+
+        count = await groups_crud.reorder_groups(db_session, test_event.id, [stale, g1.id, g0.id])
+        # Only the two real groups are repositioned; the stale id is skipped.
+        assert count == 2
+        for g in (g0, g1):
+            await db_session.refresh(g)
+        # stale occupies index 0 but is ignored; g1 gets index 1, g0 index 2.
+        assert g1.position == 1
+        assert g0.position == 2
+
+    async def test_reorder_groups_ignores_cross_event(
+        self, db_session, test_event, second_event, test_user, mock_request
+    ):
+        mine = await _make_group(db_session, test_event, test_user, mock_request, name="Mine")
+        other = await _make_group(db_session, second_event, test_user, mock_request, name="Other")
+
+        count = await groups_crud.reorder_groups(db_session, test_event.id, [other.id, mine.id])
+        # The cross-event group is filtered out (not in test_event); only `mine` moves.
+        assert count == 1
+        await db_session.refresh(other)
+        assert other.position == 0  # untouched
+
+    async def test_reorder_group_stops_persists(self, db_session, test_event, test_user, mock_request):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        i1 = await _make_incident(db_session, test_event, test_user, title="A")
+        i2 = await _make_incident(db_session, test_event, test_user, title="B")
+        i3 = await _make_incident(db_session, test_event, test_user, title="C")
+        await groups_crud.add_stops_to_group(
+            db_session, group.id, [i1.id, i2.id, i3.id], test_user, mock_request
+        )
+
+        stale = uuid4()
+        count = await groups_crud.reorder_group_stops(db_session, group.id, [i3.id, stale, i1.id, i2.id])
+        # stale ignored; the three real stops re-index 0,2,3 by enumerate position.
+        assert count == 3
+        for inc in (i1, i2, i3):
+            await db_session.refresh(inc)
+        assert i3.group_position == 0
+        assert i1.group_position == 2
+        assert i2.group_position == 3
+
+
+# ============================================
+# Add / remove stops
+# ============================================
+
+
+class TestAddRemoveStops:
+    async def test_add_stops_appends_at_end(self, db_session, test_event, test_user, mock_request):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        i1 = await _make_incident(db_session, test_event, test_user, title="A")
+        i2 = await _make_incident(db_session, test_event, test_user, title="B")
+        await groups_crud.add_stops_to_group(db_session, group.id, [i1.id, i2.id], test_user, mock_request)
+
+        i3 = await _make_incident(db_session, test_event, test_user, title="C")
+        attached = await groups_crud.add_stops_to_group(db_session, group.id, [i3.id], test_user, mock_request)
+        assert attached == [i3.id]
+        await db_session.refresh(i3)
+        assert i3.group_id == group.id
+        assert i3.group_position == 2  # appended after the two existing stops
+
+    async def test_add_stops_skips_already_member(self, db_session, test_event, test_user, mock_request):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        i1 = await _make_incident(db_session, test_event, test_user, title="A")
+        await groups_crud.add_stops_to_group(db_session, group.id, [i1.id], test_user, mock_request)
+        # Re-adding an existing member is a no-op.
+        attached = await groups_crud.add_stops_to_group(db_session, group.id, [i1.id], test_user, mock_request)
+        assert attached == []
+
+    async def test_add_stops_cross_event_rejected(
+        self, db_session, test_event, second_event, test_user, mock_request
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        foreign = await _make_incident(db_session, second_event, test_user, title="Foreign")
+
+        with pytest.raises(ValueError, match="different event"):
+            await groups_crud.add_stops_to_group(db_session, group.id, [foreign.id], test_user, mock_request)
+
+    async def test_add_stops_unknown_group_returns_none(self, db_session, test_event, test_user, mock_request):
+        i1 = await _make_incident(db_session, test_event, test_user, title="A")
+        result = await groups_crud.add_stops_to_group(db_session, uuid4(), [i1.id], test_user, mock_request)
+        assert result is None
+
+    async def test_remove_stop_nulls_group_without_status_change(
+        self, db_session, test_event, test_user, mock_request
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        i1 = await _make_incident(db_session, test_event, test_user, title="A", status="einsatz")
+        await groups_crud.add_stops_to_group(db_session, group.id, [i1.id], test_user, mock_request)
+
+        ok = await groups_crud.remove_stop_from_group(db_session, group.id, i1.id, test_user, mock_request)
+        assert ok is True
+        await db_session.refresh(i1)
+        assert i1.group_id is None
+        assert i1.status == "einsatz"  # status untouched
+
+    async def test_remove_stop_not_member_returns_false(self, db_session, test_event, test_user, mock_request):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        i1 = await _make_incident(db_session, test_event, test_user, title="A")  # not attached
+        ok = await groups_crud.remove_stop_from_group(db_session, group.id, i1.id, test_user, mock_request)
+        assert ok is False
+
+
+# ============================================
+# copy-squad
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def test_vehicle(db_session: AsyncSession) -> Vehicle:
+    vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available")
+    db_session.add(vehicle)
+    await db_session.commit()
+    await db_session.refresh(vehicle)
+    return vehicle
+
+
+@pytest_asyncio.fixture
+async def person_a(db_session: AsyncSession) -> Personnel:
+    p = Personnel(id=uuid4(), name="Anna", role="Truppmann", availability="available")
+    db_session.add(p)
+    await db_session.commit()
+    await db_session.refresh(p)
+    return p
+
+
+@pytest_asyncio.fixture
+async def person_b(db_session: AsyncSession) -> Personnel:
+    p = Personnel(id=uuid4(), name="Bruno", role="Truppmann", availability="available")
+    db_session.add(p)
+    await db_session.commit()
+    await db_session.refresh(p)
+    return p
+
+
+@pytest_asyncio.fixture
+async def test_material(db_session: AsyncSession) -> Material:
+    m = Material(id=uuid4(), name="Stromerzeuger", type="Stromerzeuger", status="available", location="Lager")
+    db_session.add(m)
+    await db_session.commit()
+    await db_session.refresh(m)
+    return m
+
+
+async def _active_types(db, incident_id):
+    """Return the set of (resource_type, resource_id) actively assigned to an incident."""
+    assigns = await assignment_crud.get_incident_assignments(db, incident_id)
+    return {(a.resource_type, a.resource_id) for a in assigns}
+
+
+class TestCopySquad:
+    async def test_copies_vehicle_and_personnel_to_siblings(
+        self, db_session, test_event, test_user, mock_request, test_vehicle, person_a, person_b
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        source = await _make_incident(db_session, test_event, test_user, title="Source")
+        sib1 = await _make_incident(db_session, test_event, test_user, title="Sib1")
+        sib2 = await _make_incident(db_session, test_event, test_user, title="Sib2")
+        await groups_crud.add_stops_to_group(
+            db_session, group.id, [source.id, sib1.id, sib2.id], test_user, mock_request
+        )
+
+        # Assign a vehicle + 2 personnel to the source stop.
+        for rtype, rid in [("vehicle", test_vehicle.id), ("personnel", person_a.id), ("personnel", person_b.id)]:
+            await assignment_crud.assign_resource(db_session, source.id, rtype, rid, test_user, mock_request)
+
+        result = await groups_crud.copy_squad_to_stops(
+            db_session, group.id, source.id, None, current_user=test_user, request=mock_request
+        )
+        # 2 siblings * 3 resources copied.
+        assert result == {"copied": 6, "skipped": 0}
+
+        expected = {("vehicle", test_vehicle.id), ("personnel", person_a.id), ("personnel", person_b.id)}
+        assert await _active_types(db_session, sib1.id) == expected
+        assert await _active_types(db_session, sib2.id) == expected
+
+    async def test_idempotent_rerun_skips(
+        self, db_session, test_event, test_user, mock_request, test_vehicle, person_a
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        source = await _make_incident(db_session, test_event, test_user, title="Source")
+        sib1 = await _make_incident(db_session, test_event, test_user, title="Sib1")
+        await groups_crud.add_stops_to_group(db_session, group.id, [source.id, sib1.id], test_user, mock_request)
+        for rtype, rid in [("vehicle", test_vehicle.id), ("personnel", person_a.id)]:
+            await assignment_crud.assign_resource(db_session, source.id, rtype, rid, test_user, mock_request)
+
+        first = await groups_crud.copy_squad_to_stops(
+            db_session, group.id, source.id, None, current_user=test_user, request=mock_request
+        )
+        assert first == {"copied": 2, "skipped": 0}
+
+        second = await groups_crud.copy_squad_to_stops(
+            db_session, group.id, source.id, None, current_user=test_user, request=mock_request
+        )
+        # Everything already active on the sibling -> all skipped, nothing re-copied.
+        assert second["copied"] == 0
+        assert second["skipped"] > 0
+
+    async def test_reko_personnel_not_copied(
+        self, db_session, test_event, test_user, mock_request, test_vehicle, person_a, person_b
+    ):
+        # person_b holds the event's reko function -> must NOT be copied down the route.
+        db_session.add(
+            EventSpecialFunction(
+                id=uuid4(),
+                event_id=test_event.id,
+                personnel_id=person_b.id,
+                function_type="reko",
+            )
+        )
+        await db_session.commit()
+
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        source = await _make_incident(db_session, test_event, test_user, title="Source")
+        sib1 = await _make_incident(db_session, test_event, test_user, title="Sib1")
+        await groups_crud.add_stops_to_group(db_session, group.id, [source.id, sib1.id], test_user, mock_request)
+
+        for rtype, rid in [("vehicle", test_vehicle.id), ("personnel", person_a.id), ("personnel", person_b.id)]:
+            await assignment_crud.assign_resource(db_session, source.id, rtype, rid, test_user, mock_request)
+
+        result = await groups_crud.copy_squad_to_stops(
+            db_session, group.id, source.id, None, current_user=test_user, request=mock_request
+        )
+        # Only vehicle + person_a copied (reko person_b excluded).
+        assert result == {"copied": 2, "skipped": 0}
+        sib_types = await _active_types(db_session, sib1.id)
+        assert ("vehicle", test_vehicle.id) in sib_types
+        assert ("personnel", person_a.id) in sib_types
+        assert ("personnel", person_b.id) not in sib_types
+
+    async def test_vehicle_only_mode_copies_only_vehicle(
+        self, db_session, test_event, test_user, mock_request, test_vehicle, person_a, person_b
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request, mode="vehicle_only")
+        source = await _make_incident(db_session, test_event, test_user, title="Source")
+        sib1 = await _make_incident(db_session, test_event, test_user, title="Sib1")
+        await groups_crud.add_stops_to_group(db_session, group.id, [source.id, sib1.id], test_user, mock_request)
+
+        # Source carries the vehicle + a crew member.
+        for rtype, rid in [("vehicle", test_vehicle.id), ("personnel", person_a.id)]:
+            await assignment_crud.assign_resource(db_session, source.id, rtype, rid, test_user, mock_request)
+        # A DIFFERENT person is assigned to the sibling independently (per-incident crew).
+        await assignment_crud.assign_resource(db_session, sib1.id, "personnel", person_b.id, test_user, mock_request)
+
+        result = await groups_crud.copy_squad_to_stops(
+            db_session, group.id, source.id, None, current_user=test_user, request=mock_request
+        )
+        # Only the vehicle copies down; personnel are untouched.
+        assert result == {"copied": 1, "skipped": 0}
+        sib_types = await _active_types(db_session, sib1.id)
+        assert ("vehicle", test_vehicle.id) in sib_types
+        assert ("personnel", person_b.id) in sib_types  # independent crew preserved
+        assert ("personnel", person_a.id) not in sib_types  # source crew NOT copied
+
+    async def test_resource_types_override_beats_mode(
+        self, db_session, test_event, test_user, mock_request, test_vehicle, person_a
+    ):
+        # squad mode would copy all three, but explicit resource_types=["vehicle"] wins.
+        group = await _make_group(db_session, test_event, test_user, mock_request, mode="squad")
+        source = await _make_incident(db_session, test_event, test_user, title="Source")
+        sib1 = await _make_incident(db_session, test_event, test_user, title="Sib1")
+        await groups_crud.add_stops_to_group(db_session, group.id, [source.id, sib1.id], test_user, mock_request)
+        for rtype, rid in [("vehicle", test_vehicle.id), ("personnel", person_a.id)]:
+            await assignment_crud.assign_resource(db_session, source.id, rtype, rid, test_user, mock_request)
+
+        result = await groups_crud.copy_squad_to_stops(
+            db_session, group.id, source.id, ["vehicle"], current_user=test_user, request=mock_request
+        )
+        assert result == {"copied": 1, "skipped": 0}
+        sib_types = await _active_types(db_session, sib1.id)
+        assert ("vehicle", test_vehicle.id) in sib_types
+        assert ("personnel", person_a.id) not in sib_types
+
+    async def test_allows_cross_incident_conflict(
+        self, db_session, test_event, test_user, mock_request, test_vehicle
+    ):
+        # The source vehicle is also committed to an unrelated incident. copy-squad
+        # must still copy it (cross-incident conflict is allowed, not a hard error).
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        source = await _make_incident(db_session, test_event, test_user, title="Source")
+        sib1 = await _make_incident(db_session, test_event, test_user, title="Sib1")
+        unrelated = await _make_incident(db_session, test_event, test_user, title="Unrelated")
+        await groups_crud.add_stops_to_group(db_session, group.id, [source.id, sib1.id], test_user, mock_request)
+
+        await assignment_crud.assign_resource(db_session, source.id, "vehicle", test_vehicle.id, test_user, mock_request)
+        await assignment_crud.assign_resource(db_session, unrelated.id, "vehicle", test_vehicle.id, test_user, mock_request)
+
+        result = await groups_crud.copy_squad_to_stops(
+            db_session, group.id, source.id, None, current_user=test_user, request=mock_request
+        )
+        assert result["copied"] == 1
+        assert ("vehicle", test_vehicle.id) in await _active_types(db_session, sib1.id)
+
+    async def test_source_not_in_group_raises(
+        self, db_session, test_event, test_user, mock_request
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        stranger = await _make_incident(db_session, test_event, test_user, title="Stranger")  # not a stop
+        with pytest.raises(ValueError, match="not a stop"):
+            await groups_crud.copy_squad_to_stops(
+                db_session, group.id, stranger.id, None, current_user=test_user, request=mock_request
+            )
+
+    async def test_unknown_group_returns_none(self, db_session, test_event, test_user, mock_request):
+        result = await groups_crud.copy_squad_to_stops(
+            db_session, uuid4(), uuid4(), None, current_user=test_user, request=mock_request
+        )
+        assert result is None
