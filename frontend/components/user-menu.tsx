@@ -24,6 +24,7 @@ import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
 import type { SyncConfig } from '@/types/sync';
 import { RoleBadge } from '@/components/auth/role-badge';
 import { openCommandPalette } from '@/components/ui/command-palette';
+import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +64,7 @@ export function UserMenu({
   const { user, logout, isEditor, isAuthenticated } = useAuth();
   const { selectedEvent } = useEvent();
   const router = useRouter();
+  const cmdHint = useCommandPaletteHint();
 
   // Quick per-event export of the currently selected event (Verwaltung → Export).
   const downloadEventExport = async (kind: 'pdf' | 'xlsx' | 'lageblatt') => {
@@ -544,7 +546,7 @@ export function UserMenu({
           <DropdownMenuItem onClick={openCommandPalette} className="cursor-pointer">
             <Keyboard className="mr-2 h-4 w-4" />
             <span>{t('commands')}</span>
-            <span className="ml-auto text-xs text-muted-foreground">⌘K · ?</span>
+            <span className="ml-auto text-xs text-muted-foreground">{cmdHint} · ?</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem asChild>

@@ -32,6 +32,7 @@ import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
+import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
@@ -246,6 +247,7 @@ export default function FireStationDashboard() {
   }, [selectedEvent, personnel, checkInUrl, isLoading])
 
   const gPrefix = useGPrefixNavigation(router)
+  const cmdHint = useCommandPaletteHint()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
   const [showMeldung, setShowMeldung] = useState(() => {
@@ -1883,7 +1885,7 @@ export default function FireStationDashboard() {
                 onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
               >
-                <Kbd className="h-5 text-[10px] px-1.5">⌘K</Kbd>
+                <Kbd className="h-5 text-[10px] px-1.5">{cmdHint}</Kbd>
                 <span className="hidden lg:inline">{tDash('commands')}</span>
               </button>
             </div>

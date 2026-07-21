@@ -240,6 +240,28 @@ describe("useKanbanShortcuts", () => {
       });
     });
 
+    it("Shift+1/2/3 sets priority on Swiss/German layout (shifted char differs, e.code matches)", () => {
+      renderHook(() =>
+        useKanbanShortcuts(
+          baseState({ hoveredOperationId: "op-1", operations: [baseOp()] }),
+          actions,
+        ),
+      );
+      // Swiss German: Shift+1/2/3 print "+ " * — not ! @ #. e.code stays Digit1/2/3.
+      press("+", { shiftKey: true, code: "Digit1" });
+      press('"', { shiftKey: true, code: "Digit2" });
+      press("*", { shiftKey: true, code: "Digit3" });
+      expect(actions.onUpdateOperation).toHaveBeenNthCalledWith(1, "op-1", {
+        priority: "low",
+      });
+      expect(actions.onUpdateOperation).toHaveBeenNthCalledWith(2, "op-1", {
+        priority: "medium",
+      });
+      expect(actions.onUpdateOperation).toHaveBeenNthCalledWith(3, "op-1", {
+        priority: "high",
+      });
+    });
+
     it("'>' and '<' move the hovered op forward / back", () => {
       renderHook(() =>
         useKanbanShortcuts(

@@ -79,6 +79,17 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return role === "combobox" || role === "listbox" || role === "option"
 }
 
+// Matched by physical key position (e.Code), so Shift+1/2/3 works on every
+// layout — on Swiss/German keyboards Shift+1 yields "+", not "!", so matching
+// the printed character (e.key) would silently fail. e.code is layout-agnostic.
+const SHIFT_PRIORITY_BY_CODE: Record<string, Operation["priority"]> = {
+  Digit1: "low",
+  Digit2: "medium",
+  Digit3: "high",
+}
+
+// US-layout fallback (kept so the shifted symbols still work if e.code is
+// ever unavailable, e.g. synthetic events in tests).
 const SHIFT_PRIORITY_KEYS: Record<string, Operation["priority"]> = {
   "1": "low",
   "!": "low",
@@ -155,9 +166,10 @@ export function useKanbanShortcuts(
         return
       }
 
-      // Priority (Shift + 1/2/3) — accepts both digit and shifted symbol
+      // Priority (Shift + 1/2/3) — match physical key first (layout-agnostic),
+      // fall back to the printed character for US layout / synthetic events.
       if (e.shiftKey && hoveredOperationId) {
-        const priority = SHIFT_PRIORITY_KEYS[e.key]
+        const priority = SHIFT_PRIORITY_BY_CODE[e.code] ?? SHIFT_PRIORITY_KEYS[e.key]
         if (priority) {
           e.preventDefault()
           actions.onUpdateOperation(hoveredOperationId, { priority })
