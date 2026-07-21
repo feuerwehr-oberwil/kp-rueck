@@ -461,6 +461,7 @@ function buildSituationData(payload: ApiViewerData): SituationData {
     id: m.id,
     name: m.name,
     category: m.location || "General",
+    type: m.type || "Sonstiges",
     status: m.status === "available" ? "available" : "assigned",
     categorySortOrder: m.location_sort_order,
     consumable: m.consumable ?? false,
