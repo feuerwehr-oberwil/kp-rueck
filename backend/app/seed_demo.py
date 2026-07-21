@@ -125,9 +125,6 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         # Ölwehr
         {"name": "Ölbindemittel", "type": "Ölwehr", "location": "Magazin", "status": "available", "consumable": True},
         {"name": "Ölsperre", "type": "Ölwehr", "location": "Pio", "status": "available"},
-        # Schläuche
-        {"name": "Schlauch B", "type": "Schläuche", "location": "TLF", "status": "available"},
-        {"name": "Schlauch C", "type": "Schläuche", "location": "TLF", "status": "available"},
         # A separate module location + an unlimited consumable example
         {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
         {"name": "Triopan / Absperrband", "type": "Verbrauchsmaterial", "location": "Magazin", "status": "available", "consumable": True},
