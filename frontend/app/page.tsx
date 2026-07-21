@@ -314,6 +314,11 @@ export default function FireStationDashboard() {
   // happened (status → complete, which keeps materials) — this only decides
   // whether to additionally release them. Cancel/dismiss keeps them (safe default).
   const [materialDecisionOp, setMaterialDecisionOp] = useState<Operation | null>(null)
+  // Per-material choice in the completion dialog: 'magazin' (return) is the default,
+  // 'vorort' (left on scene). Reset each time the dialog opens so choices don't leak
+  // between incidents; unset entries fall back to 'magazin'.
+  const [materialDecisions, setMaterialDecisions] = useState<Record<string, 'magazin' | 'vorort'>>({})
+  useEffect(() => { setMaterialDecisions({}) }, [materialDecisionOp])
 
   // Persist showMeldung to localStorage
   useEffect(() => {
@@ -1476,20 +1481,18 @@ export default function FireStationDashboard() {
           <>
         <div className="relative flex flex-1 overflow-hidden">
           {showLeftSidebar && (
-            <aside className="w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Collapse handle */}
-              <div className="flex items-center justify-start px-2 pt-2">
-                <button
-                  onClick={() => setShowLeftSidebar(false)}
-                  className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-                  title={`${tDash('toggleLeftSidebar')} ([)`}
-                  aria-label={tDash('toggleLeftSidebar')}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-              </div>
+            <aside className="relative w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
+              {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
+              <button
+                onClick={() => setShowLeftSidebar(false)}
+                className="absolute right-0 top-1/2 z-20 flex h-16 w-5 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                title={`${tDash('toggleLeftSidebar')} ([)`}
+                aria-label={tDash('toggleLeftSidebar')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
               {/* Search */}
-              <div className="px-3 pt-1 pb-2">
+              <div className="px-3 pt-3 pb-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
@@ -1668,20 +1671,18 @@ export default function FireStationDashboard() {
           />
 
           {showRightSidebar && (
-            <aside className="w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Collapse handle */}
-              <div className="flex items-center justify-end px-2 pt-2">
-                <button
-                  onClick={() => setShowRightSidebar(false)}
-                  className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-                  title={`${tDash('toggleRightSidebar')} (])`}
-                  aria-label={tDash('toggleRightSidebar')}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
+            <aside className="relative w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
+              {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
+              <button
+                onClick={() => setShowRightSidebar(false)}
+                className="absolute left-0 top-1/2 z-20 flex h-16 w-5 -translate-y-1/2 -translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                title={`${tDash('toggleRightSidebar')} (])`}
+                aria-label={tDash('toggleRightSidebar')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
               {/* Search */}
-              <div className="px-3 pt-1 pb-2">
+              <div className="px-3 pt-3 pb-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
@@ -2724,29 +2725,66 @@ export default function FireStationDashboard() {
             <AlertDialogDescription>
               {materialDecisionOp && tMat.rich('description', {
                 location: materialDecisionOp.location,
-                count: materialDecisionOp.materials.length,
                 hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {materialDecisionOp && (
+            <div className="max-h-64 space-y-1.5 overflow-y-auto py-1">
+              {materialDecisionOp.materials.map((materialId) => {
+                const choice = materialDecisions[materialId] ?? 'magazin'
+                const name = materials.find((m) => m.id === materialId)?.name ?? materialId
+                return (
+                  <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                    <div className="flex flex-shrink-0 gap-1">
+                      <Button
+                        size="sm"
+                        variant={choice === 'magazin' ? 'default' : 'outline'}
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setMaterialDecisions((prev) => ({ ...prev, [materialId]: 'magazin' }))}
+                      >
+                        {tMat('toMagazinShort')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={choice === 'vorort' ? 'default' : 'outline'}
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setMaterialDecisions((prev) => ({ ...prev, [materialId]: 'vorort' }))}
+                      >
+                        {tMat('onSiteShort')}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           <AlertDialogFooter className="sm:justify-between">
+            <Button variant="ghost" onClick={() => setMaterialDecisionOp(null)}>
+              {tMat('cancel')}
+            </Button>
             <Button
-              variant="outline"
               onClick={() => {
                 const op = materialDecisionOp
                 setMaterialDecisionOp(null)
-                if (op) {
-                  for (const materialId of [...op.materials]) {
-                    removeMaterial(op.id, materialId)
-                  }
-                  toast.success(tDash('materialReturned'))
-                }
+                if (!op) return
+                const nameOf = (id: string) => materials.find((m) => m.id === id)?.name ?? id
+                const returned = op.materials.filter((id) => (materialDecisions[id] ?? 'magazin') === 'magazin')
+                const kept = op.materials.filter((id) => (materialDecisions[id] ?? 'magazin') === 'vorort')
+                for (const id of returned) removeMaterial(op.id, id)
+                const description = [
+                  returned.length ? `${tMat('toastToMagazin')}: ${returned.map(nameOf).join(', ')}` : null,
+                  kept.length ? `${tMat('toastOnSite')}: ${kept.map(nameOf).join(', ')}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+                toast.success(returned.length ? tDash('materialReturned') : tMat('leftOnSite'), { description })
               }}
             >
-              {tMat('returnMaterial')}
-            </Button>
-            <Button variant="ghost" onClick={() => setMaterialDecisionOp(null)}>
-              {tMat('leftOnSite')}
+              {tMat('confirm')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
