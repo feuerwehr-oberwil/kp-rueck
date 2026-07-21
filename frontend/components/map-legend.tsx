@@ -94,7 +94,7 @@ export function MapLegend({
 
       {/* Fill Legend — "Färben nach" groups when active, else priority */}
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        <p className="text-xs font-semibold text-muted-foreground tracking-wide">
           {coloring ? t(`colorBy.${colorBy}`) : t('legend.priority')}
         </p>
         <div className="space-y-1.5">
@@ -126,7 +126,7 @@ export function MapLegend({
 
       {/* Status Legend */}
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        <p className="text-xs font-semibold text-muted-foreground tracking-wide">
           {t('legend.statusFrame')}
         </p>
         <div className="space-y-1.5">
@@ -147,7 +147,7 @@ export function MapLegend({
 
       {/* Vehicle Legend */}
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        <p className="text-xs font-semibold text-muted-foreground tracking-wide">
           {t('legend.vehiclesGps')}
         </p>
         <div className="space-y-1.5">
@@ -167,7 +167,7 @@ export function MapLegend({
       </div>
       {/* Assignment Lines Legend */}
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        <p className="text-xs font-semibold text-muted-foreground tracking-wide">
           {t('legend.assignments')}
         </p>
         <div className="space-y-1.5">

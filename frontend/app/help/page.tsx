@@ -349,7 +349,7 @@ export default function HelpPage() {
                     </button>
                   )}
                 </div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                <p className="text-xs font-semibold text-muted-foreground tracking-wider mb-3">
                   {t('toc')}
                 </p>
                 {filteredToc.length === 0 ? (

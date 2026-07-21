@@ -364,7 +364,7 @@ export function UserMenu({
           {/* QUICK ACTIONS GROUP - only shown when callbacks provided */}
           {(onNewIncident || onCheckIn || onReko || onVehicleStatus || onPrint) && (
             <>
-              <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
                 {t('quickActions')}
               </DropdownMenuLabel>
               {onNewIncident && (
@@ -452,7 +452,7 @@ export function UserMenu({
           <DropdownMenuSeparator />
 
           {/* DISPLAY GROUP */}
-          <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+          <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
             {t('display')}
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
@@ -483,7 +483,7 @@ export function UserMenu({
           <DropdownMenuSeparator />
 
           {/* MANAGEMENT GROUP */}
-          <DropdownMenuLabel className="text-xs text-muted-foreground uppercase font-semibold px-2 py-1.5">
+          <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
             {t('management')}
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
