@@ -146,6 +146,22 @@ export function ResourceAssignmentDialog({
     return [...new Set(source)].sort((a, b) => a.localeCompare(b))
   }, [resourceType, selectablePersonnel, availableVehicles, selectableMaterials])
 
+  // Second grouping for materials: functional type (e.g. "Wasser") for one-tap
+  // select-all across depots — independent of the category (depot) filter.
+  const materialTypeGroups = useMemo(() => {
+    if (resourceType !== 'materials') return [] as { type: string; ids: string[] }[]
+    const byType = new Map<string, string[]>()
+    for (const m of selectableMaterials) {
+      if (!m.type) continue
+      const arr = byType.get(m.type) ?? []
+      arr.push(m.id)
+      byType.set(m.type, arr)
+    }
+    return [...byType.entries()]
+      .map(([type, ids]) => ({ type, ids }))
+      .sort((a, b) => a.type.localeCompare(b.type))
+  }, [resourceType, selectableMaterials])
+
   // Filter resources by search query + quick category filter
   const filteredPersonnel = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -471,6 +487,31 @@ export function ResourceAssignmentDialog({
                   {cat}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Materials: second grouping — quick-select all available items of a
+              functional type (e.g. "Wasser") in one tap, across all depots. */}
+          {resourceType === 'materials' && materialTypeGroups.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-0.5 text-xs text-muted-foreground">{t('assignmentDialog.quickSelectByType')}</span>
+              {materialTypeGroups.map(({ type, ids }) => {
+                const allSelected = ids.length > 0 && ids.every((id) => selectedMaterials.has(id))
+                return (
+                  <button
+                    key={type}
+                    onClick={() => handleToggleGroupSelection(ids)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                      allSelected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                    )}
+                  >
+                    {type} ({ids.length})
+                  </button>
+                )
+              })}
             </div>
           )}
 

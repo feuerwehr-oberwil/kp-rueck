@@ -376,7 +376,10 @@
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
+      "readyTitle": "Alles bereit",
       "checklistIntro": "<hl>{location}</hl> wird disponiert. Weise die fehlenden Ressourcen zu oder disponiere trotzdem.",
+      "readyIntro": "<hl>{location}</hl> ist vollständig ausgerüstet – bereit zum Disponieren.",
+      "addMore": "Hinzufügen",
       "personalSummary": "{count, plural, one {# Person} other {# Personen}}",
       "mittelSummary": "{count, plural, one {# Mittel} other {# Mittel}}",
       "done": "Disponieren",
@@ -532,6 +535,7 @@
       "selectedCount": "{selected} ausgewählt, {available} verfügbar",
       "vehiclesAssigned": "{count} Fahrzeug(e) zugewiesen",
       "zuFussSuffix": ", Zu Fuss",
+      "quickSelectByType": "Schnellauswahl:",
       "all": "Alle",
       "noVehicle": "Kein Fahrzeug",
       "groupSelected": "{selected}/{total} ausgewählt",
