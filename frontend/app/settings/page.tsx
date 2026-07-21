@@ -101,6 +101,7 @@ import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
 import { UserSettings } from '@/components/settings/user-settings';
+import { DemoLock } from '@/components/settings/demo-lock';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -584,22 +585,24 @@ export default function SettingsPage() {
                   <Button onClick={fetchSettings} className="mt-4">{t('common.retry')}</Button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {SETTING_CONFIGS.map((config) => (
-                    <div key={config.key} className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <Label htmlFor={config.key} className="font-medium">{t(`page.general.configs.${config.key}.label`)}</Label>
-                        <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className={config.type === 'text' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
-                          {renderSettingInput(config)}
+                <DemoLock active={demoMode}>
+                  <div className="space-y-4">
+                    {SETTING_CONFIGS.map((config) => (
+                      <div key={config.key} className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <Label htmlFor={config.key} className="font-medium">{t(`page.general.configs.${config.key}.label`)}</Label>
+                          <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
                         </div>
-                        {saving === config.key && <Save className="h-4 w-4 text-primary animate-pulse" />}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className={config.type === 'text' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
+                            {renderSettingInput(config)}
+                          </div>
+                          {saving === config.key && <Save className="h-4 w-4 text-primary animate-pulse" />}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </DemoLock>
               )}
             </Card>
             {!isEditor && (
@@ -613,7 +616,9 @@ export default function SettingsPage() {
       case 'notifications': {
         return (
           <div className="space-y-6">
-            <NotificationSettingsCard />
+            <DemoLock active={demoMode}>
+              <NotificationSettingsCard />
+            </DemoLock>
           </div>
         );
       }
@@ -635,6 +640,7 @@ export default function SettingsPage() {
         ];
         return (
           <div className="space-y-6">
+            <DemoLock active={demoMode}>
             <Card className="p-6 space-y-4">
               <div>
                 <h3 className="font-medium">{t('page.alerting.whatsappTitle')}</h3>
@@ -736,6 +742,7 @@ export default function SettingsPage() {
               isEditor={isEditor}
               saving={saving}
             />
+            </DemoLock>
           </div>
         );
       }
@@ -743,14 +750,16 @@ export default function SettingsPage() {
       case 'gps': {
         return (
           <div className="space-y-6">
-            <GpsSettingsCard
-              settings={settings}
-              serverSettings={serverSettings}
-              setSettings={setSettings}
-              updateSetting={updateSetting}
-              isEditor={isEditor}
-              saving={saving}
-            />
+            <DemoLock active={demoMode}>
+              <GpsSettingsCard
+                settings={settings}
+                serverSettings={serverSettings}
+                setSettings={setSettings}
+                updateSetting={updateSetting}
+                isEditor={isEditor}
+                saving={saving}
+              />
+            </DemoLock>
           </div>
         );
       }
@@ -775,39 +784,52 @@ export default function SettingsPage() {
       case 'printer':
         return (
           <div className="space-y-4">
-            <DemoHint text={t('page.demo.printer')} />
-            <PrinterSettings />
+            <DemoLock active={demoMode}>
+              <PrinterSettings />
+            </DemoLock>
           </div>
         );
 
       case 'fallback':
         return (
           <div className="space-y-4">
-            <FallbackSettings />
+            <FallbackSettings demoMode={demoMode} />
           </div>
         );
 
       case 'users':
         return (
           <div className="space-y-4">
-            <DemoHint text={t('page.demo.users')} />
-            <UserSettings />
+            <DemoLock active={demoMode}>
+              <UserSettings />
+            </DemoLock>
           </div>
         );
 
       case 'personnel':
-        return <PersonnelSettings demoMode={demoMode} />;
+        return (
+          <DemoLock active={demoMode}>
+            <PersonnelSettings demoMode={demoMode} />
+          </DemoLock>
+        );
 
       case 'vehicles':
-        return <VehicleSettings />;
+        return (
+          <DemoLock active={demoMode}>
+            <VehicleSettings />
+          </DemoLock>
+        );
 
       case 'materials':
-        return <MaterialSettings />;
+        return (
+          <DemoLock active={demoMode}>
+            <MaterialSettings />
+          </DemoLock>
+        );
 
       case 'import':
         return (
           <div className="space-y-6">
-            <DemoHint text={t('page.demo.import')} />
             {/* Notifications */}
             {importError && (
               <Card className="p-4 border-destructive bg-destructive/10">
@@ -852,6 +874,7 @@ export default function SettingsPage() {
             </Card>
 
             {/* Import - Stepped workflow */}
+            <DemoLock active={demoMode}>
             <Card className="p-5">
               <div className="space-y-5">
                 <div>
@@ -960,6 +983,7 @@ export default function SettingsPage() {
                 )}
               </div>
             </Card>
+            </DemoLock>
 
             {/* Preview */}
             {preview && (

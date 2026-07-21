@@ -359,7 +359,7 @@
       "viewerSheetDescription": "QR-Code scannen oder Link teilen für Nur-Lesen-Ansicht",
       "viewerSheetHint": "Jeder mit diesem Link kann die aktuelle Einsatzübersicht sehen. Funktioniert ohne Anmeldung, nur Lesen.",
       "alarmSheetTitle": "Alarm-Link",
-      "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z.B. Telefon / Walk-in)",
+      "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z. B. Telefon / Walk-in)",
       "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung."
     },
     "missingResources": {
@@ -622,7 +622,7 @@
       "trainingModeActive": "Übungsmodus aktiv",
       "idLabel": "ID: {id}",
       "titleLabel": "Titel / Einsatzbezeichnung *",
-      "titlePlaceholder": "z.B. Wohnungsbrand Hauptstrasse 45",
+      "titlePlaceholder": "z. B. Wohnungsbrand Hauptstrasse 45",
       "typeLabel": "Einsatzart *",
       "typePlaceholder": "Einsatzart wählen...",
       "typeSearchPlaceholder": "Einsatzart suchen...",
@@ -971,12 +971,12 @@
         "editorsOnlyNote": "Nur Bearbeiter können Einstellungen ändern.",
         "configs": {
           "home_city": {
-            "label": "Heimatort",
+            "label": "Einsatzgebiet (Ort)",
             "description": "Haupteinsatzgebiet für vereinfachte Adressanzeige"
           },
           "funkrufname": {
             "label": "Funkrufname",
-            "description": "Funkrufname der Einheit für die Funkdurchsage (z.B. Omega, Gamma)"
+            "description": "Funkrufname der Einheit für die Funkdurchsage (z. B. Omega, Gamma)"
           },
           "map_mode": {
             "label": "Karten-Modus",
@@ -1014,7 +1014,8 @@
         "sync": "Synchronisation ist im Demo-Modus nicht verfügbar.",
         "printer": "Druckereinstellungen sind im Demo-Modus nicht verfügbar. Es ist kein physischer Drucker angeschlossen.",
         "users": "Benutzerverwaltung ist im Demo-Modus nicht verfügbar.",
-        "import": "Datenimport ist im Demo-Modus nicht verfügbar. Export und Vorlagen-Download funktionieren normal."
+        "import": "Datenimport ist im Demo-Modus nicht verfügbar. Export und Vorlagen-Download funktionieren normal.",
+        "locked": "Im Demo-Modus nicht änderbar"
       },
       "import": {
         "importSuccess": "Import erfolgreich! {personnel} Personal, {vehicles} Fahrzeuge, {materials} Material importiert.",
@@ -1143,9 +1144,9 @@
       "addButton": "Material hinzufügen",
       "dialogEditTitle": "Material bearbeiten",
       "dialogCreateTitle": "Neues Material hinzufügen",
-      "namePlaceholder": "z.B. Tauchpumpe Gr.",
-      "typePlaceholder": "z.B. Pumpe, Schlauch",
-      "locationPlaceholder": "z.B. TLF, Pio, Depot",
+      "namePlaceholder": "z. B. Tauchpumpe Gr.",
+      "typePlaceholder": "z. B. Pumpe, Schlauch",
+      "locationPlaceholder": "z. B. TLF, Pio, Depot",
       "consumableLabel": "Verbrauchsmaterial",
       "consumableHint": "Unbegrenzt verfügbar, keine Zuordnung nötig",
       "categoryHead": "Kategorie",
@@ -1155,14 +1156,14 @@
       "deleteTitle": "Material löschen",
       "deleteDescription": "Sind Sie sicher, dass Sie das Material \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
       "groups": {
-        "intro": "Materialgruppen fassen mehrere Einzelmaterialien zu einem Block zusammen (z.B. \"Modul 1\").",
+        "intro": "Materialgruppen fassen mehrere Einzelmaterialien zu einem Block zusammen (z. B. \"Modul 1\").",
         "createButton": "Gruppe erstellen",
         "empty": "Keine Gruppen vorhanden. Erstellen Sie eine neue Gruppe.",
         "materialsHead": "Materialien",
         "noMaterials": "Keine Materialien",
         "dialogEditTitle": "Gruppe bearbeiten",
         "dialogCreateTitle": "Neue Gruppe erstellen",
-        "namePlaceholder": "z.B. Modul 1",
+        "namePlaceholder": "z. B. Modul 1",
         "locationPlaceholder": "Standort auswählen",
         "selectMaterials": "Materialien auswählen",
         "noAvailableMaterials": "Keine verfügbaren Materialien",
@@ -1198,7 +1199,7 @@
       "rolePlaceholder": "Rolle auswählen",
       "roleCustomOption": "Andere...",
       "roleCustomPlaceholder": "Neue Rolle eingeben",
-      "roleExamplePlaceholder": "z.B. Offiziere, Wachtmeister",
+      "roleExamplePlaceholder": "z. B. Offiziere, Wachtmeister",
       "newTagPlaceholder": "Neuer Tag",
       "addTag": "Hinzufügen",
       "deleteTitle": "Person löschen",
@@ -1322,10 +1323,10 @@
       "addButton": "Fahrzeug hinzufügen",
       "dialogEditTitle": "Fahrzeug bearbeiten",
       "dialogCreateTitle": "Neues Fahrzeug hinzufügen",
-      "namePlaceholder": "z.B. TLF, Pio, Mowa",
+      "namePlaceholder": "z. B. TLF, Pio, Mowa",
       "orderLabel": "Reihenfolge (Tastaturkürzel)",
-      "orderPlaceholder": "z.B. 1, 2, 3",
-      "radioPlaceholder": "z.B. Omega 1, Omega 2",
+      "orderPlaceholder": "z. B. 1, 2, 3",
+      "radioPlaceholder": "z. B. Omega 1, Omega 2",
       "empty": "Keine Fahrzeuge vorhanden.",
       "deleteTitle": "Fahrzeug löschen",
       "deleteDescription": "Sind Sie sicher, dass Sie das Fahrzeug \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
@@ -1404,7 +1405,7 @@
     "createDialog": {
       "title": "Neues Ereignis erstellen",
       "nameLabel": "Name",
-      "namePlaceholder": "z.B. Hochwasser 2026-02-19",
+      "namePlaceholder": "z. B. Hochwasser 2026-02-19",
       "modeLabel": "Modus",
       "modeLive": "Einsatz",
       "modeTraining": "Übung",
@@ -1503,9 +1504,9 @@
       "otherDangersPlaceholder": "Beschreibung...",
       "effort": "Aufwand",
       "personnelCount": "Personal (Anz.)",
-      "personnelPlaceholder": "z.B. 10",
+      "personnelPlaceholder": "z. B. 10",
       "duration": "Dauer (Std.)",
-      "durationPlaceholder": "z.B. 2",
+      "durationPlaceholder": "z. B. 2",
       "powerSupply": "Stromversorgung",
       "powerLabels": {
         "unknown": "Unbekannt",
@@ -2039,7 +2040,7 @@
       "noVehicles": "Keine Fahrzeuge vorhanden.",
       "returnMagazin": "Rückkehr Magazin",
       "returnButton": "Rückfahrt",
-      "returnTitle": "Zurück zum Magazin fahren (z.B. nur Material abgeliefert)",
+      "returnTitle": "Zurück zum Magazin fahren (z. B. nur Material abgeliefert)",
       "stopButton": "Stopp",
       "targetPlaceholder": "Ziel wählen…",
       "magazinTarget": "Magazin (Rückkehr)",
@@ -2069,7 +2070,7 @@
       "injectEscalate": "Lage verschärft sich",
       "injectReinforcement": "Verstärkung anfordern",
       "injectBreakdown": "Fahrzeug fällt aus",
-      "footer": "Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). \"Fahrt zu Einsatz\" und \"Rückfahrt Magazin\" starten GPS-Fahrten — Ankunft und Rückkehr melden sich über die GPS-Abfrage. \"Einsatz beendet\" erscheint nur hier — das Board informierst du selbst (z.B. per Funk).",
+      "footer": "Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). \"Fahrt zu Einsatz\" und \"Rückfahrt Magazin\" starten GPS-Fahrten — Ankunft und Rückkehr melden sich über die GPS-Abfrage. \"Einsatz beendet\" erscheint nur hier — das Board informierst du selbst (z. B. per Funk).",
       "checkinLabel": "Personal einchecken",
       "immediately": "sofort",
       "overMinutes": "über {count} Min",
@@ -2403,7 +2404,7 @@
       "title": "Alarm erfassen",
       "trainingMode": "Übungsmodus",
       "messageLabel": "Meldung *",
-      "messagePlaceholder": "z.B. Brennt im Keller, starke Rauchentwicklung",
+      "messagePlaceholder": "z. B. Brennt im Keller, starke Rauchentwicklung",
       "priorityLabel": "Priorität *",
       "typeLabel": "Einsatzart *",
       "typeSearchPlaceholder": "Einsatzart suchen...",
