@@ -287,17 +287,31 @@ export default function FireStationDashboard() {
     [diveraDialogOp, operations]
   )
   // When disponieren is triggered for an incident that's missing resources
-  // (Personal, Fahrzeuge or Mittel), hold it here to make the operator
-  // acknowledge what's missing before dispatching.
-  const [missingResourcesAckOp, setMissingResourcesAckOp] = useState<Operation | null>(null)
+  // (Personal, Fahrzeuge or Mittel), hold its id here to make the operator
+  // acknowledge what's missing before dispatching. We store the id (not the op)
+  // and derive the live op below, so the checklist reflects assignments made from
+  // inside the gate the instant `operations` updates — no stale "still fehlt".
+  const [missingResourcesAckOpId, setMissingResourcesAckOpId] = useState<string | null>(null)
   // Gate before einsatz → beendet/rückfahrt: if no vehicle is assigned the crew would
   // have to walk back, so make the operator acknowledge (or assign one first).
-  const [returningVehicleAckOp, setReturningVehicleAckOp] = useState<Operation | null>(null)
+  const [returningVehicleAckOpId, setReturningVehicleAckOpId] = useState<string | null>(null)
   // When the operator picks a category from one of the resource gates, we close the gate,
   // open the assignment dialog, and remember here where to return once it closes: back to
   // the checklist ('missing') or the returning warning ('returning'). Only set on the gate
   // paths — normal per-category assignments are unaffected.
   const [assignReturnTo, setAssignReturnTo] = useState<{ kind: 'missing' | 'returning'; opId: string } | null>(null)
+  // Live ops derived from the held ids, so both gates always render current state.
+  const missingResourcesAckOp = useMemo(
+    () => (missingResourcesAckOpId ? operations.find((o) => o.id === missingResourcesAckOpId) ?? null : null),
+    [missingResourcesAckOpId, operations]
+  )
+  // The returning warning self-dismisses the moment a vehicle exists (or zu Fuss).
+  const returningVehicleAckOp = useMemo(() => {
+    if (!returningVehicleAckOpId) return null
+    const op = operations.find((o) => o.id === returningVehicleAckOpId)
+    if (!op || op.zuFuss || op.vehicles.length > 0) return null
+    return op
+  }, [returningVehicleAckOpId, operations])
   // Resource transfer ("Ressourcen übertragen") opened from the card context menu.
   const [transferSourceOp, setTransferSourceOp] = useState<Operation | null>(null)
   const [transferAvailableIncidents, setTransferAvailableIncidents] = useState<Incident[]>([])
@@ -516,7 +530,7 @@ export default function FireStationDashboard() {
     const op = operations.find(o => o.id === operationId)
     if (!op) return
     if (getMissingResources(op).length > 0) {
-      setMissingResourcesAckOp(op)
+      setMissingResourcesAckOpId(op.id)
     } else {
       setDisponiertDialogOp(op)
     }
@@ -528,7 +542,7 @@ export default function FireStationDashboard() {
   const triggerReturningVehicleCheck = useCallback((operationId: string) => {
     const op = operations.find(o => o.id === operationId)
     if (!op) return
-    if (!op.zuFuss && op.vehicles.length === 0) setReturningVehicleAckOp(op)
+    if (!op.zuFuss && op.vehicles.length === 0) setReturningVehicleAckOpId(op.id)
   }, [operations])
 
   // When a card enters REKO without a reko person assigned, prompt the operator
@@ -1256,8 +1270,8 @@ export default function FireStationDashboard() {
   // Open the assignment dialog for one category from a resource gate, remembering to
   // return to that gate ('missing' checklist / 'returning' warning) once it closes.
   const openGateAssign = (category: 'crew' | 'vehicles' | 'materials', opId: string, kind: 'missing' | 'returning') => {
-    setMissingResourcesAckOp(null)
-    setReturningVehicleAckOp(null)
+    setMissingResourcesAckOpId(null)
+    setReturningVehicleAckOpId(null)
     setAssignReturnTo({ kind, opId })
     handleOpenAssignmentDialog(category, opId)
   }
@@ -1485,7 +1499,7 @@ export default function FireStationDashboard() {
               {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
               <button
                 onClick={() => setShowLeftSidebar(false)}
-                className="absolute right-0 top-1/2 z-20 flex h-16 w-5 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                className="absolute right-0 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
                 title={`${tDash('toggleLeftSidebar')} ([)`}
                 aria-label={tDash('toggleLeftSidebar')}
               >
@@ -1581,7 +1595,7 @@ export default function FireStationDashboard() {
           {!showLeftSidebar && (
             <button
               onClick={() => setShowLeftSidebar(true)}
-              className="absolute left-0 top-1/2 z-10 flex h-16 w-5 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute left-0 top-1/2 z-10 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleLeftSidebar')} ([)`}
               aria-label={tDash('toggleLeftSidebar')}
             >
@@ -1675,7 +1689,7 @@ export default function FireStationDashboard() {
               {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
               <button
                 onClick={() => setShowRightSidebar(false)}
-                className="absolute left-0 top-1/2 z-20 flex h-16 w-5 -translate-y-1/2 -translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                className="absolute left-0 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer -translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
                 title={`${tDash('toggleRightSidebar')} (])`}
                 aria-label={tDash('toggleRightSidebar')}
               >
@@ -1766,7 +1780,7 @@ export default function FireStationDashboard() {
           {!showRightSidebar && (
             <button
               onClick={() => setShowRightSidebar(true)}
-              className="absolute right-0 top-1/2 z-10 flex h-16 w-5 -translate-y-1/2 items-center justify-center rounded-l-md border border-r-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute right-0 top-1/2 z-10 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-l-md border border-r-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleRightSidebar')} (])`}
               aria-label={tDash('toggleRightSidebar')}
             >
@@ -2060,16 +2074,11 @@ export default function FireStationDashboard() {
           if (!open && assignReturnTo) {
             const { kind, opId } = assignReturnTo
             setAssignReturnTo(null)
-            const fresh = operations.find(o => o.id === opId)
-            if (!fresh) return
-            if (kind === 'missing') {
-              // Reopen the checklist so remaining gaps stay visible and the operator
-              // can finish assigning (or dispatch anyway) from the same overview.
-              setMissingResourcesAckOp(fresh)
-            } else {
-              // Returning warning: only re-show it if a vehicle is still missing.
-              if (!fresh.zuFuss && fresh.vehicles.length === 0) setReturningVehicleAckOp(fresh)
-            }
+            // Reopen by id — both gates derive their op live, so the checklist reflects
+            // the just-assigned resource as soon as `operations` updates, and the
+            // returning warning self-dismisses once a vehicle is present.
+            if (kind === 'missing') setMissingResourcesAckOpId(opId)
+            else setReturningVehicleAckOpId(opId)
           }
         }}
         resourceType={assignmentResourceType}
@@ -2528,7 +2537,7 @@ export default function FireStationDashboard() {
           category can be assigned inline; the operator returns here after each. */}
       <AlertDialog
         open={!!missingResourcesAckOp}
-        onOpenChange={(open) => !open && setMissingResourcesAckOp(null)}
+        onOpenChange={(open) => !open && setMissingResourcesAckOpId(null)}
       >
         <AlertDialogContent>
           {missingResourcesAckOp && (() => {
@@ -2557,8 +2566,14 @@ export default function FireStationDashboard() {
                 </AlertDialogHeader>
 
                 <div className="space-y-1.5 py-1">
+                  {/* Whole row is clickable — open the category to add or remove, whether
+                      it's still missing or already satisfied. */}
                   {rows.map(({ key, icon: Icon, filled, summary }) => (
-                    <div key={key} className="flex items-center gap-3 rounded-md border px-3 py-2">
+                    <button
+                      key={key}
+                      onClick={() => openGateAssign(key, op.id, 'missing')}
+                      className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40"
+                    >
                       {filled
                         ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
                         : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning" />}
@@ -2567,28 +2582,17 @@ export default function FireStationDashboard() {
                         <div className="text-sm font-medium">{tRes(key)}</div>
                         {filled && summary && <div className="truncate text-xs text-muted-foreground">{summary}</div>}
                       </div>
-                      {/* Always allow assigning more — even a satisfied category can take extras. */}
                       {filled ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 flex-shrink-0 gap-1 px-2 text-xs text-muted-foreground"
-                          onClick={() => openGateAssign(key, op.id, 'missing')}
-                        >
+                        <span className="flex flex-shrink-0 items-center gap-1 text-xs text-muted-foreground">
                           <Plus className="h-3.5 w-3.5" />
                           {tMissing('addMore')}
-                        </Button>
+                        </span>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-7 flex-shrink-0 px-2 text-xs"
-                          onClick={() => openGateAssign(key, op.id, 'missing')}
-                        >
+                        <span className="flex-shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-medium">
                           {tCommon('assign')}
-                        </Button>
+                        </span>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
 
@@ -2598,7 +2602,7 @@ export default function FireStationDashboard() {
                       variant="ghost"
                       onClick={() => {
                         setDisponiertDialogOp(op)
-                        setMissingResourcesAckOp(null)
+                        setMissingResourcesAckOpId(null)
                       }}
                     >
                       {tMissing('dispatchAnyway')}
@@ -2608,7 +2612,7 @@ export default function FireStationDashboard() {
                     disabled={!allFilled}
                     onClick={() => {
                       setDisponiertDialogOp(op)
-                      setMissingResourcesAckOp(null)
+                      setMissingResourcesAckOpId(null)
                     }}
                   >
                     {tMissing('done')}
@@ -2623,7 +2627,7 @@ export default function FireStationDashboard() {
       {/* No-vehicle warning — gate before einsatz → beendet/rückfahrt */}
       <AlertDialog
         open={!!returningVehicleAckOp}
-        onOpenChange={(open) => !open && setReturningVehicleAckOp(null)}
+        onOpenChange={(open) => !open && setReturningVehicleAckOpId(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2639,7 +2643,7 @@ export default function FireStationDashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={() => setReturningVehicleAckOp(null)}>
+            <Button variant="ghost" onClick={() => setReturningVehicleAckOpId(null)}>
               {tReturning('endAnyway')}
             </Button>
             <Button
