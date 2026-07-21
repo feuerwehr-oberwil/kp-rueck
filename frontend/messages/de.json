@@ -323,10 +323,15 @@
       "assignMaterial": "Material zuweisen",
       "onlyAssignedVehicles": "Nur zugewiesene",
       "transferResources": "Ressourcen übertragen",
+      "distributeToAuftrag": "An Auftrag verteilen",
       "newIncident": "Neuer Einsatz"
     },
     "dashboard": {
       "loading": "Laden...",
+      "stopsAddedToast": "{count} Stops zur Route hinzugefügt",
+      "distributedToast": "In Auftrag «{name}» verteilt",
+      "routeNoStops": "Dieser Auftrag hat noch keine Stops.",
+      "routeResourceToast": "Auf {copied} weitere Stops übernommen · {skipped} bereits zugewiesen",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
       "switchEvent": "Ereignis wechseln",
@@ -604,6 +609,10 @@
       "assignVehicle": "Fahrzeug",
       "assignCrew": "Personen",
       "assignMaterial": "Material",
+      "resourcesHeading": "Ressourcen",
+      "assignVehicleRoute": "Fahrzeug zuweisen",
+      "assignCrewRoute": "Personen zuweisen",
+      "assignMaterialRoute": "Material zuweisen",
       "copyToAll": "Auf alle übernehmen",
       "copyPickerTitle": "Was übernehmen?",
       "resource_vehicle": "Fahrzeug",
@@ -626,6 +635,8 @@
     "routenEditorModal": {
       "title": "Routen-Editor",
       "description": "Stops auf der Karte anordnen: klicken zum Hinzufügen, ziehen zum Umsortieren, optimieren.",
+      "mapHeading": "Karte",
+      "emptyState": "Noch keine Stops — klicke auf die Karte oder nutze «Stop hinzufügen».",
       "order": "Reihenfolge",
       "addStopToggle": "Stop hinzufügen",
       "addStopHint": "Klick auf die Karte platziert einen neuen Stop.",
@@ -646,6 +657,27 @@
       "dragStop": "Stop verschieben",
       "noCoords": "Dieser Stop hat keine Koordinaten und liegt nicht auf der Route.",
       "noCoordsBadge": "kein Ort"
+    },
+    "incidentPicker": {
+      "title": "Einsätze als Stops hinzufügen",
+      "description": "Bestehende Einsätze auswählen. Ein Einsatz aus einem anderen Auftrag wird hierher verschoben.",
+      "searchPlaceholder": "Einsatz suchen …",
+      "empty": "Keine passenden Einsätze gefunden.",
+      "inRoute": "Aktuell in Auftrag «{name}»",
+      "createNew": "Neuer Einsatz",
+      "cancel": "Abbrechen",
+      "confirm": "{count} hinzufügen"
+    },
+    "auftragPicker": {
+      "title": "An Auftrag verteilen",
+      "description": "Einsatz einem Auftrag zuordnen. Er wird als Stop in die Route verschoben.",
+      "empty": "Noch keine Aufträge. Erstelle einen neuen.",
+      "alreadyHere": "bereits hier",
+      "stopCount": "{count} Stops",
+      "namePlaceholder": "Auftragsname",
+      "createConfirm": "Erstellen",
+      "cancel": "Abbrechen",
+      "newAuftrag": "Neuer Auftrag"
     }
   },
   "incidents": {

@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { MapPin, Wand2, MousePointerClick } from "lucide-react"
+import { MapPin, Wand2, MousePointerClick, MapPinned } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,6 +35,7 @@ import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { isLocated } from "@/lib/utils/route-geo"
+import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { RouteStopList } from "../map/route-stop-list"
 
 // Basel-Landschaft fallback centre (matches map-picker-modal).
@@ -101,6 +102,11 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   } = useRoutePlanning(groupId)
 
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
+
+  // Keep the modal open while a drag-reorder happens inside it — a native drag
+  // churns focus/pointer state that Radix would otherwise read as an outside
+  // interaction and close the dialog on.
+  const { dragGuardProps } = useDialogDragGuard(open)
 
   const [isClient, setIsClient] = useState(false)
   const [mapKey, setMapKey] = useState(0)
@@ -251,7 +257,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col">
+      <DialogContent
+        className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-5xl flex-col gap-4"
+        {...dragGuardProps}
+      >
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
@@ -261,20 +270,25 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[1.4fr_1fr]">
-          {/* Map */}
-          <div className="relative min-h-[320px] overflow-hidden rounded-lg border">
-            {mapNode}
-            {addMode && (
-              <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-md">
-                {isAddingStop ? t("addingStop") : t("addStopHint")}
-              </div>
-            )}
+        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1.5fr_1fr]">
+          {/* Map column */}
+          <div className="flex min-h-[380px] flex-col">
+            <div className="mb-2 flex h-8 items-center">
+              <span className="text-sm font-semibold">{t("mapHeading")}</span>
+            </div>
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
+              {mapNode}
+              {addMode && (
+                <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-md">
+                  {isAddingStop ? t("addingStop") : t("addStopHint")}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Ordered list */}
+          {/* Ordered list column */}
           <div className="flex min-h-0 flex-col">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex h-8 items-center justify-between gap-2">
               <span className="text-sm font-semibold">{t("order")}</span>
               <Button
                 size="sm"
@@ -287,20 +301,26 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
               </Button>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1">
-              {displayOrder.length === 0 && <p className="py-4 text-sm text-muted-foreground">{t("noStops")}</p>}
-              <RouteStopList
-                groupId={group?.id ?? ""}
-                stopIds={group?.stopIds ?? []}
-                displayOrder={displayOrder}
-                operationsById={operationsById}
-                changedPositions={changedPositions}
-                reorderDisabled={preview !== null}
-                onReorder={(ids) => void reorder(ids)}
-                focusStopId={focusStopId}
-                onSelectStop={setFocusStopId}
-                enabled={open && !!group}
-              />
+            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto rounded-lg border bg-muted/20 p-2">
+              {displayOrder.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
+                  <MapPinned className="mb-2 h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">{t("emptyState")}</p>
+                </div>
+              ) : (
+                <RouteStopList
+                  groupId={group?.id ?? ""}
+                  stopIds={group?.stopIds ?? []}
+                  displayOrder={displayOrder}
+                  operationsById={operationsById}
+                  changedPositions={changedPositions}
+                  reorderDisabled={preview !== null}
+                  onReorder={(ids) => void reorder(ids)}
+                  focusStopId={focusStopId}
+                  onSelectStop={setFocusStopId}
+                  enabled={open && !!group}
+                />
+              )}
             </div>
           </div>
         </div>

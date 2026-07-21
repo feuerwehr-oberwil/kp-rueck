@@ -28,6 +28,9 @@ import {
   Trash2,
   Copy,
   Route,
+  Truck,
+  Users,
+  Package,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -51,6 +54,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
@@ -75,10 +79,11 @@ interface AuftraegeSheetProps {
   onOpenChange: (open: boolean) => void
   /** When the sheet is opened from a board chip, expand + scroll to this group. */
   focusGroupId?: string | null
-  /** Opens the shared NewEmergencyModal with the group preset (streamlined "+ Stop"). */
+  /** Opens the incident picker to add EXISTING incidents as stops to the route. */
   onAddStop: (groupId: string) => void
-  /** Reuses the page's existing ResourceAssignmentDialog flow for one stop. */
-  onAssignResource: (resourceType: "crew" | "vehicles" | "materials", operationId: string) => void
+  /** Opens the ResourceAssignmentDialog for the route; the assignment is fanned
+   *  out to every stop of the route (via the first stop + copySquad) on close. */
+  onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials", groupId: string) => void
   /** Opens the existing OperationDetailModal for a stop. */
   onOpenDetail: (operationId: string) => void
   /** Opens the Routen-Editor modal for a route; optional stop to centre/focus on. */
@@ -90,12 +95,13 @@ export function AuftraegeSheet({
   onOpenChange,
   focusGroupId,
   onAddStop,
-  onAssignResource,
+  onAssignRouteResource,
   onOpenDetail,
   onOpenRoutenEditor,
 }: AuftraegeSheetProps) {
   const t = useTranslations("kanban.auftraege")
   const isMobile = useIsMobile()
+  const { dragGuardProps } = useDialogDragGuard(open)
   const { groups, isLoaded, createGroup, updateGroup, deleteGroup, reorderGroupStops, removeStop, copySquad } =
     useGroups()
   const { operations, updateOperation } = useOperations()
@@ -187,16 +193,19 @@ export function AuftraegeSheet({
           nonModal={!isMobile}
           className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4", isMobile ? "max-h-[75vh]" : "max-h-[85vh]")}
           style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
-          onInteractOutside={
-            isMobile
-              ? undefined
-              : (e) => {
-                  const target = e.target as HTMLElement
-                  if (target.closest("footer") || target.closest('[role="dialog"]')) {
-                    e.preventDefault()
-                  }
-                }
-          }
+          onPointerDownOutside={dragGuardProps.onPointerDownOutside}
+          onFocusOutside={dragGuardProps.onFocusOutside}
+          onEscapeKeyDown={dragGuardProps.onEscapeKeyDown}
+          onInteractOutside={(e) => {
+            // Defensive: a stop reorder drag inside the sheet must not dismiss it.
+            dragGuardProps.onInteractOutside(e)
+            if (e.defaultPrevented) return
+            if (isMobile) return
+            const target = e.target as HTMLElement
+            if (target.closest("footer") || target.closest('[role="dialog"]')) {
+              e.preventDefault()
+            }
+          }}
         >
           <SheetHeader className="p-0">
             <div className="flex items-center justify-between gap-4">
@@ -282,7 +291,7 @@ export function AuftraegeSheet({
                 onRequestDelete={() => setDeleteId(group.id)}
                 onAddStop={() => onAddStop(group.id)}
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
-                onAssignResource={onAssignResource}
+                onAssignRouteResource={(resourceType) => onAssignRouteResource(resourceType, group.id)}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
                 onMarkDone={(incidentId) => updateOperation(incidentId, { status: "complete" })}
@@ -339,7 +348,7 @@ interface AuftragCardProps {
   onRequestDelete: () => void
   onAddStop: () => void
   onOpenRoutenEditor: (focusIncidentId?: string) => void
-  onAssignResource: (resourceType: "crew" | "vehicles" | "materials", operationId: string) => void
+  onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials") => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
   onMarkDone: (incidentId: string) => void
@@ -362,7 +371,7 @@ function AuftragCard({
   onRequestDelete,
   onAddStop,
   onOpenRoutenEditor,
-  onAssignResource,
+  onAssignRouteResource,
   onOpenDetail,
   onRemoveStop,
   onMarkDone,
@@ -515,23 +524,48 @@ function AuftragCard({
               <MapIcon className="h-3.5 w-3.5" />
               {t("routenEditor")}
             </Button>
-
-            {sourceId && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-8 gap-1.5">
-                    {t("assignSquad")}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onClick={() => onAssignResource("vehicles", sourceId)}>{t("assignVehicle")}</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAssignResource("crew", sourceId)}>{t("assignCrew")}</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAssignResource("materials", sourceId)}>{t("assignMaterial")}</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
             <CopyPicker mode={group.mode} disabled={total < 2 || !sourceId} onConfirm={onCopySquad} />
+          </div>
+
+          {/* Ressourcen — explicit assign-to-whole-route controls. Each opens the
+              standard assignment dialog and fans the choice out to every stop. */}
+          <div className="mt-2 rounded-md border bg-muted/20 px-3 py-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground">{t("resourcesHeading")}</span>
+              <span className="truncate text-xs text-muted-foreground">{squadSummary}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                disabled={!sourceId}
+                onClick={() => onAssignRouteResource("vehicles")}
+              >
+                <Truck className="h-3.5 w-3.5" />
+                {t("assignVehicleRoute")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                disabled={!sourceId || group.mode === "vehicle_only"}
+                onClick={() => onAssignRouteResource("crew")}
+              >
+                <Users className="h-3.5 w-3.5" />
+                {t("assignCrewRoute")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                disabled={!sourceId || group.mode === "vehicle_only"}
+                onClick={() => onAssignRouteResource("materials")}
+              >
+                <Package className="h-3.5 w-3.5" />
+                {t("assignMaterialRoute")}
+              </Button>
+            </div>
           </div>
         </div>
       )}

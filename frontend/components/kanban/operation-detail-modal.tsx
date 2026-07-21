@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints } from 'lucide-react'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -51,6 +51,8 @@ interface OperationDetailModalProps {
   /** Editor-only: archive the incident (status → complete) via the shared
       completion + material-decision flow. Surfaced in the Reko-Meldung card. */
   onRequestComplete?: (operationId: string) => void
+  /** Opens the Auftrag picker to distribute this incident into a route. */
+  onDistributeToAuftrag?: (operationId: string) => void
 }
 
 export function OperationDetailModal({
@@ -68,6 +70,7 @@ export function OperationDetailModal({
   diveraEnabled,
   onSendDivera,
   onRequestComplete,
+  onDistributeToAuftrag,
 }: OperationDetailModalProps) {
   const t = useTranslations('kanban')
   const { formatLocation, setOperations, changeStatusToTop } = useOperations()
@@ -929,6 +932,17 @@ export function OperationDetailModal({
             <ArrowRightLeft className="h-4 w-4" />
             {t('common.transferResources')}
           </Button>
+          {onDistributeToAuftrag && operation && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDistributeToAuftrag(operation.id)}
+              className="border border-border"
+            >
+              <Waypoints className="h-4 w-4" />
+              {t('common.distributeToAuftrag')}
+            </Button>
+          )}
           <div className="ml-auto flex items-center gap-2">
             <Button
               variant="ghost"

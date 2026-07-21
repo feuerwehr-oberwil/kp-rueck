@@ -91,7 +91,7 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof AuftraegeShe
       open
       onOpenChange={noop}
       onAddStop={noop}
-      onAssignResource={noop}
+      onAssignRouteResource={noop}
       onOpenDetail={noop}
       onOpenRoutenEditor={noop}
       {...overrides}
