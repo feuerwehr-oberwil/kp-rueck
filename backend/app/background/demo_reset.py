@@ -2,9 +2,10 @@
 
 import shutil
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import text
 
 from app.config import settings
@@ -13,10 +14,23 @@ from app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# The demo resets once a day at local (Swiss) midnight rather than on a rolling
+# interval, so the reset time is predictable for visitors.
+DEMO_RESET_TZ = ZoneInfo("Europe/Zurich")
+
 # Global state
 scheduler: AsyncIOScheduler | None = None
 _next_reset_time: datetime | None = None
 _shutting_down: bool = False
+
+
+def _next_midnight_naive() -> datetime:
+    """Next 00:00 Europe/Zurich, expressed as a naive datetime in the server's
+    local timezone so it can be compared against ``datetime.now()`` (which the
+    demo-status endpoint uses to compute the countdown)."""
+    now_local = datetime.now(DEMO_RESET_TZ)
+    nxt = (now_local + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return nxt.astimezone().replace(tzinfo=None)
 
 
 def get_next_reset_time() -> datetime | None:
@@ -78,8 +92,8 @@ async def scheduled_demo_reset():
 
         await seed_demo_database()
 
-        # 4. Update next reset time
-        _next_reset_time = datetime.now() + timedelta(hours=settings.demo_reset_hours)
+        # 4. Update next reset time (next local midnight)
+        _next_reset_time = _next_midnight_naive()
 
         # 5. Broadcast reset message via WebSocket
         try:
@@ -100,17 +114,16 @@ def start_demo_reset_scheduler():
     """Start the demo reset scheduler."""
     global scheduler, _next_reset_time
 
-    interval_hours = settings.demo_reset_hours
-    _next_reset_time = datetime.now() + timedelta(hours=interval_hours)
+    _next_reset_time = _next_midnight_naive()
 
     logger.info(
-        f"Starting demo reset scheduler (interval: {interval_hours}h, next reset: {_next_reset_time.isoformat()})"
+        f"Starting demo reset scheduler (daily at 00:00 {DEMO_RESET_TZ.key}, next reset: {_next_reset_time.isoformat()})"
     )
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         scheduled_demo_reset,
-        trigger=IntervalTrigger(hours=interval_hours),
+        trigger=CronTrigger(hour=0, minute=0, timezone="Europe/Zurich"),
         id="demo_reset",
         name="Demo database reset",
         replace_existing=True,
