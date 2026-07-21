@@ -9,7 +9,9 @@ export function useResourceFiltering(
   personnel: Person[],
   materials: Material[],
   personnelQuery: string,
-  materialQuery?: string
+  materialQuery?: string,
+  /** Group label for personnel without a role (e.g. quick-added walk-ins). */
+  roleFallbackLabel: string = 'Andere'
 ) {
   const effectiveMaterialQuery = materialQuery ?? personnelQuery
 
@@ -19,7 +21,8 @@ export function useResourceFiltering(
       const q = personnelQuery.toLowerCase()
       return personnel.filter((p) =>
         p.name.toLowerCase().includes(q) ||
-        p.role.toLowerCase().includes(q) ||
+        // role is null for quick-added people — don't crash the search
+        (!!p.role && p.role.toLowerCase().includes(q)) ||
         (p.isReko && 'reko'.includes(q)) ||
         (p.isDriver && ('fahrer'.includes(q) || 'driver'.includes(q))) ||
         (p.driverVehicleName && p.driverVehicleName.toLowerCase().includes(q)) ||
@@ -45,13 +48,15 @@ export function useResourceFiltering(
   const groupedPersonnel = useMemo(
     () => filteredPersonnel.reduce(
       (acc, person) => {
-        if (!acc[person.role]) acc[person.role] = []
-        acc[person.role].push(person)
+        // Fall back to a labelled group so a null role never renders as "null".
+        const key = person.role || roleFallbackLabel
+        if (!acc[key]) acc[key] = []
+        acc[key].push(person)
         return acc
       },
       {} as Record<PersonRole, Person[]>
     ),
-    [filteredPersonnel]
+    [filteredPersonnel, roleFallbackLabel]
   )
 
   const groupedMaterials = useMemo(
