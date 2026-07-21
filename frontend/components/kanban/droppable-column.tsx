@@ -218,7 +218,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
       >
         <div className="flex flex-col items-center gap-2 py-3">
-          <span className="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
+          <span className="text-xs font-semibold uppercase text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
             {columnTitle}
           </span>
           <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
@@ -234,7 +234,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         column.color
       )}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold tracking-tight text-foreground">{columnTitle}</h2>
+          <h2 className="text-sm font-bold uppercase tracking-tight text-foreground">{columnTitle}</h2>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
               {operations.length}
