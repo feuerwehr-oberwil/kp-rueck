@@ -23,16 +23,20 @@ interface CategorySortOrderProps {
   description: string;
   categories: Category[];
   onSave: (categories: Category[]) => Promise<void>;
+  /** View-only (e.g. demo): shows the order but disables drag + save. */
+  readOnly?: boolean;
 }
 
 function SortableItem({
   category,
   index,
-  isDragging
+  isDragging,
+  readOnly = false,
 }: {
   category: Category;
   index: number;
   isDragging: boolean;
+  readOnly?: boolean;
 }) {
   const t = useTranslations('settings');
   const ref = useRef<HTMLDivElement>(null);
@@ -40,6 +44,7 @@ function SortableItem({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
 
   useEffect(() => {
+    if (readOnly) return;
     const element = ref.current;
     const dragHandle = dragHandleRef.current;
     if (!element || !dragHandle) return;
@@ -73,7 +78,7 @@ function SortableItem({
         onDrop: () => setClosestEdge(null),
       })
     );
-  }, [index, category]);
+  }, [index, category, readOnly]);
 
   return (
     <div
@@ -83,7 +88,7 @@ function SortableItem({
     >
       <div
         ref={dragHandleRef}
-        className="cursor-grab active:cursor-grabbing touch-none"
+        className={readOnly ? 'text-muted-foreground/40' : 'cursor-grab active:cursor-grabbing touch-none'}
       >
         <GripVertical className="h-5 w-5 text-muted-foreground" />
       </div>
@@ -97,7 +102,7 @@ function SortableItem({
   );
 }
 
-export function CategorySortOrder({ title, description, categories: initialCategories, onSave }: CategorySortOrderProps) {
+export function CategorySortOrder({ title, description, categories: initialCategories, onSave, readOnly = false }: CategorySortOrderProps) {
   const t = useTranslations('settings');
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [isSaving, setIsSaving] = useState(false);
@@ -106,6 +111,7 @@ export function CategorySortOrder({ title, description, categories: initialCateg
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (readOnly) return;
     const element = containerRef.current;
     if (!element) return;
 
@@ -162,7 +168,7 @@ export function CategorySortOrder({ title, description, categories: initialCateg
         setDraggingIndex(source.data.index as number);
       },
     });
-  }, []);
+  }, [readOnly]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -203,15 +209,17 @@ export function CategorySortOrder({ title, description, categories: initialCateg
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
-          <Button
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving}
-            size="sm"
-            className="gap-2"
-          >
-            <Save className="h-4 w-4" />
-            {isSaving ? t('categorySort.savingButton') : t('common.save')}
-          </Button>
+          {!readOnly && (
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || isSaving}
+              size="sm"
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {isSaving ? t('categorySort.savingButton') : t('common.save')}
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>

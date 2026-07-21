@@ -41,6 +41,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import {
   LAGEBLATT_AUTODOWNLOAD_EVENT,
   LAGEBLATT_AUTODOWNLOAD_KEY,
+  readLageblattInterval,
 } from '@/components/settings/fallback-settings';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
@@ -106,9 +107,12 @@ export function UserMenu({
   // Toggled in Einstellungen → Ausfallsicherheit; the interval runs here because
   // the UserMenu is mounted on every page.
   const [lageblattAutoDownload, setLageblattAutoDownload] = useState(false);
+  const [lageblattIntervalMin, setLageblattIntervalMin] = useState(15);
   useEffect(() => {
-    const read = () =>
+    const read = () => {
       setLageblattAutoDownload(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true');
+      setLageblattIntervalMin(readLageblattInterval());
+    };
     read();
     window.addEventListener(LAGEBLATT_AUTODOWNLOAD_EVENT, read);
     window.addEventListener('storage', read);
@@ -121,9 +125,9 @@ export function UserMenu({
   downloadEventExportRef.current = downloadEventExport;
   useEffect(() => {
     if (!lageblattAutoDownload || !selectedEvent || !isEditor) return;
-    const id = window.setInterval(() => downloadEventExportRef.current('lageblatt'), 15 * 60 * 1000);
+    const id = window.setInterval(() => downloadEventExportRef.current('lageblatt'), lageblattIntervalMin * 60 * 1000);
     return () => window.clearInterval(id);
-  }, [lageblattAutoDownload, selectedEvent, isEditor]);
+  }, [lageblattAutoDownload, lageblattIntervalMin, selectedEvent, isEditor]);
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(getApiUrl());
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);

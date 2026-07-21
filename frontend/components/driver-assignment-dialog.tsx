@@ -70,6 +70,14 @@ export function DriverAssignmentDialog({
     conflictingOperations: Array<{ id: string; location: string; crewName: string }>
   }>({ open: false, person: null, conflictingOperations: [] })
 
+  // Reassign dialog state (person is already driving another vehicle)
+  const [reassignDialog, setReassignDialog] = useState<{
+    open: boolean
+    person: Person | null
+    fromVehicleId: string | null
+    fromVehicleName: string
+  }>({ open: false, person: null, fromVehicleId: null, fromVehicleName: "" })
+
   // Sync local state when props change (e.g., dialog reopened)
   useEffect(() => {
     if (open) {
@@ -85,28 +93,33 @@ export function DriverAssignmentDialog({
     }
   }, [open])
 
-  // Get personnel already assigned as drivers to other vehicles
-  const driversOnOtherVehicles = useMemo(() => {
-    return new Set(
-      specialFunctions
-        .filter(f => f.function_type === 'driver' && f.vehicle_id !== vehicleId)
-        .map(f => f.personnel_id)
-    )
+  // Map personnel already driving ANOTHER vehicle → that vehicle {id, name}.
+  // They stay selectable (shown with a "Fährt {vehicle}" badge); picking one
+  // moves them here after a confirmation instead of being hidden.
+  const otherVehicleByDriver = useMemo(() => {
+    const m = new Map<string, { id: string; name: string }>()
+    for (const f of specialFunctions) {
+      if (f.function_type === 'driver' && f.vehicle_id && f.vehicle_id !== vehicleId) {
+        m.set(f.personnel_id, { id: f.vehicle_id, name: f.vehicle_name ?? '' })
+      }
+    }
+    return m
   }, [specialFunctions, vehicleId])
 
-  // Get available personnel (checked in and not driving another vehicle)
-  // Include incident-assigned personnel so they can be selected with confirmation
+  // Get available personnel (checked in). Includes people driving another
+  // vehicle and incident-assigned personnel — both are selectable with a
+  // confirmation step.
   const availablePersonnel = useMemo(() => {
     return personnel.filter(p => {
-      // Must not be driving another vehicle
-      if (driversOnOtherVehicles.has(p.id)) return false
+      // Already driving another vehicle → keep (confirm-to-move on click)
+      if (otherVehicleByDriver.has(p.id)) return true
       // Must be available or assigned to an incident (not a driver/magazin)
       if (p.status === 'available') return true
       // Include incident-assigned personnel (but not drivers/magazin)
       if (p.status === 'assigned' && !p.isDriver && !p.isMagazin) return true
       return false
     })
-  }, [personnel, driversOnOtherVehicles])
+  }, [personnel, otherVehicleByDriver])
 
   // Get operations where a person is assigned
   const getPersonConflicts = (person: Person) => {
@@ -146,6 +159,18 @@ export function DriverAssignmentDialog({
   }, [filteredPersonnel])
 
   const handleAssignDriver = async (person: Person) => {
+    // Already driving another vehicle → confirm the move first
+    const drivingOther = otherVehicleByDriver.get(person.id)
+    if (drivingOther) {
+      setReassignDialog({
+        open: true,
+        person,
+        fromVehicleId: drivingOther.id,
+        fromVehicleName: drivingOther.name,
+      })
+      return
+    }
+
     // Check if person is assigned to any incident
     const conflicts = getPersonConflicts(person)
     if (conflicts.length > 0) {
@@ -256,6 +281,28 @@ export function DriverAssignmentDialog({
     }
   }
 
+  const handleReassignConfirm = async () => {
+    const { person, fromVehicleId } = reassignDialog
+    if (!person || !fromVehicleId) return
+
+    setReassignDialog(prev => ({ ...prev, open: false }))
+    setIsAssigning(true)
+    try {
+      // Take the person off the other vehicle first, then assign here.
+      await apiClient.unassignSpecialFunction(eventId, {
+        personnel_id: person.id,
+        function_type: 'driver',
+        vehicle_id: fromVehicleId,
+      })
+      await doAssignDriver(person)
+    } catch (error) {
+      console.error('Failed to reassign driver:', error)
+      toast.error(t('assignErrorTitle'))
+    } finally {
+      setIsAssigning(false)
+    }
+  }
+
   const handleRemoveDriver = async () => {
     if (!localDriverId) return
 
@@ -351,6 +398,7 @@ export function DriverAssignmentDialog({
                       const isCurrentDriver = person.id === localDriverId
                       const wasJustAssigned = justAssigned === person.id
                       const hasIncidentConflict = isAssignedToIncident(person)
+                      const drivingOtherVehicle = otherVehicleByDriver.get(person.id)
 
                       return (
                         <button
@@ -380,6 +428,12 @@ export function DriverAssignmentDialog({
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {drivingOtherVehicle && !isCurrentDriver && (
+                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                <AlertTriangle className="h-3 w-3" />
+                                {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
+                              </Badge>
+                            )}
                             {hasIncidentConflict && (
                               <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
                                 <AlertTriangle className="h-3 w-3" />
@@ -406,6 +460,7 @@ export function DriverAssignmentDialog({
                       const isCurrentDriver = person.id === localDriverId
                       const wasJustAssigned = justAssigned === person.id
                       const hasIncidentConflict = isAssignedToIncident(person)
+                      const drivingOtherVehicle = otherVehicleByDriver.get(person.id)
 
                       return (
                         <button
@@ -435,6 +490,12 @@ export function DriverAssignmentDialog({
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {drivingOtherVehicle && !isCurrentDriver && (
+                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                <AlertTriangle className="h-3 w-3" />
+                                {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
+                              </Badge>
+                            )}
                             {hasIncidentConflict && (
                               <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
                                 <AlertTriangle className="h-3 w-3" />
@@ -500,6 +561,32 @@ export function DriverAssignmentDialog({
             <AlertDialogCancel>{tCommon('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConflictConfirm}>
               {t('conflictConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reassign confirmation dialog (person drives another vehicle) */}
+      <AlertDialog open={reassignDialog.open} onOpenChange={(open) => setReassignDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              {t('reassignTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.rich('reassignDescription', {
+                name: reassignDialog.person?.name ?? '',
+                fromVehicle: reassignDialog.fromVehicleName,
+                vehicle: vehicleName,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReassignConfirm}>
+              {t('reassignConfirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

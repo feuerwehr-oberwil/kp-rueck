@@ -44,10 +44,10 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
 
     personnel_data = [
         # Offiziere
-        {"name": "Müller Hans", "role": "Offiziere", "availability": "available", "tags": ["F"]},
-        {"name": "Schneider Peter", "role": "Offiziere", "availability": "available", "tags": ["F", "Hö"]},
-        {"name": "Weber Martin", "role": "Offiziere", "availability": "available", "tags": ["F", "Fw"]},
-        {"name": "Fischer Thomas", "role": "Offiziere", "availability": "available", "tags": []},
+        {"name": "Müller Hans", "role": "Offizier", "availability": "available", "tags": ["F"]},
+        {"name": "Schneider Peter", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
+        {"name": "Weber Martin", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
+        {"name": "Fischer Thomas", "role": "Offizier", "availability": "available", "tags": []},
         # Wachtmeister
         {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
         {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
@@ -129,9 +129,156 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     now = datetime.now()
 
     # ============================================
-    # INCIDENT (single active Einsatz, Oberwil BL)
+    # INCIDENTS (a realistic spread across all board columns, Basel-Landschaft)
+    # The Oberwil "Wasser im Keller EFH" stays the fully-staffed active Einsatz;
+    # the others fill the remaining kanban columns so the demo board looks alive.
     # ============================================
     incidents_data = [
+        # --- EINGEGANGEN (6) ---
+        {
+            "title": "Ölspur auf Fahrbahn",
+            "type": "oelwehr",
+            "priority": "low",
+            "location_address": "Hauptstrasse 12, 4153 Reinach",
+            "location_lat": 47.4948,
+            "location_lng": 7.5931,
+            "status": "eingegangen",
+            "description": "Ölspur über ca. 200m nach Verkehrsunfall gemeldet.",
+        },
+        {
+            "title": "Rauchentwicklung Mehrfamilienhaus",
+            "type": "brandbekaempfung",
+            "priority": "high",
+            "location_address": "Baslerstrasse 45, 4123 Allschwil",
+            "location_lat": 47.5486,
+            "location_lng": 7.5361,
+            "status": "eingegangen",
+            "description": "Rauch aus Kellerfenster gemeldet, Bewohner alarmiert.",
+        },
+        {
+            "title": "Person in Aufzug eingeschlossen",
+            "type": "technische_hilfeleistung",
+            "priority": "medium",
+            "location_address": "Hauptstrasse 68, 4102 Binningen",
+            "location_lat": 47.5401,
+            "location_lng": 7.5695,
+            "status": "eingegangen",
+            "description": "Zwei Personen in steckengebliebenem Lift.",
+        },
+        {
+            "title": "Baum auf Strasse",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Oberwilerstrasse 5, 4103 Bottmingen",
+            "location_lat": 47.5217,
+            "location_lng": 7.5751,
+            "status": "eingegangen",
+            "description": "Umgestürzter Baum blockiert Fahrbahn nach Sturm.",
+        },
+        {
+            "title": "Wasserrohrbruch Tiefgarage",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Bahnhofstrasse 22, 4106 Therwil",
+            "location_lat": 47.4993,
+            "location_lng": 7.5545,
+            "status": "eingegangen",
+            "description": "Wasser tritt in Tiefgarage ein, mehrere Fahrzeuge betroffen.",
+        },
+        {
+            "title": "Gasgeruch gemeldet",
+            "type": "chemiewehr",
+            "priority": "high",
+            "location_address": "Hauptstrasse 30, 4147 Aesch",
+            "location_lat": 47.4692,
+            "location_lng": 7.5936,
+            "status": "eingegangen",
+            "description": "Anwohner meldet Gasgeruch im Treppenhaus.",
+        },
+        # --- REKO (3) ---
+        {
+            "title": "Brand Gartenhaus",
+            "type": "brandbekaempfung",
+            "priority": "medium",
+            "location_address": "Im Brühl 8, 4107 Ettingen",
+            "location_lat": 47.4783,
+            "location_lng": 7.5528,
+            "status": "reko",
+            "description": "Gartenhaus in Vollbrand, Reko läuft.",
+        },
+        {
+            "title": "Unfall mit Betriebsmittelaustritt",
+            "type": "strassenrettung",
+            "priority": "high",
+            "location_address": "Kägenstrasse 10, 4153 Reinach",
+            "location_lat": 47.4901,
+            "location_lng": 7.5889,
+            "status": "reko",
+            "description": "PW-Unfall, Betriebsstoffe ausgetreten.",
+        },
+        {
+            "title": "Überflutete Unterführung",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Mühlemattstrasse 3, 4104 Oberwil",
+            "location_lat": 47.5128,
+            "location_lng": 7.5567,
+            "status": "reko",
+            "description": "Unterführung nach Starkregen überflutet.",
+        },
+        # --- REKO ABGESCHLOSSEN (3) ---
+        {
+            "title": "Kellerbrand abgeklärt",
+            "type": "brandbekaempfung",
+            "priority": "medium",
+            "location_address": "Lettenweg 15, 4123 Allschwil",
+            "location_lat": 47.5523,
+            "location_lng": 7.5402,
+            "status": "reko_done",
+            "description": "Reko abgeschlossen, Brandherd lokalisiert.",
+        },
+        {
+            "title": "Tierrettung Katze",
+            "type": "gerettete_tiere",
+            "priority": "low",
+            "location_address": "Schlossgasse 4, 4102 Binningen",
+            "location_lat": 47.5379,
+            "location_lng": 7.5721,
+            "status": "reko_done",
+            "description": "Katze auf Baum, Lage erkundet.",
+        },
+        {
+            "title": "Ausgelaufenes Heizöl",
+            "type": "oelwehr",
+            "priority": "medium",
+            "location_address": "Ringstrasse 9, 4106 Therwil",
+            "location_lat": 47.5021,
+            "location_lng": 7.5583,
+            "status": "reko_done",
+            "description": "Heizöl im Keller, Ausmass erkundet.",
+        },
+        # --- DISPONIERT / ANFAHRT (2) ---
+        {
+            "title": "Fahrzeugbrand Parkplatz",
+            "type": "brandbekaempfung",
+            "priority": "high",
+            "location_address": "Christoph Merian-Ring 25, 4153 Reinach",
+            "location_lat": 47.4869,
+            "location_lng": 7.5972,
+            "status": "disponiert",
+            "description": "PW brennt auf Parkplatz, Kräfte auf Anfahrt.",
+        },
+        {
+            "title": "Sturmschaden Dach",
+            "type": "elementarereignis",
+            "priority": "medium",
+            "location_address": "Talstrasse 14, 4103 Bottmingen",
+            "location_lat": 47.5189,
+            "location_lng": 7.5789,
+            "status": "disponiert",
+            "description": "Dachziegel lösen sich, Absperrung nötig.",
+        },
+        # --- EINSATZ (2) ---
         {
             "title": "Wasser im Keller EFH",
             "type": "elementarereignis",
@@ -142,11 +289,79 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "status": "einsatz",
             "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
         },
+        {
+            "title": "Wohnungsbrand 2. OG",
+            "type": "brandbekaempfung",
+            "priority": "high",
+            "location_address": "Gartenstrasse 18, 4123 Allschwil",
+            "location_lat": 47.5461,
+            "location_lng": 7.5333,
+            "status": "einsatz",
+            "description": "Zimmerbrand, Löscharbeiten laufen, eine Person gerettet.",
+        },
+        # --- BEENDET / RÜCKFAHRT (2) ---
+        {
+            "title": "Auslaufende Betriebsstoffe Garage",
+            "type": "oelwehr",
+            "priority": "medium",
+            "location_address": "Dorfstrasse 7, 4107 Ettingen",
+            "location_lat": 47.4761,
+            "location_lng": 7.5561,
+            "status": "einsatz_beendet",
+            "description": "Betriebsstoffe gebunden, Rückbau läuft.",
+        },
+        {
+            "title": "Kleinbrand Container",
+            "type": "brandbekaempfung",
+            "priority": "low",
+            "location_address": "Industriestrasse 3, 4147 Aesch",
+            "location_lat": 47.4711,
+            "location_lng": 7.5883,
+            "status": "einsatz_beendet",
+            "description": "Containerbrand gelöscht, Rückfahrt.",
+        },
+        # --- ABGESCHLOSSEN (3) ---
+        {
+            "title": "Ölspur Hauptstrasse",
+            "type": "oelwehr",
+            "priority": "low",
+            "location_address": "Hauptstrasse 55, 4104 Oberwil",
+            "location_lat": 47.5162,
+            "location_lng": 7.5598,
+            "status": "abschluss",
+            "description": "Ölspur gebunden und gereinigt. Einsatz abgeschlossen.",
+        },
+        {
+            "title": "Wespennest entfernt",
+            "type": "diverse_einsaetze",
+            "priority": "low",
+            "location_address": "Weidenweg 2, 4106 Therwil",
+            "location_lat": 47.4978,
+            "location_lng": 7.5602,
+            "status": "abschluss",
+            "description": "Wespennest entfernt, Einsatz beendet.",
+        },
+        {
+            "title": "Türöffnung für Rettungsdienst",
+            "type": "technische_hilfeleistung",
+            "priority": "medium",
+            "location_address": "Austrasse 40, 4153 Reinach",
+            "location_lat": 47.4922,
+            "location_lng": 7.5915,
+            "status": "abschluss",
+            "description": "Türöffnung erfolgt, Übergabe an Sanität.",
+        },
     ]
 
+    # Position orders cards within each status column (0-based per column).
+    position_by_status: dict[str, int] = {}
     incidents: dict[str, models.Incident] = {}
     for inc in incidents_data:
-        incident = models.Incident(id=uuid4(), created_by=editor_id, event_id=event.id, **inc)
+        pos = position_by_status.get(inc["status"], 0)
+        position_by_status[inc["status"]] = pos + 1
+        incident = models.Incident(
+            id=uuid4(), created_by=editor_id, event_id=event.id, position=pos, **inc
+        )
         db.add(incident)
         incidents[incident.title] = incident
 
@@ -199,6 +414,19 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         assign("Wasser im Keller EFH", "personnel", person["Zimmermann Fabian"]),
         assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Gr.", "TLF")]),
         assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Kl.", "TLF")]),
+        # Second active Einsatz — Wohnungsbrand
+        assign("Wohnungsbrand 2. OG", "vehicle", vehicle["Mowa"]),
+        assign("Wohnungsbrand 2. OG", "personnel", person["Koch René"]),
+        assign("Wohnungsbrand 2. OG", "personnel", person["Meier Andrea"]),
+        assign("Wohnungsbrand 2. OG", "personnel", person["Künzli Klara"]),
+        # Disponiert — Fahrzeugbrand on the way
+        assign("Fahrzeugbrand Parkplatz", "vehicle", vehicle["Trawa"]),
+        assign("Fahrzeugbrand Parkplatz", "personnel", person["Schneider Peter"]),
+        assign("Fahrzeugbrand Parkplatz", "personnel", person["Graf Sven"]),
+        # Winding down — Betriebsstoffe Garage
+        assign("Auslaufende Betriebsstoffe Garage", "vehicle", vehicle["Mawa"]),
+        assign("Auslaufende Betriebsstoffe Garage", "personnel", person["Wyss Fabio"]),
+        assign("Auslaufende Betriebsstoffe Garage", "personnel", person["Roth Til"]),
     ]
     for assignment in assignments:
         db.add(assignment)
@@ -211,6 +439,10 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         (person["Weber Martin"], "driver", vehicle["Pio"]),
         (person["Schmidt Daniel"], "reko", None),
         (person["Steiner Lukas"], "magazin", None),
+        # Drivers for the other staffed incidents (each on a distinct vehicle)
+        (person["Koch René"], "driver", vehicle["Mowa"]),
+        (person["Schneider Peter"], "driver", vehicle["Trawa"]),
+        (person["Wyss Fabio"], "driver", vehicle["Mawa"]),
     ]
     special_functions = [
         models.EventSpecialFunction(
@@ -242,6 +474,24 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     transitions = [
         transition("Wasser im Keller EFH", "eingegangen", "disponiert", "TLF disponiert"),
         transition("Wasser im Keller EFH", "disponiert", "einsatz", "Vor Ort, Pumpen laufen"),
+        # Wohnungsbrand — eingegangen → disponiert → einsatz
+        transition("Wohnungsbrand 2. OG", "eingegangen", "disponiert", "Mowa disponiert"),
+        transition("Wohnungsbrand 2. OG", "disponiert", "einsatz", "Löscharbeiten laufen"),
+        # Fahrzeugbrand — eingegangen → disponiert
+        transition("Fahrzeugbrand Parkplatz", "eingegangen", "disponiert", "Trawa auf Anfahrt"),
+        # Betriebsstoffe Garage — full trail to einsatz_beendet
+        transition("Auslaufende Betriebsstoffe Garage", "eingegangen", "disponiert", "Mawa disponiert"),
+        transition("Auslaufende Betriebsstoffe Garage", "disponiert", "einsatz", "Vor Ort"),
+        transition("Auslaufende Betriebsstoffe Garage", "einsatz", "einsatz_beendet", "Rückbau, Rückfahrt"),
+        # Reko incidents — eingegangen → reko
+        transition("Brand Gartenhaus", "eingegangen", "reko", "Reko unterwegs"),
+        transition("Unfall mit Betriebsmittelaustritt", "eingegangen", "reko", "Reko unterwegs"),
+        # Reko-done incidents — eingegangen → reko → reko_done
+        transition("Kellerbrand abgeklärt", "reko", "reko_done", "Reko abgeschlossen"),
+        transition("Ausgelaufenes Heizöl", "reko", "reko_done", "Reko abgeschlossen"),
+        # Abschluss incidents — closed out
+        transition("Ölspur Hauptstrasse", "einsatz", "abschluss", "Einsatz abgeschlossen"),
+        transition("Türöffnung für Rettungsdienst", "einsatz", "abschluss", "Übergabe erfolgt"),
     ]
     for t in transitions:
         db.add(t)

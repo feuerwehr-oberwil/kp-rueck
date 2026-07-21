@@ -37,9 +37,11 @@ import {
 } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, Infinity as InfinityIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon } from 'lucide-react';
+import Link from 'next/link';
 import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
+import { DemoLock } from './demo-lock';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
@@ -51,7 +53,7 @@ import {
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
-export function MaterialSettings() {
+export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
   const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -281,6 +283,14 @@ export function MaterialSettings() {
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
+          <Link
+            href="/settings?section=notifications"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            {t('materials.thresholdsLink')}
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+          <DemoLock active={demoMode} className="space-y-4">
           <div className="flex justify-end">
             <Button onClick={handleOpenCreate}>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -533,14 +543,17 @@ export function MaterialSettings() {
               ))}
             </TableBody>
           </Table>
+          </DemoLock>
         </TabsContent>
 
         <TabsContent value="groups">
-          <MaterialGroupSettings
-            groups={materialGroups}
-            materials={materials}
-            onRefresh={() => { loadGroups(); loadMaterials(); }}
-          />
+          <DemoLock active={demoMode}>
+            <MaterialGroupSettings
+              groups={materialGroups}
+              materials={materials}
+              onRefresh={() => { loadGroups(); loadMaterials(); }}
+            />
+          </DemoLock>
         </TabsContent>
 
         <TabsContent value="sort">
@@ -549,6 +562,7 @@ export function MaterialSettings() {
             description={t('materials.sortDescription')}
             categories={locationCategories}
             onSave={handleSaveLocationSortOrder}
+            readOnly={demoMode}
           />
         </TabsContent>
       </Tabs>
