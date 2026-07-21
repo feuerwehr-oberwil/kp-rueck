@@ -9,6 +9,7 @@ import { EventProvider } from '@/lib/contexts/event-context'
 import { PersonnelProvider } from '@/lib/contexts/personnel-context'
 import { MaterialsProvider } from '@/lib/contexts/materials-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
+import { GroupsProvider } from '@/lib/contexts/groups-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
 import { CommandPaletteProvider } from '@/lib/contexts/command-palette-context'
 import { NotificationToasts } from '@/components/notifications/notification-toasts'
@@ -69,19 +70,21 @@ export default async function RootLayout({
               <PersonnelProvider>
                 <MaterialsProvider>
                   <OperationsProvider>
-                    <NotificationProvider>
-                      <CommandPaletteProvider>
-                        <AppShell>
-                          {children}
-                        </AppShell>
-                        <NotificationToasts />
-                        <DismissAllToasts />
-                        <VehicleDriverPrompt />
-                        <VehicleConflictPrompt />
-                        <GpsReleasePrompt />
-                        <GpsArrivalPrompt />
-                      </CommandPaletteProvider>
-                    </NotificationProvider>
+                    <GroupsProvider>
+                      <NotificationProvider>
+                        <CommandPaletteProvider>
+                          <AppShell>
+                            {children}
+                          </AppShell>
+                          <NotificationToasts />
+                          <DismissAllToasts />
+                          <VehicleDriverPrompt />
+                          <VehicleConflictPrompt />
+                          <GpsReleasePrompt />
+                          <GpsArrivalPrompt />
+                        </CommandPaletteProvider>
+                      </NotificationProvider>
+                    </GroupsProvider>
                   </OperationsProvider>
                 </MaterialsProvider>
               </PersonnelProvider>

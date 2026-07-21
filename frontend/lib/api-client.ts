@@ -49,6 +49,11 @@ import {
   type ApiIncident,
   type ApiIncidentCreate,
   type ApiIncidentUpdate,
+  type ApiIncidentGroup,
+  type ApiIncidentGroupCreate,
+  type ApiIncidentGroupUpdate,
+  type ApiCopySquadResult,
+  type GroupResourceType,
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
   type ApiRekoReportCreate,
@@ -431,6 +436,87 @@ class ApiClient {
     await this.request<void>('/api/incidents/reorder', {
       method: 'POST',
       body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds }),
+    })
+  }
+
+  // --- Aufträge (incident groups) — ordered multi-stop routes over incidents ---
+
+  /** List the Aufträge of an event, each with `stop_ids` + derived `progress`. */
+  async getIncidentGroups(eventId: string): Promise<ApiIncidentGroup[]> {
+    return this.request<ApiIncidentGroup[]>(
+      `/api/incident-groups/?event_id=${encodeURIComponent(eventId)}`
+    )
+  }
+
+  async createIncidentGroup(data: ApiIncidentGroupCreate): Promise<ApiIncidentGroup> {
+    return this.request<ApiIncidentGroup>('/api/incident-groups/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateIncidentGroup(id: string, data: ApiIncidentGroupUpdate): Promise<ApiIncidentGroup> {
+    return this.request<ApiIncidentGroup>(`/api/incident-groups/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  /** Soft-delete an Auftrag; its stops stay on the board, ungrouped (204). */
+  async deleteIncidentGroup(id: string): Promise<void> {
+    return this.request<void>(`/api/incident-groups/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  /** Persist the order of the Aufträge within an event (204 No Content). */
+  async reorderIncidentGroups(eventId: string, orderedIds: string[]): Promise<void> {
+    await this.request<void>('/api/incident-groups/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds }),
+    })
+  }
+
+  /** Persist the order of the stops within one Auftrag (204 No Content). */
+  async reorderGroupStops(groupId: string, orderedIds: string[]): Promise<void> {
+    await this.request<void>(`/api/incident-groups/${groupId}/stops/reorder`, {
+      method: 'POST',
+      body: JSON.stringify({ ordered_ids: orderedIds }),
+    })
+  }
+
+  /** Attach existing incidents to an Auftrag as stops (appended to the end). */
+  async addStopsToGroup(groupId: string, incidentIds: string[]): Promise<ApiIncidentGroup> {
+    return this.request<ApiIncidentGroup>(`/api/incident-groups/${groupId}/stops`, {
+      method: 'POST',
+      body: JSON.stringify({ incident_ids: incidentIds }),
+    })
+  }
+
+  /** Detach a stop from its Auftrag (leaves the incident on the board) (204). */
+  async removeStopFromGroup(groupId: string, incidentId: string): Promise<void> {
+    return this.request<void>(`/api/incident-groups/${groupId}/stops/${incidentId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  /**
+   * Copy the source stop's active assignments to every sibling stop.
+   * `resourceTypes` filters which kinds are copied; omit it to derive the
+   * filter from the Auftrag's `mode` (`squad` = all three, `vehicle_only` =
+   * vehicle only). Returns `{ copied, skipped }`.
+   */
+  async copyGroupSquad(
+    groupId: string,
+    sourceIncidentId: string,
+    resourceTypes?: GroupResourceType[]
+  ): Promise<ApiCopySquadResult> {
+    return this.request<ApiCopySquadResult>(`/api/incident-groups/${groupId}/copy-squad`, {
+      method: 'POST',
+      body: JSON.stringify({
+        source_incident_id: sourceIncidentId,
+        resource_types: resourceTypes ?? null,
+      }),
     })
   }
 

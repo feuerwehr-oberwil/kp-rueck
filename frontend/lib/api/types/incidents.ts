@@ -44,6 +44,10 @@ export interface ApiIncident {
   status: IncidentStatus
   /** Manual sort order within a status column (lower = higher on the board) */
   position: number
+  /** Auftrag (incident group) this stop belongs to, or null when ungrouped. */
+  group_id: string | null
+  /** Order of this stop within its Auftrag (lower = earlier). 0 when ungrouped. */
+  group_position: number
   /** Origin of the alarm: "operator" (dashboard), "intake" (public token form),
    *  "divera", or the source slug of a generic-webhook sender. */
   source: string

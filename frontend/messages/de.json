@@ -1819,6 +1819,18 @@
       "loadFailedDescription": "Die Materialliste ist möglicherweise veraltet.",
       "groupsLoadFailed": "Materialgruppen konnten nicht geladen werden"
     },
+    "groups": {
+      "loadFailedTitle": "Aufträge konnten nicht geladen werden",
+      "loadFailedDescription": "Die Auftragsliste ist möglicherweise veraltet.",
+      "createFailed": "Auftrag konnte nicht erstellt werden",
+      "updateFailed": "Auftrag konnte nicht aktualisiert werden",
+      "deleteFailed": "Auftrag konnte nicht gelöscht werden",
+      "reorderFailed": "Reihenfolge der Aufträge konnte nicht gespeichert werden",
+      "reorderStopsFailed": "Reihenfolge der Stops konnte nicht gespeichert werden",
+      "addStopsFailed": "Stops konnten nicht hinzugefügt werden",
+      "removeStopFailed": "Stop konnte nicht entfernt werden",
+      "copySquadFailed": "Squad konnte nicht übernommen werden"
+    },
     "personnel": {
       "loadFailedTitle": "Personal konnte nicht geladen werden",
       "loadFailedDescription": "Die Personalliste ist möglicherweise veraltet."

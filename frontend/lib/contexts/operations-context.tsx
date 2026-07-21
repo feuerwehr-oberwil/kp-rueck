@@ -63,6 +63,10 @@ export interface Operation {
   amWarten: boolean
   amWartenNote: string
   zuFuss: boolean
+  /** Auftrag (incident group) this stop belongs to, or null when ungrouped. */
+  groupId: string | null
+  /** Order of this stop within its Auftrag (lower = earlier). 0 when ungrouped. */
+  groupPosition: number
   source?: string // Origin: "operator" (dashboard) or "intake" (public token form). Absent for locally-created ops.
   statusChangedAt: Date | null
   hasCompletedReko: boolean
@@ -370,6 +374,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       amWarten: incident.am_warten || false,
       amWartenNote: incident.am_warten_note || "",
       zuFuss: incident.zu_fuss || false,
+      groupId: incident.group_id ?? null,
+      groupPosition: incident.group_position ?? 0,
       source: incident.source || "operator",
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
@@ -1372,6 +1378,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           vehicleAssignments: new Map(),
           vehicleCallsigns: new Map(),
           vehicleDriverStay: new Map(),
+          groupId: apiIncident.group_id ?? null,
+          groupPosition: apiIncident.group_position ?? 0,
         }
         // Invalidate reloads that started before the POST landed — they'd
         // overwrite the board without the new incident.
