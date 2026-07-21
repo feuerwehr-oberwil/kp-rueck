@@ -48,6 +48,7 @@ export function NewEmergencyModal({
     materials: [] as string[],
     notes: "",
     contact: "",
+    contactPhone: "",
     internalNotes: "",
     nachbarhilfe: false,
     nachbarhilfeNote: "",
@@ -101,6 +102,7 @@ export function NewEmergencyModal({
       materials: [],
       notes: "",
       contact: "",
+      contactPhone: "",
       internalNotes: "",
       nachbarhilfe: false,
       nachbarhilfeNote: "",
@@ -232,6 +234,21 @@ export function NewEmergencyModal({
               placeholder={t('common.contactPlaceholder')}
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+            />
+          </div>
+
+          {/* Contact phone */}
+          <div className="space-y-1.5">
+            <Label htmlFor="contact-phone" className="text-sm font-medium">
+              {t('common.contactPhone')}
+            </Label>
+            <Input
+              id="contact-phone"
+              type="tel"
+              inputMode="tel"
+              placeholder={t('common.contactPhonePlaceholder')}
+              value={formData.contactPhone}
+              onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
             />
           </div>
 

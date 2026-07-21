@@ -51,6 +51,7 @@ export interface ApiIncident {
   source_ref?: string | null
   description: string | null
   contact: string | null
+  contact_phone: string | null
   internal_notes: string | null
   /** Neighboring station assistance flag */
   nachbarhilfe: boolean
@@ -88,6 +89,7 @@ export interface ApiIncidentCreate {
   status?: IncidentStatus
   description?: string | null
   contact?: string | null
+  contact_phone?: string | null
   internal_notes?: string | null
   nachbarhilfe?: boolean
   nachbarhilfe_note?: string | null
@@ -103,6 +105,7 @@ export interface ApiIncidentUpdate {
   status?: IncidentStatus
   description?: string | null
   contact?: string | null
+  contact_phone?: string | null
   internal_notes?: string | null
   nachbarhilfe?: boolean
   nachbarhilfe_note?: string | null

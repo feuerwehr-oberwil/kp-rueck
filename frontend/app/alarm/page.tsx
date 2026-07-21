@@ -134,6 +134,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
   const [lng, setLng] = useState<number | null>(null)
   const [description, setDescription] = useState('')
   const [contact, setContact] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
 
   const [typeOpen, setTypeOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -154,6 +155,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         location_lng: lng !== null ? String(lng) : null,
         description: description.trim() || null,
         contact: contact.trim() || null,
+        contact_phone: contactPhone.trim() || null,
       })
       onSuccess()
     } catch (err) {
@@ -296,6 +298,22 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
           value={contact}
           onChange={(e) => setContact(e.target.value)}
           placeholder={t('contactPlaceholder')}
+          className="mt-2 h-12 text-base"
+        />
+      </div>
+
+      {/* Contact phone */}
+      <div>
+        <Label htmlFor="contact-phone" className="text-sm font-semibold text-muted-foreground">
+          {t('contactPhoneLabel')}
+        </Label>
+        <Input
+          id="contact-phone"
+          type="tel"
+          inputMode="tel"
+          value={contactPhone}
+          onChange={(e) => setContactPhone(e.target.value)}
+          placeholder={t('contactPhonePlaceholder')}
           className="mt-2 h-12 text-base"
         />
       </div>
