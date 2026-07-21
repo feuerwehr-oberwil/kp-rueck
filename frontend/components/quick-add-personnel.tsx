@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { apiClient, type ApiPersonnelCreate } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -21,12 +21,16 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPersonName, setNewPersonName] = useState('')
   const [addingPerson, setAddingPerson] = useState(false)
+  // Synchronous guard: React state updates async, so two very fast Enter/tap
+  // presses can both pass an `if (addingPerson)` check before the first
+  // setState lands. A ref flips immediately, and a short cooldown after
+  // completion absorbs an accidental double-press.
+  const addingRef = useRef(false)
 
   const addNewPerson = async () => {
     if (!newPersonName.trim()) return
-    // Guard against double-submit: Enter key can re-trigger while a request
-    // is already in flight (the button is disabled, the keyboard is not).
-    if (addingPerson) return
+    if (addingRef.current) return
+    addingRef.current = true
 
     setAddingPerson(true)
     try {
@@ -72,6 +76,8 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken }: QuickAddPerso
       }
     } finally {
       setAddingPerson(false)
+      // Small cooldown so an accidental double-press doesn't add twice.
+      setTimeout(() => { addingRef.current = false }, 400)
     }
   }
 
