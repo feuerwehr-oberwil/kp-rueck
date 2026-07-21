@@ -16,11 +16,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, User, CheckCircle, Circle, Loader2, X, AlertTriangle } from "lucide-react"
+import { Search, User, CheckCircle, Circle, Loader2, X, AlertTriangle, UserPlus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
-import { type Person, type Operation } from "@/lib/contexts/operations-context"
+import { type Person, type Operation, useOperations } from "@/lib/contexts/operations-context"
 import { useTranslations } from "next-intl"
 
 interface DriverAssignmentDialogProps {
@@ -55,9 +55,16 @@ export function DriverAssignmentDialog({
 }: DriverAssignmentDialogProps) {
   const t = useTranslations('incidents.driver')
   const tCommon = useTranslations('incidents.common')
+  const { refreshOperations } = useOperations()
   const [searchQuery, setSearchQuery] = useState("")
   const [isAssigning, setIsAssigning] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
+
+  // Inline "add a walk-in as driver" (e.g. a former driver who shows up to help
+  // and isn't in the checked-in roster yet).
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newPersonName, setNewPersonName] = useState("")
+  const [isAddingPerson, setIsAddingPerson] = useState(false)
 
   // Track driver locally so we can update UI immediately
   const [localDriverId, setLocalDriverId] = useState<string | null>(initialDriverId)
@@ -255,6 +262,54 @@ export function DriverAssignmentDialog({
     }
   }
 
+  // Create a not-yet-registered person, check them in (reusing the event's
+  // check-in token — there is no authenticated check-in endpoint), tag them as
+  // Fahrer, and assign them as this vehicle's driver in one go.
+  const addWalkInDriver = async () => {
+    const name = newPersonName.trim()
+    if (!name || isAddingPerson) return
+    if (personnel.some(p => p.name.trim().toLowerCase() === name.toLowerCase())) {
+      toast.error(t('duplicateName'))
+      return
+    }
+    setIsAddingPerson(true)
+    try {
+      const created = await apiClient.createPersonnel({ name, availability: 'available', tags: ['F'] })
+      try {
+        const { token } = await apiClient.generateCheckInLink(eventId)
+        await apiClient.checkInPersonnel(created.id, token)
+      } catch (checkInError) {
+        // Non-fatal: they still exist and can be assigned; they just may not
+        // show in the checked-in roster until refreshed.
+        console.error('Failed to check in walk-in driver:', checkInError)
+      }
+      await refreshOperations()
+      setNewPersonName("")
+      setShowAddForm(false)
+      // Assign straight away — that's the whole point of adding them here.
+      await doAssignDriver({ id: created.id, name: created.name } as Person)
+    } catch (error) {
+      console.error('Failed to add walk-in driver:', error)
+      toast.error(t('addError'))
+    } finally {
+      setIsAddingPerson(false)
+    }
+  }
+
+  // One-tap: tag an already-present "Andere" person as Fahrer (F) so they're
+  // recognised as a driver going forward.
+  const markAsDriver = async (person: Person) => {
+    const tags = Array.from(new Set([...(person.tags ?? []), 'F']))
+    try {
+      await apiClient.updatePersonnel(person.id, { tags })
+      await refreshOperations()
+      toast.success(t('markedAsDriver', { name: person.name }))
+    } catch (error) {
+      console.error('Failed to mark as driver:', error)
+      toast.error(t('markError'))
+    }
+  }
+
   const handleConflictConfirm = async () => {
     const { person, conflictingOperations } = conflictDialog
     if (!person) return
@@ -385,6 +440,55 @@ export function DriverAssignmentDialog({
               />
             </div>
 
+            {/* Add a not-yet-registered walk-in directly as driver */}
+            {!showAddForm ? (
+              <button
+                type="button"
+                onClick={() => setShowAddForm(true)}
+                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>{t('addPersonButton')}</span>
+              </button>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">{t('addPersonHint')}</p>
+                <Input
+                  type="text"
+                  autoFocus
+                  placeholder={t('addNamePlaceholder')}
+                  value={newPersonName}
+                  onChange={(e) => setNewPersonName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addWalkInDriver() }
+                    if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName("") }
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={addWalkInDriver}
+                    disabled={!newPersonName.trim() || isAddingPerson}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    {isAddingPerson ? (
+                      <><Loader2 className="mr-1 h-4 w-4 animate-spin" />{t('adding')}</>
+                    ) : (
+                      <><Plus className="mr-1 h-4 w-4" />{t('addAndAssign')}</>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowAddForm(false); setNewPersonName("") }}
+                    disabled={isAddingPerson}
+                  >
+                    {tCommon('cancel')}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Personnel List */}
             <ScrollArea className="h-[300px] pr-4">
               <div className="space-y-2">
@@ -392,7 +496,7 @@ export function DriverAssignmentDialog({
                 {driversGroup.length > 0 && (
                   <>
                     {othersGroup.length > 0 && (
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-1">{t('driversSection')}</p>
+                      <p className="text-xs font-medium text-muted-foreground tracking-wide px-1 pt-1">{t('driversSection')}</p>
                     )}
                     {driversGroup.map((person) => {
                       const isCurrentDriver = person.id === localDriverId
@@ -454,7 +558,7 @@ export function DriverAssignmentDialog({
                 {othersGroup.length > 0 && (
                   <>
                     {driversGroup.length > 0 && (
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 pt-3">{t('othersSection')}</p>
+                      <p className="text-xs font-medium text-muted-foreground tracking-wide px-1 pt-3">{t('othersSection')}</p>
                     )}
                     {othersGroup.map((person) => {
                       const isCurrentDriver = person.id === localDriverId
@@ -463,50 +567,65 @@ export function DriverAssignmentDialog({
                       const drivingOtherVehicle = otherVehicleByDriver.get(person.id)
 
                       return (
-                        <button
-                          key={person.id}
-                          onClick={() => !isCurrentDriver && handleAssignDriver(person)}
-                          disabled={isAssigning || isCurrentDriver}
-                          className={cn(
-                            "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
-                            !isCurrentDriver && "hover:border-primary/50 hover:bg-secondary/30",
-                            isCurrentDriver && "opacity-50 cursor-not-allowed"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            {isCurrentDriver ? (
-                              <CheckCircle className={cn(
-                                "h-5 w-5 text-primary flex-shrink-0",
-                                wasJustAssigned && "animate-checkmark-spring"
-                              )} />
-                            ) : (
-                              <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <div key={person.id} className="flex items-center gap-1">
+                          <button
+                            onClick={() => !isCurrentDriver && handleAssignDriver(person)}
+                            disabled={isAssigning || isCurrentDriver}
+                            className={cn(
+                              "flex-1 min-w-0 flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
+                              !isCurrentDriver && "hover:border-primary/50 hover:bg-secondary/30",
+                              isCurrentDriver && "opacity-50 cursor-not-allowed"
                             )}
-                            <div>
-                              <p className="font-medium text-sm">{person.name}</p>
-                              {person.role && (
-                                <p className="text-xs text-muted-foreground">{person.role}</p>
+                          >
+                            <div className="flex items-center gap-3">
+                              {isCurrentDriver ? (
+                                <CheckCircle className={cn(
+                                  "h-5 w-5 text-primary flex-shrink-0",
+                                  wasJustAssigned && "animate-checkmark-spring"
+                                )} />
+                              ) : (
+                                <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                              )}
+                              <div>
+                                <p className="font-medium text-sm">{person.name}</p>
+                                {person.role && (
+                                  <p className="text-xs text-muted-foreground">{person.role}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {drivingOtherVehicle && !isCurrentDriver && (
+                                <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
+                                </Badge>
+                              )}
+                              {hasIncidentConflict && (
+                                <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {t('inOperation')}
+                                </Badge>
+                              )}
+                              {isCurrentDriver && (
+                                <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
                               )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {drivingOtherVehicle && !isCurrentDriver && (
-                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
-                                <AlertTriangle className="h-3 w-3" />
-                                {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
-                              </Badge>
-                            )}
-                            {hasIncidentConflict && (
-                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
-                                <AlertTriangle className="h-3 w-3" />
-                                {t('inOperation')}
-                              </Badge>
-                            )}
-                            {isCurrentDriver && (
-                              <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
-                            )}
-                          </div>
-                        </button>
+                          </button>
+                          {/* One-tap: recognise this person as a Fahrer (adds F tag) */}
+                          {!isCurrentDriver && !drivingOtherVehicle && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title={t('markAsDriver')}
+                              aria-label={t('markAsDriver')}
+                              disabled={isAssigning}
+                              onClick={() => markAsDriver(person)}
+                              className="flex-shrink-0 h-9 px-2 text-muted-foreground hover:text-primary"
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       )
                     })}
                   </>
