@@ -65,8 +65,23 @@ vi.mock("@/lib/contexts/groups-context", () => ({
   }),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ operations: state.operations, updateOperation }),
+  useOperations: () => ({
+    operations: state.operations,
+    updateOperation,
+    createOperation: vi.fn(),
+    refreshOperations: vi.fn(async () => {}),
+  }),
 }))
+
+// The sheet now instantiates useRoutePlanning (for the in-row optimize action),
+// which reads settings + vehicle GPS on mount — stub the API so no real fetch runs.
+vi.mock("@/lib/api-client", () => ({
+  apiClient: {
+    getAllSettings: async () => ({}) as Record<string, string>,
+    getVehiclePositions: async () => [],
+  },
+}))
+vi.mock("@/lib/geocoding", () => ({ reverseGeocode: vi.fn(async () => "Adresse") }))
 
 // Force desktop layout (matchMedia is unimplemented in jsdom).
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => false }))

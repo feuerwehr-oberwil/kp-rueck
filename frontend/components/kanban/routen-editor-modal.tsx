@@ -8,8 +8,8 @@
  * operator:
  *  - toggle "Stop hinzufügen" and click the map to append a reverse-geocoded stop,
  *  - drag list rows to reorder (persists via reorderGroupStops),
- *  - pick a start anchor and run client-side nearest-neighbour optimize with a
- *    preview (Übernehmen / Verwerfen),
+ *  - pick a start anchor and run client-side nearest-neighbour optimize that
+ *    persists immediately (with an undo toast),
  *  - drop board/sheet resources onto stop rows to assign them (the page-level
  *    `useKanbanDragDrop` monitor handles the `group-stop` drop contract).
  *
@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
+import { useOperations } from "@/lib/contexts/operations-context"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { isLocated } from "@/lib/utils/route-geo"
@@ -40,6 +41,10 @@ import { RouteStopList } from "../map/route-stop-list"
 
 // Basel-Landschaft fallback centre (matches map-picker-modal).
 const DEFAULT_CENTER: [number, number] = [47.51637699933488, 7.561800450458299]
+
+// Stable empty set — optimize now persists immediately, so no stop is ever in a
+// pending "changed" preview state.
+const EMPTY_CHANGED: Set<string> = new Set()
 
 // --- Leaflet child helpers (client-only; mirror map-picker-modal) -------------
 
@@ -77,6 +82,33 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
   return null
 }
 
+// A map mounted inside a Radix Dialog / CSS-grid track measures 0×0 before the
+// dialog finishes its open transition, so Leaflet lays out narrow/tall. Force a
+// re-measure on mount and whenever the container resizes.
+function InvalidateSize() {
+  if (typeof window === "undefined") return null
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useMap } = require("react-leaflet")
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const map = useMap()
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const fix = () => map.invalidateSize()
+    // A couple of deferred passes cover the dialog's mount + open animation.
+    const t1 = window.setTimeout(fix, 60)
+    const t2 = window.setTimeout(fix, 250)
+    const container: HTMLElement = map.getContainer()
+    const ro = new ResizeObserver(fix)
+    ro.observe(container)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      ro.disconnect()
+    }
+  }, [map])
+  return null
+}
+
 // -----------------------------------------------------------------------------
 
 interface RoutenEditorModalProps {
@@ -102,6 +134,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   } = useRoutePlanning(groupId)
 
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
+  const { updateOperation } = useOperations()
 
   // Keep the modal open while a drag-reorder happens inside it — a native drag
   // churns focus/pointer state that Radix would otherwise read as an outside
@@ -112,7 +145,6 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   const [mapKey, setMapKey] = useState(0)
   const [addMode, setAddMode] = useState(false)
   const [startMode, setStartMode] = useState<RouteStartMode>("magazin")
-  const [preview, setPreview] = useState<string[] | null>(null)
   const [focusStopId, setFocusStopId] = useState<string | null>(focusIncidentId ?? null)
 
   // Client-only leaflet setup (default icon fix), mirroring map-picker-modal.
@@ -138,7 +170,6 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     if (open) {
       setMapKey((k) => k + 1)
       setAddMode(false)
-      setPreview(null)
       setFocusStopId(focusIncidentId ?? null)
     }
   }, [open, focusIncidentId])
@@ -168,42 +199,29 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     [addMode, addStopAtLatLng],
   )
 
-  const runOptimize = () => {
+  // Optimize applies immediately (no preview / Übernehmen step): compute the
+  // nearest-neighbour order and persist it right away, with an undo toast.
+  const runOptimize = async () => {
+    if (!group) return
+    const previous = group.stopIds
     const proposed = optimize(startMode)
     if (proposed.length === 0) return
-    const unchanged = group ? proposed.every((id, i) => id === group.stopIds[i]) : true
+    const unchanged = proposed.every((id, i) => id === previous[i])
     if (unchanged) {
       toast.info(t("previewUnchanged"))
-      setPreview(null)
       return
     }
-    setPreview(proposed)
-  }
-
-  const applyPreview = async () => {
-    if (!preview) return
-    await reorder(preview)
-    setPreview(null)
-    toast.success(t("applied"))
-  }
-
-  // The order shown in the list + on the map (preview overrides while pending).
-  const displayOrder = preview ?? group?.stopIds ?? []
-  const changedPositions = useMemo(() => {
-    if (!preview || !group) return new Set<string>()
-    const changed = new Set<string>()
-    preview.forEach((id, i) => {
-      if (group.stopIds[i] !== id) changed.add(id)
+    await reorder(proposed)
+    toast.success(t("optimized"), {
+      action: { label: t("undo"), onClick: () => void reorder(previous) },
     })
-    return changed
-  }, [preview, group])
+  }
 
-  // Group the map draws — a synthetic clone carrying the display order so the
-  // polyline + badges follow the preview without persisting it.
-  const displayGroup: IncidentGroup | undefined = useMemo(
-    () => (group ? { ...group, stopIds: displayOrder } : undefined),
-    [group, displayOrder],
-  )
+  // The order shown in the list + on the map (now always the persisted order).
+  const displayOrder = group?.stopIds ?? []
+
+  // Group the map draws — mirrors the live persisted stop order.
+  const displayGroup: IncidentGroup | undefined = group
 
   const mapNode = useMemo(() => {
     if (!isClient || !displayGroup) {
@@ -231,6 +249,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
         />
         <MapClickHandler onClick={handleMapClick} />
         <FitBounds positions={locatedPositions} />
+        <InvalidateSize />
       </MapContainer>
     )
     // center/locatedPositions are captured per mapKey remount; excluded on purpose
@@ -258,7 +277,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[92vh] w-[calc(100%-2rem)] max-w-6xl flex-col gap-4"
+        className="flex max-h-[92vh] w-[calc(100%-2rem)] max-w-[min(96vw,1400px)] flex-col gap-4"
         {...dragGuardProps}
       >
         <DialogHeader className="flex-shrink-0">
@@ -270,9 +289,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[2fr_1fr]">
-          {/* Map column */}
-          <div className="flex min-h-[520px] flex-col">
+        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Map column — the dominant element. */}
+          <div className="flex min-h-[560px] flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
@@ -313,58 +332,49 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                   stopIds={group?.stopIds ?? []}
                   displayOrder={displayOrder}
                   operationsById={operationsById}
-                  changedPositions={changedPositions}
-                  reorderDisabled={preview !== null}
+                  changedPositions={EMPTY_CHANGED}
+                  reorderDisabled={false}
                   onReorder={(ids) => void reorder(ids)}
                   focusStopId={focusStopId}
                   onSelectStop={setFocusStopId}
                   enabled={open && !!group}
+                  onToggleStopDone={(incidentId, nextDone) =>
+                    updateOperation(incidentId, { status: nextDone ? "returning" : "active" })
+                  }
                 />
               )}
             </div>
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Controls — optimize applies immediately (no preview step). */}
         <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t pt-3">
-          {preview ? (
-            <>
-              <span className="text-sm text-muted-foreground">
-                {t("previewNotice", { count: changedPositions.size })}
-              </span>
-              <div className="ml-auto flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setPreview(null)}>
-                  {t("discardPreview")}
-                </Button>
-                <Button size="sm" onClick={applyPreview}>
-                  {t("applyPreview")}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-muted-foreground">{t("startFrom")}</span>
-              <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
-                <SelectTrigger className="h-8 w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {startOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={runOptimize} disabled={displayOrder.length < 2}>
-                <Wand2 className="h-3.5 w-3.5" />
-                {t("optimize")}
-              </Button>
-              <Button size="sm" className="ml-auto" onClick={() => onOpenChange(false)}>
-                {t("done")}
-              </Button>
-            </>
-          )}
+          <span className="text-sm text-muted-foreground">{t("startFrom")}</span>
+          <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
+            <SelectTrigger className="h-8 w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {startOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => void runOptimize()}
+            disabled={displayOrder.length < 2}
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            {t("optimize")}
+          </Button>
+          <Button size="sm" className="ml-auto" onClick={() => onOpenChange(false)}>
+            {t("done")}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

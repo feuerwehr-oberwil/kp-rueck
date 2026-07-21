@@ -60,6 +60,8 @@ interface RouteStopListProps {
   onSelectStop: (id: string) => void
   /** Gate the reorder monitor (false when the host list is not visible). */
   enabled?: boolean
+  /** When provided, the status icon becomes a tick/untick toggle for the stop. */
+  onToggleStopDone?: (incidentId: string, nextDone: boolean) => void
 }
 
 export function RouteStopList({
@@ -73,6 +75,7 @@ export function RouteStopList({
   focusStopId,
   onSelectStop,
   enabled = true,
+  onToggleStopDone,
 }: RouteStopListProps) {
   // Reorder monitor: source `route-stop-drag` reordered onto a `group-stop`
   // target computes the new order off the authoritative `stopIds`.
@@ -115,6 +118,7 @@ export function RouteStopList({
           reorderDisabled={reorderDisabled}
           onSelect={() => onSelectStop(incidentId)}
           selected={focusStopId === incidentId}
+          onToggleDone={onToggleStopDone}
         />
       ))}
     </>
@@ -130,6 +134,7 @@ interface StopListRowProps {
   reorderDisabled: boolean
   onSelect: () => void
   selected: boolean
+  onToggleDone?: (incidentId: string, nextDone: boolean) => void
 }
 
 export function StopListRow({
@@ -141,6 +146,7 @@ export function StopListRow({
   reorderDisabled,
   onSelect,
   selected,
+  onToggleDone,
 }: StopListRowProps) {
   const t = useTranslations("kanban.routenEditorModal")
   const ref = useRef<HTMLDivElement>(null)
@@ -190,7 +196,8 @@ export function StopListRow({
     )
   }, [groupId, incidentId, index, reorderDisabled])
 
-  const StateIcon = state === "erledigt" ? Check : state === "laeuft" ? CircleDot : CircleDashed
+  const done = state === "erledigt"
+  const StateIcon = done ? Check : state === "laeuft" ? CircleDot : CircleDashed
   const stateClass =
     state === "erledigt"
       ? "text-emerald-600 dark:text-emerald-400"
@@ -221,7 +228,23 @@ export function StopListRow({
           <GripVertical className="h-3.5 w-3.5" />
         </button>
         <span className="w-4 flex-shrink-0 tabular-nums text-xs text-muted-foreground">{index + 1}.</span>
-        <StateIcon className={cn("h-4 w-4 flex-shrink-0", stateClass)} />
+        {onToggleDone ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleDone(incidentId, !done)
+            }}
+            className="flex-shrink-0 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-pressed={done}
+            title={done ? t("markActive") : t("markDone")}
+            aria-label={done ? t("markActive") : t("markDone")}
+          >
+            <StateIcon className={cn("h-4 w-4", stateClass)} />
+          </button>
+        ) : (
+          <StateIcon className={cn("h-4 w-4 flex-shrink-0", stateClass)} />
+        )}
         <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>
         {!isLocated(op) && (
           <span className="flex-shrink-0 text-xs text-muted-foreground/70" title={t("noCoords")}>
