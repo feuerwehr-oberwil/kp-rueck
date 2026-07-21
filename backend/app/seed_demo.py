@@ -128,7 +128,11 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         # An unlimited consumable example
         {"name": "Triopan / Absperrband", "type": "Verbrauchsmaterial", "location": "Magazin", "status": "available", "consumable": True},
     ]
+    # Depot order for the location filter/grouping: the mobile depots (vehicles,
+    # closest to the scene) first, the central Magazin last.
+    location_order = {"TLF": 1, "Pio": 2, "MoWa": 3, "Trawa": 4, "Magazin": 5}
     for m in materials_data:
+        m.setdefault("location_sort_order", location_order.get(m["location"], 99))
         db.add(models.Material(id=uuid4(), **m))
 
     # A transportable "Pumpenmodul" currently loaded on the Trawa — a material
@@ -147,6 +151,7 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
                 name=pump,
                 type="Tauchpumpen",
                 location="Trawa",
+                location_sort_order=location_order["Trawa"],
                 status="available",
                 group_id=pump_module.id,
             )
