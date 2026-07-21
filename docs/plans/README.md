@@ -1,29 +1,38 @@
-# Implementation Plans — Pre-Publication Hardening & Features
+# Implementation Plans — Hardening & Features
 
-Context: KP Rück will be featured in "118" (Swiss firefighting newspaper). Expect a
-traffic spike on the public demo instance (Railway, `DEMO_MODE=true`). These plans
-close reliability gaps and improve the first-visit experience, plus three feature
-plans (i18n, PDF reports, undo).
+Context: KP Rück was featured in "118" (Swiss firefighting newspaper); the public
+demo instance (Railway, `DEMO_MODE=true`) sees traffic spikes. The pre-publication
+reliability work is **shipped** — what remains are post-launch features and polish.
 
 Each plan is self-contained and written so it can be implemented independently by a
 single agent/developer without re-reading this README. Read the **whole plan**
 before starting; each contains exact file references, design decisions (already
 made — do not re-litigate), implementation steps, and a test plan.
 
-## Plans, priority order
+## Shipped (plan files removed — work is in git + committed)
 
-| # | Plan | Priority | Scope | Depends on |
-|---|------|----------|-------|------------|
-| 01 | [Audit log retention](01-audit-log-retention.md) | **P0 — before publication** | Backend | — |
-| 02 | [Global exception handler + request IDs](02-global-exception-handler.md) | **P0 — before publication** | Backend | — |
-| 03 | [Endpoint hardening (demo reset, print agent, WebSocket)](03-endpoint-hardening.md) | **P0 — before publication** | Backend + small frontend | — |
-| 04 | [Per-session demo sandbox events](04-per-session-demo-events.md) | **P0 — before publication** | Backend + frontend | 03 (demo reset part) recommended first |
-| 05 | [Onboarding: welcome card, shortcut legend, conflict copy](05-onboarding-welcome-help.md) | **P1 — before publication if possible** | Frontend | — |
-| 06 | [i18n (German + French)](06-i18n.md) | P2 — post-publication | Frontend | Do **after** 05 (05 adds strings) |
-| 07 | [PDF after-action report](07-pdf-after-action-report.md) | P2 — post-publication | Backend + frontend | — |
-| 08 | [Undo incident deletion](08-undo-incident-delete.md) | P2 — post-publication | Backend + frontend | — |
-| 09 | [Emergency plans integration (generic provider, SchlüHü first)](09-emergency-plans-integration.md) | P2 — post-publication | Backend + frontend | — |
-| 10 | [GPS-driven status automation (ruleset only)](10-gps-status-automation.md) | P3 — needs review before build | Backend | — |
+- **Audit log retention** — `backend/app/background/audit_cleanup.py`
+- **Global exception handler + request IDs** — `backend/app/middleware/request_id.py`
+- **Endpoint hardening** (demo-reset admin-gate, `PRINT_AGENT_TOKEN`, WS room auth) —
+  `print_agent_token` / `ws_require_auth` in `config.py`
+- **Per-session demo sandbox events** — `POST /api/demo/sandbox` (`api/health.py`)
+- **GPS status automation** (Rule A silent arrival, Rule B confirm-release) —
+  `backend/app/services/gps_automation.py`
+- **Undo incident deletion** — `POST /api/incidents/{id}/restore` + "Rückgängig" toast
+- **PDF after-action report + unified export** — `services/pdf_report_service.py`,
+  `GET /api/exports/events/{id}/report`, events-page + UserMenu export menus
+- **Onboarding (plan 05) — resolved, no welcome card.** The welcome card was
+  dropped (added nothing for daily operators). Shortcut discoverability is the
+  existing **⌘K command palette** (also opens with `?`) — no separate legend. The
+  409 conflict copy was already softened ("Von anderer Person geändert").
+
+## Remaining plans, priority order
+
+| Order | # | Plan | Scope | Why here | Depends on |
+|-------|---|------|-------|----------|------------|
+| 1 | 09 | [Emergency plans integration (generic provider, SchlüHü first)](09-emergency-plans-integration.md) | Backend + frontend | Largest (~500 LOC), high field value, external dependency — a proper feature effort | — |
+| 2 | 11 | [Material depletion thresholds: co-located & dual-dimension](11-resource-alarm-linking.md) | Backend + frontend | Dual-dimension (location+type) material thresholds edited on the Material page; managed-string vocabulary + coordinated rename. Vehicle alarms / outbound-by-vehicle explicitly out | — |
+| 3 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09 in one pass | 09, 11 |
 
 ## Shared conventions (apply to every plan)
 
@@ -55,14 +64,3 @@ made — do not re-litigate), implementation steps, and a test plan.
   (`*.test.ts(x)`, Vitest + React Testing Library); E2E tests live in
   `frontend/tests/e2e/` using the fixtures in `frontend/tests/fixtures/auth.fixture.ts`,
   page objects in `frontend/tests/pages/`, and factories in `frontend/tests/data/factories.ts`.
-
-## Pre-publication launch checklist (no plan needed, do manually)
-
-1. Run a 10-minute load test against the demo instance (e.g. `k6` or `hey`):
-   mixed GET `/api/incidents/?event_id=…`, demo login, a few PUTs. Watch Railway
-   logs for `Audit pool timeout` warnings (audit pool is only 5+5 connections,
-   `backend/app/database.py:34-43`) and 5xx rates.
-2. Verify `DEMO_RESET_HOURS` is set appropriately for launch week (consider `1`).
-3. Verify rate limits are active in production (`RateLimits.DEMO_DEFAULT = 60/minute`).
-4. Confirm the demo seed shows a full, realistic board (see plan 04, step 6).
-5. Snapshot the Railway Postgres before the article goes live.

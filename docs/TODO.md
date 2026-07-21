@@ -1,5 +1,26 @@
 # TODO
 
+## Before the 118 magazine publication (traffic-spike readiness)
+
+_The 118 swissfire.ch article links the public repo + demo, so publication will cause a
+traffic spike from Swiss brigades. Everything here must be done **before** the article is sent.
+See `docs/118-magazin-statement.md`._
+
+- [ ] **External monitoring** — uptime checks for frontend, backend `/api/health`, login,
+  WebSocket connection, and authenticated board load (build on `/api/health/detailed`).
+  Also monitor the public demo. (Duplicated under Operational Reliability below.)
+- [ ] **Set `PRINT_AGENT_TOKEN` on Railway + Pi** — without it the cloud print-agent endpoints
+  are unauthenticated on the public backend. (Duplicated under Operational Reliability below.)
+- [ ] **Load-test the public demo + backend** — simulate a spike (concurrent demo logins,
+  sandbox creation, board loads, WebSocket connections) and confirm the instance holds up.
+  Verify the demo stays pinned to a single Railway replica (the 2-hourly reset scheduler
+  `TRUNCATE`s all tables and the rate limiter is in-memory — >1 replica means concurrent
+  wipes + per-instance limits).
+- [ ] **Clear the remaining open todos below** that affect a public launch (failover drill,
+  Railway DB/photo restore test, physical paper board).
+- [ ] Produce article screenshots from a clearly fictitious scenario (fictitious names —
+  no real station members; Oberwil locations are fine as long as they aren't real incidents).
+
 ## Features
 
 - [x] **Einsatztagebuch** — shipped as a chapter in the after-action PDF

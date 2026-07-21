@@ -30,16 +30,11 @@ async def assign_resource(
     """
     Assign resource to incident (editor only).
 
-    Checks for conflicts and shows warning in response.
+    A resource already bound to another incident is rejected with 409
+    (``crud.assign_resource`` raises ``ValueError``); the frontend surfaces the
+    conflict (vehicles offer a move/keep dialog, personnel/material are filtered
+    out of the picker).
     """
-    # Check for conflicts first
-    conflicts = await crud.check_resource_conflicts(db, assignment.resource_type, assignment.resource_id)
-
-    if conflicts:
-        # Return warning but allow assignment (override behavior)
-        # Frontend should show confirmation dialog
-        pass
-
     try:
         result = await crud.assign_resource(
             db=db,
