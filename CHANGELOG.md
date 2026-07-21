@@ -11,6 +11,17 @@ section below into `[0.1.0]`.
 ## [Unreleased]
 
 ### Added
+- Aufträge (multi-stop group routing): batch several incidents into an ordered **route** for one
+  squad to work through during a Flächenlage (storm/mass-incident wave). An Auftrag is a lightweight
+  container over real incidents (`incident_groups` table + `incidents.group_id`/`group_position`),
+  so each stop keeps its own status/reko/print/GPS. Build routes in the **Aufträge** footer sheet
+  (inline create, drag cards in, derived `offen/läuft/erledigt` checklist, `+ Stop`) or the
+  **Routen-Editor** modal / `/map` **Routenplanung** mode (click-to-add, drag-reorder, client-side
+  nearest-neighbor optimize). Assign a squad once and **"auf alle Stops übernehmen"** — with a
+  **`Squad` vs `Nur Fahrzeug` (Pendeldienst)** mode so a shuttle shares only the vehicle while crew
+  stays per-incident. Routes draw as colored numbered polylines on the map, and GPS arrival
+  auto-advance gains a nearest-single-match guard so clustered stops don't double-fire.
+  See [`docs/plans/12-auftrag-multi-stop-routing.md`](docs/plans/12-auftrag-multi-stop-routing.md).
 - Provider-neutral alarm intake: a generic `POST /api/alarms` webhook accepts alarms from **any**
   dispatch or alarm system — shared-secret auth, `(source, source_id)` idempotency, auto-attach
   to the active event, and fail-closed when no secret is configured. The native Divera adapter
