@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import type { Operation, Person, Material, OperationStatus } from '@/lib/contexts/operations-context'
+import type { IncidentGroup } from '@/lib/types/groups'
+import type { GroupResourceType } from '@/lib/api-client'
 import { columns } from '@/lib/kanban-utils'
 
 interface UseKanbanDragDropProps {
@@ -16,6 +18,14 @@ interface UseKanbanDragDropProps {
   setDraggingItem?: (item: Person | Material | Operation | null) => void
   onOperationDrop?: (operationId: string) => void
   onStatusChange?: (operationId: string, newStatus: OperationStatus) => void
+  /** Aufträge (incident groups) — used to resolve a route's source stop + mode
+   *  when a resource is dropped on an Auftrag row. Optional so views without the
+   *  Aufträge feature keep working unchanged. */
+  groups?: IncidentGroup[]
+  /** Attach an existing board card to a route (card → Auftrag-row drop). */
+  addStopsToGroup?: (groupId: string, incidentIds: string[]) => void
+  /** Copy the source stop's squad across the route after a header drop (mode-aware). */
+  copyGroupSquad?: (groupId: string, sourceIncidentId: string, resourceTypes?: GroupResourceType[]) => void
 }
 
 /**
@@ -36,6 +46,9 @@ export function useKanbanDragDrop({
   setDraggingItem,
   onOperationDrop,
   onStatusChange,
+  groups,
+  addStopsToGroup,
+  copyGroupSquad,
 }: UseKanbanDragDropProps) {
 
   useEffect(() => {
@@ -72,6 +85,57 @@ export function useKanbanDragDrop({
 
         const sourceData = source.data
         const destData = destination.data
+
+        // --- Aufträge (route) drop targets ---------------------------------
+        // A stop row (`group-stop`) or the Auftrag header (`group-row`) accept
+        // the same board payloads. Reordering stops (source `group-stop-drag`)
+        // is handled by the sheet-local monitor, not here.
+        if (destData.type === "group-stop" || destData.type === "group-row") {
+          const groupId = destData.groupId as string
+
+          // Existing board card dropped on a route header → attach as a stop.
+          if (sourceData.type === "operation" && destData.type === "group-row") {
+            const opId = (sourceData.operation as Operation).id
+            addStopsToGroup?.(groupId, [opId])
+            return
+          }
+
+          // Resolve the incident this resource lands on: the stop itself, or the
+          // route's designated source stop (first stop) for a header drop.
+          const group = groups?.find((g) => g.id === groupId)
+          const targetIncidentId =
+            destData.type === "group-stop" ? (destData.incidentId as string) : group?.stopIds[0]
+          if (!targetIncidentId) return
+
+          // Reuse the existing per-incident mutators so the vehicle-conflict /
+          // driver prompts fire exactly as on the board.
+          if (sourceData.type === "person") {
+            const person = sourceData.person as Person
+            if (person.isReko) assignRekoPersonToOperation(person.id, person.name, targetIncidentId)
+            else if (person.status === "available") assignPersonToOperation(person.id, person.name, targetIncidentId)
+          } else if (sourceData.type === "driver-vehicle") {
+            assignVehicleToOperation?.(
+              sourceData.vehicleId as string,
+              sourceData.vehicleName as string,
+              targetIncidentId,
+            )
+          } else if (sourceData.type === "material") {
+            const material = sourceData.material as Material
+            if (material.status === "available" || material.consumable) assignMaterialToOperation(material.id, targetIncidentId)
+          } else if (sourceData.type === "material-group") {
+            for (const material of sourceData.materials as Material[]) assignMaterialToOperation(material.id, targetIncidentId)
+          } else {
+            return
+          }
+
+          // Header drop → also copy the (mode-aware) squad to every stop. The
+          // assign above is async; give its POST a moment to land before the
+          // copy reads the source incident's assignments server-side.
+          if (destData.type === "group-row" && copyGroupSquad) {
+            setTimeout(() => copyGroupSquad(groupId, targetIncidentId), 500)
+          }
+          return
+        }
 
         // Person dropped on operation
         if (sourceData.type === "person" && destData.type === "operation-drop") {
@@ -221,5 +285,5 @@ export function useKanbanDragDrop({
         }
       },
     })
-  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, setDraggingItem, onOperationDrop, onStatusChange])
+  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, setDraggingItem, onOperationDrop, onStatusChange, groups, addStopsToGroup, copyGroupSquad])
 }

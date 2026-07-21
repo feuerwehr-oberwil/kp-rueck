@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users, Footprints } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users, Footprints, Waypoints } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -19,6 +19,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
@@ -95,6 +97,7 @@ export default function FireStationDashboard() {
     isLoading,
     isLoaded
   } = useOperations()
+  const { groups, addStops: addStopsToGroup, copySquad: copyGroupSquad } = useGroups()
 
   // Keep the top progress bar visible for the whole pre-ready window — auth
   // check, event resolution and the first data load — so there's never a blank
@@ -235,7 +238,11 @@ export default function FireStationDashboard() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'display' | 'alarm' | 'vehicles' | 'print' | 'thermo' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'display' | 'alarm' | 'vehicles' | 'print' | 'thermo' | 'auftraege' | null>(null)
+  // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
+  const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
+  // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
+  const [newEmergencyGroupId, setNewEmergencyGroupId] = useState<string | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -957,7 +964,24 @@ export default function FireStationDashboard() {
       // (which keeps materials). Just prompt the material decision here.
       if (newStatus === "complete") promptMaterialDecision(operationId)
     },
+    // Aufträge (route) drop targets — see auftraege-sheet.tsx for the registered
+    // drop-target data contract (`group-row` / `group-stop`).
+    groups,
+    addStopsToGroup,
+    copyGroupSquad,
   })
+
+  // Board Auftrag chips signal the page via a window event (no prop threading
+  // through the column/side-panel trees) to open the Aufträge sheet on that route.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const groupId = (e as CustomEvent<{ groupId: string }>).detail?.groupId ?? null
+      setAuftraegeFocusGroupId(groupId)
+      setActiveFooterSheet('auftraege')
+    }
+    window.addEventListener('kp:open-auftraege', handler)
+    return () => window.removeEventListener('kp:open-auftraege', handler)
+  }, [])
 
   // Use shared resource filtering hook — sidebar search takes priority, top search also filters
   const effectivePersonnelQuery = personnelSearchQuery || searchQuery
@@ -1091,6 +1115,7 @@ export default function FireStationDashboard() {
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
   const thermoSheetOpen = activeFooterSheet === 'thermo'
+  const auftraegeSheetOpen = activeFooterSheet === 'auftraege'
 
   const generateCheckInQR = async () => {
     // Toggle behavior: if already open, just close
@@ -1924,6 +1949,25 @@ export default function FireStationDashboard() {
                   size="sm"
                   variant="ghost"
                   className={`gap-1.5 h-8 px-2.5 transition-colors ${
+                    auftraegeSheetOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    if (!selectedEvent) return
+                    if (!auftraegeSheetOpen) setAuftraegeFocusGroupId(null)
+                    setActiveFooterSheet(auftraegeSheetOpen ? null : 'auftraege')
+                  }}
+                  disabled={!selectedEvent}
+                >
+                  <Waypoints className="h-3.5 w-3.5" />
+                  <span className="text-xs">{tDash('auftraege')}</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
                     printModalOpen
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:text-foreground'
@@ -2059,9 +2103,13 @@ export default function FireStationDashboard() {
 
       <NewEmergencyModal
         open={newEmergencyModalOpen}
-        onOpenChange={setNewEmergencyModalOpen}
+        onOpenChange={(open) => {
+          setNewEmergencyModalOpen(open)
+          if (!open) setNewEmergencyGroupId(null)
+        }}
         onCreateOperation={createOperation}
         nextOperationId={getNextOperationId()}
+        defaultGroupId={newEmergencyGroupId}
       />
 
       {/* Resource Assignment Dialog */}
@@ -2494,6 +2542,21 @@ export default function FireStationDashboard() {
         open={vehicleStatusSheetOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'vehicles' && setActiveFooterSheet(null)}
         eventId={selectedEvent?.id || null}
+      />
+
+      {/* Aufträge (multi-stop route) Sheet */}
+      <AuftraegeSheet
+        open={auftraegeSheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'auftraege' && setActiveFooterSheet(null)}
+        focusGroupId={auftraegeFocusGroupId}
+        onAddStop={(groupId) => {
+          setNewEmergencyGroupId(groupId)
+          setNewEmergencyModalOpen(true)
+        }}
+        onAssignResource={handleOpenAssignmentDialog}
+        onOpenDetail={handleOpenIncidentFromNotification}
+        // TODO(routen-editor): open the RoutenEditorModal (next phase). No-op for now.
+        onOpenRoutenEditor={() => {}}
       />
 
       {/* Delete Operation Confirmation Dialog */}
