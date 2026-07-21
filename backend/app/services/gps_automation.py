@@ -268,6 +268,57 @@ def _reset_debounce(store: dict, key) -> None:
         db.reset()
 
 
+def _suppressed_arrival_keys(
+    targets: list[dict],
+    position_by_name: dict,
+    cfg: _AutomationConfig,
+    now: datetime,
+) -> set[tuple[uuid.UUID, uuid.UUID]]:
+    """Nearest-single-match guard for Rule A (arrival).
+
+    One vehicle can now be assigned to MULTIPLE incidents forming a route ("Auftrag").
+    When that vehicle's stops are clustered in a dense area, more than one can satisfy
+    the arrival predicate on the SAME tick — which would advance / prompt every
+    in-radius stop at once. Route order is only a SUGGESTION (there is no sequence
+    gating), so we disambiguate purely by proximity: for a vehicle confirming arrival
+    at more than one of ITS stops this tick, only the single NEAREST stop may proceed;
+    the rest are returned here to be treated as not-confirming this tick (they neither
+    advance nor latch, and can still fire on a later tick once they are the nearest).
+
+    Reuses ``_arrival_fix_confirms`` and ``_haversine_distance_meters`` so no thresholds
+    are duplicated. The overwhelmingly common single-in-radius case produces an empty
+    set and leaves behavior identical to before.
+    """
+    # vehicle_id -> [(arrival_key, distance_m), ...] for stops confirming arrival this tick.
+    confirming: dict[uuid.UUID, list[tuple[tuple[uuid.UUID, uuid.UUID], float]]] = {}
+    for t in targets:
+        if (
+            not cfg.rule_arrival_enabled
+            or t["incident_status"] != "disponiert"
+            or t["incident_lat"] is None
+            or t["incident_lng"] is None
+        ):
+            continue
+        vp = position_by_name.get(t["vehicle_name"].lower())
+        if not _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now):
+            continue
+        distance = _haversine_distance_meters(
+            float(vp.latitude),
+            float(vp.longitude),
+            float(t["incident_lat"]),
+            float(t["incident_lng"]),
+        )
+        confirming.setdefault(t["vehicle_id"], []).append(((t["incident_id"], t["vehicle_id"]), distance))
+
+    suppressed: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    for stops in confirming.values():
+        if len(stops) < 2:
+            continue  # single in-radius stop — the common case, untouched
+        nearest_key = min(stops, key=lambda s: s[1])[0]
+        suppressed.update(key for key, _distance in stops if key != nearest_key)
+    return suppressed
+
+
 async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None:
     """Entry point invoked once per Traccar poll tick.
 
@@ -323,6 +374,11 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
         return_keys: set = set()
         actor = None  # lazily created only when an action actually fires
 
+        # Nearest-single-match guard: if a vehicle confirms arrival at several of its
+        # clustered route stops on this tick, only its nearest stop may fire (the rest
+        # are suppressed and behave as not-confirming). See _suppressed_arrival_keys.
+        suppressed_arrival = _suppressed_arrival_keys(targets, position_by_name, cfg, now)
+
         for t in targets:
             vp = position_by_name.get(t["vehicle_name"].lower())
 
@@ -335,7 +391,10 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
             ):
                 a_key = (t["incident_id"], t["vehicle_id"])
                 arrival_keys.add(a_key)
-                if _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now):
+                if (
+                    _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now)
+                    and a_key not in suppressed_arrival
+                ):
                     if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
                         if cfg.rule_arrival_silent:
                             # Dangerous opt-in: silently advance without operator confirm.
@@ -344,7 +403,9 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                         else:
                             # Default: prompt the operator to confirm; do NOT change status.
                             await _fire_arrival_prompt(
-                                t["incident_id"], t["vehicle_name"], t["incident_label"],
+                                t["incident_id"],
+                                t["vehicle_name"],
+                                t["incident_label"],
                             )
                 else:
                     # Any missing/stale/too-far/too-fast fix resets the counter so a
@@ -365,8 +426,11 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                 if _return_fix_confirms(vp, cfg, now):
                     if _advance_debounce(_state.returns, r_key, vp.last_update, cfg):
                         await _fire_return_prompt(
-                            t["assignment_id"], t["incident_id"], t["vehicle_id"],
-                            t["vehicle_name"], t["incident_label"],
+                            t["assignment_id"],
+                            t["incident_id"],
+                            t["vehicle_id"],
+                            t["vehicle_name"],
+                            t["incident_label"],
                         )
                 else:
                     _reset_debounce(_state.returns, r_key)
@@ -484,9 +548,7 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
     from .notification_service import create_vehicle_returned_notification
 
     logger.info("GPS automation: unassigned vehicle %s back at station — notifying", vehicle.name)
-    await create_vehicle_returned_notification(
-        db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name
-    )
+    await create_vehicle_returned_notification(db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name)
 
 
 async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: str, actor: User) -> None:
