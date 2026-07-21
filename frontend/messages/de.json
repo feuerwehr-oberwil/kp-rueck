@@ -703,7 +703,17 @@
       "drivesVehicle": "Fährt {vehicle}",
       "reassignTitle": "Fahrer wechseln",
       "reassignDescription": "<strong>{name}</strong> fährt aktuell <strong>{fromVehicle}</strong>. Als Fahrer von <strong>{vehicle}</strong> übernehmen? Der bisherige Einsatz als Fahrer wird beendet.",
-      "reassignConfirm": "Übernehmen"
+      "reassignConfirm": "Übernehmen",
+      "addPersonButton": "Person hinzufügen",
+      "addPersonHint": "Nicht eingecheckte Aushilfe (z. B. früherer Fahrer) direkt als Fahrer erfassen",
+      "addNamePlaceholder": "Name der Person",
+      "addAndAssign": "Hinzufügen & als Fahrer",
+      "adding": "Wird hinzugefügt…",
+      "addError": "Person konnte nicht hinzugefügt werden",
+      "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
+      "markAsDriver": "Als Fahrer markieren",
+      "markedAsDriver": "{name} als Fahrer markiert",
+      "markError": "Markierung fehlgeschlagen"
     },
     "vehicleConflict": {
       "title": "Fahrzeug bereits im Einsatz",
