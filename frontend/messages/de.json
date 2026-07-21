@@ -246,7 +246,8 @@
     "resources": {
       "crew": "Personal",
       "vehicles": "Fahrzeuge",
-      "materials": "Mittel"
+      "materials": "Mittel",
+      "roleOther": "Andere"
     },
     "common": {
       "search": "Suchen...",
