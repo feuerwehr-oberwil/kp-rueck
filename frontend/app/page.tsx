@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, PanelLeft, PanelRight } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -1332,6 +1332,15 @@ export default function FireStationDashboard() {
             bottom navbar (event switching lives in its "Mehr" sheet). */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* Left sidebar toggle (mirrors the "[" shortcut) */}
+            <button
+              onClick={() => setShowLeftSidebar((prev) => !prev)}
+              className={`flex-shrink-0 rounded-lg p-1.5 transition-colors hover:bg-secondary/60 ${showLeftSidebar ? "text-foreground" : "text-muted-foreground"}`}
+              aria-pressed={showLeftSidebar}
+              title={`${tDash('toggleLeftSidebar')} ([)`}
+            >
+              <PanelLeft className="h-5 w-5" />
+            </button>
             {/* Event title doubles as an event switcher: switch events or create a
                 new one without first hunting through the user menu → Ereignisse. */}
             <DropdownMenu>
@@ -1399,6 +1408,16 @@ export default function FireStationDashboard() {
                   {isMounted && currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
                 </span>
               </div>
+
+              {/* Right sidebar toggle (mirrors the "]" shortcut) */}
+              <button
+                onClick={() => setShowRightSidebar((prev) => !prev)}
+                className={`flex-shrink-0 rounded-lg p-1.5 transition-colors hover:bg-secondary/60 ${showRightSidebar ? "text-foreground" : "text-muted-foreground"}`}
+                aria-pressed={showRightSidebar}
+                title={`${tDash('toggleRightSidebar')} (])`}
+              >
+                <PanelRight className="h-5 w-5" />
+              </button>
 
               <PageNavigation
                 currentPage="kanban"
