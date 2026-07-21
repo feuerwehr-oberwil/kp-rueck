@@ -123,7 +123,7 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Lichtmast", "type": "Beleuchtung", "location": "MoWa", "status": "available"},
         {"name": "Flutlichtstrahler", "type": "Beleuchtung", "location": "Magazin", "status": "available"},
         # Ölwehr
-        {"name": "Ölbindemittel", "type": "Ölwehr", "location": "Magazin", "status": "available"},
+        {"name": "Ölbindemittel", "type": "Ölwehr", "location": "Magazin", "status": "available", "consumable": True},
         {"name": "Ölsperre", "type": "Ölwehr", "location": "Pio", "status": "available"},
         # Schläuche
         {"name": "Schlauch B", "type": "Schläuche", "location": "TLF", "status": "available"},
