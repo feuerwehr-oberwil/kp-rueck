@@ -8,7 +8,7 @@ per-session sandbox endpoint (POST /api/demo/sandbox): it fills an existing
 event with the demo scenario, looking up the shared resources by name.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 import bcrypt
@@ -416,6 +416,16 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         "Meier Andrea",
         "Zimmermann Fabian",
         "Wyss Fabio",
+        # Reko-capable (F-tagged) + crew used by the staffed/reko incidents below
+        "Keller Marco",
+        "Brunner Sarah",
+        "Frei Marc",
+        "Suter Beat",
+        "Baumann Michael",
+        "Graf Sven",
+        "Widmer Anna",
+        "Künzli Klara",
+        "Roth Til",
     ]
     for name in checked_in_names:
         db.add(
@@ -460,6 +470,17 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         assign("Auslaufende Betriebsstoffe Garage", "vehicle", vehicle["Mawa"]),
         assign("Auslaufende Betriebsstoffe Garage", "personnel", person["Wyss Fabio"]),
         assign("Auslaufende Betriebsstoffe Garage", "personnel", person["Roth Til"]),
+        # Sturmschaden Dach (disponiert) — crew + Pio + Motorsäge
+        assign("Sturmschaden Dach", "vehicle", vehicle["Pio"]),
+        assign("Sturmschaden Dach", "personnel", person["Baumann Michael"]),
+        assign("Sturmschaden Dach", "personnel", person["Graf Sven"]),
+        assign("Sturmschaden Dach", "material", material[("Motorsäge Gr.", "Pio")]),
+        # Kleinbrand Container (winding down) — crew only, vehicle already released
+        assign("Kleinbrand Container", "personnel", person["Widmer Anna"]),
+        # In-progress Reko — reko person on site, form still pending
+        assign("Brand Gartenhaus", "personnel", person["Keller Marco"]),
+        assign("Unfall mit Betriebsmittelaustritt", "personnel", person["Brunner Sarah"]),
+        assign("Überflutete Unterführung", "personnel", person["Frei Marc"]),
     ]
     for assignment in assignments:
         db.add(assignment)
@@ -476,6 +497,11 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         (person["Koch René"], "driver", vehicle["Mowa"]),
         (person["Schneider Peter"], "driver", vehicle["Trawa"]),
         (person["Wyss Fabio"], "driver", vehicle["Mawa"]),
+        # Additional Reko-capable officers/wachtmeister
+        (person["Keller Marco"], "reko", None),
+        (person["Brunner Sarah"], "reko", None),
+        (person["Frei Marc"], "reko", None),
+        (person["Suter Beat"], "reko", None),
     ]
     special_functions = [
         models.EventSpecialFunction(
@@ -490,6 +516,115 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     ]
     for sf in special_functions:
         db.add(sf)
+
+    # ============================================
+    # COMPLETED REKO REPORTS
+    # Reko results for incidents that already passed reconnaissance, so the
+    # Reko-Ergebnis (detail + display) and the reko dashboard show real data.
+    # Each report has a matching historical (already-unassigned) crew record for
+    # its author, so the dashboard's done/total counts add up.
+    # (title, author, is_relevant, dangers, power_supply, effort, summary)
+    # ============================================
+    reko_reports_data = [
+        (
+            "Kellerbrand abgeklärt", "Suter Beat", True,
+            {"fire": True, "fire_danger": True, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 6, "vehicles_needed": ["TLF"], "equipment_needed": ["Motorsäge Gr."], "estimated_duration_hours": 2.0},
+            "Kellerbrand gelöscht, Nachkontrolle und Belüftung nötig.",
+        ),
+        (
+            "Tierrettung Katze", "Keller Marco", False,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
+            "Katze auf Baum, Rettung mit Leiter möglich.",
+        ),
+        (
+            "Ausgelaufenes Heizöl", "Brunner Sarah", True,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": True, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 4, "vehicles_needed": ["Pio"], "equipment_needed": ["Ölbindemittel", "Ölsperre"], "estimated_duration_hours": 1.5},
+            "Heizöl aus Tank ausgelaufen, Bindemittel und Ölsperre erforderlich.",
+        ),
+        (
+            "Sturmschaden Dach", "Frei Marc", True,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": True, "chemical": False, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 4, "vehicles_needed": ["Pio"], "equipment_needed": ["Motorsäge Gr."], "estimated_duration_hours": 2.0},
+            "Dachziegel gelöst, Absturzgefahr, Sicherung und Abdeckung nötig.",
+        ),
+        (
+            "Wasser im Keller EFH", "Schmidt Daniel", True,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": True, "other_notes": None},
+            "emergency_needed",
+            {"personnel_count": 5, "vehicles_needed": ["TLF"], "equipment_needed": ["Tauchpumpe Gr.", "Wassersauger"], "estimated_duration_hours": 3.0},
+            "Keller ~30cm unter Wasser, Strom abgestellt, Auspumpen läuft.",
+        ),
+        (
+            "Auslaufende Betriebsstoffe Garage", "Suter Beat", True,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": True, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 3, "vehicles_needed": ["Mawa"], "equipment_needed": ["Ölbindemittel"], "estimated_duration_hours": 1.0},
+            "Betriebsstoffe in Garage gebunden, Lüftung sichergestellt.",
+        ),
+        (
+            "Kleinbrand Container", "Keller Marco", True,
+            {"fire": True, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 3, "vehicles_needed": ["TLF"], "equipment_needed": [], "estimated_duration_hours": 0.5},
+            "Containerbrand rasch gelöscht, keine Ausbreitung.",
+        ),
+        (
+            "Ölspur Hauptstrasse", "Brunner Sarah", True,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": True, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": ["Ölbindemittel"], "estimated_duration_hours": 1.0},
+            "Ölspur auf ~50m gebunden und gereinigt.",
+        ),
+        (
+            "Wespennest entfernt", "Frei Marc", False,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
+            "Wespennest unter Dachvorsprung entfernt.",
+        ),
+        (
+            "Türöffnung für Rettungsdienst", "Suter Beat", True,
+            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
+            "available",
+            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
+            "Türöffnung schonend durchgeführt, Übergabe an Sanität.",
+        ),
+    ]
+    for i, (title, author, is_relevant, dangers, power, effort, summary) in enumerate(reko_reports_data):
+        author_p = person[author]
+        db.add(
+            models.RekoReport(
+                id=uuid4(),
+                incident_id=incidents[title].id,
+                token=f"demo-reko-{i}",
+                arrived_at=now - timedelta(minutes=30),
+                submitted_at=now - timedelta(minutes=10),
+                is_relevant=is_relevant,
+                dangers_json=dangers,
+                effort_json=effort,
+                power_supply=power,
+                summary_text=summary,
+                submitted_by_personnel_id=author_p.id,
+                is_draft=False,
+            )
+        )
+        db.add(
+            models.IncidentAssignment(
+                id=uuid4(),
+                incident_id=incidents[title].id,
+                resource_type="personnel",
+                resource_id=author_p.id,
+                assigned_by=editor_id,
+                unassigned_at=now,
+            )
+        )
 
     # ============================================
     # STATUS TRANSITIONS
