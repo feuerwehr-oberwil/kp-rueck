@@ -13,6 +13,9 @@ export interface Material {
   id: string
   name: string
   category: string
+  /** Second grouping dimension (functional type, e.g. "Tauchpumpen", "Wasser") —
+      distinct from `category` (the depot/location). Used for quick-select. */
+  type: string
   status: "available" | "assigned"
   categorySortOrder: number
   consumable: boolean
@@ -43,6 +46,7 @@ const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({
   id: String(apiMat.id),
   name: apiMat.name,
   category: apiMat.location || "General",
+  type: apiMat.type || "Sonstiges",
   status: (apiMat.status === "available" ? "available" : "assigned") as "available" | "assigned",
   categorySortOrder: apiMat.location_sort_order,
   consumable: apiMat.consumable ?? false,

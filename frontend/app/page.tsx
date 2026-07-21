@@ -2531,74 +2531,92 @@ export default function FireStationDashboard() {
         onOpenChange={(open) => !open && setMissingResourcesAckOp(null)}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              {tMissing('title')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {missingResourcesAckOp && tMissing.rich('checklistIntro', {
-                location: missingResourcesAckOp.location,
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
           {missingResourcesAckOp && (() => {
             const op = missingResourcesAckOp
+            const allFilled = getMissingResources(op).length === 0
             const rows = [
               { key: 'crew' as const, icon: Users, filled: op.crew.length > 0, summary: tMissing('personalSummary', { count: op.crew.length }) },
               { key: 'vehicles' as const, icon: Truck, filled: op.zuFuss || op.vehicles.length > 0, summary: op.zuFuss ? tCommon('zuFuss') : op.vehicles.join(', ') },
               { key: 'materials' as const, icon: Package, filled: op.materials.length > 0, summary: tMissing('mittelSummary', { count: op.materials.length }) },
             ]
             return (
-              <div className="space-y-1.5 py-1">
-                {rows.map(({ key, icon: Icon, filled, summary }) => (
-                  <div key={key} className="flex items-center gap-3 rounded-md border px-3 py-2">
-                    {filled
-                      ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
-                      : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning" />}
-                    <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium">{tRes(key)}</div>
-                      {filled && summary && <div className="truncate text-xs text-muted-foreground">{summary}</div>}
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    {allFilled
+                      ? <CheckCircle2 className="h-5 w-5 text-success" />
+                      : <Package className="h-5 w-5 text-primary" />}
+                    {allFilled ? tMissing('readyTitle') : tMissing('title')}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {tMissing.rich(allFilled ? 'readyIntro' : 'checklistIntro', {
+                      location: op.location,
+                      hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                    })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <div className="space-y-1.5 py-1">
+                  {rows.map(({ key, icon: Icon, filled, summary }) => (
+                    <div key={key} className="flex items-center gap-3 rounded-md border px-3 py-2">
+                      {filled
+                        ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
+                        : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning" />}
+                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium">{tRes(key)}</div>
+                        {filled && summary && <div className="truncate text-xs text-muted-foreground">{summary}</div>}
+                      </div>
+                      {/* Always allow assigning more — even a satisfied category can take extras. */}
+                      {filled ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 flex-shrink-0 gap-1 px-2 text-xs text-muted-foreground"
+                          onClick={() => openGateAssign(key, op.id, 'missing')}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          {tMissing('addMore')}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 flex-shrink-0 px-2 text-xs"
+                          onClick={() => openGateAssign(key, op.id, 'missing')}
+                        >
+                          {tCommon('assign')}
+                        </Button>
+                      )}
                     </div>
-                    {!filled && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-7 flex-shrink-0 px-2 text-xs"
-                        onClick={() => openGateAssign(key, op.id, 'missing')}
-                      >
-                        {tCommon('assign')}
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+
+                <AlertDialogFooter className={allFilled ? undefined : 'sm:justify-between'}>
+                  {!allFilled && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setDisponiertDialogOp(op)
+                        setMissingResourcesAckOp(null)
+                      }}
+                    >
+                      {tMissing('dispatchAnyway')}
+                    </Button>
+                  )}
+                  <Button
+                    disabled={!allFilled}
+                    onClick={() => {
+                      setDisponiertDialogOp(op)
+                      setMissingResourcesAckOp(null)
+                    }}
+                  >
+                    {tMissing('done')}
+                  </Button>
+                </AlertDialogFooter>
+              </>
             )
           })()}
-
-          <AlertDialogFooter className="sm:justify-between">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setDisponiertDialogOp(missingResourcesAckOp)
-                setMissingResourcesAckOp(null)
-              }}
-            >
-              {tMissing('dispatchAnyway')}
-            </Button>
-            <Button
-              disabled={!missingResourcesAckOp || getMissingResources(missingResourcesAckOp).length > 0}
-              onClick={() => {
-                setDisponiertDialogOp(missingResourcesAckOp)
-                setMissingResourcesAckOp(null)
-              }}
-            >
-              {tMissing('done')}
-            </Button>
-          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
