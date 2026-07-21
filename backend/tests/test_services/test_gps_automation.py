@@ -397,3 +397,129 @@ async def test_return_emits_prompt_not_release(
         select(IncidentAssignment).where(IncidentAssignment.id == assignment.id)
     )
     assert fresh.scalar_one().unassigned_at is None  # never silent-released
+
+
+# ---------------------------------------------------------------------------
+# Rule A — clustered-stop nearest-single-match guard (plan 12, Aufträge)
+# ---------------------------------------------------------------------------
+
+# A second route stop ~111 m north of the first (delta-lat 0.0010 * 111_320 m).
+# Both sit inside the 200 m arrival radius from a position on the first stop.
+INC2_LAT = INC_LAT + 0.0010
+INC2_LNG = INC_LNG
+
+
+async def _add_second_stop(
+    db: AsyncSession, event: Event, user: User, vehicle: Vehicle, *, lat: float = INC2_LAT, lng: float = INC2_LNG
+) -> Incident:
+    """Create a second disponiert stop and assign the SAME vehicle to it.
+
+    Models one squad ("Auftrag") assigned across multiple route stops.
+    """
+    incident = Incident(
+        id=uuid.uuid4(),
+        title="Test Brand 2",
+        type="brandbekaempfung",
+        priority="high",
+        location_address="Hauptstrasse 3",
+        location_lat=lat,
+        location_lng=lng,
+        status="disponiert",
+        event_id=event.id,
+        created_by=user.id,
+    )
+    db.add(incident)
+    await db.flush()
+    db.add(
+        IncidentAssignment(
+            id=uuid.uuid4(),
+            incident_id=incident.id,
+            resource_type="vehicle",
+            resource_id=vehicle.id,
+            assigned_by=user.id,
+        )
+    )
+    await db.commit()
+    await db.refresh(incident)
+    return incident
+
+
+def _fresh_at_second(now: datetime, speed: float = 0.0) -> list[FakePos]:
+    return [FakePos("TLF-1", INC2_LAT, INC2_LNG, speed, now)]
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_clustered_stops_only_nearest_advances_silent(
+    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
+):
+    """Silent mode: two in-radius stops of one vehicle -> only the NEARER advances."""
+    vehicle, _assignment = assigned_vehicle
+    second = await _add_second_stop(db_session, test_event, test_user, vehicle)
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+
+    # Position sits exactly on the first stop -> it is the nearest of the two.
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+
+    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, second.id) == "disponiert"
+
+    # The farther stop's debounce never latched: once the vehicle sits on IT (now
+    # the only in-radius disponiert stop), it advances normally on a later tick.
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_second(clock.now()), advance=35)
+    assert await _status(db_session, second.id) == "einsatz"
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_clustered_stops_only_nearest_prompts_default(
+    _bc, bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
+):
+    """Default mode: two in-radius stops -> exactly ONE arrival prompt (the nearer)."""
+    vehicle, _assignment = assigned_vehicle
+    second = await _add_second_stop(db_session, test_event, test_user, vehicle)
+    await _enable_arrival(db_session, silent=False)
+    clock = _Clock(datetime.now(UTC))
+
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+
+    # Exactly one prompt, for the nearer stop; neither status changed.
+    bc_msg.assert_awaited_once()
+    assert bc_msg.await_args.args[0]["type"] == "gps_arrival_prompt"
+    assert bc_msg.await_args.args[0]["incident_id"] == str(disponiert_incident.id)
+    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, second.id) == "disponiert"
+
+    # The farther stop did not latch: it prompts later when the vehicle sits on it.
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_second(clock.now()), advance=35)
+    assert bc_msg.await_count == 2
+    assert bc_msg.await_args.args[0]["incident_id"] == str(second.id)
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_clustered_guard_noop_for_single_in_radius(
+    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
+):
+    """Guard is a no-op when only one of the vehicle's stops is in radius.
+
+    A vehicle with two assigned stops, but the second is far outside the arrival
+    radius -> the single in-radius case behaves exactly as before (nearer fires).
+    """
+    vehicle, _assignment = assigned_vehicle
+    # ~2.2 km north -> well outside the 200 m radius.
+    far = await _add_second_stop(db_session, test_event, test_user, vehicle, lat=INC_LAT + 0.02, lng=INC_LNG)
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+
+    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, far.id) == "disponiert"
