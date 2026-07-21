@@ -329,6 +329,8 @@
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
       "switchEvent": "Ereignis wechseln",
+      "toggleLeftSidebar": "Linke Seitenleiste ein-/ausblenden",
+      "toggleRightSidebar": "Rechte Seitenleiste ein-/ausblenden",
       "newEvent": "Neues Ereignis",
       "allEvents": "Alle Ereignisse",
       "personnelSearch": "Personal suchen...",

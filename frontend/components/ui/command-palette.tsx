@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
@@ -42,6 +42,7 @@ import {
   Tag,
   Route,
   Crosshair,
+  ChevronDown,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 
@@ -114,6 +115,29 @@ export function CommandPalette() {
     command()
   }, [])
 
+  // Scroll affordance: when the command list overflows (and isn't scrolled to
+  // the bottom) show a bottom fade + chevron, so it's obvious more items exist
+  // even when the list wraps exactly after an item.
+  const listWrapperRef = useRef<HTMLDivElement>(null)
+  const [canScrollDown, setCanScrollDown] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const wrap = listWrapperRef.current
+    const list = wrap?.querySelector('[data-slot="command-list"]') as HTMLElement | null
+    if (!list) return
+    const recompute = () =>
+      setCanScrollDown(list.scrollHeight - list.scrollTop - list.clientHeight > 4)
+    recompute()
+    list.addEventListener("scroll", recompute)
+    const ro = new ResizeObserver(recompute)
+    ro.observe(list)
+    if (list.firstElementChild) ro.observe(list.firstElementChild)
+    return () => {
+      list.removeEventListener("scroll", recompute)
+      ro.disconnect()
+    }
+  }, [open])
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="overflow-hidden p-0 shadow-lg" showCloseButton={false}>
@@ -123,6 +147,7 @@ export function CommandPalette() {
         </DialogHeader>
         <Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           <CommandInput placeholder={t('searchPlaceholder')} showClose />
+          <div ref={listWrapperRef} className="relative">
           <CommandList>
             <CommandEmpty>{t('noResults')}</CommandEmpty>
 
@@ -395,6 +420,12 @@ export function CommandPalette() {
               </CommandItem>
             </CommandGroup>
           </CommandList>
+          {canScrollDown && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-9 items-end justify-center bg-gradient-to-t from-popover via-popover/80 to-transparent">
+              <ChevronDown className="mb-1 h-4 w-4 animate-bounce text-muted-foreground" />
+            </div>
+          )}
+          </div>
         </Command>
       </DialogContent>
     </Dialog>
