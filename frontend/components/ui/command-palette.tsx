@@ -93,7 +93,8 @@ export function CommandPalette() {
   // Listen for Cmd/Ctrl+K and the programmatic open event
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+      // toLowerCase so Caps Lock / Shift (e.key === "K") still opens it.
+      if (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setOpen((open) => !open)
       }
