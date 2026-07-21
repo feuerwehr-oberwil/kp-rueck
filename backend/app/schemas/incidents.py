@@ -65,6 +65,9 @@ class IncidentBase(BaseModel):
     am_warten: bool = False
     am_warten_note: str | None = None
     zu_fuss: bool = False
+    # Auftrag (incident group) membership. Lets the streamlined "add stop" create
+    # an incident already attached to a route.
+    group_id: UUID | None = None
 
     @field_validator("title")
     @classmethod
@@ -166,6 +169,8 @@ class IncidentUpdate(BaseModel):
     am_warten: bool | None = None
     am_warten_note: str | None = None
     zu_fuss: bool | None = None
+    # Attach/detach from an Auftrag (incident group) via a normal PATCH.
+    group_id: UUID | None = None
 
 
 class IncidentReorder(BaseModel):
@@ -196,6 +201,9 @@ class IncidentResponse(IncidentBase):
     id: UUID
     event_id: UUID
     position: int = 0
+    # Auftrag (incident group) membership + order of this stop within it.
+    group_id: UUID | None = None
+    group_position: int = 0
     source: str = "operator"
     # The alarm's id in the delivering system (pool source_id), when the
     # incident was created from a pool alarm.

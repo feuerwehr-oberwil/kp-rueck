@@ -206,10 +206,25 @@ async def create_incident(
     created from a pool alarm ("divera" or a generic-webhook slug + the
     alarm's id in that system); dashboard creations keep the "operator"
     default.
+
+    When ``group_id`` is set (streamlined "add stop"), the new incident is
+    appended to the end of that Auftrag (``group_position = max + 1``).
     """
+    # When attaching to an Auftrag on create, append at the end of the route.
+    group_position = 0
+    if incident.group_id is not None:
+        max_pos = await db.scalar(
+            select(func.max(Incident.group_position)).where(
+                Incident.group_id == incident.group_id,
+                Incident.deleted_at.is_(None),
+            )
+        )
+        group_position = (max_pos + 1) if max_pos is not None else 0
+
     db_incident = Incident(
         **incident.model_dump(),
         created_by=current_user.id,
+        group_position=group_position,
         **({"source": source} if source else {}),
         source_ref=source_ref,
     )
@@ -318,8 +333,28 @@ async def update_incident(
     old_status = incident.status
 
     # Apply updates
-    for field, value in incident_update.model_dump(exclude_unset=True).items():
+    update_data = incident_update.model_dump(exclude_unset=True)
+
+    # Detect an Auftrag (incident group) attach: when moving into a new group,
+    # stamp group_position to the end of that route after the field is applied.
+    attaching_group_id = None
+    if "group_id" in update_data:
+        new_group_id = update_data["group_id"]
+        if new_group_id is not None and new_group_id != incident.group_id:
+            attaching_group_id = new_group_id
+
+    for field, value in update_data.items():
         setattr(incident, field, value)
+
+    if attaching_group_id is not None:
+        max_pos = await db.scalar(
+            select(func.max(Incident.group_position)).where(
+                Incident.group_id == attaching_group_id,
+                Incident.id != incident.id,
+                Incident.deleted_at.is_(None),
+            )
+        )
+        incident.group_position = (max_pos + 1) if max_pos is not None else 0
 
     incident.updated_at = datetime.utcnow()
 
