@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.dependencies import CurrentEditor
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
 from ..database import get_db
@@ -62,31 +62,6 @@ async def get_viewer_data(
         raise HTTPException(status_code=404, detail="Event not found")
 
     # Get all incidents for the event
-    incidents = await incidents_crud.get_incidents(db, event_id=event_id)
-
-    return {
-        "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
-        "incidents": [schemas.IncidentResponse.model_validate(i).model_dump(mode="json") for i in incidents],
-    }
-
-
-@router.get("/data-authenticated", response_model=dict)
-async def get_viewer_data_authenticated(
-    current_user: CurrentUser,  # Any logged-in user (incl. viewer role)
-    event_id: uuid.UUID = Query(..., description="Event ID to view"),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get read-only event data for a logged-in user (e.g. a viewer-role account).
-
-    Same payload as /viewer/data but authenticated via the normal session cookie
-    instead of a link token, so a persistent viewer login on a shared/kiosk PC can
-    show the live board without a shareable token.
-    """
-    event = await events_crud.get_event_by_id(db, event_id)
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-
     incidents = await incidents_crud.get_incidents(db, event_id=event_id)
 
     return {

@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, Eye, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -233,7 +233,7 @@ export default function FireStationDashboard() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'viewer' | 'alarm' | 'vehicles' | 'print' | 'thermo' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'display' | 'alarm' | 'vehicles' | 'print' | 'thermo' | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -264,8 +264,8 @@ export default function FireStationDashboard() {
   })
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [rekoCopied, setRekoCopied] = useState(false)
-  const [viewerUrl, setViewerUrl] = useState<string | null>(null)
-  const [viewerCopied, setViewerCopied] = useState(false)
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null)
+  const [displayCopied, setDisplayCopied] = useState(false)
   const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
   const [alarmCopied, setAlarmCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
@@ -1028,7 +1028,7 @@ export default function FireStationDashboard() {
   // Derived state for convenience
   const qrDialogOpen = activeFooterSheet === 'checkin'
   const rekoQrDialogOpen = activeFooterSheet === 'reko'
-  const viewerQrDialogOpen = activeFooterSheet === 'viewer'
+  const displaySheetOpen = activeFooterSheet === 'display'
   const alarmQrDialogOpen = activeFooterSheet === 'alarm'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
@@ -1118,9 +1118,9 @@ export default function FireStationDashboard() {
     }
   }
 
-  const generateViewerQR = async () => {
+  const generateDisplayShare = async () => {
     // Toggle behavior: if already open, just close
-    if (viewerQrDialogOpen) {
+    if (displaySheetOpen) {
       setActiveFooterSheet(null)
       return
     }
@@ -1133,28 +1133,29 @@ export default function FireStationDashboard() {
     }
 
     try {
+      // Reuse the read-only share token; point it at the display board so a
+      // recipient sees the shared read-only board without logging in.
       const response = await apiClient.generateViewerLink(selectedEvent.id)
-      // Build full URL for QR code
-      const fullUrl = `${window.location.origin}${response.link}`
-      setViewerUrl(fullUrl)
-      setActiveFooterSheet('viewer')
+      const fullUrl = `${window.location.origin}/display/board?token=${response.token}`
+      setDisplayUrl(fullUrl)
+      setActiveFooterSheet('display')
     } catch (error) {
-      console.error('Failed to generate viewer link:', error)
+      console.error('Failed to generate display share link:', error)
       toast.error(tCommon('error'), {
-        description: tDash('viewerLinkFailed'),
+        description: tDash('displayLinkFailed'),
       })
     }
   }
 
-  const copyViewerUrlToClipboard = async () => {
-    if (!viewerUrl) return
+  const copyDisplayUrlToClipboard = async () => {
+    if (!displayUrl) return
 
     try {
       const { copyToClipboard } = await import('@/lib/utils')
-      await copyToClipboard(viewerUrl)
-      setViewerCopied(true)
+      await copyToClipboard(displayUrl)
+      setDisplayCopied(true)
       toast.success(tCommon('linkCopied'))
-      setTimeout(() => setViewerCopied(false), 2000)
+      setTimeout(() => setDisplayCopied(false), 2000)
     } catch (error) {
       toast.error(tCommon('copyFailed'))
     }
@@ -1758,17 +1759,17 @@ export default function FireStationDashboard() {
                   size="sm"
                   variant="ghost"
                   className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    viewerQrDialogOpen
+                    displaySheetOpen
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                   onPointerDown={(e) => {
                     e.stopPropagation()
-                    generateViewerQR()
+                    generateDisplayShare()
                   }}
                 >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tDash('viewer')}</span>
+                  <MonitorDown className="h-3.5 w-3.5" />
+                  <span className="text-xs">{tDash('display')}</span>
                 </Button>
                 <Button
                   size="sm"
@@ -2175,8 +2176,8 @@ export default function FireStationDashboard() {
         </SheetContent>
       </Sheet>
 
-      {/* Viewer QR Code Sheet */}
-      <Sheet modal={false} open={viewerQrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'viewer' && setActiveFooterSheet(null)}>
+      {/* Display share QR Code Sheet */}
+      <Sheet modal={false} open={displaySheetOpen} onOpenChange={(open) => !open && activeFooterSheet === 'display' && setActiveFooterSheet(null)}>
         <SheetContent
           side="bottom"
           hideCloseButton
@@ -2193,10 +2194,10 @@ export default function FireStationDashboard() {
         >
           <div className="flex items-start gap-6">
             {/* QR Code */}
-            {viewerUrl && (
+            {displayUrl && (
               <div className="rounded-lg border p-3 bg-white flex-shrink-0">
                 <QRCodeSVG
-                  value={viewerUrl}
+                  value={displayUrl}
                   size={140}
                   level="M"
                   includeMargin={false}
@@ -2207,28 +2208,28 @@ export default function FireStationDashboard() {
             {/* Content */}
             <div className="flex-1 min-w-0">
               <SheetHeader className="p-0 mb-3">
-                <SheetTitle>{tDash('viewerSheetTitle')}</SheetTitle>
+                <SheetTitle>{tDash('displaySheetTitle')}</SheetTitle>
                 <SheetDescription>
-                  {tDash('viewerSheetDescription')}
+                  {tDash('displaySheetDescription')}
                 </SheetDescription>
               </SheetHeader>
 
-              {viewerUrl && (
+              {displayUrl && (
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      value={viewerUrl}
+                      value={displayUrl}
                       readOnly
                       className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
                     />
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={copyViewerUrlToClipboard}
+                      onClick={copyDisplayUrlToClipboard}
                       className="flex-shrink-0"
                     >
-                      {viewerCopied ? (
+                      {displayCopied ? (
                         <Check className="h-3.5 w-3.5 text-green-600" />
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
@@ -2241,7 +2242,7 @@ export default function FireStationDashboard() {
                       className="flex-shrink-0 text-muted-foreground"
                       title={tCommon('openInNewTab')}
                     >
-                      <a href={viewerUrl} target="_blank" rel="noopener noreferrer">
+                      <a href={displayUrl} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
@@ -2249,7 +2250,7 @@ export default function FireStationDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePrintQR(viewerUrl, tDash('viewerSheetTitle'), tDash('viewerSheetHint'))}
+                        onClick={() => handlePrintQR(displayUrl, tDash('displaySheetTitle'), tDash('displaySheetHint'))}
                         disabled={isPrintingQR}
                         className="flex-shrink-0"
                         title={tCommon('printQrCode')}
@@ -2259,7 +2260,7 @@ export default function FireStationDashboard() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {tDash('viewerSheetHint')}
+                    {tDash('displaySheetHint')}
                   </p>
                 </div>
               )}
@@ -2584,7 +2585,7 @@ export default function FireStationDashboard() {
         hasSelectedEvent={!!selectedEvent}
         onCheckIn={generateCheckInQR}
         onReko={generateRekoDashboardQR}
-        onViewer={generateViewerQR}
+        onDisplay={generateDisplayShare}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}
         onPrint={() => setActiveFooterSheet(printModalOpen ? null : 'print')}

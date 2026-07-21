@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
+import { TokenBoard } from "./token-board"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -21,7 +23,14 @@ import { cn } from "@/lib/utils"
 
 export default function DisplayBoardPage() {
   const t = useTranslations('display')
+  const searchParams = useSearchParams()
+  const token = searchParams.get("token")
   const { isAuthenticated } = useAuth()
+
+  // Public share link (no login): render the read-only token board.
+  if (token) {
+    return <TokenBoard token={token} />
+  }
   if (!isAuthenticated) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">

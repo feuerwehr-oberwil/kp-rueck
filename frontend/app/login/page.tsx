@@ -82,8 +82,8 @@ export default function LoginPage() {
 
     try {
       const loggedInUser = await login(username, password);
-      // Viewer-role accounts get the read-only board (kiosk/shared PCs)
-      router.push(loggedInUser.role === 'viewer' ? '/viewer' : '/');
+      // Viewer-role accounts get the read-only display board (kiosk/shared PCs)
+      router.push(loggedInUser.role === 'viewer' ? '/display/board' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('loginFailed'));
     } finally {
@@ -111,7 +111,7 @@ export default function LoginPage() {
         console.warn('Demo-Sandbox konnte nicht erstellt werden:', sandboxErr);
       }
 
-      router.push(role === 'viewer' ? '/viewer' : '/');
+      router.push(role === 'viewer' ? '/display/board' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('demoLoginFailed'));
     } finally {

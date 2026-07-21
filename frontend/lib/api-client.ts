@@ -1369,19 +1369,6 @@ class ApiClient {
     )
   }
 
-  // Read-only board data for a logged-in viewer (cookie auth, no link token)
-  async getViewerDataAuthenticated(eventId: string): Promise<{
-    event: ApiEvent
-    incidents: ApiIncident[]
-  }> {
-    return this.request<{
-      event: ApiEvent
-      incidents: ApiIncident[]
-    }>(
-      `/api/viewer/data-authenticated?event_id=${encodeURIComponent(eventId)}`
-    )
-  }
-
   // Alarm intake (public token-gated alarm creation)
   async generateAlarmLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
     return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
