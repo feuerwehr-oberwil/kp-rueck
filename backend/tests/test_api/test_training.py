@@ -192,6 +192,7 @@ async def test_generate_emergencies_success(
             # Unflushed mock instances skip column defaults - set the NOT NULL
             # fields IncidentResponse requires explicitly.
             position=0,
+            group_position=0,
             source="operator",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -229,6 +230,7 @@ async def test_generate_emergencies_with_category(
             # Unflushed mock instances skip column defaults - set the NOT NULL
             # fields IncidentResponse requires explicitly.
             position=0,
+            group_position=0,
             source="operator",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -299,6 +301,7 @@ async def test_generate_multiple_emergencies(
                 # Unflushed mock instances skip column defaults - set the NOT NULL
                 # fields IncidentResponse requires explicitly.
                 position=0,
+                group_position=0,
                 source="operator",
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
