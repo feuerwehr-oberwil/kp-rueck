@@ -73,6 +73,16 @@ import {
   type ApiAvailableRekoPersonnelResponse,
 } from './api/types'
 
+/** Read-only payload behind a share token (board/map/status displays). */
+export interface ApiViewerData {
+  event: ApiEvent
+  incidents: ApiIncident[]
+  personnel: ApiPersonnel[]
+  materials: ApiMaterialResource[]
+  vehicles: ApiVehicle[]
+  vehicle_positions: ApiVehiclePosition[]
+}
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -1357,14 +1367,8 @@ class ApiClient {
     )
   }
 
-  async getViewerData(token: string): Promise<{
-    event: ApiEvent
-    incidents: ApiIncident[]
-  }> {
-    return this.request<{
-      event: ApiEvent
-      incidents: ApiIncident[]
-    }>(
+  async getViewerData(token: string): Promise<ApiViewerData> {
+    return this.request<ApiViewerData>(
       `/api/viewer/data?token=${encodeURIComponent(token)}`
     )
   }

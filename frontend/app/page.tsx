@@ -264,7 +264,8 @@ export default function FireStationDashboard() {
   })
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [rekoCopied, setRekoCopied] = useState(false)
-  const [displayUrl, setDisplayUrl] = useState<string | null>(null)
+  const [displayToken, setDisplayToken] = useState<string | null>(null)
+  const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
   const [displayCopied, setDisplayCopied] = useState(false)
   const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
   const [alarmCopied, setAlarmCopied] = useState(false)
@@ -1029,6 +1030,10 @@ export default function FireStationDashboard() {
   const qrDialogOpen = activeFooterSheet === 'checkin'
   const rekoQrDialogOpen = activeFooterSheet === 'reko'
   const displaySheetOpen = activeFooterSheet === 'display'
+  // One share token, three targets — the sheet toggles which view the QR/URL point at.
+  const displayUrl = displayToken
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/display/${displayView}?token=${displayToken}`
+    : null
   const alarmQrDialogOpen = activeFooterSheet === 'alarm'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
@@ -1136,8 +1141,8 @@ export default function FireStationDashboard() {
       // Reuse the read-only share token; point it at the display board so a
       // recipient sees the shared read-only board without logging in.
       const response = await apiClient.generateViewerLink(selectedEvent.id)
-      const fullUrl = `${window.location.origin}/display/board?token=${response.token}`
-      setDisplayUrl(fullUrl)
+      setDisplayToken(response.token)
+      setDisplayView('board')
       setActiveFooterSheet('display')
     } catch (error) {
       console.error('Failed to generate display share link:', error)
@@ -2232,6 +2237,23 @@ export default function FireStationDashboard() {
                   {tDash('displaySheetDescription')}
                 </SheetDescription>
               </SheetHeader>
+
+              {/* View selector — one token, three display targets */}
+              <div className="flex gap-1.5 mb-3">
+                {(['board', 'map', 'status'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setDisplayView(v)}
+                    className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                      displayView === v
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                    }`}
+                  >
+                    {tDash(`displayView.${v}`)}
+                  </button>
+                ))}
+              </div>
 
               {displayUrl && (
                 <div className="space-y-3">

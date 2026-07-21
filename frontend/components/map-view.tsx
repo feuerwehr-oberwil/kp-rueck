@@ -519,6 +519,12 @@ interface MapViewProps {
   markerAccents?: Map<string, string> // incidentId -> fill colour ("Färben nach")
   colorBy?: ColorByDimension // active "Färben nach" dimension (for the legend)
   colorGroups?: ColorGroup[] // legend entries for the active dimension
+  // Token/read-only display: feed data directly instead of auth-only contexts
+  // and API fetches. When incidentsOverride is set, the map runs in token mode
+  // (no getVehicles/getVehiclePositions/getAllSettings/WS).
+  incidentsOverride?: Incident[]
+  vehiclesOverride?: ApiVehicle[]
+  positionsOverride?: ApiVehiclePosition[]
 }
 
 export default function MapView({
@@ -536,9 +542,14 @@ export default function MapView({
   markerAccents,
   colorBy = "priority",
   colorGroups = [],
+  incidentsOverride,
+  vehiclesOverride,
+  positionsOverride,
 }: MapViewProps) {
   const t = useTranslations('map')
-  const { incidents, formatLocation } = useIncidents()
+  const tokenMode = incidentsOverride !== undefined
+  const { incidents: contextIncidents, formatLocation } = useIncidents()
+  const incidents = incidentsOverride ?? contextIncidents
   const [firestationName, setFirestationName] = useState<string>(() => t('view.firestationFallback'))
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
     47.51637699933488, 7.561800450458299,
@@ -564,8 +575,19 @@ export default function MapView({
     getAttribution,
   } = useMapMode()
 
+  // Token mode: feed vehicles + positions from the override props (no auth fetch).
+  useEffect(() => {
+    if (vehiclesOverride) setVehicles(vehiclesOverride)
+  }, [vehiclesOverride])
+  useEffect(() => {
+    if (positionsOverride) setVehiclePositions(positionsOverride)
+  }, [positionsOverride])
+
   // Load firestation settings and vehicle list from backend
   useEffect(() => {
+    // Token/read-only display has no cookie — skip the auth-only settings +
+    // vehicle fetch and keep the default firestation coords.
+    if (tokenMode) return
     const loadSettings = async () => {
       try {
         const [settings, vehicleList] = await Promise.all([
@@ -593,7 +615,7 @@ export default function MapView({
     }
 
     loadSettings()
-  }, [])
+  }, [tokenMode])
 
   // Fetch vehicle positions from Traccar
   const fetchVehiclePositions = useCallback(async () => {
@@ -608,6 +630,8 @@ export default function MapView({
 
   // Check Traccar status and use WebSocket + polling fallback for positions
   useEffect(() => {
+    // Token mode gets positions from the override prop, not auth-only Traccar.
+    if (tokenMode) return
     let cancelled = false
     let pollInterval: NodeJS.Timeout | null = null
     let unsubscribePositions: (() => void) | null = null
@@ -666,7 +690,7 @@ export default function MapView({
       unsubscribePositions?.()
       unsubscribeStatus?.()
     }
-  }, [fetchVehiclePositions])
+  }, [fetchVehiclePositions, tokenMode])
 
   // Map Traccar device names to KP Rück vehicle names for assignment line matching
   // Strategies: exact name match, then display_order match (numeric device name → vehicle at that order)
@@ -863,7 +887,7 @@ export default function MapView({
           const shortAddress = incident.location_address
             ? incident.location_address.split(",")[0].trim()
             : incident.title
-          const crewCount = incident.assigned_vehicles.length + (incident.assigned_personnel?.length || 0)
+          const crewCount = incident.assigned_vehicles.length + (("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0)
           return (
             <Marker
               key={incident.id}

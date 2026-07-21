@@ -1,5 +1,6 @@
 """Viewer API endpoints for read-only event access."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -9,10 +10,47 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..crud import events as events_crud
 from ..crud import incidents as incidents_crud
+from ..crud import materials as materials_crud
+from ..crud import personnel as personnel_crud
+from ..crud import vehicles as vehicles_crud
 from ..database import get_db
+from ..services.gps_simulation import gps_simulation
 from ..services.tokens import generate_viewer_token, validate_viewer_token
+from ..traccar import traccar_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/viewer", tags=["viewer"])
+
+
+async def _viewer_vehicle_positions() -> list[dict]:
+    """Current GPS positions for the read-only display, best-effort.
+
+    Returns [] instead of raising when Traccar is unconfigured or unreachable,
+    so a shared display never fails to load because GPS is down.
+    """
+    if not traccar_client.is_configured and not gps_simulation.any_active():
+        return []
+    try:
+        positions = await traccar_client.get_vehicle_positions()
+        return [
+            {
+                "device_id": p.device_id,
+                "device_name": p.device_name,
+                "unique_id": p.unique_id,
+                "status": p.status,
+                "latitude": p.latitude,
+                "longitude": p.longitude,
+                "speed": p.speed,
+                "course": p.course,
+                "last_update": p.last_update.isoformat() if p.last_update else None,
+                "address": p.address,
+            }
+            for p in positions
+        ]
+    except Exception as e:  # noqa: BLE001 - GPS is optional for the display
+        logger.warning("Viewer GPS positions unavailable: %s", e)
+        return []
 
 
 @router.post("/generate-link", response_model=dict)
@@ -64,7 +102,19 @@ async def get_viewer_data(
     # Get all incidents for the event
     incidents = await incidents_crud.get_incidents(db, event_id=event_id)
 
+    # Global resources (personnel/materials/vehicles are not event-scoped) so
+    # the shared Status + Map displays have the full roster, availability and
+    # live GPS — matching the logged-in display.
+    personnel = await personnel_crud.get_all_personnel(db)
+    materials = await materials_crud.get_all_materials(db)
+    vehicles = await vehicles_crud.get_all_vehicles(db)
+    vehicle_positions = await _viewer_vehicle_positions()
+
     return {
         "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
         "incidents": [schemas.IncidentResponse.model_validate(i).model_dump(mode="json") for i in incidents],
+        "personnel": [schemas.Personnel.model_validate(p).model_dump(mode="json") for p in personnel],
+        "materials": [schemas.Material.model_validate(m).model_dump(mode="json") for m in materials],
+        "vehicles": [schemas.Vehicle.model_validate(v).model_dump(mode="json") for v in vehicles],
+        "vehicle_positions": vehicle_positions,
     }

@@ -1,16 +1,38 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
+import { Loader2 } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
+import { useStatusData, type VehicleWithStatus, type StatusStats } from "@/lib/hooks/use-status-data"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { type Operation } from "@/lib/contexts/operations-context"
+import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
+import { apiClient, type ApiViewerData, type ApiIncident } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
+
+/** The view-model SituationBoard renders — fed by useStatusData (auth) or a token payload. */
+interface SituationData {
+  stats: StatusStats
+  vehicleStatus: VehicleWithStatus[]
+  operations: Operation[]
+  personnel: Person[]
+  materials: Material[]
+}
+
+const API_STATUS_TO_INTERNAL: Record<string, OperationStatus> = {
+  eingegangen: "incoming",
+  reko: "ready",
+  reko_done: "rekoDone",
+  disponiert: "enroute",
+  einsatz: "active",
+  einsatz_beendet: "returning",
+  abschluss: "complete",
+}
 
 const STATUS_ORDER = ["incoming", "ready", "rekoDone", "enroute", "active", "returning"]
 
@@ -34,17 +56,60 @@ const STATUS_BG: Record<string, string> = {
 
 export default function DisplayStatusPage() {
   const t = useTranslations('display.status')
+  const searchParams = useSearchParams()
+  const token = searchParams.get("token")
   const { isAuthenticated } = useAuth()
+
+  if (token) return <TokenStatusView token={token} />
   if (!isAuthenticated) {
     return <div className="flex h-full items-center justify-center text-muted-foreground">{t('accessRequired')}</div>
   }
-  return <SituationBoard />
+  return <AuthStatusView />
 }
 
-function SituationBoard() {
+/** Authenticated display: view-model straight from the live contexts. */
+function AuthStatusView() {
+  const data = useStatusData()
+  return <SituationBoard {...data} />
+}
+
+/** Token/read-only display: view-model polled from the share token payload. */
+function TokenStatusView({ token }: { token: string }) {
+  const [payload, setPayload] = useState<ApiViewerData | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const d = await apiClient.getViewerData(token)
+        if (!cancelled) setPayload(d)
+      } catch {
+        // keep last-known payload on transient failures
+      }
+    }
+    load()
+    const id = window.setInterval(load, 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [token])
+
+  const data = useMemo(() => (payload ? buildSituationData(payload) : null), [payload])
+
+  if (!data) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+  return <SituationBoard {...data} />
+}
+
+function SituationBoard({ stats, vehicleStatus, operations, personnel, materials }: SituationData) {
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
-  const { stats, vehicleStatus, operations, personnel, materials } = useStatusData()
 
   const incidentsByStatus = useMemo(() => {
     const groups: { colDef: typeof columns[number]; ops: Operation[] }[] = []
@@ -335,4 +400,111 @@ function MaterialRow({ material: m, assignedLocation }: { material: Material; as
       )}
     </div>
   )
+}
+
+/** Map an API incident (from the share-token payload) onto an Operation.
+ *  Crew/material assignments aren't in the token payload, so those degrade to
+ *  empty — the status board still shows incidents, vehicles, and the roster. */
+function apiIncidentToOperation(a: ApiIncident): Operation {
+  const lat = a.location_lat != null ? parseFloat(a.location_lat) : 47.51637699933488
+  const lng = a.location_lng != null ? parseFloat(a.location_lng) : 7.561800450458299
+  return {
+    id: a.id,
+    location: a.location_address || "",
+    vehicle: "" as unknown as Operation["vehicle"],
+    vehicles: (a.assigned_vehicles ?? []).map((v) => v.name),
+    incidentType: a.type,
+    dispatchTime: new Date(a.created_at),
+    crew: [],
+    priority: a.priority,
+    status: API_STATUS_TO_INTERNAL[a.status] ?? "incoming",
+    coordinates: [lat, lng],
+    materials: [],
+    notes: a.description ?? "",
+    contact: a.contact ?? "",
+    contactPhone: a.contact_phone ?? "",
+    internalNotes: "",
+    nachbarhilfe: a.nachbarhilfe ?? false,
+    nachbarhilfeNote: a.nachbarhilfe_note ?? "",
+    amWarten: a.am_warten ?? false,
+    amWartenNote: a.am_warten_note ?? "",
+    zuFuss: a.zu_fuss ?? false,
+    source: a.source,
+    statusChangedAt: a.status_changed_at ? new Date(a.status_changed_at) : null,
+    hasCompletedReko: a.has_completed_reko,
+    rekoArrivedAt: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
+    rekoSummary: null,
+    assignedReko: null,
+    crewAssignments: new Map(),
+    materialAssignments: new Map(),
+    vehicleAssignments: new Map(),
+    vehicleCallsigns: new Map(),
+    vehicleDriverStay: new Map(),
+  }
+}
+
+/** Build the full SituationBoard view-model from a share-token payload. */
+function buildSituationData(payload: ApiViewerData): SituationData {
+  const operations: Operation[] = payload.incidents.map(apiIncidentToOperation)
+
+  const personnel: Person[] = payload.personnel.map((p) => ({
+    id: p.id,
+    name: p.name,
+    role: p.role ?? "",
+    status: p.availability === "assigned" ? "assigned" : "available",
+    tags: p.tags ?? undefined,
+    roleSortOrder: p.role_sort_order,
+    diveraUserId: p.divera_user_id ?? null,
+  }))
+
+  const materials: Material[] = payload.materials.map((m) => ({
+    id: m.id,
+    name: m.name,
+    category: m.location || "General",
+    status: m.status === "available" ? "available" : "assigned",
+    categorySortOrder: m.location_sort_order,
+    consumable: m.consumable ?? false,
+    groupId: m.group_id,
+  }))
+
+  const vehicleStatus: VehicleWithStatus[] = payload.vehicles
+    .map((v) => {
+      const assignedOperation = operations.find((op) =>
+        op.vehicles.some((vName) => vName.toLowerCase() === v.name.toLowerCase())
+      )
+      const gps = payload.vehicle_positions.find(
+        (vp) => vp.device_name.toLowerCase() === v.name.toLowerCase()
+      )
+      return {
+        id: v.id,
+        name: v.name,
+        type: v.type,
+        status: v.status,
+        displayOrder: v.display_order,
+        assignedOperation,
+        gps,
+        driverName: null,
+      }
+    })
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+
+  const byStatus: Record<string, Operation[]> = {}
+  columns.forEach((col) => { byStatus[col.id] = [] })
+  operations.forEach((op) => {
+    const col = columns.find((c) => c.status.includes(op.status))
+    if (col) byStatus[col.id].push(op)
+  })
+  const activeOps = operations.filter((op) => op.status !== "complete")
+  const stats: StatusStats = {
+    byStatus,
+    totalOperations: operations.length,
+    activeOperations: activeOps.length,
+    incomingCount: byStatus["incoming"]?.length || 0,
+    completedCount: byStatus["complete"]?.length || 0,
+    personnelTotal: personnel.length,
+    personnelAssigned: personnel.filter((p) => p.status === "assigned").length,
+    personnelAvailable: personnel.filter((p) => p.status === "available").length,
+  }
+
+  return { stats, vehicleStatus, operations, personnel, materials }
 }
