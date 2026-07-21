@@ -210,3 +210,12 @@ export function copyToClipboardAsync(textPromise: Promise<string>): Promise<void
   // Fallback: wait for the text and use regular copy
   return textPromise.then(text => copyToClipboard(text))
 }
+
+/**
+ * Keep only characters that can legitimately appear in a phone number
+ * (digits, a leading +, spaces, and the separators / - ( )). Used on the
+ * incident contact-phone inputs so operators can't type free text there.
+ */
+export function sanitizePhoneInput(value: string): string {
+  return value.replace(/[^\d+\s()/-]/g, '')
+}

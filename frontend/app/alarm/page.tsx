@@ -14,7 +14,7 @@ import { LocationInput } from '@/components/location/location-input'
 import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from '@/lib/types/incidents'
 import type { IncidentType, IncidentPriority } from '@/lib/types/incidents'
 import { apiClient } from '@/lib/api-client'
-import { cn } from '@/lib/utils'
+import { cn, sanitizePhoneInput } from '@/lib/utils'
 
 export default function AlarmPage() {
   return (
@@ -312,7 +312,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
           type="tel"
           inputMode="tel"
           value={contactPhone}
-          onChange={(e) => setContactPhone(e.target.value)}
+          onChange={(e) => setContactPhone(sanitizePhoneInput(e.target.value))}
           placeholder={t('contactPhonePlaceholder')}
           className="mt-2 h-12 text-base"
         />

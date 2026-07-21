@@ -27,7 +27,7 @@ import RekoReportSection from "@/components/reko/reko-report-section"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { Kbd } from "@/components/ui/kbd"
-import { cn } from "@/lib/utils"
+import { cn, sanitizePhoneInput } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
@@ -343,7 +343,7 @@ export function OperationDetailModal({
               inputMode="tel"
               placeholder={t('common.contactPhonePlaceholder')}
               value={operation.contactPhone}
-              onChange={(e) => onUpdate({ contactPhone: e.target.value })}
+              onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
               className="mt-1.5"
             />
           </div>
