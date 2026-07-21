@@ -226,6 +226,38 @@ Einsätze durchlaufen 6 Phasen: **Eingegangen** → **Reko** → **Disponiert** 
 
 ---
 
+## Aufträge (Mehrstopp-Routen)
+
+Bei einer **Flächenlage** (z. B. Sturm- oder Hochwasserschäden mit vielen kleinen Einsätzen) fährt oft **ein Trupp** mehrere Schadenplätze nacheinander ab. Ein **Auftrag** bündelt dazu mehrere Einsätze zu einer **geordneten Route** für genau diesen Trupp — statt jeden Einsatz einzeln zu disponieren, planst du die ganze Abfahrt als eine Einheit.
+
+Öffnen mit der Taste `A` oder über die **Aufträge**-Leiste am unteren Bildschirmrand.
+
+### Auftrag erstellen & Stops hinzufügen
+
+1. **Neuer Auftrag** in der Aufträge-Leiste (Name + Farbe wählen — die Farbe kennzeichnet die Route auf Board und Karte).
+2. **Stops (Einsätze) hinzufügen** — drei Wege:
+   - **Einsatz-Auswahl** («+ Stop»): bestehende Einsätze aus einer Liste auswählen. Umschalten auf **Karte** zeigt die Einsätze geografisch — Marker anklicken wählt sie aus.
+   - **Karte** (`/map` → Routenplanung): auf einen Einsatz-Marker oder eine freie Stelle klicken.
+   - **Drag & Drop**: eine Einsatzkarte direkt auf den Auftrag ziehen.
+
+Ein Einsatz, der bereits in einem anderen Auftrag liegt, wird beim Hinzufügen **verschoben** (ein Einsatz gehört zu höchstens einer Route).
+
+### Route-eigene Ressourcen
+
+Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stops gemeinsam** — der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stops tragen keine eigenen Ressourcen. Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stop abgeschlossen** ist.
+
+### Route planen & optimieren
+
+- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stops + Routenlinie neben der geordneten Stop-Liste. Stops per Drag & Drop umsortieren, per Kartenklick neue Stops anhängen.
+- **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte.
+- **Reihenfolge optimieren**: berechnet per Nächster-Nachbar-Heuristik eine kurze Reihenfolge ab einem Startpunkt (**Magazin**, **Fahrzeug-GPS** oder **erster Stop**). Der Vorschlag wird als Vorschau angezeigt — **Übernehmen** oder **Verwerfen**.
+
+### Auf der Karte anzeigen
+
+**Aufträge anzeigen** auf `/map` zeichnet alle Routen als farbige Linien mit nummerierten Stops. Dabei wird die Marker-Einfärbung automatisch auf **Färben nach: Auftrag** umgestellt, sodass jeder Einsatz die Farbe seiner Route trägt (Einsätze ohne Auftrag = «Kein Auftrag»).
+
+---
+
 ## Ressourcen zuweisen
 
 **Drag & Drop:** Person/Material aus Seitenleiste auf Einsatzkarte ziehen.
@@ -285,6 +317,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 | Shortcut | Aktion |
 |----------|--------|
 | `N` | Neuer Einsatz |
+| `A` | Aufträge (Routen) öffnen/schliessen |
 | `S` / `/` | Suche fokussieren |
 | `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |

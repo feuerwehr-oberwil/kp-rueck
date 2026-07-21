@@ -258,7 +258,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-5xl flex-col gap-4"
+        className="flex max-h-[92vh] w-[calc(100%-2rem)] max-w-6xl flex-col gap-4"
         {...dragGuardProps}
       >
         <DialogHeader className="flex-shrink-0">
@@ -270,9 +270,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1.5fr_1fr]">
+        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[2fr_1fr]">
           {/* Map column */}
-          <div className="flex min-h-[380px] flex-col">
+          <div className="flex min-h-[520px] flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>

@@ -104,6 +104,7 @@ beforeEach(() => {
     onFocusPersonnel: vi.fn(),
     onFocusMaterial: vi.fn(),
     onToggleVehicleFooter: vi.fn(),
+    onToggleAuftraege: vi.fn(),
     onToggleLeftSidebar: vi.fn(),
     onToggleRightSidebar: vi.fn(),
     onToggleSidePanel: vi.fn(),
@@ -317,6 +318,12 @@ describe("useKanbanShortcuts", () => {
       renderHook(() => useKanbanShortcuts(baseState(), actions));
       press("f");
       expect(actions.onToggleVehicleFooter).toHaveBeenCalled();
+    });
+
+    it("'a' toggles the Aufträge footer sheet", () => {
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      press("a");
+      expect(actions.onToggleAuftraege).toHaveBeenCalledTimes(1);
     });
 
     it("'[' / 'q' toggle the left sidebar", () => {

@@ -43,6 +43,7 @@ import {
   Route,
   Crosshair,
   ChevronDown,
+  Waypoints,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 
@@ -65,6 +66,7 @@ export function CommandPalette() {
     onToggleLeftSidebar,
     onToggleRightSidebar,
     onToggleVehicleStatus,
+    onToggleAuftraege,
     onToggleNotifications,
     onToggleSidePanel,
     onSidePanelDetail,
@@ -204,6 +206,13 @@ export function CommandPalette() {
                   <Truck className="mr-2 h-4 w-4" />
                   <span>{t('vehicleStatus')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">F</span>
+                </CommandItem>
+              )}
+              {onToggleAuftraege && (
+                <CommandItem onSelect={() => runCommand(onToggleAuftraege)}>
+                  <Waypoints className="mr-2 h-4 w-4" />
+                  <span>{t('auftraege')}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">A</span>
                 </CommandItem>
               )}
               {onRefresh && (

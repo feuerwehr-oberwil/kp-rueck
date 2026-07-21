@@ -16,7 +16,7 @@
 import { useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Plus, Route as RouteIcon, MousePointerClick, Wand2, X, Loader2 } from "lucide-react"
+import { Plus, Route as RouteIcon, MousePointerClick, Wand2, X, Loader2, MapPinned, MousePointer2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -124,7 +124,7 @@ export function RoutenplanungPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
         <div className="flex items-center gap-2">
           <RouteIcon className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-bold">{t("title")}</h2>
@@ -136,7 +136,7 @@ export function RoutenplanungPanel({
       </div>
 
       {/* Group picker + inline create */}
-      <div className="mb-3 space-y-2">
+      <div className="mb-4 space-y-2">
         <div className="flex items-center gap-2">
           <Select value={groupId ?? undefined} onValueChange={(v) => onGroupIdChange(v)}>
             <SelectTrigger className="h-9 flex-1">
@@ -201,10 +201,13 @@ export function RoutenplanungPanel({
       </div>
 
       {!group ? (
-        <p className="py-6 text-sm text-muted-foreground">{t("noGroupSelected")}</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
+          <MapPinned className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">{t("noGroupSelected")}</p>
+        </div>
       ) : (
         <>
-          {/* Add-stop toggle + hint */}
+          {/* Reihenfolge heading + add-stop toggle */}
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm font-semibold">{t("order")}</span>
             <Button
@@ -217,27 +220,35 @@ export function RoutenplanungPanel({
               {t("addStopToggle")}
             </Button>
           </div>
-          {addMode && (
-            <p className="mb-2 text-xs text-muted-foreground">
-              {isAddingStop ? t("addingStop") : t("addStopHint")}
-            </p>
-          )}
-          <p className="mb-2 text-xs text-muted-foreground">{t("addStopMarkerHint")}</p>
+
+          {/* Contextual hint: the active add-mode instruction, else how to add via marker */}
+          <p className="mb-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+            <MousePointer2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
+            <span>
+              {addMode ? (isAddingStop ? t("addingStop") : t("addStopHint")) : t("addStopMarkerHint")}
+            </span>
+          </p>
 
           {/* Ordered stop list */}
-          <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1">
-            {displayOrder.length === 0 && <p className="py-4 text-sm text-muted-foreground">{t("noStops")}</p>}
-            <RouteStopList
-              groupId={group.id}
-              stopIds={stopIds}
-              displayOrder={displayOrder}
-              operationsById={operationsById}
-              changedPositions={changedPositions}
-              reorderDisabled={preview !== null}
-              onReorder={(ids) => void reorder(ids)}
-              focusStopId={focusStopId}
-              onSelectStop={onFocusStopChange}
-            />
+          <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto rounded-lg border bg-muted/20 p-2">
+            {displayOrder.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+                <MapPinned className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">{t("noStops")}</p>
+              </div>
+            ) : (
+              <RouteStopList
+                groupId={group.id}
+                stopIds={stopIds}
+                displayOrder={displayOrder}
+                operationsById={operationsById}
+                changedPositions={changedPositions}
+                reorderDisabled={preview !== null}
+                onReorder={(ids) => void reorder(ids)}
+                focusStopId={focusStopId}
+                onSelectStop={onFocusStopChange}
+              />
+            )}
           </div>
 
           {/* Optimize controls */}

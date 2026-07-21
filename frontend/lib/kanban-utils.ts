@@ -24,12 +24,20 @@ export const columns: Array<{
 // Re-colors the map's incident markers by a chosen dimension so the operator can
 // group visually (e.g. all incidents handled by one Reko person share a colour).
 // 'priority' is the default and keeps the original semantic priority colours.
-export type ColorByDimension = "priority" | "reko" | "vehicle" | "type"
+export type ColorByDimension = "priority" | "reko" | "vehicle" | "type" | "auftrag"
 
 export interface ColorGroup {
   key: string
   label: string
   color: string
+}
+
+/** Minimal Auftrag (incident group) shape needed to colour by route — the
+ *  incident carries only `groupId`, so name + colour are looked up from here. */
+export interface ColorGroupSource {
+  id: string
+  name: string
+  color?: string | null
 }
 
 // Labels for the "Färben nach" dimensions live in messages under `map.colorBy.*`.
@@ -58,14 +66,30 @@ function hashString(s: string): number {
   return Math.abs(h)
 }
 
-export function colorAccent(key: string, dimension: ColorByDimension): string {
+export function colorAccent(
+  key: string,
+  dimension: ColorByDimension,
+  groups?: ColorGroupSource[],
+): string {
   if (dimension === "priority") return PRIORITY_ACCENTS[key] ?? "#64748b"
+  // Aufträge use the route's own colour (matches the map polylines) so a route
+  // reads the same across the board, list and markers; hashed hue is a fallback.
+  if (dimension === "auftrag") {
+    const g = groups?.find((gr) => gr.id === key)
+    if (g?.color) return g.color
+  }
   return ACCENT_PALETTE[hashString(key) % ACCENT_PALETTE.length]
 }
 
 /** The colour group an operation belongs to for the chosen dimension, or null
- *  when it has no value there (e.g. no Reko assigned). */
-export function colorGroupFor(operation: Operation, dimension: ColorByDimension): ColorGroup | null {
+ *  when it has no value there (e.g. no Reko / no Auftrag assigned). For the
+ *  "auftrag" dimension pass the event's groups so the label/colour resolve to
+ *  the route's name + colour. */
+export function colorGroupFor(
+  operation: Operation,
+  dimension: ColorByDimension,
+  groups?: ColorGroupSource[],
+): ColorGroup | null {
   let key: string | undefined
   let label: string | undefined
   switch (dimension) {
@@ -85,11 +109,15 @@ export function colorGroupFor(operation: Operation, dimension: ColorByDimension)
       key = operation.priority || "low"
       label = PRIORITY_LABELS[key as keyof typeof PRIORITY_LABELS] ?? key
       break
+    case "auftrag":
+      key = operation.groupId ?? undefined
+      label = key ? groups?.find((gr) => gr.id === key)?.name : undefined
+      break
     default:
       return null
   }
   if (!key) return null
-  return { key, label: label ?? key, color: colorAccent(key, dimension) }
+  return { key, label: label ?? key, color: colorAccent(key, dimension, groups) }
 }
 
 /**
