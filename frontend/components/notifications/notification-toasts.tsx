@@ -155,9 +155,11 @@ export function NotificationToasts() {
   return (
     <Toaster
       position="bottom-right"
-      // Hug the right edge (16px) so the stack stays out of the central board;
-      // keep 96px bottom clearance for the footer/nav and the "Alle schliessen" pill.
-      offset={{ right: '16px', bottom: '96px' }}
+      // Hug the right edge (16px) so the stack stays out of the central board, and
+      // sit just above the footer/nav (bottom floor is the footer + "Alle schliessen"
+      // pill). Cap the visible stack so tall warning bursts don't climb into content.
+      offset={{ right: '16px', bottom: '80px' }}
+      visibleToasts={2}
       closeButton
       expand={false}
       duration={toastDurationMs}
