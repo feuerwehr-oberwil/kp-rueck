@@ -3,6 +3,7 @@ import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
+import type { GroupResources } from "@/lib/types/groups"
 import type { IncidentGroup } from "@/lib/types/groups"
 
 // --- Fixtures ---------------------------------------------------------------
@@ -12,18 +13,20 @@ const grp = (overrides: Partial<IncidentGroup> = {}): IncidentGroup => ({
   eventId: "e1",
   name: "Sturm-Route West",
   color: "#ef4444",
-  mode: "squad",
   notes: null,
   position: 0,
   createdAt: new Date("2026-07-21"),
   updatedAt: new Date("2026-07-21"),
   createdBy: null,
   stopIds: [],
+  assignments: [],
   progress: { total: 0, done: 0 },
   ...overrides,
 })
 
-// Loose Operation stub — the sheet only reads id/location/status/vehicles/crew.
+const emptyResources = (): GroupResources => ({ vehicles: [], personnel: [], materials: [] })
+
+// Loose Operation stub — the sheet only reads id/location/status.
 const op = (id: string, status: string, location: string, extra: Record<string, unknown> = {}) =>
   ({ id, status, location, vehicles: [], crew: [], ...extra }) as unknown as Record<string, unknown>
 
@@ -37,7 +40,10 @@ const updateGroup = vi.hoisted(() => vi.fn())
 const deleteGroup = vi.hoisted(() => vi.fn())
 const reorderGroupStops = vi.hoisted(() => vi.fn())
 const removeStop = vi.hoisted(() => vi.fn())
-const copySquad = vi.hoisted(() => vi.fn())
+const unassignResource = vi.hoisted(() => vi.fn())
+const getGroupResources = vi.hoisted(() =>
+  vi.fn(() => ({ vehicles: [], personnel: [], materials: [] }) as GroupResources),
+)
 const updateOperation = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/contexts/groups-context", () => ({
@@ -49,10 +55,13 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     deleteGroup,
     reorderGroupStops,
     removeStop,
-    copySquad,
+    unassignResource,
+    getGroupResources,
     refreshGroups: vi.fn(),
     reorderGroups: vi.fn(),
     addStops: vi.fn(),
+    assignResource: vi.fn(),
+    groupResourcesFor: vi.fn(() => ({ vehicles: [], personnel: [], materials: [] })),
   }),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({
@@ -107,7 +116,8 @@ beforeEach(() => {
   deleteGroup.mockReset()
   reorderGroupStops.mockReset()
   removeStop.mockReset()
-  copySquad.mockReset().mockResolvedValue({ copied: 3, skipped: 1 })
+  unassignResource.mockReset()
+  getGroupResources.mockReset().mockReturnValue(emptyResources())
   updateOperation.mockReset()
   toastSuccess.mockReset()
 })
@@ -126,7 +136,7 @@ describe("AuftraegeSheet — derived checklist + progress", () => {
     // Header roll-up: one of three stops is done.
     expect(screen.getByText("1/3 erledigt")).toBeInTheDocument()
 
-    // Expand the card to reveal the checklist.
+    // Expand the card to reveal the checklist (whole header is the toggle).
     await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
 
     expect(await screen.findByText("Baum Hauptstr. 12")).toBeInTheDocument()
@@ -157,50 +167,36 @@ describe("AuftraegeSheet — create", () => {
   })
 })
 
-describe("AuftraegeSheet — copy to all stops", () => {
-  it("calls copySquad with the source stop + selected types and toasts the result", async () => {
-    state.groups = [grp({ stopIds: ["i1", "i2"], mode: "squad" })]
-    state.operations = [op("i1", "active", "Stop 1"), op("i2", "incoming", "Stop 2")]
+describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
+  it("lists assigned vehicles + personnel + material and unassigns on ✕", async () => {
+    state.groups = [grp({ stopIds: [] })]
+    getGroupResources.mockReturnValue({
+      vehicles: [{ assignmentId: "va", resourceId: "v1", name: "TLF 1", driverStay: false }],
+      personnel: [{ assignmentId: "pa", resourceId: "p1", name: "Muster Hans" }],
+      materials: [{ assignmentId: "ma", resourceId: "m1", name: "Schlauch B" }],
+    })
     const user = userEvent.setup()
     renderSheet()
 
     await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
-    await user.click(await screen.findByRole("button", { name: /Auf alle übernehmen/ }))
 
-    // Popover confirm.
-    const confirm = await screen.findByRole("button", { name: "Übernehmen" })
-    await user.click(confirm)
+    expect(await screen.findByText("TLF 1")).toBeInTheDocument()
+    expect(screen.getByText("Muster Hans")).toBeInTheDocument()
+    expect(screen.getByText("Schlauch B")).toBeInTheDocument()
 
-    await waitFor(() => expect(copySquad).toHaveBeenCalledTimes(1))
-    // squad mode → all three resource types pre-checked; source = first stop.
-    expect(copySquad).toHaveBeenCalledWith("g1", "i1", ["vehicle", "personnel", "material"])
-    expect(toastSuccess).toHaveBeenCalledWith("Auf 3 Stops übernommen · 1 bereits zugewiesen")
-  })
-})
-
-describe("AuftraegeSheet — mode toggle", () => {
-  it("calls updateGroup({ mode }) when switching to 'Nur Fahrzeug'", async () => {
-    state.groups = [grp({ stopIds: ["i1"], mode: "squad" })]
-    state.operations = [op("i1", "incoming", "Stop 1")]
-    const user = userEvent.setup()
-    renderSheet()
-
-    await user.click(screen.getByRole("button", { name: "Nur Fahrzeug" }))
-
-    expect(updateGroup).toHaveBeenCalledWith("g1", { mode: "vehicle_only" })
+    await user.click(screen.getByTitle("TLF 1 entfernen"))
+    expect(unassignResource).toHaveBeenCalledWith("g1", "va")
   })
 
-  it("vehicle_only mode defaults the copy picker to vehicle-only", async () => {
-    state.groups = [grp({ stopIds: ["i1", "i2"], mode: "vehicle_only" })]
-    state.operations = [op("i1", "active", "Stop 1"), op("i2", "incoming", "Stop 2")]
+  it("assigns to the ROUTE even with zero stops", async () => {
+    state.groups = [grp({ stopIds: [] })]
+    const onAssignRouteResource = vi.fn()
     const user = userEvent.setup()
-    renderSheet()
+    renderSheet({ onAssignRouteResource })
 
     await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
-    await user.click(await screen.findByRole("button", { name: /Auf alle übernehmen/ }))
-    await user.click(await screen.findByRole("button", { name: "Übernehmen" }))
+    await user.click(await screen.findByRole("button", { name: "Fahrzeug zuweisen" }))
 
-    await waitFor(() => expect(copySquad).toHaveBeenCalledTimes(1))
-    expect(copySquad).toHaveBeenCalledWith("g1", "i1", ["vehicle"])
+    expect(onAssignRouteResource).toHaveBeenCalledWith("vehicles", "g1")
   })
 })

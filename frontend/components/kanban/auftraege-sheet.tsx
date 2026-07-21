@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { toast } from "sonner"
 import {
   draggable,
   dropTargetForElements,
@@ -26,17 +25,16 @@ import {
   CircleDashed,
   CircleDot,
   Trash2,
-  Copy,
   Route,
   Truck,
   Users,
   Package,
+  X,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +56,7 @@ import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
-import type { GroupResourceType, IncidentGroupMode } from "@/lib/api-client"
+import type { GroupResources } from "@/lib/types/groups"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
 // distinct so routes read apart at a glance on board + map.
@@ -81,8 +79,7 @@ interface AuftraegeSheetProps {
   focusGroupId?: string | null
   /** Opens the incident picker to add EXISTING incidents as stops to the route. */
   onAddStop: (groupId: string) => void
-  /** Opens the ResourceAssignmentDialog for the route; the assignment is fanned
-   *  out to every stop of the route (via the first stop + copySquad) on close. */
+  /** Opens the ResourceAssignmentDialog scoped to the ROUTE (works with 0 stops). */
   onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials", groupId: string) => void
   /** Opens the existing OperationDetailModal for a stop. */
   onOpenDetail: (operationId: string) => void
@@ -102,8 +99,17 @@ export function AuftraegeSheet({
   const t = useTranslations("kanban.auftraege")
   const isMobile = useIsMobile()
   const { dragGuardProps } = useDialogDragGuard(open)
-  const { groups, isLoaded, createGroup, updateGroup, deleteGroup, reorderGroupStops, removeStop, copySquad } =
-    useGroups()
+  const {
+    groups,
+    isLoaded,
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    reorderGroupStops,
+    removeStop,
+    unassignResource,
+    getGroupResources,
+  } = useGroups()
   const { operations, updateOperation } = useOperations()
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -272,6 +278,7 @@ export function AuftraegeSheet({
                 key={group.id}
                 group={group}
                 operations={operations}
+                resources={getGroupResources(group.id)}
                 expanded={expanded.has(group.id)}
                 onToggle={() => toggleExpanded(group.id)}
                 isRenaming={renamingId === group.id}
@@ -287,22 +294,14 @@ export function AuftraegeSheet({
                   setRenamingId(null)
                 }}
                 onCancelRename={() => setRenamingId(null)}
-                onSetMode={(mode) => updateGroup(group.id, { mode })}
                 onRequestDelete={() => setDeleteId(group.id)}
                 onAddStop={() => onAddStop(group.id)}
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
                 onAssignRouteResource={(resourceType) => onAssignRouteResource(resourceType, group.id)}
+                onUnassignResource={(assignmentId) => unassignResource(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
                 onMarkDone={(incidentId) => updateOperation(incidentId, { status: "complete" })}
-                onCopySquad={async (resourceTypes) => {
-                  const sourceId = group.stopIds[0]
-                  if (!sourceId) return
-                  const result = await copySquad(group.id, sourceId, resourceTypes)
-                  if (result) {
-                    toast.success(t("copyToast", { copied: result.copied, skipped: result.skipped }))
-                  }
-                }}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
               />
             ))}
@@ -336,6 +335,7 @@ export function AuftraegeSheet({
 interface AuftragCardProps {
   group: IncidentGroup
   operations: Operation[]
+  resources: GroupResources
   expanded: boolean
   onToggle: () => void
   isRenaming: boolean
@@ -344,21 +344,21 @@ interface AuftragCardProps {
   onStartRename: () => void
   onCommitRename: () => void
   onCancelRename: () => void
-  onSetMode: (mode: IncidentGroupMode) => void
   onRequestDelete: () => void
   onAddStop: () => void
   onOpenRoutenEditor: (focusIncidentId?: string) => void
   onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials") => void
+  onUnassignResource: (assignmentId: string) => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
   onMarkDone: (incidentId: string) => void
-  onCopySquad: (resourceTypes: GroupResourceType[]) => void
   registerRowRef: (el: HTMLDivElement | null) => void
 }
 
 function AuftragCard({
   group,
   operations,
+  resources,
   expanded,
   onToggle,
   isRenaming,
@@ -367,15 +367,14 @@ function AuftragCard({
   onStartRename,
   onCommitRename,
   onCancelRename,
-  onSetMode,
   onRequestDelete,
   onAddStop,
   onOpenRoutenEditor,
   onAssignRouteResource,
+  onUnassignResource,
   onOpenDetail,
   onRemoveStop,
   onMarkDone,
-  onCopySquad,
   registerRowRef,
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
@@ -383,19 +382,18 @@ function AuftragCard({
   const [isDropOver, setIsDropOver] = useState(false)
 
   const opById = useMemo(() => new Map(operations.map((o) => [o.id, o] as const)), [operations])
-  const source = group.stopIds.length ? opById.get(group.stopIds[0]) : undefined
-  const sourceId = group.stopIds[0] ?? null
 
   const total = group.stopIds.length
   const done = group.stopIds.reduce((n, id) => (deriveStopState(opById.get(id)) === "erledigt" ? n + 1 : n), 0)
 
-  const vehicleName = source?.vehicles[0] ?? null
-  const persCount = source?.crew.length ?? 0
+  const resourceCount = resources.vehicles.length + resources.personnel.length + resources.materials.length
   const squadSummary = useMemo(() => {
-    if (!vehicleName && persCount === 0) return t("noSquad")
-    if (group.mode === "vehicle_only") return `${vehicleName ?? "—"} · ${t("pendeldienst")}`
-    return `${vehicleName ?? t("noVehicle")} · ${t("persLabel", { count: persCount })}`
-  }, [group.mode, vehicleName, persCount, t])
+    const parts: string[] = []
+    if (resources.vehicles.length) parts.push(resources.vehicles.map((v) => v.name).join(", "))
+    if (resources.personnel.length) parts.push(t("persLabel", { count: resources.personnel.length }))
+    if (resources.materials.length) parts.push(t("matLabel", { count: resources.materials.length }))
+    return parts.length ? parts.join(" · ") : t("noSquad")
+  }, [resources, t])
 
   // Register the header as a drop target for resource / card drags (shared hook).
   useEffect(() => {
@@ -419,11 +417,25 @@ function AuftragCard({
       ref={registerRowRef}
       className={cn("rounded-lg border bg-card transition-colors", isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]")}
     >
-      {/* Header row */}
-      <div ref={headerRef} className="flex items-center gap-2 px-3 py-2.5">
-        <button onClick={onToggle} className="flex-shrink-0 text-muted-foreground hover:text-foreground" aria-label={t("toggle")}>
+      {/* Header row — the whole row toggles expand/collapse. */}
+      <div
+        ref={headerRef}
+        role="button"
+        tabIndex={0}
+        aria-label={t("toggle")}
+        aria-expanded={expanded}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
+        className="flex cursor-pointer items-center gap-2 px-3 py-2.5"
+      >
+        <span className="flex-shrink-0 text-muted-foreground" aria-hidden>
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
+        </span>
         <span
           className="h-3 w-3 rounded-full flex-shrink-0 border border-black/10"
           style={{ backgroundColor: group.color ?? "var(--muted-foreground)" }}
@@ -433,6 +445,7 @@ function AuftragCard({
             <Input
               autoFocus
               value={renameValue}
+              onClick={(e) => e.stopPropagation()}
               onChange={(e) => setRenameValue(e.target.value)}
               onBlur={onCommitRename}
               onKeyDown={(e) => {
@@ -442,58 +455,30 @@ function AuftragCard({
               className="h-7 max-w-xs"
             />
           ) : (
-            <button
-              onClick={onStartRename}
-              className="font-semibold text-sm truncate hover:underline decoration-dotted underline-offset-2 text-left"
-              title={t("rename")}
-            >
-              {group.name}
-            </button>
+            <span className="font-semibold text-sm truncate block">{group.name}</span>
           )}
         </div>
-        <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[160px]">{squadSummary}</span>
+        <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">{squadSummary}</span>
         <span className="text-xs font-medium tabular-nums text-muted-foreground flex-shrink-0">
           {t("progress", { done, total })}
         </span>
 
-        {/* Mode segmented control */}
-        <div className="flex items-center rounded-md border overflow-hidden flex-shrink-0">
-          <button
-            onClick={() => onSetMode("squad")}
-            className={cn(
-              "px-2 py-1 text-[11px] transition-colors",
-              group.mode === "squad" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t("modeSquad")}
-          </button>
-          <button
-            onClick={() => onSetMode("vehicle_only")}
-            className={cn(
-              "px-2 py-1 text-[11px] transition-colors border-l",
-              group.mode === "vehicle_only"
-                ? "bg-primary/10 text-primary font-medium"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t("modeVehicleOnly")}
-          </button>
+        <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onStartRename}>{t("rename")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onStartRename}>{t("rename")}</DropdownMenuItem>
-            <DropdownMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("delete")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       {/* Expanded checklist */}
@@ -524,44 +509,40 @@ function AuftragCard({
               <MapIcon className="h-3.5 w-3.5" />
               {t("routenEditor")}
             </Button>
-            <CopyPicker mode={group.mode} disabled={total < 2 || !sourceId} onConfirm={onCopySquad} />
           </div>
 
-          {/* Ressourcen — explicit assign-to-whole-route controls. Each opens the
-              standard assignment dialog and fans the choice out to every stop. */}
+          {/* Ressourcen — route-owned resources. Lists ALL assigned vehicles,
+              personnel and material as removable chips, and assigns to the ROUTE
+              (works even with 0 stops). */}
           <div className="mt-2 rounded-md border bg-muted/20 px-3 py-2.5">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-muted-foreground">{t("resourcesHeading")}</span>
-              <span className="truncate text-xs text-muted-foreground">{squadSummary}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5"
-                disabled={!sourceId}
-                onClick={() => onAssignRouteResource("vehicles")}
-              >
+            <div className="mb-2 text-xs font-medium text-muted-foreground">{t("resourcesHeading")}</div>
+
+            {resourceCount === 0 ? (
+              <p className="text-xs text-muted-foreground">{t("noResourcesYet")}</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {resources.vehicles.map((v) => (
+                  <ResourceChip key={v.assignmentId} icon={Truck} label={v.name} onRemove={() => onUnassignResource(v.assignmentId)} removeTitle={t("removeResource", { name: v.name })} />
+                ))}
+                {resources.personnel.map((p) => (
+                  <ResourceChip key={p.assignmentId} icon={Users} label={p.name} onRemove={() => onUnassignResource(p.assignmentId)} removeTitle={t("removeResource", { name: p.name })} />
+                ))}
+                {resources.materials.map((m) => (
+                  <ResourceChip key={m.assignmentId} icon={Package} label={m.name} onRemove={() => onUnassignResource(m.assignmentId)} removeTitle={t("removeResource", { name: m.name })} />
+                ))}
+              </div>
+            )}
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onAssignRouteResource("vehicles")}>
                 <Truck className="h-3.5 w-3.5" />
                 {t("assignVehicleRoute")}
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5"
-                disabled={!sourceId || group.mode === "vehicle_only"}
-                onClick={() => onAssignRouteResource("crew")}
-              >
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onAssignRouteResource("crew")}>
                 <Users className="h-3.5 w-3.5" />
                 {t("assignCrewRoute")}
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5"
-                disabled={!sourceId || group.mode === "vehicle_only"}
-                onClick={() => onAssignRouteResource("materials")}
-              >
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onAssignRouteResource("materials")}>
                 <Package className="h-3.5 w-3.5" />
                 {t("assignMaterialRoute")}
               </Button>
@@ -570,6 +551,30 @@ function AuftragCard({
         </div>
       )}
     </div>
+  )
+}
+
+interface ResourceChipProps {
+  icon: typeof Truck
+  label: string
+  onRemove: () => void
+  removeTitle: string
+}
+
+function ResourceChip({ icon: Icon, label, onRemove, removeTitle }: ResourceChipProps) {
+  return (
+    <Badge variant="secondary" className="group flex items-center gap-1 px-1.5 py-0.5 text-xs font-normal">
+      <Icon className="h-3 w-3 text-muted-foreground" />
+      <span className="truncate max-w-[140px]">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="opacity-60 transition-opacity hover:text-destructive hover:opacity-100"
+        title={removeTitle}
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+    </Badge>
   )
 }
 
@@ -677,61 +682,5 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onMarkDone, onOpenD
       </div>
       {closestEdge === "bottom" && <DropIndicator edge="bottom" gap="2px" />}
     </div>
-  )
-}
-
-interface CopyPickerProps {
-  mode: IncidentGroupMode
-  disabled: boolean
-  onConfirm: (resourceTypes: GroupResourceType[]) => void
-}
-
-function CopyPicker({ mode, disabled, onConfirm }: CopyPickerProps) {
-  const t = useTranslations("kanban.auftraege")
-  const [open, setOpen] = useState(false)
-  const [pick, setPick] = useState<Record<GroupResourceType, boolean>>({
-    vehicle: true,
-    personnel: mode !== "vehicle_only",
-    material: mode !== "vehicle_only",
-  })
-
-  // Re-seed from the mode each time the picker opens.
-  useEffect(() => {
-    if (open) {
-      setPick({ vehicle: true, personnel: mode !== "vehicle_only", material: mode !== "vehicle_only" })
-    }
-  }, [open, mode])
-
-  const selected = (Object.keys(pick) as GroupResourceType[]).filter((k) => pick[k])
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button size="sm" variant="secondary" className="h-8 gap-1.5" disabled={disabled}>
-          <Copy className="h-3.5 w-3.5" />
-          {t("copyToAll")}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 space-y-3">
-        <p className="text-xs font-medium text-muted-foreground">{t("copyPickerTitle")}</p>
-        {(["vehicle", "personnel", "material"] as GroupResourceType[]).map((type) => (
-          <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
-            <Checkbox checked={pick[type]} onCheckedChange={(v) => setPick((p) => ({ ...p, [type]: v === true }))} />
-            {t(`resource_${type}`)}
-          </label>
-        ))}
-        <Button
-          size="sm"
-          className="w-full"
-          disabled={selected.length === 0}
-          onClick={() => {
-            onConfirm(selected)
-            setOpen(false)
-          }}
-        >
-          {t("copyConfirm")}
-        </Button>
-      </PopoverContent>
-    </Popover>
   )
 }

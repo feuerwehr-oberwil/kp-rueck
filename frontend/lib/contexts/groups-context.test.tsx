@@ -1,24 +1,37 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { act, renderHook, waitFor } from "@testing-library/react"
 
-import type { ApiIncidentGroup } from "@/lib/api-client"
+import type { ApiGroupAssignment, ApiIncidentGroup } from "@/lib/api-client"
 
 // --- Fixtures ---------------------------------------------------------------
 
 const EVENT_ID = "11111111-1111-1111-1111-111111111111"
+const GROUP_ID = "22222222-2222-2222-2222-222222222222"
+
+const apiAssignment = (overrides: Partial<ApiGroupAssignment> = {}): ApiGroupAssignment => ({
+  id: "a1",
+  incident_group_id: GROUP_ID,
+  resource_type: "vehicle",
+  resource_id: "v1",
+  assigned_at: "2026-07-21T00:00:00Z",
+  unassigned_at: null,
+  assigned_by: null,
+  driver_stay: false,
+  ...overrides,
+})
 
 const apiGroup = (overrides: Partial<ApiIncidentGroup> = {}): ApiIncidentGroup => ({
-  id: "22222222-2222-2222-2222-222222222222",
+  id: GROUP_ID,
   event_id: EVENT_ID,
   name: "Sturm-Route West",
   color: "#ef4444",
-  mode: "squad",
   notes: null,
   position: 0,
   created_at: "2026-07-21T00:00:00Z",
   updated_at: "2026-07-21T00:00:00Z",
   created_by: null,
   stop_ids: [],
+  assignments: [],
   progress: { total: 0, done: 0 },
   ...overrides,
 })
@@ -34,6 +47,9 @@ const eventState = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/contexts/auth-context", () => ({ useAuth: () => authState }))
 vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => eventState }))
+// The provider resolves resource names via these sibling contexts.
+vi.mock("@/lib/contexts/personnel-context", () => ({ usePersonnel: () => ({ personnel: [] }) }))
+vi.mock("@/lib/contexts/materials-context", () => ({ useMaterials: () => ({ materials: [] }) }))
 
 // Controllable WebSocket stub mirroring the shape operations-context uses:
 // on(event, cb) / onStatusChange(cb) / getStatus(). `getStatus` reports
@@ -70,6 +86,7 @@ vi.mock("@/lib/websocket-client", () => ({ wsClient: ws.client }))
 
 const getIncidentGroups = vi.fn()
 const getSyncVersion = vi.fn()
+const getVehicles = vi.fn()
 const createIncidentGroup = vi.fn()
 const updateIncidentGroup = vi.fn()
 const deleteIncidentGroup = vi.fn()
@@ -77,12 +94,14 @@ const reorderIncidentGroups = vi.fn()
 const reorderGroupStops = vi.fn()
 const addStopsToGroup = vi.fn()
 const removeStopFromGroup = vi.fn()
-const copyGroupSquad = vi.fn()
+const assignGroupResource = vi.fn()
+const unassignGroupResource = vi.fn()
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
     getIncidentGroups: (...a: unknown[]) => getIncidentGroups(...a),
     getSyncVersion: (...a: unknown[]) => getSyncVersion(...a),
+    getVehicles: (...a: unknown[]) => getVehicles(...a),
     createIncidentGroup: (...a: unknown[]) => createIncidentGroup(...a),
     updateIncidentGroup: (...a: unknown[]) => updateIncidentGroup(...a),
     deleteIncidentGroup: (...a: unknown[]) => deleteIncidentGroup(...a),
@@ -90,7 +109,8 @@ vi.mock("@/lib/api-client", () => ({
     reorderGroupStops: (...a: unknown[]) => reorderGroupStops(...a),
     addStopsToGroup: (...a: unknown[]) => addStopsToGroup(...a),
     removeStopFromGroup: (...a: unknown[]) => removeStopFromGroup(...a),
-    copyGroupSquad: (...a: unknown[]) => copyGroupSquad(...a),
+    assignGroupResource: (...a: unknown[]) => assignGroupResource(...a),
+    unassignGroupResource: (...a: unknown[]) => unassignGroupResource(...a),
   },
 }))
 
@@ -111,6 +131,7 @@ beforeEach(() => {
   ws.reset()
   getIncidentGroups.mockReset().mockResolvedValue([])
   getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
+  getVehicles.mockReset().mockResolvedValue([])
   createIncidentGroup.mockReset()
   updateIncidentGroup.mockReset()
   deleteIncidentGroup.mockReset()
@@ -118,7 +139,8 @@ beforeEach(() => {
   reorderGroupStops.mockReset()
   addStopsToGroup.mockReset()
   removeStopFromGroup.mockReset()
-  copyGroupSquad.mockReset()
+  assignGroupResource.mockReset()
+  unassignGroupResource.mockReset()
   toastError.mockReset()
   toastSuccess.mockReset()
 })
@@ -192,25 +214,82 @@ describe("GroupsProvider — group_update WS event", () => {
   })
 })
 
-describe("GroupsProvider — updateGroup mode", () => {
-  it("updates the group's mode in state", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ mode: "squad" })])
-    updateIncidentGroup.mockImplementation(async (_id: string, patch: { mode?: string }) =>
-      apiGroup({ mode: (patch.mode as ApiIncidentGroup["mode"]) ?? "squad" }),
-    )
+describe("GroupsProvider — assign / unassign route resources", () => {
+  it("optimistically adds an assignment then reconciles from the server", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
+    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
 
     const { result } = await renderLoaded()
     await waitFor(() => expect(result.current.groups).toHaveLength(1))
-    expect(result.current.groups[0].mode).toBe("squad")
+
+    // The reconciling refresh returns the persisted assignment.
+    getIncidentGroups.mockResolvedValueOnce([
+      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" })] }),
+    ])
 
     await act(async () => {
-      await result.current.updateGroup(result.current.groups[0].id, { mode: "vehicle_only" })
+      await result.current.assignResource(GROUP_ID, "vehicle", "v1")
     })
 
-    expect(updateIncidentGroup).toHaveBeenCalledWith(
-      "22222222-2222-2222-2222-222222222222",
-      { mode: "vehicle_only" },
-    )
-    expect(result.current.groups[0].mode).toBe("vehicle_only")
+    expect(assignGroupResource).toHaveBeenCalledWith(GROUP_ID, { resource_type: "vehicle", resource_id: "v1" })
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
+    expect(result.current.groups[0].assignments[0].resourceId).toBe("v1")
+  })
+
+  it("rolls back and toasts when the assign fails", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
+    assignGroupResource.mockRejectedValue(new Error("boom"))
+
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.assignResource(GROUP_ID, "vehicle", "v1")
+    })
+
+    expect(result.current.groups[0].assignments).toHaveLength(0)
+    expect(toastError).toHaveBeenCalledTimes(1)
+  })
+
+  it("optimistically removes an assignment on unassign", async () => {
+    getIncidentGroups.mockResolvedValue([
+      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "personnel", resource_id: "p1" })] }),
+    ])
+    unassignGroupResource.mockResolvedValue(undefined)
+
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
+
+    getIncidentGroups.mockResolvedValueOnce([apiGroup({ assignments: [] })])
+
+    await act(async () => {
+      await result.current.unassignResource(GROUP_ID, "a1")
+    })
+
+    expect(unassignGroupResource).toHaveBeenCalledWith(GROUP_ID, "a1")
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
+  })
+
+  it("getGroupResources splits the route's assignments by kind", async () => {
+    getIncidentGroups.mockResolvedValue([
+      apiGroup({
+        assignments: [
+          apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }),
+          apiAssignment({ id: "a2", resource_type: "personnel", resource_id: "p1" }),
+          apiAssignment({ id: "a3", resource_type: "material", resource_id: "m1" }),
+        ],
+      }),
+    ])
+
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(3))
+
+    const res = result.current.getGroupResources(GROUP_ID)
+    expect(res.vehicles.map((v) => v.resourceId)).toEqual(["v1"])
+    expect(res.personnel.map((p) => p.resourceId)).toEqual(["p1"])
+    expect(res.materials.map((m) => m.resourceId)).toEqual(["m1"])
+    // Unresolved ids fall back to the id as the display name.
+    expect(res.vehicles[0].name).toBe("v1")
+    expect(res.vehicles[0].assignmentId).toBe("a1")
   })
 })

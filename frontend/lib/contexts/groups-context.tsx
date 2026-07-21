@@ -8,22 +8,27 @@ import {
   type ApiIncidentGroup,
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
-  type ApiCopySquadResult,
+  type ApiVehicle,
   type GroupResourceType,
 } from "@/lib/api-client"
-import type { IncidentGroup } from "@/lib/types/groups"
+import type { GroupAssignment, GroupResources, IncidentGroup } from "@/lib/types/groups"
+import type { Operation } from "@/lib/contexts/operations-context"
 import { isValidUUID } from "@/lib/utils/validation"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
+import { usePersonnel } from "./personnel-context"
+import { useMaterials } from "./materials-context"
 
 // Re-export the client type for convenience (mirrors materials-context exposing Material).
 export type { IncidentGroup } from "@/lib/types/groups"
 
 /** Fields the UI supplies when creating an Auftrag (event scope is injected). */
 export type CreateGroupInput = Omit<ApiIncidentGroupCreate, "event_id">
-/** Partial PATCH payload for an Auftrag (name / color / mode / notes). */
+/** Partial PATCH payload for an Auftrag (name / color / notes). */
 export type UpdateGroupInput = ApiIncidentGroupUpdate
+
+const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
 interface GroupsContextType {
   /** Aufträge of the selected event, in `position` order. */
@@ -38,14 +43,26 @@ interface GroupsContextType {
   reorderGroupStops: (groupId: string, orderedIds: string[]) => Promise<boolean>
   addStops: (groupId: string, incidentIds: string[]) => Promise<boolean>
   removeStop: (groupId: string, incidentId: string) => Promise<boolean>
-  copySquad: (
-    groupId: string,
-    sourceIncidentId: string,
-    resourceTypes?: GroupResourceType[],
-  ) => Promise<ApiCopySquadResult | null>
+  /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
+  assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
+  /** Release a route-owned resource by its group-assignment id. */
+  unassignResource: (groupId: string, assignmentId: string) => Promise<boolean>
+  /** Resolve a route's owned resources to display names, split by kind. */
+  getGroupResources: (groupId: string) => GroupResources
+  /** Resolve the route resources for an incident's Auftrag (empty when ungrouped). */
+  groupResourcesFor: (operation: Operation) => GroupResources
 }
 
 const GroupsContext = createContext<GroupsContextType | undefined>(undefined)
+
+// Parse the API assignment list to the camelCase client shape.
+const apiAssignmentsToClient = (g: ApiIncidentGroup): GroupAssignment[] =>
+  (g.assignments ?? []).map((a) => ({
+    id: String(a.id),
+    resourceType: a.resource_type,
+    resourceId: String(a.resource_id),
+    driverStay: a.driver_stay,
+  }))
 
 // Convert the API shape to the camelCase client type (dates parsed to Date).
 const apiGroupToGroup = (g: ApiIncidentGroup): IncidentGroup => ({
@@ -53,13 +70,13 @@ const apiGroupToGroup = (g: ApiIncidentGroup): IncidentGroup => ({
   eventId: String(g.event_id),
   name: g.name,
   color: g.color ?? null,
-  mode: g.mode,
   notes: g.notes ?? null,
   position: g.position,
   createdAt: new Date(g.created_at),
   updatedAt: new Date(g.updated_at),
   createdBy: g.created_by ? String(g.created_by) : null,
   stopIds: g.stop_ids.map(String),
+  assignments: apiAssignmentsToClient(g),
   progress: { total: g.progress?.total ?? 0, done: g.progress?.done ?? 0 },
 })
 
@@ -69,9 +86,14 @@ const POLLING_INTERVAL = 5000
 export function GroupsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { selectedEvent, isEventLoaded } = useEvent()
+  const { personnel } = usePersonnel()
+  const { materials } = useMaterials()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
+  // Vehicle name lookup — no dedicated vehicles context exists, so resolve the
+  // route's vehicle assignments (which carry ids) to names via a light fetch.
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
 
   // Toast deduplication across an outage; matches the materials-context pattern.
   const hasShownErrorRef = useRef(false)
@@ -106,6 +128,17 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [selectedEvent])
+
+  // Load the vehicle list once (name resolution for route vehicle assignments).
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return
+    apiClient
+      .getVehicles()
+      .then((list) => setVehicles(list))
+      .catch(() => {
+        // Silent: names fall back to ids until the list loads.
+      })
+  }, [authLoading, isAuthenticated])
 
   // Initial load + WebSocket subscription + polling fallback. The socket
   // lifecycle itself is owned by operations-context; here we only subscribe.
@@ -142,7 +175,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
 
     loadData()
 
-    // Refresh on the group_update WS broadcast (create/update/delete/reorder/stops).
+    // Refresh on the group_update WS broadcast (create/update/delete/reorder/stops/assign).
     const unsubscribeGroupUpdate = wsClient.on("group_update", () => {
       refreshGroups()
     })
@@ -222,13 +255,13 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         eventId,
         name: input.name,
         color: input.color ?? null,
-        mode: input.mode ?? "squad",
         notes: input.notes ?? null,
         position: nextPosition,
         createdAt: now,
         updatedAt: now,
         createdBy: null,
         stopIds: [],
+        assignments: [],
         progress: { total: 0, done: 0 },
       }
       setGroups((gs) => [...gs, optimistic])
@@ -260,7 +293,6 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
               ...g,
               ...(input.name !== undefined ? { name: input.name } : {}),
               ...(input.color !== undefined ? { color: input.color } : {}),
-              ...(input.mode !== undefined ? { mode: input.mode } : {}),
               ...(input.notes !== undefined ? { notes: input.notes } : {}),
             }
           : g,
@@ -410,23 +442,100 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [groups])
 
-  const copySquad = useCallback(
-    async (
-      groupId: string,
-      sourceIncidentId: string,
-      resourceTypes?: GroupResourceType[],
-    ): Promise<ApiCopySquadResult | null> => {
-      // No local group state changes here — assignments live in operations-context,
-      // which reconciles them via the incident/assignment WS + poll paths.
+  const assignResource = useCallback(
+    async (groupId: string, resourceType: GroupResourceType, resourceId: string): Promise<boolean> => {
+      const previous = groups.find((g) => g.id === groupId)
+      if (!previous) return false
+      // Already on the route — no-op (backend would 409).
+      if (previous.assignments.some((a) => a.resourceType === resourceType && a.resourceId === resourceId)) {
+        return true
+      }
+
+      mutationEpochRef.current++
+
+      const tempId = `temp-${crypto.randomUUID()}`
+      const optimistic: GroupAssignment = { id: tempId, resourceType, resourceId, driverStay: false }
+      setGroups((gs) =>
+        gs.map((g) => (g.id === groupId ? { ...g, assignments: [...g.assignments, optimistic] } : g)),
+      )
+
       try {
-        return await apiClient.copyGroupSquad(groupId, sourceIncidentId, resourceTypes)
+        await apiClient.assignGroupResource(groupId, { resource_type: resourceType, resource_id: resourceId })
+        // Reconcile with the server truth (canonical assignment id + progress).
+        await refreshGroups()
+        return true
       } catch (error) {
-        console.error("Failed to copy squad:", error)
-        toast.error(translateOutsideReact("notifications.groups.copySquadFailed"))
-        return null
+        console.error("Failed to assign route resource:", error)
+        setGroups((gs) =>
+          gs.map((g) =>
+            g.id === groupId ? { ...g, assignments: g.assignments.filter((a) => a.id !== tempId) } : g,
+          ),
+        )
+        toast.error(translateOutsideReact("notifications.groups.assignFailed"))
+        return false
       }
     },
-    [],
+    [groups, refreshGroups],
+  )
+
+  const unassignResource = useCallback(
+    async (groupId: string, assignmentId: string): Promise<boolean> => {
+      const previous = groups.find((g) => g.id === groupId)
+      if (!previous) return false
+
+      mutationEpochRef.current++
+
+      setGroups((gs) =>
+        gs.map((g) =>
+          g.id === groupId ? { ...g, assignments: g.assignments.filter((a) => a.id !== assignmentId) } : g,
+        ),
+      )
+
+      try {
+        await apiClient.unassignGroupResource(groupId, assignmentId)
+        await refreshGroups()
+        return true
+      } catch (error) {
+        console.error("Failed to release route resource:", error)
+        setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
+        toast.error(translateOutsideReact("notifications.groups.unassignFailed"))
+        return false
+      }
+    },
+    [groups, refreshGroups],
+  )
+
+  const getGroupResources = useCallback(
+    (groupId: string): GroupResources => {
+      const g = groups.find((x) => x.id === groupId)
+      if (!g) return EMPTY_RESOURCES
+      const res: GroupResources = { vehicles: [], personnel: [], materials: [] }
+      for (const a of g.assignments) {
+        if (a.resourceType === "vehicle") {
+          const v = vehicles.find((x) => String(x.id) === a.resourceId)
+          res.vehicles.push({
+            assignmentId: a.id,
+            resourceId: a.resourceId,
+            name: v?.name ?? a.resourceId,
+            driverStay: a.driverStay,
+          })
+        } else if (a.resourceType === "personnel") {
+          const p = personnel.find((x) => x.id === a.resourceId)
+          res.personnel.push({ assignmentId: a.id, resourceId: a.resourceId, name: p?.name ?? a.resourceId })
+        } else {
+          const m = materials.find((x) => x.id === a.resourceId)
+          res.materials.push({ assignmentId: a.id, resourceId: a.resourceId, name: m?.name ?? a.resourceId })
+        }
+      }
+      return res
+    },
+    [groups, vehicles, personnel, materials],
+  )
+
+  const groupResourcesFor = useCallback(
+    (operation: Operation): GroupResources =>
+      operation.groupId ? getGroupResources(operation.groupId) : EMPTY_RESOURCES,
+    [getGroupResources],
   )
 
   return (
@@ -442,7 +551,10 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         reorderGroupStops,
         addStops,
         removeStop,
-        copySquad,
+        assignResource,
+        unassignResource,
+        getGroupResources,
+        groupResourcesFor,
       }}
     >
       {children}

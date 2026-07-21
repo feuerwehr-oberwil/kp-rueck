@@ -24,7 +24,7 @@ import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
 import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { apiClient, type GroupResourceType } from "@/lib/api-client"
+import { apiClient } from "@/lib/api-client"
 import { IncidentPickerDialog } from "@/components/kanban/incident-picker-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { QRCodeSVG } from 'qrcode.react'
@@ -100,7 +100,14 @@ export default function FireStationDashboard() {
     isLoading,
     isLoaded
   } = useOperations()
-  const { groups, addStops: addStopsToGroup, copySquad: copyGroupSquad, createGroup } = useGroups()
+  const {
+    groups,
+    addStops: addStopsToGroup,
+    assignResource: assignGroupResource,
+    unassignResource: unassignGroupResource,
+    getGroupResources,
+    createGroup,
+  } = useGroups()
 
   // Keep the top progress bar visible for the whole pre-ready window — auth
   // check, event resolution and the first data load — so there's never a blank
@@ -253,9 +260,9 @@ export default function FireStationDashboard() {
   const [stopPickerGroupId, setStopPickerGroupId] = useState<string | null>(null)
   // "An Auftrag verteilen" picker: the incident being distributed into a route.
   const [auftragPickerIncidentId, setAuftragPickerIncidentId] = useState<string | null>(null)
-  // Route-level resource assign: after the assignment dialog closes (having
-  // assigned to the first stop), fan the choice out to the rest via copySquad.
-  const [routeAssignFanOut, setRouteAssignFanOut] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
+  // Route-level resource assign: when set, the assignment dialog is scoped to the
+  // ROUTE (Auftrag) rather than a single incident — assign/remove hit the group.
+  const [routeAssign, setRouteAssign] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -330,8 +337,10 @@ export default function FireStationDashboard() {
     if (!returningVehicleAckOpId) return null
     const op = operations.find((o) => o.id === returningVehicleAckOpId)
     if (!op || op.zuFuss || op.vehicles.length > 0) return null
+    // A route stop covered by the Auftrag's vehicle also dismisses the warning.
+    if (op.groupId && getGroupResources(op.groupId).vehicles.length > 0) return null
     return op
-  }, [returningVehicleAckOpId, operations])
+  }, [returningVehicleAckOpId, operations, getGroupResources])
   // Resource transfer ("Ressourcen übertragen") opened from the card context menu.
   const [transferSourceOp, setTransferSourceOp] = useState<Operation | null>(null)
   const [transferAvailableIncidents, setTransferAvailableIncidents] = useState<Incident[]>([])
@@ -535,13 +544,20 @@ export default function FireStationDashboard() {
   // Returns the resource categories (Personal / Fahrzeuge / Mittel) an incident
   // is still missing. Vehicles are skipped for "zu Fuss" incidents, which by
   // definition rück without apparatus.
+  // For a grouped incident the Auftrag owns the resources, so the stop's coverage
+  // is its own resources UNION the route's. This keeps the gate from crying
+  // "Ressourcen fehlen" on a route stop whose Auftrag is fully equipped.
   const getMissingResources = useCallback((op: Operation): Array<'crew' | 'vehicles' | 'materials'> => {
+    const gr = op.groupId ? getGroupResources(op.groupId) : null
+    const crewCount = op.crew.length + (gr?.personnel.length ?? 0)
+    const vehicleCount = op.vehicles.length + (gr?.vehicles.length ?? 0)
+    const materialCount = op.materials.length + (gr?.materials.length ?? 0)
     const missing: Array<'crew' | 'vehicles' | 'materials'> = []
-    if (op.crew.length === 0) missing.push("crew")
-    if (!op.zuFuss && op.vehicles.length === 0) missing.push("vehicles")
-    if (op.materials.length === 0) missing.push("materials")
+    if (crewCount === 0) missing.push("crew")
+    if (!op.zuFuss && vehicleCount === 0) missing.push("vehicles")
+    if (materialCount === 0) missing.push("materials")
     return missing
-  }, [])
+  }, [getGroupResources])
 
   // Show disponiert transition dialog when moving to enroute. If the incident is
   // missing any resources (Personal, Fahrzeuge or Mittel), gate behind an
@@ -562,8 +578,9 @@ export default function FireStationDashboard() {
   const triggerReturningVehicleCheck = useCallback((operationId: string) => {
     const op = operations.find(o => o.id === operationId)
     if (!op) return
-    if (!op.zuFuss && op.vehicles.length === 0) setReturningVehicleAckOpId(op.id)
-  }, [operations])
+    const routeVehicles = op.groupId ? getGroupResources(op.groupId).vehicles.length : 0
+    if (!op.zuFuss && op.vehicles.length === 0 && routeVehicles === 0) setReturningVehicleAckOpId(op.id)
+  }, [operations, getGroupResources])
 
   // When a card enters REKO without a reko person assigned, prompt the operator
   // to assign one (mirrors the missing-resources gate before disponieren).
@@ -587,8 +604,22 @@ export default function FireStationDashboard() {
   // "Einsatz abschliessen" context-menu item.
   const promptMaterialDecision = useCallback((operationId: string) => {
     const op = operations.find(o => o.id === operationId)
-    if (op && op.materials.length > 0) setMaterialDecisionOp(op)
-  }, [operations])
+    if (!op) return
+    if (op.groupId) {
+      // Route material is owned by the Auftrag and only returns once the whole
+      // route is done — so prompt only on the LAST open stop, over the ROUTE's
+      // materials. Earlier stops finishing leave the route (and its kit) running.
+      const routeMaterials = getGroupResources(op.groupId).materials
+      if (routeMaterials.length === 0) return
+      const siblingsOpen = operations.some(
+        o => o.groupId === op.groupId && o.id !== op.id && o.status !== "complete" && o.status !== "returning",
+      )
+      if (siblingsOpen) return
+      setMaterialDecisionOp(op)
+      return
+    }
+    if (op.materials.length > 0) setMaterialDecisionOp(op)
+  }, [operations, getGroupResources])
 
   // Archive an incident immediately (status → complete). Mirrors dragging the card
   // to ABGESCHLOSSEN: updateOperation auto-releases personnel + vehicles and keeps
@@ -981,7 +1012,7 @@ export default function FireStationDashboard() {
     // drop-target data contract (`group-row` / `group-stop`).
     groups,
     addStopsToGroup,
-    copyGroupSquad,
+    assignGroupResource,
   })
 
   // Board Auftrag chips signal the page via a window event (no prop threading
@@ -1327,7 +1358,11 @@ export default function FireStationDashboard() {
     setMissingResourcesAckOpId(null)
     setReturningVehicleAckOpId(null)
     setAssignReturnTo({ kind, opId })
-    handleOpenAssignmentDialog(category, opId)
+    // For a grouped incident the gate assigns to the Auftrag (route-owned), not
+    // the single stop — so the coverage the gate checks is the one we fill.
+    const op = operations.find((o) => o.id === opId)
+    if (op?.groupId) handleAssignRouteResource(category, op.groupId)
+    else handleOpenAssignmentDialog(category, opId)
   }
 
   // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
@@ -1352,17 +1387,13 @@ export default function FireStationDashboard() {
     }
   }
 
-  // Route-level resource assign: open the standard dialog on the first stop, then
-  // fan the choice out to every other stop of the route once the dialog closes.
+  // Route-level resource assign: open the standard assignment dialog scoped to the
+  // ROUTE (Auftrag). Assign/remove hit the group directly, so it works even with
+  // zero stops — the route owns the resources, not any single incident.
   const handleAssignRouteResource = (resourceType: 'crew' | 'vehicles' | 'materials', groupId: string) => {
-    const group = groups.find((g) => g.id === groupId)
-    const firstStopId = group?.stopIds[0]
-    if (!group || !firstStopId) {
-      toast.error(tDash('routeNoStops'))
-      return
-    }
-    setRouteAssignFanOut({ groupId, resourceType })
-    handleOpenAssignmentDialog(resourceType, firstStopId)
+    setRouteAssign({ groupId, resourceType })
+    setAssignmentResourceType(resourceType)
+    setAssignmentDialogOpen(true)
   }
 
   // Handle Reko assignment dialog (from context menu)
@@ -1449,6 +1480,18 @@ export default function FireStationDashboard() {
   const assignedResources = assignmentOperationId
     ? getAssignedResourcesForOperation(assignmentOperationId)
     : { assignedPersonnel: [], assignedVehicles: [], assignedMaterials: [] }
+
+  // When the assignment dialog is scoped to a ROUTE, its assigned lists +
+  // assign/remove callbacks target the Auftrag's resources instead of a stop.
+  const routeGroupResources = routeAssign ? getGroupResources(routeAssign.groupId) : null
+
+  // Material-return dialog operates on the ROUTE's materials for a grouped
+  // incident (unassign by group-assignment id) and on the stop's own otherwise.
+  const materialDecisionItems: Array<{ id: string; assignmentId: string | null }> = materialDecisionOp
+    ? materialDecisionOp.groupId
+      ? getGroupResources(materialDecisionOp.groupId).materials.map((m) => ({ id: m.resourceId, assignmentId: m.assignmentId }))
+      : materialDecisionOp.materials.map((id) => ({ id, assignmentId: null }))
+    : []
 
   // Handle operation deletion from keyboard shortcut
   const handleDeleteOperationConfirm = async () => {
@@ -2183,50 +2226,59 @@ export default function FireStationDashboard() {
         open={assignmentDialogOpen}
         onOpenChange={(open) => {
           setAssignmentDialogOpen(open)
-          // If this dialog was opened from a resource gate, return to that gate on close
-          // so the operator sees the updated state (checklist) or a resolved warning.
-          if (!open && assignReturnTo) {
-            const { kind, opId } = assignReturnTo
-            setAssignReturnTo(null)
-            // Reopen by id — both gates derive their op live, so the checklist reflects
-            // the just-assigned resource as soon as `operations` updates, and the
-            // returning warning self-dismisses once a vehicle is present.
-            if (kind === 'missing') setMissingResourcesAckOpId(opId)
-            else setReturningVehicleAckOpId(opId)
-          }
-          // Route-level assign: the first stop just got the resource(s); fan the same
-          // choice out to every other stop of the route via copySquad.
-          if (!open && routeAssignFanOut) {
-            const { groupId, resourceType } = routeAssignFanOut
-            setRouteAssignFanOut(null)
-            const group = groups.find((g) => g.id === groupId)
-            const firstStopId = group?.stopIds[0]
-            if (group && firstStopId && group.stopIds.length > 1) {
-              const grt: GroupResourceType =
-                resourceType === 'crew' ? 'personnel' : resourceType === 'vehicles' ? 'vehicle' : 'material'
-              copyGroupSquad(groupId, firstStopId, [grt]).then((result) => {
-                if (result) toast.success(tDash('routeResourceToast', { copied: result.copied, skipped: result.skipped }))
-              })
+          if (!open) {
+            // Route-scoped assign is over — drop back to per-incident mode.
+            setRouteAssign(null)
+            // If this dialog was opened from a resource gate, return to that gate on
+            // close so the operator sees the updated state (checklist) or a resolved
+            // warning. Both gates derive their op live, and the gate coverage now
+            // folds in the Auftrag's resources, so route assigns reflect instantly.
+            if (assignReturnTo) {
+              const { kind, opId } = assignReturnTo
+              setAssignReturnTo(null)
+              if (kind === 'missing') setMissingResourcesAckOpId(opId)
+              else setReturningVehicleAckOpId(opId)
             }
           }
         }}
         resourceType={assignmentResourceType}
-        operationId={assignmentOperationId}
+        operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
         personnel={personnel}
         vehicles={vehicleTypes}
         materials={materials}
-        assignedPersonnel={assignedResources.assignedPersonnel}
-        assignedVehicles={assignedResources.assignedVehicles}
-        assignedMaterials={assignedResources.assignedMaterials}
-        rekoPersonnelNames={rekoPersonnelNames}
-        onAssignPerson={assignPersonToOperation}
-        onAssignVehicle={assignVehicleToOperation}
-        onAssignMaterial={assignMaterialToOperation}
-        onRemovePerson={removeCrew}
-        onRemoveVehicle={removeVehicle}
-        onRemoveMaterial={removeMaterial}
-        zuFuss={assignmentOperationId ? operations.find(op => op.id === assignmentOperationId)?.zuFuss ?? false : false}
-        onToggleZuFuss={assignmentOperationId ? () => handleToggleZuFuss(assignmentOperationId) : undefined}
+        assignedPersonnel={routeGroupResources ? routeGroupResources.personnel.map(p => p.name) : assignedResources.assignedPersonnel}
+        assignedVehicles={routeGroupResources ? routeGroupResources.vehicles.map(v => v.name) : assignedResources.assignedVehicles}
+        assignedMaterials={routeGroupResources ? routeGroupResources.materials.map(m => m.resourceId) : assignedResources.assignedMaterials}
+        rekoPersonnelNames={routeAssign ? [] : rekoPersonnelNames}
+        onAssignPerson={routeAssign
+          ? (personId) => assignGroupResource(routeAssign.groupId, 'personnel', personId)
+          : assignPersonToOperation}
+        onAssignVehicle={routeAssign
+          ? (vehicleId) => assignGroupResource(routeAssign.groupId, 'vehicle', vehicleId)
+          : assignVehicleToOperation}
+        onAssignMaterial={routeAssign
+          ? (materialId) => assignGroupResource(routeAssign.groupId, 'material', materialId)
+          : assignMaterialToOperation}
+        onRemovePerson={routeAssign
+          ? (_op, personName) => {
+              const item = routeGroupResources?.personnel.find(p => p.name === personName)
+              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
+            }
+          : removeCrew}
+        onRemoveVehicle={routeAssign
+          ? (_op, vehicleName) => {
+              const item = routeGroupResources?.vehicles.find(v => v.name === vehicleName)
+              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
+            }
+          : removeVehicle}
+        onRemoveMaterial={routeAssign
+          ? (_op, materialId) => {
+              const item = routeGroupResources?.materials.find(m => m.resourceId === materialId)
+              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
+            }
+          : removeMaterial}
+        zuFuss={!routeAssign && assignmentOperationId ? operations.find(op => op.id === assignmentOperationId)?.zuFuss ?? false : false}
+        onToggleZuFuss={!routeAssign && assignmentOperationId ? () => handleToggleZuFuss(assignmentOperationId) : undefined}
       />
 
 
@@ -2727,10 +2779,15 @@ export default function FireStationDashboard() {
           {missingResourcesAckOp && (() => {
             const op = missingResourcesAckOp
             const allFilled = getMissingResources(op).length === 0
+            // Effective coverage = the stop's own resources UNION the Auftrag's.
+            const gr = op.groupId ? getGroupResources(op.groupId) : null
+            const crewCount = op.crew.length + (gr?.personnel.length ?? 0)
+            const vehicleNames = [...op.vehicles, ...(gr?.vehicles.map(v => v.name) ?? [])]
+            const materialCount = op.materials.length + (gr?.materials.length ?? 0)
             const rows = [
-              { key: 'crew' as const, icon: Users, filled: op.crew.length > 0, summary: tMissing('personalSummary', { count: op.crew.length }) },
-              { key: 'vehicles' as const, icon: Truck, filled: op.zuFuss || op.vehicles.length > 0, summary: op.zuFuss ? tCommon('zuFuss') : op.vehicles.join(', ') },
-              { key: 'materials' as const, icon: Package, filled: op.materials.length > 0, summary: tMissing('mittelSummary', { count: op.materials.length }) },
+              { key: 'crew' as const, icon: Users, filled: crewCount > 0, summary: tMissing('personalSummary', { count: crewCount }) },
+              { key: 'vehicles' as const, icon: Truck, filled: op.zuFuss || vehicleNames.length > 0, summary: op.zuFuss ? tCommon('zuFuss') : vehicleNames.join(', ') },
+              { key: 'materials' as const, icon: Package, filled: materialCount > 0, summary: tMissing('mittelSummary', { count: materialCount }) },
             ]
             return (
               <>
@@ -2938,7 +2995,7 @@ export default function FireStationDashboard() {
 
           {materialDecisionOp && (
             <div className="max-h-64 space-y-1.5 overflow-y-auto py-1">
-              {materialDecisionOp.materials.map((materialId) => {
+              {materialDecisionItems.map(({ id: materialId }) => {
                 const choice = materialDecisions[materialId] ?? 'magazin'
                 const name = materials.find((m) => m.id === materialId)?.name ?? materialId
                 return (
@@ -2975,12 +3032,19 @@ export default function FireStationDashboard() {
             <Button
               onClick={() => {
                 const op = materialDecisionOp
+                const items = materialDecisionItems
                 setMaterialDecisionOp(null)
                 if (!op) return
                 const nameOf = (id: string) => materials.find((m) => m.id === id)?.name ?? id
-                const returned = op.materials.filter((id) => (materialDecisions[id] ?? 'magazin') === 'magazin')
-                const kept = op.materials.filter((id) => (materialDecisions[id] ?? 'magazin') === 'vorort')
-                for (const id of returned) removeMaterial(op.id, id)
+                const returnedItems = items.filter((it) => (materialDecisions[it.id] ?? 'magazin') === 'magazin')
+                const returned = returnedItems.map((it) => it.id)
+                const kept = items.filter((it) => (materialDecisions[it.id] ?? 'magazin') === 'vorort').map((it) => it.id)
+                for (const it of returnedItems) {
+                  // Grouped incident: release the route-owned material via its group
+                  // assignment; ungrouped: release the stop's own material.
+                  if (it.assignmentId && op.groupId) unassignGroupResource(op.groupId, it.assignmentId)
+                  else removeMaterial(op.id, it.id)
+                }
                 const description = [
                   returned.length ? `${tMat('toastToMagazin')}: ${returned.map(nameOf).join(', ')}` : null,
                   kept.length ? `${tMat('toastOnSite')}: ${kept.map(nameOf).join(', ')}` : null,

@@ -52,8 +52,8 @@ import {
   type ApiIncidentGroup,
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
-  type ApiCopySquadResult,
-  type GroupResourceType,
+  type ApiGroupAssignment,
+  type ApiGroupAssignmentCreate,
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
   type ApiRekoReportCreate,
@@ -500,23 +500,25 @@ class ApiClient {
     })
   }
 
-  /**
-   * Copy the source stop's active assignments to every sibling stop.
-   * `resourceTypes` filters which kinds are copied; omit it to derive the
-   * filter from the Auftrag's `mode` (`squad` = all three, `vehicle_only` =
-   * vehicle only). Returns `{ copied, skipped }`.
-   */
-  async copyGroupSquad(
-    groupId: string,
-    sourceIncidentId: string,
-    resourceTypes?: GroupResourceType[]
-  ): Promise<ApiCopySquadResult> {
-    return this.request<ApiCopySquadResult>(`/api/incident-groups/${groupId}/copy-squad`, {
+  // --- Route-owned resources (Auftrag assignments) ---------------------------
+
+  /** List the active resources owned by a route. */
+  async getGroupAssignments(groupId: string): Promise<ApiGroupAssignment[]> {
+    return this.request<ApiGroupAssignment[]>(`/api/incident-groups/${groupId}/assignments`)
+  }
+
+  /** Attach a resource to a route (409 on duplicate). */
+  async assignGroupResource(groupId: string, data: ApiGroupAssignmentCreate): Promise<ApiGroupAssignment> {
+    return this.request<ApiGroupAssignment>(`/api/incident-groups/${groupId}/assign`, {
       method: 'POST',
-      body: JSON.stringify({
-        source_incident_id: sourceIncidentId,
-        resource_types: resourceTypes ?? null,
-      }),
+      body: JSON.stringify(data),
+    })
+  }
+
+  /** Release a route-owned resource (204 No Content). */
+  async unassignGroupResource(groupId: string, assignmentId: string): Promise<void> {
+    return this.request<void>(`/api/incident-groups/${groupId}/unassign/${assignmentId}`, {
+      method: 'POST',
     })
   }
 
