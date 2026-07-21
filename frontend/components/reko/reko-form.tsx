@@ -82,6 +82,18 @@ export default function RekoForm() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [isTraining, setIsTraining] = useState(false)
+  // Local text mirror for the duration field: a controlled number input coerces
+  // "0"/"0." to falsy and clears the field mid-typing, so we keep the raw string
+  // and sync it back only when the stored number changes elsewhere (quick-fill).
+  const [durationText, setDurationText] = useState('')
+  useEffect(() => {
+    const num = formData.effort_json.estimated_duration_hours
+    const parsed = durationText.trim() === '' ? null : parseFloat(durationText)
+    if (num !== parsed && !(num === null && Number.isNaN(parsed))) {
+      setDurationText(num === null || num === undefined ? '' : String(num))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.effort_json.estimated_duration_hours])
 
   // LocalStorage key for this specific reko form
   const localStorageKey = incidentId ? `reko-form-${incidentId}` : null
@@ -494,7 +506,7 @@ export default function RekoForm() {
 
       {/* Section 1: Basic Confirmation */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
           {t('relevantQuestion')}
         </Label>
         <div className="grid grid-cols-2 gap-3">
@@ -521,7 +533,7 @@ export default function RekoForm() {
 
       {/* Section 2: Dangers Assessment */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
           {t('dangers')}
         </Label>
 
@@ -565,7 +577,7 @@ export default function RekoForm() {
 
       {/* Section 3: Effort Assessment */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
           {t('effort')}
         </Label>
 
@@ -591,15 +603,22 @@ export default function RekoForm() {
             <Label htmlFor="duration" className="text-sm mb-1.5 block">{t('duration')}</Label>
             <Input
               id="duration"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min="0"
-              step="0.5"
-              value={formData.effort_json.estimated_duration_hours || ''}
-              onChange={(e) => updateFormData('effort_json', {
-                ...formData.effort_json,
-                estimated_duration_hours: e.target.value ? parseFloat(e.target.value) : null
-              })}
+              value={durationText}
+              onChange={(e) => {
+                // Accept decimals like "0.5"; keep the raw text so a leading "0"
+                // (or a lone "0.") survives instead of being coerced away.
+                let raw = e.target.value.replace(',', '.').replace(/[^\d.]/g, '')
+                const dot = raw.indexOf('.')
+                if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, '')
+                setDurationText(raw)
+                const parsed = raw === '' || raw === '.' ? null : parseFloat(raw)
+                updateFormData('effort_json', {
+                  ...formData.effort_json,
+                  estimated_duration_hours: parsed !== null && !Number.isNaN(parsed) ? parsed : null,
+                })
+              }}
               placeholder={t('durationPlaceholder')}
               className="h-11"
             />
@@ -611,7 +630,7 @@ export default function RekoForm() {
 
       {/* Section 4: Power Supply */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
           {t('powerSupply')}
         </Label>
         <div className="grid grid-cols-2 gap-2">
@@ -633,7 +652,7 @@ export default function RekoForm() {
 
       {/* Photo Upload */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
           {t('photos')}
         </Label>
         <PhotoUpload
@@ -650,7 +669,7 @@ export default function RekoForm() {
 
       {/* Summary */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
           {t('summary')}
         </Label>
 
