@@ -452,10 +452,6 @@ class IncidentGroup(Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     color: Mapped[str | None] = mapped_column(String(20), nullable=True)  # hex/token for map+board tint
-    # 'squad' (vehicle + crew move together) or 'vehicle_only' (shuttle / Pendeldienst:
-    # only the vehicle's route is shared, crew assigned per-incident). Drives the
-    # copy-picker default + header label.
-    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="squad", server_default="squad")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Order among Aufträge in the event (mirrors Incident.position).
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
@@ -476,14 +472,16 @@ class IncidentGroup(Base):
         order_by="Incident.group_position",
         viewonly=True,
     )
-
-    __table_args__ = (
-        CheckConstraint("mode IN ('squad', 'vehicle_only')", name="valid_group_mode"),
-        Index("idx_incident_groups_event_position", "event_id", "position"),
+    # Route-level resource assignments (shared across all stops; can exist even
+    # when the Auftrag has zero stops). Cascade-deleted with the group.
+    group_assignments: Mapped[list["IncidentGroupAssignment"]] = relationship(
+        "IncidentGroupAssignment", back_populates="group", cascade="all, delete-orphan"
     )
 
+    __table_args__ = (Index("idx_incident_groups_event_position", "event_id", "position"),)
+
     def __repr__(self):
-        return f"<IncidentGroup {self.name} (mode={self.mode})>"
+        return f"<IncidentGroup {self.name}>"
 
 
 # ============================================
@@ -528,6 +526,56 @@ class IncidentAssignment(Base):
         Index("idx_assignments_unassigned", "unassigned_at"),
         # Compound index for active assignment queries: finding all active resources for an incident
         Index("idx_assignments_incident_active", "incident_id", "resource_type", "unassigned_at"),
+    )
+
+
+class IncidentGroupAssignment(Base):
+    """Junction table for Auftrag (incident group)-level resource assignments.
+
+    Resources belong to the Auftrag itself and are shared across ALL of its stops
+    — even when the Auftrag has zero stops. Mirrors ``IncidentAssignment``
+    conventions: soft release via ``unassigned_at``, polymorphic ``resource_id``
+    with no FK, active-row uniqueness scoped on ``unassigned_at``.
+    """
+
+    __tablename__ = "incident_group_assignments"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_group_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incident_groups.id", ondelete="CASCADE"), nullable=False
+    )
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    resource_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    assigned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    unassigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    driver_stay: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Driver+car stays on scene
+
+    # Relationships
+    group: Mapped["IncidentGroup"] = relationship("IncidentGroup", back_populates="group_assignments")
+
+    # Add relationship to vehicle for eager loading (mirrors IncidentAssignment.vehicle)
+    vehicle: Mapped[Optional["Vehicle"]] = relationship(
+        "Vehicle",
+        primaryjoin=(
+            "and_(IncidentGroupAssignment.resource_id == Vehicle.id, "
+            "IncidentGroupAssignment.resource_type == 'vehicle')"
+        ),
+        foreign_keys=[resource_id],
+        viewonly=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
+        UniqueConstraint(
+            "incident_group_id", "resource_type", "resource_id", "unassigned_at", name="unique_group_assignment"
+        ),
+        Index("idx_group_assignments_group", "incident_group_id"),
+        Index("idx_group_assignments_resource", "resource_type", "resource_id"),
+        Index("idx_group_assignments_resource_id", "resource_id"),
+        Index("idx_group_assignments_unassigned", "unassigned_at"),
+        # Compound index for active assignment queries: all active resources for a group
+        Index("idx_group_assignments_group_active", "incident_group_id", "resource_type", "unassigned_at"),
     )
 
 

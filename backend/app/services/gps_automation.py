@@ -42,7 +42,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings as app_settings
 from ..crud import incidents as incidents_crud
-from ..models import Event, Incident, IncidentAssignment, User, Vehicle
+from ..models import (
+    Event,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
+    User,
+    Vehicle,
+)
 from ..websocket_manager import broadcast_incident_update, broadcast_message
 from .settings import get_setting_value
 
@@ -319,6 +327,77 @@ def _suppressed_arrival_keys(
     return suppressed
 
 
+async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
+    """Expand active route-level (Auftrag) vehicle assignments into arrival targets.
+
+    A vehicle assigned to an Auftrag covers every stop of that Auftrag. Each such
+    assignment expands into one target per active, located, ``disponiert`` stop of
+    the group, so the route vehicle advances each stop it physically reaches. The
+    target dict matches the per-incident shape but is flagged ``is_group=True`` so
+    the caller feeds it into Rule A (arrival) only. Training events are included for
+    the same reason as per-incident assignments.
+    """
+    result = await db.execute(
+        select(
+            IncidentGroupAssignment.id,
+            Vehicle.id,
+            Vehicle.name,
+            IncidentGroup.id,
+        )
+        .join(IncidentGroup, IncidentGroupAssignment.incident_group_id == IncidentGroup.id)
+        .join(Vehicle, IncidentGroupAssignment.resource_id == Vehicle.id)
+        .join(Event, IncidentGroup.event_id == Event.id)
+        .where(IncidentGroupAssignment.resource_type == "vehicle")
+        .where(IncidentGroupAssignment.unassigned_at.is_(None))
+        .where(IncidentGroup.deleted_at.is_(None))
+        .where(Event.archived_at.is_(None))
+    )
+    group_rows = result.all()
+    if not group_rows:
+        return []
+
+    group_ids = {row[3] for row in group_rows}
+
+    # Active, located, disponiert stops of the involved groups (arrival-eligible).
+    stops_result = await db.execute(
+        select(
+            Incident.id,
+            Incident.group_id,
+            Incident.status,
+            Incident.location_lat,
+            Incident.location_lng,
+            Incident.location_address,
+            Incident.title,
+        )
+        .where(Incident.group_id.in_(group_ids))
+        .where(Incident.deleted_at.is_(None))
+        .where(Incident.status == "disponiert")
+        .where(Incident.location_lat.isnot(None))
+        .where(Incident.location_lng.isnot(None))
+    )
+    stops_by_group: dict[uuid.UUID, list] = {}
+    for stop in stops_result.all():
+        stops_by_group.setdefault(stop.group_id, []).append(stop)
+
+    targets: list[dict] = []
+    for ga_id, vehicle_id, vehicle_name, group_id in group_rows:
+        for stop in stops_by_group.get(group_id, []):
+            targets.append(
+                {
+                    "assignment_id": ga_id,
+                    "incident_id": stop.id,
+                    "incident_status": stop.status,
+                    "incident_lat": stop.location_lat,
+                    "incident_lng": stop.location_lng,
+                    "incident_label": stop.location_address or stop.title or "Einsatz",
+                    "vehicle_id": vehicle_id,
+                    "vehicle_name": vehicle_name,
+                    "is_group": True,
+                }
+            )
+    return targets
+
+
 async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None:
     """Entry point invoked once per Traccar poll tick.
 
@@ -366,9 +445,19 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                 "incident_label": incident.location_address or incident.title or "Einsatz",
                 "vehicle_id": vehicle.id,
                 "vehicle_name": vehicle.name,
+                # Per-incident assignment: eligible for arrival (A), return (B) and
+                # counts toward the "assigned" set for Rule C.
+                "is_group": False,
             }
             for assignment, incident, vehicle, _event in result.all()
         ]
+
+        # Route-level (Auftrag) vehicle assignments: a vehicle assigned to the
+        # Auftrag covers EVERY one of its stops. Expand each into one ARRIVAL target
+        # per active, located, disponiert stop so the route vehicle still advances
+        # each stop it physically reaches. These feed Rule A only (the release
+        # prompt / return rules stay per-incident), flagged via ``is_group``.
+        targets.extend(await _group_vehicle_targets(db))
 
         arrival_keys: set = set()
         return_keys: set = set()
@@ -415,8 +504,11 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
             # ---- Rule B: return to station -> prompt operator to release ----
             # Skip incidents the operator already closed out — the release prompt
             # would only be noise there (the bell notification still covers it).
+            # Route-level (Auftrag) targets are arrival-only: their assignment id is
+            # a group assignment, released via the Auftrag endpoint, not per-incident.
             if (
                 cfg.rule_return_enabled
+                and not t["is_group"]
                 and cfg.station_lat is not None
                 and cfg.station_lng is not None
                 and t["incident_status"] != "abschluss"

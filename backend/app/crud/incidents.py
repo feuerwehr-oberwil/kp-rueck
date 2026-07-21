@@ -384,6 +384,14 @@ async def update_incident(
                 exclude_materials=True,
             )
 
+            # Route resources belong to the Auftrag: release them only when this
+            # was the last still-open stop of the group.
+            from . import group_assignments as group_assignments_crud
+
+            await group_assignments_crud.auto_release_group_resources_if_last_stop(
+                db=db, incident=incident, current_user=current_user, request=request
+            )
+
     # Capture after state
     after_state = {
         "title": incident.title,
@@ -472,6 +480,14 @@ async def update_incident_status(
             current_user=current_user,
             request=request,
             exclude_materials=True,
+        )
+
+        # Route resources belong to the Auftrag: release them only when this was
+        # the last still-open stop of the group.
+        from . import group_assignments as group_assignments_crud
+
+        await group_assignments_crud.auto_release_group_resources_if_last_stop(
+            db=db, incident=incident, current_user=current_user, request=request
         )
 
     # Create status transition record

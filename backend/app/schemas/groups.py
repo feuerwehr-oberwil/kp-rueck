@@ -1,7 +1,6 @@
 """Auftrag (incident group) schemas — an ordered multi-stop route over incidents."""
 
 from datetime import datetime
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -22,7 +21,6 @@ class IncidentGroupBase(BaseModel):
 
     name: str
     color: str | None = None
-    mode: Literal["squad", "vehicle_only"] = "squad"
     notes: str | None = None
 
     @field_validator("name")
@@ -51,11 +49,10 @@ class IncidentGroupCreate(IncidentGroupBase):
 
 
 class IncidentGroupUpdate(BaseModel):
-    """Schema for updating an Auftrag (partial PATCH — includes the mode toggle)."""
+    """Schema for updating an Auftrag (partial PATCH)."""
 
     name: str | None = None
     color: str | None = None
-    mode: Literal["squad", "vehicle_only"] | None = None
     notes: str | None = None
 
     @field_validator("name")
@@ -79,6 +76,41 @@ class IncidentGroupUpdate(BaseModel):
         return v.strip() if v else v
 
 
+class GroupAssignmentCreate(BaseModel):
+    """Assign a resource directly to an Auftrag (shared across all its stops).
+
+    Mirrors ``AssignmentCreate``. A resource can be assigned to an Auftrag even
+    when it has zero stops.
+    """
+
+    resource_type: str  # 'personnel', 'vehicle', 'material'
+    resource_id: UUID
+
+    @field_validator("resource_type")
+    @classmethod
+    def validate_resource_type(cls, v: str) -> str:
+        """Validate resource type is one of the allowed values."""
+        valid_types = {"personnel", "vehicle", "material"}
+        if v not in valid_types:
+            raise ValueError(f"resource_type must be one of: {', '.join(sorted(valid_types))}")
+        return v
+
+
+class GroupAssignmentResponse(BaseModel):
+    """Auftrag-level assignment response (mirrors ``AssignmentResponse``)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    incident_group_id: UUID
+    resource_type: str
+    resource_id: UUID
+    assigned_at: datetime
+    unassigned_at: datetime | None = None
+    assigned_by: UUID | None = None
+    driver_stay: bool = False
+
+
 class IncidentGroupResponse(IncidentGroupBase):
     """Full Auftrag schema with database fields plus derived read fields."""
 
@@ -93,6 +125,8 @@ class IncidentGroupResponse(IncidentGroupBase):
     # Derived read fields (member incident ids in group_position order + roll-up)
     stop_ids: list[UUID] = []
     progress: GroupProgress = Field(default_factory=GroupProgress)
+    # Route-level resource assignments (active only), shared across all stops.
+    assignments: list[GroupAssignmentResponse] = []
 
 
 class IncidentGroupReorder(BaseModel):
@@ -112,15 +146,3 @@ class AddStopsRequest(BaseModel):
     """Attach existing incidents to an Auftrag as stops (appended to the end)."""
 
     incident_ids: list[UUID]
-
-
-class CopySquadRequest(BaseModel):
-    """Copy the source stop's active assignments to all sibling stops.
-
-    ``resource_types`` filters which assignment kinds are copied. ``None`` derives
-    the filter from the group's ``mode`` (``squad`` = all three; ``vehicle_only``
-    = ``["vehicle"]``).
-    """
-
-    source_incident_id: UUID
-    resource_types: list[Literal["vehicle", "personnel", "material"]] | None = None
