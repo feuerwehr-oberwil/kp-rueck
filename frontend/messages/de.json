@@ -619,7 +619,13 @@
       "dragStop": "Stop verschieben",
       "openDetail": "Details öffnen",
       "markDone": "Als erledigt markieren",
-      "removeStop": "Stop entfernen"
+      "removeStop": "Stop entfernen",
+      "changeColor": "Farbe ändern",
+      "optimizeOrder": "Optimieren",
+      "optimized": "Reihenfolge optimiert.",
+      "optimizeUnchanged": "Reihenfolge bereits optimal.",
+      "undo": "Rückgängig",
+      "markActive": "Als läuft markieren"
     },
     "routenEditorModal": {
       "title": "Routen-Editor",
@@ -645,7 +651,11 @@
       "mapLoading": "Karte wird geladen …",
       "dragStop": "Stop verschieben",
       "noCoords": "Dieser Stop hat keine Koordinaten und liegt nicht auf der Route.",
-      "noCoordsBadge": "kein Ort"
+      "noCoordsBadge": "kein Ort",
+      "optimized": "Reihenfolge optimiert.",
+      "undo": "Rückgängig",
+      "markDone": "Als erledigt markieren",
+      "markActive": "Als läuft markieren"
     },
     "incidentPicker": {
       "title": "Einsätze als Stops hinzufügen",
@@ -1005,7 +1015,9 @@
       "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
       "applied": "Reihenfolge übernommen.",
       "stopAdded": "Stop zur Route hinzugefügt.",
-      "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route."
+      "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
+      "optimized": "Reihenfolge optimiert.",
+      "undo": "Rückgängig"
     },
     "view": {
       "markerAria": "Einsatz: {label}",

@@ -136,7 +136,8 @@ function DraggableOperationBase({
   // the page via a window event (mirrors the driver-assignment-changed pattern),
   // avoiding prop threading through the column/side-panel render trees.
   const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  const auftragSeq = auftrag ? auftrag.stopIds.indexOf(operation.id) + 1 : 0
+  const auftragTotal = auftrag ? auftrag.stopIds.length : 0
+  const auftragDone = auftrag ? auftrag.progress.done : 0
   // Grouped incidents carry no resources themselves — the route owns them. Read
   // the route's resource roll-up for the card chip summary.
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
@@ -619,33 +620,41 @@ function DraggableOperationBase({
             </div>
           )}
 
-          {/* Auftrag (route) membership chip — sits below the personnel/vehicles
-              section. Resources now live on the Auftrag, so the chip carries the
-              route name, stop sequence, and the route's resource roll-up. */}
+          {/* Auftrag (route) membership — rendered as a labelled resource-style row
+              (matching the crew/vehicle/material rows above) rather than a floating
+              pill. Resources live on the route, so the row carries the route name,
+              its done/total progress, and the route's resource roll-up. The whole
+              row opens the Aufträge sheet. */}
           {auftrag && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
-              }}
-              className="flex w-full items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
-              title={t('card.auftragChipTooltip', { name: auftrag.name })}
-            >
-              <Waypoints className="h-3 w-3 flex-shrink-0" />
-              <span
-                className="h-2 w-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
-              />
-              <span className="truncate font-medium text-foreground/80">{auftrag.name}</span>
-              <span className="tabular-nums flex-shrink-0">{auftragSeq}/{auftrag.stopIds.length}</span>
-              {auftragSummary && (
-                <>
-                  <span className="text-muted-foreground/50">·</span>
-                  <span className="truncate">{auftragSummary}</span>
-                </>
-              )}
-            </button>
+            <div className="border-t pt-3 text-xs">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
+                }}
+                className="group/auftrag flex w-full items-start gap-1.5 text-left transition-colors"
+                title={t('card.auftragChipTooltip', { name: auftrag.name })}
+              >
+                <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  <span
+                    className="h-2 w-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
+                  />
+                  <span className="font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
+                    {auftrag.name}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground flex-shrink-0">{auftragDone}/{auftragTotal}</span>
+                  {auftragSummary && (
+                    <>
+                      <span className="text-muted-foreground/40">·</span>
+                      <span className="truncate text-muted-foreground">{auftragSummary}</span>
+                    </>
+                  )}
+                </div>
+              </button>
+            </div>
           )}
 
           {/* Reko Summary */}

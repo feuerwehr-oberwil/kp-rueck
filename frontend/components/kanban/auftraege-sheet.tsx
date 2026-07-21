@@ -29,8 +29,11 @@ import {
   Truck,
   Users,
   Package,
+  Palette,
+  Wand2,
   X,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,6 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +60,7 @@ import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import type { GroupResources } from "@/lib/types/groups"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
@@ -294,6 +299,7 @@ export function AuftraegeSheet({
                   setRenamingId(null)
                 }}
                 onCancelRename={() => setRenamingId(null)}
+                onChangeColor={(color) => updateGroup(group.id, { color })}
                 onRequestDelete={() => setDeleteId(group.id)}
                 onAddStop={() => onAddStop(group.id)}
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
@@ -301,7 +307,9 @@ export function AuftraegeSheet({
                 onUnassignResource={(assignmentId) => unassignResource(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
-                onMarkDone={(incidentId) => updateOperation(incidentId, { status: "complete" })}
+                onToggleStopDone={(incidentId, nextDone) =>
+                  updateOperation(incidentId, { status: nextDone ? "returning" : "active" })
+                }
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
               />
             ))}
@@ -344,6 +352,7 @@ interface AuftragCardProps {
   onStartRename: () => void
   onCommitRename: () => void
   onCancelRename: () => void
+  onChangeColor: (color: string) => void
   onRequestDelete: () => void
   onAddStop: () => void
   onOpenRoutenEditor: (focusIncidentId?: string) => void
@@ -351,7 +360,7 @@ interface AuftragCardProps {
   onUnassignResource: (assignmentId: string) => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
-  onMarkDone: (incidentId: string) => void
+  onToggleStopDone: (incidentId: string, nextDone: boolean) => void
   registerRowRef: (el: HTMLDivElement | null) => void
 }
 
@@ -367,6 +376,7 @@ function AuftragCard({
   onStartRename,
   onCommitRename,
   onCancelRename,
+  onChangeColor,
   onRequestDelete,
   onAddStop,
   onOpenRoutenEditor,
@@ -374,12 +384,32 @@ function AuftragCard({
   onUnassignResource,
   onOpenDetail,
   onRemoveStop,
-  onMarkDone,
+  onToggleStopDone,
   registerRowRef,
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
   const headerRef = useRef<HTMLDivElement>(null)
   const [isDropOver, setIsDropOver] = useState(false)
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
+
+  // Shared routing hook — powers the in-row "Reihenfolge optimieren" action so the
+  // sheet can optimize without opening the Routen-Editor modal (applies at once).
+  const planning = useRoutePlanning(group.id)
+
+  const runOptimize = async () => {
+    const previous = group.stopIds
+    const proposed = planning.optimize("magazin")
+    if (proposed.length === 0) return
+    const unchanged = proposed.every((id, i) => id === previous[i])
+    if (unchanged) {
+      toast.info(t("optimizeUnchanged"))
+      return
+    }
+    await planning.reorder(proposed)
+    toast.success(t("optimized"), {
+      action: { label: t("undo"), onClick: () => void planning.reorder(previous) },
+    })
+  }
 
   const opById = useMemo(() => new Map(operations.map((o) => [o.id, o] as const)), [operations])
 
@@ -436,10 +466,26 @@ function AuftragCard({
         <span className="flex-shrink-0 text-muted-foreground" aria-hidden>
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </span>
-        <span
-          className="h-3 w-3 rounded-full flex-shrink-0 border border-black/10"
-          style={{ backgroundColor: group.color ?? "var(--muted-foreground)" }}
-        />
+        {/* Colour swatch — click to recolour the route (same palette as create). */}
+        <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={t("changeColor")}
+              title={t("changeColor")}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3.5 w-3.5 flex-shrink-0 rounded-full border border-black/10 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              style={{ backgroundColor: group.color ?? "var(--muted-foreground)" }}
+            />
+          </PopoverTrigger>
+          <ColorPickerContent
+            selected={group.color}
+            onPick={(c) => {
+              onChangeColor(c)
+              setColorPickerOpen(false)
+            }}
+          />
+        </Popover>
         <div className="min-w-0 flex-1">
           {isRenaming ? (
             <Input
@@ -472,6 +518,15 @@ function AuftragCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onStartRename}>{t("rename")}</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  // Defer so the closing dropdown doesn't steal focus from the popover.
+                  window.setTimeout(() => setColorPickerOpen(true), 0)
+                }}
+              >
+                <Palette className="mr-2 h-4 w-4" />
+                {t("changeColor")}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t("delete")}
@@ -493,7 +548,7 @@ function AuftragCard({
               index={index}
               op={opById.get(incidentId)}
               onRemove={() => onRemoveStop(incidentId)}
-              onMarkDone={() => onMarkDone(incidentId)}
+              onToggleDone={(nextDone) => onToggleStopDone(incidentId, nextDone)}
               onOpenDetail={() => onOpenDetail(incidentId)}
               onOpenMap={onOpenRoutenEditor}
             />
@@ -509,6 +564,16 @@ function AuftragCard({
               <MapIcon className="h-3.5 w-3.5" />
               {t("routenEditor")}
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() => void runOptimize()}
+              disabled={total < 2}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              {t("optimizeOrder")}
+            </Button>
           </div>
 
           {/* Ressourcen — route-owned resources. Lists ALL assigned vehicles,
@@ -520,16 +585,39 @@ function AuftragCard({
             {resourceCount === 0 ? (
               <p className="text-xs text-muted-foreground">{t("noResourcesYet")}</p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {resources.vehicles.map((v) => (
-                  <ResourceChip key={v.assignmentId} icon={Truck} label={v.name} onRemove={() => onUnassignResource(v.assignmentId)} removeTitle={t("removeResource", { name: v.name })} />
-                ))}
-                {resources.personnel.map((p) => (
-                  <ResourceChip key={p.assignmentId} icon={Users} label={p.name} onRemove={() => onUnassignResource(p.assignmentId)} removeTitle={t("removeResource", { name: p.name })} />
-                ))}
-                {resources.materials.map((m) => (
-                  <ResourceChip key={m.assignmentId} icon={Package} label={m.name} onRemove={() => onUnassignResource(m.assignmentId)} removeTitle={t("removeResource", { name: m.name })} />
-                ))}
+              // Per-type rows mirroring a board card's resource layout: one icon per
+              // kind (Fahrzeuge / Personen / Material) with the chips wrapped beside it.
+              <div className="space-y-1.5">
+                {resources.vehicles.length > 0 && (
+                  <div className="flex items-start gap-1.5">
+                    <Truck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    <div className="flex min-w-0 flex-wrap gap-1">
+                      {resources.vehicles.map((v) => (
+                        <ResourceChip key={v.assignmentId} label={v.name} onRemove={() => onUnassignResource(v.assignmentId)} removeTitle={t("removeResource", { name: v.name })} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {resources.personnel.length > 0 && (
+                  <div className="flex items-start gap-1.5">
+                    <Users className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    <div className="flex min-w-0 flex-wrap gap-1">
+                      {resources.personnel.map((p) => (
+                        <ResourceChip key={p.assignmentId} label={p.name} onRemove={() => onUnassignResource(p.assignmentId)} removeTitle={t("removeResource", { name: p.name })} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {resources.materials.length > 0 && (
+                  <div className="flex items-start gap-1.5">
+                    <Package className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    <div className="flex min-w-0 flex-wrap gap-1">
+                      {resources.materials.map((m) => (
+                        <ResourceChip key={m.assignmentId} label={m.name} onRemove={() => onUnassignResource(m.assignmentId)} removeTitle={t("removeResource", { name: m.name })} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -554,8 +642,37 @@ function AuftragCard({
   )
 }
 
+// Shared 6-swatch colour picker body (used by the header swatch + ⋮ menu). Kept
+// as its own component so both entry points open the exact same palette.
+function ColorPickerContent({ selected, onPick }: { selected: string | null; onPick: (color: string) => void }) {
+  return (
+    <PopoverContent
+      align="start"
+      className="w-auto p-2"
+      onClick={(e) => e.stopPropagation()}
+      onOpenAutoFocus={(e) => e.preventDefault()}
+    >
+      <div className="flex items-center gap-1.5">
+        {SWATCHES.map((c) => (
+          <button
+            key={c}
+            type="button"
+            aria-label={c}
+            onClick={() => onPick(c)}
+            className={cn(
+              "h-6 w-6 rounded-full border transition-transform hover:scale-110",
+              selected === c ? "ring-2 ring-offset-1 ring-offset-background ring-foreground/40 scale-110" : "",
+            )}
+            style={{ backgroundColor: c }}
+          />
+        ))}
+      </div>
+    </PopoverContent>
+  )
+}
+
 interface ResourceChipProps {
-  icon: typeof Truck
+  icon?: typeof Truck
   label: string
   onRemove: () => void
   removeTitle: string
@@ -564,7 +681,7 @@ interface ResourceChipProps {
 function ResourceChip({ icon: Icon, label, onRemove, removeTitle }: ResourceChipProps) {
   return (
     <Badge variant="secondary" className="group flex items-center gap-1 px-1.5 py-0.5 text-xs font-normal">
-      <Icon className="h-3 w-3 text-muted-foreground" />
+      {Icon && <Icon className="h-3 w-3 text-muted-foreground" />}
       <span className="truncate max-w-[140px]">{label}</span>
       <button
         type="button"
@@ -584,12 +701,13 @@ interface StopRowProps {
   index: number
   op: Operation | undefined
   onRemove: () => void
-  onMarkDone: () => void
+  /** Tick (true) → mark stop erledigt; untick (false) → back to läuft. */
+  onToggleDone: (nextDone: boolean) => void
   onOpenDetail: () => void
   onOpenMap: (focusIncidentId?: string) => void
 }
 
-function StopRow({ groupId, incidentId, index, op, onRemove, onMarkDone, onOpenDetail, onOpenMap }: StopRowProps) {
+function StopRow({ groupId, incidentId, index, op, onRemove, onToggleDone, onOpenDetail, onOpenMap }: StopRowProps) {
   const t = useTranslations("kanban.auftraege")
   const ref = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLButtonElement>(null)
@@ -634,7 +752,8 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onMarkDone, onOpenD
     )
   }, [groupId, incidentId, index])
 
-  const StateIcon = state === "erledigt" ? Check : state === "laeuft" ? CircleDot : CircleDashed
+  const done = state === "erledigt"
+  const StateIcon = done ? Check : state === "laeuft" ? CircleDot : CircleDashed
   const stateClass =
     state === "erledigt" ? "text-emerald-600 dark:text-emerald-400" : state === "laeuft" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/60"
   const stateLabel = state === "erledigt" ? t("stateDone") : state === "laeuft" ? t("stateActive") : t("stateOpen")
@@ -653,7 +772,17 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onMarkDone, onOpenD
           <GripVertical className="h-3.5 w-3.5" />
         </button>
         <span className="tabular-nums text-xs text-muted-foreground w-4 flex-shrink-0">{index + 1}.</span>
-        <StateIcon className={cn("h-4 w-4 flex-shrink-0", stateClass)} />
+        {/* Status toggle — tick to complete, click again to reopen (läuft). */}
+        <button
+          type="button"
+          onClick={() => onToggleDone(!done)}
+          className="flex-shrink-0 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-pressed={done}
+          title={done ? t("markActive") : t("markDone")}
+          aria-label={done ? t("markActive") : t("markDone")}
+        >
+          <StateIcon className={cn("h-4 w-4", stateClass)} />
+        </button>
         <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>
         <span className={cn("text-xs flex-shrink-0 hidden sm:inline", stateClass)}>{stateLabel}</span>
         {/* [Karte] — opens the Routen-Editor centred on this stop. */}
@@ -673,7 +802,9 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onMarkDone, onOpenD
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpenDetail}>{t("openDetail")}</DropdownMenuItem>
-            {state !== "erledigt" && <DropdownMenuItem onClick={onMarkDone}>{t("markDone")}</DropdownMenuItem>}
+            <DropdownMenuItem onClick={() => onToggleDone(!done)}>
+              {done ? t("markActive") : t("markDone")}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
               {t("removeStop")}
             </DropdownMenuItem>

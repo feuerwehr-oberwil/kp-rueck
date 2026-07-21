@@ -28,6 +28,11 @@ import { haversineKm, isLocated } from "@/lib/utils/route-geo"
 
 export type RouteStartMode = "magazin" | "vehicle" | "first"
 
+// Basel-Landschaft fallback base — mirrors map-view.tsx's default firestation
+// coordinates. Used so the "Magazin" start anchor is normally resolvable even
+// when no gps.station_* / firestation_* settings are configured yet.
+const DEFAULT_STATION: [number, number] = [47.51637699933488, 7.561800450458299]
+
 export interface OrderedStop {
   id: string
   op: Operation | undefined
@@ -85,8 +90,12 @@ export function useRoutePlanning(groupId: string | null | undefined) {
         const lat = parseFloat(settings["gps.station_lat"] ?? settings.firestation_latitude ?? "")
         const lng = parseFloat(settings["gps.station_lng"] ?? settings.firestation_longitude ?? "")
         if (Number.isFinite(lat) && Number.isFinite(lng)) setMagazinCoords([lat, lng])
+        // Fall back to the same default base map-view uses so "Magazin" stays a
+        // usable start anchor even before any station coords are configured.
+        else setMagazinCoords(DEFAULT_STATION)
       } catch {
-        // Non-fatal: the "Magazin" start option is simply unavailable.
+        // Non-fatal: keep the default base so "Magazin" remains selectable.
+        setMagazinCoords(DEFAULT_STATION)
       }
       try {
         const positions = await apiClient.getVehiclePositions()

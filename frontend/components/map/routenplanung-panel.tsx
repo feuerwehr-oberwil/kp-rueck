@@ -9,11 +9,11 @@
  * map clicks / marker clicks here through page state).
  *
  * The page owns `groupId`, `addMode` and `focusStopId` so it can wire the map's
- * click-to-add and marker highlight; this panel owns the transient optimize
- * preview + inline-create UI.
+ * click-to-add and marker highlight; this panel owns the inline-create UI and the
+ * optimize action (which persists immediately, with an undo toast).
  */
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Plus, Route as RouteIcon, MousePointerClick, Wand2, X, Loader2, MapPinned, MousePointer2 } from "lucide-react"
@@ -29,10 +29,15 @@ import {
 import { cn } from "@/lib/utils"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { RouteStartMode, useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import { useOperations } from "@/lib/contexts/operations-context"
 import { RouteStopList } from "./route-stop-list"
 
 // Same six-swatch palette as the Aufträge sheet so routes read apart at a glance.
 const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"] as const
+
+// Optimize now persists immediately, so the shared list never shows a pending
+// "changed" preview state.
+const EMPTY_CHANGED: Set<string> = new Set()
 
 interface RoutenplanungPanelProps {
   groups: IncidentGroup[]
@@ -64,24 +69,15 @@ export function RoutenplanungPanel({
 }: RoutenplanungPanelProps) {
   const t = useTranslations("map.planning")
   const { group, operationsById, isAddingStop, reorder, optimize, magazinCoords, vehicleStart } = planning
+  const { updateOperation } = useOperations()
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
   const [newColor, setNewColor] = useState<string>(SWATCHES[0])
   const [startMode, setStartMode] = useState<RouteStartMode>("magazin")
-  const [preview, setPreview] = useState<string[] | null>(null)
 
   const stopIds = group?.stopIds ?? []
-  const displayOrder = preview ?? stopIds
-
-  const changedPositions = useMemo(() => {
-    if (!preview) return new Set<string>()
-    const changed = new Set<string>()
-    preview.forEach((id, i) => {
-      if (stopIds[i] !== id) changed.add(id)
-    })
-    return changed
-  }, [preview, stopIds])
+  const displayOrder = stopIds
 
   const startOptions: { value: RouteStartMode; label: string; disabled?: boolean }[] = [
     { value: "magazin", label: t("startMagazin"), disabled: !magazinCoords },
@@ -102,23 +98,20 @@ export function RoutenplanungPanel({
     await onCreateGroup(name, newColor)
   }
 
-  const runOptimize = () => {
+  // Optimize applies immediately (no preview / Übernehmen step) with an undo toast.
+  const runOptimize = async () => {
+    const previous = stopIds
     const proposed = optimize(startMode)
     if (proposed.length === 0) return
-    const unchanged = proposed.every((id, i) => id === stopIds[i])
+    const unchanged = proposed.every((id, i) => id === previous[i])
     if (unchanged) {
       toast.info(t("previewUnchanged"))
-      setPreview(null)
       return
     }
-    setPreview(proposed)
-  }
-
-  const applyPreview = async () => {
-    if (!preview) return
-    await reorder(preview)
-    setPreview(null)
-    toast.success(t("applied"))
+    await reorder(proposed)
+    toast.success(t("optimized"), {
+      action: { label: t("undo"), onClick: () => void reorder(previous) },
+    })
   }
 
   return (
@@ -242,58 +235,43 @@ export function RoutenplanungPanel({
                 stopIds={stopIds}
                 displayOrder={displayOrder}
                 operationsById={operationsById}
-                changedPositions={changedPositions}
-                reorderDisabled={preview !== null}
+                changedPositions={EMPTY_CHANGED}
+                reorderDisabled={false}
                 onReorder={(ids) => void reorder(ids)}
                 focusStopId={focusStopId}
                 onSelectStop={onFocusStopChange}
+                onToggleStopDone={(incidentId, nextDone) =>
+                  updateOperation(incidentId, { status: nextDone ? "returning" : "active" })
+                }
               />
             )}
           </div>
 
-          {/* Optimize controls */}
+          {/* Optimize controls — applies immediately (no preview step). */}
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
-            {preview ? (
-              <>
-                <span className="text-xs text-muted-foreground">
-                  {t("previewNotice", { count: changedPositions.size })}
-                </span>
-                <div className="ml-auto flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setPreview(null)}>
-                    {t("discardPreview")}
-                  </Button>
-                  <Button size="sm" onClick={applyPreview}>
-                    {t("applyPreview")}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <span className="text-xs text-muted-foreground">{t("startFrom")}</span>
-                <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
-                  <SelectTrigger className="h-8 w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {startOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5"
-                  onClick={runOptimize}
-                  disabled={displayOrder.length < 2}
-                >
-                  <Wand2 className="h-3.5 w-3.5" />
-                  {t("optimize")}
-                </Button>
-              </>
-            )}
+            <span className="text-xs text-muted-foreground">{t("startFrom")}</span>
+            <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
+              <SelectTrigger className="h-8 w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {startOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => void runOptimize()}
+              disabled={displayOrder.length < 2}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              {t("optimize")}
+            </Button>
           </div>
         </>
       )}

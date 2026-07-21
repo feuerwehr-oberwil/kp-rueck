@@ -59,6 +59,32 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
   return null
 }
 
+// A map mounted inside a Radix Dialog measures 0×0 until the open transition
+// settles, so Leaflet lays out blank/narrow. Force a re-measure on mount and on
+// container resize (this is what made the "+ Stop" Karte view render blank).
+function InvalidateSize() {
+  if (typeof window === "undefined") return null
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useMap } = require("react-leaflet")
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const map = useMap()
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const fix = () => map.invalidateSize()
+    const t1 = window.setTimeout(fix, 60)
+    const t2 = window.setTimeout(fix, 250)
+    const container: HTMLElement = map.getContainer()
+    const ro = new ResizeObserver(fix)
+    ro.observe(container)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      ro.disconnect()
+    }
+  }, [map])
+  return null
+}
+
 interface IncidentPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -89,7 +115,8 @@ export function IncidentPickerDialog({
   const t = useTranslations("kanban.incidentPicker")
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [view, setView] = useState<"list" | "map">("list")
+  // Karte is the default view — located incidents are easier to pick spatially.
+  const [view, setView] = useState<"list" | "map">("map")
   const [isClient, setIsClient] = useState(false)
   const [mapKey, setMapKey] = useState(0)
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
@@ -139,7 +166,7 @@ export function IncidentPickerDialog({
     if (!next) {
       setQuery("")
       setSelected(new Set())
-      setView("list")
+      setView("map")
     }
     onOpenChange(next)
   }
@@ -194,6 +221,7 @@ export function IncidentPickerDialog({
     return (
       <MapContainer key={mapKey} center={mapCenter} zoom={13} className="h-full w-full" zoomControl>
         <TileLayer attribution={getAttribution()} url={getTileUrl()} eventHandlers={{ tileerror: handleTileError }} />
+        <InvalidateSize />
         <FitBounds positions={allMapPositions} />
         {/* Context: the route's current stops (not selectable here). */}
         {routeMembers.map((op) => (

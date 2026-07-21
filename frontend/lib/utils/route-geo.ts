@@ -16,6 +16,7 @@ export const UNLOCATED_SENTINEL: readonly [number, number] = [47.51637699933488,
 
 export function isLocated(op: Operation | undefined): op is Operation {
   if (!op) return false
+  if (!Array.isArray(op.coordinates)) return false
   const [lat, lng] = op.coordinates
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
   return !(lat === UNLOCATED_SENTINEL[0] && lng === UNLOCATED_SENTINEL[1])
