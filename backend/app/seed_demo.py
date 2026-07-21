@@ -84,8 +84,11 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Bianchi Luca", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
         {"name": "Portmann Jonas", "role": "Mannschaft", "availability": "available", "tags": []},
     ]
+    # Rank order so the roster sorts Offizier → Wachtmeister → Korporal → Mannschaft
+    # instead of alphabetically by role.
+    role_order = {"Offizier": 1, "Wachtmeister": 2, "Korporal": 3, "Mannschaft": 4}
     for p in personnel_data:
-        db.add(models.Personnel(id=uuid4(), **p))
+        db.add(models.Personnel(id=uuid4(), role_sort_order=role_order.get(p["role"], 99), **p))
 
     # Storage locations: the three vehicles (TLF / Pio / MoWa) plus a single
     # "Magazin" depot. (Earlier demo data had separate "Modul"/"Bühne"
@@ -489,7 +492,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         # Sturmschaden Dach (disponiert) — crew + Pio + Motorsäge
         assign("Sturmschaden Dach", "vehicle", vehicle["Pio"]),
         assign("Sturmschaden Dach", "personnel", person["Baumann Michael"]),
-        assign("Sturmschaden Dach", "personnel", person["Graf Sven"]),
+        assign("Sturmschaden Dach", "personnel", person["Moser Lea"]),
         assign("Sturmschaden Dach", "material", material[("Motorsäge Gr.", "Pio")]),
         # Kleinbrand Container (winding down) — crew only, vehicle already released
         assign("Kleinbrand Container", "personnel", person["Widmer Anna"]),
@@ -518,6 +521,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         (person["Brunner Sarah"], "reko", None),
         (person["Frei Marc"], "reko", None),
         (person["Suter Beat"], "reko", None),
+        (person["Gerber Elias"], "reko", None),
     ]
     special_functions = [
         models.EventSpecialFunction(
@@ -550,14 +554,14 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "Kellerbrand gelöscht, Nachkontrolle und Belüftung nötig.",
         ),
         (
-            "Tierrettung Katze", "Keller Marco", False,
+            "Tierrettung Katze", "Schmidt Daniel", False,
             {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
             "available",
             {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
             "Katze auf Baum, Rettung mit Leiter möglich.",
         ),
         (
-            "Ausgelaufenes Heizöl", "Brunner Sarah", True,
+            "Ausgelaufenes Heizöl", "Gerber Elias", True,
             {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": True, "electrical": False, "other_notes": None},
             "available",
             {"personnel_count": 4, "vehicles_needed": ["Pio"], "equipment_needed": ["Ölbindemittel", "Ölsperre"], "estimated_duration_hours": 1.5},
@@ -631,10 +635,11 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
                 is_draft=False,
             )
         )
-        # Keep the reko author ACTIVELY assigned so the incident still shows who
-        # did the reko (the board's assignedReko needs an active assignment of a
-        # person with the 'reko' role). Done/total dashboard counts derive from
-        # the completed report existing, so they are unaffected.
+        # Reko author assignment: ACTIVE only for reko_done incidents (so the board
+        # shows who did the reko via assignedReko), HISTORICAL for later stages so
+        # nobody is shown as actively assigned to two emergencies at once. Done/total
+        # dashboard counts derive from the completed report + the assignment row.
+        status = incidents[title].status
         db.add(
             models.IncidentAssignment(
                 id=uuid4(),
@@ -642,6 +647,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
                 resource_type="personnel",
                 resource_id=author_p.id,
                 assigned_by=editor_id,
+                unassigned_at=None if status == "reko_done" else now,
             )
         )
 
