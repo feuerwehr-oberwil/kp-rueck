@@ -364,6 +364,11 @@
       "displaySheetTitle": "Display teilen",
       "displaySheetDescription": "QR-Code scannen oder Link teilen für die Display-Übersicht (Nur-Lesen)",
       "displaySheetHint": "Jeder mit diesem Link sieht die aktuelle Einsatzübersicht auf einem Display. Funktioniert ohne Anmeldung, nur Lesen.",
+      "displayView": {
+        "board": "Board",
+        "map": "Karte",
+        "status": "Status"
+      },
       "alarmSheetTitle": "Alarm-Link",
       "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z. B. Telefon / Walk-in)",
       "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung."

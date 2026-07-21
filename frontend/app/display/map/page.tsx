@@ -6,7 +6,9 @@ import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { apiClient, type ApiIncident } from "@/lib/api-client"
+import { apiClient, type ApiIncident, type ApiViewerData } from "@/lib/api-client"
+import type { Incident } from "@/lib/types/incidents"
+import type { AssignedVehicle } from "@/lib/types/incidents"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { Loader2, Palette, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -210,6 +212,34 @@ function AuthenticatedDisplayMap({
   )
 }
 
+/** Map the token payload's API incident onto the domain Incident MapView wants. */
+function apiIncidentToIncident(a: ApiIncident): Incident {
+  return {
+    id: a.id,
+    event_id: a.event_id,
+    title: a.title,
+    type: a.type,
+    priority: a.priority,
+    location_address: a.location_address,
+    location_lat: a.location_lat != null ? parseFloat(a.location_lat) : null,
+    location_lng: a.location_lng != null ? parseFloat(a.location_lng) : null,
+    status: a.status,
+    description: a.description,
+    source: a.source,
+    nachbarhilfe: a.nachbarhilfe ?? false,
+    am_warten: a.am_warten ?? false,
+    zu_fuss: a.zu_fuss ?? false,
+    created_at: new Date(a.created_at),
+    updated_at: new Date(a.updated_at),
+    created_by: a.created_by ?? null,
+    completed_at: a.completed_at ? new Date(a.completed_at) : null,
+    status_changed_at: a.status_changed_at ? new Date(a.status_changed_at) : null,
+    assigned_vehicles: (a.assigned_vehicles ?? []) as unknown as AssignedVehicle[],
+    has_completed_reko: a.has_completed_reko,
+    reko_arrived_at: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
+  }
+}
+
 function TokenDisplayMap({
   token,
   selectedIncidentId,
@@ -221,12 +251,51 @@ function TokenDisplayMap({
   onMarkerClick: (id: string) => void
   panTrigger: number
 }) {
-  // Token mode doesn't have contexts, so MapView won't have data.
-  // Show a message pointing to editor auth for full functionality.
-  const t = useTranslations('display')
+  const [data, setData] = useState<ApiViewerData | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const d = await apiClient.getViewerData(token)
+        if (!cancelled) setData(d)
+      } catch {
+        // keep last-known data on transient failures
+      }
+    }
+    load()
+    const id = window.setInterval(load, 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [token])
+
+  const incidents = useMemo<Incident[]>(
+    () => (data?.incidents ?? []).map(apiIncidentToIncident),
+    [data]
+  )
+
+  if (!data) {
+    return (
+      <div className="flex h-full items-center justify-center bg-muted">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-full items-center justify-center text-muted-foreground">
-      <p>{t('map.tokenModeUnsupported')}</p>
+    <div className="relative w-full h-full">
+      <MapView
+        selectedIncidentId={selectedIncidentId}
+        onMarkerClick={onMarkerClick}
+        panTrigger={panTrigger}
+        showAssignmentLines={true}
+        statusFilters={{ open: true, active: true, completed: false }}
+        incidentsOverride={incidents}
+        vehiclesOverride={data.vehicles}
+        positionsOverride={data.vehicle_positions}
+      />
     </div>
   )
 }
