@@ -206,6 +206,7 @@ export function IncidentsKanban() {
           open={transferDialogOpen}
           onOpenChange={setTransferDialogOpen}
           sourceIncident={transferSourceIncident}
+          sourceName={transferSourceIncident.title}
           availableIncidents={incidents}
           onTransfer={handleTransfer}
           isTransferring={isTransferring}

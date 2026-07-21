@@ -53,6 +53,9 @@ export interface NotificationSettings {
   enabled_resource_alerts: boolean
   enabled_data_quality_alerts: boolean
   enabled_event_alerts: boolean
+
+  // How long non-critical toasts stay on screen (seconds)
+  toast_duration_seconds: number
 }
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -89,4 +92,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   enabled_resource_alerts: true,
   enabled_data_quality_alerts: true,
   enabled_event_alerts: true,
+
+  // Toast display
+  toast_duration_seconds: 8,
 }

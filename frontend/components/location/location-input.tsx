@@ -247,7 +247,18 @@ export function LocationInput({
           <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
         </div>
         <div className="flex items-start gap-2 mt-2">
-          <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
+          <Popover
+            open={addressSearchOpen}
+            onOpenChange={(open) => {
+              // Pre-fill the search input with the current address when opening,
+              // so the user can edit it (e.g. change a house number) instead of
+              // starting from an empty field.
+              if (open) {
+                setAddressSearchQuery(address ?? "")
+              }
+              setAddressSearchOpen(open)
+            }}
+          >
             <PopoverTrigger asChild>
               <Button
                 ref={triggerButtonRef}
@@ -268,13 +279,14 @@ export function LocationInput({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[500px] p-0" align="start">
-              <div className="flex flex-col max-h-[300px]">
+              <div className="flex flex-col">
                 <div className="p-2 border-b">
                   <Input
                     ref={searchInputRef}
                     placeholder={t('locationInput.searchPlaceholder')}
                     value={addressSearchQuery}
                     onChange={(e) => setAddressSearchQuery(e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => {
                       // Close popover on Tab and let natural tab order take over
                       if (e.key === 'Tab') {
@@ -285,7 +297,7 @@ export function LocationInput({
                     className="h-9"
                   />
                 </div>
-                <div className="overflow-y-auto">
+                <div className="overflow-y-auto overscroll-contain max-h-[260px]">
                   {isSearching && (
                     <div className="p-4 text-sm text-muted-foreground text-center">
                       {t('locationInput.searching')}

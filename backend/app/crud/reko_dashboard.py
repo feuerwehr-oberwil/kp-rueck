@@ -53,21 +53,31 @@ async def get_reko_personnel_for_event(
     )
     incident_ids = [row[0] for row in incidents_result.all()]
 
-    # Get active assignments for reko personnel in these incidents, then split
-    # each person's assignments into "open" (incident still needs a reko) and
-    # "done" (incident already has a completed reko, i.e. shown as "Beendet").
-    open_counts: dict[uuid.UUID, int] = {}
-    done_counts: dict[uuid.UUID, int] = {}
+    # Count EVERY incident a reko person was ever assigned to — not just the
+    # currently-active ones. Submitting a reko form unassigns the person
+    # (sets unassigned_at), so an active-only count would hide the incidents
+    # they already handled and understate how busy they were. We therefore look
+    # at all assignment rows (active + historical) and dedupe per (person,
+    # incident), then split into:
+    #   - done:  the incident has a completed (non-draft) reko report
+    #   - open:  the person is still actively assigned and no reko is done yet
+    #   - total: distinct incidents ever assigned (the "how busy" number)
+    assigned_incidents: dict[uuid.UUID, set[uuid.UUID]] = {}
+    active_incidents: dict[uuid.UUID, set[uuid.UUID]] = {}
+    completed_incident_ids: set[uuid.UUID] = set()
     if incident_ids:
         assignments_result = await db.execute(
-            select(IncidentAssignment.resource_id, IncidentAssignment.incident_id).where(
+            select(
+                IncidentAssignment.resource_id,
+                IncidentAssignment.incident_id,
+                IncidentAssignment.unassigned_at,
+            ).where(
                 IncidentAssignment.incident_id.in_(incident_ids),
                 IncidentAssignment.resource_type == "personnel",
                 IncidentAssignment.resource_id.in_(personnel_ids),
-                IncidentAssignment.unassigned_at.is_(None),
             )
         )
-        active_assignments = assignments_result.all()
+        all_assignments = assignments_result.all()
 
         # Incidents that already have a completed (non-draft) reko report.
         completed_result = await db.execute(
@@ -80,27 +90,31 @@ async def get_reko_personnel_for_event(
         )
         completed_incident_ids = {row[0] for row in completed_result.all()}
 
-        for resource_id, incident_id in active_assignments:
-            if incident_id in completed_incident_ids:
-                done_counts[resource_id] = done_counts.get(resource_id, 0) + 1
-            else:
-                open_counts[resource_id] = open_counts.get(resource_id, 0) + 1
+        for resource_id, incident_id, unassigned_at in all_assignments:
+            assigned_incidents.setdefault(resource_id, set()).add(incident_id)
+            if unassigned_at is None:
+                active_incidents.setdefault(resource_id, set()).add(incident_id)
 
     # Build response
     result = []
     for p_id in personnel_ids:
         personnel = personnel_map.get(p_id)
         if personnel:
-            open_count = open_counts.get(personnel.id, 0)
-            done_count = done_counts.get(personnel.id, 0)
+            ever_assigned = assigned_incidents.get(personnel.id, set())
+            done_ids = {i for i in ever_assigned if i in completed_incident_ids}
+            open_ids = {
+                i
+                for i in active_incidents.get(personnel.id, set())
+                if i not in completed_incident_ids
+            }
             result.append(
                 {
                     "personnel_id": personnel.id,
                     "name": personnel.name,
                     "role": personnel.role,
-                    "assignment_count": open_count + done_count,
-                    "open_count": open_count,
-                    "done_count": done_count,
+                    "assignment_count": len(ever_assigned),
+                    "open_count": len(open_ids),
+                    "done_count": len(done_ids),
                 }
             )
 

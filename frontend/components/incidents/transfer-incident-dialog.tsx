@@ -20,6 +20,7 @@ interface TransferIncidentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   sourceIncident: Incident
+  sourceName?: string
   availableIncidents: Incident[]
   onTransfer: (targetIncidentId: string) => void
   isTransferring?: boolean
@@ -29,6 +30,7 @@ export function TransferIncidentDialog({
   open,
   onOpenChange,
   sourceIncident,
+  sourceName,
   availableIncidents,
   onTransfer,
   isTransferring = false,
@@ -72,7 +74,7 @@ export function TransferIncidentDialog({
         <DialogHeader>
           <DialogTitle>{t('transfer.title')}</DialogTitle>
           <DialogDescription>
-            {t('transfer.description', { title: sourceIncident.title })}
+            {t('transfer.description', { title: sourceName ?? sourceIncident.title ?? '' })}
           </DialogDescription>
         </DialogHeader>
 
