@@ -1408,6 +1408,7 @@ class ApiClient {
     location_lng?: string | null
     description?: string | null
     contact?: string | null
+    contact_phone?: string | null
   }): Promise<{ id: string }> {
     return this.request<{ id: string }>(
       `/api/intake/alarm?token=${encodeURIComponent(token)}`,

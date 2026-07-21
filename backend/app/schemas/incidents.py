@@ -58,6 +58,7 @@ class IncidentBase(BaseModel):
     status: IncidentStatus = IncidentStatus.EINGEGANGEN
     description: str | None = None
     contact: str | None = None
+    contact_phone: str | None = None
     internal_notes: str | None = None
     nachbarhilfe: bool = False
     nachbarhilfe_note: str | None = None
@@ -137,6 +138,7 @@ class PublicIncidentCreate(BaseModel):
     location_lng: str | Decimal | None = None
     description: str | None = None
     contact: str | None = None  # "Melder / Anrufer"
+    contact_phone: str | None = None  # Direct phone number
 
     # Reuse the shared validators from IncidentBase.
     _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)
@@ -157,6 +159,7 @@ class IncidentUpdate(BaseModel):
     status: IncidentStatus | None = None
     description: str | None = None
     contact: str | None = None
+    contact_phone: str | None = None
     internal_notes: str | None = None
     nachbarhilfe: bool | None = None
     nachbarhilfe_note: str | None = None

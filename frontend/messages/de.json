@@ -297,6 +297,9 @@
       "priority": "Priorität",
       "contact": "Kontakt / Melder",
       "contactPlaceholder": "Name, Telefonnummer...",
+      "contactPhone": "Telefonnummer",
+      "contactPhonePlaceholder": "z. B. 079 123 45 67",
+      "callContact": "Anrufen",
       "notes": "Notizen",
       "internalNotesPlaceholder": "Interne Notizen...",
       "nachbarhilfe": "Nachbarhilfe",
@@ -2424,6 +2427,8 @@
       "hintsPlaceholder": "Besonderheiten, Gefahren, Anzahl betroffener Personen...",
       "contactLabel": "Melder / Anrufer",
       "contactPlaceholder": "Name / Telefonnummer der meldenden Person",
+      "contactPhoneLabel": "Telefonnummer",
+      "contactPhonePlaceholder": "z. B. 079 123 45 67",
       "submitting": "Wird übermittelt...",
       "submit": "Alarm absenden"
     },

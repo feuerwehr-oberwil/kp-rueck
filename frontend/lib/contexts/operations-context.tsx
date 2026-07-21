@@ -56,6 +56,7 @@ export interface Operation {
   materials: string[]
   notes: string
   contact: string
+  contactPhone: string
   internalNotes: string
   nachbarhilfe: boolean
   nachbarhilfeNote: string
@@ -362,6 +363,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       materials: [],
       notes: incident.description || "",
       contact: incident.contact || "",
+      contactPhone: incident.contact_phone || "",
       internalNotes: incident.internal_notes || "",
       nachbarhilfe: incident.nachbarhilfe || false,
       nachbarhilfeNote: incident.nachbarhilfe_note || "",
@@ -1189,6 +1191,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         }
         if (batchedUpdates.notes !== undefined) apiUpdates.description = batchedUpdates.notes
         if (batchedUpdates.contact !== undefined) apiUpdates.contact = batchedUpdates.contact
+        if (batchedUpdates.contactPhone !== undefined) apiUpdates.contact_phone = batchedUpdates.contactPhone
         if (batchedUpdates.internalNotes !== undefined) apiUpdates.internal_notes = batchedUpdates.internalNotes
         if (batchedUpdates.nachbarhilfe !== undefined) apiUpdates.nachbarhilfe = batchedUpdates.nachbarhilfe
         if (batchedUpdates.nachbarhilfeNote !== undefined) apiUpdates.nachbarhilfe_note = batchedUpdates.nachbarhilfeNote
@@ -1329,6 +1332,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           status: "eingegangen" as const,
           description: operation.notes || null,
           contact: operation.contact || null,
+          contact_phone: operation.contactPhone || null,
           internal_notes: operation.internalNotes || null,
         }
 
@@ -1350,6 +1354,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           materials: [],
           notes: apiIncident.description || "",
           contact: apiIncident.contact || "",
+          contactPhone: apiIncident.contact_phone || "",
           internalNotes: apiIncident.internal_notes || "",
           nachbarhilfe: apiIncident.nachbarhilfe || false,
           nachbarhilfeNote: apiIncident.nachbarhilfe_note || "",

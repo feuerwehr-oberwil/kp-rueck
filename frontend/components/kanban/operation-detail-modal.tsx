@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone } from 'lucide-react'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -319,6 +319,31 @@ export function OperationDetailModal({
               placeholder={t('common.contactPlaceholder')}
               value={operation.contact}
               onChange={(e) => onUpdate({ contact: e.target.value })}
+              className="mt-1.5"
+            />
+          </div>
+
+          {/* Contact phone */}
+          <div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="contact-phone" className="text-sm font-semibold text-muted-foreground">{t('common.contactPhone')}</Label>
+              {operation.contactPhone.trim() && (
+                <a
+                  href={`tel:${operation.contactPhone.replace(/\s+/g, '')}`}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <Phone className="h-3 w-3" />
+                  {t('common.callContact')}
+                </a>
+              )}
+            </div>
+            <Input
+              id="contact-phone"
+              type="tel"
+              inputMode="tel"
+              placeholder={t('common.contactPhonePlaceholder')}
+              value={operation.contactPhone}
+              onChange={(e) => onUpdate({ contactPhone: e.target.value })}
               className="mt-1.5"
             />
           </div>

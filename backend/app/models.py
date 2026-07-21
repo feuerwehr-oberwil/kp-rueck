@@ -338,7 +338,8 @@ class Incident(Base):
     location_lng: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="eingegangen")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info
+    contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info (Melder/Anrufer)
+    contact_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Direct phone number for the reporter
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # Internal notes
     nachbarhilfe: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Neighboring station assistance
     nachbarhilfe_note: Mapped[str | None] = mapped_column(Text, nullable=True)  # Note for nachbarhilfe
