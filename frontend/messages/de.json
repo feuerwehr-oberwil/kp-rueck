@@ -12,7 +12,7 @@
     },
     "protectedButton": {
       "editorOnlyTitle": "Diese Funktion ist nur für Editoren verfügbar",
-      "editorOnlyDescription": "Sie können aber alle Einsätze in Echtzeit verfolgen. Sprechen Sie mit Ihrem Administrator für erweiterte Berechtigungen."
+      "editorOnlyDescription": "Du kannst aber alle Einsätze in Echtzeit verfolgen. Sprich mit deinem Administrator für erweiterte Berechtigungen."
     },
     "connectionStatus": {
       "statusConnected": "Connected",
@@ -64,7 +64,7 @@
     },
     "unsavedChangesDialog": {
       "title": "Ungespeicherte Änderungen",
-      "description": "Sie haben Änderungen vorgenommen, die nicht gespeichert wurden. Wenn Sie schliessen, gehen diese Änderungen verloren.",
+      "description": "Du hast Änderungen vorgenommen, die nicht gespeichert wurden. Wenn du schliesst, gehen diese Änderungen verloren.",
       "confirm": "Verwerfen",
       "cancel": "Weiter bearbeiten"
     },
@@ -339,11 +339,11 @@
       "scanCheckInQr": "Check-In QR-Code scannen",
       "boardPrintSent": "Board-Druckauftrag gesendet",
       "qrPrintSent": "QR-Druckauftrag gesendet",
-      "selectEventFirst": "Bitte wählen Sie zuerst ein Ereignis aus.",
-      "qrGenerateFailed": "QR-Code konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
-      "rekoLinkFailed": "Reko-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
-      "displayLinkFailed": "Display-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
-      "alarmLinkFailed": "Alarm-Link konnte nicht generiert werden. Bitte versuchen Sie es erneut.",
+      "selectEventFirst": "Bitte wähle zuerst ein Ereignis aus.",
+      "qrGenerateFailed": "QR-Code konnte nicht generiert werden. Bitte versuche es erneut.",
+      "rekoLinkFailed": "Reko-Link konnte nicht generiert werden. Bitte versuche es erneut.",
+      "displayLinkFailed": "Display-Link konnte nicht generiert werden. Bitte versuche es erneut.",
+      "alarmLinkFailed": "Alarm-Link konnte nicht generiert werden. Bitte versuche es erneut.",
       "materialReturned": "Material zurückgegeben",
       "readiness": "Bereitschaft",
       "checkIn": "Check-In",
@@ -370,11 +370,11 @@
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
-      "description": "<hl>{location}</hl> wird disponiert, es {count, plural, one {fehlt} other {fehlen}} aber noch <hl>{list}</hl>. Möchten Sie zuerst zuweisen oder trotzdem fortfahren?",
+      "description": "<hl>{location}</hl> wird disponiert, es {count, plural, one {fehlt} other {fehlen}} aber noch <hl>{list}</hl>. Möchtest du zuerst zuweisen oder trotzdem fortfahren?",
       "dispatchAnyway": "Trotzdem disponieren"
     },
     "rekoMissing": {
-      "description": "<hl>{location}</hl> wurde in die Reko-Spalte verschoben, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchten Sie jetzt jemanden zuweisen oder trotzdem fortfahren?",
+      "description": "<hl>{location}</hl> wurde in die Reko-Spalte verschoben, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchtest du jetzt jemanden zuweisen oder trotzdem fortfahren?",
       "proceedAnyway": "Trotzdem fortfahren",
       "assignReko": "Reko-Person zuweisen"
     },
@@ -447,17 +447,17 @@
       "changeStatusTo": "Status ändern zu:"
     },
     "newEmergency": {
-      "validationTitle": "Bitte füllen Sie alle Pflichtfelder aus",
+      "validationTitle": "Bitte fülle alle Pflichtfelder aus",
       "validationDescription": "Der Einsatzort ist erforderlich.",
-      "description": "Erfassen Sie die Details zum neuen Einsatz",
-      "locationError": "Bitte geben Sie einen Einsatzort ein",
+      "description": "Erfasse die Details zum neuen Einsatz",
+      "locationError": "Bitte gib einen Einsatzort ein",
       "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
       "create": "Einsatz erstellen"
     },
     "detail": {
       "vehiclesLoadFailed": "Fahrzeuge konnten nicht geladen werden",
       "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
-      "noEventSelectedLong": "Kein Event ausgewählt. Bitte wählen Sie ein Event aus.",
+      "noEventSelectedLong": "Kein Event ausgewählt. Bitte wähle ein Event aus.",
       "incidentsLoadFailedDescription": "Die Einsätze konnten nicht geladen werden.",
       "sinceAlarm": "{time} seit Alarmierung",
       "meldungPlaceholder": "Eingegangene Meldung, Schadensbild...",
@@ -479,7 +479,7 @@
       "togglePanel": "Panel ein-/ausblenden",
       "details": "Details",
       "map": "Karte",
-      "clickToView": "Klicken Sie auf einen Einsatz, um Details anzuzeigen",
+      "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
       "selectPlaceholder": "Auswählen",
       "nachbarhilfeShort": "Nachbarfeuerwehr-Beteiligung",
       "transferRekoTooltip": "Alle offenen Rekos an andere Person übertragen",
@@ -496,7 +496,7 @@
     },
     "personMenu": {
       "vehicleTaken": "Fahrzeug bereits zugewiesen",
-      "vehicleTakenDescription": "Dieses Fahrzeug hat bereits einen Fahrer. Bitte entfernen Sie zuerst den aktuellen Fahrer.",
+      "vehicleTakenDescription": "Dieses Fahrzeug hat bereits einen Fahrer. Bitte entferne zuerst den aktuellen Fahrer.",
       "assignFailed": "Funktion konnte nicht zugewiesen werden",
       "unassignFailed": "Funktion konnte nicht entfernt werden",
       "driver": "Fahrer",
@@ -518,7 +518,7 @@
       "partial": "Teilweise",
       "noPersonsFound": "Keine Personen gefunden",
       "noSelectablePersons": "Keine auswählbaren Personen",
-      "tryOtherSearch": "Versuchen Sie einen anderen Suchbegriff",
+      "tryOtherSearch": "Versuche einen anderen Suchbegriff",
       "allPersonsAssigned": "Alle Personen sind anderen Einsätzen zugewiesen",
       "noVehiclesFound": "Keine Fahrzeuge gefunden",
       "noAvailableVehicles": "Keine verfügbaren Fahrzeuge",
@@ -601,7 +601,7 @@
       "incidentLabel": "Einsatz: {title}",
       "loadError": "Fehler beim Laden der Reko-Personen",
       "assignErrorTitle": "Fehler bei der Zuweisung",
-      "assignErrorDescription": "Die Person konnte nicht zugewiesen werden. Versuchen Sie es erneut.",
+      "assignErrorDescription": "Die Person konnte nicht zugewiesen werden. Versuche es erneut.",
       "loading": "Lädt...",
       "retry": "Erneut versuchen",
       "emptyTitle": "Keine Reko-Personen verfügbar",
@@ -665,7 +665,7 @@
       "description": "Alle Zuweisungen von \"{title}\" zu einem anderen Einsatz übertragen",
       "searchPlaceholder": "Einsatz suchen (Titel, Adresse, Art)...",
       "noResults": "Keine Einsätze gefunden",
-      "tryDifferentSearch": "Versuchen Sie einen anderen Suchbegriff",
+      "tryDifferentSearch": "Versuche einen anderen Suchbegriff",
       "noOtherIncidents": "Keine anderen Einsätze verfügbar",
       "needTwoIncidents": "Es müssen mindestens zwei Einsätze vorhanden sein",
       "vehicleCount": "{count} Fahrzeug(e)",
@@ -688,7 +688,7 @@
       "current": "Aktuell",
       "noPersonsFound": "Keine Personen gefunden",
       "noAvailablePersons": "Keine verfügbaren Personen",
-      "tryDifferentSearch": "Versuchen Sie einen anderen Suchbegriff",
+      "tryDifferentSearch": "Versuche einen anderen Suchbegriff",
       "allAssignedHint": "Alle Personen sind bereits als Fahrer eingeteilt oder nicht eingecheckt",
       "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
@@ -892,7 +892,7 @@
     "mapPicker": {
       "loading": "Karte wird geladen...",
       "title": "Einsatzort auf Karte wählen",
-      "description": "Klicken Sie auf die Karte, um den Einsatzort zu markieren",
+      "description": "Klicke auf die Karte, um den Einsatzort zu markieren",
       "searchingAddress": "Adresse wird gesucht...",
       "noAddress": "Keine Adresse gefunden",
       "confirm": "Standort übernehmen",
@@ -931,7 +931,7 @@
       "loadError": "Fehler beim Laden",
       "saveError": "Fehler beim Speichern",
       "loadSettingsError": "Fehler beim Laden der Einstellungen",
-      "checkInputRetry": "Überprüfen Sie die Eingabe und versuchen Sie es erneut.",
+      "checkInputRetry": "Überprüfe die Eingabe und versuche es erneut.",
       "reloadPage": "Bitte Seite neu laden.",
       "entriesCount": "{count} Einträge",
       "sortCategoriesTab": "Kategorien sortieren"
@@ -962,7 +962,7 @@
         "editorsOnly": "Nur Bearbeiter können Einstellungen ändern",
         "exportSuccess": "Export erfolgreich",
         "templateDownloadFailed": "Template-Download fehlgeschlagen",
-        "selectEvent": "Bitte wählen Sie ein Ereignis aus",
+        "selectEvent": "Bitte wähle ein Ereignis aus",
         "auditExportSuccess": "Audit-Export erfolgreich"
       },
       "errors": {
@@ -1080,9 +1080,9 @@
     "categorySort": {
       "noCategory": "(Keine Rolle)",
       "saveErrorDescription": "Die Sortierung konnte nicht gespeichert werden.",
-      "empty": "Keine Kategorien vorhanden. Fügen Sie zuerst Einträge hinzu.",
+      "empty": "Keine Kategorien vorhanden. Füge zuerst Einträge hinzu.",
       "savingButton": "Speichert...",
-      "unsavedChanges": "Sie haben ungespeicherte Änderungen. Klicken Sie auf \"Speichern\", um die neue Reihenfolge zu übernehmen."
+      "unsavedChanges": "Du hast ungespeicherte Änderungen. Klicke auf \"Speichern\", um die neue Reihenfolge zu übernehmen."
     },
     "fallback": {
       "loadFailed": "Einstellungen konnten nicht geladen werden",
@@ -1150,7 +1150,7 @@
       "loadError": "Material konnte nicht geladen werden",
       "saveError": "Fehler beim Speichern des Materials",
       "deleteError": "Fehler beim Löschen des Materials",
-      "deleteErrorDescription": "Das Material konnte nicht gelöscht werden. Versuchen Sie es erneut.",
+      "deleteErrorDescription": "Das Material konnte nicht gelöscht werden. Versuche es erneut.",
       "tabList": "Materialliste",
       "tabGroups": "Gruppen",
       "thresholdsLink": "Warnschwellen für Materialbestand festlegen",
@@ -1165,13 +1165,13 @@
       "categoryHead": "Kategorie",
       "empty": "Kein Material vorhanden.",
       "sortTitle": "Standort-Sortierung",
-      "sortDescription": "Ziehen Sie die Standorte, um deren Reihenfolge in der Anzeige zu ändern. Material wird nach dieser Sortierung gruppiert.",
+      "sortDescription": "Ziehe die Standorte, um deren Reihenfolge in der Anzeige zu ändern. Material wird nach dieser Sortierung gruppiert.",
       "deleteTitle": "Material löschen",
-      "deleteDescription": "Sind Sie sicher, dass Sie das Material \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleteDescription": "Bist du sicher, dass du das Material \"{name}\" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
       "groups": {
         "intro": "Materialgruppen fassen mehrere Einzelmaterialien zu einem Block zusammen (z. B. \"Modul 1\").",
         "createButton": "Gruppe erstellen",
-        "empty": "Keine Gruppen vorhanden. Erstellen Sie eine neue Gruppe.",
+        "empty": "Keine Gruppen vorhanden. Erstelle eine neue Gruppe.",
         "materialsHead": "Materialien",
         "noMaterials": "Keine Materialien",
         "dialogEditTitle": "Gruppe bearbeiten",
@@ -1183,20 +1183,20 @@
         "saveError": "Fehler beim Speichern der Gruppe",
         "deleteError": "Fehler beim Löschen der Gruppe",
         "deleteTitle": "Gruppe löschen",
-        "deleteDescription": "Sind Sie sicher, dass Sie die Gruppe \"{name}\" löschen möchten? Die Materialien werden nicht gelöscht, nur die Gruppierung aufgelöst."
+        "deleteDescription": "Bist du sicher, dass du die Gruppe \"{name}\" löschen möchtest? Die Materialien werden nicht gelöscht, nur die Gruppierung aufgelöst."
       }
     },
     "personnel": {
       "loadError": "Personal konnte nicht geladen werden",
       "deleteError": "Fehler beim Löschen",
-      "deleteErrorDescription": "Die Person konnte nicht gelöscht werden. Versuchen Sie es erneut.",
+      "deleteErrorDescription": "Die Person konnte nicht gelöscht werden. Versuche es erneut.",
       "syncPreviewError": "Fehler beim Laden der Vorschau",
       "syncCreated": "{count} erstellt",
       "syncDeleted": "{count} gelöscht",
       "syncUnchanged": "{count} unverändert",
       "syncComplete": "Synchronisation abgeschlossen: {parts}",
       "syncError": "Fehler bei der Synchronisation",
-      "syncErrorDescription": "Die Verbindung zu Divera konnte nicht hergestellt werden. Versuchen Sie es erneut.",
+      "syncErrorDescription": "Die Verbindung zu Divera konnte nicht hergestellt werden. Versuche es erneut.",
       "tabList": "Personalliste",
       "syncButton": "Von Divera synchronisieren",
       "addButton": "Personal hinzufügen",
@@ -1204,7 +1204,7 @@
       "availability": "Verfügbarkeit",
       "empty": "Kein Personal vorhanden.",
       "sortTitle": "Rollen-Sortierung",
-      "sortDescription": "Ziehen Sie die Rollen, um deren Reihenfolge in der Anzeige zu ändern. Personal wird nach dieser Sortierung gruppiert.",
+      "sortDescription": "Ziehe die Rollen, um deren Reihenfolge in der Anzeige zu ändern. Personal wird nach dieser Sortierung gruppiert.",
       "dialogEditTitle": "Personal bearbeiten",
       "dialogCreateTitle": "Neue Person hinzufügen",
       "namePlaceholder": "Nachname Vorname",
@@ -1216,7 +1216,7 @@
       "newTagPlaceholder": "Neuer Tag",
       "addTag": "Hinzufügen",
       "deleteTitle": "Person löschen",
-      "deleteDescription": "Sind Sie sicher, dass Sie \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleteDescription": "Bist du sicher, dass du \"{name}\" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
       "syncDialogTitle": "Divera Personal synchronisieren",
       "syncLoading": "Lade Vorschau von Divera...",
       "syncSectionNew": "Neu",
@@ -1284,13 +1284,13 @@
         "createError": "Fehler beim Erstellen",
         "updateError": "Fehler beim Aktualisieren",
         "resetError": "Fehler beim Zurücksetzen",
-        "resetErrorDescription": "Das Passwort konnte nicht zurückgesetzt werden. Versuchen Sie es erneut.",
+        "resetErrorDescription": "Das Passwort konnte nicht zurückgesetzt werden. Versuche es erneut.",
         "deactivateError": "Fehler beim Deaktivieren",
-        "deactivateErrorDescription": "Der Benutzer konnte nicht deaktiviert werden. Versuchen Sie es erneut.",
+        "deactivateErrorDescription": "Der Benutzer konnte nicht deaktiviert werden. Versuche es erneut.",
         "reactivateError": "Fehler beim Reaktivieren",
-        "reactivateErrorDescription": "Der Benutzer konnte nicht reaktiviert werden. Versuchen Sie es erneut.",
+        "reactivateErrorDescription": "Der Benutzer konnte nicht reaktiviert werden. Versuche es erneut.",
         "deleteError": "Fehler beim Löschen",
-        "deleteErrorDescription": "Der Benutzer konnte nicht gelöscht werden. Versuchen Sie es erneut."
+        "deleteErrorDescription": "Der Benutzer konnte nicht gelöscht werden. Versuche es erneut."
       },
       "never": "Nie",
       "newUser": "Neuer Benutzer",
@@ -1299,7 +1299,7 @@
       "editTooltip": "Bearbeiten",
       "resetPasswordTitle": "Passwort zurücksetzen",
       "reactivateTooltip": "Reaktivieren",
-      "createDialogDescription": "Erstellen Sie ein neues Benutzerkonto.",
+      "createDialogDescription": "Erstelle ein neues Benutzerkonto.",
       "usernameLabel": "Benutzername",
       "usernamePlaceholder": "max.muster",
       "displayNameLabel": "Anzeigename",
@@ -1310,10 +1310,10 @@
       "adminsHint": "Administratoren können Benutzer verwalten.",
       "creating": "Erstelle...",
       "editDialogTitle": "Benutzer bearbeiten",
-      "editDialogDescription": "Ändern Sie die Benutzerdaten.",
-      "ownRoleHint": "Sie können Ihre eigene Rolle nicht ändern.",
+      "editDialogDescription": "Ändere die Benutzerdaten.",
+      "ownRoleHint": "Du kannst deine eigene Rolle nicht ändern.",
       "saving": "Speichere...",
-      "resetPasswordDescription": "Setzen Sie ein neues Passwort für {name}.",
+      "resetPasswordDescription": "Setze ein neues Passwort für {name}.",
       "newPasswordLabel": "Neues Passwort",
       "newPasswordPlaceholder": "Neues Passwort eingeben",
       "resetting": "Setze zurück...",
@@ -1331,7 +1331,7 @@
       "loadError": "Fahrzeuge konnten nicht geladen werden",
       "saveError": "Fehler beim Speichern des Fahrzeugs",
       "deleteError": "Fehler beim Löschen des Fahrzeugs",
-      "deleteErrorDescription": "Das Fahrzeug konnte nicht gelöscht werden. Versuchen Sie es erneut.",
+      "deleteErrorDescription": "Das Fahrzeug konnte nicht gelöscht werden. Versuche es erneut.",
       "addButton": "Fahrzeug hinzufügen",
       "dialogEditTitle": "Fahrzeug bearbeiten",
       "dialogCreateTitle": "Neues Fahrzeug hinzufügen",
@@ -1341,7 +1341,7 @@
       "radioPlaceholder": "z. B. Omega 1, Omega 2",
       "empty": "Keine Fahrzeuge vorhanden.",
       "deleteTitle": "Fahrzeug löschen",
-      "deleteDescription": "Sind Sie sicher, dass Sie das Fahrzeug \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+      "deleteDescription": "Bist du sicher, dass du das Fahrzeug \"{name}\" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden."
     },
     "validation": {
       "nameRequired": "Name ist erforderlich",
@@ -1359,7 +1359,7 @@
     "page": {
       "subtitle": "Einsatz-Dashboard",
       "demoBadge": "Demo-Modus",
-      "loginFailed": "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Benutzername und Passwort.",
+      "loginFailed": "Anmeldung fehlgeschlagen. Bitte überprüfe Benutzername und Passwort.",
       "demoLoginFailed": "Demo-Anmeldung fehlgeschlagen.",
       "loginAsEditor": "Als Editor einloggen",
       "loginAsViewer": "Als Betrachter einloggen",
@@ -1385,7 +1385,7 @@
       "preparingLogin": "Anmeldung wird vorbereitet...",
       "checkingServer": "Prüfe Serververbindung...",
       "serverUnreachableTitle": "Server nicht erreichbar",
-      "serverUnreachableDescription": "Der Backend-Server ist momentan nicht verfügbar. Bitte stellen Sie sicher, dass der Server läuft.",
+      "serverUnreachableDescription": "Der Backend-Server ist momentan nicht verfügbar. Bitte stelle sicher, dass der Server läuft.",
       "retry": "Erneut versuchen"
     }
   },
@@ -1395,7 +1395,7 @@
       "activeBadge": "Aktiv: {name}",
       "newEvent": "Neues Ereignis",
       "searchPlaceholder": "Ereignisse durchsuchen...",
-      "emptyNone": "Keine Ereignisse vorhanden. Erstellen Sie ein neues Ereignis, um zu beginnen.",
+      "emptyNone": "Keine Ereignisse vorhanden. Erstelle ein neues Ereignis, um zu beginnen.",
       "emptySearch": "Keine Ereignisse gefunden.",
       "activeSection": "Aktive Ereignisse",
       "archivedSection": "Archivierte Ereignisse",
@@ -1427,23 +1427,23 @@
     },
     "archiveDialog": {
       "title": "Ereignis archivieren?",
-      "question": "Möchten Sie das Ereignis \"{name}\" archivieren?",
-      "note": "Das Ereignis wird ausgeblendet, aber alle Daten bleiben erhalten. Sie können es später dauerhaft löschen.",
+      "question": "Möchtest du das Ereignis \"{name}\" archivieren?",
+      "note": "Das Ereignis wird ausgeblendet, aber alle Daten bleiben erhalten. Du kannst es später dauerhaft löschen.",
       "cancel": "Abbrechen",
       "confirm": "Archivieren"
     },
     "deleteDialog": {
       "title": "Ereignis dauerhaft löschen?",
       "warning": "Warnung: Dieser Vorgang kann nicht rückgängig gemacht werden!",
-      "question": "Möchten Sie das Ereignis \"{name}\" und alle zugehörigen Einsätze wirklich dauerhaft löschen?",
+      "question": "Möchtest du das Ereignis \"{name}\" und alle zugehörigen Einsätze wirklich dauerhaft löschen?",
       "note": "Dies betrifft {count} Einsätze und alle zugehörigen Daten.",
       "cancel": "Abbrechen",
       "confirm": "Dauerhaft löschen"
     },
     "emptyState": {
       "title": "Noch kein Ereignis ausgewählt?",
-      "description": "Kein Problem! Erstellen Sie ein neues Ereignis oder wählen Sie ein bestehendes aus, um loszulegen.",
-      "ready": "Bereit für Ihren ersten Einsatz",
+      "description": "Kein Problem! Erstelle ein neues Ereignis oder wähle ein bestehendes aus, um loszulegen.",
+      "ready": "Bereit für deinen ersten Einsatz",
       "createButton": "Neues Ereignis erstellen",
       "viewButton": "Ereignisse anzeigen"
     }
@@ -1454,15 +1454,15 @@
     },
     "success": {
       "title": "Meldung übermittelt",
-      "description": "Ihre Rekognoszierungs-Meldung wurde erfolgreich an die Einsatzleitung übermittelt.",
-      "closeHint": "Sie können dieses Fenster nun schliessen oder zur Übersicht zurückkehren.",
+      "description": "Deine Rekognoszierungs-Meldung wurde erfolgreich an die Einsatzleitung übermittelt.",
+      "closeHint": "Du kannst dieses Fenster nun schliessen oder zur Übersicht zurückkehren.",
       "incidentIdLabel": "Einsatz-ID:",
       "backToOverview": "Zurück zur Übersicht"
     },
     "dashboard": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte Link erneut anfordern.",
       "missingCode": "Zugriffscode fehlt. Bitte Link vom Editor anfordern.",
-      "openFormError": "Fehler beim Öffnen des Reko-Formulars. Bitte versuchen Sie es erneut.",
+      "openFormError": "Fehler beim Öffnen des Reko-Formulars. Bitte versuche es erneut.",
       "accessRequired": "Zugriff erforderlich",
       "title": "Reko",
       "noPersonnel": "Keine Reko-Personen verfügbar",
@@ -1478,7 +1478,7 @@
     },
     "photoUpload": {
       "notAnImage": "{name} ist kein Bild",
-      "tooLarge": "{name} ist zu gross (max 10MB)",
+      "tooLarge": "{name} ist zu gross (max. 10 MB)",
       "uploadFailed": "{count, plural, one {1 Foto konnte nicht hochgeladen werden} other {# Fotos konnten nicht hochgeladen werden}}",
       "deleteFailed": "Foto konnte nicht gelöscht werden",
       "camera": "Kamera",
@@ -1494,7 +1494,7 @@
       "invalidLink": "Ungültiger Link. Bitte QR-Code erneut scannen.",
       "unknownIncident": "Unbekannt",
       "localRestored": "Lokale Änderungen wiederhergestellt",
-      "localRestoredDescription": "Ihre zuvor eingegebenen Daten wurden geladen.",
+      "localRestoredDescription": "Deine zuvor eingegebenen Daten wurden geladen.",
       "loadError": "Fehler beim Laden des Formulars. Token möglicherweise ungültig.",
       "relevantRequired": "Bitte \"Einsatz relevant?\" beantworten",
       "submitError": "Fehler beim Übermitteln. Bitte erneut versuchen.",
@@ -1608,7 +1608,7 @@
     },
     "optionsModal": {
       "title": "Status drucken",
-      "description": "Wählen Sie aus, welche Informationen gedruckt werden sollen.",
+      "description": "Wähle aus, welche Informationen gedruckt werden sollen.",
       "personnelList": "Personal-Liste",
       "materialInventory": "Material-Inventar",
       "mapOverview": "Karten-Übersicht",
@@ -1772,7 +1772,7 @@
   "notifications": {
     "auth": {
       "sessionExpiredTitle": "Sitzung abgelaufen",
-      "sessionExpiredDescription": "Bitte melden Sie sich erneut an."
+      "sessionExpiredDescription": "Bitte melde dich erneut an."
     },
     "materials": {
       "loadFailedTitle": "Material konnte nicht geladen werden",
@@ -1805,7 +1805,7 @@
       "reorderFailedTitle": "Reihenfolge nicht gespeichert",
       "reorderFailedDescription": "Die Ansicht wurde auf den letzten Stand zurückgesetzt.",
       "createFailedTitle": "Einsatz konnte nicht erstellt werden",
-      "createFailedDescription": "Bitte erneut versuchen. Wenn das Problem bestehen bleibt, prüfen Sie die Verbindung.",
+      "createFailedDescription": "Bitte erneut versuchen. Wenn das Problem bestehen bleibt, prüfe die Verbindung.",
       "recentRemovalWarningTitle": "{name} war vor {seconds}s noch auf \"{incident}\"",
       "recentRemovalWarningDescription": "Doppelbelegung — bitte prüfen.",
       "assignFailedTitle": "Fehler beim Zuweisen",
@@ -1815,7 +1815,7 @@
       "assignRekoFailedTitle": "Reko-Zuweisung fehlgeschlagen",
       "assignRekoFailedDescription": "{name} konnte nicht als Reko zugewiesen werden.",
       "errorTitle": "Fehler",
-      "vehicleInvalidIdDescription": "Fahrzeug \"{name}\" hat keine gültige ID. Bitte laden Sie die Seite neu.",
+      "vehicleInvalidIdDescription": "Fahrzeug \"{name}\" hat keine gültige ID. Bitte lade die Seite neu.",
       "vehicleNotMovedTitle": "{name} nicht verschoben",
       "vehicleNotMovedDescription": "Nicht alle Einsätze konnten bereinigt werden — bitte prüfen.",
       "vehicleMovedTitle": "{name} verschoben",
@@ -1826,7 +1826,7 @@
       "deletedTitle": "Einsatz gelöscht",
       "undoLabel": "Rückgängig",
       "deleteFailedTitle": "Fehler beim Löschen",
-      "deleteFailedDescription": "Der Einsatz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+      "deleteFailedDescription": "Der Einsatz konnte nicht gelöscht werden. Bitte versuche es erneut.",
       "dangerTypes": {
         "fire": "Feuer",
         "fireDanger": "Brandgefahr",
@@ -1904,7 +1904,7 @@
       "databaseLabel": "Datenbank (GB)",
       "photoLabel": "Foto-Limit (GB)",
       "materialThresholdsTitle": "Materialbestand-Schwellenwerte",
-      "materialThresholdsSubtitle": "Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen. Deaktivieren Sie die Checkbox um Warnungen für eine Kategorie auszublenden.",
+      "materialThresholdsSubtitle": "Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen. Deaktiviere die Checkbox, um Warnungen für eine Kategorie auszublenden.",
       "materialThresholdsManageLink": "Material verwalten"
     },
     "toasts": {
@@ -1950,27 +1950,27 @@
       "title": "API Fehler",
       "noErrorDetails": "Keine Fehlerdetails verfügbar",
       "connectionTitle": "Verbindungsfehler",
-      "connectionDescription": "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
+      "connectionDescription": "Keine Verbindung zum Server. Bitte prüfe deine Internetverbindung.",
       "unknown": "Unbekannter Fehler",
       "photoUploadFailed": "Foto-Upload fehlgeschlagen",
       "uploadTimeout": "Upload-Zeitüberschreitung - bitte erneut versuchen"
     },
     "appError": {
       "title": "Ein Fehler ist aufgetreten",
-      "description": "Die Anwendung hat einen unerwarteten Fehler festgestellt. Bitte versuchen Sie es erneut.",
+      "description": "Die Anwendung hat einen unerwarteten Fehler festgestellt. Bitte versuche es erneut.",
       "errorId": "Fehler-ID: {digest}",
       "retry": "Erneut versuchen",
       "home": "Zur Startseite"
     },
     "settingsError": {
       "title": "Einstellungsfehler",
-      "description": "Die Einstellungen konnten nicht geladen werden. Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.",
+      "description": "Die Einstellungen konnten nicht geladen werden. Bitte versuche es erneut oder kontaktiere den Support.",
       "retry": "Erneut versuchen",
       "home": "Zum Kanban"
     },
     "routeError": {
       "title": "Ein Fehler ist aufgetreten",
-      "description": "Diese Ansicht hat einen unerwarteten Fehler festgestellt. Bitte versuchen Sie es erneut.",
+      "description": "Diese Ansicht hat einen unerwarteten Fehler festgestellt. Bitte versuche es erneut.",
       "errorId": "Fehler-ID: {digest}",
       "retry": "Erneut versuchen",
       "home": "Zur Startseite"
@@ -2135,7 +2135,7 @@
       "productionOnlyTitle": "Synchronisationsfunktion nur lokal verfügbar",
       "productionOnlyText": "Die Synchronisationsfunktion ist nur für lokale Instanzen verfügbar. Auf Railway (Produktion) ist die Synchronisation deaktiviert, da Railway als zentrale Datenquelle dient.",
       "railwayUrlLabel": "Railway PostgreSQL Verbindung",
-      "internalUrlWarning": "⚠️ Interne Railway-URL erkannt. Verwenden Sie die <strong>öffentliche</strong> URL (Variables → DATABASE_PUBLIC_URL).",
+      "internalUrlWarning": "⚠️ Interne Railway-URL erkannt. Verwende die <strong>öffentliche</strong> URL (Variables → DATABASE_PUBLIC_URL).",
       "intervalLabel": "Intervall",
       "intervalHint": "Automatische Synchronisation",
       "minutesUnit": "Min",
@@ -2275,7 +2275,7 @@
       "testPrintQueuedDescription": "Der Drucker-Status wird automatisch aktualisiert.",
       "testPrintFailed": "Testdruck konnte nicht gestartet werden",
       "tileSetupTitle": "Tile-Setup",
-      "tileSetupDescription": "Öffnen Sie die Hilfe-Seite für Anleitungen zur Offline-Karten-Einrichtung.",
+      "tileSetupDescription": "Öffne die Hilfe-Seite für Anleitungen zur Offline-Karten-Einrichtung.",
       "tileSetupAction": "Zur Hilfe",
       "whatsappCopied": "WhatsApp-Nachricht {number} kopiert",
       "whatsappCopiedDescription": "In WhatsApp einfügen und senden, danach manuell abhaken.",
@@ -2303,7 +2303,7 @@
       "personCount": "{count} Person(en)"
     },
     "board": {
-      "loginRequired": "Bitte melden Sie sich an für die Board-Anzeige.",
+      "loginRequired": "Bitte melde dich an für die Board-Anzeige.",
       "collapsedColumnTitle": "{title} – {count} – zum Aufklappen klicken",
       "priorityAria": "Priorität: {label}",
       "materialCount": "{count} Material(ien)",
@@ -2344,7 +2344,7 @@
       "fullscreen": "Vollbild"
     },
     "map": {
-      "authRequired": "Bitte melden Sie sich an oder verwenden Sie einen Zugangscode (?token=xxx)",
+      "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)",
       "tokenModeUnsupported": "Kartenanzeige erfordert Editor-Zugang für GPS-Daten."
     },
     "status": {
@@ -2380,7 +2380,7 @@
   "intake": {
     "alarm": {
       "invalidTitle": "Link ungültig oder abgelaufen",
-      "invalidDescription": "Dieser Alarm-Link ist nicht mehr gültig. Bitte fordern Sie einen neuen Link an.",
+      "invalidDescription": "Dieser Alarm-Link ist nicht mehr gültig. Bitte fordere einen neuen Link an.",
       "successTitle": "Alarm erfasst",
       "successDescription": "Der Alarm wurde an die Einsatzleitung übermittelt ({eventName}).",
       "another": "Weiteren Alarm erfassen",
@@ -2408,7 +2408,7 @@
       "checkoutBlocked": "Abmeldung nicht möglich",
       "checkoutBlockedDescription": "Diese Person ist einem Einsatz zugewiesen und kann nicht abgemeldet werden.",
       "statusError": "Fehler beim Ändern des Status",
-      "statusErrorDescription": "Bitte versuchen Sie es erneut.",
+      "statusErrorDescription": "Bitte versuche es erneut.",
       "accessRequired": "Zugriff erforderlich",
       "title": "Personal Check-In",
       "eventLabel": "Ereignis:",
