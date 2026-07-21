@@ -143,11 +143,11 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   const groupedPersonnel = useMemo(() => {
     const sorted = [...personnel].sort((a, b) => {
       if (a.role !== b.role) {
-        if (a.roleSortOrder !== b.roleSortOrder) return a.roleSortOrder - b.roleSortOrder
-        return a.role.localeCompare(b.role, getActiveLocale())
+        if (a.roleSortOrder !== b.roleSortOrder) return (a.roleSortOrder ?? 0) - (b.roleSortOrder ?? 0)
+        return (a.role ?? "").localeCompare(b.role ?? "", getActiveLocale())
       }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return a.name.localeCompare(b.name, getActiveLocale())
+      return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
     })
     const groups: { role: string; people: Person[] }[] = []
     const roleMap = new Map<string, Person[]>()
@@ -166,11 +166,11 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   const groupedMaterials = useMemo(() => {
     const sorted = [...materials].sort((a, b) => {
       if (a.category !== b.category) {
-        if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
-        return a.category.localeCompare(b.category, getActiveLocale())
+        if (a.categorySortOrder !== b.categorySortOrder) return (a.categorySortOrder ?? 0) - (b.categorySortOrder ?? 0)
+        return (a.category ?? "").localeCompare(b.category ?? "", getActiveLocale())
       }
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return a.name.localeCompare(b.name, getActiveLocale())
+      return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
     })
     const groups: { category: string; items: Material[] }[] = []
     const catMap = new Map<string, Material[]>()
