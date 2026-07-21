@@ -155,9 +155,9 @@ export function NotificationToasts() {
   return (
     <Toaster
       position="bottom-right"
-      // Float the stack above the bottom footer/nav (and the "Alle schliessen"
-      // pill) so toasts never overlap the footer controls.
-      offset="96px"
+      // Hug the right edge (16px) so the stack stays out of the central board;
+      // keep 96px bottom clearance for the footer/nav and the "Alle schliessen" pill.
+      offset={{ right: '16px', bottom: '96px' }}
       closeButton
       expand={false}
       duration={toastDurationMs}
