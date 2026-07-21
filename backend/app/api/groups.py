@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import events as events_crud
+from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
 from ..database import get_db
 from ..websocket_manager import (
@@ -86,7 +87,7 @@ async def update_group(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ):
-    """Update an Auftrag's name/color/notes/mode (editor only)."""
+    """Update an Auftrag's name/color/notes (editor only)."""
     group = await crud.update_group(db, group_id, group_update, current_user, request)
     if not group:
         raise HTTPException(status_code=404, detail="Auftrag not found")
@@ -194,41 +195,84 @@ async def remove_stop(
     background_tasks.add_task(broadcast_incident_update, {"event_id": event_id}, "refresh")
 
 
-@router.post("/{group_id}/copy-squad")
-async def copy_squad(
+@router.post("/{group_id}/assign", response_model=schemas.GroupAssignmentResponse)
+async def assign_group_resource(
     group_id: uuid.UUID,
-    body: schemas.CopySquadRequest,
+    assignment: schemas.GroupAssignmentCreate,
     request: Request,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ):
-    """Copy the source stop's active assignments to all sibling stops (editor only).
+    """Assign a resource directly to an Auftrag (editor only).
 
-    Mode-aware: ``resource_types=None`` derives the filter from the Auftrag's mode.
-    Returns ``{copied, skipped}``.
+    The resource is shared across ALL the Auftrag's stops and may be assigned
+    even when the Auftrag has zero stops. A duplicate active assignment on the
+    same Auftrag is rejected with 409.
     """
+    group = await crud.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Auftrag not found")
+
     try:
-        result = await crud.copy_squad_to_stops(
-            db,
-            group_id,
-            body.source_incident_id,
-            body.resource_types,
+        result = await ga_crud.assign_group_resource(
+            db=db,
+            group_id=group_id,
+            resource_type=assignment.resource_type,
+            resource_id=assignment.resource_id,
             current_user=current_user,
             request=request,
         )
     except ValueError as e:
-        logger.warning("copy-squad rejected for Auftrag %s: %s", group_id, e)
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Group assignment conflict for Auftrag %s: %s", group_id, e)
+        raise HTTPException(status_code=409, detail=str(e))
 
-    if result is None:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+    response = schemas.GroupAssignmentResponse.model_validate(result)
 
-    group = await crud.get_group(db, group_id)
-    # Assignments changed on multiple incidents → signal an assignment refresh.
+    # Rebuild the group so the group_update carries its refreshed assignment list.
+    group_response = await crud.build_group_response(db, group)
+    background_tasks.add_task(broadcast_group_update, group_response.model_dump(mode="json"), "update")
+    # The Auftrag's stops are now "covered" → nudge boards to recompute assignments.
     background_tasks.add_task(
         broadcast_assignment_update,
-        {"group_id": str(group_id), "event_id": str(group.event_id) if group else None},
+        {"group_id": str(group_id), "event_id": str(group.event_id)},
         "refresh",
     )
-    return result
+    return response
+
+
+@router.post("/{group_id}/unassign/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unassign_group_resource(
+    group_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """Release a route-level resource from an Auftrag (editor only)."""
+    group = await crud.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Auftrag not found")
+
+    success = await ga_crud.unassign_group_resource(db, group_id, assignment_id, current_user, request)
+    if not success:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    group_response = await crud.build_group_response(db, group)
+    background_tasks.add_task(broadcast_group_update, group_response.model_dump(mode="json"), "update")
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {"group_id": str(group_id), "event_id": str(group.event_id)},
+        "refresh",
+    )
+
+
+@router.get("/{group_id}/assignments", response_model=list[schemas.GroupAssignmentResponse])
+async def get_group_assignments(
+    group_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+):
+    """List an Auftrag's active route-level assignments."""
+    return await ga_crud.get_group_assignments(db, group_id)

@@ -3,7 +3,7 @@
 Covers plan 12 (docs/plans/12-auftrag-multi-stop-routing.md):
 - create / list / update / delete groups (delete leaves stops on the board)
 - reorder groups & stops; add / remove stops (cross-event rejected -> 400)
-- copy-squad via the API
+- group-level assignments via the API (assign / list / unassign)
 - streamlined incident create with group_id attaches + stamps group_position
 - auth: viewer gets 403 on mutations, 200 on GETs
 - sync-version folds in group create / rename
@@ -102,12 +102,12 @@ async def _create_group(client: AsyncClient, event: Event, name: str = "Sturm-Ro
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_create_group(editor_client: AsyncClient, test_event: Event):
-    data = await _create_group(editor_client, test_event, name="Route A", mode="squad")
+    data = await _create_group(editor_client, test_event, name="Route A")
     assert data["name"] == "Route A"
     assert data["event_id"] == str(test_event.id)
-    assert data["mode"] == "squad"
     assert data["stop_ids"] == []
     assert data["progress"] == {"total": 0, "done": 0}
+    assert data["assignments"] == []
 
 
 @pytest.mark.asyncio
@@ -144,12 +144,12 @@ async def test_list_groups(editor_client: AsyncClient, test_event: Event):
 async def test_update_group(editor_client: AsyncClient, test_event: Event):
     group = await _create_group(editor_client, test_event, name="Old")
     response = await editor_client.patch(
-        f"/api/incident-groups/{group['id']}", json={"name": "New", "mode": "vehicle_only"}
+        f"/api/incident-groups/{group['id']}", json={"name": "New", "color": "#00ff00"}
     )
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "New"
-    assert data["mode"] == "vehicle_only"
+    assert data["color"] == "#00ff00"
 
 
 @pytest.mark.asyncio
@@ -295,43 +295,69 @@ async def test_remove_stop(editor_client: AsyncClient, test_event: Event, test_i
 
 
 # ============================================
-# copy-squad
+# Group-level (Auftrag) assignments
 # ============================================
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_copy_squad(
-    editor_client: AsyncClient,
-    test_event: Event,
-    test_incident: Incident,
-    second_incident: Incident,
-    test_vehicle: Vehicle,
+async def test_assign_list_unassign_group_resource(
+    editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle
 ):
     group = await _create_group(editor_client, test_event)
-    await editor_client.post(
-        f"/api/incident-groups/{group['id']}/stops",
-        json={"incident_ids": [str(test_incident.id), str(second_incident.id)]},
-    )
-    # Assign a vehicle to the source stop, then copy it to the siblings.
+
     assign = await editor_client.post(
-        f"/api/incidents/{test_incident.id}/assign",
+        f"/api/incident-groups/{group['id']}/assign",
         json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
     )
-    assert assign.status_code == 200
+    assert assign.status_code == 200, assign.text
+    created = assign.json()
+    assert created["incident_group_id"] == group["id"]
+    assert created["resource_id"] == str(test_vehicle.id)
 
-    response = await editor_client.post(
-        f"/api/incident-groups/{group['id']}/copy-squad",
-        json={"source_incident_id": str(test_incident.id)},
+    # It shows up in the group's assignment list and on the group response.
+    listing = await editor_client.get(f"/api/incident-groups/{group['id']}/assignments")
+    assert listing.status_code == 200
+    assert [a["resource_id"] for a in listing.json()] == [str(test_vehicle.id)]
+
+    groups = await editor_client.get(f"/api/incident-groups/?event_id={test_event.id}")
+    assert [a["resource_id"] for a in groups.json()[0]["assignments"]] == [str(test_vehicle.id)]
+
+    # Release it again.
+    unassign = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/unassign/{created['id']}"
     )
-    assert response.status_code == 200
-    result = response.json()
-    assert result["copied"] == 1
-    assert result["skipped"] == 0
+    assert unassign.status_code == 204
+    listing2 = await editor_client.get(f"/api/incident-groups/{group['id']}/assignments")
+    assert listing2.json() == []
 
-    # The sibling now carries the vehicle.
-    sib_assigns = await editor_client.get(f"/api/incidents/{second_incident.id}/assignments")
-    assert any(a["resource_id"] == str(test_vehicle.id) for a in sib_assigns.json())
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_assign_group_resource_works_with_zero_stops(
+    editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle
+):
+    # A brand-new Auftrag has no stops, yet can carry a resource.
+    group = await _create_group(editor_client, test_event)
+    assert group["stop_ids"] == []
+    assign = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+    assert assign.status_code == 200, assign.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_assign_group_resource_duplicate_conflict(
+    editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle
+):
+    group = await _create_group(editor_client, test_event)
+    body = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+    first = await editor_client.post(f"/api/incident-groups/{group['id']}/assign", json=body)
+    assert first.status_code == 200
+    dup = await editor_client.post(f"/api/incident-groups/{group['id']}/assign", json=body)
+    assert dup.status_code == 409
 
 
 # ============================================
@@ -420,8 +446,10 @@ async def test_viewer_forbidden_on_mutations(viewer_client: AsyncClient, test_ev
         viewer_client.post(f"/api/incident-groups/{gid}/stops", json={"incident_ids": [str(iid)]}),
         viewer_client.delete(f"/api/incident-groups/{gid}/stops/{iid}"),
         viewer_client.post(
-            f"/api/incident-groups/{gid}/copy-squad", json={"source_incident_id": str(iid)}
+            f"/api/incident-groups/{gid}/assign",
+            json={"resource_type": "vehicle", "resource_id": str(uuid4())},
         ),
+        viewer_client.post(f"/api/incident-groups/{gid}/unassign/{uuid4()}"),
     ]
     for coro in calls:
         response = await coro

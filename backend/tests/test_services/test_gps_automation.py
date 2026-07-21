@@ -15,7 +15,17 @@ import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, IncidentAssignment, Setting, StatusTransition, User, Vehicle
+from app.models import (
+    Event,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
+    Setting,
+    StatusTransition,
+    User,
+    Vehicle,
+)
 from app.services import gps_automation
 
 
@@ -223,6 +233,44 @@ async def test_arrival_silent_opt_in_advances(
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
     assert await _status(db_session, disponiert_incident.id) == "einsatz"
     bc_msg.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_route_level_vehicle_advances_stop_on_arrival(
+    _bc, db_session: AsyncSession, disponiert_incident: Incident, test_user: User, test_event: Event
+):
+    """A vehicle assigned to the AUFTRAG (not the stop) still advances each stop it reaches.
+
+    No per-incident IncidentAssignment exists here — only a route-level
+    IncidentGroupAssignment — so this proves the group expansion feeds Rule A.
+    """
+    await _enable_arrival(db_session, silent=True)
+
+    # Auftrag containing the disponiert stop, carrying a route-level vehicle.
+    group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Route", created_by=test_user.id)
+    db_session.add(group)
+    await db_session.flush()
+    disponiert_incident.group_id = group.id
+
+    vehicle = Vehicle(id=uuid.uuid4(), name="TLF-1", type="TLF", status="available")
+    db_session.add(vehicle)
+    await db_session.flush()
+    db_session.add(
+        IncidentGroupAssignment(
+            id=uuid.uuid4(),
+            incident_group_id=group.id,
+            resource_type="vehicle",
+            resource_id=vehicle.id,
+            assigned_by=test_user.id,
+        )
+    )
+    await db_session.commit()
+
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    assert await _status(db_session, disponiert_incident.id) == "einsatz"
 
 
 @pytest.mark.asyncio
