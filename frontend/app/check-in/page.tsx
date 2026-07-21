@@ -22,6 +22,10 @@ export default function CheckInPage() {
   const [error, setError] = useState<string | null>(null)
   // Track if we just made a local change to skip the next WebSocket refresh (use ref to avoid stale closures)
   const skipNextRefreshRef = useRef(false)
+  // Per-person guard against accidental double-taps: while a person's check-in
+  // toggle is in flight (plus a short cooldown), further taps are ignored so a
+  // fast double-press can't check in and immediately check out again.
+  const togglingRef = useRef<Set<string>>(new Set())
 
   // Load personnel list - isInitialLoad=true shows loading spinner, false for background refresh
   const loadPersonnel = useCallback(async (isInitialLoad = false) => {
@@ -81,6 +85,9 @@ export default function CheckInPage() {
   const toggleCheckIn = async (person: ApiPersonnelListItem) => {
     if (!token) return
 
+    // Ignore accidental double-taps while this person's toggle is in flight
+    if (togglingRef.current.has(person.id)) return
+
     // Prevent checkout of assigned personnel
     if (person.checked_in && person.is_assigned) {
       toast.error(t('checkoutBlocked'), {
@@ -89,6 +96,7 @@ export default function CheckInPage() {
       return
     }
 
+    togglingRef.current.add(person.id)
     // Skip the next WebSocket refresh since we do an optimistic update
     skipNextRefreshRef.current = true
 
@@ -112,6 +120,9 @@ export default function CheckInPage() {
       skipNextRefreshRef.current = false // Allow refresh on error to get correct state
       // Reload to get correct state (background refresh)
       loadPersonnel(false)
+    } finally {
+      // Small cooldown so a rapid second tap doesn't immediately re-toggle
+      setTimeout(() => togglingRef.current.delete(person.id), 500)
     }
   }
 
@@ -193,6 +204,9 @@ export default function CheckInPage() {
                 is_assigned: false
               }])
             }
+            // Clear the search so the freshly added person is visible in the
+            // (always alphabetically sorted) list, not hidden by a stale filter.
+            setSearchTerm('')
           }}
           checkInToken={token || undefined}
         />
