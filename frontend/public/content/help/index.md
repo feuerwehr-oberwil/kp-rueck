@@ -246,6 +246,8 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden.
 
 Erneuter Rechtsklick entfernt die Zuweisung.
 
+**Fahrer: kommt zurück oder bleibt vor Ort?** Bei jedem zugewiesenen Fahrzeug lässt sich per Klick auf das Fahrer-Badge umschalten, ob der Fahrer nach der Anlieferung **zurückkommt** oder **vor Ort bleibt**. Standard ist **„kommt zurück"** — bei diesen Einsätzen sollen unsere Fahrzeuge nur pendeln (Personal und Material anliefern und danach wieder verfügbar sein), statt am Einsatzort gebunden zu bleiben.
+
 ### Sicherheitsabfragen — das Auffangnetz
 
 Damit in hektischen Momenten kein Schritt vergessen geht, blendet das System bei den folgenden Situationen automatisch eine Rückfrage ein. Sie sind als **Fallback** gedacht: der normale Ablauf funktioniert auch ohne sie — aber falls man etwas vergisst, fängt die Abfrage es auf. Der empfohlene (sichere) Knopf ist jeweils hervorgehoben.
