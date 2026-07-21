@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Bell, X, AlertTriangle, Info, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
 import { cn } from '@/lib/utils'
@@ -126,10 +127,14 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
 export function PersistentNotificationSidebar() {
   const t = useTranslations('notifications.sidebar')
   const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
+  const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
 
-  // On mobile, don't render (Sheet handles it via NotificationBellTrigger)
-  if (isMobile || !isSidebarOpen) return null
+  // On mobile, don't render (Sheet handles it via NotificationBellTrigger).
+  // Never render when logged out — isSidebarOpen is persisted in localStorage,
+  // so a session that opened it and then logged out would otherwise show an
+  // empty sidebar shell over the login screen.
+  if (isMobile || !isSidebarOpen || !isAuthenticated) return null
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
   const historicalNotifications = notifications
@@ -139,10 +144,9 @@ export function PersistentNotificationSidebar() {
   return (
     <aside
       className={cn(
-        'fixed top-0 right-0 bottom-0 w-80',
+        'w-80 shrink-0 h-full',
         'bg-card border-l border-border',
         'flex flex-col',
-        'z-40',
         'animate-in slide-in-from-right duration-300'
       )}
     >

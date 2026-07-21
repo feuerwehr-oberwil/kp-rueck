@@ -3,13 +3,18 @@
 import { Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { NotificationSidebar } from './notification-sidebar'
 import { cn } from '@/lib/utils'
 
 export function NotificationBellTrigger() {
   const { unreadCount, toggleSidebar, isSidebarOpen } = useNotifications()
+  const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
+
+  // Notifications are an authenticated-only feature — no bell when logged out
+  if (!isAuthenticated) return null
 
   // On mobile, use the existing Sheet-based NotificationSidebar
   if (isMobile) {

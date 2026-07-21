@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { useAuth } from '@/lib/contexts/auth-context'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
 import { cn } from '@/lib/utils'
 
@@ -142,6 +143,10 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
   const isOpen = controlledOpen ?? internalOpen
   const setIsOpen = onOpenChange ?? setInternalOpen
   const { notifications, unreadCount, dismissNotification, dismissAllNotifications } = useNotifications()
+  const { isAuthenticated } = useAuth()
+
+  // Notifications are an authenticated-only feature — nothing when logged out
+  if (!isAuthenticated) return null
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
   const historicalNotifications = notifications
