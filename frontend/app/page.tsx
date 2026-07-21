@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, PanelLeft, PanelRight } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -914,7 +914,8 @@ export default function FireStationDashboard() {
     personnel,
     materials,
     effectivePersonnelQuery,
-    effectiveMaterialQuery
+    effectiveMaterialQuery,
+    tRes('roleOther')
   )
 
   // Memoize filtered operations to avoid unnecessary recalculations on every render
@@ -1337,15 +1338,6 @@ export default function FireStationDashboard() {
             bottom navbar (event switching lives in its "Mehr" sheet). */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            {/* Left sidebar toggle (mirrors the "[" shortcut) */}
-            <button
-              onClick={() => setShowLeftSidebar((prev) => !prev)}
-              className={`flex-shrink-0 rounded-lg p-1.5 transition-colors hover:bg-secondary/60 ${showLeftSidebar ? "text-foreground" : "text-muted-foreground"}`}
-              aria-pressed={showLeftSidebar}
-              title={`${tDash('toggleLeftSidebar')} ([)`}
-            >
-              <PanelLeft className="h-5 w-5" />
-            </button>
             {/* Event title doubles as an event switcher: switch events or create a
                 new one without first hunting through the user menu → Ereignisse. */}
             <DropdownMenu>
@@ -1414,16 +1406,6 @@ export default function FireStationDashboard() {
                 </span>
               </div>
 
-              {/* Right sidebar toggle (mirrors the "]" shortcut) */}
-              <button
-                onClick={() => setShowRightSidebar((prev) => !prev)}
-                className={`flex-shrink-0 rounded-lg p-1.5 transition-colors hover:bg-secondary/60 ${showRightSidebar ? "text-foreground" : "text-muted-foreground"}`}
-                aria-pressed={showRightSidebar}
-                title={`${tDash('toggleRightSidebar')} (])`}
-              >
-                <PanelRight className="h-5 w-5" />
-              </button>
-
               <PageNavigation
                 currentPage="kanban"
                 vehicleTypes={vehicleTypes}
@@ -1450,11 +1432,22 @@ export default function FireStationDashboard() {
         ) : (
           /* Desktop View */
           <>
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
           {showLeftSidebar && (
             <aside className="w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
+              {/* Collapse handle */}
+              <div className="flex items-center justify-start px-2 pt-2">
+                <button
+                  onClick={() => setShowLeftSidebar(false)}
+                  className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                  title={`${tDash('toggleLeftSidebar')} ([)`}
+                  aria-label={tDash('toggleLeftSidebar')}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              </div>
               {/* Search */}
-              <div className="px-3 pt-3 pb-2">
+              <div className="px-3 pt-1 pb-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
@@ -1537,6 +1530,18 @@ export default function FireStationDashboard() {
                 </p>
               </div>
             </aside>
+          )}
+
+          {/* Left sidebar reopen tab (shown when collapsed; "[" also toggles) */}
+          {!showLeftSidebar && (
+            <button
+              onClick={() => setShowLeftSidebar(true)}
+              className="absolute left-0 top-1/2 z-10 flex h-16 w-5 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              title={`${tDash('toggleLeftSidebar')} ([)`}
+              aria-label={tDash('toggleLeftSidebar')}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           )}
 
           {/* Main Kanban Board */}
@@ -1622,8 +1627,19 @@ export default function FireStationDashboard() {
 
           {showRightSidebar && (
             <aside className="w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
+              {/* Collapse handle */}
+              <div className="flex items-center justify-end px-2 pt-2">
+                <button
+                  onClick={() => setShowRightSidebar(false)}
+                  className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                  title={`${tDash('toggleRightSidebar')} (])`}
+                  aria-label={tDash('toggleRightSidebar')}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
               {/* Search */}
-              <div className="px-3 pt-3 pb-2">
+              <div className="px-3 pt-1 pb-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
@@ -1701,6 +1717,18 @@ export default function FireStationDashboard() {
                 </p>
               </div>
             </aside>
+          )}
+
+          {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles) */}
+          {!showRightSidebar && (
+            <button
+              onClick={() => setShowRightSidebar(true)}
+              className="absolute right-0 top-1/2 z-10 flex h-16 w-5 -translate-y-1/2 items-center justify-center rounded-l-md border border-r-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              title={`${tDash('toggleRightSidebar')} (])`}
+              aria-label={tDash('toggleRightSidebar')}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
           )}
         </div>
 
