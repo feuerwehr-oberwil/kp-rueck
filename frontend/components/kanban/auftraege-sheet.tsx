@@ -62,6 +62,7 @@ import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
@@ -736,6 +737,7 @@ interface StopRowProps {
 function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpenDetail, onOpenMap }: StopRowProps) {
   const t = useTranslations("kanban.auftraege")
   const tStatus = useTranslations("kanban.stopStatus")
+  const { formatLocation } = useOperations()
   const mirror = toMirrorStatus(op)
   const ref = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLButtonElement>(null)
@@ -804,7 +806,14 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
         <span className="tabular-nums text-xs text-muted-foreground w-6 text-right flex-shrink-0">{index + 1}.</span>
         {/* Status control — mirrors the board columns; click advances, caret jumps. */}
         <StopStatusControl op={op} onSetStatus={onSetStatus} />
-        <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>
+        {/* Primary line = the incident's name (type label); the address (with the
+            home city stripped) drops to a muted secondary line. */}
+        <div className="min-w-0 flex-1">
+          <div className="truncate">{op ? getIncidentTypeLabel(op.incidentType) : incidentId}</div>
+          {op?.location && (
+            <div className="truncate text-xs text-muted-foreground">{formatLocation(op.location)}</div>
+          )}
+        </div>
         {/* Karte — opens the Routen-Editor centred on this stop. */}
         <Button
           size="icon"

@@ -46,7 +46,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { cn } from "@/lib/utils"
-import type { Operation, OperationStatus } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { isLocated } from "@/lib/utils/route-geo"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
@@ -352,12 +352,14 @@ export function StopListRow({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
   const [isDropOver, setIsDropOver] = useState(false)
 
+  const { formatLocation } = useOperations()
   const mirror = toMirrorStatus(op)
   const mirrorConf = MIRROR_CONFIG[mirror]
-  // Primary line = the incident's name (its type label); the address drops to a
-  // muted secondary line — the same two-line stack the kanban card uses.
+  // Primary line = the incident's name (its type label); the address (with the
+  // home city stripped) drops to a muted secondary line — the same two-line
+  // stack the kanban card uses.
   const name = op ? getIncidentTypeLabel(op.incidentType) : incidentId
-  const address = op?.location
+  const address = op?.location ? formatLocation(op.location) : undefined
 
   useEffect(() => {
     const el = ref.current
