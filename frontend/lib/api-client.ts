@@ -86,6 +86,8 @@ export interface ApiViewerData {
   materials: ApiMaterialResource[]
   vehicles: ApiVehicle[]
   vehicle_positions: ApiVehiclePosition[]
+  /** Present when the public viewer endpoint exposes Auftrag data. */
+  groups?: ApiIncidentGroup[]
 }
 
 class ApiClient {

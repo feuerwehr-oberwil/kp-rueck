@@ -545,7 +545,7 @@ export default function MapPage() {
               operationsById={operationsById}
               focusGroupId={planningActive ? planningGroupId : null}
               highlightGroupStopId={planningActive ? planningFocusStopId : null}
-              onGroupStopMarkerClick={planningActive ? setPlanningFocusStopId : undefined}
+              onGroupStopMarkerClick={planningActive ? setPlanningFocusStopId : handleIncidentClick}
               onMapClick={
                 planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
               }
@@ -574,6 +574,7 @@ export default function MapPage() {
                   onFocusStopChange={setPlanningFocusStopId}
                   planning={planning}
                   onExit={exitPlanning}
+                  canEdit={isEditor}
                 />
               ) : (
               <>

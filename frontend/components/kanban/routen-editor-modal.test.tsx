@@ -14,7 +14,8 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { renderHook, render, waitFor } from "@testing-library/react"
+import { renderHook, render, waitFor, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { NextIntlClientProvider } from "next-intl"
 import de from "@/messages/de.json"
 
@@ -50,10 +51,19 @@ const createOperation = vi.hoisted(() => vi.fn())
 const refreshOperations = vi.hoisted(() => vi.fn(async () => {}))
 
 vi.mock("@/lib/contexts/groups-context", () => ({
-  useGroups: () => ({ groups: rp.groups, reorderGroupStops, refreshGroups }),
+  useGroups: () => ({
+    groups: rp.groups,
+    reorderGroupStops,
+    refreshGroups,
+    getGroupResources: (groupId: string) => ({
+      vehicles: (rp.groups.find((g: any) => g.id === groupId) as any)?.vehicles ?? [],
+      personnel: [],
+      materials: [],
+    }),
+  }),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ operations: rp.operations, createOperation, refreshOperations }),
+  useOperations: () => ({ operations: rp.operations, createOperation, refreshOperations, formatLocation: (address: string) => address }),
 }))
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
@@ -151,6 +161,27 @@ describe("useRoutePlanning.optimize", () => {
     await result.current.reorder(["C", "A", "B"])
     expect(reorderGroupStops).toHaveBeenCalledWith("g1", ["C", "A", "B"])
   })
+
+  it("reorder() propagates persistence failure", async () => {
+    rp.groups = [{ id: "g1", stopIds: ["A", "B"], mode: "squad" }]
+    rp.operations = [makeOp("A"), makeOp("B")]
+    reorderGroupStops.mockResolvedValueOnce(false)
+    const { result } = renderHook(() => useRoutePlanning("g1"))
+    await waitFor(() => expect(result.current.group).toBeDefined())
+    await expect(result.current.reorder(["B", "A"])).resolves.toBe(false)
+  })
+
+  it("uses a route-owned vehicle assignment for the GPS start", async () => {
+    rp.groups = [{
+      id: "g1",
+      stopIds: ["A", "B"],
+      vehicles: [{ assignmentId: "a1", resourceId: "stable-v1", name: "TLF 1", driverStay: false }],
+    }]
+    rp.operations = [makeOp("A"), makeOp("B")]
+    rp.positions = [{ device_id: 1, device_name: "TLF 1", latitude: 47.5, longitude: 7.6 }]
+    const { result } = renderHook(() => useRoutePlanning("g1"))
+    await waitFor(() => expect(result.current.vehicleStart).toEqual([47.5, 7.6]))
+  })
 })
 
 // --- RouteStopList (the list the modal renders) -----------------------------
@@ -212,5 +243,19 @@ describe("RouteStopList — resource drop contract", () => {
     expect(shapes).toContainEqual(
       expect.objectContaining({ type: "group-stop", groupId: "g1", incidentId: "B" }),
     )
+  })
+})
+
+describe("StopStatusControl — terminal completion", () => {
+  it("does not cycle a completed stop back to incoming", async () => {
+    const onSetStatus = vi.fn()
+    renderList({
+      stopIds: ["A"],
+      displayOrder: ["A"],
+      operationsById: new Map([["A", { ...makeOp("A"), status: "complete" }]]),
+      onSetStopStatus: (_id, status) => onSetStatus(status),
+    })
+    await userEvent.setup().click(screen.getByRole("button", { name: "Abgeschlossen" }))
+    expect(onSetStatus).not.toHaveBeenCalled()
   })
 })

@@ -62,7 +62,7 @@ import { cn } from "@/lib/utils"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
-import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
@@ -110,6 +110,8 @@ interface AuftraegeSheetProps {
   onOpenDetail: (operationId: string) => void
   /** Opens the Routen-Editor modal for a route; optional stop to centre/focus on. */
   onOpenRoutenEditor?: (groupId: string, focusIncidentId?: string) => void
+  canEdit: boolean
+  onSetStopStatus?: (incidentId: string, status: OperationStatus) => void
 }
 
 export function AuftraegeSheet({
@@ -120,6 +122,8 @@ export function AuftraegeSheet({
   onAssignRouteResource,
   onOpenDetail,
   onOpenRoutenEditor,
+  canEdit,
+  onSetStopStatus,
 }: AuftraegeSheetProps) {
   const t = useTranslations("kanban.auftraege")
   const isMobile = useIsMobile()
@@ -135,7 +139,7 @@ export function AuftraegeSheet({
     unassignResource,
     getGroupResources,
   } = useGroups()
-  const { operations, updateOperation } = useOperations()
+  const { operations } = useOperations()
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
@@ -162,7 +166,7 @@ export function AuftraegeSheet({
   // Resource / card drops onto these same targets are handled by the shared
   // board drag hook, keyed off the *source* type, so the two never collide.
   useEffect(() => {
-    if (!open) return
+    if (!open || !canEdit) return
     return monitorForElements({
       onDrop({ source, location }) {
         const dest = location.current.dropTargets[0]
@@ -189,7 +193,7 @@ export function AuftraegeSheet({
         reorderGroupStops(group.id, reordered)
       },
     })
-  }, [open, groups, reorderGroupStops])
+  }, [open, canEdit, groups, reorderGroupStops])
 
   const toggleExpanded = (id: string) => {
     setExpanded((prev) => {
@@ -257,10 +261,10 @@ export function AuftraegeSheet({
                 <SheetTitle>{t("title")}</SheetTitle>
                 <SheetDescription>{t("description")}</SheetDescription>
               </div>
-              <Button size="sm" variant="outline" onClick={startCreate} className="flex-shrink-0 gap-1.5">
+              {canEdit && <Button size="sm" variant="outline" onClick={startCreate} className="flex-shrink-0 gap-1.5">
                 <Plus className="h-4 w-4" />
                 {t("newAuftrag")}
-              </Button>
+              </Button>}
             </div>
           </SheetHeader>
 
@@ -340,15 +344,16 @@ export function AuftraegeSheet({
                 onUnassignResource={(assignmentId) => unassignResource(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
-                onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
+                canEdit={canEdit}
+                onSetStopStatus={onSetStopStatus}
               />
             ))}
           </div>
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+      <AlertDialog open={canEdit && !!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
@@ -391,8 +396,9 @@ interface AuftragCardProps {
   onUnassignResource: (assignmentId: string) => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
-  onSetStopStatus: (incidentId: string, status: MirrorStatus) => void
   registerRowRef: (el: HTMLDivElement | null) => void
+  canEdit: boolean
+  onSetStopStatus?: (incidentId: string, status: OperationStatus) => void
 }
 
 function AuftragCard({
@@ -417,6 +423,7 @@ function AuftragCard({
   onRemoveStop,
   onSetStopStatus,
   registerRowRef,
+  canEdit,
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
   const headerRef = useRef<HTMLDivElement>(null)
@@ -436,7 +443,8 @@ function AuftragCard({
       toast.info(t("optimizeUnchanged"))
       return
     }
-    await planning.reorder(proposed)
+    const persisted = await planning.reorder(proposed)
+    if (!persisted) return
     toast.success(t("optimized"), {
       action: { label: t("undo"), onClick: () => void planning.reorder(previous) },
     })
@@ -465,6 +473,7 @@ function AuftragCard({
   useEffect(() => {
     const el = headerRef.current
     if (!el) return
+    if (!canEdit) return
     return dropTargetForElements({
       element: el,
       getData: () => ({ type: "group-row", groupId: group.id }),
@@ -476,7 +485,7 @@ function AuftragCard({
       onDragLeave: () => setIsDropOver(false),
       onDrop: () => setIsDropOver(false),
     })
-  }, [group.id])
+  }, [group.id, canEdit])
 
   return (
     <div
@@ -520,7 +529,7 @@ function AuftragCard({
               {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </span>
             {/* Colour swatch — click to recolour the route (same palette as create). */}
-            <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+            {canEdit ? <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
@@ -538,7 +547,7 @@ function AuftragCard({
                   setColorPickerOpen(false)
                 }}
               />
-            </Popover>
+            </Popover> : <span className="h-3.5 w-3.5 flex-shrink-0 rounded-full border border-black/10" style={{ backgroundColor: group.color ?? "var(--muted-foreground)" }} />}
             <div className="min-w-0 flex-1">
               {isRenaming ? (
                 <Input
@@ -562,7 +571,7 @@ function AuftragCard({
               {t("progress", { done, total })}
             </span>
 
-            <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+            {canEdit && <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -593,11 +602,11 @@ function AuftragCard({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
+            </div>}
           </div>
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
+        {canEdit && <ContextMenuContent className="w-48">
           <ContextMenuItem onClick={onStartRename}>
             <Pencil className="mr-2 h-4 w-4" />
             {t("rename")}
@@ -615,7 +624,7 @@ function AuftragCard({
             <Trash2 className="mr-2 h-4 w-4" />
             {t("delete")}
           </ContextMenuItem>
-        </ContextMenuContent>
+        </ContextMenuContent>}
       </ContextMenu>
 
       {/* Expanded content — four PEER sub-sections of the Auftrag, all rendered
@@ -633,6 +642,7 @@ function AuftragCard({
             resources={resources}
             onAssign={onAssignRouteResource}
             onUnassign={onUnassignResource}
+            readOnly={!canEdit}
           />
 
           {/* Zugewiesene Einsätze — the fourth peer section, same header template.
@@ -649,13 +659,13 @@ function AuftragCard({
                     {t("routenEditor")}
                   </Button>
                   {/* Optimize wand — the menu picks the start anchor and runs immediately. */}
-                  <RouteOptimizeMenu
+                  {canEdit && <RouteOptimizeMenu
                     options={optimizeStartOptions}
                     menuLabel={t("optimizeStartHint")}
                     optimizeLabel={t("optimizeOrder")}
                     disabled={total < 2}
                     onOptimize={(start) => void runOptimize(start)}
-                  />
+                  />}
                 </div>
               }
             />
@@ -670,22 +680,23 @@ function AuftragCard({
                   index={index}
                   op={opById.get(incidentId)}
                   onRemove={() => onRemoveStop(incidentId)}
-                  onSetStatus={(status) => onSetStopStatus(incidentId, status)}
+                  onSetStatus={(status) => onSetStopStatus?.(incidentId, status)}
                   onOpenDetail={() => onOpenDetail(incidentId)}
                   onOpenMap={onOpenRoutenEditor}
+                  readOnly={!canEdit || !onSetStopStatus}
                 />
               ))}
 
               {/* Add-row: a full-width "+ Stop hinzufügen" row below the last stop
                   (table "add row") — opens the incident picker to attach a stop. */}
-              <button
+              {canEdit && <button
                 type="button"
                 onClick={onAddStop}
                 className="flex min-h-10 w-full items-center gap-2 rounded-md border border-dashed border-border/60 px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
               >
                 <Plus className="h-3.5 w-3.5 flex-shrink-0" />
                 {t("addStop")}
-              </button>
+              </button>}
             </div>
           </div>
         </div>
@@ -733,9 +744,10 @@ interface StopRowProps {
   onSetStatus: (status: MirrorStatus) => void
   onOpenDetail: () => void
   onOpenMap: (focusIncidentId?: string) => void
+  readOnly?: boolean
 }
 
-function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpenDetail, onOpenMap }: StopRowProps) {
+function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpenDetail, onOpenMap, readOnly = false }: StopRowProps) {
   const t = useTranslations("kanban.auftraege")
   const tStatus = useTranslations("kanban.stopStatus")
   const { formatLocation } = useOperations()
@@ -748,7 +760,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
   useEffect(() => {
     const el = ref.current
     const handle = handleRef.current
-    if (!el || !handle) return
+    if (!el || !handle || readOnly) return
     return combine(
       draggable({
         element: el,
@@ -779,7 +791,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
         },
       }),
     )
-  }, [groupId, incidentId, index])
+  }, [groupId, incidentId, index, readOnly])
 
   return (
     <div className="relative">
@@ -801,12 +813,12 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
           isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
         )}
       >
-        <button ref={handleRef} className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0" aria-label={t("dragStop")}>
+        {!readOnly && <button ref={handleRef} className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0" aria-label={t("dragStop")}>
           <GripVertical className="h-3.5 w-3.5" />
-        </button>
+        </button>}
         <span className="tabular-nums text-xs text-muted-foreground w-6 text-right flex-shrink-0">{index + 1}.</span>
         {/* Status control — mirrors the board columns; click advances, caret jumps. */}
-        <StopStatusControl op={op} onSetStatus={onSetStatus} />
+        {readOnly ? (() => { const c = MIRROR_CONFIG[mirror]; const Icon = c.Icon; return <Icon className={cn("h-4 w-4 flex-shrink-0", c.cls)} /> })() : <StopStatusControl op={op} onSetStatus={onSetStatus} />}
         {/* Primary line = the address (home city stripped); the incident type is
             the muted secondary line; the Meldung shows in a tooltip on hover. */}
         {op?.notes ? (
@@ -844,9 +856,9 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpenDetail}>{t("openDetail")}</DropdownMenuItem>
-            <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
+            {!readOnly && <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
               {t("removeStop")}
-            </DropdownMenuItem>
+            </DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -854,7 +866,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           {/* Status jump — same four mirror columns the StopStatusControl caret offers. */}
-          {MIRROR_ORDER.map((s) => {
+          {!readOnly && (mirror === "complete" ? (["complete"] as MirrorStatus[]) : MIRROR_ORDER).map((s) => {
             const c = MIRROR_CONFIG[s]
             const SIcon = c.Icon
             return (
@@ -865,7 +877,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
               </ContextMenuItem>
             )
           })}
-          <ContextMenuSeparator />
+          {!readOnly && <ContextMenuSeparator />}
           <ContextMenuItem onClick={() => onOpenMap(incidentId)}>
             <MapIcon className="mr-2 h-4 w-4" />
             {t("map")}
@@ -874,11 +886,11 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
             <Info className="mr-2 h-4 w-4" />
             {t("openDetail")}
           </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
+          {!readOnly && <ContextMenuSeparator />}
+          {!readOnly && <ContextMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
             <Trash2 className="mr-2 h-4 w-4" />
             {t("removeStop")}
-          </ContextMenuItem>
+          </ContextMenuItem>}
         </ContextMenuContent>
       </ContextMenu>
       {closestEdge === "bottom" && <DropIndicator edge="bottom" gap="2px" />}

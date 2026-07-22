@@ -223,6 +223,10 @@ async def assign_group_resource(
             current_user=current_user,
             request=request,
         )
+    except ga_crud.ResourceNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ga_crud.ResourceTypeMismatchError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except ValueError as e:
         logger.warning("Group assignment conflict for Auftrag %s: %s", group_id, e)
         raise HTTPException(status_code=409, detail=str(e))

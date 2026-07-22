@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { apiClient, type ApiIncident, type ApiEvent } from '@/lib/api-client'
+import { apiClient, type ApiIncident, type ApiEvent, type ApiIncidentGroup } from '@/lib/api-client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone, WifiOff } from 'lucide-react'
@@ -40,7 +40,7 @@ const priorityStyles = {
   low: { icon: 'text-muted-foreground/50', card: '' },
 } as const
 
-function TokenIncidentCard({ incident }: { incident: ApiIncident }) {
+function TokenIncidentCard({ incident, groups }: { incident: ApiIncident; groups: ApiIncidentGroup[] }) {
   const t = useTranslations('display.tokenBoard')
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -58,6 +58,8 @@ function TokenIncidentCard({ incident }: { incident: ApiIncident }) {
   const dispatchTime = new Date(incident.created_at)
   const minutesInStatus = Math.floor((currentTime.getTime() - statusChangedAt.getTime()) / (1000 * 60))
   const isOverOneHour = minutesInStatus >= 60
+  const group = incident.group_id ? groups.find((item) => String(item.id) === String(incident.group_id)) : undefined
+  const stopIndex = group?.stop_ids.map(String).indexOf(String(incident.id)) ?? -1
 
   return (
     <Card
@@ -106,6 +108,12 @@ function TokenIncidentCard({ incident }: { incident: ApiIncident }) {
           <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(incident.type)}</span>
         </div>
 
+        {group && (
+          <Badge variant="outline" className="w-fit text-xs" style={{ borderColor: group.color ?? undefined }}>
+            {group.name}{stopIndex >= 0 ? ` · ${stopIndex + 1}/${group.stop_ids.length}` : ''}
+          </Badge>
+        )}
+
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -153,7 +161,7 @@ function TokenIncidentCard({ incident }: { incident: ApiIncident }) {
   )
 }
 
-function TokenColumn({ column, incidents }: { column: typeof columns[number]; incidents: ApiIncident[] }) {
+function TokenColumn({ column, incidents, groups }: { column: typeof columns[number]; incidents: ApiIncident[]; groups: ApiIncidentGroup[] }) {
   const t = useTranslations('display.tokenBoard')
   const tk = useTranslations('kanban')
   return (
@@ -164,7 +172,7 @@ function TokenColumn({ column, incidents }: { column: typeof columns[number]; in
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-2 rounded-lg min-h-[200px]">
         {incidents.map((incident) => (
-          <TokenIncidentCard key={incident.id} incident={incident} />
+          <TokenIncidentCard key={incident.id} incident={incident} groups={groups} />
         ))}
       </div>
     </div>
@@ -176,6 +184,7 @@ export function TokenBoard({ token }: { token: string }) {
 
   const [event, setEvent] = useState<ApiEvent | null>(null)
   const [incidents, setIncidents] = useState<ApiIncident[]>([])
+  const [groups, setGroups] = useState<ApiIncidentGroup[]>([])
   const [showCompleted, setShowCompleted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -195,6 +204,7 @@ export function TokenBoard({ token }: { token: string }) {
       if (!data) return
       setEvent(data.event)
       setIncidents(data.incidents)
+      setGroups(data.groups ?? [])
       setError(null)
       setLastRefresh(new Date())
       hasDataRef.current = true
@@ -280,7 +290,7 @@ export function TokenBoard({ token }: { token: string }) {
       <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
         <div className="flex h-full gap-3">
           {columns.filter((c) => !c.collapsible).map((column) => (
-            <TokenColumn key={column.id} column={column} incidents={incidentsByColumn[column.id] || []} />
+            <TokenColumn key={column.id} column={column} incidents={incidentsByColumn[column.id] || []} groups={groups} />
           ))}
           {(() => {
             const completeCol = columns.find((c) => c.collapsible)
@@ -296,7 +306,7 @@ export function TokenBoard({ token }: { token: string }) {
                   {showCompleted ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                   <span className="[writing-mode:vertical-rl] rotate-180">{t('completedColumn', { count: completeIncidents.length })}</span>
                 </button>
-                {showCompleted && <TokenColumn column={completeCol} incidents={completeIncidents} />}
+                {showCompleted && <TokenColumn column={completeCol} incidents={completeIncidents} groups={groups} />}
               </>
             )
           })()}

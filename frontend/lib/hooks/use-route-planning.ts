@@ -56,7 +56,7 @@ function findVehiclePosition(vehicleName: string, positions: ApiVehiclePosition[
 }
 
 export function useRoutePlanning(groupId: string | null | undefined) {
-  const { groups, reorderGroupStops, refreshGroups } = useGroups()
+  const { groups, reorderGroupStops, refreshGroups, getGroupResources } = useGroups()
   const { operations, createOperation, refreshOperations } = useOperations()
 
   const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
@@ -109,14 +109,16 @@ export function useRoutePlanning(groupId: string | null | undefined) {
     }
   }, [groupId])
 
-  // The squad's live GPS anchor: the source stop's first vehicle, matched by name.
+  // Resolve the route-owned assignment by its stable vehicle id. The group context
+  // resolves that id to the current vehicle name used by Traccar positions.
   const vehicleStart = useMemo<[number, number] | null>(() => {
-    const source = group?.stopIds.length ? operationsById.get(group.stopIds[0]) : undefined
-    const vehicleName = source?.vehicles[0]
-    if (!vehicleName) return null
-    const vp = findVehiclePosition(vehicleName, vehiclePositions)
-    return vp ? [vp.latitude, vp.longitude] : null
-  }, [group, operationsById, vehiclePositions])
+    if (!group) return null
+    for (const vehicle of getGroupResources(group.id).vehicles) {
+      const vp = findVehiclePosition(vehicle.name, vehiclePositions)
+      if (vp) return [vp.latitude, vp.longitude]
+    }
+    return null
+  }, [group, getGroupResources, vehiclePositions])
 
   const addStopAtLatLng = useCallback(
     async (lat: number, lng: number): Promise<void> => {
@@ -172,9 +174,9 @@ export function useRoutePlanning(groupId: string | null | undefined) {
   )
 
   const reorder = useCallback(
-    async (orderedIds: string[]): Promise<void> => {
-      if (!group) return
-      await reorderGroupStops(group.id, orderedIds)
+    async (orderedIds: string[]): Promise<boolean> => {
+      if (!group) return false
+      return reorderGroupStops(group.id, orderedIds)
     },
     [group, reorderGroupStops],
   )

@@ -146,10 +146,12 @@ interface OperationsContextType {
         vehicleName: string
         targetOperationId: string
         conflicts: { operationId: string; operationLabel: string }[]
+        customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
     | null
   resolveVehicleConflict: (action: "move" | "keep") => void
   cancelVehicleConflict: () => void
+  requestVehicleConflict: (conflict: NonNullable<OperationsContextType["vehicleConflict"]>) => void
   deleteOperation: (operationId: string) => Promise<void>
 }
 
@@ -1761,6 +1763,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     if (!conflict) return
     setVehicleConflict(null)
 
+    if (conflict.customResolve) {
+      await conflict.customResolve(action)
+      return
+    }
+
     if (action === "move") {
       // Remove the vehicle from every other incident before assigning it
       // here — and WAIT for the removals: toasting "verschoben" before they
@@ -1786,6 +1793,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   const cancelVehicleConflict = useCallback(() => setVehicleConflict(null), [])
+  const requestVehicleConflict = useCallback((conflict: NonNullable<OperationsContextType["vehicleConflict"]>) => {
+    setVehicleConflict(conflict)
+  }, [])
 
   // Undo a delete: restore the soft-deleted incident and reconcile the board.
   // api-client's request() returns undefined on a network error (no throw) and
@@ -1915,6 +1925,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         vehicleConflict,
         resolveVehicleConflict,
         cancelVehicleConflict,
+        requestVehicleConflict,
         deleteOperation,
       }}
     >

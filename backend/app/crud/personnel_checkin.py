@@ -8,8 +8,45 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import EventAttendance, Incident, IncidentAssignment, Personnel, User
+from ..models import (
+    EventAttendance,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
+    Personnel,
+    User,
+)
 from ..services.audit import log_action
+
+
+async def _is_personnel_assigned(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:
+    direct = await db.scalar(
+        select(IncidentAssignment.id)
+        .join(Incident, IncidentAssignment.incident_id == Incident.id)
+        .where(
+            Incident.event_id == event_id,
+            IncidentAssignment.resource_type == "personnel",
+            IncidentAssignment.resource_id == personnel_id,
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+        .limit(1)
+    )
+    if direct is not None:
+        return True
+    route = await db.scalar(
+        select(IncidentGroupAssignment.id)
+        .join(IncidentGroup, IncidentGroupAssignment.incident_group_id == IncidentGroup.id)
+        .where(
+            IncidentGroup.event_id == event_id,
+            IncidentGroup.deleted_at.is_(None),
+            IncidentGroupAssignment.resource_type == "personnel",
+            IncidentGroupAssignment.resource_id == personnel_id,
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+        .limit(1)
+    )
+    return route is not None
 
 
 async def get_available_personnel(
@@ -55,6 +92,18 @@ async def get_available_personnel(
     )
     assignment_result = await db.execute(assignment_query)
     assigned_personnel_ids = set(assignment_result.scalars().all())
+    group_assignment_result = await db.execute(
+        select(IncidentGroupAssignment.resource_id)
+        .join(IncidentGroup, IncidentGroupAssignment.incident_group_id == IncidentGroup.id)
+        .where(
+            IncidentGroup.event_id == event_id,
+            IncidentGroup.deleted_at.is_(None),
+            IncidentGroupAssignment.resource_type == "personnel",
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+        .distinct()
+    )
+    assigned_personnel_ids.update(group_assignment_result.scalars().all())
 
     # Build response with event-specific check-in status
     response_list = []
@@ -117,21 +166,7 @@ async def check_in_personnel(
     if person.availability == "unavailable":
         raise ValueError("Cannot check in unavailable personnel")
 
-    # Check if assigned to any incident in this event
-    assignment_query = (
-        select(IncidentAssignment.id)
-        .where(
-            and_(
-                IncidentAssignment.resource_type == "personnel",
-                IncidentAssignment.resource_id == personnel_id,
-                IncidentAssignment.unassigned_at.is_(None),
-                IncidentAssignment.incident_id.in_(select(Incident.id).where(Incident.event_id == event_id)),
-            )
-        )
-        .limit(1)
-    )
-    is_assigned_result = await db.execute(assignment_query)
-    is_assigned = is_assigned_result.scalar_one_or_none() is not None
+    is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
     # Get or create event attendance record
     attendance_result = await db.execute(
@@ -224,21 +259,7 @@ async def check_out_personnel(
     if not person:
         return None
 
-    # Check if assigned to any incident in this event
-    assignment_query = (
-        select(IncidentAssignment.id)
-        .where(
-            and_(
-                IncidentAssignment.resource_type == "personnel",
-                IncidentAssignment.resource_id == personnel_id,
-                IncidentAssignment.unassigned_at.is_(None),
-                IncidentAssignment.incident_id.in_(select(Incident.id).where(Incident.event_id == event_id)),
-            )
-        )
-        .limit(1)
-    )
-    is_assigned_result = await db.execute(assignment_query)
-    is_assigned = is_assigned_result.scalar_one_or_none() is not None
+    is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
     # Prevent checkout if assigned to an incident
     if is_assigned:

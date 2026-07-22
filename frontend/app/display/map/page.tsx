@@ -1,15 +1,16 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
-import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
+import { useIncidents, useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { apiClient, type ApiIncident, type ApiViewerData } from "@/lib/api-client"
 import type { Incident } from "@/lib/types/incidents"
 import type { AssignedVehicle } from "@/lib/types/incidents"
+import type { IncidentGroup } from "@/lib/types/groups"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { Loader2, Palette, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -254,6 +255,11 @@ function apiIncidentToIncident(a: ApiIncident): Incident {
   }
 }
 
+const TOKEN_STATUS: Record<string, OperationStatus> = {
+  eingegangen: "incoming", reko: "ready", reko_done: "rekoDone", disponiert: "enroute",
+  einsatz: "active", einsatz_beendet: "returning", abschluss: "complete",
+}
+
 function TokenDisplayMap({
   token,
   selectedIncidentId,
@@ -289,6 +295,31 @@ function TokenDisplayMap({
     () => (data?.incidents ?? []).map(apiIncidentToIncident),
     [data]
   )
+  const routeOperations = useMemo(
+    () => new Map((data?.incidents ?? []).map((incident) => [incident.id, {
+      id: incident.id,
+      location: incident.location_address ?? incident.title,
+      coordinates: incident.location_lat != null && incident.location_lng != null
+        ? [Number(incident.location_lat), Number(incident.location_lng)] as [number, number]
+        : [47.51637699933488, 7.561800450458299] as [number, number],
+      status: TOKEN_STATUS[incident.status] ?? "incoming",
+    } as Operation])),
+    [data],
+  )
+  const groups = useMemo<IncidentGroup[]>(() => (data?.groups ?? []).map((group) => ({
+    id: String(group.id),
+    eventId: String(group.event_id),
+    name: group.name,
+    color: group.color ?? null,
+    notes: group.notes ?? null,
+    position: group.position,
+    createdAt: new Date(group.created_at),
+    updatedAt: new Date(group.updated_at),
+    createdBy: group.created_by ? String(group.created_by) : null,
+    stopIds: group.stop_ids.map(String),
+    assignments: [],
+    progress: group.progress ?? { total: group.stop_ids.length, done: 0 },
+  })), [data])
 
   if (!data) {
     return (
@@ -309,6 +340,10 @@ function TokenDisplayMap({
         incidentsOverride={incidents}
         vehiclesOverride={data.vehicles}
         positionsOverride={data.vehicle_positions}
+        showGroupRoutes={groups.length > 0}
+        groups={groups}
+        operationsById={routeOperations}
+        onGroupStopMarkerClick={onMarkerClick}
       />
     </div>
   )

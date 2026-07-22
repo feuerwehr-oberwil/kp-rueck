@@ -56,9 +56,10 @@ interface RouteResourceSectionsProps {
   onUnassign: (assignmentId: string) => void
   /** Optional badge rendered after each section count (e.g. "über Auftrag «…»"). */
   viaLabel?: ReactNode
+  readOnly?: boolean
 }
 
-export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabel }: RouteResourceSectionsProps) {
+export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabel, readOnly = false }: RouteResourceSectionsProps) {
   const t = useTranslations("kanban")
 
   return (
@@ -69,7 +70,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
           icon={Users}
           label={t("common.crewCount", { count: resources.personnel.length })}
           viaLabel={viaLabel}
-          action={
+          action={!readOnly ? (
             <Button
               size="sm"
               variant="ghost"
@@ -81,7 +82,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
               <Plus className="h-3 w-3" />
               {t("common.add")}
             </Button>
-          }
+          ) : undefined}
         />
         <div className="flex flex-wrap gap-2">
           {resources.personnel.length > 0 ? (
@@ -92,17 +93,17 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
                 className="group gap-1 pr-1 text-sm transition-colors hover:bg-destructive/20"
               >
                 {p.name}
-                <button
+                {!readOnly && <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onUnassign(p.assignmentId)
                   }}
-                  className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="ml-1 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                   title={t("common.removeNamed", { name: p.name })}
-                  tabIndex={-1}
+                  tabIndex={0}
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </button>}
               </Badge>
             ))
           ) : (
@@ -117,7 +118,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
           icon={Truck}
           label={t("common.vehiclesCount", { count: resources.vehicles.length })}
           viaLabel={viaLabel}
-          action={
+          action={!readOnly ? (
             <Button
               size="sm"
               variant="ghost"
@@ -129,24 +130,24 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
               <Plus className="h-3 w-3" />
               {t("common.add")}
             </Button>
-          }
+          ) : undefined}
         />
         <div className="flex flex-wrap gap-2">
           {resources.vehicles.length > 0 ? (
             resources.vehicles.map((v) => (
               <Badge key={v.assignmentId} variant="default" className="group gap-1 pr-1 text-sm transition-colors">
                 {v.name}
-                <button
+                {!readOnly && <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onUnassign(v.assignmentId)
                   }}
-                  className="ml-0.5 cursor-pointer opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+                  className="ml-0.5 cursor-pointer opacity-70 transition-opacity hover:text-white focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                   title={t("common.removeNamed", { name: v.name })}
-                  tabIndex={-1}
+                  tabIndex={0}
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </button>}
               </Badge>
             ))
           ) : (
@@ -161,7 +162,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
           icon={Package}
           label={t("common.materialsCount", { count: resources.materials.length })}
           viaLabel={viaLabel}
-          action={
+          action={!readOnly ? (
             <Button
               size="sm"
               variant="ghost"
@@ -173,7 +174,7 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
               <Plus className="h-3 w-3" />
               {t("common.add")}
             </Button>
-          }
+          ) : undefined}
         />
         <div className="flex flex-wrap gap-2">
           {resources.materials.length > 0 ? (
@@ -184,17 +185,17 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
                 className="group gap-1 pr-1 text-sm transition-colors hover:bg-destructive/20"
               >
                 {m.name}
-                <button
+                {!readOnly && <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onUnassign(m.assignmentId)
                   }}
-                  className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="ml-1 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                   title={t("common.removeNamed", { name: m.name })}
-                  tabIndex={-1}
+                  tabIndex={0}
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </button>}
               </Badge>
             ))
           ) : (

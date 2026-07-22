@@ -334,8 +334,8 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
     assignment expands into one target per active, located, ``disponiert`` stop of
     the group, so the route vehicle advances each stop it physically reaches. The
     target dict matches the per-incident shape but is flagged ``is_group=True`` so
-    the caller feeds it into Rule A (arrival) only. Training events are included for
-    the same reason as per-incident assignments.
+    return prompts point at the Auftrag unassign endpoint. Training events are
+    included for the same reason as per-incident assignments.
     """
     result = await db.execute(
         select(
@@ -343,6 +343,8 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
             Vehicle.id,
             Vehicle.name,
             IncidentGroup.id,
+            IncidentGroup.name,
+            IncidentGroup.event_id,
         )
         .join(IncidentGroup, IncidentGroupAssignment.incident_group_id == IncidentGroup.id)
         .join(Vehicle, IncidentGroupAssignment.resource_id == Vehicle.id)
@@ -358,7 +360,8 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
 
     group_ids = {row[3] for row in group_rows}
 
-    # Active, located, disponiert stops of the involved groups (arrival-eligible).
+    # All active stops are needed: disponiert stops feed arrival; one representative
+    # stop per assignment supplies context for the route-level return prompt.
     stops_result = await db.execute(
         select(
             Incident.id,
@@ -371,17 +374,33 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
         )
         .where(Incident.group_id.in_(group_ids))
         .where(Incident.deleted_at.is_(None))
-        .where(Incident.status == "disponiert")
-        .where(Incident.location_lat.isnot(None))
-        .where(Incident.location_lng.isnot(None))
+        .order_by(Incident.group_position.asc())
     )
     stops_by_group: dict[uuid.UUID, list] = {}
     for stop in stops_result.all():
         stops_by_group.setdefault(stop.group_id, []).append(stop)
 
     targets: list[dict] = []
-    for ga_id, vehicle_id, vehicle_name, group_id in group_rows:
-        for stop in stops_by_group.get(group_id, []):
+    for ga_id, vehicle_id, vehicle_name, group_id, group_name, event_id in group_rows:
+        stops = stops_by_group.get(group_id, [])
+        if not stops:
+            targets.append(
+                {
+                    "assignment_id": ga_id,
+                    "incident_id": None,
+                    "incident_status": None,
+                    "incident_lat": None,
+                    "incident_lng": None,
+                    "incident_label": group_name,
+                    "vehicle_id": vehicle_id,
+                    "vehicle_name": vehicle_name,
+                    "is_group": True,
+                    "group_id": group_id,
+                    "event_id": event_id,
+                    "return_eligible": True,
+                }
+            )
+        for index, stop in enumerate(stops):
             targets.append(
                 {
                     "assignment_id": ga_id,
@@ -393,6 +412,9 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
                     "vehicle_id": vehicle_id,
                     "vehicle_name": vehicle_name,
                     "is_group": True,
+                    "group_id": group_id,
+                    "event_id": event_id,
+                    "return_eligible": index == 0,
                 }
             )
     return targets
@@ -453,10 +475,8 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
         ]
 
         # Route-level (Auftrag) vehicle assignments: a vehicle assigned to the
-        # Auftrag covers EVERY one of its stops. Expand each into one ARRIVAL target
-        # per active, located, disponiert stop so the route vehicle still advances
-        # each stop it physically reaches. These feed Rule A only (the release
-        # prompt / return rules stay per-incident), flagged via ``is_group``.
+        # Auftrag covers EVERY one of its stops. Expansion supports arrival at each
+        # stop and one route-level return prompt per group assignment.
         targets.extend(await _group_vehicle_targets(db))
 
         arrival_keys: set = set()
@@ -504,11 +524,9 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
             # ---- Rule B: return to station -> prompt operator to release ----
             # Skip incidents the operator already closed out — the release prompt
             # would only be noise there (the bell notification still covers it).
-            # Route-level (Auftrag) targets are arrival-only: their assignment id is
-            # a group assignment, released via the Auftrag endpoint, not per-incident.
             if (
                 cfg.rule_return_enabled
-                and not t["is_group"]
+                and t.get("return_eligible", True)
                 and cfg.station_lat is not None
                 and cfg.station_lng is not None
                 and t["incident_status"] != "abschluss"
@@ -517,13 +535,25 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                 return_keys.add(r_key)
                 if _return_fix_confirms(vp, cfg, now):
                     if _advance_debounce(_state.returns, r_key, vp.last_update, cfg):
-                        await _fire_return_prompt(
-                            t["assignment_id"],
-                            t["incident_id"],
-                            t["vehicle_id"],
-                            t["vehicle_name"],
-                            t["incident_label"],
-                        )
+                        if t["is_group"]:
+                            await _fire_group_return_prompt(
+                                db,
+                                t["assignment_id"],
+                                t["group_id"],
+                                t["event_id"],
+                                t["incident_id"],
+                                t["vehicle_id"],
+                                t["vehicle_name"],
+                                t["incident_label"],
+                            )
+                        else:
+                            await _fire_return_prompt(
+                                t["assignment_id"],
+                                t["incident_id"],
+                                t["vehicle_id"],
+                                t["vehicle_name"],
+                                t["incident_label"],
+                            )
                 else:
                     _reset_debounce(_state.returns, r_key)
 
@@ -714,4 +744,42 @@ async def _fire_return_prompt(
             "vehicle_name": vehicle_name,
             "incident_label": incident_label,
         }
+    )
+
+
+async def _fire_group_return_prompt(
+    db: AsyncSession,
+    assignment_id: uuid.UUID,
+    group_id: uuid.UUID,
+    event_id: uuid.UUID,
+    incident_id: uuid.UUID | None,
+    vehicle_id: uuid.UUID,
+    vehicle_name: str,
+    group_label: str,
+) -> None:
+    """Prompt release through the Auftrag unassign endpoint, not an incident one."""
+    logger.info(
+        "GPS automation: route vehicle %s back at station — prompting release of group assignment %s",
+        vehicle_name,
+        assignment_id,
+    )
+    await broadcast_message(
+        {
+            "type": "gps_group_release_prompt",
+            "assignment_id": str(assignment_id),
+            "group_id": str(group_id),
+            "vehicle_id": str(vehicle_id),
+            "vehicle_name": vehicle_name,
+            "incident_label": group_label,
+        }
+    )
+    # Existing clients always display this notification type, even before they
+    # understand the Auftrag-specific release prompt above.
+    from .notification_service import create_vehicle_returned_notification
+
+    await create_vehicle_returned_notification(
+        db,
+        event_id=event_id,
+        incident_id=incident_id,
+        vehicle_name=vehicle_name,
     )

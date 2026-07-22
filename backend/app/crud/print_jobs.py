@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from ..models import (
     EventSpecialFunction,
     Incident,
+    IncidentGroupAssignment,
     Material,
     Personnel,
     PrintJob,
@@ -142,8 +143,27 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
     Includes per-vehicle driver info, Reko summary, internal notes, and
     Nachbarhilfe details so the printed slip carries full tactical context.
     """
-    # Get active assignments (unassigned_at is NULL)
-    active_assignments = [a for a in incident.assignments if a.unassigned_at is None]
+    # Route resources cover every stop. A direct incident assignment wins when
+    # the same resource exists at both levels (notably for driver_stay).
+    effective = {}
+    if incident.group_id is not None:
+        group_result = await db.execute(
+            select(IncidentGroupAssignment).where(
+                IncidentGroupAssignment.incident_group_id == incident.group_id,
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+        )
+        effective.update(
+            {(a.resource_type, a.resource_id): a for a in group_result.scalars().all()}
+        )
+    effective.update(
+        {
+            (a.resource_type, a.resource_id): a
+            for a in incident.assignments
+            if a.unassigned_at is None
+        }
+    )
+    active_assignments = list(effective.values())
 
     # Separate by type
     personnel_ids = [a.resource_id for a in active_assignments if a.resource_type == "personnel"]

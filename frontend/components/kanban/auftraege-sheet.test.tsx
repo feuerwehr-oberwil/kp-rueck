@@ -70,6 +70,7 @@ vi.mock("@/lib/contexts/operations-context", () => ({
     updateOperation,
     createOperation: vi.fn(),
     refreshOperations: vi.fn(async () => {}),
+    formatLocation: (address: string) => address,
   }),
 }))
 
@@ -118,6 +119,8 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof AuftraegeShe
       onAssignRouteResource={noop}
       onOpenDetail={noop}
       onOpenRoutenEditor={noop}
+      canEdit
+      onSetStopStatus={noop}
       {...overrides}
     />,
   )
@@ -159,8 +162,8 @@ describe("AuftraegeSheet — derived checklist + progress", () => {
     expect(screen.getByText("Ast Bahnhofstr. 2")).toBeInTheDocument()
 
     // Kanban-column mirror labels per stop status (each appears exactly once):
-    // complete → Beendet, active → Einsatz, incoming → Offen.
-    expect(screen.getByText("Beendet")).toBeInTheDocument()
+    // complete is distinct and terminal; active → Einsatz, incoming → Offen.
+    expect(screen.getByText("Abgeschlossen")).toBeInTheDocument()
     expect(screen.getByText("Einsatz")).toBeInTheDocument()
     expect(screen.getByText("Offen")).toBeInTheDocument()
   })
@@ -180,6 +183,22 @@ describe("AuftraegeSheet — create", () => {
 
     await waitFor(() => expect(createGroup).toHaveBeenCalledTimes(1))
     expect(createGroup).toHaveBeenCalledWith(expect.objectContaining({ name: "Sturm-Route West" }))
+  })
+})
+
+describe("AuftraegeSheet — viewer", () => {
+  it("keeps details and routes visible but hides every mutation", async () => {
+    state.groups = [grp({ stopIds: ["i1"] })]
+    state.operations = [op("i1", "incoming", "Hauptstr. 1")]
+    const user = userEvent.setup()
+    renderSheet({ canEdit: false })
+
+    expect(screen.queryByRole("button", { name: /Neuer Auftrag/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
+    expect(screen.getByTitle("Karte")).toBeInTheDocument()
+    expect(screen.queryByText("Stop hinzufügen")).not.toBeInTheDocument()
+    expect(screen.queryByTitle("Fahrzeug zuweisen")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Status wählen")).not.toBeInTheDocument()
   })
 })
 

@@ -96,6 +96,7 @@ export default function FireStationDashboard() {
     assignRekoPersonToOperation,
     assignMaterialToOperation,
     assignVehicleToOperation,
+    requestVehicleConflict,
     deleteOperation,
     isLoading,
     isLoaded
@@ -108,6 +109,7 @@ export default function FireStationDashboard() {
     getGroupResources,
     createGroup,
     removeStop: removeStopFromGroup,
+    occupiedResourceIds,
   } = useGroups()
 
   // Keep the top progress bar visible for the whole pre-ready window — auth
@@ -635,6 +637,20 @@ export default function FireStationDashboard() {
     promptMaterialDecision(operationId)
   }, [operations, updateOperation, promptMaterialDecision])
 
+  const setRouteStopStatus = useCallback((operationId: string, newStatus: OperationStatus) => {
+    const operation = operations.find((op) => op.id === operationId)
+    if (!operation || operation.status === "complete") return
+    if (newStatus === "complete") {
+      requestCompletion(operationId)
+      return
+    }
+    updateOperation(operationId, { status: newStatus })
+    if (newStatus === "enroute") triggerDisponiertDialog(operationId)
+    if (newStatus === "ready") triggerRekoCheck(operationId)
+    if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
+    if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
+  }, [operations, requestCompletion, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])
+
   // Open the "Ressourcen übertragen" dialog from the card context menu. Loads the
   // event's incidents as transfer targets (mirrors side-panel's handleOpenTransfer).
   const handleOpenTransfer = useCallback(async (operationId: string) => {
@@ -731,6 +747,64 @@ export default function FireStationDashboard() {
     },
     [getGroupResources, unassignGroupResource, assignGroupResource, removeVehicle, assignVehicleToOperation],
   )
+
+  const assignVehicleToGroupWithConflict = useCallback((groupId: string, vehicleId: string) => {
+    const vehicle = vehicleTypes.find((item) => item.id === vehicleId)
+    if (!vehicle) return
+    const groupConflicts = groups
+      .filter((group) => group.id !== groupId && group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId))
+    const incidentConflicts = operations.filter((op) => op.vehicles.includes(vehicle.name))
+    if (groupConflicts.length === 0 && incidentConflicts.length === 0) {
+      void assignGroupResource(groupId, "vehicle", vehicleId)
+      return
+    }
+    requestVehicleConflict({
+      vehicleId,
+      vehicleName: vehicle.name,
+      targetOperationId: groupId,
+      conflicts: [
+        ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+        ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: op.location })),
+      ],
+      customResolve: async (action) => {
+        if (action === "move") {
+          const groupResults = await Promise.all(groupConflicts.map((group) => {
+            const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)
+            return assignment ? unassignGroupResource(group.id, assignment.id) : true
+          }))
+          const incidentResults = await Promise.all(incidentConflicts.map((op) => removeVehicle(op.id, vehicle.name)))
+          if ([...groupResults, ...incidentResults].some((ok) => !ok)) return
+        }
+        await assignGroupResource(groupId, "vehicle", vehicleId)
+      },
+    })
+  }, [vehicleTypes, groups, operations, requestVehicleConflict, assignGroupResource, unassignGroupResource, removeVehicle])
+
+  const assignVehicleToIncidentWithConflict = useCallback((vehicleId: string, vehicleName: string, operationId: string) => {
+    const groupConflicts = groups.filter((group) =>
+      group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId),
+    )
+    if (groupConflicts.length === 0) {
+      assignVehicleToOperation(vehicleId, vehicleName, operationId)
+      return
+    }
+    requestVehicleConflict({
+      vehicleId,
+      vehicleName,
+      targetOperationId: operationId,
+      conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+      customResolve: async (action) => {
+        if (action === "move") {
+          const results = await Promise.all(groupConflicts.map((group) => {
+            const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)
+            return assignment ? unassignGroupResource(group.id, assignment.id) : true
+          }))
+          if (results.some((ok) => !ok)) return
+        }
+        assignVehicleToOperation(vehicleId, vehicleName, operationId)
+      },
+    })
+  }, [groups, requestVehicleConflict, unassignGroupResource, assignVehicleToOperation])
 
   // Register command palette handlers
   useEffect(() => {
@@ -1012,6 +1086,7 @@ export default function FireStationDashboard() {
   // Use shared drag-and-drop hook
   useKanbanDragDrop({
     isMounted,
+    canEdit: isEditor,
     operations,
     setOperations,
     updateOperation,
@@ -1019,7 +1094,7 @@ export default function FireStationDashboard() {
     assignPersonToOperation,
     assignRekoPersonToOperation,
     assignMaterialToOperation,
-    assignVehicleToOperation,
+    assignVehicleToOperation: assignVehicleToIncidentWithConflict,
     setDraggingItem,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel
@@ -1039,7 +1114,11 @@ export default function FireStationDashboard() {
     // drop-target data contract (`group-row` / `group-stop`).
     groups,
     addStopsToGroup,
-    assignGroupResource,
+    assignGroupResource: (groupId, resourceType, resourceId) => {
+      if (resourceType === "vehicle") assignVehicleToGroupWithConflict(groupId, resourceId)
+      else void assignGroupResource(groupId, resourceType, resourceId)
+    },
+    occupiedGroupResourceIds: occupiedResourceIds,
   })
 
   // Board Auftrag chips signal the page via a window event (no prop threading
@@ -1539,6 +1618,12 @@ export default function FireStationDashboard() {
   // When the assignment dialog is scoped to a ROUTE, its assigned lists +
   // assign/remove callbacks target the Auftrag's resources instead of a stop.
   const routeGroupResources = routeAssign ? getGroupResources(routeAssign.groupId) : null
+  const routeOwnIds = routeAssign
+    ? new Set(groups.find((group) => group.id === routeAssign.groupId)?.assignments.map((a) => `${a.resourceType}:${a.resourceId}`) ?? [])
+    : new Set<string>()
+  const occupiedPersonnelIds = new Set([...occupiedResourceIds.personnel].filter((id) => !routeOwnIds.has(`personnel:${id}`)))
+  const occupiedVehicleIds = new Set([...occupiedResourceIds.vehicle].filter((id) => !routeOwnIds.has(`vehicle:${id}`)))
+  const occupiedMaterialIds = new Set([...occupiedResourceIds.material].filter((id) => !routeOwnIds.has(`material:${id}`)))
 
   // Material-return dialog operates on the ROUTE's materials for a grouped
   // incident (unassign by group-assignment id) and on the stop's own otherwise.
@@ -2311,8 +2396,8 @@ export default function FireStationDashboard() {
           ? (personId) => assignGroupResource(routeAssign.groupId, 'personnel', personId)
           : assignPersonToOperation}
         onAssignVehicle={routeAssign
-          ? (vehicleId) => assignGroupResource(routeAssign.groupId, 'vehicle', vehicleId)
-          : assignVehicleToOperation}
+          ? (vehicleId) => assignVehicleToGroupWithConflict(routeAssign.groupId, vehicleId)
+          : assignVehicleToIncidentWithConflict}
         onAssignMaterial={routeAssign
           ? (materialId) => assignGroupResource(routeAssign.groupId, 'material', materialId)
           : assignMaterialToOperation}
@@ -2336,6 +2421,9 @@ export default function FireStationDashboard() {
           : removeMaterial}
         zuFuss={!routeAssign && assignmentOperationId ? operations.find(op => op.id === assignmentOperationId)?.zuFuss ?? false : false}
         onToggleZuFuss={!routeAssign && assignmentOperationId ? () => handleToggleZuFuss(assignmentOperationId) : undefined}
+        occupiedPersonnelIds={occupiedPersonnelIds}
+        occupiedVehicleIds={occupiedVehicleIds}
+        occupiedMaterialIds={occupiedMaterialIds}
       />
 
 
@@ -2746,6 +2834,8 @@ export default function FireStationDashboard() {
           setRoutenEditorGroupId(groupId)
           setRoutenEditorFocusIncidentId(focusIncidentId ?? null)
         }}
+        canEdit={isEditor}
+        onSetStopStatus={isEditor ? setRouteStopStatus : undefined}
       />
 
       {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
@@ -2759,10 +2849,12 @@ export default function FireStationDashboard() {
         }}
         groupId={routenEditorGroupId}
         focusIncidentId={routenEditorFocusIncidentId}
+        canEdit={isEditor}
+        onSetStopStatus={isEditor ? setRouteStopStatus : undefined}
       />
 
       {/* "+ Stop" — pick existing incidents to add as stops to a route */}
-      <IncidentPickerDialog
+      {isEditor && <IncidentPickerDialog
         open={stopPickerGroupId !== null}
         onOpenChange={(open) => !open && setStopPickerGroupId(null)}
         operations={operations}
@@ -2773,7 +2865,7 @@ export default function FireStationDashboard() {
           setNewEmergencyGroupId(stopPickerGroupId)
           setNewEmergencyModalOpen(true)
         }}
-      />
+      />}
 
       {/* "An Auftrag verteilen" — distribute one incident into a route */}
       <AuftragPickerDialog

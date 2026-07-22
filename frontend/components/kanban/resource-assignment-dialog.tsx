@@ -39,6 +39,9 @@ interface ResourceAssignmentDialogProps {
   onRemoveMaterial: (operationId: string, materialId: string) => void
   zuFuss?: boolean
   onToggleZuFuss?: () => void
+  occupiedPersonnelIds?: Set<string>
+  occupiedVehicleIds?: Set<string>
+  occupiedMaterialIds?: Set<string>
 }
 
 export function ResourceAssignmentDialog({
@@ -63,6 +66,8 @@ export function ResourceAssignmentDialog({
   onRemoveMaterial,
   zuFuss = false,
   onToggleZuFuss,
+  occupiedPersonnelIds = new Set(),
+  occupiedMaterialIds = new Set(),
 }: ResourceAssignmentDialogProps) {
   const t = useTranslations('kanban')
   const { materialGroups } = useMaterials()
@@ -121,6 +126,7 @@ export function ResourceAssignmentDialog({
 
       // Always show if already assigned to this operation's crew (allows deselection)
       if (isAssignedToCrew) return true
+      if (occupiedPersonnelIds.has(p.id)) return false
 
       // Don't show Reko personnel for new crew assignments
       if (isRekoPersonnel) return false
@@ -128,17 +134,19 @@ export function ResourceAssignmentDialog({
       // Show available personnel
       return p.status === 'available'
     })
-  }, [personnel, rekoPersonnelNames, assignedPersonnel])
+  }, [personnel, rekoPersonnelNames, assignedPersonnel, occupiedPersonnelIds])
 
   const availableVehicles = useMemo(() => {
     // Show all vehicles — assigned ones appear checked and can be toggled off
+    // Keep occupied vehicles visible: selecting one invokes the standard
+    // move/keep conflict prompt instead of silently hiding it.
     return vehicles
   }, [vehicles])
 
   // For materials: show available materials OR materials already assigned to THIS operation (for deselection)
   const selectableMaterials = useMemo(() => {
-    return materials.filter(m => m.status === 'available' || assignedMaterials.includes(m.id))
-  }, [materials, assignedMaterials])
+    return materials.filter(m => assignedMaterials.includes(m.id) || (m.status === 'available' && !occupiedMaterialIds.has(m.id)))
+  }, [materials, assignedMaterials, occupiedMaterialIds])
 
   // Quick-filter categories for the active resource type (rank / location / type).
   const categories = useMemo(() => {

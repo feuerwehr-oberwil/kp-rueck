@@ -737,11 +737,10 @@ async def create_vehicle_returned_notification(
     incident_id: UUID | None,
     vehicle_name: str,
 ) -> Notification | None:
-    """Info bell when an unassigned vehicle is confirmed back at the magazin.
+    """Info bell when a vehicle is confirmed back at the magazin.
 
-    Deliberately notification-only (no modal): the vehicle carries no assignment
-    anymore, so there is nothing for the operator to decide — they just need to
-    know it is home. Deduped against a recent identical note so GPS automation
+    Used for unassigned vehicles and as a fallback for Auftrag release prompts.
+    Deduped against a recent identical note so GPS automation
     restarts or geofence-edge flaps can't spam the bell. The window is short on
     purpose: a shuttle run (drop people off, return) can legitimately bring the
     same vehicle home again within minutes and must notify each time.
@@ -750,7 +749,7 @@ async def create_vehicle_returned_notification(
 
     recent = await db.execute(
         select(Notification.id)
-        .where(Notification.type == "vehicle_returned")
+        .where(Notification.type == "vehicle_arrived")
         .where(Notification.message == message)
         .where(Notification.dismissed.is_(False))
         .where(Notification.created_at >= datetime.now(UTC) - timedelta(minutes=2))
@@ -760,7 +759,7 @@ async def create_vehicle_returned_notification(
         return None
 
     notification = Notification(
-        type="vehicle_returned",
+        type="vehicle_arrived",
         severity="info",
         message=message,
         incident_id=incident_id,
