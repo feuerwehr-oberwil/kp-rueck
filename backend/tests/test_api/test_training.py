@@ -172,10 +172,11 @@ async def test_generate_emergencies_live_event_forbidden(editor_client: AsyncCli
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_emergencies_success(
-    editor_client: AsyncClient, training_event: Event, test_templates, test_locations
+async def test_generate_emergencies_success_in_demo_mode(
+    editor_client: AsyncClient, training_event: Event, test_templates, test_locations, monkeypatch
 ):
-    """Test successful emergency generation."""
+    """Test successful emergency generation in the public demo."""
+    monkeypatch.setattr("app.api.training.settings.demo_mode", True)
     with patch("app.api.training.generate_training_emergency", new_callable=AsyncMock) as mock_gen:
         # Create a mock incident
         mock_incident = Incident(

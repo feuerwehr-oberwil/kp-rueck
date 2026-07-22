@@ -208,7 +208,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Audit cleanup scheduler failed to start: {e}")
 
     # Start training auto-generation monitor (idle unless the setting is on;
-    # training features are unavailable in demo mode, so skip it there)
+    # skip unattended generation in the public demo)
     if not settings.demo_mode:
         logger.info("Starting training auto-generation task...")
         try:
