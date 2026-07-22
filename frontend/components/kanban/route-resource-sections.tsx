@@ -11,12 +11,42 @@
  * Auftrag and `onUnassign` detaches a route-owned resource by its assignment id.
  */
 
-import type { ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Users, Truck, Package, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { GroupResources } from "@/lib/types/groups"
+
+/**
+ * Shared section header — icon + "Label (N)" on the left, a trailing action on
+ * the right. This is the single visual template for every peer sub-section of an
+ * Auftrag (Mannschaft / Fahrzeuge / Material *and* Zugewiesene Einsätze), so all
+ * four headers read as identical siblings. The Aufträge sheet imports this to
+ * build its "Zugewiesene Einsätze" header from the same markup.
+ */
+interface ResourceSectionHeaderProps {
+  icon: ComponentType<{ className?: string }>
+  /** The "Label (N)" text. */
+  label: ReactNode
+  /** Optional badge rendered after the label (e.g. "über Auftrag «…»"). */
+  viaLabel?: ReactNode
+  /** Right-aligned control(s): "+ Hinzufügen" for resources, add/optimize for stops. */
+  action?: ReactNode
+}
+
+export function ResourceSectionHeader({ icon: Icon, label, viaLabel, action }: ResourceSectionHeaderProps) {
+  return (
+    <div className="mb-1.5 flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+        <span className="truncate text-sm font-medium">{label}</span>
+        {viaLabel}
+      </div>
+      {action}
+    </div>
+  )
+}
 
 interface RouteResourceSectionsProps {
   resources: GroupResources
@@ -35,24 +65,24 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
     <>
       {/* Mannschaft */}
       <div className="mt-4">
-        <div className="mb-1.5 flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <Users className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-            <span className="text-sm font-medium">{t("common.crewCount", { count: resources.personnel.length })}</span>
-            {viaLabel}
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onAssign("crew")}
-            className="h-7 gap-1 px-2"
-            title={t("common.assignCrew")}
-            tabIndex={0}
-          >
-            <Plus className="h-3 w-3" />
-            {t("common.add")}
-          </Button>
-        </div>
+        <ResourceSectionHeader
+          icon={Users}
+          label={t("common.crewCount", { count: resources.personnel.length })}
+          viaLabel={viaLabel}
+          action={
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onAssign("crew")}
+              className="h-7 gap-1 px-2"
+              title={t("common.assignCrew")}
+              tabIndex={0}
+            >
+              <Plus className="h-3 w-3" />
+              {t("common.add")}
+            </Button>
+          }
+        />
         <div className="flex flex-wrap gap-2">
           {resources.personnel.length > 0 ? (
             resources.personnel.map((p) => (
@@ -83,24 +113,24 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
 
       {/* Fahrzeuge */}
       <div className="mt-4">
-        <div className="mb-1.5 flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <Truck className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-            <span className="text-sm font-medium">{t("common.vehiclesCount", { count: resources.vehicles.length })}</span>
-            {viaLabel}
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onAssign("vehicles")}
-            className="h-7 gap-1 px-2"
-            title={t("common.assignVehicle")}
-            tabIndex={0}
-          >
-            <Plus className="h-3 w-3" />
-            {t("common.add")}
-          </Button>
-        </div>
+        <ResourceSectionHeader
+          icon={Truck}
+          label={t("common.vehiclesCount", { count: resources.vehicles.length })}
+          viaLabel={viaLabel}
+          action={
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onAssign("vehicles")}
+              className="h-7 gap-1 px-2"
+              title={t("common.assignVehicle")}
+              tabIndex={0}
+            >
+              <Plus className="h-3 w-3" />
+              {t("common.add")}
+            </Button>
+          }
+        />
         <div className="flex flex-wrap gap-2">
           {resources.vehicles.length > 0 ? (
             resources.vehicles.map((v) => (
@@ -127,24 +157,24 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
 
       {/* Material */}
       <div className="mt-4">
-        <div className="mb-1.5 flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <Package className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-            <span className="text-sm font-medium">{t("common.materialsCount", { count: resources.materials.length })}</span>
-            {viaLabel}
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onAssign("materials")}
-            className="h-7 gap-1 px-2"
-            title={t("common.assignMaterial")}
-            tabIndex={0}
-          >
-            <Plus className="h-3 w-3" />
-            {t("common.add")}
-          </Button>
-        </div>
+        <ResourceSectionHeader
+          icon={Package}
+          label={t("common.materialsCount", { count: resources.materials.length })}
+          viaLabel={viaLabel}
+          action={
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onAssign("materials")}
+              className="h-7 gap-1 px-2"
+              title={t("common.assignMaterial")}
+              tabIndex={0}
+            >
+              <Plus className="h-3 w-3" />
+              {t("common.add")}
+            </Button>
+          }
+        />
         <div className="flex flex-wrap gap-2">
           {resources.materials.length > 0 ? (
             resources.materials.map((m) => (
