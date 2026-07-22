@@ -151,22 +151,6 @@ export function toStopMirrorStatus(op: Operation | undefined): StopMirrorStatus 
   return "incoming"
 }
 
-/** Solid marker fill (hex) for a route stop's mirror status — matches the
- *  StopStatusControl icon hues so a numbered map marker carries the same
- *  progress meaning as the board column / list row it mirrors. */
-export function stopStatusMarkerColor(status: StopMirrorStatus): string {
-  switch (status) {
-    case "enroute":
-      return "#3b82f6" // blue-500 · Disponiert
-    case "active":
-      return "#f59e0b" // amber-500 · Einsatz
-    case "returning":
-      return "#10b981" // emerald-500 · Beendet
-    default:
-      return "#64748b" // slate-500 · Offen
-  }
-}
-
 /**
  * Colour class for the age chip: quiet under 60', amber at 60'+, red at
  * 120'+. Colour beats bolding 11px muted text — an incident sitting in a

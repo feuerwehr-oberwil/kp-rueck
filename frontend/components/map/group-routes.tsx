@@ -21,23 +21,47 @@ import L from "leaflet"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { isLocated } from "@/lib/utils/route-geo"
-import { stopStatusMarkerColor, toStopMirrorStatus } from "@/lib/kanban-utils"
+import { toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
+import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "@/lib/types/incidents"
 
 const DEFAULT_ROUTE_COLOR = "#6366f1" // indigo-500 fallback when a group has no colour
+const NEUTRAL_BORDER_COLOR = "#374151" // gray-700 — same neutral marker outline the incident markers use
+
+// Route stops mirror the four board columns; collapse each onto the incident
+// status group so the marker's neutral outline can carry the exact same
+// border-STYLE convention the incident markers use (no status colours).
+const MIRROR_STATUS_GROUP: Record<StopMirrorStatus, StatusGroup> = {
+  incoming: "open", // Offen → dashed
+  enroute: "active", // Disponiert → solid
+  active: "active", // Einsatz → solid
+  returning: "completed", // Beendet → dotted
+}
+
+// Translate the incident markers' SVG `stroke-dasharray` convention (the single
+// source of truth in STATUS_GROUP_BORDER_STYLE) into the equivalent CSS
+// border-style keyword for the div-based route pins.
+function borderStyleForDasharray(dasharray: string): "solid" | "dashed" | "dotted" {
+  if (dasharray === "none") return "solid"
+  return Number.parseInt(dasharray, 10) <= 2 ? "dotted" : "dashed"
+}
 
 // Numbered sequence pin: the circle FILL is the Auftrag's colour (`routeColor`) so
-// the pin reads as belonging to its route, while a status-coloured ring
-// (`statusColor`) encodes the stop's column status (Offen / Disponiert / Einsatz /
-// Beendet) — the same status→colour the Reihenfolge rows carry on their left
-// border. `dimmed` softens non-focused groups when the caller focuses one.
+// the pin reads as belonging to its route, while a single neutral outer outline
+// encodes the stop's column status (Offen / Disponiert / Einsatz / Beendet) purely
+// through its STYLE — solid / dashed / dotted — matching the incident markers'
+// `Rahmen` convention (STATUS_GROUP_BORDER_STYLE), NOT via any status colour.
+// `dimmed` softens non-focused groups when the caller focuses one.
 function sequenceMarkerIcon(
   seq: number,
   routeColor: string,
-  statusColor: string,
+  mirrorStatus: StopMirrorStatus,
   highlighted: boolean,
   dimmed: boolean,
 ): L.DivIcon {
   const size = highlighted ? 30 : 26
+  const { dasharray, opacity: statusOpacity } = STATUS_GROUP_BORDER_STYLE[MIRROR_STATUS_GROUP[mirrorStatus]]
+  const borderStyle = borderStyleForDasharray(dasharray)
+  const opacity = (dimmed ? 0.4 : 1) * statusOpacity
   const html = `
     <div style="
       width: ${size}px;
@@ -48,12 +72,14 @@ function sequenceMarkerIcon(
       background: ${routeColor};
       color: white;
       border: 2px solid white;
-      box-shadow: 0 0 0 2px ${statusColor}, 0 2px 6px rgba(0, 0, 0, 0.35);
+      outline: 2px ${borderStyle} ${NEUTRAL_BORDER_COLOR};
+      outline-offset: 1px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
       border-radius: 50%;
       font-size: ${highlighted ? 14 : 12}px;
       font-weight: 700;
       line-height: 1;
-      opacity: ${dimmed ? 0.4 : 1};
+      opacity: ${opacity};
       transition: all 0.2s ease;
     ">${seq}</div>
   `
@@ -131,7 +157,7 @@ export function GroupRoutes({
               <Marker
                 key={id}
                 position={op.coordinates}
-                icon={sequenceMarkerIcon(seq, color, stopStatusMarkerColor(toStopMirrorStatus(op)), highlightIncidentId === id, dimmed)}
+                icon={sequenceMarkerIcon(seq, color, toStopMirrorStatus(op), highlightIncidentId === id, dimmed)}
                 zIndexOffset={highlightIncidentId === id ? 300 : 100}
                 eventHandlers={onMarkerClick ? { click: () => onMarkerClick(id) } : undefined}
               >
