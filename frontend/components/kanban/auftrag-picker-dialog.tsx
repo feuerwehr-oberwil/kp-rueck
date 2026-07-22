@@ -11,7 +11,7 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { Route as RouteIcon, Plus, Check } from "lucide-react"
+import { Route as RouteIcon, Plus, Check, Unlink } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,8 @@ interface AuftragPickerDialogProps {
   onChoose: (groupId: string) => void
   /** Create a new Auftrag, then distribute into it. Returns the new group. */
   onCreate: (name: string) => Promise<IncidentGroup | null>
+  /** Detach the incident from its current route (only when it's already in one). */
+  onRemoveFromCurrent?: () => void
 }
 
 export function AuftragPickerDialog({
@@ -42,6 +44,7 @@ export function AuftragPickerDialog({
   currentGroupId,
   onChoose,
   onCreate,
+  onRemoveFromCurrent,
 }: AuftragPickerDialogProps) {
   const t = useTranslations("kanban.auftragPicker")
   const [creating, setCreating] = useState(false)
@@ -59,6 +62,11 @@ export function AuftragPickerDialog({
   const choose = (groupId: string) => {
     if (groupId === currentGroupId) return
     onChoose(groupId)
+    handleOpenChange(false)
+  }
+
+  const removeFromCurrent = () => {
+    onRemoveFromCurrent?.()
     handleOpenChange(false)
   }
 
@@ -138,10 +146,24 @@ export function AuftragPickerDialog({
             </Button>
           </div>
         ) : (
-          <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setCreating(true)}>
-            <Plus className="h-3.5 w-3.5" />
-            {t("newAuftrag")}
-          </Button>
+          <div className="space-y-2">
+            <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setCreating(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              {t("newAuftrag")}
+            </Button>
+            {/* Already in a route → offer to detach it entirely. */}
+            {currentGroupId && onRemoveFromCurrent && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full gap-1.5 text-destructive hover:text-destructive"
+                onClick={removeFromCurrent}
+              >
+                <Unlink className="h-3.5 w-3.5" />
+                {t("removeFromAuftrag")}
+              </Button>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>

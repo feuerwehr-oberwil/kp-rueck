@@ -190,9 +190,9 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   const assignedMaterialCount = materials.filter((m) => m.status === "assigned").length
 
   return (
-    <div className="h-full grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 bg-background overflow-hidden">
+    <div className="h-full grid grid-cols-1 md:grid-cols-2 md:grid-rows-2 xl:grid-cols-4 xl:grid-rows-1 bg-background overflow-y-auto md:overflow-hidden">
       {/* ── Column 1: Vehicles ── */}
-      <div className="flex flex-col border-r border-border overflow-hidden">
+      <div className="flex flex-col border-b md:border-b-0 md:border-r border-border overflow-hidden">
         <PanelHeader
           title={t('vehicles')}
           count={vehicleStatus.length}
@@ -207,7 +207,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
       </div>
 
       {/* ── Column 2: Active Incidents ── */}
-      <div className="flex flex-col border-r border-border overflow-hidden">
+      <div className="flex flex-col border-b md:border-b-0 md:border-r border-border overflow-hidden">
         <PanelHeader
           title={t('incidents')}
           count={totalActiveOps}
@@ -242,7 +242,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
       </div>
 
       {/* ── Column 3: Personnel ── */}
-      <div className="flex flex-col border-r border-border overflow-hidden">
+      <div className="flex flex-col border-b md:border-b-0 md:border-r border-border overflow-hidden">
         <PanelHeader
           title={t('personnel')}
           count={personnel.length}
@@ -268,7 +268,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
       </div>
 
       {/* ── Column 4: Materials ── */}
-      <div className="flex flex-col overflow-hidden">
+      <div className="flex flex-col border-border overflow-hidden">
         <PanelHeader
           title={t('material')}
           count={materials.length}

@@ -120,6 +120,25 @@ export function colorGroupFor(
   return { key, label: label ?? key, color: colorAccent(key, dimension, groups) }
 }
 
+// Stop-row status accent — the four "mirror" columns a route stop can be in
+// (Offen / Disponiert / Einsatz / Beendet). The left-border colour matches the
+// StopStatusControl icon colours so a Reihenfolge row carries the same status
+// meaning as the board column it mirrors.
+export type StopMirrorStatus = "incoming" | "enroute" | "active" | "returning"
+
+export function stopStatusBorderClass(status: StopMirrorStatus): string {
+  switch (status) {
+    case "enroute":
+      return "border-l-blue-500/70"
+    case "active":
+      return "border-l-amber-500/70"
+    case "returning":
+      return "border-l-emerald-500/70"
+    default:
+      return "border-l-muted-foreground/40"
+  }
+}
+
 /**
  * Colour class for the age chip: quiet under 60', amber at 60'+, red at
  * 120'+. Colour beats bolding 11px muted text — an incident sitting in a

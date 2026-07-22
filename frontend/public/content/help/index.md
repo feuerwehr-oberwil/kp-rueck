@@ -244,7 +244,13 @@ Ein Einsatz, der bereits in einem anderen Auftrag liegt, wird beim Hinzufügen *
 
 ### Route-eigene Ressourcen
 
-Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stops gemeinsam** — der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stops tragen keine eigenen Ressourcen. Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stop abgeschlossen** ist.
+Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route selbstständig abarbeitet** — wir leiten diesen einen Trupp nur von Stop zu Stop.
+
+Daraus folgt:
+
+- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stops gemeinsam** — der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stops tragen **keine eigenen Ressourcen**.
+- Ein Einsatz ist **ganz im Auftrag oder gar nicht** — es gibt kein «halb drin». Zusätzliche Ressourcen nur für einen einzelnen Stop (halb-im-Auftrag) werden **nicht** unterstützt. Braucht ein Schadenplatz einen eigenen Trupp mit eigenem Material, gehört er nicht in diesen Auftrag, sondern bleibt ein eigenständiger Einsatz (oder kommt in einen zweiten Auftrag).
+- Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stop abgeschlossen** ist.
 
 ### Route planen & optimieren
 

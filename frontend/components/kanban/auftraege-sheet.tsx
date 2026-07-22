@@ -66,7 +66,8 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
-import { StopStatusControl, type MirrorStatus } from "@/components/map/route-stop-list"
+import { StopStatusControl, toMirrorStatus, type MirrorStatus } from "@/components/map/route-stop-list"
+import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import type { GroupResources } from "@/lib/types/groups"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
@@ -475,7 +476,14 @@ function AuftragCard({
       {/* Header row — the whole row toggles expand/collapse. Right-click opens the
           same actions as the ⋮ menu (Umbenennen / Farbe / Optimieren / Löschen). */}
       <ContextMenu>
+        {/* Radix ContextMenuTrigger needs to own `onContextMenu` + a ref on its
+            child. Give it a PLAIN wrapper div and keep the pragmatic-dnd drop-target
+            ref + the expand click/keyboard handlers on an inner div — overloading a
+            single node with both the Slot ref and the dnd ref left the contextmenu
+            listener unbound, so right-click did nothing (mirrors the board card,
+            where the trigger wraps a plain div and the dnd ref lives inside). */}
         <ContextMenuTrigger asChild>
+          <div>
           <div
             ref={headerRef}
             role="button"
@@ -570,6 +578,7 @@ function AuftragCard({
               </DropdownMenu>
             </div>
           </div>
+          </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           <ContextMenuItem onClick={onStartRename}>
@@ -595,12 +604,12 @@ function AuftragCard({
       {/* Expanded content — the team matters most, so Ressourcen sits directly
           under the name, before the stops checklist. */}
       {expanded && (
-        <div className="border-t px-3 py-2 space-y-2">
-          {/* Ressourcen — route-owned resources. Lists ALL assigned vehicles,
-              personnel and material as removable chips, and assigns to the ROUTE
-              (works even with 0 stops). */}
+        <div className="border-t px-3 py-2 space-y-3">
+          {/* Section 1 · Ressourcen — the shared team owned by the whole route.
+              Lists ALL assigned vehicles, personnel and material as removable chips,
+              and assigns to the ROUTE (works even with 0 stops). */}
           <div className="rounded-md border bg-muted/20 px-3 py-2.5">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">{t("resourcesHeading")}</div>
+            <div className="mb-2 text-xs font-semibold text-muted-foreground">{t("resourcesHeading")}</div>
 
             {resourceCount === 0 ? (
               <p className="text-xs text-muted-foreground">{t("noResourcesYet")}</p>
@@ -657,44 +666,52 @@ function AuftragCard({
             </div>
           </div>
 
-          {/* Stops checklist */}
-          <div className="space-y-0.5">
-            {group.stopIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">{t("noStops")}</p>}
-            {group.stopIds.map((incidentId, index) => (
-              <StopRow
-                key={incidentId}
-                groupId={group.id}
-                incidentId={incidentId}
-                index={index}
-                op={opById.get(incidentId)}
-                onRemove={() => onRemoveStop(incidentId)}
-                onSetStatus={(status) => onSetStopStatus(incidentId, status)}
-                onOpenDetail={() => onOpenDetail(incidentId)}
-                onOpenMap={onOpenRoutenEditor}
-              />
-            ))}
-          </div>
+          {/* Section 2 · Zugewiesene Einsätze — the ordered stops the route works
+              through. Reorder by drag; status mirrors the board columns. */}
+          <div className="rounded-md border bg-muted/20 px-3 py-2.5">
+            <div className="mb-2 flex items-baseline gap-1.5 text-xs font-semibold text-muted-foreground">
+              <span>{t("stopsHeading")}</span>
+              {total > 0 && <span className="font-normal tabular-nums text-muted-foreground/70">({total})</span>}
+            </div>
 
-          {/* Row footer actions */}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAddStop}>
-              <Plus className="h-3.5 w-3.5" />
-              {t("addStop")}
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onOpenRoutenEditor()}>
-              <MapIcon className="h-3.5 w-3.5" />
-              {t("routenEditor")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5"
-              onClick={() => void runOptimize()}
-              disabled={total < 2}
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              {t("optimizeOrder")}
-            </Button>
+            <div className="space-y-0.5">
+              {group.stopIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">{t("noStops")}</p>}
+              {group.stopIds.map((incidentId, index) => (
+                <StopRow
+                  key={incidentId}
+                  groupId={group.id}
+                  incidentId={incidentId}
+                  index={index}
+                  op={opById.get(incidentId)}
+                  onRemove={() => onRemoveStop(incidentId)}
+                  onSetStatus={(status) => onSetStopStatus(incidentId, status)}
+                  onOpenDetail={() => onOpenDetail(incidentId)}
+                  onOpenMap={onOpenRoutenEditor}
+                />
+              ))}
+            </div>
+
+            {/* Section actions */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAddStop}>
+                <Plus className="h-3.5 w-3.5" />
+                {t("addStop")}
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onOpenRoutenEditor()}>
+                <MapIcon className="h-3.5 w-3.5" />
+                {t("routenEditor")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                onClick={() => void runOptimize()}
+                disabled={total < 2}
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                {t("optimizeOrder")}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -816,14 +833,16 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
       <div
         ref={ref}
         className={cn(
-          "flex items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          // Column layout: [handle] [number] [status — fixed width] [address — flex].
+          "flex items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          stopStatusBorderClass(toMirrorStatus(op)),
           isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
         )}
       >
         <button ref={handleRef} className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0" aria-label={t("dragStop")}>
           <GripVertical className="h-3.5 w-3.5" />
         </button>
-        <span className="tabular-nums text-xs text-muted-foreground w-4 flex-shrink-0">{index + 1}.</span>
+        <span className="tabular-nums text-xs text-muted-foreground w-6 text-right flex-shrink-0">{index + 1}.</span>
         {/* Status control — mirrors the board columns; click advances, caret jumps. */}
         <StopStatusControl op={op} onSetStatus={onSetStatus} />
         <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>

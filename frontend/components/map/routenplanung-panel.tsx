@@ -218,6 +218,34 @@ export function RoutenplanungPanel({
             </Button>
           </div>
 
+          {/* Optimize controls — kept up here (not at the bottom) so the "Start ab"
+              dropdown and the undo toast don't cluster in the bottom-right corner. */}
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-2">
+            <span className="text-xs text-muted-foreground">{t("startFrom")}</span>
+            <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
+              <SelectTrigger className="h-8 w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {startOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => void runOptimize()}
+              disabled={displayOrder.length < 2}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              {t("optimize")}
+            </Button>
+          </div>
+
           {/* Contextual hint: the active add-mode instruction, else how to add via marker */}
           <p className="mb-2 flex items-start gap-1.5 text-xs text-muted-foreground">
             <MousePointer2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
@@ -246,35 +274,9 @@ export function RoutenplanungPanel({
                 onSelectStop={onFocusStopChange}
                 onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
                 onRemoveStop={(incidentId) => void removeStop(group.id, incidentId)}
+                showStatusControl={false}
               />
             )}
-          </div>
-
-          {/* Optimize controls — applies immediately (no preview step). */}
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
-            <span className="text-xs text-muted-foreground">{t("startFrom")}</span>
-            <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
-              <SelectTrigger className="h-8 w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {startOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => void runOptimize()}
-              disabled={displayOrder.length < 2}
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              {t("optimize")}
-            </Button>
           </div>
         </>
       )}

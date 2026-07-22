@@ -131,26 +131,26 @@ export default function DisplayLayout({
           isSubPage && !headerVisible && "-translate-y-full opacity-0 pointer-events-none absolute inset-x-0 top-0 z-50"
         )}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Link
             href={isIndexPage ? "/" : "/display"}
-            className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
+            className="flex items-center justify-center h-7 w-7 shrink-0 rounded-md hover:bg-muted transition-colors"
             title={isIndexPage ? t('layout.backToEditor') : t('layout.displayOverview')}
           >
             <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
           </Link>
 
-          <div className="w-px h-5 bg-border" />
+          <div className="w-px h-5 bg-border shrink-0" />
 
-          <h1 className="text-sm font-semibold tracking-tight text-foreground">{eventName}</h1>
+          <h1 className="text-sm font-semibold tracking-tight text-foreground truncate">{eventName}</h1>
           {isTraining && (
-            <span className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded">
+            <span className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded shrink-0">
               {t('layout.training')}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Display page tabs */}
           {isSubPage && (
             <nav className="flex items-center rounded-md border border-border bg-muted/50 p-0.5">
@@ -168,7 +168,7 @@ export default function DisplayLayout({
                     )}
                   >
                     <p.icon className="h-3 w-3" />
-                    <span>{t(`layout.${p.labelKey}`)}</span>
+                    <span className="hidden sm:inline">{t(`layout.${p.labelKey}`)}</span>
                   </Link>
                 )
               })}

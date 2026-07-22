@@ -39,6 +39,7 @@ import {
 import { cn } from "@/lib/utils"
 import type { Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import { isLocated } from "@/lib/utils/route-geo"
+import { stopStatusBorderClass } from "@/lib/kanban-utils"
 
 export type StopState = "erledigt" | "laeuft" | "offen"
 
@@ -96,7 +97,10 @@ export function StopStatusControl({
   const next = MIRROR_ORDER[(MIRROR_ORDER.indexOf(current) + 1) % MIRROR_ORDER.length]
 
   return (
-    <div className="flex flex-shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+    <div
+      className={cn("flex flex-shrink-0 items-center", !compact && "w-28")}
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         onClick={(e) => {
@@ -105,6 +109,7 @@ export function StopStatusControl({
         }}
         className={cn(
           "flex items-center gap-1 rounded-l-md border border-r-0 border-border/60 py-0.5 pl-1.5 pr-1 text-xs font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          !compact && "min-w-0 flex-1 justify-start",
           conf.cls,
         )}
         title={t("advance", { label: t(MIRROR_CONFIG[next].labelKey) })}
@@ -169,6 +174,9 @@ interface RouteStopListProps {
   onSetStopStatus?: (incidentId: string, status: MirrorStatus) => void
   /** When provided, each row shows a ✕ that detaches the stop from the route. */
   onRemoveStop?: (incidentId: string) => void
+  /** Show the advance/jump status control (false → plain status marker, e.g. the
+   *  `/map` Routenplanung panel where status isn't advanced from the planner). */
+  showStatusControl?: boolean
 }
 
 export function RouteStopList({
@@ -184,6 +192,7 @@ export function RouteStopList({
   enabled = true,
   onSetStopStatus,
   onRemoveStop,
+  showStatusControl = true,
 }: RouteStopListProps) {
   // Reorder monitor: source `route-stop-drag` reordered onto a `group-stop`
   // target computes the new order off the authoritative `stopIds`.
@@ -228,6 +237,7 @@ export function RouteStopList({
           selected={focusStopId === incidentId}
           onSetStatus={onSetStopStatus}
           onRemove={onRemoveStop}
+          showStatusControl={showStatusControl}
         />
       ))}
     </>
@@ -245,6 +255,7 @@ interface StopListRowProps {
   selected: boolean
   onSetStatus?: (incidentId: string, status: MirrorStatus) => void
   onRemove?: (incidentId: string) => void
+  showStatusControl?: boolean
 }
 
 export function StopListRow({
@@ -258,6 +269,7 @@ export function StopListRow({
   selected,
   onSetStatus,
   onRemove,
+  showStatusControl = true,
 }: StopListRowProps) {
   const t = useTranslations("kanban.routenEditorModal")
   const ref = useRef<HTMLDivElement>(null)
@@ -317,7 +329,9 @@ export function StopListRow({
         ref={ref}
         onClick={onSelect}
         className={cn(
-          "flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          // Column layout: [handle] [number] [status — fixed width] [address — flex].
+          "flex cursor-pointer items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          stopStatusBorderClass(mirror),
           selected && "bg-primary/[0.06] ring-1 ring-primary/40",
           isDropOver && "bg-primary/[0.04] ring-2 ring-primary/50",
           changed && "ring-1 ring-amber-500/70",
@@ -332,8 +346,8 @@ export function StopListRow({
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
-        <span className="w-4 flex-shrink-0 tabular-nums text-xs text-muted-foreground">{index + 1}.</span>
-        {onSetStatus ? (
+        <span className="w-6 flex-shrink-0 text-right tabular-nums text-xs text-muted-foreground">{index + 1}.</span>
+        {onSetStatus && showStatusControl ? (
           <StopStatusControl op={op} onSetStatus={(s) => onSetStatus(incidentId, s)} />
         ) : (
           <MirrorIcon className={cn("h-4 w-4 flex-shrink-0", mirrorConf.cls)} />

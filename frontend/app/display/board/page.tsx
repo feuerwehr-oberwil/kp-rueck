@@ -117,7 +117,7 @@ function BoardDisplay() {
   }
 
   return (
-    <div className="flex h-full gap-2 p-3">
+    <div className="flex h-full gap-2 p-3 overflow-x-auto">
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
         const isCollapsed = column.collapsible && collapsedColumns.has(column.id)
@@ -147,7 +147,7 @@ function BoardDisplay() {
         }
 
         return (
-          <div key={column.id} className="flex flex-1 flex-col min-w-0 overflow-hidden">
+          <div key={column.id} className="flex flex-1 flex-col min-w-[280px] overflow-hidden">
             <div
               className={cn(
                 "mb-2 rounded-lg border border-border px-3 py-3",
