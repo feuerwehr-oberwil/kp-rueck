@@ -48,6 +48,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isLocated } from "@/lib/utils/route-geo"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import type { RouteStartMode } from "@/lib/hooks/use-route-planning"
@@ -439,10 +440,22 @@ export function StopListRow({
         ) : (
           <MirrorIcon className={cn("h-4 w-4 flex-shrink-0", mirrorConf.cls)} />
         )}
-        <div className="min-w-0 flex-1 leading-tight" title={op?.notes || undefined}>
-          <div className="truncate font-medium">{address ?? name}</div>
-          {address && <div className="truncate text-xs text-muted-foreground">{name}</div>}
-        </div>
+        {op?.notes ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="min-w-0 flex-1 cursor-default leading-tight">
+                <div className="truncate font-medium">{address ?? name}</div>
+                {address && <div className="truncate text-xs text-muted-foreground">{name}</div>}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap">{op.notes}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="truncate font-medium">{address ?? name}</div>
+            {address && <div className="truncate text-xs text-muted-foreground">{name}</div>}
+          </div>
+        )}
         {!isLocated(op) && (
           <span className="flex-shrink-0 text-xs text-muted-foreground/70" title={t("noCoords")}>
             {t("noCoordsBadge")}
