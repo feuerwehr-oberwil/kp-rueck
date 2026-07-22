@@ -83,6 +83,7 @@
       "newIncident": "Neuer Einsatz",
       "vehicleStatus": "Fahrzeugstatus",
       "auftraege": "Aufträge öffnen",
+      "groupAuftraege": "Aufträge",
       "refreshData": "Daten aktualisieren",
       "groupView": "Ansicht",
       "personnelSidebar": "Personal-Seitenleiste",
@@ -679,6 +680,7 @@
       "createNew": "Neuer Einsatz",
       "cancel": "Abbrechen",
       "confirm": "{count} hinzufügen",
+      "apply": "Übernehmen",
       "viewList": "Liste",
       "viewMap": "Karte",
       "mapLoading": "Karte wird geladen …",
@@ -884,7 +886,8 @@
       "noDriver": "Kein Fahrer",
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
-      "assignDriver": "Fahrer zuweisen"
+      "assignDriver": "Fahrer zuweisen",
+      "auftragLabel": "Auftrag «{name}»"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",
@@ -1015,7 +1018,6 @@
       "order": "Reihenfolge",
       "addStopToggle": "Stop hinzufügen",
       "addStopHint": "Klick auf die Karte platziert einen neuen Stop.",
-      "addStopMarkerHint": "Klick auf einen Einsatz-Marker fügt ihn zur Route hinzu.",
       "addingStop": "Stop wird hinzugefügt …",
       "noStops": "Noch keine Stops in diesem Auftrag.",
       "startFrom": "Start ab:",
@@ -2517,6 +2519,9 @@
       "collapsedColumnTitle": "{title} – {count} – zum Aufklappen klicken",
       "priorityAria": "Priorität: {label}",
       "materialCount": "{count} Material(ien)",
+      "auftragChipTooltip": "Auftrag: {name}",
+      "auftragHeading": "Auftrag",
+      "auftragStopPosition": "Stop {pos}/{total}",
       "nachbarhilfe": "Nachbarhilfe",
       "amWarten": "Am Warten",
       "zuFuss": "Zu Fuss",

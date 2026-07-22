@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus } from "lucide-react"
+import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
 import { toast } from "sonner"
@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { cn } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
@@ -103,6 +104,19 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const router = useRouter()
   const isMobile = useIsMobile()
   const { personnel, operations, removeCrew } = useOperations()
+  const { groups } = useGroups()
+  // A vehicle can be deployed to a whole Auftrag (route) rather than a single
+  // incident. Resolve vehicle-id → its Auftrag from the route assignments so the
+  // deployment reads as the route name instead of one stop's address.
+  const auftragByVehicleId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const g of groups) {
+      for (const a of g.assignments) {
+        if (a.resourceType === "vehicle") map.set(a.resourceId, g.name)
+      }
+    }
+    return map
+  }, [groups])
   const [vehicles, setVehicles] = useState<VehicleStatus[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(-1)
@@ -320,6 +334,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 const vehicleStatusBadge = getVehicleStatusBadge(vehicle.status)
                 const isSelected = index === selectedVehicleIndex
                 const isClickable = !!vehicle.incident_id
+                const auftragName = auftragByVehicleId.get(vehicle.id)
                 const showDurationWarning = vehicle.assignment_duration_minutes && vehicle.assignment_duration_minutes >= 120
 
                 return (
@@ -329,7 +344,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                     className={cn(
                       "border rounded-lg px-3 py-2.5 bg-card transition-all",
                       "border-l-4",
-                      getStatusBorderColor(vehicle.status, !!vehicle.incident_id),
+                      getStatusBorderColor(vehicle.status, !!vehicle.incident_id || !!auftragName),
                       isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
                       isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                       !isClickable && "opacity-75"
@@ -386,9 +401,15 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 col-span-2">
-                            <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate">
-                              {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation'))}
+                            {auftragName ? (
+                              <Route className="h-3 w-3 text-primary flex-shrink-0" />
+                            ) : (
+                              <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <span className={cn("truncate", auftragName && "font-medium")}>
+                              {auftragName
+                                ? t('vehicleStatus.auftragLabel', { name: auftragName })
+                                : (vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')))}
                             </span>
                           </div>
                           {vehicle.assignment_duration_minutes !== null && (
@@ -436,11 +457,18 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           )}
                         </button>
 
-                        {/* Current Incident Location */}
+                        {/* Current deployment — the Auftrag (route) name when the vehicle
+                            is route-assigned, else the incident location. */}
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm truncate">
-                            {vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation'))}
+                          {auftragName ? (
+                            <Route className="h-3 w-3 text-primary flex-shrink-0" />
+                          ) : (
+                            <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <span className={cn("text-sm truncate", auftragName && "font-medium")}>
+                            {auftragName
+                              ? t('vehicleStatus.auftragLabel', { name: auftragName })
+                              : (vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')))}
                           </span>
                         </div>
 

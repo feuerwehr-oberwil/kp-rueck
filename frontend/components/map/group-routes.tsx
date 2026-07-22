@@ -21,12 +21,21 @@ import L from "leaflet"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { isLocated } from "@/lib/utils/route-geo"
+import { stopStatusMarkerColor, toStopMirrorStatus } from "@/lib/kanban-utils"
 
 const DEFAULT_ROUTE_COLOR = "#6366f1" // indigo-500 fallback when a group has no colour
 
-// Numbered sequence pin: a coloured circle with a white bold index. `dimmed`
+// Numbered sequence pin: the circle FILL encodes the stop's column status
+// (Offen / Disponiert / Einsatz / Beendet) so route progress reads at a glance,
+// while a coloured ring (`routeColor`) keeps the pin tied to its Auftrag. `dimmed`
 // softens non-focused groups when the caller focuses one.
-function sequenceMarkerIcon(seq: number, color: string, highlighted: boolean, dimmed: boolean): L.DivIcon {
+function sequenceMarkerIcon(
+  seq: number,
+  fill: string,
+  routeColor: string,
+  highlighted: boolean,
+  dimmed: boolean,
+): L.DivIcon {
   const size = highlighted ? 30 : 26
   const html = `
     <div style="
@@ -35,11 +44,11 @@ function sequenceMarkerIcon(seq: number, color: string, highlighted: boolean, di
       display: flex;
       align-items: center;
       justify-content: center;
-      background: ${color};
+      background: ${fill};
       color: white;
       border: 2px solid white;
+      box-shadow: 0 0 0 2px ${routeColor}, 0 2px 6px rgba(0, 0, 0, 0.35);
       border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
       font-size: ${highlighted ? 14 : 12}px;
       font-weight: 700;
       line-height: 1;
@@ -121,7 +130,7 @@ export function GroupRoutes({
               <Marker
                 key={id}
                 position={op.coordinates}
-                icon={sequenceMarkerIcon(seq, color, highlightIncidentId === id, dimmed)}
+                icon={sequenceMarkerIcon(seq, stopStatusMarkerColor(toStopMirrorStatus(op)), color, highlightIncidentId === id, dimmed)}
                 zIndexOffset={highlightIncidentId === id ? 300 : 100}
                 eventHandlers={onMarkerClick ? { click: () => onMarkerClick(id) } : undefined}
               >

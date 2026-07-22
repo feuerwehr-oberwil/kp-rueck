@@ -29,15 +29,23 @@ import {
   type Edge,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge"
 import { DropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box"
-import { GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X } from "lucide-react"
+import { GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X, Trash2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { cn } from "@/lib/utils"
 import type { Operation, OperationStatus } from "@/lib/contexts/operations-context"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { isLocated } from "@/lib/utils/route-geo"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 
@@ -69,7 +77,7 @@ export function toMirrorStatus(op: Operation | undefined): MirrorStatus {
   return "incoming"
 }
 
-const MIRROR_CONFIG: Record<MirrorStatus, { labelKey: string; Icon: typeof CircleDashed; cls: string }> = {
+export const MIRROR_CONFIG: Record<MirrorStatus, { labelKey: string; Icon: typeof CircleDashed; cls: string }> = {
   incoming: { labelKey: "offen", Icon: CircleDashed, cls: "text-muted-foreground/70" },
   enroute: { labelKey: "disponiert", Icon: Navigation, cls: "text-blue-600 dark:text-blue-400" },
   active: { labelKey: "einsatz", Icon: Flame, cls: "text-amber-600 dark:text-amber-400" },
@@ -97,8 +105,14 @@ export function StopStatusControl({
   const next = MIRROR_ORDER[(MIRROR_ORDER.indexOf(current) + 1) % MIRROR_ORDER.length]
 
   return (
+    // One cohesive bordered pill: the icon+label button and the caret share a
+    // single border and height (a thin inner divider separates the caret), so
+    // there is no gap/seam or offset box between them.
     <div
-      className={cn("flex flex-shrink-0 items-center", !compact && "w-28")}
+      className={cn(
+        "inline-flex h-6 flex-shrink-0 items-stretch overflow-hidden rounded-md border border-border/60",
+        !compact && "w-28",
+      )}
       onClick={(e) => e.stopPropagation()}
     >
       <button
@@ -108,22 +122,22 @@ export function StopStatusControl({
           onSetStatus(next)
         }}
         className={cn(
-          "flex items-center gap-1 rounded-l-md border border-r-0 border-border/60 py-0.5 pl-1.5 pr-1 text-xs font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          !compact && "min-w-0 flex-1 justify-start",
+          "flex items-center gap-1 px-1.5 text-xs font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+          compact ? "justify-center" : "min-w-0 flex-1 justify-start",
           conf.cls,
         )}
         title={t("advance", { label: t(MIRROR_CONFIG[next].labelKey) })}
         aria-label={t("advance", { label: t(MIRROR_CONFIG[next].labelKey) })}
       >
-        <Icon className="h-3.5 w-3.5" />
-        {!compact && <span>{t(conf.labelKey)}</span>}
+        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+        {!compact && <span className="truncate">{t(conf.labelKey)}</span>}
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center rounded-r-md border border-border/60 px-0.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center border-l border-border/60 px-0.5 text-muted-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             title={t("jumpTo")}
             aria-label={t("jumpTo")}
           >
@@ -272,6 +286,7 @@ export function StopListRow({
   showStatusControl = true,
 }: StopListRowProps) {
   const t = useTranslations("kanban.routenEditorModal")
+  const tStatus = useTranslations("kanban.stopStatus")
   const ref = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLButtonElement>(null)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
@@ -279,6 +294,10 @@ export function StopListRow({
 
   const mirror = toMirrorStatus(op)
   const mirrorConf = MIRROR_CONFIG[mirror]
+  // Primary line = the incident's name (its type label); the address drops to a
+  // muted secondary line — the same two-line stack the kanban card uses.
+  const name = op ? getIncidentTypeLabel(op.incidentType) : incidentId
+  const address = op?.location
 
   useEffect(() => {
     const el = ref.current
@@ -325,11 +344,18 @@ export function StopListRow({
   return (
     <div className="relative">
       {closestEdge === "top" && <DropIndicator edge="top" gap="2px" />}
+      {/* Right-click exposes the same per-stop actions as the row controls. The
+          trigger wraps a PLAIN div (the actual dnd/click row lives inside) so the
+          draggable ref + handlers don't clobber the contextmenu listener — the
+          forwarding-div pattern used for the Auftrag header. */}
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div>
       <div
         ref={ref}
         onClick={onSelect}
         className={cn(
-          // Column layout: [handle] [number] [status — fixed width] [address — flex].
+          // Column layout: [handle] [number] [status — fixed width] [name/address — flex].
           "flex cursor-pointer items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
           stopStatusBorderClass(mirror),
           selected && "bg-primary/[0.06] ring-1 ring-primary/40",
@@ -352,7 +378,10 @@ export function StopListRow({
         ) : (
           <MirrorIcon className={cn("h-4 w-4 flex-shrink-0", mirrorConf.cls)} />
         )}
-        <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate font-medium">{name}</div>
+          {address && <div className="truncate text-xs text-muted-foreground">{address}</div>}
+        </div>
         {!isLocated(op) && (
           <span className="flex-shrink-0 text-xs text-muted-foreground/70" title={t("noCoords")}>
             {t("noCoordsBadge")}
@@ -373,6 +402,33 @@ export function StopListRow({
           </button>
         )}
       </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          {onSetStatus &&
+            MIRROR_ORDER.map((s) => {
+              const c = MIRROR_CONFIG[s]
+              const SIcon = c.Icon
+              return (
+                <ContextMenuItem key={s} onClick={() => onSetStatus(incidentId, s)}>
+                  <SIcon className={cn("mr-2 h-4 w-4", c.cls)} />
+                  {tStatus(c.labelKey)}
+                  {s === mirror && <Check className="ml-auto h-3.5 w-3.5 text-muted-foreground" />}
+                </ContextMenuItem>
+              )
+            })}
+          {onSetStatus && onRemove && <ContextMenuSeparator />}
+          {onRemove && (
+            <ContextMenuItem
+              onClick={() => onRemove(incidentId)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("removeStop")}
+            </ContextMenuItem>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
       {closestEdge === "bottom" && <DropIndicator edge="bottom" gap="2px" />}
     </div>
   )

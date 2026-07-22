@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -17,7 +18,7 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns, getTimeSince, ageChipClass } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
-import { Clock, Truck, Users, Siren, Package, AlertTriangle, AlertCircle, Info, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck, ChevronRight } from "lucide-react"
+import { Clock, Truck, Users, Siren, Package, AlertTriangle, AlertCircle, Info, FileText, Phone, MessageSquare, Building2, Timer, Footprints, FileCheck, ChevronRight, Waypoints } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -209,8 +210,20 @@ function DisplayOperationCard({
   onClick: () => void
 }) {
   const t = useTranslations('display')
+  const tk = useTranslations('kanban')
+  const { groups } = useGroups()
   const { Icon: PriorityIcon, label: priorityLabel, iconColor: priorityIconColor } =
     priorityVisuals[operation.priority]
+
+  // Auftrag (route) membership — read-only chip. Stop position derives from the
+  // resolved stop order; group_position (0-based) is the fallback when the id
+  // isn't in stopIds yet (optimistic add mid-sync). Mirrors the board card.
+  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const auftragTotal = auftrag ? auftrag.stopIds.length : 0
+  const auftragStopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
+  const auftragStopPos = auftrag
+    ? (auftragStopIndex >= 0 ? auftragStopIndex + 1 : operation.groupPosition + 1)
+    : 0
 
   return (
     <Card
@@ -250,6 +263,30 @@ function DisplayOperationCard({
           <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
           <span className="text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
         </div>
+
+        {auftrag && (
+          <div
+            className="flex items-center gap-1.5 rounded-md px-1.5 py-1"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${auftrag.color ?? "var(--muted-foreground)"} 14%, transparent)`,
+            }}
+            title={t('board.auftragChipTooltip', { name: auftrag.name })}
+          >
+            <Waypoints
+              className="h-3.5 w-3.5 flex-shrink-0"
+              style={{ color: auftrag.color ?? "var(--muted-foreground)" }}
+            />
+            <span
+              className="text-xs font-bold uppercase tracking-wide truncate"
+              style={{ color: auftrag.color ?? "var(--muted-foreground)" }}
+            >
+              {auftrag.name}
+            </span>
+            <span className="ml-auto text-[10px] font-mono font-semibold uppercase tabular-nums text-muted-foreground flex-shrink-0">
+              {tk('card.auftragStopPosition', { pos: auftragStopPos, total: auftragTotal })}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
@@ -308,10 +345,15 @@ function IncidentDetailModal({
   onOpenChange: (open: boolean) => void
 }) {
   const t = useTranslations('display')
+  const tk = useTranslations('kanban')
   const { materials } = useMaterials()
   const { personnel } = usePersonnel()
   const { selectedEvent } = useEvent()
+  const { groups, getGroupResources } = useGroups()
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id, open && !!operation)
+
+  const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
 
   if (!operation) return null
 
@@ -376,6 +418,47 @@ function IncidentDetailModal({
               </Badge>
             )}
           </div>
+
+          {/* Auftrag (route) — read-only: name, this stop's position, and the
+              route-owned resource roll-up (resources live on the route, not the stop). */}
+          {auftrag && (
+            <div className="space-y-1.5 rounded-md border border-border/60 p-3">
+              <div className="flex items-center gap-2">
+                <Waypoints className="h-4 w-4 flex-shrink-0" style={{ color: auftrag.color ?? "var(--muted-foreground)" }} />
+                <span className="text-sm font-bold uppercase tracking-wide" style={{ color: auftrag.color ?? "var(--muted-foreground)" }}>
+                  {auftrag.name}
+                </span>
+                <span className="ml-auto text-xs font-mono uppercase tabular-nums text-muted-foreground">
+                  {tk('card.auftragStopPosition', {
+                    pos: (() => {
+                      const idx = auftrag.stopIds.indexOf(operation.id)
+                      return idx >= 0 ? idx + 1 : operation.groupPosition + 1
+                    })(),
+                    total: auftrag.stopIds.length,
+                  })}
+                </span>
+              </div>
+              {auftragResources && (auftragResources.vehicles.length > 0 || auftragResources.personnel.length > 0 || auftragResources.materials.length > 0) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {auftragResources.vehicles.map((v) => (
+                    <Badge key={v.assignmentId} variant="default" className="text-xs gap-1">
+                      <Truck className="h-3 w-3" /> {v.name}
+                    </Badge>
+                  ))}
+                  {auftragResources.personnel.map((p) => (
+                    <Badge key={p.assignmentId} variant="secondary" className="text-xs gap-1">
+                      <Users className="h-3 w-3" /> {p.name}
+                    </Badge>
+                  ))}
+                  {auftragResources.materials.map((m) => (
+                    <Badge key={m.assignmentId} variant="secondary" className="text-xs gap-1">
+                      <Package className="h-3 w-3" /> {m.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Description */}
           {operation.notes && (

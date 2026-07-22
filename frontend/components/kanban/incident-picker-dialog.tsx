@@ -6,7 +6,8 @@
  * A searchable, multi-select list of the current event's incidents. Picking an
  * incident that already belongs to another Auftrag MOVES it into the target
  * route (the backend `addStops` reassigns `group_id`), so those rows show a small
- * badge of their current route. Incidents already in the target route are hidden.
+ * badge of their current route. Incidents already in the target route are shown
+ * pre-selected; unchecking one detaches it from the route on confirm.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -29,7 +30,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { isLocated } from "@/lib/utils/route-geo"
 import type { Operation } from "@/lib/contexts/operations-context"
-import type { IncidentGroup } from "@/lib/contexts/groups-context"
+import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 
 // Basel-Landschaft fallback centre (matches map-picker / routen-editor modals).
 const DEFAULT_CENTER: [number, number] = [47.51637699933488, 7.561800450458299]
@@ -120,6 +121,7 @@ export function IncidentPickerDialog({
   const [isClient, setIsClient] = useState(false)
   const [mapKey, setMapKey] = useState(0)
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
+  const { removeStop } = useGroups()
 
   useEffect(() => setIsClient(true), [])
   // Remount the map (re-fit) each time the map view is (re-)opened.
@@ -129,30 +131,37 @@ export function IncidentPickerDialog({
 
   const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g] as const)), [groups])
 
-  // Candidates: every event incident that isn't already a stop of the target route.
-  const candidates = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return operations
-      .filter((op) => op.groupId !== targetGroupId)
-      .filter((op) => {
-        if (!q) return true
-        return (
-          op.location.toLowerCase().includes(q) ||
-          getIncidentTypeLabel(op.incidentType).toLowerCase().includes(q)
-        )
-      })
-  }, [operations, targetGroupId, query])
-
-  // Map markers: the located candidates (selectable) plus the target route's own
-  // located stops as distinct, non-selectable context pins.
-  const locatedCandidates = useMemo(() => candidates.filter(isLocated), [candidates])
-  const routeMembers = useMemo(
-    () => operations.filter((op) => op.groupId === targetGroupId && targetGroupId !== null).filter(isLocated),
+  // The target route's current members — shown pre-selected; unchecking one
+  // detaches it from the route on confirm.
+  const memberIds = useMemo(
+    () => new Set(targetGroupId ? operations.filter((op) => op.groupId === targetGroupId).map((op) => op.id) : []),
     [operations, targetGroupId],
   )
+
+  // Pre-select the route's current members whenever the dialog (re-)opens.
+  useEffect(() => {
+    if (!open) return
+    setSelected(new Set(operations.filter((op) => op.groupId === targetGroupId).map((op) => op.id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, targetGroupId])
+
+  // Candidates: every event incident (members included, so they show pre-checked).
+  const candidates = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return operations.filter((op) => {
+      if (!q) return true
+      return (
+        op.location.toLowerCase().includes(q) ||
+        getIncidentTypeLabel(op.incidentType).toLowerCase().includes(q)
+      )
+    })
+  }, [operations, query])
+
+  // Map markers: all located candidates (selectable — members render pre-checked).
+  const locatedCandidates = useMemo(() => candidates.filter(isLocated), [candidates])
   const allMapPositions = useMemo<[number, number][]>(
-    () => [...routeMembers, ...locatedCandidates].map((op) => op.coordinates),
-    [routeMembers, locatedCandidates],
+    () => locatedCandidates.map((op) => op.coordinates),
+    [locatedCandidates],
   )
   const mapCenter = useMemo<[number, number]>(() => {
     if (allMapPositions.length === 0) return DEFAULT_CENTER
@@ -180,9 +189,21 @@ export function IncidentPickerDialog({
     })
   }
 
-  const confirm = () => {
-    if (selected.size === 0) return
-    onConfirm(Array.from(selected))
+  // Diff the current selection against the route's members: newly-checked ids are
+  // added (via onConfirm → addStops), unchecked members are detached (removeStop).
+  const toAdd = useMemo(() => [...selected].filter((id) => !memberIds.has(id)), [selected, memberIds])
+  const toRemove = useMemo(() => [...memberIds].filter((id) => !selected.has(id)), [selected, memberIds])
+  const changeCount = toAdd.length + toRemove.length
+
+  const confirm = async () => {
+    if (changeCount === 0) {
+      handleOpenChange(false)
+      return
+    }
+    if (toRemove.length > 0 && targetGroupId) {
+      await Promise.all(toRemove.map((id) => removeStop(targetGroupId, id)))
+    }
+    if (toAdd.length > 0) onConfirm(toAdd)
     handleOpenChange(false)
   }
 
@@ -223,17 +244,9 @@ export function IncidentPickerDialog({
         <TileLayer attribution={getAttribution()} url={getTileUrl()} eventHandlers={{ tileerror: handleTileError }} />
         <InvalidateSize />
         <FitBounds positions={allMapPositions} />
-        {/* Context: the route's current stops (not selectable here). */}
-        {routeMembers.map((op) => (
-          <Marker key={`member-${op.id}`} position={op.coordinates} icon={pinIcon("#0ea5e9", { dimmed: true })} interactive={false}>
-            <Tooltip direction="top" offset={[0, -10]}>
-              <span className="text-xs font-medium">{op.location || getIncidentTypeLabel(op.incidentType)}</span>
-            </Tooltip>
-          </Marker>
-        ))}
-        {/* Selectable candidates. */}
+        {/* Selectable candidates — members of the target route render pre-checked. */}
         {locatedCandidates.map((op) => {
-          const otherGroup = op.groupId ? groupById.get(op.groupId) : undefined
+          const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
           const isChecked = selected.has(op.id)
           const fill = isChecked ? "#ef4444" : otherGroup?.color ?? "#64748b"
           return (
@@ -259,10 +272,10 @@ export function IncidentPickerDialog({
     mapKey,
     mapCenter,
     allMapPositions,
-    routeMembers,
     locatedCandidates,
     selected,
     groupById,
+    targetGroupId,
     getTileUrl,
     getAttribution,
     handleTileError,
@@ -325,7 +338,7 @@ export function IncidentPickerDialog({
           // parent height or its `h-full` container collapses to 0 and renders
           // blank. InvalidateSize re-measures after the dialog's open transition.
           <div className="relative h-[440px] overflow-hidden rounded-lg border">
-            {locatedCandidates.length === 0 && routeMembers.length === 0 ? (
+            {locatedCandidates.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <MapPin className="h-8 w-8 text-muted-foreground/40" />
                 <p className="text-sm text-muted-foreground">{t("mapEmpty")}</p>
@@ -343,7 +356,7 @@ export function IncidentPickerDialog({
             </div>
           ) : (
             candidates.map((op) => {
-              const otherGroup = op.groupId ? groupById.get(op.groupId) : undefined
+              const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
               const isChecked = selected.has(op.id)
               return (
                 <label
@@ -404,8 +417,8 @@ export function IncidentPickerDialog({
             <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
               {t("cancel")}
             </Button>
-            <Button size="sm" onClick={confirm} disabled={selected.size === 0}>
-              {t("confirm", { count: selected.size })}
+            <Button size="sm" onClick={confirm} disabled={changeCount === 0}>
+              {t("apply")}
             </Button>
           </div>
         </DialogFooter>

@@ -46,6 +46,7 @@ import {
   Waypoints,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 
 /** Window event that opens the palette (for mouse entry points like the welcome card). */
 export const OPEN_COMMAND_PALETTE_EVENT = "kp:open-command-palette"
@@ -67,6 +68,7 @@ export function CommandPalette() {
     onToggleRightSidebar,
     onToggleVehicleStatus,
     onToggleAuftraege,
+    onOpenAuftrag,
     onToggleNotifications,
     onToggleSidePanel,
     onSidePanelDetail,
@@ -88,6 +90,11 @@ export function CommandPalette() {
     onFocusIncidentSearch,
     hasSelectedIncident = false,
   } = useCommandPaletteHandlers()
+
+  // Aufträge (routes) are searchable by name; selecting one opens the Aufträge
+  // sheet focused on that route. Only surfaced where the host page registered the
+  // open handler (the Kanban dashboard) so the palette never lists dead entries.
+  const { groups } = useGroups()
 
   // Helper: bind incident-bound handlers only when one is hovered/selected,
   // otherwise the CommandItem stays visible but `disabled` greys it out.
@@ -223,6 +230,28 @@ export function CommandPalette() {
                 </CommandItem>
               )}
             </CommandGroup>
+
+            {onOpenAuftrag && groups.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading={t('groupAuftraege')}>
+                  {groups.map((group) => (
+                    <CommandItem
+                      key={group.id}
+                      value={`auftrag ${group.name} ${group.id}`}
+                      onSelect={() => runCommand(() => onOpenAuftrag(group.id))}
+                    >
+                      <span
+                        className="mr-2 inline-block h-3 w-3 flex-shrink-0 rounded-full"
+                        style={{ backgroundColor: group.color ?? "var(--muted-foreground)" }}
+                        aria-hidden
+                      />
+                      <span className="truncate">{group.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
 
             <CommandSeparator />
 
