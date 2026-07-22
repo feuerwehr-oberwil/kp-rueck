@@ -21,15 +21,13 @@ import {
   GripVertical,
   MoreHorizontal,
   Map as MapIcon,
-  Check,
-  CircleDashed,
-  CircleDot,
   Trash2,
   Route,
   Truck,
   Users,
   Package,
   Palette,
+  Pencil,
   Wand2,
   X,
 } from "lucide-react"
@@ -44,6 +42,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   AlertDialog,
@@ -61,11 +66,20 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import { StopStatusControl, type MirrorStatus } from "@/components/map/route-stop-list"
 import type { GroupResources } from "@/lib/types/groups"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
 // distinct so routes read apart at a glance on board + map.
 const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"] as const
+
+// True when an event originates inside a sonner toast (portalled outside this
+// non-modal sheet). Used to stop toast clicks — e.g. the optimize "Rückgängig"
+// action — from being read as an outside interaction that dismisses the sheet.
+function isToastTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return !!target.closest("[data-sonner-toast]") || !!target.closest("[data-sonner-toaster]")
+}
 
 // Derived checklist state of a single stop, straight from its incident status.
 type StopState = "erledigt" | "laeuft" | "offen"
@@ -204,10 +218,23 @@ export function AuftraegeSheet({
           nonModal={!isMobile}
           className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4", isMobile ? "max-h-[75vh]" : "max-h-[85vh]")}
           style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
-          onPointerDownOutside={dragGuardProps.onPointerDownOutside}
+          onPointerDownOutside={(e) => {
+            // A sonner toast is portalled outside this non-modal sheet, so clicking
+            // its "Rückgängig" action counts as an outside interaction and would
+            // dismiss the sheet. Ignore interactions that target a toast.
+            if (isToastTarget(e.target)) {
+              e.preventDefault()
+              return
+            }
+            dragGuardProps.onPointerDownOutside(e)
+          }}
           onFocusOutside={dragGuardProps.onFocusOutside}
           onEscapeKeyDown={dragGuardProps.onEscapeKeyDown}
           onInteractOutside={(e) => {
+            if (isToastTarget(e.target)) {
+              e.preventDefault()
+              return
+            }
             // Defensive: a stop reorder drag inside the sheet must not dismiss it.
             dragGuardProps.onInteractOutside(e)
             if (e.defaultPrevented) return
@@ -307,9 +334,7 @@ export function AuftraegeSheet({
                 onUnassignResource={(assignmentId) => unassignResource(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
-                onToggleStopDone={(incidentId, nextDone) =>
-                  updateOperation(incidentId, { status: nextDone ? "returning" : "active" })
-                }
+                onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
               />
             ))}
@@ -360,7 +385,7 @@ interface AuftragCardProps {
   onUnassignResource: (assignmentId: string) => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
-  onToggleStopDone: (incidentId: string, nextDone: boolean) => void
+  onSetStopStatus: (incidentId: string, status: MirrorStatus) => void
   registerRowRef: (el: HTMLDivElement | null) => void
 }
 
@@ -384,7 +409,7 @@ function AuftragCard({
   onUnassignResource,
   onOpenDetail,
   onRemoveStop,
-  onToggleStopDone,
+  onSetStopStatus,
   registerRowRef,
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
@@ -447,139 +472,134 @@ function AuftragCard({
       ref={registerRowRef}
       className={cn("rounded-lg border bg-card transition-colors", isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]")}
     >
-      {/* Header row — the whole row toggles expand/collapse. */}
-      <div
-        ref={headerRef}
-        role="button"
-        tabIndex={0}
-        aria-label={t("toggle")}
-        aria-expanded={expanded}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            onToggle()
-          }
-        }}
-        className="flex cursor-pointer items-center gap-2 px-3 py-2.5"
-      >
-        <span className="flex-shrink-0 text-muted-foreground" aria-hidden>
-          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </span>
-        {/* Colour swatch — click to recolour the route (same palette as create). */}
-        <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={t("changeColor")}
-              title={t("changeColor")}
-              onClick={(e) => e.stopPropagation()}
-              className="h-3.5 w-3.5 flex-shrink-0 rounded-full border border-black/10 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              style={{ backgroundColor: group.color ?? "var(--muted-foreground)" }}
-            />
-          </PopoverTrigger>
-          <ColorPickerContent
-            selected={group.color}
-            onPick={(c) => {
-              onChangeColor(c)
-              setColorPickerOpen(false)
+      {/* Header row — the whole row toggles expand/collapse. Right-click opens the
+          same actions as the ⋮ menu (Umbenennen / Farbe / Optimieren / Löschen). */}
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={headerRef}
+            role="button"
+            tabIndex={0}
+            aria-label={t("toggle")}
+            aria-expanded={expanded}
+            onClick={onToggle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onToggle()
+              }
             }}
-          />
-        </Popover>
-        <div className="min-w-0 flex-1">
-          {isRenaming ? (
-            <Input
-              autoFocus
-              value={renameValue}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onBlur={onCommitRename}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onCommitRename()
-                if (e.key === "Escape") onCancelRename()
-              }}
-              className="h-7 max-w-xs"
-            />
-          ) : (
-            <span className="font-semibold text-sm truncate block">{group.name}</span>
-          )}
-        </div>
-        <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">{squadSummary}</span>
-        <span className="text-xs font-medium tabular-nums text-muted-foreground flex-shrink-0">
-          {t("progress", { done, total })}
-        </span>
-
-        <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onStartRename}>{t("rename")}</DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  // Defer so the closing dropdown doesn't steal focus from the popover.
-                  window.setTimeout(() => setColorPickerOpen(true), 0)
+            className="flex cursor-pointer items-center gap-2 px-3 py-2.5"
+          >
+            <span className="flex-shrink-0 text-muted-foreground" aria-hidden>
+              {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </span>
+            {/* Colour swatch — click to recolour the route (same palette as create). */}
+            <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("changeColor")}
+                  title={t("changeColor")}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-3.5 w-3.5 flex-shrink-0 rounded-full border border-black/10 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  style={{ backgroundColor: group.color ?? "var(--muted-foreground)" }}
+                />
+              </PopoverTrigger>
+              <ColorPickerContent
+                selected={group.color}
+                onPick={(c) => {
+                  onChangeColor(c)
+                  setColorPickerOpen(false)
                 }}
-              >
-                <Palette className="mr-2 h-4 w-4" />
-                {t("changeColor")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t("delete")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+              />
+            </Popover>
+            <div className="min-w-0 flex-1">
+              {isRenaming ? (
+                <Input
+                  autoFocus
+                  value={renameValue}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={onCommitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onCommitRename()
+                    if (e.key === "Escape") onCancelRename()
+                  }}
+                  className="h-7 max-w-xs"
+                />
+              ) : (
+                <span className="font-semibold text-sm truncate block">{group.name}</span>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">{squadSummary}</span>
+            <span className="text-xs font-medium tabular-nums text-muted-foreground flex-shrink-0">
+              {t("progress", { done, total })}
+            </span>
 
-      {/* Expanded checklist */}
-      {expanded && (
-        <div className="border-t px-3 py-2 space-y-0.5">
-          {group.stopIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">{t("noStops")}</p>}
-          {group.stopIds.map((incidentId, index) => (
-            <StopRow
-              key={incidentId}
-              groupId={group.id}
-              incidentId={incidentId}
-              index={index}
-              op={opById.get(incidentId)}
-              onRemove={() => onRemoveStop(incidentId)}
-              onToggleDone={(nextDone) => onToggleStopDone(incidentId, nextDone)}
-              onOpenDetail={() => onOpenDetail(incidentId)}
-              onOpenMap={onOpenRoutenEditor}
-            />
-          ))}
-
-          {/* Row footer actions */}
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAddStop}>
-              <Plus className="h-3.5 w-3.5" />
-              {t("addStop")}
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onOpenRoutenEditor()}>
-              <MapIcon className="h-3.5 w-3.5" />
-              {t("routenEditor")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5"
-              onClick={() => void runOptimize()}
-              disabled={total < 2}
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              {t("optimizeOrder")}
-            </Button>
+            <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onStartRename}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    {t("rename")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      // Defer so the closing dropdown doesn't steal focus from the popover.
+                      window.setTimeout(() => setColorPickerOpen(true), 0)
+                    }}
+                  >
+                    <Palette className="mr-2 h-4 w-4" />
+                    {t("changeColor")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={total < 2} onClick={() => void runOptimize()}>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    {t("optimizeOrder")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {t("delete")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={onStartRename}>
+            <Pencil className="mr-2 h-4 w-4" />
+            {t("rename")}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => window.setTimeout(() => setColorPickerOpen(true), 0)}>
+            <Palette className="mr-2 h-4 w-4" />
+            {t("changeColor")}
+          </ContextMenuItem>
+          <ContextMenuItem disabled={total < 2} onClick={() => void runOptimize()}>
+            <Wand2 className="mr-2 h-4 w-4" />
+            {t("optimizeOrder")}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("delete")}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
+      {/* Expanded content — the team matters most, so Ressourcen sits directly
+          under the name, before the stops checklist. */}
+      {expanded && (
+        <div className="border-t px-3 py-2 space-y-2">
           {/* Ressourcen — route-owned resources. Lists ALL assigned vehicles,
               personnel and material as removable chips, and assigns to the ROUTE
               (works even with 0 stops). */}
-          <div className="mt-2 rounded-md border bg-muted/20 px-3 py-2.5">
+          <div className="rounded-md border bg-muted/20 px-3 py-2.5">
             <div className="mb-2 text-xs font-medium text-muted-foreground">{t("resourcesHeading")}</div>
 
             {resourceCount === 0 ? (
@@ -635,6 +655,46 @@ function AuftragCard({
                 {t("assignMaterialRoute")}
               </Button>
             </div>
+          </div>
+
+          {/* Stops checklist */}
+          <div className="space-y-0.5">
+            {group.stopIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">{t("noStops")}</p>}
+            {group.stopIds.map((incidentId, index) => (
+              <StopRow
+                key={incidentId}
+                groupId={group.id}
+                incidentId={incidentId}
+                index={index}
+                op={opById.get(incidentId)}
+                onRemove={() => onRemoveStop(incidentId)}
+                onSetStatus={(status) => onSetStopStatus(incidentId, status)}
+                onOpenDetail={() => onOpenDetail(incidentId)}
+                onOpenMap={onOpenRoutenEditor}
+              />
+            ))}
+          </div>
+
+          {/* Row footer actions */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAddStop}>
+              <Plus className="h-3.5 w-3.5" />
+              {t("addStop")}
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onOpenRoutenEditor()}>
+              <MapIcon className="h-3.5 w-3.5" />
+              {t("routenEditor")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() => void runOptimize()}
+              disabled={total < 2}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              {t("optimizeOrder")}
+            </Button>
           </div>
         </div>
       )}
@@ -701,20 +761,18 @@ interface StopRowProps {
   index: number
   op: Operation | undefined
   onRemove: () => void
-  /** Tick (true) → mark stop erledigt; untick (false) → back to läuft. */
-  onToggleDone: (nextDone: boolean) => void
+  /** Set the stop's status directly (mirror of the board columns). */
+  onSetStatus: (status: MirrorStatus) => void
   onOpenDetail: () => void
   onOpenMap: (focusIncidentId?: string) => void
 }
 
-function StopRow({ groupId, incidentId, index, op, onRemove, onToggleDone, onOpenDetail, onOpenMap }: StopRowProps) {
+function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpenDetail, onOpenMap }: StopRowProps) {
   const t = useTranslations("kanban.auftraege")
   const ref = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLButtonElement>(null)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
   const [isDropOver, setIsDropOver] = useState(false)
-
-  const state = deriveStopState(op)
 
   useEffect(() => {
     const el = ref.current
@@ -752,12 +810,6 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onToggleDone, onOpe
     )
   }, [groupId, incidentId, index])
 
-  const done = state === "erledigt"
-  const StateIcon = done ? Check : state === "laeuft" ? CircleDot : CircleDashed
-  const stateClass =
-    state === "erledigt" ? "text-emerald-600 dark:text-emerald-400" : state === "laeuft" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/60"
-  const stateLabel = state === "erledigt" ? t("stateDone") : state === "laeuft" ? t("stateActive") : t("stateOpen")
-
   return (
     <div className="relative">
       {closestEdge === "top" && <DropIndicator edge="top" gap="2px" />}
@@ -772,27 +824,19 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onToggleDone, onOpe
           <GripVertical className="h-3.5 w-3.5" />
         </button>
         <span className="tabular-nums text-xs text-muted-foreground w-4 flex-shrink-0">{index + 1}.</span>
-        {/* Status toggle — tick to complete, click again to reopen (läuft). */}
-        <button
-          type="button"
-          onClick={() => onToggleDone(!done)}
-          className="flex-shrink-0 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-pressed={done}
-          title={done ? t("markActive") : t("markDone")}
-          aria-label={done ? t("markActive") : t("markDone")}
-        >
-          <StateIcon className={cn("h-4 w-4", stateClass)} />
-        </button>
+        {/* Status control — mirrors the board columns; click advances, caret jumps. */}
+        <StopStatusControl op={op} onSetStatus={onSetStatus} />
         <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>
-        <span className={cn("text-xs flex-shrink-0 hidden sm:inline", stateClass)}>{stateLabel}</span>
-        {/* [Karte] — opens the Routen-Editor centred on this stop. */}
+        {/* Karte — opens the Routen-Editor centred on this stop. */}
         <Button
-          size="sm"
+          size="icon"
           variant="ghost"
-          className="h-7 px-2 text-xs flex-shrink-0"
+          className="h-7 w-7 flex-shrink-0"
           onClick={() => onOpenMap(incidentId)}
+          title={t("map")}
+          aria-label={t("map")}
         >
-          {t("map")}
+          <MapIcon className="h-4 w-4" />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -802,9 +846,6 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onToggleDone, onOpe
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpenDetail}>{t("openDetail")}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onToggleDone(!done)}>
-              {done ? t("markActive") : t("markDone")}
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
               {t("removeStop")}
             </DropdownMenuItem>

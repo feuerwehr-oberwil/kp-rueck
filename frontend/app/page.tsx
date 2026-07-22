@@ -1368,8 +1368,15 @@ export default function FireStationDashboard() {
     }
   }
 
-  // Handle resource assignment dialog
+  // Handle resource assignment dialog. A grouped incident owns no resources of its
+  // own — the Auftrag (route) does — so assigning from its card buttons or the
+  // detail modal edits the route instead of the single stop.
   const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => {
+    const op = operations.find((o) => o.id === operationId)
+    if (op?.groupId) {
+      handleAssignRouteResource(resourceType, op.groupId)
+      return
+    }
     setAssignmentResourceType(resourceType)
     setAssignmentOperationId(operationId)
     setAssignmentDialogOpen(true)

@@ -277,7 +277,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[92vh] w-[calc(100%-2rem)] max-w-[min(96vw,1400px)] flex-col gap-4"
+        className="flex max-h-[85vh] w-[calc(100%-2rem)] max-w-[min(96vw,1400px)] flex-col gap-4"
         {...dragGuardProps}
       >
         <DialogHeader className="flex-shrink-0">
@@ -289,13 +289,14 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[minmax(0,1fr)_320px]">
-          {/* Map column — the dominant element. */}
-          <div className="flex min-h-[560px] flex-col">
+        <div className="grid min-h-0 gap-5 md:grid-cols-[minmax(0,1fr)_340px]">
+          {/* Map column — the dominant element. A wide landscape rectangle with a
+              capped height (not a tall narrow strip); the list sits beside it. */}
+          <div className="flex flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
+            <div className="relative h-[420px] overflow-hidden rounded-lg border">
               {mapNode}
               {addMode && (
                 <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-md">
@@ -338,9 +339,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                   focusStopId={focusStopId}
                   onSelectStop={setFocusStopId}
                   enabled={open && !!group}
-                  onToggleStopDone={(incidentId, nextDone) =>
-                    updateOperation(incidentId, { status: nextDone ? "returning" : "active" })
-                  }
+                  onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
                 />
               )}
             </div>

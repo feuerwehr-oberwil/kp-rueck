@@ -321,7 +321,10 @@ export function IncidentPickerDialog({
         </div>
 
         {view === "map" ? (
-          <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-lg border">
+          // Explicit height (not flex-1/min-h): a Leaflet map needs a definite
+          // parent height or its `h-full` container collapses to 0 and renders
+          // blank. InvalidateSize re-measures after the dialog's open transition.
+          <div className="relative h-[440px] overflow-hidden rounded-lg border">
             {locatedCandidates.length === 0 && routeMembers.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <MapPin className="h-8 w-8 text-muted-foreground/40" />

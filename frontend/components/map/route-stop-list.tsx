@@ -29,9 +29,15 @@ import {
   type Edge,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge"
 import { DropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box"
-import { GripVertical, Check, CircleDot, CircleDashed } from "lucide-react"
+import { GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import type { Operation } from "@/lib/contexts/operations-context"
+import type { Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import { isLocated } from "@/lib/utils/route-geo"
 
 export type StopState = "erledigt" | "laeuft" | "offen"
@@ -42,6 +48,105 @@ export function deriveStopState(op: Operation | undefined): StopState {
   if (op.status === "returning" || op.status === "complete") return "erledigt"
   if (op.status === "active") return "laeuft"
   return "offen"
+}
+
+// ── Kanban-column mirror ─────────────────────────────────────────────────────
+// A stop's status control is a mirror of the board columns (single source of
+// truth = the incident's status). Four collapsed states — Offen → Disponiert →
+// Einsatz → Beendet — map onto real incident statuses; left-click advances to
+// the next, a caret menu jumps to any.
+export type MirrorStatus = Extract<OperationStatus, "incoming" | "enroute" | "active" | "returning">
+export const MIRROR_ORDER: MirrorStatus[] = ["incoming", "enroute", "active", "returning"]
+
+/** Collapse the full incident status onto one of the four mirror columns. */
+export function toMirrorStatus(op: Operation | undefined): MirrorStatus {
+  if (!op) return "incoming"
+  if (op.status === "returning" || op.status === "complete") return "returning"
+  if (op.status === "active") return "active"
+  if (op.status === "enroute") return "enroute"
+  // incoming, ready (Reko) and rekoDone all read as "Offen".
+  return "incoming"
+}
+
+const MIRROR_CONFIG: Record<MirrorStatus, { labelKey: string; Icon: typeof CircleDashed; cls: string }> = {
+  incoming: { labelKey: "offen", Icon: CircleDashed, cls: "text-muted-foreground/70" },
+  enroute: { labelKey: "disponiert", Icon: Navigation, cls: "text-blue-600 dark:text-blue-400" },
+  active: { labelKey: "einsatz", Icon: Flame, cls: "text-amber-600 dark:text-amber-400" },
+  returning: { labelKey: "beendet", Icon: Check, cls: "text-emerald-600 dark:text-emerald-400" },
+}
+
+/**
+ * Stop status control — mirrors the board columns. Left-click advances to the
+ * next column; the caret opens a menu to jump to any of the four. `compact`
+ * hides the text label (icon only), used in the dense sheet checklist.
+ */
+export function StopStatusControl({
+  op,
+  onSetStatus,
+  compact = false,
+}: {
+  op: Operation | undefined
+  onSetStatus: (status: MirrorStatus) => void
+  compact?: boolean
+}) {
+  const t = useTranslations("kanban.stopStatus")
+  const current = toMirrorStatus(op)
+  const conf = MIRROR_CONFIG[current]
+  const Icon = conf.Icon
+  const next = MIRROR_ORDER[(MIRROR_ORDER.indexOf(current) + 1) % MIRROR_ORDER.length]
+
+  return (
+    <div className="flex flex-shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onSetStatus(next)
+        }}
+        className={cn(
+          "flex items-center gap-1 rounded-l-md border border-r-0 border-border/60 py-0.5 pl-1.5 pr-1 text-xs font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          conf.cls,
+        )}
+        title={t("advance", { label: t(MIRROR_CONFIG[next].labelKey) })}
+        aria-label={t("advance", { label: t(MIRROR_CONFIG[next].labelKey) })}
+      >
+        <Icon className="h-3.5 w-3.5" />
+        {!compact && <span>{t(conf.labelKey)}</span>}
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center rounded-r-md border border-border/60 px-0.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title={t("jumpTo")}
+            aria-label={t("jumpTo")}
+          >
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {MIRROR_ORDER.map((s) => {
+            const c = MIRROR_CONFIG[s]
+            const SIcon = c.Icon
+            return (
+              <DropdownMenuItem
+                key={s}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSetStatus(s)
+                }}
+              >
+                <SIcon className={cn("mr-2 h-4 w-4", c.cls)} />
+                {t(c.labelKey)}
+                {s === current && <Check className="ml-auto h-3.5 w-3.5 text-muted-foreground" />}
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
 }
 
 interface RouteStopListProps {
@@ -60,8 +165,10 @@ interface RouteStopListProps {
   onSelectStop: (id: string) => void
   /** Gate the reorder monitor (false when the host list is not visible). */
   enabled?: boolean
-  /** When provided, the status icon becomes a tick/untick toggle for the stop. */
-  onToggleStopDone?: (incidentId: string, nextDone: boolean) => void
+  /** When provided, the status icon becomes the kanban-column mirror control. */
+  onSetStopStatus?: (incidentId: string, status: MirrorStatus) => void
+  /** When provided, each row shows a ✕ that detaches the stop from the route. */
+  onRemoveStop?: (incidentId: string) => void
 }
 
 export function RouteStopList({
@@ -75,7 +182,8 @@ export function RouteStopList({
   focusStopId,
   onSelectStop,
   enabled = true,
-  onToggleStopDone,
+  onSetStopStatus,
+  onRemoveStop,
 }: RouteStopListProps) {
   // Reorder monitor: source `route-stop-drag` reordered onto a `group-stop`
   // target computes the new order off the authoritative `stopIds`.
@@ -118,7 +226,8 @@ export function RouteStopList({
           reorderDisabled={reorderDisabled}
           onSelect={() => onSelectStop(incidentId)}
           selected={focusStopId === incidentId}
-          onToggleDone={onToggleStopDone}
+          onSetStatus={onSetStopStatus}
+          onRemove={onRemoveStop}
         />
       ))}
     </>
@@ -134,7 +243,8 @@ interface StopListRowProps {
   reorderDisabled: boolean
   onSelect: () => void
   selected: boolean
-  onToggleDone?: (incidentId: string, nextDone: boolean) => void
+  onSetStatus?: (incidentId: string, status: MirrorStatus) => void
+  onRemove?: (incidentId: string) => void
 }
 
 export function StopListRow({
@@ -146,7 +256,8 @@ export function StopListRow({
   reorderDisabled,
   onSelect,
   selected,
-  onToggleDone,
+  onSetStatus,
+  onRemove,
 }: StopListRowProps) {
   const t = useTranslations("kanban.routenEditorModal")
   const ref = useRef<HTMLDivElement>(null)
@@ -154,7 +265,8 @@ export function StopListRow({
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
   const [isDropOver, setIsDropOver] = useState(false)
 
-  const state = deriveStopState(op)
+  const mirror = toMirrorStatus(op)
+  const mirrorConf = MIRROR_CONFIG[mirror]
 
   useEffect(() => {
     const el = ref.current
@@ -196,14 +308,7 @@ export function StopListRow({
     )
   }, [groupId, incidentId, index, reorderDisabled])
 
-  const done = state === "erledigt"
-  const StateIcon = done ? Check : state === "laeuft" ? CircleDot : CircleDashed
-  const stateClass =
-    state === "erledigt"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : state === "laeuft"
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-muted-foreground/60"
+  const MirrorIcon = mirrorConf.Icon
 
   return (
     <div className="relative">
@@ -228,28 +333,30 @@ export function StopListRow({
           <GripVertical className="h-3.5 w-3.5" />
         </button>
         <span className="w-4 flex-shrink-0 tabular-nums text-xs text-muted-foreground">{index + 1}.</span>
-        {onToggleDone ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleDone(incidentId, !done)
-            }}
-            className="flex-shrink-0 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-pressed={done}
-            title={done ? t("markActive") : t("markDone")}
-            aria-label={done ? t("markActive") : t("markDone")}
-          >
-            <StateIcon className={cn("h-4 w-4", stateClass)} />
-          </button>
+        {onSetStatus ? (
+          <StopStatusControl op={op} onSetStatus={(s) => onSetStatus(incidentId, s)} />
         ) : (
-          <StateIcon className={cn("h-4 w-4 flex-shrink-0", stateClass)} />
+          <MirrorIcon className={cn("h-4 w-4 flex-shrink-0", mirrorConf.cls)} />
         )}
         <span className="min-w-0 flex-1 truncate">{op?.location ?? incidentId}</span>
         {!isLocated(op) && (
           <span className="flex-shrink-0 text-xs text-muted-foreground/70" title={t("noCoords")}>
             {t("noCoordsBadge")}
           </span>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemove(incidentId)
+            }}
+            className="flex-shrink-0 rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title={t("removeStop")}
+            aria-label={t("removeStop")}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
       {closestEdge === "bottom" && <DropIndicator edge="bottom" gap="2px" />}

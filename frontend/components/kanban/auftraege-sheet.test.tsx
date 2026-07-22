@@ -138,7 +138,7 @@ beforeEach(() => {
 })
 
 describe("AuftraegeSheet — derived checklist + progress", () => {
-  it("renders offen/läuft/erledigt per stop status and progress as done/total", async () => {
+  it("mirrors the board column per stop status and progress as done/total", async () => {
     state.groups = [grp({ stopIds: ["i1", "i2", "i3"] })]
     state.operations = [
       op("i1", "complete", "Baum Hauptstr. 12"),
@@ -158,10 +158,11 @@ describe("AuftraegeSheet — derived checklist + progress", () => {
     expect(screen.getByText("Keller Ringstr. 8")).toBeInTheDocument()
     expect(screen.getByText("Ast Bahnhofstr. 2")).toBeInTheDocument()
 
-    // Derived per-stop state labels (each status appears exactly once).
-    expect(screen.getByText("erledigt")).toBeInTheDocument()
-    expect(screen.getByText("läuft")).toBeInTheDocument()
-    expect(screen.getByText("offen")).toBeInTheDocument()
+    // Kanban-column mirror labels per stop status (each appears exactly once):
+    // complete → Beendet, active → Einsatz, incoming → Offen.
+    expect(screen.getByText("Beendet")).toBeInTheDocument()
+    expect(screen.getByText("Einsatz")).toBeInTheDocument()
+    expect(screen.getByText("Offen")).toBeInTheDocument()
   })
 })
 

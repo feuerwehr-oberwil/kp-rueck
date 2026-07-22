@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { RouteStartMode, useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { RouteStopList } from "./route-stop-list"
 
 // Same six-swatch palette as the Aufträge sheet so routes read apart at a glance.
@@ -70,6 +71,7 @@ export function RoutenplanungPanel({
   const t = useTranslations("map.planning")
   const { group, operationsById, isAddingStop, reorder, optimize, magazinCoords, vehicleStart } = planning
   const { updateOperation } = useOperations()
+  const { removeStop } = useGroups()
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
@@ -130,9 +132,11 @@ export function RoutenplanungPanel({
 
       {/* Group picker + inline create */}
       <div className="mb-4 space-y-2">
-        <div className="flex items-center gap-2">
+        {/* Picker + create: wrap so the "Neuer Auftrag" button drops to its own
+            line in a narrow panel instead of overflowing the width. */}
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={groupId ?? undefined} onValueChange={(v) => onGroupIdChange(v)}>
-            <SelectTrigger className="h-9 flex-1">
+            <SelectTrigger className="h-9 min-w-[7rem] flex-1">
               <SelectValue placeholder={t("selectGroupPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
@@ -149,7 +153,7 @@ export function RoutenplanungPanel({
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5 flex-shrink-0" onClick={startCreate}>
+          <Button size="sm" variant="outline" className="h-9 shrink-0 gap-1.5" onClick={startCreate}>
             <Plus className="h-4 w-4" />
             {t("newAuftrag")}
           </Button>
@@ -240,9 +244,8 @@ export function RoutenplanungPanel({
                 onReorder={(ids) => void reorder(ids)}
                 focusStopId={focusStopId}
                 onSelectStop={onFocusStopChange}
-                onToggleStopDone={(incidentId, nextDone) =>
-                  updateOperation(incidentId, { status: nextDone ? "returning" : "active" })
-                }
+                onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
+                onRemoveStop={(incidentId) => void removeStop(group.id, incidentId)}
               />
             )}
           </div>

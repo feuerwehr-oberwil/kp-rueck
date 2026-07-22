@@ -16,6 +16,7 @@ import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, P
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
@@ -76,6 +77,25 @@ export function OperationDetailModal({
   const { formatLocation, setOperations, changeStatusToTop } = useOperations()
   const { selectedEvent } = useEvent()
   const { materialGroups } = useMaterials()
+  const { groups, getGroupResources, unassignResource } = useGroups()
+
+  // A grouped incident carries no resources itself — the Auftrag (route) owns
+  // them. Show the route's roll-up in the resource sections and route any
+  // add/remove to the Auftrag so the modal edits the same thing the sheet does.
+  const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+  const viaAuftrag = auftrag ? (
+    <span
+      className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground"
+      title={t('detail.viaAuftrag', { name: auftrag.name })}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
+      />
+      {t('detail.viaAuftrag', { name: auftrag.name })}
+    </span>
+  ) : null
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
@@ -444,9 +464,20 @@ export function OperationDetailModal({
 
           {/* Resource Assignment Section */}
           <div>
-            <Label className="text-sm font-semibold text-muted-foreground block">
-              {t('common.assignedResources')}
-            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label className="text-sm font-semibold text-muted-foreground">
+                {t('common.assignedResources')}
+              </Label>
+              {auftrag && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                  title={t('detail.viaAuftrag', { name: auftrag.name })}
+                >
+                  <Waypoints className="h-3 w-3" />
+                  {t('detail.viaAuftrag', { name: auftrag.name })}
+                </span>
+              )}
+            </div>
 
             {/* Reko Personnel */}
             <div className="mt-4 space-y-2">
@@ -525,9 +556,12 @@ export function OperationDetailModal({
             {/* Mannschaft (Crew) */}
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{t('common.crewCount', { count: operation.crew.length })}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm font-medium">
+                    {t('common.crewCount', { count: auftrag ? (auftragResources?.personnel.length ?? 0) : operation.crew.length })}
+                  </span>
+                  {viaAuftrag}
                 </div>
                 {onAssignResource && (
                   <Button
@@ -544,7 +578,32 @@ export function OperationDetailModal({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {operation.crew.length > 0 ? (
+                {auftrag ? (
+                  (auftragResources?.personnel.length ?? 0) > 0 ? (
+                    auftragResources!.personnel.map((p) => (
+                      <Badge
+                        key={p.assignmentId}
+                        variant="secondary"
+                        className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                      >
+                        {p.name}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void unassignResource(auftrag.id, p.assignmentId)
+                          }}
+                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title={t('detail.removePerson')}
+                          tabIndex={-1}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground/60 italic">{t('detail.noCrew')}</p>
+                  )
+                ) : operation.crew.length > 0 ? (
                   operation.crew.map((member) => (
                     <Badge
                       key={member}
@@ -576,10 +635,26 @@ export function OperationDetailModal({
             {/* Fahrzeuge (Vehicles) */}
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{t('common.vehiclesCount', { count: operation.vehicles.length })}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm font-medium">
+                    {t('common.vehiclesCount', { count: auftrag ? (auftragResources?.vehicles.length ?? 0) : operation.vehicles.length })}
+                  </span>
+                  {viaAuftrag}
                 </div>
+                {auftrag ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onAssignResource?.('vehicles', operation.id)}
+                    className="h-7 px-2 gap-1"
+                    title={t('common.assignVehicle')}
+                    tabIndex={0}
+                  >
+                    <Plus className="h-3 w-3" />
+                    {t('common.add')}
+                  </Button>
+                ) : (
                 <div className="flex items-center gap-1">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -655,8 +730,36 @@ export function OperationDetailModal({
                     </PopoverContent>
                   </Popover>
                 </div>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
+                {auftrag ? (
+                  (auftragResources?.vehicles.length ?? 0) > 0 ? (
+                    auftragResources!.vehicles.map((v) => (
+                      <Badge
+                        key={v.assignmentId}
+                        variant="default"
+                        className="text-sm gap-1 pr-1 group transition-colors"
+                      >
+                        {v.name}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void unassignResource(auftrag.id, v.assignmentId)
+                          }}
+                          className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white cursor-pointer"
+                          title={t('detail.removeVehicle')}
+                          tabIndex={-1}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground/60 italic">{t('detail.noVehicles')}</p>
+                  )
+                ) : (
+                  <>
                 {operation.zuFuss && (
                   <Badge variant="secondary" className="text-sm gap-1">
                     <Footprints className="h-3.5 w-3.5" />
@@ -752,15 +855,20 @@ export function OperationDetailModal({
                 ) : (
                   <p className="text-sm text-muted-foreground/60 italic">{t('detail.noVehicles')}</p>
                 )}
+                  </>
+                )}
               </div>
             </div>
 
             {/* Material */}
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{t('common.materialsCount', { count: operation.materials.length })}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm font-medium">
+                    {t('common.materialsCount', { count: auftrag ? (auftragResources?.materials.length ?? 0) : operation.materials.length })}
+                  </span>
+                  {viaAuftrag}
                 </div>
                 {onAssignResource && (
                   <Button
@@ -777,7 +885,32 @@ export function OperationDetailModal({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {operation.materials.length > 0 ? (
+                {auftrag ? (
+                  (auftragResources?.materials.length ?? 0) > 0 ? (
+                    auftragResources!.materials.map((m) => (
+                      <Badge
+                        key={m.assignmentId}
+                        variant="outline"
+                        className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                      >
+                        {m.name}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void unassignResource(auftrag.id, m.assignmentId)
+                          }}
+                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title={t('detail.removeMaterial')}
+                          tabIndex={-1}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground/60 italic">{t('detail.noMaterial')}</p>
+                  )
+                ) : operation.materials.length > 0 ? (
                   (() => {
                     const ungrouped: string[] = []
                     const grouped: Record<string, string[]> = {}
