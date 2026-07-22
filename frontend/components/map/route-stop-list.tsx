@@ -99,7 +99,7 @@ export function RouteOptimizeMenu({
           <Wand2 className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="z-[70]">
         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{menuLabel}</DropdownMenuLabel>
         {options.map((o) => (
           <DropdownMenuItem key={o.value} disabled={o.disabled} onClick={() => onOptimize(o.value)}>
@@ -204,7 +204,7 @@ export function StopStatusControl({
             <ChevronDown className="h-3 w-3" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="z-[70]">
           {MIRROR_ORDER.map((s) => {
             const c = MIRROR_CONFIG[s]
             const SIcon = c.Icon

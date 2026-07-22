@@ -271,7 +271,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[88vh] w-[1000px] max-w-[95vw] flex-col gap-4"
+        className="flex max-h-[88vh] w-full flex-col gap-4 overflow-hidden sm:max-w-[1080px]"
         {...dragGuardProps}
       >
         <DialogHeader className="flex-shrink-0">
@@ -287,11 +287,13 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             keeps a fixed, always-usable width while the map fills the remaining
             width as a wide landscape rectangle. Both columns stretch to the same
             height so the list scrolls inside the map's height. */}
-        <div className="flex min-h-0 gap-5">
+        <div className="flex min-h-0 gap-5 overflow-hidden">
           {/* Map column — FIXED width. Leaflet kept collapsing a flexible (flex-1)
               map track to near-zero, so the map is the fixed column now and the
-              list flexes/truncates instead. The map can never be squeezed. */}
-          <div className="flex w-[560px] max-w-[58vw] shrink-0 flex-col">
+              list flexes/truncates instead. The map can never be squeezed. The
+              parent DialogContent uses sm:max-w-[1080px] (overriding the base
+              sm:max-w-lg) so this 600px map + the list always fit inside. */}
+          <div className="flex w-[600px] shrink-0 flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
