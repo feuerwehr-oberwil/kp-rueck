@@ -68,9 +68,7 @@ router = APIRouter(prefix="/training", tags=["training"])
 
 
 async def _require_training_event(db: AsyncSession, event_id: UUID) -> Event:
-    """Shared guard: training endpoints only work on training events, never in demo."""
-    if settings.demo_mode:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
+    """Shared guard: training endpoints only work on training events."""
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
@@ -100,12 +98,6 @@ async def generate_emergencies(
     - **category**: 'normal', 'critical', or null for random
     - **count**: Number to generate (1-10, for burst mode)
     """
-    if settings.demo_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Übungsmodus ist im Demo-Modus nicht verfügbar",
-        )
-
     # Verify event exists and is training
     event = await db.get(Event, event_id)
     if not event:
@@ -166,12 +158,6 @@ async def manual_dispatch(
     both — useful to inject a known scenario at a known address for exercise
     realism (e.g. "BMA Schulhaus" at the actual local school).
     """
-    if settings.demo_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Übungsmodus ist im Demo-Modus nicht verfügbar",
-        )
-
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
@@ -350,9 +336,6 @@ async def simulate_field_complete(
     incident. Deliberately does NOT change the status — closing is the
     operator's board action, mimicking the real command-post split.
     """
-    if settings.demo_mode:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
-
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
@@ -389,9 +372,6 @@ async def simulate_reko_arrived(
     "Reko vor Ort" → "Reko-Meldung" as two separate, realistically-timed steps
     (the one-shot ``simulate_reko`` below still does both at once).
     """
-    if settings.demo_mode:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
-
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
@@ -431,9 +411,6 @@ async def simulate_reko(
     Marks arrival, generates random report data, and submits it.
     Triggers the same status transitions and notifications as a real submission.
     """
-    if settings.demo_mode:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nicht im Demo-Modus verfügbar")
-
     # Verify event exists and is training
     event = await db.get(Event, event_id)
     if not event:
