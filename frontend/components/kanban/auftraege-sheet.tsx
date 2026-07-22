@@ -64,7 +64,7 @@ import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
-import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
+import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import type { GroupResources } from "@/lib/types/groups"
 
@@ -262,7 +262,7 @@ export function AuftraegeSheet({
             </div>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto mt-3 pb-10 space-y-2">
+          <div className="flex-1 overflow-y-auto mt-3 pb-10 space-y-3">
             {/* Inline create row */}
             {creating && (
               <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.03] px-3 py-2.5">
@@ -479,7 +479,14 @@ function AuftragCard({
   return (
     <div
       ref={registerRowRef}
-      className={cn("rounded-lg border bg-card transition-colors", isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]")}
+      // The Auftrag card is the ONE strong boundary: a raised card with a route-
+      // coloured left accent. Its inner sub-sections are borderless peers, so the
+      // primary visual split is always between Aufträge, not within one.
+      className={cn(
+        "rounded-lg border border-l-[3px] bg-card shadow-sm transition-colors",
+        isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
+      )}
+      style={{ borderLeftColor: group.color ?? "var(--border)" }}
     >
       {/* Header row — the whole row toggles expand/collapse. Right-click opens the
           same actions as the ⋮ menu (Umbenennen / Farbe / Optimieren / Löschen). */}
@@ -609,32 +616,47 @@ function AuftragCard({
         </ContextMenuContent>
       </ContextMenu>
 
-      {/* Expanded content — the team matters most, so Ressourcen sits directly
-          under the name, before the stops checklist. */}
+      {/* Expanded content — four PEER sub-sections of the Auftrag, all rendered
+          with the same section-header template (icon + "Label (N)" + trailing
+          action). Mannschaft / Fahrzeuge / Material come from the shared
+          RouteResourceSections; Zugewiesene Einsätze is the fourth sibling. There
+          is deliberately no "Ressourcen vs Einsätze" grouping — the Auftrag card
+          itself is the only strong boundary. */}
       {expanded && (
-        <div className="border-t px-3 py-2 space-y-3">
-          {/* Section 1 · Ressourcen — the shared team owned by the whole route.
-              Lists ALL assigned vehicles, personnel and material as removable chips,
-              and assigns to the ROUTE (works even with 0 stops). */}
-          <div className="rounded-md border bg-muted/20 px-3 py-2.5">
-            <div className="text-xs font-semibold text-muted-foreground">{t("resourcesHeading")}</div>
-            {/* Shared per-type resource sections — identical UI to the operation
-                detail modal (icon + count heading + "+ Hinzufügen" + chips). All
-                assign/remove actions target the ROUTE (works with 0 stops). */}
-            <RouteResourceSections
-              resources={resources}
-              onAssign={onAssignRouteResource}
-              onUnassign={onUnassignResource}
-            />
-          </div>
+        <div className="border-t px-3 pb-3 pt-1">
+          {/* Mannschaft / Fahrzeuge / Material — shared per-type resource sections
+              (icon + count heading + "+ Hinzufügen" + chips). All assign/remove
+              actions target the ROUTE (works with 0 stops). */}
+          <RouteResourceSections
+            resources={resources}
+            onAssign={onAssignRouteResource}
+            onUnassign={onUnassignResource}
+          />
 
-          {/* Section 2 · Zugewiesene Einsätze — the ordered stops the route works
-              through. Reorder by drag; status mirrors the board columns. */}
-          <div className="rounded-md border bg-muted/20 px-3 py-2.5">
-            <div className="mb-2 flex items-baseline gap-1.5 text-xs font-semibold text-muted-foreground">
-              <span>{t("stopsHeading")}</span>
-              {total > 0 && <span className="font-normal tabular-nums text-muted-foreground/70">({total})</span>}
-            </div>
+          {/* Zugewiesene Einsätze — the fourth peer section, same header template.
+              The ordered stops the route works through: reorder by drag, status
+              mirrors the board columns. */}
+          <div className="mt-4">
+            <ResourceSectionHeader
+              icon={Route}
+              label={t("stopsCount", { count: total })}
+              action={
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 px-2" onClick={() => onOpenRoutenEditor()}>
+                    <MapIcon className="h-3.5 w-3.5" />
+                    {t("routenEditor")}
+                  </Button>
+                  {/* Optimize wand — the menu picks the start anchor and runs immediately. */}
+                  <RouteOptimizeMenu
+                    options={optimizeStartOptions}
+                    menuLabel={t("optimizeStartHint")}
+                    optimizeLabel={t("optimizeOrder")}
+                    disabled={total < 2}
+                    onOptimize={(start) => void runOptimize(start)}
+                  />
+                </div>
+              }
+            />
 
             <div className="space-y-0.5">
               {group.stopIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">{t("noStops")}</p>}
@@ -662,22 +684,6 @@ function AuftragCard({
                 <Plus className="h-3.5 w-3.5 flex-shrink-0" />
                 {t("addStop")}
               </button>
-            </div>
-
-            {/* Section actions */}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onOpenRoutenEditor()}>
-                <MapIcon className="h-3.5 w-3.5" />
-                {t("routenEditor")}
-              </Button>
-              {/* Optimize wand — the menu picks the start anchor and runs immediately. */}
-              <RouteOptimizeMenu
-                options={optimizeStartOptions}
-                menuLabel={t("optimizeStartHint")}
-                optimizeLabel={t("optimizeOrder")}
-                disabled={total < 2}
-                onOptimize={(start) => void runOptimize(start)}
-              />
             </div>
           </div>
         </div>
