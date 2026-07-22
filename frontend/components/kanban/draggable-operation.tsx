@@ -137,7 +137,11 @@ function DraggableOperationBase({
   // avoiding prop threading through the column/side-panel render trees.
   const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
-  const auftragDone = auftrag ? auftrag.progress.done : 0
+  // This incident's 1-based position in the route (e.g. "Stop 3/5"). Derive from
+  // the resolved stop order; group_position (0-based) is the fallback if the id
+  // isn't in stopIds yet (optimistic add mid-sync).
+  const auftragStopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
+  const auftragStopPos = auftrag ? (auftragStopIndex >= 0 ? auftragStopIndex + 1 : operation.groupPosition + 1) : 0
   // Grouped incidents carry no resources themselves — the route owns them. Read
   // the route's resource roll-up for the card chip summary.
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
@@ -644,7 +648,7 @@ function DraggableOperationBase({
                 <span className="max-w-[50%] flex-shrink-0 truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
                   {auftrag.name}
                 </span>
-                <span className="tabular-nums text-muted-foreground flex-shrink-0">{auftragDone}/{auftragTotal}</span>
+                <span className="tabular-nums text-muted-foreground flex-shrink-0">{t('card.auftragStopPosition', { pos: auftragStopPos, total: auftragTotal })}</span>
                 {auftragSummary && (
                   <>
                     <span className="flex-shrink-0 text-muted-foreground/40">·</span>

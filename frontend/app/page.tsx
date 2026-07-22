@@ -107,6 +107,7 @@ export default function FireStationDashboard() {
     unassignResource: unassignGroupResource,
     getGroupResources,
     createGroup,
+    removeStop: removeStopFromGroup,
   } = useGroups()
 
   // Keep the top progress bar visible for the whole pre-ready window — auth
@@ -713,6 +714,24 @@ export default function FireStationDashboard() {
     }
   }, [operations, updateOperation, triggerDisponiertDialog])
 
+  // Quick-assign (number keys / command palette) toggle of a vehicle onto an
+  // incident. For a GROUPED incident the route owns resources, so route the
+  // assign/unassign to the Auftrag — otherwise a per-incident row would be
+  // created that never renders on a grouped card (a hidden assignment).
+  const toggleVehicleAssignment = useCallback(
+    (op: Operation, vehicle: { id: string; name: string }) => {
+      if (op.groupId) {
+        const existing = getGroupResources(op.groupId).vehicles.find((v) => v.resourceId === vehicle.id)
+        if (existing) unassignGroupResource(op.groupId, existing.assignmentId)
+        else assignGroupResource(op.groupId, "vehicle", vehicle.id)
+        return
+      }
+      if (op.vehicles.includes(vehicle.name)) removeVehicle(op.id, vehicle.name)
+      else assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
+    },
+    [getGroupResources, unassignGroupResource, assignGroupResource, removeVehicle, assignVehicleToOperation],
+  )
+
   // Register command palette handlers
   useEffect(() => {
     registerHandlers({
@@ -786,14 +805,7 @@ export default function FireStationDashboard() {
           const vehicleType = vehicleTypes[vehicleNumber - 1]
           if (vehicleType) {
             const operation = operations.find(op => op.id === hoveredOperationId)
-            if (operation) {
-              const isAssigned = operation.vehicles.includes(vehicleType.name)
-              if (isAssigned) {
-                removeVehicle(hoveredOperationId, vehicleType.name)
-              } else {
-                assignVehicleToOperation(vehicleType.id, vehicleType.name, hoveredOperationId)
-              }
-            }
+            if (operation) toggleVehicleAssignment(operation, vehicleType)
           }
         }
       },
@@ -810,8 +822,7 @@ export default function FireStationDashboard() {
     moveOperationRight,
     moveOperationLeft,
     updateOperation,
-    removeVehicle,
-    assignVehicleToOperation,
+    toggleVehicleAssignment,
   ])
 
   // Hide sidebars on mobile by default
@@ -934,12 +945,12 @@ export default function FireStationDashboard() {
       gPrefix,
     },
     {
-      onToggleVehicle: (vehicle, opId, isAssigned) => {
-        if (isAssigned) {
-          removeVehicle(opId, vehicle.name)
-        } else {
-          assignVehicleToOperation(vehicle.id, vehicle.name, opId)
-        }
+      onToggleVehicle: (vehicle, opId) => {
+        // Recompute the target (route vs incident) from the operation — the
+        // hook's `isAssigned` reflects only incident-level vehicles, which are
+        // always empty on a grouped card.
+        const operation = operations.find((op) => op.id === opId)
+        if (operation) toggleVehicleAssignment(operation, vehicle)
       },
       onUpdateOperation: updateOperation,
       onMoveRight: moveOperationRight,
@@ -1415,6 +1426,16 @@ export default function FireStationDashboard() {
       const group = groups.find((g) => g.id === groupId)
       toast.success(tDash('distributedToast', { name: group?.name ?? '' }))
     }
+  }
+
+  // "Aus Auftrag entfernen" — detach the incident from its current route (it
+  // stays on the board, ungrouped). Only offered when it's already in a route.
+  const handleRemoveFromAuftrag = async () => {
+    if (!auftragPickerIncidentId) return
+    const op = operations.find((o) => o.id === auftragPickerIncidentId)
+    if (!op?.groupId) return
+    const ok = await removeStopFromGroup(op.groupId, auftragPickerIncidentId)
+    if (ok) toast.success(tDash('removedFromAuftragToast'))
   }
 
   // Route-level resource assign: open the standard assignment dialog scoped to the
@@ -2760,6 +2781,7 @@ export default function FireStationDashboard() {
         }
         onChoose={handleChooseAuftrag}
         onCreate={(name) => createGroup({ name })}
+        onRemoveFromCurrent={handleRemoveFromAuftrag}
       />
 
       {/* Delete Operation Confirmation Dialog */}

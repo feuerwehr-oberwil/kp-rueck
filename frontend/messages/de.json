@@ -331,6 +331,7 @@
       "loading": "Laden...",
       "stopsAddedToast": "{count} Stops zur Route hinzugefügt",
       "distributedToast": "In Auftrag «{name}» verteilt",
+      "removedFromAuftragToast": "Einsatz aus Auftrag entfernt",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
       "switchEvent": "Ereignis wechseln",
@@ -451,6 +452,7 @@
       "showOnMapMenu": "Auf Karte zeigen",
       "printing": "Drucke...",
       "auftragChipTooltip": "Auftrag: {name}",
+      "auftragStopPosition": "Stop {pos}/{total}",
       "auftragPersSummary": "{count} Pers",
       "auftragMatSummary": "{count} Mittel"
     },
@@ -605,6 +607,7 @@
       "addStop": "Stop",
       "routenEditor": "Routen-Editor",
       "resourcesHeading": "Ressourcen",
+      "stopsHeading": "Zugewiesene Einsätze",
       "noResourcesYet": "Noch keine Ressourcen zugewiesen.",
       "removeResource": "{name} entfernen",
       "assignVehicleRoute": "Fahrzeug zuweisen",
@@ -690,7 +693,8 @@
       "namePlaceholder": "Auftragsname",
       "createConfirm": "Erstellen",
       "cancel": "Abbrechen",
-      "newAuftrag": "Neuer Auftrag"
+      "newAuftrag": "Neuer Auftrag",
+      "removeFromAuftrag": "Aus Auftrag entfernen"
     }
   },
   "incidents": {

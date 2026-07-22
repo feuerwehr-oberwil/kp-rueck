@@ -321,6 +321,34 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
               </Button>
             </div>
 
+            {/* Optimize controls — kept above the list (not in the bottom bar) so the
+                "Start ab" dropdown and the undo toast don't overlap in the corner. */}
+            <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-2">
+              <span className="text-xs text-muted-foreground">{t("startFrom")}</span>
+              <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
+                <SelectTrigger className="h-8 w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {startOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => void runOptimize()}
+                disabled={displayOrder.length < 2}
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                {t("optimize")}
+              </Button>
+            </div>
+
             <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto rounded-lg border bg-muted/20 p-2">
               {displayOrder.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
@@ -346,31 +374,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           </div>
         </div>
 
-        {/* Controls — optimize applies immediately (no preview step). */}
-        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t pt-3">
-          <span className="text-sm text-muted-foreground">{t("startFrom")}</span>
-          <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
-            <SelectTrigger className="h-8 w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {startOptions.map((o) => (
-                <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => void runOptimize()}
-            disabled={displayOrder.length < 2}
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-            {t("optimize")}
-          </Button>
+        {/* Footer — optimize controls now live above the stop list (out of the
+            bottom-right toast zone); only the close action remains here. */}
+        <div className="flex flex-shrink-0 items-center border-t pt-3">
           <Button size="sm" className="ml-auto" onClick={() => onOpenChange(false)}>
             {t("done")}
           </Button>
