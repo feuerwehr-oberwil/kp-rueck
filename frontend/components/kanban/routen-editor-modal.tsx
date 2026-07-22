@@ -271,7 +271,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[85vh] w-[calc(100%-2rem)] max-w-[min(96vw,1400px)] flex-col gap-4"
+        className="flex max-h-[88vh] w-[1000px] max-w-[95vw] flex-col gap-4"
         {...dragGuardProps}
       >
         <DialogHeader className="flex-shrink-0">
@@ -283,14 +283,18 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 gap-5 md:grid-cols-[minmax(360px,1.6fr)_minmax(0,1fr)]">
-          {/* Map column — the dominant element. A wide landscape rectangle with a
-              capped height (not a tall narrow strip); the list sits beside it. */}
-          <div className="flex min-w-0 flex-col">
+        {/* Body — a flex row (robust vs. a fragile minmax grid): the ordered list
+            keeps a fixed, always-usable width while the map fills the remaining
+            width as a wide landscape rectangle. Both columns stretch to the same
+            height so the list scrolls inside the map's height. */}
+        <div className="flex min-h-0 gap-5">
+          {/* Map column — fills the rest; min-w-0 lets it shrink on narrow
+              viewports without ever squeezing the fixed-width list. */}
+          <div className="flex min-w-0 flex-1 flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
-            <div className="relative h-[420px] overflow-hidden rounded-lg border">
+            <div className="relative h-[420px] flex-1 overflow-hidden rounded-lg border">
               {mapNode}
               {addMode && (
                 <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-md">
@@ -300,8 +304,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             </div>
           </div>
 
-          {/* Ordered list column */}
-          <div className="flex min-h-0 min-w-0 flex-col">
+          {/* Ordered list column — fixed width, never collapsed. */}
+          <div className="flex w-[360px] shrink-0 flex-col min-h-0">
             {/* Reihenfolge heading + the optimize wand (a single button whose menu
                 picks the start anchor and runs optimize immediately). */}
             <div className="mb-2 flex h-8 items-center justify-between gap-2">

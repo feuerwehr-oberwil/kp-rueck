@@ -211,7 +211,9 @@ describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
     renderSheet({ onAssignRouteResource })
 
     await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
-    await user.click(await screen.findByRole("button", { name: "Fahrzeug zuweisen" }))
+    // The Ressourcen block now reuses the shared section UI: each "+ Hinzufügen"
+    // button carries the assign action as its title (the visible label is generic).
+    await user.click(await screen.findByTitle("Fahrzeug zuweisen"))
 
     expect(onAssignRouteResource).toHaveBeenCalledWith("vehicles", "g1")
   })

@@ -33,6 +33,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimelinePopover } from "@/components/kanban/incident-timeline-popover"
+import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import type { Incident } from "@/lib/types/incidents"
 
 interface OperationDetailModalProps {
@@ -553,15 +554,27 @@ export function OperationDetailModal({
               )}
             </div>
 
+          {/* Mannschaft / Fahrzeuge / Material. A grouped incident carries no
+              resources itself — the Auftrag (route) owns them, so render the
+              route's roll-up through the shared section UI (assign/remove target
+              the Auftrag). A standalone incident shows its own resources inline. */}
+          {auftrag ? (
+            <RouteResourceSections
+              resources={auftragResources ?? { vehicles: [], personnel: [], materials: [] }}
+              viaLabel={viaAuftrag}
+              onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
+              onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
+            />
+          ) : (
+            <>
             {/* Mannschaft (Crew) */}
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex min-w-0 items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-sm font-medium">
-                    {t('common.crewCount', { count: auftrag ? (auftragResources?.personnel.length ?? 0) : operation.crew.length })}
+                    {t('common.crewCount', { count: operation.crew.length })}
                   </span>
-                  {viaAuftrag}
                 </div>
                 {onAssignResource && (
                   <Button
@@ -578,32 +591,7 @@ export function OperationDetailModal({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {auftrag ? (
-                  (auftragResources?.personnel.length ?? 0) > 0 ? (
-                    auftragResources!.personnel.map((p) => (
-                      <Badge
-                        key={p.assignmentId}
-                        variant="secondary"
-                        className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                      >
-                        {p.name}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void unassignResource(auftrag.id, p.assignmentId)
-                          }}
-                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title={t('detail.removePerson')}
-                          tabIndex={-1}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground/60 italic">{t('detail.noCrew')}</p>
-                  )
-                ) : operation.crew.length > 0 ? (
+                {operation.crew.length > 0 ? (
                   operation.crew.map((member) => (
                     <Badge
                       key={member}
@@ -638,23 +626,9 @@ export function OperationDetailModal({
                 <div className="flex min-w-0 items-center gap-2">
                   <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-sm font-medium">
-                    {t('common.vehiclesCount', { count: auftrag ? (auftragResources?.vehicles.length ?? 0) : operation.vehicles.length })}
+                    {t('common.vehiclesCount', { count: operation.vehicles.length })}
                   </span>
-                  {viaAuftrag}
                 </div>
-                {auftrag ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onAssignResource?.('vehicles', operation.id)}
-                    className="h-7 px-2 gap-1"
-                    title={t('common.assignVehicle')}
-                    tabIndex={0}
-                  >
-                    <Plus className="h-3 w-3" />
-                    {t('common.add')}
-                  </Button>
-                ) : (
                 <div className="flex items-center gap-1">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -730,36 +704,8 @@ export function OperationDetailModal({
                     </PopoverContent>
                   </Popover>
                 </div>
-                )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {auftrag ? (
-                  (auftragResources?.vehicles.length ?? 0) > 0 ? (
-                    auftragResources!.vehicles.map((v) => (
-                      <Badge
-                        key={v.assignmentId}
-                        variant="default"
-                        className="text-sm gap-1 pr-1 group transition-colors"
-                      >
-                        {v.name}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void unassignResource(auftrag.id, v.assignmentId)
-                          }}
-                          className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white cursor-pointer"
-                          title={t('detail.removeVehicle')}
-                          tabIndex={-1}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground/60 italic">{t('detail.noVehicles')}</p>
-                  )
-                ) : (
-                  <>
                 {operation.zuFuss && (
                   <Badge variant="secondary" className="text-sm gap-1">
                     <Footprints className="h-3.5 w-3.5" />
@@ -855,8 +801,6 @@ export function OperationDetailModal({
                 ) : (
                   <p className="text-sm text-muted-foreground/60 italic">{t('detail.noVehicles')}</p>
                 )}
-                  </>
-                )}
               </div>
             </div>
 
@@ -866,9 +810,8 @@ export function OperationDetailModal({
                 <div className="flex min-w-0 items-center gap-2">
                   <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-sm font-medium">
-                    {t('common.materialsCount', { count: auftrag ? (auftragResources?.materials.length ?? 0) : operation.materials.length })}
+                    {t('common.materialsCount', { count: operation.materials.length })}
                   </span>
-                  {viaAuftrag}
                 </div>
                 {onAssignResource && (
                   <Button
@@ -885,32 +828,7 @@ export function OperationDetailModal({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {auftrag ? (
-                  (auftragResources?.materials.length ?? 0) > 0 ? (
-                    auftragResources!.materials.map((m) => (
-                      <Badge
-                        key={m.assignmentId}
-                        variant="outline"
-                        className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                      >
-                        {m.name}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void unassignResource(auftrag.id, m.assignmentId)
-                          }}
-                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title={t('detail.removeMaterial')}
-                          tabIndex={-1}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground/60 italic">{t('detail.noMaterial')}</p>
-                  )
-                ) : operation.materials.length > 0 ? (
+                {operation.materials.length > 0 ? (
                   (() => {
                     const ungrouped: string[] = []
                     const grouped: Record<string, string[]> = {}
@@ -1003,6 +921,8 @@ export function OperationDetailModal({
                 )}
               </div>
             </div>
+            </>
+          )}
 
             {/* Status quick-change — one-click move across the board (drops the
                 card at the top of the target column) instead of drag & drop. */}
