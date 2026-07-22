@@ -314,6 +314,48 @@ export function ResourceAssignmentDialog({
     return { groups, ungrouped }
   }, [sortedFilteredMaterials, materialGroups])
 
+  // Quick number-key assignment (1..9): toggle the Nth visible item of the active
+  // resource type — the same action as clicking it. The onAssign*/onRemove*
+  // callbacks are wired by the parent, so in route-assign mode this assigns to the
+  // Auftrag (via assignResource) exactly like clicking, not to a single incident.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
+      if (e.key.length !== 1 || e.key < "1" || e.key > "9") return
+      const idx = Number(e.key) - 1
+      if (resourceType === "vehicles") {
+        const v = filteredVehicles[idx]
+        if (v) {
+          e.preventDefault()
+          handleToggleVehicle(v)
+        }
+      } else if (resourceType === "crew") {
+        const p = sortedFilteredPersonnel[idx]
+        if (p) {
+          e.preventDefault()
+          handleTogglePersonSelection(p)
+        }
+      } else if (resourceType === "materials") {
+        const flat = [
+          ...groupedFilteredMaterials.groups.flatMap((g) => g.materials),
+          ...groupedFilteredMaterials.ungrouped,
+        ]
+        const m = flat[idx]
+        if (m) {
+          e.preventDefault()
+          handleToggleMaterialSelection(m)
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+    // Handlers are stable enough within an open session; lists gate the indexing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, resourceType, filteredVehicles, sortedFilteredPersonnel, groupedFilteredMaterials])
+
   // Commit changes when "Fertig" is clicked (for crew and materials)
   const handleConfirm = () => {
     if (!operationId) {

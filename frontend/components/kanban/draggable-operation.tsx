@@ -633,26 +633,24 @@ function DraggableOperationBase({
                   e.stopPropagation()
                   window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
                 }}
-                className="group/auftrag flex w-full items-start gap-1.5 text-left transition-colors"
+                className="group/auftrag flex w-full min-w-0 items-center gap-1.5 text-left transition-colors"
                 title={t('card.auftragChipTooltip', { name: auftrag.name })}
               >
-                <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <span
-                    className="h-2 w-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
-                  />
-                  <span className="font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
-                    {auftrag.name}
-                  </span>
-                  <span className="tabular-nums text-muted-foreground flex-shrink-0">{auftragDone}/{auftragTotal}</span>
-                  {auftragSummary && (
-                    <>
-                      <span className="text-muted-foreground/40">·</span>
-                      <span className="truncate text-muted-foreground">{auftragSummary}</span>
-                    </>
-                  )}
-                </div>
+                <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <span
+                  className="h-2 w-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
+                />
+                <span className="max-w-[50%] flex-shrink-0 truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
+                  {auftrag.name}
+                </span>
+                <span className="tabular-nums text-muted-foreground flex-shrink-0">{auftragDone}/{auftragTotal}</span>
+                {auftragSummary && (
+                  <>
+                    <span className="flex-shrink-0 text-muted-foreground/40">·</span>
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground">{auftragSummary}</span>
+                  </>
+                )}
               </button>
             </div>
           )}

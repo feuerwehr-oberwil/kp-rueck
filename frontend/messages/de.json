@@ -486,6 +486,7 @@
       "create": "Einsatz erstellen"
     },
     "detail": {
+      "viaAuftrag": "über Auftrag «{name}»",
       "vehiclesLoadFailed": "Fahrzeuge konnten nicht geladen werden",
       "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
       "noEventSelectedLong": "Kein Event ausgewählt. Bitte wähle ein Event aus.",
@@ -627,6 +628,14 @@
       "undo": "Rückgängig",
       "markActive": "Als läuft markieren"
     },
+    "stopStatus": {
+      "offen": "Offen",
+      "disponiert": "Disponiert",
+      "einsatz": "Einsatz",
+      "beendet": "Beendet",
+      "advance": "Weiter zu {label}",
+      "jumpTo": "Status wählen"
+    },
     "routenEditorModal": {
       "title": "Routen-Editor",
       "description": "Stops auf der Karte anordnen: klicken zum Hinzufügen, ziehen zum Umsortieren, optimieren.",
@@ -655,7 +664,8 @@
       "optimized": "Reihenfolge optimiert.",
       "undo": "Rückgängig",
       "markDone": "Als erledigt markieren",
-      "markActive": "Als läuft markieren"
+      "markActive": "Als läuft markieren",
+      "removeStop": "Stop entfernen"
     },
     "incidentPicker": {
       "title": "Einsätze als Stops hinzufügen",
