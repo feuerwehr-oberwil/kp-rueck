@@ -31,6 +31,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -807,11 +808,23 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
         {/* Status control — mirrors the board columns; click advances, caret jumps. */}
         <StopStatusControl op={op} onSetStatus={onSetStatus} />
         {/* Primary line = the address (home city stripped); the incident type is
-            the muted secondary line; the Meldung shows on hover. */}
-        <div className="min-w-0 flex-1" title={op?.notes || undefined}>
-          <div className="truncate">{op?.location ? formatLocation(op.location) : incidentId}</div>
-          {op && <div className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>}
-        </div>
+            the muted secondary line; the Meldung shows in a tooltip on hover. */}
+        {op?.notes ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="min-w-0 flex-1 cursor-default">
+                <div className="truncate">{op.location ? formatLocation(op.location) : incidentId}</div>
+                <div className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap">{op.notes}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <div className="min-w-0 flex-1">
+            <div className="truncate">{op?.location ? formatLocation(op.location) : incidentId}</div>
+            {op && <div className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>}
+          </div>
+        )}
         {/* Karte — opens the Routen-Editor centred on this stop. */}
         <Button
           size="icon"
