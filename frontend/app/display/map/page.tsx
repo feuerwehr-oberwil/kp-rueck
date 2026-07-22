@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { apiClient, type ApiIncident, type ApiViewerData } from "@/lib/api-client"
 import type { Incident } from "@/lib/types/incidents"
@@ -101,10 +102,19 @@ function AuthenticatedDisplayMap({
   const tMap = useTranslations('map')
   const { refreshIncidents } = useIncidents()
   const { operations } = useOperations()
+  const { groups } = useGroups()
 
   useEffect(() => {
     refreshIncidents()
   }, [])
+
+  // id → Operation lookup for the read-only Auftrag route overlay (stops are
+  // real incidents). Routes are drawn always-on here — this is a wall monitor,
+  // so there is no toggle chrome; matches how /map renders GroupRoutes.
+  const operationsById = useMemo(
+    () => new Map(operations.map((op) => [op.id, op] as const)),
+    [operations],
+  )
 
   // "Färben nach" — same persisted setting as the board/map. The storage
   // listener keeps the display in sync when the mode is switched from
@@ -162,6 +172,10 @@ function AuthenticatedDisplayMap({
         markerAccents={markerAccents}
         colorBy={colorBy}
         colorGroups={colorLegend}
+        showGroupRoutes={true}
+        groups={groups}
+        operationsById={operationsById}
+        onGroupStopMarkerClick={onMarkerClick}
       />
 
       {/* Färben nach — compact overlay control for the display monitor */}

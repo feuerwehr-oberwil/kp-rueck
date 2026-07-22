@@ -108,14 +108,18 @@ async def create_intake_alarm(
     if not event or event.archived_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
-    # Demo mode: cap total incidents at 30 (same as the authenticated create path)
+    # Demo mode: cap incidents per event at 50 (same as the authenticated create path)
     if settings.demo_mode:
-        count_result = await db.execute(select(sa_func.count()).select_from(models.Incident))
-        total_incidents = count_result.scalar() or 0
-        if total_incidents >= 30:
+        count_result = await db.execute(
+            select(sa_func.count())
+            .select_from(models.Incident)
+            .where(models.Incident.event_id == event_id)
+        )
+        event_incidents = count_result.scalar() or 0
+        if event_incidents >= 50:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Demo-Modus: Maximale Anzahl Einsätze (30) erreicht. Die Demo wird regelmässig zurückgesetzt.",
+                detail="Demo-Modus: Maximale Anzahl Einsätze (50) erreicht. Die Demo wird regelmässig zurückgesetzt.",
             )
 
     new_incident = await crud.create_public_incident(

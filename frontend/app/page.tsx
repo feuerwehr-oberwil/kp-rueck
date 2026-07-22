@@ -747,6 +747,10 @@ export default function FireStationDashboard() {
         setAuftraegeFocusGroupId(null)
         return 'auftraege'
       }),
+      onOpenAuftrag: (groupId: string) => {
+        setAuftraegeFocusGroupId(groupId)
+        setActiveFooterSheet('auftraege')
+      },
       onToggleNotifications: toggleNotificationSidebar,
       onToggleSidePanel: () =>
         setSidePanelMode(prev => (prev === 'collapsed' ? 'detail' : 'collapsed')),

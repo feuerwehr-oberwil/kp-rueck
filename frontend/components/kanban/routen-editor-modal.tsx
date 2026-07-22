@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
@@ -289,7 +290,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 gap-5 md:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid min-h-0 gap-5 md:grid-cols-[minmax(420px,1.7fr)_minmax(280px,1fr)]">
           {/* Map column — the dominant element. A wide landscape rectangle with a
               capped height (not a tall narrow strip); the list sits beside it. */}
           <div className="flex flex-col">
@@ -308,17 +309,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
           {/* Ordered list column */}
           <div className="flex min-h-0 flex-col">
-            <div className="mb-2 flex h-8 items-center justify-between gap-2">
+            <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("order")}</span>
-              <Button
-                size="sm"
-                variant={addMode ? "default" : "outline"}
-                className="h-8 gap-1.5"
-                onClick={() => setAddMode((v) => !v)}
-              >
-                <MousePointerClick className="h-3.5 w-3.5" />
-                {t("addStopToggle")}
-              </Button>
             </div>
 
             {/* Optimize controls — kept above the list (not in the bottom bar) so the
@@ -349,27 +341,45 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
               </Button>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto rounded-lg border bg-muted/20 p-2">
-              {displayOrder.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
-                  <MapPinned className="mb-2 h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t("emptyState")}</p>
-                </div>
-              ) : (
-                <RouteStopList
-                  groupId={group?.id ?? ""}
-                  stopIds={group?.stopIds ?? []}
-                  displayOrder={displayOrder}
-                  operationsById={operationsById}
-                  changedPositions={EMPTY_CHANGED}
-                  reorderDisabled={false}
-                  onReorder={(ids) => void reorder(ids)}
-                  focusStopId={focusStopId}
-                  onSelectStop={setFocusStopId}
-                  enabled={open && !!group}
-                  onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
-                />
-              )}
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-muted/20 p-2">
+              <div className="space-y-0.5">
+                {displayOrder.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+                    <MapPinned className="h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">{t("emptyState")}</p>
+                  </div>
+                ) : (
+                  <RouteStopList
+                    groupId={group?.id ?? ""}
+                    stopIds={group?.stopIds ?? []}
+                    displayOrder={displayOrder}
+                    operationsById={operationsById}
+                    changedPositions={EMPTY_CHANGED}
+                    reorderDisabled={false}
+                    onReorder={(ids) => void reorder(ids)}
+                    focusStopId={focusStopId}
+                    onSelectStop={setFocusStopId}
+                    enabled={open && !!group}
+                    onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
+                  />
+                )}
+
+                {/* Add-row: a full-width "+ Stop hinzufügen" toggle that sits below
+                    the last stop (table "add row"), toggling map click-to-add. */}
+                <button
+                  type="button"
+                  onClick={() => setAddMode((v) => !v)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md border border-dashed px-2 py-1.5 text-sm transition-colors",
+                    addMode
+                      ? "border-primary/50 bg-primary/[0.06] text-foreground"
+                      : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                  )}
+                >
+                  <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />
+                  {t("addStopToggle")}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -66,8 +66,9 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
-import { StopStatusControl, toMirrorStatus, type MirrorStatus } from "@/components/map/route-stop-list"
+import { StopStatusControl, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { GroupResources } from "@/lib/types/groups"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
@@ -689,14 +690,21 @@ function AuftragCard({
                   onOpenMap={onOpenRoutenEditor}
                 />
               ))}
+
+              {/* Add-row: a full-width "+ Stop hinzufügen" row below the last stop
+                  (table "add row") — opens the incident picker to attach a stop. */}
+              <button
+                type="button"
+                onClick={onAddStop}
+                className="flex w-full items-center gap-2 rounded-md border border-dashed border-border/60 px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+                {t("addStop")}
+              </button>
             </div>
 
             {/* Section actions */}
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAddStop}>
-                <Plus className="h-3.5 w-3.5" />
-                {t("addStop")}
-              </Button>
               <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onOpenRoutenEditor()}>
                 <MapIcon className="h-3.5 w-3.5" />
                 {t("routenEditor")}

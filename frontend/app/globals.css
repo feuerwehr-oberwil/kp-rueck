@@ -687,6 +687,17 @@
   filter: saturate(0) brightness(0.6) contrast(1.1);
 }
 
+/* Incident markers are sized in JS (24/32px) for wall monitors. On small
+   screens that reads as oversized, so scale the inner svg down. Scaling the
+   svg (not the .custom-marker wrapper, which Leaflet transforms for
+   positioning) keeps the center anchor correct. */
+@media (max-width: 640px) {
+  .custom-marker svg {
+    transform: scale(0.62);
+    transform-origin: center;
+  }
+}
+
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
 }

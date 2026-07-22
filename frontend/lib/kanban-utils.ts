@@ -139,6 +139,34 @@ export function stopStatusBorderClass(status: StopMirrorStatus): string {
   }
 }
 
+/** Collapse an incident's full status onto one of the four route-stop mirror
+ *  columns (Offen / Disponiert / Einsatz / Beendet). Pure counterpart to the
+ *  `toMirrorStatus` used by the stop-list UI, kept here so leaflet overlays can
+ *  colour markers without importing the drag-heavy route-stop-list module. */
+export function toStopMirrorStatus(op: Operation | undefined): StopMirrorStatus {
+  if (!op) return "incoming"
+  if (op.status === "returning" || op.status === "complete") return "returning"
+  if (op.status === "active") return "active"
+  if (op.status === "enroute") return "enroute"
+  return "incoming"
+}
+
+/** Solid marker fill (hex) for a route stop's mirror status — matches the
+ *  StopStatusControl icon hues so a numbered map marker carries the same
+ *  progress meaning as the board column / list row it mirrors. */
+export function stopStatusMarkerColor(status: StopMirrorStatus): string {
+  switch (status) {
+    case "enroute":
+      return "#3b82f6" // blue-500 · Disponiert
+    case "active":
+      return "#f59e0b" // amber-500 · Einsatz
+    case "returning":
+      return "#10b981" // emerald-500 · Beendet
+    default:
+      return "#64748b" // slate-500 · Offen
+  }
+}
+
 /**
  * Colour class for the age chip: quiet under 60', amber at 60'+, red at
  * 120'+. Colour beats bolding 11px muted text — an incident sitting in a
