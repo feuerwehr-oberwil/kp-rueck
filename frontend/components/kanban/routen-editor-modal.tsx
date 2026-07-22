@@ -287,7 +287,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             keeps a fixed, always-usable width while the map fills the remaining
             width as a wide landscape rectangle. Both columns stretch to the same
             height so the list scrolls inside the map's height. */}
-        <div className="flex min-h-0 gap-5 overflow-hidden">
+        <div className="flex h-[520px] max-h-[70vh] gap-5 overflow-hidden">
           {/* Map column — FIXED width. Leaflet kept collapsing a flexible (flex-1)
               map track to near-zero, so the map is the fixed column now and the
               list flexes/truncates instead. The map can never be squeezed. The
@@ -297,7 +297,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
-            <div className="relative h-[420px] flex-1 overflow-hidden rounded-lg border">
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
               {mapNode}
               {addMode && (
                 <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-md">
