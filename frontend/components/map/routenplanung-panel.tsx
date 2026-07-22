@@ -16,7 +16,7 @@
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Plus, Route as RouteIcon, MousePointerClick, Wand2, X, Loader2, MapPinned, MousePointer2 } from "lucide-react"
+import { Plus, Route as RouteIcon, MousePointerClick, X, Loader2, MapPinned, MousePointer2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -32,7 +32,7 @@ import type { IncidentGroup } from "@/lib/types/groups"
 import type { RouteStartMode, useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { RouteStopList } from "./route-stop-list"
+import { RouteStopList, RouteOptimizeMenu } from "./route-stop-list"
 
 // Same six-swatch palette as the Aufträge sheet so routes read apart at a glance.
 const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"] as const
@@ -77,15 +77,14 @@ export function RoutenplanungPanel({
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
   const [newColor, setNewColor] = useState<string>(SWATCHES[0])
-  const [startMode, setStartMode] = useState<RouteStartMode>("magazin")
 
   const stopIds = group?.stopIds ?? []
   const displayOrder = stopIds
 
-  const startOptions: { value: RouteStartMode; label: string; disabled?: boolean }[] = [
-    { value: "magazin", label: t("startMagazin"), disabled: !magazinCoords },
-    { value: "vehicle", label: t("startVehicle"), disabled: !vehicleStart },
-    { value: "first", label: t("startFirst") },
+  const startOptions = [
+    { value: "magazin" as const, label: t("startMagazin"), disabled: !magazinCoords },
+    { value: "vehicle" as const, label: t("startVehicle"), disabled: !vehicleStart },
+    { value: "first" as const, label: t("startFirst") },
   ]
 
   const startCreate = () => {
@@ -102,7 +101,7 @@ export function RoutenplanungPanel({
   }
 
   // Optimize applies immediately (no preview / Übernehmen step) with an undo toast.
-  const runOptimize = async () => {
+  const runOptimize = async (startMode: RouteStartMode) => {
     const previous = stopIds
     const proposed = optimize(startMode)
     if (proposed.length === 0) return
@@ -157,9 +156,9 @@ export function RoutenplanungPanel({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                size="icon"
+                size="icon-sm"
                 variant="outline"
-                className="h-9 w-9 shrink-0"
+                className="shrink-0"
                 onClick={startCreate}
                 aria-label={t("newAuftrag")}
               >
@@ -215,38 +214,17 @@ export function RoutenplanungPanel({
         </div>
       ) : (
         <>
-          {/* Reihenfolge heading + optimize (wand only, tooltip) */}
+          {/* Reihenfolge heading + optimize wand (a single button whose menu picks
+              the start anchor and runs optimize immediately). */}
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm font-semibold">{t("order")}</span>
-            <div className="flex items-center gap-2">
-              <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
-                <SelectTrigger className="h-8 w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {startOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8"
-                    onClick={() => void runOptimize()}
-                    disabled={displayOrder.length < 2}
-                    aria-label={t("optimize")}
-                  >
-                    <Wand2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t("optimize")}</TooltipContent>
-              </Tooltip>
-            </div>
+            <RouteOptimizeMenu
+              options={startOptions}
+              menuLabel={t("optimizeStartHint")}
+              optimizeLabel={t("optimize")}
+              disabled={displayOrder.length < 2}
+              onOptimize={(start) => void runOptimize(start)}
+            />
           </div>
 
           {/* Contextual hint: only the active add-mode instruction (the marker-add

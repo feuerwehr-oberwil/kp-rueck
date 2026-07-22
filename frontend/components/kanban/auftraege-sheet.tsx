@@ -65,8 +65,8 @@ import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
-import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
-import { StopStatusControl, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
+import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
+import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { GroupResources } from "@/lib/types/groups"
@@ -423,9 +423,9 @@ function AuftragCard({
   // sheet can optimize without opening the Routen-Editor modal (applies at once).
   const planning = useRoutePlanning(group.id)
 
-  const runOptimize = async () => {
+  const runOptimize = async (start: RouteStartMode) => {
     const previous = group.stopIds
-    const proposed = planning.optimize("magazin")
+    const proposed = planning.optimize(start)
     if (proposed.length === 0) return
     const unchanged = proposed.every((id, i) => id === previous[i])
     if (unchanged) {
@@ -437,6 +437,12 @@ function AuftragCard({
       action: { label: t("undo"), onClick: () => void planning.reorder(previous) },
     })
   }
+
+  const optimizeStartOptions = [
+    { value: "magazin" as const, label: t("startMagazin"), disabled: !planning.magazinCoords },
+    { value: "vehicle" as const, label: t("startVehicle"), disabled: !planning.vehicleStart },
+    { value: "first" as const, label: t("startFirst") },
+  ]
 
   const opById = useMemo(() => new Map(operations.map((o) => [o.id, o] as const)), [operations])
 
@@ -567,7 +573,7 @@ function AuftragCard({
                     <Palette className="mr-2 h-4 w-4" />
                     {t("changeColor")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled={total < 2} onClick={() => void runOptimize()}>
+                  <DropdownMenuItem disabled={total < 2} onClick={() => void runOptimize("magazin")}>
                     <Wand2 className="mr-2 h-4 w-4" />
                     {t("optimizeOrder")}
                   </DropdownMenuItem>
@@ -590,7 +596,7 @@ function AuftragCard({
             <Palette className="mr-2 h-4 w-4" />
             {t("changeColor")}
           </ContextMenuItem>
-          <ContextMenuItem disabled={total < 2} onClick={() => void runOptimize()}>
+          <ContextMenuItem disabled={total < 2} onClick={() => void runOptimize("magazin")}>
             <Wand2 className="mr-2 h-4 w-4" />
             {t("optimizeOrder")}
           </ContextMenuItem>
@@ -709,16 +715,14 @@ function AuftragCard({
                 <MapIcon className="h-3.5 w-3.5" />
                 {t("routenEditor")}
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5"
-                onClick={() => void runOptimize()}
+              {/* Optimize wand — the menu picks the start anchor and runs immediately. */}
+              <RouteOptimizeMenu
+                options={optimizeStartOptions}
+                menuLabel={t("optimizeStartHint")}
+                optimizeLabel={t("optimizeOrder")}
                 disabled={total < 2}
-              >
-                <Wand2 className="h-3.5 w-3.5" />
-                {t("optimizeOrder")}
-              </Button>
+                onOptimize={(start) => void runOptimize(start)}
+              />
             </div>
           </div>
         </div>

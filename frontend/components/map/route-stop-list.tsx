@@ -29,13 +29,15 @@ import {
   type Edge,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge"
 import { DropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box"
-import { GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X, Trash2 } from "lucide-react"
+import { GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X, Trash2, Wand2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -48,8 +50,66 @@ import type { Operation, OperationStatus } from "@/lib/contexts/operations-conte
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { isLocated } from "@/lib/utils/route-geo"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
+import type { RouteStartMode } from "@/lib/hooks/use-route-planning"
 
 export type StopState = "erledigt" | "laeuft" | "offen"
+
+// ── Optimize-from wand ───────────────────────────────────────────────────────
+// A single wand icon button (shared by the Routen-Editor modal, the /map
+// Routenplanung panel and the Aufträge sheet) that, on click, opens a dropdown of
+// start anchors. Picking one runs `onOptimize(start)` immediately — there is no
+// preselected "Start ab" select anymore. Callers pass their own translated labels
+// + availability so the component stays i18n-namespace agnostic.
+export interface RouteStartOption {
+  value: RouteStartMode
+  label: string
+  /** Disabled when the anchor is unavailable (e.g. no vehicle GPS fix). */
+  disabled?: boolean
+}
+
+export function RouteOptimizeMenu({
+  options,
+  menuLabel,
+  optimizeLabel,
+  disabled,
+  onOptimize,
+  className,
+}: {
+  options: RouteStartOption[]
+  /** Small heading above the start options (e.g. "Start ab"). */
+  menuLabel: string
+  /** Tooltip / aria-label on the wand trigger (e.g. "Reihenfolge optimieren"). */
+  optimizeLabel: string
+  disabled?: boolean
+  onOptimize: (start: RouteStartMode) => void
+  className?: string
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="outline"
+          disabled={disabled}
+          title={optimizeLabel}
+          aria-label={optimizeLabel}
+          className={className}
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{menuLabel}</DropdownMenuLabel>
+        {options.map((o) => (
+          <DropdownMenuItem key={o.value} disabled={o.disabled} onClick={() => onOptimize(o.value)}>
+            {o.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 /** Derived checklist state of a single stop, straight from its incident status. */
 export function deriveStopState(op: Operation | undefined): StopState {
