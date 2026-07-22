@@ -806,13 +806,11 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
         <span className="tabular-nums text-xs text-muted-foreground w-6 text-right flex-shrink-0">{index + 1}.</span>
         {/* Status control — mirrors the board columns; click advances, caret jumps. */}
         <StopStatusControl op={op} onSetStatus={onSetStatus} />
-        {/* Primary line = the incident's name (type label); the address (with the
-            home city stripped) drops to a muted secondary line. */}
-        <div className="min-w-0 flex-1">
-          <div className="truncate">{op ? getIncidentTypeLabel(op.incidentType) : incidentId}</div>
-          {op?.location && (
-            <div className="truncate text-xs text-muted-foreground">{formatLocation(op.location)}</div>
-          )}
+        {/* Primary line = the address (home city stripped); the incident type is
+            the muted secondary line; the Meldung shows on hover. */}
+        <div className="min-w-0 flex-1" title={op?.notes || undefined}>
+          <div className="truncate">{op?.location ? formatLocation(op.location) : incidentId}</div>
+          {op && <div className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>}
         </div>
         {/* Karte — opens the Routen-Editor centred on this stop. */}
         <Button
