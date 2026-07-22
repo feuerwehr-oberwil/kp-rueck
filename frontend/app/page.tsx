@@ -2298,6 +2298,8 @@ export default function FireStationDashboard() {
         }}
         resourceType={assignmentResourceType}
         operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
+        assignTarget={routeAssign ? 'route' : 'incident'}
+        routeName={routeAssign ? groups.find((g) => g.id === routeAssign.groupId)?.name : undefined}
         personnel={personnel}
         vehicles={vehicleTypes}
         materials={materials}

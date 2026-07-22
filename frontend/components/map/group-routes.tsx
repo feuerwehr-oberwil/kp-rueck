@@ -25,14 +25,15 @@ import { stopStatusMarkerColor, toStopMirrorStatus } from "@/lib/kanban-utils"
 
 const DEFAULT_ROUTE_COLOR = "#6366f1" // indigo-500 fallback when a group has no colour
 
-// Numbered sequence pin: the circle FILL encodes the stop's column status
-// (Offen / Disponiert / Einsatz / Beendet) so route progress reads at a glance,
-// while a coloured ring (`routeColor`) keeps the pin tied to its Auftrag. `dimmed`
-// softens non-focused groups when the caller focuses one.
+// Numbered sequence pin: the circle FILL is the Auftrag's colour (`routeColor`) so
+// the pin reads as belonging to its route, while a status-coloured ring
+// (`statusColor`) encodes the stop's column status (Offen / Disponiert / Einsatz /
+// Beendet) — the same status→colour the Reihenfolge rows carry on their left
+// border. `dimmed` softens non-focused groups when the caller focuses one.
 function sequenceMarkerIcon(
   seq: number,
-  fill: string,
   routeColor: string,
+  statusColor: string,
   highlighted: boolean,
   dimmed: boolean,
 ): L.DivIcon {
@@ -44,10 +45,10 @@ function sequenceMarkerIcon(
       display: flex;
       align-items: center;
       justify-content: center;
-      background: ${fill};
+      background: ${routeColor};
       color: white;
       border: 2px solid white;
-      box-shadow: 0 0 0 2px ${routeColor}, 0 2px 6px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 0 0 2px ${statusColor}, 0 2px 6px rgba(0, 0, 0, 0.35);
       border-radius: 50%;
       font-size: ${highlighted ? 14 : 12}px;
       font-weight: 700;
@@ -130,7 +131,7 @@ export function GroupRoutes({
               <Marker
                 key={id}
                 position={op.coordinates}
-                icon={sequenceMarkerIcon(seq, stopStatusMarkerColor(toStopMirrorStatus(op)), color, highlightIncidentId === id, dimmed)}
+                icon={sequenceMarkerIcon(seq, color, stopStatusMarkerColor(toStopMirrorStatus(op)), highlightIncidentId === id, dimmed)}
                 zIndexOffset={highlightIncidentId === id ? 300 : 100}
                 eventHandlers={onMarkerClick ? { click: () => onMarkerClick(id) } : undefined}
               >

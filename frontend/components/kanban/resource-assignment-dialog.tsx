@@ -18,6 +18,11 @@ interface ResourceAssignmentDialogProps {
   onOpenChange: (open: boolean) => void
   resourceType: 'crew' | 'vehicles' | 'materials' | null
   operationId: string | null
+  /** Whether the dialog is assigning to a single incident or to an Auftrag (route).
+   *  Drives the title/label wording; defaults to 'incident'. */
+  assignTarget?: 'incident' | 'route'
+  /** Auftrag name shown in the title when assignTarget === 'route'. */
+  routeName?: string
   personnel: Person[]
   vehicles: Array<{ id: string; name: string; type: string }>
   materials: Material[]
@@ -41,6 +46,8 @@ export function ResourceAssignmentDialog({
   onOpenChange,
   resourceType,
   operationId,
+  assignTarget = 'incident',
+  routeName,
   personnel,
   vehicles,
   materials,
@@ -406,13 +413,29 @@ export function ResourceAssignmentDialog({
   }
 
   const getDialogTitle = () => {
+    // Make the assignment target explicit: an Auftrag (route) names the route in
+    // «…»; a plain incident reads "… zu Einsatz zuweisen".
+    const route = assignTarget === 'route'
+    const name = routeName ?? ''
     switch (resourceType) {
       case 'crew':
-        return t('common.assignCrew')
+        return route
+          ? name
+            ? t('assignmentDialog.titleCrewRoute', { name })
+            : t('assignmentDialog.titleCrewRouteGeneric')
+          : t('assignmentDialog.titleCrewIncident')
       case 'vehicles':
-        return t('assignmentDialog.titleVehicles')
+        return route
+          ? name
+            ? t('assignmentDialog.titleVehiclesRoute', { name })
+            : t('assignmentDialog.titleVehiclesRouteGeneric')
+          : t('assignmentDialog.titleVehiclesIncident')
       case 'materials':
-        return t('common.assignMaterial')
+        return route
+          ? name
+            ? t('assignmentDialog.titleMaterialsRoute', { name })
+            : t('assignmentDialog.titleMaterialsRouteGeneric')
+          : t('assignmentDialog.titleMaterialsIncident')
       default:
         return t('assignmentDialog.titleDefault')
     }

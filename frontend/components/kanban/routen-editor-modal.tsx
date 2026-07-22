@@ -21,16 +21,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { MapPin, Wand2, MousePointerClick, MapPinned } from "lucide-react"
+import { MapPin, MousePointerClick, MapPinned } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -38,7 +31,7 @@ import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-pla
 import type { IncidentGroup } from "@/lib/types/groups"
 import { isLocated } from "@/lib/utils/route-geo"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
-import { RouteStopList } from "../map/route-stop-list"
+import { RouteStopList, RouteOptimizeMenu } from "../map/route-stop-list"
 
 // Basel-Landschaft fallback centre (matches map-picker-modal).
 const DEFAULT_CENTER: [number, number] = [47.51637699933488, 7.561800450458299]
@@ -145,7 +138,6 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   const [isClient, setIsClient] = useState(false)
   const [mapKey, setMapKey] = useState(0)
   const [addMode, setAddMode] = useState(false)
-  const [startMode, setStartMode] = useState<RouteStartMode>("magazin")
   const [focusStopId, setFocusStopId] = useState<string | null>(focusIncidentId ?? null)
 
   // Client-only leaflet setup (default icon fix), mirroring map-picker-modal.
@@ -201,8 +193,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   )
 
   // Optimize applies immediately (no preview / Übernehmen step): compute the
-  // nearest-neighbour order and persist it right away, with an undo toast.
-  const runOptimize = async () => {
+  // nearest-neighbour order from the chosen start anchor and persist it right away,
+  // with an undo toast.
+  const runOptimize = async (startMode: RouteStartMode) => {
     if (!group) return
     const previous = group.stopIds
     const proposed = optimize(startMode)
@@ -269,10 +262,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     t,
   ])
 
-  const startOptions: { value: RouteStartMode; label: string; disabled?: boolean }[] = [
-    { value: "magazin", label: t("startMagazin"), disabled: !magazinCoords },
-    { value: "vehicle", label: t("startVehicle"), disabled: !vehicleStart },
-    { value: "first", label: t("startFirst") },
+  const startOptions = [
+    { value: "magazin" as const, label: t("startMagazin"), disabled: !magazinCoords },
+    { value: "vehicle" as const, label: t("startVehicle"), disabled: !vehicleStart },
+    { value: "first" as const, label: t("startFirst") },
   ]
 
   return (
@@ -290,10 +283,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 gap-5 md:grid-cols-[minmax(420px,1.7fr)_minmax(280px,1fr)]">
+        <div className="grid min-h-0 gap-5 md:grid-cols-[minmax(360px,1.6fr)_minmax(0,1fr)]">
           {/* Map column — the dominant element. A wide landscape rectangle with a
               capped height (not a tall narrow strip); the list sits beside it. */}
-          <div className="flex flex-col">
+          <div className="flex min-w-0 flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
@@ -308,37 +301,18 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           </div>
 
           {/* Ordered list column */}
-          <div className="flex min-h-0 flex-col">
-            <div className="mb-2 flex h-8 items-center">
+          <div className="flex min-h-0 min-w-0 flex-col">
+            {/* Reihenfolge heading + the optimize wand (a single button whose menu
+                picks the start anchor and runs optimize immediately). */}
+            <div className="mb-2 flex h-8 items-center justify-between gap-2">
               <span className="text-sm font-semibold">{t("order")}</span>
-            </div>
-
-            {/* Optimize controls — kept above the list (not in the bottom bar) so the
-                "Start ab" dropdown and the undo toast don't overlap in the corner. */}
-            <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-2">
-              <span className="text-xs text-muted-foreground">{t("startFrom")}</span>
-              <Select value={startMode} onValueChange={(v) => setStartMode(v as RouteStartMode)}>
-                <SelectTrigger className="h-8 w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {startOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => void runOptimize()}
+              <RouteOptimizeMenu
+                options={startOptions}
+                menuLabel={t("optimizeStartHint")}
+                optimizeLabel={t("optimize")}
                 disabled={displayOrder.length < 2}
-              >
-                <Wand2 className="h-3.5 w-3.5" />
-                {t("optimize")}
-              </Button>
+                onOptimize={(start) => void runOptimize(start)}
+              />
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-muted/20 p-2">
