@@ -815,6 +815,12 @@ export default function MapView({
     [incidents, statusFilters]
   )
 
+  const visibleRouteOperations = useMemo(() => {
+    if (!operationsById) return undefined
+    const visibleIds = new Set(mappableIncidents.map((incident) => incident.id))
+    return new Map([...operationsById].filter(([id]) => visibleIds.has(id)))
+  }, [operationsById, mappableIncidents])
+
   // Calculate center point (average of all incidents or firestation)
   const center: LatLngExpression = useMemo(() => {
     if (mappableIncidents.length > 0) {
@@ -989,10 +995,10 @@ export default function MapView({
         />
 
         {/* Auftrag (incident group) route polylines + numbered stop markers */}
-        {showGroupRoutes && groups && operationsById && (
+        {showGroupRoutes && groups && visibleRouteOperations && (
           <GroupRoutes
             groups={groups}
-            operationsById={operationsById}
+            operationsById={visibleRouteOperations}
             focusGroupId={focusGroupId}
             onMarkerClick={onGroupStopMarkerClick}
             highlightIncidentId={highlightGroupStopId}

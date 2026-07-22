@@ -10,9 +10,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, IncidentAssignment, RekoReport, StatusTransition, User, Vehicle
+from ..models import Incident, IncidentAssignment, IncidentGroup, RekoReport, StatusTransition, User, Vehicle
 from ..services.audit import calculate_changes, log_action
 from . import events as events_crud
+
+
+class InvalidIncidentGroupError(ValueError):
+    """Incident group is missing, deleted, or belongs to another event."""
+
+
+async def _validate_and_lock_group(db: AsyncSession, group_id: uuid.UUID, event_id: uuid.UUID) -> IncidentGroup:
+    group = await db.scalar(select(IncidentGroup).where(IncidentGroup.id == group_id).with_for_update())
+    if group is None or group.deleted_at is not None:
+        raise InvalidIncidentGroupError("Auftrag not found or deleted")
+    if group.event_id != event_id:
+        raise InvalidIncidentGroupError("Auftrag belongs to a different event")
+    return group
 
 
 async def get_incidents(
@@ -213,6 +226,7 @@ async def create_incident(
     # When attaching to an Auftrag on create, append at the end of the route.
     group_position = 0
     if incident.group_id is not None:
+        await _validate_and_lock_group(db, incident.group_id, incident.event_id)
         max_pos = await db.scalar(
             select(func.max(Incident.group_position)).where(
                 Incident.group_id == incident.group_id,
@@ -328,12 +342,15 @@ async def update_incident(
         "status": incident.status,
         "location_address": incident.location_address,
         "description": incident.description,
+        "group_id": str(incident.group_id) if incident.group_id else None,
     }
 
     old_status = incident.status
 
     # Apply updates
     update_data = incident_update.model_dump(exclude_unset=True)
+    if update_data.get("group_id") is not None:
+        await _validate_and_lock_group(db, update_data["group_id"], incident.event_id)
 
     # Detect an Auftrag (incident group) attach: when moving into a new group,
     # stamp group_position to the end of that route after the field is applied.
@@ -369,8 +386,8 @@ async def update_incident(
         )
         db.add(transition)
 
-        # Mark completed if moved to abschluss
-        if incident.status == "abschluss" and not incident.completed_at:
+        # Entering Abschluss always runs release side effects, even after reopening.
+        if incident.status == "abschluss":
             incident.completed_at = datetime.utcnow()
 
             # Automatically release personnel and vehicles (but keep materials)
@@ -388,9 +405,11 @@ async def update_incident(
             # was the last still-open stop of the group.
             from . import group_assignments as group_assignments_crud
 
-            await group_assignments_crud.auto_release_group_resources_if_last_stop(
+            incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
                 db=db, incident=incident, current_user=current_user, request=request
             )
+        elif old_status == "abschluss":
+            incident.completed_at = None
 
     # Capture after state
     after_state = {
@@ -400,6 +419,7 @@ async def update_incident(
         "status": incident.status,
         "location_address": incident.location_address,
         "description": incident.description,
+        "group_id": str(incident.group_id) if incident.group_id else None,
     }
 
     # Calculate changes
@@ -467,8 +487,8 @@ async def update_incident_status(
     incident.status = new_status
     incident.updated_at = datetime.utcnow()
 
-    # Mark completed if moved to abschluss
-    if new_status == "abschluss" and not incident.completed_at:
+    # Entering Abschluss always runs release side effects, even after reopening.
+    if new_status == "abschluss" and old_status != "abschluss":
         incident.completed_at = datetime.utcnow()
 
         # Automatically release personnel and vehicles (but keep materials)
@@ -486,9 +506,11 @@ async def update_incident_status(
         # the last still-open stop of the group.
         from . import group_assignments as group_assignments_crud
 
-        await group_assignments_crud.auto_release_group_resources_if_last_stop(
+        incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
             db=db, incident=incident, current_user=current_user, request=request
         )
+    elif old_status == "abschluss":
+        incident.completed_at = None
 
     # Create status transition record
     transition = StatusTransition(
@@ -611,6 +633,26 @@ async def restore_incident(
     # "completed". A pre-existing completion (different timestamp) is preserved.
     if incident.completed_at == incident.deleted_at:
         incident.completed_at = None
+
+    # If this incident is a route stop, its old `group_position` slot may have
+    # been reused while it was deleted (a replacement stop was added, or the
+    # remaining stops were reindexed). Restoring it into the stale slot would
+    # collide with the partial unique index `uq_incidents_group_position_active`
+    # and raise an IntegrityError. Append it at the end of the active route
+    # instead — collision-free regardless of what happened to its old slot.
+    # This must run *before* clearing `deleted_at`: the max() query autoflushes
+    # pending changes, and we don't want the row re-entering the partial index
+    # (which only covers deleted_at IS NULL rows) at its stale slot mid-flush.
+    if incident.group_id is not None:
+        max_pos = await db.scalar(
+            select(func.max(Incident.group_position)).where(
+                Incident.group_id == incident.group_id,
+                Incident.deleted_at.is_(None),
+                Incident.id != incident.id,
+            )
+        )
+        incident.group_position = (max_pos + 1) if max_pos is not None else 0
+
     incident.deleted_at = None
 
     await log_action(

@@ -26,7 +26,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
-import { useOperations } from "@/lib/contexts/operations-context"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { isLocated } from "@/lib/utils/route-geo"
@@ -111,9 +110,11 @@ interface RoutenEditorModalProps {
   groupId: string | null
   /** Centre + highlight this stop when opening (from a stop's [Karte] button). */
   focusIncidentId?: string | null
+  canEdit: boolean
+  onSetStopStatus?: (incidentId: string, status: import("@/lib/contexts/operations-context").OperationStatus) => void
 }
 
-export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId }: RoutenEditorModalProps) {
+export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId, canEdit, onSetStopStatus }: RoutenEditorModalProps) {
   const t = useTranslations("kanban.routenEditorModal")
   const {
     group,
@@ -128,7 +129,6 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   } = useRoutePlanning(groupId)
 
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
-  const { updateOperation } = useOperations()
 
   // Keep the modal open while a drag-reorder happens inside it — a native drag
   // churns focus/pointer state that Radix would otherwise read as an outside
@@ -186,10 +186,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
-      if (!addMode) return
+      if (!canEdit || !addMode) return
       void addStopAtLatLng(lat, lng)
     },
-    [addMode, addStopAtLatLng],
+    [canEdit, addMode, addStopAtLatLng],
   )
 
   // Optimize applies immediately (no preview / Übernehmen step): compute the
@@ -205,7 +205,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
       toast.info(t("previewUnchanged"))
       return
     }
-    await reorder(proposed)
+    const persisted = await reorder(proposed)
+    if (!persisted) return
     toast.success(t("optimized"), {
       action: { label: t("undo"), onClick: () => void reorder(previous) },
     })
@@ -313,13 +314,13 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                 picks the start anchor and runs optimize immediately). */}
             <div className="mb-2 flex h-8 items-center justify-between gap-2">
               <span className="text-sm font-semibold">{t("order")}</span>
-              <RouteOptimizeMenu
+              {canEdit && <RouteOptimizeMenu
                 options={startOptions}
                 menuLabel={t("optimizeStartHint")}
                 optimizeLabel={t("optimize")}
                 disabled={displayOrder.length < 2}
                 onOptimize={(start) => void runOptimize(start)}
-              />
+              />}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-muted/20 p-2">
@@ -336,18 +337,19 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                     displayOrder={displayOrder}
                     operationsById={operationsById}
                     changedPositions={EMPTY_CHANGED}
-                    reorderDisabled={false}
+                    reorderDisabled={!canEdit}
                     onReorder={(ids) => void reorder(ids)}
                     focusStopId={focusStopId}
                     onSelectStop={setFocusStopId}
                     enabled={open && !!group}
-                    onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
+                    onSetStopStatus={onSetStopStatus}
+                    readOnly={!canEdit}
                   />
                 )}
 
                 {/* Add-row: a full-width "+ Stop hinzufügen" toggle that sits below
                     the last stop (table "add row"), toggling map click-to-add. */}
-                <button
+                {canEdit && <button
                   type="button"
                   onClick={() => setAddMode((v) => !v)}
                   className={cn(
@@ -359,7 +361,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                 >
                   <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />
                   {t("addStopToggle")}
-                </button>
+                </button>}
               </div>
             </div>
           </div>

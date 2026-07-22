@@ -7,6 +7,7 @@ import type { ApiGroupAssignment, ApiIncidentGroup } from "@/lib/api-client"
 
 const EVENT_ID = "11111111-1111-1111-1111-111111111111"
 const GROUP_ID = "22222222-2222-2222-2222-222222222222"
+const EVENT_ID_2 = "33333333-3333-3333-3333-333333333333"
 
 const apiAssignment = (overrides: Partial<ApiGroupAssignment> = {}): ApiGroupAssignment => ({
   id: "a1",
@@ -128,6 +129,7 @@ import { GroupsProvider, useGroups } from "@/lib/contexts/groups-context"
 const wrapper = ({ children }: { children: React.ReactNode }) => <GroupsProvider>{children}</GroupsProvider>
 
 beforeEach(() => {
+  eventState.selectedEvent = { id: EVENT_ID }
   ws.reset()
   getIncidentGroups.mockReset().mockResolvedValue([])
   getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
@@ -211,6 +213,70 @@ describe("GroupsProvider — group_update WS event", () => {
 
     await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(result.current.groups.map((g) => g.name)).toContain("Nach WS"))
+  })
+
+  it.each(["assignment_update", "incident_update"])("refreshes on %s", async (event) => {
+    await renderLoaded()
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
+    ws.emit(event, {})
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe("GroupsProvider — stop reorder sequencing", () => {
+  it("does not send a newer order until the older request settles", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["a", "b", "c"] })])
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+    let resolveFirst!: () => void
+    let resolveSecond!: () => void
+    reorderGroupStops
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirst = resolve }))
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveSecond = resolve }))
+
+    let first!: Promise<boolean>
+    let second!: Promise<boolean>
+    act(() => { first = result.current.reorderGroupStops(GROUP_ID, ["b", "a", "c"]) })
+    act(() => { second = result.current.reorderGroupStops(GROUP_ID, ["c", "b", "a"]) })
+    await waitFor(() => expect(reorderGroupStops).toHaveBeenCalledTimes(1))
+    await act(async () => { resolveFirst(); await first })
+    expect(reorderGroupStops).toHaveBeenCalledTimes(2)
+    await act(async () => { resolveSecond(); await second })
+    expect(result.current.groups[0].stopIds).toEqual(["c", "b", "a"])
+  })
+})
+
+describe("GroupsProvider — event scope", () => {
+  it("clears the old scope and ignores an out-of-order event load", async () => {
+    let resolveFirst!: (groups: ApiIncidentGroup[]) => void
+    getIncidentGroups.mockImplementation((eventId: string) => {
+      if (eventId === EVENT_ID) return new Promise<ApiIncidentGroup[]>((resolve) => { resolveFirst = resolve })
+      return Promise.resolve([apiGroup({ event_id: EVENT_ID_2, name: "Event 2" })])
+    })
+    const rendered = renderHook(() => useGroups(), { wrapper })
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledWith(EVENT_ID))
+
+    eventState.selectedEvent = { id: EVENT_ID_2 }
+    rendered.rerender()
+    expect(rendered.result.current.groups).toEqual([])
+    expect(rendered.result.current.isLoaded).toBe(false)
+    await waitFor(() => expect(rendered.result.current.groups.map((g) => g.name)).toEqual(["Event 2"]))
+
+    await act(async () => { resolveFirst([apiGroup({ name: "Stale Event 1" })]) })
+    expect(rendered.result.current.groups.map((g) => g.name)).toEqual(["Event 2"])
+  })
+
+  it("derives route-occupied resource ids without mutating resource contexts", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [
+      apiAssignment({ resource_type: "vehicle", resource_id: "v1" }),
+      apiAssignment({ id: "a2", resource_type: "personnel", resource_id: "p1" }),
+      apiAssignment({ id: "a3", resource_type: "material", resource_id: "m1" }),
+    ] })])
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+    expect(result.current.occupiedResourceIds.vehicle.has("v1")).toBe(true)
+    expect(result.current.occupiedResourceIds.personnel.has("p1")).toBe(true)
+    expect(result.current.occupiedResourceIds.material.has("m1")).toBe(true)
   })
 })
 

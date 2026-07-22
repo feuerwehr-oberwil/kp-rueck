@@ -12,11 +12,20 @@ from datetime import datetime
 
 from fastapi import Request
 from sqlalchemy import and_, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Incident, IncidentGroupAssignment, User
+from ..models import Incident, IncidentGroup, IncidentGroupAssignment, Material, Personnel, User, Vehicle
 from ..services.audit import log_action
+
+
+class ResourceNotFoundError(ValueError):
+    """Requested resource id does not exist."""
+
+
+class ResourceTypeMismatchError(ValueError):
+    """Requested id exists, but not as the declared resource type."""
 
 
 async def assign_group_resource(
@@ -37,6 +46,22 @@ async def assign_group_resource(
     Raises:
         ValueError: If the resource is already actively assigned to this Auftrag.
     """
+    model_by_type = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
+    resource_model = model_by_type[resource_type]
+    if await db.scalar(select(resource_model.id).where(resource_model.id == resource_id)) is None:
+        exists_as_other_type = False
+        for candidate_type, model in model_by_type.items():
+            if candidate_type != resource_type and await db.scalar(
+                select(model.id).where(model.id == resource_id)
+            ) is not None:
+                exists_as_other_type = True
+                break
+        if exists_as_other_type:
+            raise ResourceTypeMismatchError("Resource id does not match resource_type")
+        raise ResourceNotFoundError("Resource not found")
+
+    # Lock the parent because there may be no existing assignment row to lock.
+    await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
     existing = await db.execute(
         select(IncidentGroupAssignment)
         .where(
@@ -59,7 +84,11 @@ async def assign_group_resource(
         assigned_by=current_user.id,
     )
     db.add(assignment)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise ValueError("Resource already assigned to this Auftrag") from exc
 
     await log_action(
         db=db,
@@ -138,6 +167,15 @@ async def auto_release_group_resources_if_last_stop(
     Returns True if the group's resources were released (i.e. this was the last stop).
     """
     if incident.group_id is None:
+        return False
+
+    # Serialize competing final-stop transitions before checking route state.
+    group = await db.scalar(
+        select(IncidentGroup)
+        .where(IncidentGroup.id == incident.group_id, IncidentGroup.deleted_at.is_(None))
+        .with_for_update()
+    )
+    if group is None:
         return False
 
     # Any other stop of this group still open (not completed, not deleted)?

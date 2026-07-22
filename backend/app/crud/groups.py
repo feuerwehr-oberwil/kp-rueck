@@ -14,7 +14,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Incident, IncidentGroup, User
+from ..models import Incident, IncidentGroup, IncidentGroupAssignment, User
 from ..services.audit import log_action
 from . import events as events_crud
 from . import group_assignments as group_assignments_crud
@@ -187,6 +187,16 @@ async def soft_delete_group(
 
     group.deleted_at = datetime.utcnow()
 
+    assignments_result = await db.execute(
+        select(IncidentGroupAssignment).where(
+            IncidentGroupAssignment.incident_group_id == group_id,
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+    )
+    active_assignments = list(assignments_result.scalars().all())
+    for assignment in active_assignments:
+        assignment.unassigned_at = group.deleted_at
+
     # Null out group_id on member incidents so they remain on the board.
     detach_result = await db.execute(update(Incident).where(Incident.group_id == group_id).values(group_id=None))
     detached = detach_result.rowcount or 0
@@ -197,7 +207,11 @@ async def soft_delete_group(
         resource_type="incident_group",
         resource_id=group.id,
         user=current_user,
-        changes={"deleted": True, "detached_stops": detached},
+        changes={
+            "deleted": True,
+            "detached_stops": detached,
+            "released_assignments": len(active_assignments),
+        },
         request=request,
     )
     await events_crud.update_event_activity(db, group.event_id)
@@ -258,23 +272,36 @@ async def reorder_group_stops(
     if not ordered_ids:
         return 0
 
+    await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
     result = await db.execute(
         select(Incident).where(
             Incident.group_id == group_id,
-            Incident.id.in_(ordered_ids),
             Incident.deleted_at.is_(None),
-        )
+        ).order_by(Incident.group_position.asc(), Incident.created_at.asc())
     )
     incidents_by_id = {incident.id: incident for incident in result.scalars().all()}
 
+    temporary_base = -(len(ordered_ids) + 1)
+    for offset, incident in enumerate(incidents_by_id.values()):
+        incident.group_position = temporary_base - offset
+    await db.flush()
+
     updated = 0
+    positioned_ids: set[uuid.UUID] = set()
     for index, incident_id in enumerate(ordered_ids):
         incident = incidents_by_id.get(incident_id)
         if incident is None:
             continue
+        positioned_ids.add(incident_id)
         if incident.group_position != index:
             incident.group_position = index
         updated += 1
+
+    next_position = len(ordered_ids)
+    for incident in incidents_by_id.values():
+        if incident.id not in positioned_ids:
+            incident.group_position = next_position
+            next_position += 1
 
     if updated:
         await db.commit()
@@ -297,7 +324,11 @@ async def add_stops_to_group(
     Raises:
         ValueError: if any provided incident belongs to a different event.
     """
-    group = await _get_group(db, group_id)
+    group = await db.scalar(
+        select(IncidentGroup)
+        .where(IncidentGroup.id == group_id, IncidentGroup.deleted_at.is_(None))
+        .with_for_update()
+    )
     if group is None:
         return None
 

@@ -7,6 +7,7 @@ import { columns } from '@/lib/kanban-utils'
 
 interface UseKanbanDragDropProps {
   isMounted: boolean
+  canEdit?: boolean
   operations: Operation[]
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   updateOperation: (id: string, updates: Partial<Operation>) => void
@@ -26,6 +27,7 @@ interface UseKanbanDragDropProps {
   /** Attach a resource to the ROUTE (drop on an Auftrag row/stop, or on a grouped
    *  incident card). Resources are route-owned now, not per-stop. */
   assignGroupResource?: (groupId: string, resourceType: GroupResourceType, resourceId: string) => void
+  occupiedGroupResourceIds?: Record<GroupResourceType, Set<string>>
 }
 
 /**
@@ -35,6 +37,7 @@ interface UseKanbanDragDropProps {
  */
 export function useKanbanDragDrop({
   isMounted,
+  canEdit = true,
   operations,
   setOperations,
   updateOperation,
@@ -49,10 +52,11 @@ export function useKanbanDragDrop({
   groups,
   addStopsToGroup,
   assignGroupResource,
+  occupiedGroupResourceIds,
 }: UseKanbanDragDropProps) {
 
   useEffect(() => {
-    if (!isMounted) return
+    if (!isMounted || !canEdit) return
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
@@ -104,16 +108,19 @@ export function useKanbanDragDrop({
           if (sourceData.type === "person") {
             const person = sourceData.person as Person
             // Reko is a per-stop scouting slot, not a route resource — ignore here.
-            if (!person.isReko && person.status === "available") {
+            if (!person.isReko && person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) {
               assignGroupResource?.(groupId, "personnel", person.id)
             }
           } else if (sourceData.type === "driver-vehicle") {
-            assignGroupResource?.(groupId, "vehicle", sourceData.vehicleId as string)
+            const vehicleId = sourceData.vehicleId as string
+            assignGroupResource?.(groupId, "vehicle", vehicleId)
           } else if (sourceData.type === "material") {
             const material = sourceData.material as Material
-            if (material.status === "available" || material.consumable) assignGroupResource?.(groupId, "material", material.id)
+            if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
           } else if (sourceData.type === "material-group") {
-            for (const material of sourceData.materials as Material[]) assignGroupResource?.(groupId, "material", material.id)
+            for (const material of sourceData.materials as Material[]) {
+              if (!occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
+            }
           }
           return
         }
@@ -129,14 +136,17 @@ export function useKanbanDragDrop({
             if (sourceData.type === "person") {
               const person = sourceData.person as Person
               if (person.isReko) assignRekoPersonToOperation(person.id, person.name, targetOp.id)
-              else if (person.status === "available") assignGroupResource?.(groupId, "personnel", person.id)
+              else if (person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) assignGroupResource?.(groupId, "personnel", person.id)
             } else if (sourceData.type === "driver-vehicle") {
-              assignGroupResource?.(groupId, "vehicle", sourceData.vehicleId as string)
+              const vehicleId = sourceData.vehicleId as string
+              assignGroupResource?.(groupId, "vehicle", vehicleId)
             } else if (sourceData.type === "material") {
               const material = sourceData.material as Material
-              if (material.status === "available" || material.consumable) assignGroupResource?.(groupId, "material", material.id)
+              if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
             } else if (sourceData.type === "material-group") {
-              for (const material of sourceData.materials as Material[]) assignGroupResource?.(groupId, "material", material.id)
+              for (const material of sourceData.materials as Material[]) {
+                if (!occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
+              }
             }
             return
           }
@@ -150,7 +160,7 @@ export function useKanbanDragDrop({
           // Reko personnel are assigned differently (to the reko slot, not crew)
           if (person.isReko) {
             assignRekoPersonToOperation(person.id, person.name, operationId)
-          } else if (person.status === "available") {
+          } else if (person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) {
             assignPersonToOperation(person.id, person.name, operationId)
           }
         }
@@ -168,7 +178,7 @@ export function useKanbanDragDrop({
           const material = sourceData.material as Material
           const operationId = destData.operationId as string
 
-          if (material.status === "available" || material.consumable) {
+          if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) {
             assignMaterialToOperation(material.id, operationId)
           }
         }
@@ -179,7 +189,7 @@ export function useKanbanDragDrop({
           const operationId = destData.operationId as string
 
           for (const material of groupMaterials) {
-            assignMaterialToOperation(material.id, operationId)
+            if (!occupiedGroupResourceIds?.material.has(material.id)) assignMaterialToOperation(material.id, operationId)
           }
         }
 
@@ -290,5 +300,5 @@ export function useKanbanDragDrop({
         }
       },
     })
-  }, [isMounted, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, setDraggingItem, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource])
+  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, setDraggingItem, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource, occupiedGroupResourceIds])
 }

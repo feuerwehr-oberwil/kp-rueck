@@ -9,6 +9,7 @@ Covers plan 12 (docs/plans/12-auftrag-multi-stop-routing.md):
 - sync-version folds in group create / rename
 """
 
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -17,7 +18,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, User, Vehicle
+from app.models import AuditLog, Event, Incident, User, Vehicle
+from app.services.tokens import generate_viewer_token
 
 # ============================================
 # Fixtures
@@ -360,6 +362,25 @@ async def test_assign_group_resource_duplicate_conflict(
     assert dup.status_code == 409
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_assign_group_resource_rejects_missing_and_wrong_type(
+    editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle
+):
+    group = await _create_group(editor_client, test_event)
+    missing = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(uuid4())},
+    )
+    assert missing.status_code == 404
+
+    wrong_type = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "personnel", "resource_id": str(test_vehicle.id)},
+    )
+    assert wrong_type.status_code == 422
+
+
 # ============================================
 # Streamlined incident create with group_id
 # ============================================
@@ -417,6 +438,96 @@ async def test_create_incident_without_group_id_unchanged(editor_client: AsyncCl
     assert created["group_position"] == 0
 
 
+def _incident_payload(event_id, group_id) -> dict:
+    return {
+        "title": "Validated Stop",
+        "type": "brandbekaempfung",
+        "priority": "medium",
+        "status": "eingegangen",
+        "event_id": str(event_id),
+        "group_id": str(group_id),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_create_incident_rejects_cross_event_and_deleted_group(
+    editor_client: AsyncClient, test_event: Event, second_event: Event
+):
+    foreign = await _create_group(editor_client, second_event)
+    cross = await editor_client.post("/api/incidents/", json=_incident_payload(test_event.id, foreign["id"]))
+    assert cross.status_code == 400
+
+    deleted = await _create_group(editor_client, test_event, name="Deleted")
+    assert (await editor_client.delete(f"/api/incident-groups/{deleted['id']}")).status_code == 204
+    gone = await editor_client.post("/api/incidents/", json=_incident_payload(test_event.id, deleted["id"]))
+    assert gone.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_update_incident_rejects_cross_event_and_deleted_group(
+    editor_client: AsyncClient, test_event: Event, second_event: Event, test_incident: Incident
+):
+    foreign = await _create_group(editor_client, second_event)
+    cross = await editor_client.patch(
+        f"/api/incidents/{test_incident.id}", json={"group_id": foreign["id"]}
+    )
+    assert cross.status_code == 400
+
+    deleted = await _create_group(editor_client, test_event, name="Deleted")
+    await editor_client.delete(f"/api/incident-groups/{deleted['id']}")
+    gone = await editor_client.patch(
+        f"/api/incidents/{test_incident.id}", json={"group_id": deleted["id"]}
+    )
+    assert gone.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_incident_group_membership_change_is_audited(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident
+):
+    group = await _create_group(editor_client, test_event)
+    response = await editor_client.patch(
+        f"/api/incidents/{test_incident.id}", json={"group_id": group["id"]}
+    )
+    assert response.status_code == 200
+
+    audit = await db_session.scalar(
+        select(AuditLog)
+        .where(AuditLog.resource_type == "incident", AuditLog.resource_id == test_incident.id)
+        .order_by(AuditLog.timestamp.desc())
+    )
+    assert audit.changes_json["group_id"] == {"before": None, "after": group["id"]}
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_final_stop_release_broadcasts_group_refresh(
+    editor_client: AsyncClient, test_event: Event, test_incident: Incident, test_vehicle: Vehicle
+):
+    group = await _create_group(editor_client, test_event)
+    await editor_client.post(
+        f"/api/incident-groups/{group['id']}/stops",
+        json={"incident_ids": [str(test_incident.id)]},
+    )
+    await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+
+    with patch("app.api.incidents.broadcast_group_update", new_callable=AsyncMock) as broadcast:
+            response = await editor_client.post(
+                f"/api/incidents/{test_incident.id}/status",
+                json={"from_status": "eingegangen", "to_status": "abschluss"},
+            )
+
+    assert response.status_code == 200
+    broadcast.assert_awaited_once()
+    assert broadcast.await_args.args[0]["id"] == group["id"]
+
+
 # ============================================
 # Auth: viewer 403 on mutations, 200 on GETs
 # ============================================
@@ -427,6 +538,40 @@ async def test_create_incident_without_group_id_unchanged(editor_client: AsyncCl
 async def test_viewer_can_list_groups(viewer_client: AsyncClient, test_event: Event):
     response = await viewer_client.get(f"/api/incident-groups/?event_id={test_event.id}")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_public_viewer_data_includes_groups(
+    client: AsyncClient,
+    editor_client: AsyncClient,
+    test_event: Event,
+    test_incident: Incident,
+):
+    created = await editor_client.post(
+        "/api/incident-groups/",
+        json={"name": "Public Route", "event_id": str(test_event.id)},
+    )
+    assert created.status_code == 201
+    group_id = created.json()["id"]
+    attached = await editor_client.post(
+        f"/api/incident-groups/{group_id}/stops",
+        json={"incident_ids": [str(test_incident.id)]},
+    )
+    assert attached.status_code == 200
+
+    token = generate_viewer_token(test_event.id)
+    response = await client.get("/api/viewer/data", params={"token": token})
+
+    assert response.status_code == 200
+    assert response.json()["groups"] == [
+        {
+            **created.json(),
+            "stop_ids": [str(test_incident.id)],
+            "progress": {"total": 1, "done": 0},
+            "assignments": [],
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -478,3 +623,26 @@ async def test_sync_version_changes_on_group_create_and_rename(editor_client: As
     await editor_client.patch(f"/api/incident-groups/{group['id']}", json={"name": "Route A renamed"})
     v_after_rename = await version()
     assert v_after_rename != v_after_create
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_version_changes_on_group_assignment_assign_and_unassign(
+    editor_client: AsyncClient, test_event: Event, test_vehicle: Vehicle
+):
+    async def version() -> str:
+        response = await editor_client.get(f"/api/incidents/sync-version?event_id={test_event.id}")
+        return response.json()["version"]
+
+    group = await _create_group(editor_client, test_event)
+    before = await version()
+    assigned = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "vehicle", "resource_id": str(test_vehicle.id)},
+    )
+    after_assign = await version()
+    assert after_assign != before
+    await editor_client.post(
+        f"/api/incident-groups/{group['id']}/unassign/{assigned.json()['id']}"
+    )
+    assert await version() != after_assign

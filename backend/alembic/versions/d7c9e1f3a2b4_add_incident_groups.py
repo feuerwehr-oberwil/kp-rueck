@@ -64,10 +64,18 @@ def upgrade() -> None:
     )
     op.create_index("ix_incidents_group_id", "incidents", ["group_id"])
     op.create_index("idx_incidents_group_position", "incidents", ["group_id", "group_position"])
+    op.create_index(
+        "uq_incidents_group_position_active",
+        "incidents",
+        ["group_id", "group_position"],
+        unique=True,
+        postgresql_where=sa.text("group_id IS NOT NULL AND deleted_at IS NULL"),
+    )
 
 
 def downgrade() -> None:
     """Drop the Aufträge feature schema."""
+    op.drop_index("uq_incidents_group_position_active", table_name="incidents")
     op.drop_index("idx_incidents_group_position", table_name="incidents")
     op.drop_index("ix_incidents_group_id", table_name="incidents")
     op.drop_constraint("incidents_group_id_fkey", "incidents", type_="foreignkey")

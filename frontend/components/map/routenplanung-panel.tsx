@@ -55,6 +55,7 @@ interface RoutenplanungPanelProps {
   /** Shared routing hook, instantiated by the page for the selected group. */
   planning: ReturnType<typeof useRoutePlanning>
   onExit: () => void
+  canEdit: boolean
 }
 
 export function RoutenplanungPanel({
@@ -68,6 +69,7 @@ export function RoutenplanungPanel({
   onFocusStopChange,
   planning,
   onExit,
+  canEdit,
 }: RoutenplanungPanelProps) {
   const t = useTranslations("map.planning")
   const { group, operationsById, isAddingStop, reorder, optimize, magazinCoords, vehicleStart } = planning
@@ -110,7 +112,8 @@ export function RoutenplanungPanel({
       toast.info(t("previewUnchanged"))
       return
     }
-    await reorder(proposed)
+    const persisted = await reorder(proposed)
+    if (!persisted) return
     toast.success(t("optimized"), {
       action: { label: t("undo"), onClick: () => void reorder(previous) },
     })
@@ -153,7 +156,7 @@ export function RoutenplanungPanel({
               ))}
             </SelectContent>
           </Select>
-          <Tooltip>
+          {canEdit && <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 size="icon-sm"
@@ -166,7 +169,7 @@ export function RoutenplanungPanel({
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t("newAuftrag")}</TooltipContent>
-          </Tooltip>
+          </Tooltip>}
         </div>
 
         {creating && (
@@ -218,13 +221,13 @@ export function RoutenplanungPanel({
               the start anchor and runs optimize immediately). */}
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm font-semibold">{t("order")}</span>
-            <RouteOptimizeMenu
+            {canEdit && <RouteOptimizeMenu
               options={startOptions}
               menuLabel={t("optimizeStartHint")}
               optimizeLabel={t("optimize")}
               disabled={displayOrder.length < 2}
               onOptimize={(start) => void runOptimize(start)}
-            />
+            />}
           </div>
 
           {/* Ordered stop list */}
@@ -242,13 +245,18 @@ export function RoutenplanungPanel({
                   displayOrder={displayOrder}
                   operationsById={operationsById}
                   changedPositions={EMPTY_CHANGED}
-                  reorderDisabled={false}
+                  reorderDisabled={!canEdit}
                   onReorder={(ids) => void reorder(ids)}
                   focusStopId={focusStopId}
                   onSelectStop={onFocusStopChange}
                   onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
                   onRemoveStop={(incidentId) => void removeStop(group.id, incidentId)}
                   showStatusControl={false}
+                  // The `/map` planner has no access to the dashboard completion
+                  // flow (material prompt + returning-vehicle check), so don't
+                  // offer "Abgeschlossen" here — completion stays on the board.
+                  allowComplete={false}
+                  readOnly={!canEdit}
                 />
               )}
 
@@ -256,7 +264,7 @@ export function RoutenplanungPanel({
                   stop (table "add row"), toggling map click-to-add. Matches a stop
                   row's height/padding; the "click the map to place a stop" hint now
                   lives on hover instead of as a separate line. */}
-              <Tooltip>
+              {canEdit && <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
@@ -273,7 +281,7 @@ export function RoutenplanungPanel({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{isAddingStop ? t("addingStop") : t("addStopHint")}</TooltipContent>
-              </Tooltip>
+              </Tooltip>}
             </div>
           </div>
         </>

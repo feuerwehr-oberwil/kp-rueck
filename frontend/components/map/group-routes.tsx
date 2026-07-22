@@ -35,6 +35,7 @@ const MIRROR_STATUS_GROUP: Record<StopMirrorStatus, StatusGroup> = {
   enroute: "active", // Disponiert → solid
   active: "active", // Einsatz → solid
   returning: "completed", // Beendet → dotted
+  complete: "completed", // Abgeschlossen → dotted
 }
 
 // Translate the incident markers' SVG `stroke-dasharray` convention (the single

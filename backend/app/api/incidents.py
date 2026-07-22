@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
@@ -17,7 +18,7 @@ from ..crud import events as events_crud
 from ..crud import incidents as crud
 from ..database import get_db
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_incident_update
+from ..websocket_manager import broadcast_group_update, broadcast_incident_update
 
 logger = logging.getLogger(__name__)
 
@@ -149,11 +150,33 @@ async def get_sync_version(
     g_count = g_row[0] or 0
     g_latest = g_row[1]
 
+    group_assignment_result = await db.execute(
+        select(
+            sa_func.count(models.IncidentGroupAssignment.id),
+            sa_func.max(models.IncidentGroupAssignment.assigned_at),
+            sa_func.max(models.IncidentGroupAssignment.unassigned_at),
+        )
+        .join(
+            models.IncidentGroup,
+            models.IncidentGroupAssignment.incident_group_id == models.IncidentGroup.id,
+        )
+        .where(models.IncidentGroup.event_id == event_id)
+    )
+    ga_row = group_assignment_result.one()
+    ga_count = ga_row[0] or 0
+    ga_assigned_latest = ga_row[1]
+    ga_unassigned_latest = ga_row[2]
+
     # Combine into version string
     latest_str = latest.isoformat() if latest else "0"
     a_latest_str = a_latest.isoformat() if a_latest else "0"
     g_latest_str = g_latest.isoformat() if g_latest else "0"
-    version = f"{count}-{latest_str}-{a_count}-{a_latest_str}-{g_count}-{g_latest_str}"
+    ga_assigned_str = ga_assigned_latest.isoformat() if ga_assigned_latest else "0"
+    ga_unassigned_str = ga_unassigned_latest.isoformat() if ga_unassigned_latest else "0"
+    version = (
+        f"{count}-{latest_str}-{a_count}-{a_latest_str}-{g_count}-{g_latest_str}-"
+        f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}"
+    )
     return {"version": version}
 
 
@@ -204,13 +227,15 @@ async def create_incident(
                 detail="Demo-Modus: Maximale Anzahl Einsätze (50) erreicht. Die Demo wird regelmässig zurückgesetzt.",
             )
 
-    # Create incident
-    new_incident = await crud.create_incident(
-        db=db,
-        incident=incident,
-        current_user=current_user,
-        request=request,
-    )
+    try:
+        new_incident = await crud.create_incident(
+            db=db,
+            incident=incident,
+            current_user=current_user,
+            request=request,
+        )
+    except crud.InvalidIncidentGroupError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Trigger immediate sync in background (event-based sync)
     background_tasks.add_task(trigger_sync_background)
@@ -248,6 +273,8 @@ async def update_incident(
             request=request,
             expected_updated_at=expected_updated_at,
         )
+    except crud.InvalidIncidentGroupError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         logger.warning("Incident update conflict for %s: %s", incident_id, e)
         raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
@@ -260,6 +287,12 @@ async def update_incident(
 
     # Broadcast WebSocket update
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
+    if getattr(incident, "group_resources_released", False) and incident.group_id:
+        background_tasks.add_task(
+            broadcast_group_update,
+            {"id": str(incident.group_id), "event_id": str(incident.event_id)},
+            "update",
+        )
 
     return incident_response
 
@@ -321,6 +354,12 @@ async def update_status(
 
     # Broadcast WebSocket update for status change
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
+    if getattr(incident, "group_resources_released", False) and incident.group_id:
+        background_tasks.add_task(
+            broadcast_group_update,
+            {"id": str(incident.group_id), "event_id": str(incident.event_id)},
+            "update",
+        )
 
     return incident_response
 
@@ -517,6 +556,12 @@ async def restore_incident(
             request=request,
         )
     except ValueError:
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
+    except IntegrityError:
+        # Defensive: restore_incident appends route stops at the end to avoid a
+        # group_position collision, but guard against any other unique-constraint
+        # race so the undo returns a clean 409 rather than a 500.
+        await db.rollback()
         raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
 
     if not incident:

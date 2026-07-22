@@ -15,16 +15,21 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
 from app.crud import assignments as assignment_crud
 from app.crud import group_assignments as group_assignments_crud
 from app.crud import groups as groups_crud
+from app.crud import incidents as incidents_crud
+from app.crud import print_jobs as print_jobs_crud
 from app.models import (
     Event,
     Incident,
+    IncidentAssignment,
     IncidentGroup,
+    IncidentGroupAssignment,
     Material,
     Personnel,
     User,
@@ -217,6 +222,26 @@ class TestSoftDeleteLeavesStops:
         # Group no longer listed.
         responses = await groups_crud.list_groups_by_event(db_session, test_event.id)
         assert responses == []
+
+    async def test_soft_delete_releases_all_assignment_types(
+        self, db_session, test_event, test_user, mock_request, test_vehicle, person_a, test_material
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        for resource_type, resource_id in (
+            ("vehicle", test_vehicle.id),
+            ("personnel", person_a.id),
+            ("material", test_material.id),
+        ):
+            await group_assignments_crud.assign_group_resource(
+                db_session, group.id, resource_type, resource_id, test_user, mock_request
+            )
+
+        await groups_crud.soft_delete_group(db_session, group.id, test_user, mock_request)
+
+        rows = await db_session.execute(
+            select(IncidentGroupAssignment).where(IncidentGroupAssignment.incident_group_id == group.id)
+        )
+        assert all(row.unassigned_at is not None for row in rows.scalars().all())
 
 
 # ============================================
@@ -466,6 +491,38 @@ class TestGroupAssignments:
         )
         assert ok is False
 
+    async def test_assignment_print_includes_route_resources_with_incident_precedence(
+        self, db_session, test_event, test_user, mock_request, test_vehicle, person_a, test_material
+    ):
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        incident = await _make_incident(db_session, test_event, test_user)
+        await groups_crud.add_stops_to_group(db_session, group.id, [incident.id], test_user, mock_request)
+        for resource_type, resource_id in (
+            ("vehicle", test_vehicle.id),
+            ("personnel", person_a.id),
+            ("material", test_material.id),
+        ):
+            await group_assignments_crud.assign_group_resource(
+                db_session, group.id, resource_type, resource_id, test_user, mock_request
+            )
+        direct = IncidentAssignment(
+            incident_id=incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            assigned_by=test_user.id,
+            driver_stay=True,
+        )
+        db_session.add(direct)
+        await db_session.commit()
+
+        job = await print_jobs_crud.queue_assignment_print(db_session, incident.id)
+
+        assert job is not None
+        assert [person["name"] for person in job.payload["crew"]] == [person_a.name]
+        assert [material["name"] for material in job.payload["materials"]] == [test_material.name]
+        assert len(job.payload["vehicles"]) == 1
+        assert job.payload["vehicles"][0]["driver_stay"] is True
+
 
 # ============================================
 # Release route resources only on the LAST stop
@@ -480,8 +537,11 @@ class TestReleaseOnLastStop:
         i1 = await _make_incident(db_session, test_event, test_user, title="Stop1", status="einsatz")
         i2 = await _make_incident(db_session, test_event, test_user, title="Stop2", status="einsatz")
         await groups_crud.add_stops_to_group(db_session, group.id, [i1.id, i2.id], test_user, mock_request)
+        vehicle = Vehicle(id=uuid4(), name="Route Vehicle", type="TLF", status="available")
+        db_session.add(vehicle)
+        await db_session.commit()
         await group_assignments_crud.assign_group_resource(
-            db_session, group.id, "vehicle", uuid4(), test_user, mock_request
+            db_session, group.id, "vehicle", vehicle.id, test_user, mock_request
         )
         assert len(await group_assignments_crud.get_group_assignments(db_session, group.id)) == 1
 
@@ -493,19 +553,86 @@ class TestReleaseOnLastStop:
         await incidents_crud.update_incident_status(db_session, i2.id, "abschluss", test_user, mock_request)
         assert len(await group_assignments_crud.get_group_assignments(db_session, group.id)) == 0
 
-    async def test_material_kept_when_route_finishes(self, db_session, test_event, test_user, mock_request):
+    async def test_material_kept_when_route_finishes(
+        self, db_session, test_event, test_user, mock_request, test_material, test_vehicle
+    ):
         from app.crud import incidents as incidents_crud
 
         group = await _make_group(db_session, test_event, test_user, mock_request)
         only = await _make_incident(db_session, test_event, test_user, title="Only", status="einsatz")
         await groups_crud.add_stops_to_group(db_session, group.id, [only.id], test_user, mock_request)
         await group_assignments_crud.assign_group_resource(
-            db_session, group.id, "material", uuid4(), test_user, mock_request
+            db_session, group.id, "material", test_material.id, test_user, mock_request
         )
         await group_assignments_crud.assign_group_resource(
-            db_session, group.id, "vehicle", uuid4(), test_user, mock_request
+            db_session, group.id, "vehicle", test_vehicle.id, test_user, mock_request
         )
         await incidents_crud.update_incident_status(db_session, only.id, "abschluss", test_user, mock_request)
         remaining = await group_assignments_crud.get_group_assignments(db_session, group.id)
         # Vehicle auto-released; material stays on site for manual return.
         assert [a.resource_type for a in remaining] == ["material"]
+
+    async def test_reopen_then_reclose_runs_final_release_again(
+        self, db_session, test_event, test_user, mock_request, test_vehicle
+    ):
+        from app.crud import incidents as incidents_crud
+
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        incident = await _make_incident(db_session, test_event, test_user, status="einsatz")
+        await groups_crud.add_stops_to_group(db_session, group.id, [incident.id], test_user, mock_request)
+        await incidents_crud.update_incident_status(
+            db_session, incident.id, "abschluss", test_user, mock_request
+        )
+        await incidents_crud.update_incident_status(
+            db_session, incident.id, "einsatz", test_user, mock_request
+        )
+        await db_session.refresh(incident)
+        assert incident.completed_at is None
+
+        await group_assignments_crud.assign_group_resource(
+            db_session, group.id, "vehicle", test_vehicle.id, test_user, mock_request
+        )
+        await incidents_crud.update_incident_status(
+            db_session, incident.id, "abschluss", test_user, mock_request
+        )
+        assert await group_assignments_crud.get_group_assignments(db_session, group.id) == []
+
+
+# ============================================
+# Restore a deleted stop without colliding on the
+# partial unique index uq_incidents_group_position_active
+# ============================================
+
+
+class TestRestoreStopPosition:
+    async def test_restore_deleted_stop_appends_and_avoids_position_collision(
+        self, db_session, test_event, test_user, mock_request
+    ):
+        """Deleting the only stop, adding a replacement (which reuses slot 0),
+        then restoring the deleted stop must not violate the active-position
+        unique index. The restored stop is appended at the end instead."""
+        group = await _make_group(db_session, test_event, test_user, mock_request)
+        a = await _make_incident(db_session, test_event, test_user, title="A")
+        await groups_crud.add_stops_to_group(db_session, group.id, [a.id], test_user, mock_request)
+        assert a.group_position == 0
+
+        # Soft-delete A. It keeps group_id + group_position=0 but drops out of
+        # the partial index (deleted_at IS NOT NULL).
+        await incidents_crud.delete_incident(db_session, a.id, test_user, mock_request)
+
+        # Replacement C is appended over *active* stops only -> reuses slot 0.
+        c = await _make_incident(db_session, test_event, test_user, title="C")
+        await groups_crud.add_stops_to_group(db_session, group.id, [c.id], test_user, mock_request)
+        assert c.group_position == 0
+
+        # Restoring A must succeed (no IntegrityError) and append past C.
+        restored = await incidents_crud.restore_incident(db_session, a.id, test_user, mock_request)
+        assert restored is not None
+        assert restored.deleted_at is None
+        assert restored.group_id == group.id
+        assert restored.group_position == 1  # appended after C(0)
+
+        # Both stops are now active with distinct positions.
+        response = await groups_crud.build_group_response(db_session, group)
+        assert set(response.stop_ids) == {a.id, c.id}
+        assert response.progress.total == 2

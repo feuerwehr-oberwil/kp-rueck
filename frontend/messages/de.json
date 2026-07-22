@@ -649,6 +649,7 @@
       "disponiert": "Disponiert",
       "einsatz": "Einsatz",
       "beendet": "Beendet",
+      "abgeschlossen": "Abgeschlossen",
       "advance": "Weiter zu {label}",
       "jumpTo": "Status wählen"
     },

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..crud import events as events_crud
+from ..crud import groups as groups_crud
 from ..crud import incidents as incidents_crud
 from ..crud import materials as materials_crud
 from ..crud import personnel as personnel_crud
@@ -101,6 +102,7 @@ async def get_viewer_data(
 
     # Get all incidents for the event
     incidents = await incidents_crud.get_incidents(db, event_id=event_id)
+    groups = await groups_crud.list_groups_by_event(db, event_id)
 
     # Global resources (personnel/materials/vehicles are not event-scoped) so
     # the shared Status + Map displays have the full roster, availability and
@@ -113,6 +115,7 @@ async def get_viewer_data(
     return {
         "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
         "incidents": [schemas.IncidentResponse.model_validate(i).model_dump(mode="json") for i in incidents],
+        "groups": [group.model_dump(mode="json") for group in groups],
         "personnel": [schemas.Personnel.model_validate(p).model_dump(mode="json") for p in personnel],
         "materials": [schemas.Material.model_validate(m).model_dump(mode="json") for m in materials],
         "vehicles": [schemas.Vehicle.model_validate(v).model_dump(mode="json") for v in vehicles],

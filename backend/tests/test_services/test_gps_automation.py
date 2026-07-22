@@ -21,6 +21,7 @@ from app.models import (
     IncidentAssignment,
     IncidentGroup,
     IncidentGroupAssignment,
+    Notification,
     Setting,
     StatusTransition,
     User,
@@ -445,6 +446,46 @@ async def test_return_emits_prompt_not_release(
         select(IncidentAssignment).where(IncidentAssignment.id == assignment.id)
     )
     assert fresh.scalar_one().unassigned_at is None  # never silent-released
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+async def test_route_vehicle_return_emits_group_release_prompt(
+    bc_msg, db_session: AsyncSession, disponiert_incident: Incident, test_user: User, test_event: Event
+):
+    await _enable_return(db_session)
+    group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Route", created_by=test_user.id)
+    db_session.add(group)
+    await db_session.flush()
+    disponiert_incident.group_id = group.id
+    vehicle = Vehicle(id=uuid.uuid4(), name="TLF-1", type="TLF", status="available")
+    db_session.add(vehicle)
+    await db_session.flush()
+    assignment = IncidentGroupAssignment(
+        incident_group_id=group.id,
+        resource_type="vehicle",
+        resource_id=vehicle.id,
+        assigned_by=test_user.id,
+    )
+    db_session.add(assignment)
+    await db_session.commit()
+
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_station(clock.now()), advance=35)
+
+    payload = bc_msg.await_args.args[0]
+    assert payload["type"] == "gps_group_release_prompt"
+    assert payload["group_id"] == str(group.id)
+    assert payload["assignment_id"] == str(assignment.id)
+    assert assignment.unassigned_at is None
+    notification = await db_session.scalar(
+        select(Notification).where(
+            Notification.event_id == test_event.id,
+            Notification.type == "vehicle_arrived",
+        )
+    )
+    assert notification is not None
 
 
 # ---------------------------------------------------------------------------

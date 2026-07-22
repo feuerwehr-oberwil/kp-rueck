@@ -40,18 +40,18 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["incident_group_id"], ["incident_groups.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["assigned_by"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "incident_group_id",
-            "resource_type",
-            "resource_id",
-            "unassigned_at",
-            name="unique_group_assignment",
-        ),
     )
     op.create_index("idx_group_assignments_group", "incident_group_assignments", ["incident_group_id"])
     op.create_index("idx_group_assignments_resource", "incident_group_assignments", ["resource_type", "resource_id"])
     op.create_index("idx_group_assignments_resource_id", "incident_group_assignments", ["resource_id"])
     op.create_index("idx_group_assignments_unassigned", "incident_group_assignments", ["unassigned_at"])
+    op.create_index(
+        "uq_group_assignments_active_resource",
+        "incident_group_assignments",
+        ["incident_group_id", "resource_type", "resource_id"],
+        unique=True,
+        postgresql_where=sa.text("unassigned_at IS NULL"),
+    )
     op.create_index(
         "idx_group_assignments_group_active",
         "incident_group_assignments",
@@ -76,6 +76,7 @@ def downgrade() -> None:
     )
 
     op.drop_index("idx_group_assignments_group_active", table_name="incident_group_assignments")
+    op.drop_index("uq_group_assignments_active_resource", table_name="incident_group_assignments")
     op.drop_index("idx_group_assignments_unassigned", table_name="incident_group_assignments")
     op.drop_index("idx_group_assignments_resource_id", table_name="incident_group_assignments")
     op.drop_index("idx_group_assignments_resource", table_name="incident_group_assignments")

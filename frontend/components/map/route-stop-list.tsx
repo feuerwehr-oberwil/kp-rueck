@@ -125,13 +125,14 @@ export function deriveStopState(op: Operation | undefined): StopState {
 // truth = the incident's status). Four collapsed states — Offen → Disponiert →
 // Einsatz → Beendet — map onto real incident statuses; left-click advances to
 // the next, a caret menu jumps to any.
-export type MirrorStatus = Extract<OperationStatus, "incoming" | "enroute" | "active" | "returning">
-export const MIRROR_ORDER: MirrorStatus[] = ["incoming", "enroute", "active", "returning"]
+export type MirrorStatus = Extract<OperationStatus, "incoming" | "enroute" | "active" | "returning" | "complete">
+export const MIRROR_ORDER: MirrorStatus[] = ["incoming", "enroute", "active", "returning", "complete"]
 
 /** Collapse the full incident status onto one of the four mirror columns. */
 export function toMirrorStatus(op: Operation | undefined): MirrorStatus {
   if (!op) return "incoming"
-  if (op.status === "returning" || op.status === "complete") return "returning"
+  if (op.status === "complete") return "complete"
+  if (op.status === "returning") return "returning"
   if (op.status === "active") return "active"
   if (op.status === "enroute") return "enroute"
   // incoming, ready (Reko) and rekoDone all read as "Offen".
@@ -143,6 +144,7 @@ export const MIRROR_CONFIG: Record<MirrorStatus, { labelKey: string; Icon: typeo
   enroute: { labelKey: "disponiert", Icon: Navigation, cls: "text-blue-600 dark:text-blue-400" },
   active: { labelKey: "einsatz", Icon: Flame, cls: "text-amber-600 dark:text-amber-400" },
   returning: { labelKey: "beendet", Icon: Check, cls: "text-emerald-600 dark:text-emerald-400" },
+  complete: { labelKey: "abgeschlossen", Icon: Check, cls: "text-emerald-700 dark:text-emerald-300" },
 }
 
 /**
@@ -163,7 +165,7 @@ export function StopStatusControl({
   const current = toMirrorStatus(op)
   const conf = MIRROR_CONFIG[current]
   const Icon = conf.Icon
-  const next = MIRROR_ORDER[(MIRROR_ORDER.indexOf(current) + 1) % MIRROR_ORDER.length]
+  const next = current === "complete" ? null : MIRROR_ORDER[MIRROR_ORDER.indexOf(current) + 1]
 
   return (
     // One cohesive bordered pill: the icon+label button and the caret share a
@@ -180,15 +182,17 @@ export function StopStatusControl({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          onSetStatus(next)
+          if (next) onSetStatus(next)
         }}
         className={cn(
           "flex items-center gap-1 px-1.5 text-xs font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           compact ? "justify-center" : "min-w-0 flex-1 justify-start",
           conf.cls,
+          !next && "cursor-default",
         )}
-        title={t("advance", { label: t(MIRROR_CONFIG[next].labelKey) })}
-        aria-label={t("advance", { label: t(MIRROR_CONFIG[next].labelKey) })}
+        title={next ? t("advance", { label: t(MIRROR_CONFIG[next].labelKey) }) : t(conf.labelKey)}
+        aria-label={next ? t("advance", { label: t(MIRROR_CONFIG[next].labelKey) }) : t(conf.labelKey)}
+        disabled={!next}
       >
         <Icon className="h-3.5 w-3.5 flex-shrink-0" />
         {!compact && <span className="truncate">{t(conf.labelKey)}</span>}
@@ -206,7 +210,7 @@ export function StopStatusControl({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="z-[70]">
-          {MIRROR_ORDER.map((s) => {
+          {(current === "complete" ? (["complete"] as MirrorStatus[]) : MIRROR_ORDER).map((s) => {
             const c = MIRROR_CONFIG[s]
             const SIcon = c.Icon
             return (
@@ -252,6 +256,11 @@ interface RouteStopListProps {
   /** Show the advance/jump status control (false → plain status marker, e.g. the
    *  `/map` Routenplanung panel where status isn't advanced from the planner). */
   showStatusControl?: boolean
+  /** Offer "Abgeschlossen" in the row context menu. Default true. Set false on
+   *  surfaces whose `onSetStopStatus` doesn't route through the completion flow
+   *  (material prompt + returning-vehicle check), e.g. the `/map` planner. */
+  allowComplete?: boolean
+  readOnly?: boolean
 }
 
 export function RouteStopList({
@@ -268,11 +277,13 @@ export function RouteStopList({
   onSetStopStatus,
   onRemoveStop,
   showStatusControl = true,
+  allowComplete = true,
+  readOnly = false,
 }: RouteStopListProps) {
   // Reorder monitor: source `route-stop-drag` reordered onto a `group-stop`
   // target computes the new order off the authoritative `stopIds`.
   useEffect(() => {
-    if (!enabled || !groupId) return
+    if (!enabled || !groupId || readOnly) return
     return monitorForElements({
       onDrop({ source, location }) {
         const dest = location.current.dropTargets[0]
@@ -295,7 +306,7 @@ export function RouteStopList({
         onReorder(next)
       },
     })
-  }, [enabled, groupId, stopIds, onReorder])
+  }, [enabled, groupId, stopIds, onReorder, readOnly])
 
   return (
     <>
@@ -307,12 +318,13 @@ export function RouteStopList({
           index={index}
           op={operationsById.get(incidentId)}
           changed={changedPositions.has(incidentId)}
-          reorderDisabled={reorderDisabled}
+          reorderDisabled={reorderDisabled || readOnly}
           onSelect={() => onSelectStop(incidentId)}
           selected={focusStopId === incidentId}
-          onSetStatus={onSetStopStatus}
-          onRemove={onRemoveStop}
+          onSetStatus={readOnly ? undefined : onSetStopStatus}
+          onRemove={readOnly ? undefined : onRemoveStop}
           showStatusControl={showStatusControl}
+          allowComplete={allowComplete}
         />
       ))}
     </>
@@ -331,6 +343,7 @@ interface StopListRowProps {
   onSetStatus?: (incidentId: string, status: MirrorStatus) => void
   onRemove?: (incidentId: string) => void
   showStatusControl?: boolean
+  allowComplete?: boolean
 }
 
 export function StopListRow({
@@ -345,6 +358,7 @@ export function StopListRow({
   onSetStatus,
   onRemove,
   showStatusControl = true,
+  allowComplete = true,
 }: StopListRowProps) {
   const t = useTranslations("kanban.routenEditorModal")
   const tStatus = useTranslations("kanban.stopStatus")
@@ -480,7 +494,12 @@ export function StopListRow({
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           {onSetStatus &&
-            MIRROR_ORDER.map((s) => {
+            (mirror === "complete"
+              ? (["complete"] as MirrorStatus[])
+              : allowComplete
+                ? MIRROR_ORDER
+                : MIRROR_ORDER.filter((s) => s !== "complete")
+            ).map((s) => {
               const c = MIRROR_CONFIG[s]
               const SIcon = c.Icon
               return (

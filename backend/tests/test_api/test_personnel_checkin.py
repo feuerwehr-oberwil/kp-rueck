@@ -17,8 +17,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.security import hash_password
-from app.models import Event, EventAttendance, Personnel, User
+from app.models import Event, EventAttendance, IncidentGroup, IncidentGroupAssignment, Personnel
 
 # ============================================
 # Fixtures
@@ -181,6 +180,34 @@ async def test_list_personnel_checked_in_only(
     # Only checked-in personnel should be returned
     assert len(data["personnel"]) == 1
     assert data["personnel"][0]["name"] == person.name
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_marks_route_assigned_personnel(
+    client: AsyncClient,
+    valid_token: str,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_personnel,
+):
+    person = test_personnel[0]
+    group = IncidentGroup(event_id=test_event.id, name="Route")
+    db_session.add(group)
+    await db_session.flush()
+    db_session.add(
+        IncidentGroupAssignment(
+            incident_group_id=group.id,
+            resource_type="personnel",
+            resource_id=person.id,
+        )
+    )
+    await db_session.commit()
+
+    response = await client.get(f"/api/personnel/check-in/list?token={valid_token}")
+
+    listed = next(item for item in response.json()["personnel"] if item["id"] == str(person.id))
+    assert listed["is_assigned"] is True
 
 
 # ============================================

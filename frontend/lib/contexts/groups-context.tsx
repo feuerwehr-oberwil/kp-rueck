@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from "react"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import {
@@ -51,6 +51,7 @@ interface GroupsContextType {
   getGroupResources: (groupId: string) => GroupResources
   /** Resolve the route resources for an incident's Auftrag (empty when ungrouped). */
   groupResourcesFor: (operation: Operation) => GroupResources
+  occupiedResourceIds: Record<GroupResourceType, Set<string>>
 }
 
 const GroupsContext = createContext<GroupsContextType | undefined>(undefined)
@@ -91,6 +92,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
+  const [loadedEventId, setLoadedEventId] = useState<string | null>(null)
   // Vehicle name lookup — no dedicated vehicles context exists, so resolve the
   // route's vehicle assignments (which carry ids) to names via a light fetch.
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
@@ -103,6 +105,14 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const mutationEpochRef = useRef(0)
   // Sync version for the lightweight polling fallback (folds in incident_groups).
   const lastSyncVersionRef = useRef<string | null>(null)
+  const activeEventIdRef = useRef<string | null>(null)
+  const loadSequenceRef = useRef(0)
+  const groupsRef = useRef<IncidentGroup[]>([])
+  const reorderQueuesRef = useRef(new Map<string, Promise<void>>())
+
+  useEffect(() => {
+    groupsRef.current = groups
+  }, [groups])
 
   const refreshGroups = useCallback(async (): Promise<void> => {
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
@@ -111,11 +121,13 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
 
     const epochAtStart = mutationEpochRef.current
+    const eventId = selectedEvent.id
+    const sequence = ++loadSequenceRef.current
     try {
-      const apiGroups = await apiClient.getIncidentGroups(selectedEvent.id)
+      const apiGroups = await apiClient.getIncidentGroups(eventId)
       // A local mutation landed while this reload was fetching — its optimistic
       // state is newer than this snapshot. Discard the stale result.
-      if (mutationEpochRef.current !== epochAtStart) return
+      if (mutationEpochRef.current !== epochAtStart || activeEventIdRef.current !== eventId || sequence !== loadSequenceRef.current) return
       setGroups(apiGroups.map(apiGroupToGroup))
       hasShownErrorRef.current = false
     } catch (error) {
@@ -145,23 +157,31 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authLoading || !isAuthenticated) return
 
-    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
-      setGroups([])
+    const nextEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
+    activeEventIdRef.current = nextEventId
+    loadSequenceRef.current++
+    setGroups([])
+    setIsLoaded(false)
+    setLoadedEventId(null)
+    lastSyncVersionRef.current = null
+
+    if (!nextEventId) {
       // Only declare "loaded" once events have actually resolved, so consumers
       // don't flash an empty state before the selected event is known.
       if (isEventLoaded) setIsLoaded(true)
       return
     }
 
-    const eventId = selectedEvent.id
+    const eventId = nextEventId
     let cancelled = false
 
     const loadData = async () => {
       const epochAtStart = mutationEpochRef.current
+      const sequence = ++loadSequenceRef.current
       try {
         const versionSnapshot = await apiClient.getSyncVersion(eventId).catch(() => null)
         const apiGroups = await apiClient.getIncidentGroups(eventId)
-        if (cancelled) return
+        if (cancelled || activeEventIdRef.current !== eventId || sequence !== loadSequenceRef.current) return
         if (mutationEpochRef.current !== epochAtStart) return
         setGroups(apiGroups.map(apiGroupToGroup))
         hasShownErrorRef.current = false
@@ -169,16 +189,28 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Failed to load Aufträge:", error)
       } finally {
-        if (!cancelled) setIsLoaded(true)
+        if (!cancelled && activeEventIdRef.current === eventId) {
+          setIsLoaded(true)
+          setLoadedEventId(eventId)
+        }
       }
     }
 
     loadData()
 
-    // Refresh on the group_update WS broadcast (create/update/delete/reorder/stops/assign).
-    const unsubscribeGroupUpdate = wsClient.on("group_update", () => {
-      refreshGroups()
-    })
+    // Coalesce related broadcasts: one backend action may emit an incident,
+    // assignment and group event in quick succession.
+    let refreshTimeout: ReturnType<typeof setTimeout> | undefined
+    const scheduleRefresh = () => {
+      if (refreshTimeout) return
+      refreshTimeout = setTimeout(() => {
+        refreshTimeout = undefined
+        void refreshGroups()
+      }, 25)
+    }
+    const unsubscribeGroupUpdate = wsClient.on("group_update", scheduleRefresh)
+    const unsubscribeAssignmentUpdate = wsClient.on("assignment_update", scheduleRefresh)
+    const unsubscribeIncidentUpdate = wsClient.on("incident_update", scheduleRefresh)
 
     // Polling fallback: only while the socket is down. Mirrors operations-context —
     // a lightweight sync-version check gates the full group reload.
@@ -234,6 +266,9 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
       unsubscribeGroupUpdate()
+      unsubscribeAssignmentUpdate()
+      unsubscribeIncidentUpdate()
+      if (refreshTimeout) clearTimeout(refreshTimeout)
       statusUnsubscribe()
       stopPolling()
     }
@@ -361,21 +396,38 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const reorderGroupStops = useCallback(async (groupId: string, orderedIds: string[]): Promise<boolean> => {
     mutationEpochRef.current++
 
-    const previous = groups.find((g) => g.id === groupId)
+    const previous = groupsRef.current.find((g) => g.id === groupId)
     if (!previous) return false
 
-    setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, stopIds: orderedIds } : g)))
+    setGroups((gs) => {
+      const next = gs.map((g) => (g.id === groupId ? { ...g, stopIds: orderedIds } : g))
+      groupsRef.current = next
+      return next
+    })
 
-    try {
+    let succeeded = false
+    const previousRequest = reorderQueuesRef.current.get(groupId) ?? Promise.resolve()
+    const request = previousRequest.catch(() => {}).then(async () => {
       await apiClient.reorderGroupStops(groupId, orderedIds)
-      return true
+      succeeded = true
+    })
+    reorderQueuesRef.current.set(groupId, request)
+    try {
+      await request
+      return succeeded
     } catch (error) {
       console.error("Failed to reorder stops:", error)
-      setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
+      setGroups((gs) => gs.map((g) => {
+        if (g.id !== groupId) return g
+        const isStillThisOrder = g.stopIds.length === orderedIds.length && g.stopIds.every((id, i) => id === orderedIds[i])
+        return isStillThisOrder ? previous : g
+      }))
       toast.error(translateOutsideReact("notifications.groups.reorderStopsFailed"))
       return false
+    } finally {
+      if (reorderQueuesRef.current.get(groupId) === request) reorderQueuesRef.current.delete(groupId)
     }
-  }, [groups])
+  }, [])
 
   const addStops = useCallback(async (groupId: string, incidentIds: string[]): Promise<boolean> => {
     mutationEpochRef.current++
@@ -538,11 +590,22 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [getGroupResources],
   )
 
+  const occupiedResourceIds = useMemo<Record<GroupResourceType, Set<string>>>(() => {
+    const occupied = { vehicle: new Set<string>(), personnel: new Set<string>(), material: new Set<string>() }
+    for (const group of groups) {
+      for (const assignment of group.assignments) occupied[assignment.resourceType].add(assignment.resourceId)
+    }
+    return occupied
+  }, [groups])
+
+  const selectedEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
+  const scopedGroups = selectedEventId ? groups.filter((group) => group.eventId === selectedEventId) : []
+
   return (
     <GroupsContext.Provider
       value={{
-        groups,
-        isLoaded,
+        groups: scopedGroups,
+        isLoaded: isLoaded && loadedEventId === selectedEventId,
         refreshGroups,
         createGroup,
         updateGroup,
@@ -555,6 +618,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         unassignResource,
         getGroupResources,
         groupResourcesFor,
+        occupiedResourceIds,
       }}
     >
       {children}

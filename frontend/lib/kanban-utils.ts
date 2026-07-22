@@ -124,7 +124,7 @@ export function colorGroupFor(
 // (Offen / Disponiert / Einsatz / Beendet). The left-border colour matches the
 // StopStatusControl icon colours so a Reihenfolge row carries the same status
 // meaning as the board column it mirrors.
-export type StopMirrorStatus = "incoming" | "enroute" | "active" | "returning"
+export type StopMirrorStatus = "incoming" | "enroute" | "active" | "returning" | "complete"
 
 export function stopStatusBorderClass(status: StopMirrorStatus): string {
   switch (status) {
@@ -134,6 +134,8 @@ export function stopStatusBorderClass(status: StopMirrorStatus): string {
       return "border-l-amber-500/70"
     case "returning":
       return "border-l-emerald-500/70"
+    case "complete":
+      return "border-l-emerald-700/70"
     default:
       return "border-l-muted-foreground/40"
   }
@@ -145,7 +147,8 @@ export function stopStatusBorderClass(status: StopMirrorStatus): string {
  *  colour markers without importing the drag-heavy route-stop-list module. */
 export function toStopMirrorStatus(op: Operation | undefined): StopMirrorStatus {
   if (!op) return "incoming"
-  if (op.status === "returning" || op.status === "complete") return "returning"
+  if (op.status === "complete") return "complete"
+  if (op.status === "returning") return "returning"
   if (op.status === "active") return "active"
   if (op.status === "enroute") return "enroute"
   return "incoming"

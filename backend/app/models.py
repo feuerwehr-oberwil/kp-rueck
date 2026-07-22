@@ -423,6 +423,13 @@ class Incident(Base):
         Index("idx_incidents_event_status_position", "event_id", "status", "position"),
         # Supports ORDER BY group_position within an Auftrag (incident group).
         Index("idx_incidents_group_position", "group_id", "group_position"),
+        Index(
+            "uq_incidents_group_position_active",
+            "group_id",
+            "group_position",
+            unique=True,
+            postgresql_where=sa_text("group_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
     )
 
 
@@ -567,8 +574,13 @@ class IncidentGroupAssignment(Base):
 
     __table_args__ = (
         CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
-        UniqueConstraint(
-            "incident_group_id", "resource_type", "resource_id", "unassigned_at", name="unique_group_assignment"
+        Index(
+            "uq_group_assignments_active_resource",
+            "incident_group_id",
+            "resource_type",
+            "resource_id",
+            unique=True,
+            postgresql_where=sa_text("unassigned_at IS NULL"),
         ),
         Index("idx_group_assignments_group", "incident_group_id"),
         Index("idx_group_assignments_resource", "resource_type", "resource_id"),
