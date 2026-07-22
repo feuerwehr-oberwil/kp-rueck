@@ -26,6 +26,8 @@ import {
   Palette,
   Pencil,
   Wand2,
+  Check,
+  Info,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
@@ -61,7 +63,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
-import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, type MirrorStatus } from "@/components/map/route-stop-list"
+import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import type { GroupResources } from "@/lib/types/groups"
@@ -727,6 +729,8 @@ interface StopRowProps {
 
 function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpenDetail, onOpenMap }: StopRowProps) {
   const t = useTranslations("kanban.auftraege")
+  const tStatus = useTranslations("kanban.stopStatus")
+  const mirror = toMirrorStatus(op)
   const ref = useRef<HTMLDivElement>(null)
   const handleRef = useRef<HTMLButtonElement>(null)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
@@ -771,12 +775,20 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
   return (
     <div className="relative">
       {closestEdge === "top" && <DropIndicator edge="top" gap="2px" />}
+      {/* Right-click exposes the same per-stop actions as the ⋮ menu + row controls
+          (status jump, Karte, Details, Stop entfernen). The trigger wraps a PLAIN
+          div so the draggable ref + drag handle don't clobber the contextmenu
+          listener — the forwarding-div pattern used for the Auftrag header and the
+          canonical route-stop-list row. */}
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div>
       <div
         ref={ref}
         className={cn(
           // Column layout: [handle] [number] [status — fixed width] [address — flex].
           "flex items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
-          stopStatusBorderClass(toMirrorStatus(op)),
+          stopStatusBorderClass(mirror),
           isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
         )}
       >
@@ -812,6 +824,37 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          {/* Status jump — same four mirror columns the StopStatusControl caret offers. */}
+          {MIRROR_ORDER.map((s) => {
+            const c = MIRROR_CONFIG[s]
+            const SIcon = c.Icon
+            return (
+              <ContextMenuItem key={s} onClick={() => onSetStatus(s)}>
+                <SIcon className={cn("mr-2 h-4 w-4", c.cls)} />
+                {tStatus(c.labelKey)}
+                {s === mirror && <Check className="ml-auto h-3.5 w-3.5 text-muted-foreground" />}
+              </ContextMenuItem>
+            )
+          })}
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => onOpenMap(incidentId)}>
+            <MapIcon className="mr-2 h-4 w-4" />
+            {t("map")}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={onOpenDetail}>
+            <Info className="mr-2 h-4 w-4" />
+            {t("openDetail")}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("removeStop")}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
       {closestEdge === "bottom" && <DropIndicator edge="bottom" gap="2px" />}
     </div>
   )

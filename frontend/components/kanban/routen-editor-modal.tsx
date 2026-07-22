@@ -288,9 +288,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             width as a wide landscape rectangle. Both columns stretch to the same
             height so the list scrolls inside the map's height. */}
         <div className="flex min-h-0 gap-5">
-          {/* Map column — fills the rest; min-w-0 lets it shrink on narrow
-              viewports without ever squeezing the fixed-width list. */}
-          <div className="flex min-w-0 flex-1 flex-col">
+          {/* Map column — FIXED width. Leaflet kept collapsing a flexible (flex-1)
+              map track to near-zero, so the map is the fixed column now and the
+              list flexes/truncates instead. The map can never be squeezed. */}
+          <div className="flex w-[560px] max-w-[58vw] shrink-0 flex-col">
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
@@ -304,8 +305,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             </div>
           </div>
 
-          {/* Ordered list column — fixed width, never collapsed. */}
-          <div className="flex w-[360px] shrink-0 flex-col min-h-0">
+          {/* Ordered list column — fills the remaining width, truncates long rows. */}
+          <div className="flex min-w-0 flex-1 flex-col min-h-0">
             {/* Reihenfolge heading + the optimize wand (a single button whose menu
                 picks the start anchor and runs optimize immediately). */}
             <div className="mb-2 flex h-8 items-center justify-between gap-2">
