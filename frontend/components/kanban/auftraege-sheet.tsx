@@ -23,19 +23,14 @@ import {
   Map as MapIcon,
   Trash2,
   Route,
-  Truck,
-  Users,
-  Package,
   Palette,
   Pencil,
   Wand2,
-  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,9 +61,9 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
-import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
+import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, type MirrorStatus } from "@/components/map/route-stop-list"
+import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { GroupResources } from "@/lib/types/groups"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
@@ -79,7 +74,12 @@ const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec489
 // non-modal sheet). Used to stop toast clicks — e.g. the optimize "Rückgängig"
 // action — from being read as an outside interaction that dismisses the sheet.
 function isToastTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
+  // Use `Element`, not `HTMLElement`: the toast's close ✕ (and the undo/info
+  // action icons) are <svg>/<path> nodes, which are SVGElement — not HTMLElement.
+  // Guarding only HTMLElement let a click/dismiss on the ✕ fall through as an
+  // outside interaction and close the sheet. Both HTML and SVG elements support
+  // `.closest`, so this still walks up to the toast/toaster container.
+  if (!(target instanceof Element)) return false
   return !!target.closest("[data-sonner-toast]") || !!target.closest("[data-sonner-toaster]")
 }
 
@@ -449,7 +449,6 @@ function AuftragCard({
   const total = group.stopIds.length
   const done = group.stopIds.reduce((n, id) => (deriveStopState(opById.get(id)) === "erledigt" ? n + 1 : n), 0)
 
-  const resourceCount = resources.vehicles.length + resources.personnel.length + resources.materials.length
   const squadSummary = useMemo(() => {
     const parts: string[] = []
     if (resources.vehicles.length) parts.push(resources.vehicles.map((v) => v.name).join(", "))
@@ -616,61 +615,15 @@ function AuftragCard({
               Lists ALL assigned vehicles, personnel and material as removable chips,
               and assigns to the ROUTE (works even with 0 stops). */}
           <div className="rounded-md border bg-muted/20 px-3 py-2.5">
-            <div className="mb-2 text-xs font-semibold text-muted-foreground">{t("resourcesHeading")}</div>
-
-            {resourceCount === 0 ? (
-              <p className="text-xs text-muted-foreground">{t("noResourcesYet")}</p>
-            ) : (
-              // Per-type rows mirroring a board card's resource layout: one icon per
-              // kind (Fahrzeuge / Personen / Material) with the chips wrapped beside it.
-              <div className="space-y-1.5">
-                {resources.vehicles.length > 0 && (
-                  <div className="flex items-start gap-1.5">
-                    <Truck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                    <div className="flex min-w-0 flex-wrap gap-1">
-                      {resources.vehicles.map((v) => (
-                        <ResourceChip key={v.assignmentId} label={v.name} onRemove={() => onUnassignResource(v.assignmentId)} removeTitle={t("removeResource", { name: v.name })} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {resources.personnel.length > 0 && (
-                  <div className="flex items-start gap-1.5">
-                    <Users className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                    <div className="flex min-w-0 flex-wrap gap-1">
-                      {resources.personnel.map((p) => (
-                        <ResourceChip key={p.assignmentId} label={p.name} onRemove={() => onUnassignResource(p.assignmentId)} removeTitle={t("removeResource", { name: p.name })} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {resources.materials.length > 0 && (
-                  <div className="flex items-start gap-1.5">
-                    <Package className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                    <div className="flex min-w-0 flex-wrap gap-1">
-                      {resources.materials.map((m) => (
-                        <ResourceChip key={m.assignmentId} label={m.name} onRemove={() => onUnassignResource(m.assignmentId)} removeTitle={t("removeResource", { name: m.name })} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onAssignRouteResource("vehicles")}>
-                <Truck className="h-3.5 w-3.5" />
-                {t("assignVehicleRoute")}
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onAssignRouteResource("crew")}>
-                <Users className="h-3.5 w-3.5" />
-                {t("assignCrewRoute")}
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onAssignRouteResource("materials")}>
-                <Package className="h-3.5 w-3.5" />
-                {t("assignMaterialRoute")}
-              </Button>
-            </div>
+            <div className="text-xs font-semibold text-muted-foreground">{t("resourcesHeading")}</div>
+            {/* Shared per-type resource sections — identical UI to the operation
+                detail modal (icon + count heading + "+ Hinzufügen" + chips). All
+                assign/remove actions target the ROUTE (works with 0 stops). */}
+            <RouteResourceSections
+              resources={resources}
+              onAssign={onAssignRouteResource}
+              onUnassign={onUnassignResource}
+            />
           </div>
 
           {/* Section 2 · Zugewiesene Einsätze — the ordered stops the route works
@@ -702,7 +655,7 @@ function AuftragCard({
               <button
                 type="button"
                 onClick={onAddStop}
-                className="flex w-full items-center gap-2 rounded-md border border-dashed border-border/60 px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                className="flex min-h-10 w-full items-center gap-2 rounded-md border border-dashed border-border/60 px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
               >
                 <Plus className="h-3.5 w-3.5 flex-shrink-0" />
                 {t("addStop")}
@@ -757,30 +710,6 @@ function ColorPickerContent({ selected, onPick }: { selected: string | null; onP
         ))}
       </div>
     </PopoverContent>
-  )
-}
-
-interface ResourceChipProps {
-  icon?: typeof Truck
-  label: string
-  onRemove: () => void
-  removeTitle: string
-}
-
-function ResourceChip({ icon: Icon, label, onRemove, removeTitle }: ResourceChipProps) {
-  return (
-    <Badge variant="secondary" className="group flex items-center gap-1 px-1.5 py-0.5 text-xs font-normal">
-      {Icon && <Icon className="h-3 w-3 text-muted-foreground" />}
-      <span className="truncate max-w-[140px]">{label}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="opacity-60 transition-opacity hover:text-destructive hover:opacity-100"
-        title={removeTitle}
-      >
-        <X className="h-2.5 w-2.5" />
-      </button>
-    </Badge>
   )
 }
 

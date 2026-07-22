@@ -16,7 +16,7 @@
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Plus, Route as RouteIcon, MousePointerClick, X, Loader2, MapPinned, MousePointer2 } from "lucide-react"
+import { Plus, Route as RouteIcon, MousePointerClick, X, Loader2, MapPinned } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -227,15 +227,6 @@ export function RoutenplanungPanel({
             />
           </div>
 
-          {/* Contextual hint: only the active add-mode instruction (the marker-add
-              hint was misleading — marker clicks don't add stops). */}
-          {addMode && (
-            <p className="mb-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-              <MousePointer2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
-              <span>{isAddingStop ? t("addingStop") : t("addStopHint")}</span>
-            </p>
-          )}
-
           {/* Ordered stop list */}
           <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-muted/20 p-2">
             <div className="space-y-0.5">
@@ -262,20 +253,27 @@ export function RoutenplanungPanel({
               )}
 
               {/* Add-row: a full-width "+ Stop hinzufügen" toggle below the last
-                  stop (table "add row"), toggling map click-to-add. */}
-              <button
-                type="button"
-                onClick={() => onAddModeChange(!addMode)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md border border-dashed px-2 py-1.5 text-sm transition-colors",
-                  addMode
-                    ? "border-primary/50 bg-primary/[0.06] text-foreground"
-                    : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-                )}
-              >
-                {isAddingStop ? <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" /> : <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />}
-                {t("addStopToggle")}
-              </button>
+                  stop (table "add row"), toggling map click-to-add. Matches a stop
+                  row's height/padding; the "click the map to place a stop" hint now
+                  lives on hover instead of as a separate line. */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onAddModeChange(!addMode)}
+                    className={cn(
+                      "flex min-h-10 w-full items-center gap-2 rounded-md border border-dashed px-1.5 py-1.5 text-sm transition-colors",
+                      addMode
+                        ? "border-primary/50 bg-primary/[0.06] text-foreground"
+                        : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                    )}
+                  >
+                    {isAddingStop ? <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" /> : <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />}
+                    {t("addStopToggle")}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{isAddingStop ? t("addingStop") : t("addStopHint")}</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </>

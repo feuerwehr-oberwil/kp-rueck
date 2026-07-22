@@ -388,8 +388,12 @@ function DraggableOperationBase({
             </div>
           )}
 
-          {/* Resource assignments - show names with quick removal */}
-          {(operation.assignedReko || operation.crew.length > 0 || operation.zuFuss || operation.vehicles.length > 0 || operation.materials.length > 0 || operation.nachbarhilfe) && (
+          {/* Resource assignments - show names with quick removal. For grouped
+              incidents the per-incident crew/vehicle/material rows are suppressed
+              (the route owns those, summarised in the Auftrag row below), so this
+              block — and its top divider — only renders when something inside it
+              will actually show; otherwise it left an orphan divider line. */}
+          {(operation.assignedReko || (!auftrag && (operation.crew.length > 0 || operation.zuFuss || operation.vehicles.length > 0 || operation.materials.length > 0)) || operation.nachbarhilfe) && (
             <div className="border-t pt-3 space-y-1.5 text-xs">
               {/* Assigned Reko Person */}
               {operation.assignedReko && (

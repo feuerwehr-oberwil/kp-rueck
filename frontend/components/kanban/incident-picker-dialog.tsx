@@ -150,9 +150,13 @@ export function IncidentPickerDialog({
     const q = query.trim().toLowerCase()
     return operations.filter((op) => {
       if (!q) return true
+      // Match address/title, incident-type (label + raw key) and the
+      // Meldung/description, not just the address.
       return (
         op.location.toLowerCase().includes(q) ||
-        getIncidentTypeLabel(op.incidentType).toLowerCase().includes(q)
+        getIncidentTypeLabel(op.incidentType).toLowerCase().includes(q) ||
+        op.incidentType.toLowerCase().includes(q) ||
+        op.notes.toLowerCase().includes(q)
       )
     })
   }, [operations, query])
@@ -285,7 +289,9 @@ export function IncidentPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[80vh] max-w-xl flex-col gap-4">
+      {/* Top-anchored + fixed-height body so toggling Liste ⇄ Karte never moves
+          or resizes the dialog (both modes share the same h-[440px] body). */}
+      <DialogContent className="top-[8vh] flex max-h-[84vh] max-w-xl translate-y-0 flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -348,7 +354,7 @@ export function IncidentPickerDialog({
             )}
           </div>
         ) : (
-        <div className="-mx-1 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
+        <div className="-mx-1 h-[440px] space-y-0.5 overflow-y-auto px-1">
           {candidates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <RouteIcon className="mb-2 h-8 w-8 text-muted-foreground/40" />
