@@ -355,9 +355,8 @@ export function StopListRow({
   const { formatLocation } = useOperations()
   const mirror = toMirrorStatus(op)
   const mirrorConf = MIRROR_CONFIG[mirror]
-  // Primary line = the incident's name (its type label); the address (with the
-  // home city stripped) drops to a muted secondary line — the same two-line
-  // stack the kanban card uses.
+  // Primary line = the address (home city stripped); the incident type is the
+  // muted secondary line; the Meldung shows on hover (title on the wrapper).
   const name = op ? getIncidentTypeLabel(op.incidentType) : incidentId
   const address = op?.location ? formatLocation(op.location) : undefined
 
@@ -440,9 +439,9 @@ export function StopListRow({
         ) : (
           <MirrorIcon className={cn("h-4 w-4 flex-shrink-0", mirrorConf.cls)} />
         )}
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate font-medium">{name}</div>
-          {address && <div className="truncate text-xs text-muted-foreground">{address}</div>}
+        <div className="min-w-0 flex-1 leading-tight" title={op?.notes || undefined}>
+          <div className="truncate font-medium">{address ?? name}</div>
+          {address && <div className="truncate text-xs text-muted-foreground">{name}</div>}
         </div>
         {!isLocated(op) && (
           <span className="flex-shrink-0 text-xs text-muted-foreground/70" title={t("noCoords")}>
