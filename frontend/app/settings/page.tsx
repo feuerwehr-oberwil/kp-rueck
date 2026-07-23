@@ -44,18 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Settings2,
   Bell,
@@ -1434,42 +1423,33 @@ export default function SettingsPage() {
         <MobileBottomNavigation currentPage="settings" />
 
         {/* UI #17 — confirm before replace-mode import wipes existing data. */}
-        <AlertDialog open={replaceConfirmOpen} onOpenChange={setReplaceConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t('page.import.replaceConfirmTitle')}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t('page.import.replaceConfirmDescription')}
-                {preview && (
-                  <span className="block mt-2">
-                    {t.rich('page.import.replaceConfirmCounts', {
-                      personnel: preview.personnel_total,
-                      vehicles: preview.vehicles_total,
-                      materials: preview.materials_total,
-                      strong: (chunks) => <strong>{chunks}</strong>,
-                    })}
-                  </span>
-                )}
-                <span className="block mt-2 text-destructive">
-                  {t('common.irreversible')}
+        <ConfirmDialog
+          open={replaceConfirmOpen}
+          onOpenChange={setReplaceConfirmOpen}
+          variant="destructive"
+          title={t('page.import.replaceConfirmTitle')}
+          description={
+            <>
+              {t('page.import.replaceConfirmDescription')}
+              {preview && (
+                <span className="block mt-2">
+                  {t.rich('page.import.replaceConfirmCounts', {
+                    personnel: preview.personnel_total,
+                    vehicles: preview.vehicles_total,
+                    materials: preview.materials_total,
+                    strong: (chunks) => <strong>{chunks}</strong>,
+                  })}
                 </span>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={(event) => {
-                  event.preventDefault();
-                  setReplaceConfirmOpen(false);
-                  handleImport();
-                }}
-                className={cn(buttonVariants({ variant: 'destructive' }))}
-              >
-                {t('page.import.replaceConfirmAction')}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              )}
+              <span className="block mt-2 text-destructive">
+                {t('common.irreversible')}
+              </span>
+            </>
+          }
+          cancelText={t('common.cancel')}
+          confirmText={t('page.import.replaceConfirmAction')}
+          onConfirm={handleImport}
+        />
       </div>
     </ProtectedRoute>
   );

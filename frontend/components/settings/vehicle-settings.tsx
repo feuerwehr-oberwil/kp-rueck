@@ -16,6 +16,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -212,7 +213,7 @@ export function VehicleSettings() {
           {t('vehicles.addButton')}
         </Button>
         <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
-          <DialogContent>
+          <DialogContent aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>
                 {editingVehicle ? t('vehicles.dialogEditTitle') : t('vehicles.dialogCreateTitle')}
@@ -296,7 +297,7 @@ export function VehicleSettings() {
                     </FormItem>
                   )}
                 />
-                <div className="flex justify-end gap-2">
+                <DialogFooter>
                   <Button
                     type="button"
                     variant="outline"
@@ -309,7 +310,7 @@ export function VehicleSettings() {
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {editingVehicle ? t('common.update') : t('common.create')}
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
             </Form>
           </DialogContent>

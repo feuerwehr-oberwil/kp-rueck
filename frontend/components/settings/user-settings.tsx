@@ -27,17 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useTranslations } from 'next-intl';
@@ -425,7 +416,8 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={submitting}>
-              {submitting ? t('users.creating') : t('common.create')}
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -485,7 +477,8 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleUpdate} disabled={submitting}>
-              {submitting ? t('users.saving') : t('common.save')}
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -517,53 +510,36 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleResetPassword} disabled={submitting || !newPassword}>
-              {submitting ? t('users.resetting') : t('users.setPassword')}
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('users.setPassword')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('users.deactivateTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('users.deactivateDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {submitting ? t('users.deactivating') : t('users.deactivateAction')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete (deactivate) Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        variant="destructive"
+        title={t('users.deactivateTitle')}
+        description={t('users.deactivateDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
+        cancelText={t('common.cancel')}
+        confirmText={t('users.deactivateAction')}
+        onConfirm={handleDelete}
+      />
 
       {/* Permanent Delete Confirmation Dialog */}
-      <AlertDialog open={permanentDeleteDialogOpen} onOpenChange={setPermanentDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('users.permanentDeleteTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('users.permanentDeleteDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handlePermanentDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {submitting ? t('users.deleting') : t('users.permanentDeleteAction')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={permanentDeleteDialogOpen}
+        onOpenChange={setPermanentDeleteDialogOpen}
+        variant="destructive"
+        title={t('users.permanentDeleteTitle')}
+        description={t('users.permanentDeleteDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
+        cancelText={t('common.cancel')}
+        confirmText={t('users.permanentDeleteAction')}
+        onConfirm={handlePermanentDelete}
+      />
     </div>
   );
 }

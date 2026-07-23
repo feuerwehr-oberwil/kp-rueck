@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Link2, RefreshCw, Search, Check, Info } from 'lucide-react';
+import { Link2, RefreshCw, Search, Check, Info, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { getDateFnsLocale } from '@/lib/date-locale';
@@ -450,11 +450,12 @@ export default function DiveraPoolPage() {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={() => setShowAttachDialog(false)}>
+            <Button variant="outline" onClick={() => setShowAttachDialog(false)} disabled={attaching}>
               {t('cancel')}
             </Button>
             <Button onClick={handleAttach} disabled={!selectedEventId || attaching}>
-              {attaching ? t('attaching') : t('attach')}
+              {attaching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('attach')}
             </Button>
           </DialogFooter>
         </DialogContent>

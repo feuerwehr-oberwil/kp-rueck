@@ -487,7 +487,7 @@ export default function EventsPage() {
 
         {/* Create Event Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>{t('createDialog.title')}</DialogTitle>
             </DialogHeader>
@@ -559,7 +559,7 @@ export default function EventsPage() {
 
       {/* Archive Confirmation Dialog */}
       <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('archiveDialog.title')}</DialogTitle>
           </DialogHeader>
@@ -582,7 +582,7 @@ export default function EventsPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
           </DialogHeader>

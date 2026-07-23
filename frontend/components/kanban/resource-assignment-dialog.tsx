@@ -8,16 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2 } from "lucide-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { getActiveLocale } from "@/lib/i18n-messages"
@@ -953,32 +944,24 @@ export function ResourceAssignmentDialog({
     </Dialog>
 
     {/* Double-booking guard: assigning a driver/reko/magazin to crew asks first. */}
-    <AlertDialog open={!!confirmPerson} onOpenChange={(o) => !o && setConfirmPerson(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('assignmentDialog.specialFnConfirmTitle')}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {confirmPerson
-              ? t('assignmentDialog.specialFnConfirmBody', {
-                  name: confirmPerson.name,
-                  func: specialFunctionOf(confirmPerson)?.label ?? '',
-                })
-              : ''}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => {
-              if (confirmPerson) addPersonToSelection(confirmPerson)
-              setConfirmPerson(null)
-            }}
-          >
-            {t('assignmentDialog.specialFnConfirmAction')}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open={!!confirmPerson}
+      onOpenChange={(o) => !o && setConfirmPerson(null)}
+      title={t('assignmentDialog.specialFnConfirmTitle')}
+      description={
+        confirmPerson
+          ? t('assignmentDialog.specialFnConfirmBody', {
+              name: confirmPerson.name,
+              func: specialFunctionOf(confirmPerson)?.label ?? '',
+            })
+          : ''
+      }
+      cancelText={t('common.cancel')}
+      confirmText={t('assignmentDialog.specialFnConfirmAction')}
+      onConfirm={() => {
+        if (confirmPerson) addPersonToSelection(confirmPerson)
+      }}
+    />
     </>
   )
 }

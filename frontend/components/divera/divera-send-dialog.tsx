@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -168,7 +169,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Siren className="h-4 w-4 text-primary" />
+            <Siren className="h-5 w-5 text-primary" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>
@@ -264,19 +265,19 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSending}>
+          <DialogFooter className="pt-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
               {t("cancel")}
             </Button>
             <Button onClick={handleSend} disabled={isSending || selectedLinkedCount === 0 || !templatesReady}>
               {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Siren className="h-4 w-4" />
+                <Siren className="mr-2 h-4 w-4" />
               )}
               {t("send", { count: selectedLinkedCount })}
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>
