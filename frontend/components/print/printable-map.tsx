@@ -7,6 +7,7 @@ import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 
 // Create simple colored marker icon
 function createMarkerIcon(priority: string): L.DivIcon {
@@ -34,15 +35,13 @@ function createMarkerIcon(priority: string): L.DivIcon {
 }
 
 // Component to auto-fit map bounds to show all operations
-function FitBounds({ operations }: { operations: Operation[] }) {
+function FitBounds({ operations }: { operations: LocatedOperation[] }) {
   const map = useMap()
 
   useEffect(() => {
     if (operations.length === 0) return
 
-    const validOps = operations.filter(
-      (op) => op.coordinates && op.coordinates[0] !== 0 && op.coordinates[1] !== 0
-    )
+    const validOps = operations.filter(isLocated)
 
     if (validOps.length === 0) return
 
@@ -83,9 +82,7 @@ export default function PrintableMap({ operations }: PrintableMapProps) {
   const [isReady, setIsReady] = useState(false)
 
   // Filter operations with valid coordinates
-  const mappableOperations = operations.filter(
-    (op) => op.coordinates && op.coordinates[0] !== 0 && op.coordinates[1] !== 0
-  )
+  const mappableOperations = operations.filter(isLocated)
 
   // Default center (Basel region)
   const defaultCenter: [number, number] = [47.51637699933488, 7.561800450458299]

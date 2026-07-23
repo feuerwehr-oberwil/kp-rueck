@@ -25,9 +25,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
-
-// Must match SIDEPANEL_BREAKPOINT in side-panel.tsx
-const SIDEPANEL_BREAKPOINT = 1536
+import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 
 interface DraggableOperationProps {
   operation: Operation
@@ -173,7 +171,7 @@ function DraggableOperationBase({
   // Detect screen width for sidebar vs modal behavior
   useEffect(() => {
     const checkWidth = () => {
-      setIsLargeScreen(window.innerWidth >= SIDEPANEL_BREAKPOINT)
+      setIsLargeScreen(window.innerWidth >= SIDE_PANEL_BREAKPOINT)
     }
     checkWidth()
     window.addEventListener('resize', checkWidth)

@@ -46,7 +46,7 @@ export function NewEmergencyModal({
     incidentType: "elementarereignis",
     priority: "low" as "high" | "medium" | "low",
     vehicle: null as string | null,
-    coordinates: [47.51637699933488, 7.561800450458299] as [number, number],
+    coordinates: null as Operation["coordinates"],
     status: "incoming" as OperationStatus,
     crew: [] as string[],
     materials: [] as string[],
@@ -110,7 +110,7 @@ export function NewEmergencyModal({
       incidentType: "elementarereignis",
       priority: "low",
       vehicle: null,
-      coordinates: [47.51637699933488, 7.561800450458299],
+      coordinates: null,
       status: "incoming",
       crew: [],
       materials: [],
@@ -161,8 +161,8 @@ export function NewEmergencyModal({
           <div className="space-y-1.5">
             <LocationInput
               address={formData.location}
-              latitude={formData.coordinates[0]}
-              longitude={formData.coordinates[1]}
+              latitude={formData.coordinates?.[0] ?? null}
+              longitude={formData.coordinates?.[1] ?? null}
               onAddressChange={(address) => {
                 setFormData(prev => ({ ...prev, location: address || "" }))
                 setTouched(prev => ({ ...prev, location: true }))
@@ -170,7 +170,7 @@ export function NewEmergencyModal({
               onCoordinatesChange={(lat, lon) =>
                 setFormData(prev => ({
                   ...prev,
-                  coordinates: [lat ?? 47.51637699933488, lon ?? 7.561800450458299]
+                  coordinates: lat !== null && lon !== null ? [lat, lon] : null
                 }))
               }
               autoFocus={open}

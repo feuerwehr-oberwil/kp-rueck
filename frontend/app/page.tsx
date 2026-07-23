@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users, Footprints, Waypoints, ArrowUpDown } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -58,6 +58,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { SidePanel } from "@/components/kanban/side-panel"
+import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
@@ -65,16 +66,11 @@ import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import type { Incident } from "@/lib/types/incidents"
-import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  IncidentStatusWorkflowDialogs,
+  useIncidentStatusWorkflow,
+} from "@/components/kanban/incident-status-workflow"
 
 export default function FireStationDashboard() {
   const {
@@ -90,6 +86,7 @@ export default function FireStationDashboard() {
     removeReko,
     updateOperation,
     reorderColumn,
+    changeStatusToTop,
     setBoardDragging,
     createOperation,
     getNextOperationId,
@@ -137,11 +134,6 @@ export default function FireStationDashboard() {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
   const tRes = useTranslations('kanban.resources')
-  const tMissing = useTranslations('kanban.missingResources')
-  const tReturning = useTranslations('kanban.returningVehicle')
-  const tReko = useTranslations('kanban.rekoMissing')
-  const tRekoForm = useTranslations('kanban.rekoFormMissing')
-  const tMat = useTranslations('kanban.materialDecision')
 
   // Ref for highlight timeout cleanup
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -202,15 +194,6 @@ export default function FireStationDashboard() {
     }, 100)
   }, [])
 
-  // Enable reko notifications for all incidents with modal opening support
-  const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
-    const operation = operations.find(op => op.id === incidentId)
-    if (operation) {
-      setSelectedOperationId(operation.id)
-      setDetailModalOpen(true)
-    }
-  }, [operations])
-
   // Update operation REKO summary when new report arrives
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: {
     isRelevant: boolean
@@ -231,8 +214,6 @@ export default function FireStationDashboard() {
     }))
   }, [setOperations])
 
-  useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
-
   const { currentTime, isMounted } = useCurrentTime()
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
@@ -247,6 +228,27 @@ export default function FireStationDashboard() {
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
+  // Modal and panel intentionally share one incident identity; only presentation
+  // changes at the external-monitor breakpoint.
+  const [panToNonce, setPanToNonce] = useState(0)
+  const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'map' | 'collapsed'>('collapsed')
+  const openIncidentDetail = useCallback((operationId: string) => {
+    setSelectedOperationId(operationId)
+    setHoveredOperationId(operationId)
+    if (typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT) {
+      setDetailModalOpen(false)
+      setPanToNonce((value) => value + 1)
+      setSidePanelMode('detail')
+    } else {
+      setDetailModalOpen(true)
+    }
+  }, [])
+
+  const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
+    if (operations.some((operation) => operation.id === incidentId)) openIncidentDetail(incidentId)
+  }, [openIncidentDetail, operations])
+
+  useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
@@ -303,69 +305,36 @@ export default function FireStationDashboard() {
   const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
   const [alarmCopied, setAlarmCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
-  const [disponiertDialogOp, setDisponiertDialogOp] = useState<Operation | null>(null)
   const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
   // These dialogs hold a snapshot of the operation; derive the LIVE operation so a
   // resource assigned while the dialog is open (e.g. via the missing-resources
   // "Zuweisen" flow) shows up in the radio text and Divera recipients instead of
   // a stale "keine Person zugewiesen".
-  const disponiertDialogOpLive = useMemo(
-    () => (disponiertDialogOp ? operations.find(o => o.id === disponiertDialogOp.id) ?? disponiertDialogOp : null),
-    [disponiertDialogOp, operations]
-  )
   const diveraDialogOpLive = useMemo(
     () => (diveraDialogOp ? operations.find(o => o.id === diveraDialogOp.id) ?? diveraDialogOp : null),
     [diveraDialogOp, operations]
   )
-  // When disponieren is triggered for an incident that's missing resources
-  // (Personal, Fahrzeuge or Mittel), hold its id here to make the operator
-  // acknowledge what's missing before dispatching. We store the id (not the op)
-  // and derive the live op below, so the checklist reflects assignments made from
-  // inside the gate the instant `operations` updates — no stale "still fehlt".
-  const [missingResourcesAckOpId, setMissingResourcesAckOpId] = useState<string | null>(null)
-  // Gate before einsatz → beendet/rückfahrt: if no vehicle is assigned the crew would
-  // have to walk back, so make the operator acknowledge (or assign one first).
-  const [returningVehicleAckOpId, setReturningVehicleAckOpId] = useState<string | null>(null)
-  // When the operator picks a category from one of the resource gates, we close the gate,
-  // open the assignment dialog, and remember here where to return once it closes: back to
-  // the checklist ('missing') or the returning warning ('returning'). Only set on the gate
-  // paths — normal per-category assignments are unaffected.
-  const [assignReturnTo, setAssignReturnTo] = useState<{ kind: 'missing' | 'returning'; opId: string } | null>(null)
-  // Live ops derived from the held ids, so both gates always render current state.
-  const missingResourcesAckOp = useMemo(
-    () => (missingResourcesAckOpId ? operations.find((o) => o.id === missingResourcesAckOpId) ?? null : null),
-    [missingResourcesAckOpId, operations]
-  )
-  // The returning warning self-dismisses the moment a vehicle exists (or zu Fuss).
-  const returningVehicleAckOp = useMemo(() => {
-    if (!returningVehicleAckOpId) return null
-    const op = operations.find((o) => o.id === returningVehicleAckOpId)
-    if (!op || op.zuFuss || op.vehicles.length > 0) return null
-    // A route stop covered by the Auftrag's vehicle also dismisses the warning.
-    if (op.groupId && getGroupResources(op.groupId).vehicles.length > 0) return null
-    return op
-  }, [returningVehicleAckOpId, operations, getGroupResources])
   // Resource transfer ("Ressourcen übertragen") opened from the card context menu.
   const [transferSourceOp, setTransferSourceOp] = useState<Operation | null>(null)
   const [transferAvailableIncidents, setTransferAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
-  // Moving a card into REKO without a reko person assigned holds it here so the
-  // operator can assign someone (who then receives the reko form) or proceed anyway.
-  const [rekoMissingAckOp, setRekoMissingAckOp] = useState<Operation | null>(null)
-  // Moving a card into REKO ABGESCHLOSSEN without a completed reko form holds it
-  // here so the operator can open the reko details or acknowledge and proceed.
-  const [rekoFormMissingAckOp, setRekoFormMissingAckOp] = useState<Operation | null>(null)
-  // When an incident is completed while it still has materials assigned, hold it
-  // here so the operator decides: release the materials ("Material zurück") or
-  // leave them on site ("Vor Ort gelassen"). Completion itself has already
-  // happened (status → complete, which keeps materials) — this only decides
-  // whether to additionally release them. Cancel/dismiss keeps them (safe default).
-  const [materialDecisionOp, setMaterialDecisionOp] = useState<Operation | null>(null)
-  // Per-material choice in the completion dialog: 'magazin' (return) is the default,
-  // 'vorort' (left on scene). Reset each time the dialog opens so choices don't leak
-  // between incidents; unset entries fall back to 'magazin'.
-  const [materialDecisions, setMaterialDecisions] = useState<Record<string, 'magazin' | 'vorort'>>({})
-  useEffect(() => { setMaterialDecisions({}) }, [materialDecisionOp])
+  const statusWorkflow = useIncidentStatusWorkflow({
+    operations,
+    materials,
+    changeStatusToTop,
+    getGroupResources,
+    removeMaterial,
+    unassignGroupResource,
+  })
+  const {
+    requestStatusChange,
+    requestCompletion,
+    triggerDisponiertDialog,
+    triggerReturningVehicleCheck,
+    triggerRekoCheck,
+    triggerRekoFormCheck,
+    promptMaterialDecision,
+  } = statusWorkflow
 
   // Persist showMeldung to localStorage
   useEffect(() => {
@@ -382,18 +351,20 @@ export default function FireStationDashboard() {
     },
   })
 
-  // Side panel state for ultrawide monitors
-  const [panelSelectedId, setPanelSelectedId] = useState<string | null>(null)
-  // Bumped on every side-panel selection click so the map recenters even when
-  // the same alarm is clicked again (e.g. after the user manually panned away)
-  const [panToNonce, setPanToNonce] = useState(0)
-  const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'map' | 'collapsed'>('collapsed')
-  // Derive selected operation for side panel
-  const panelSelectedOperation = useMemo(() => {
-    if (!panelSelectedId) return null
-    return operations.find(op => op.id === panelSelectedId) || null
-  }, [panelSelectedId, operations])
-
+  useEffect(() => {
+    const handleResize = () => {
+      if (!selectedOperationId) return
+      const usePanel = window.innerWidth >= SIDE_PANEL_BREAKPOINT
+      if (usePanel && detailModalOpen) {
+        setDetailModalOpen(false)
+        setSidePanelMode('detail')
+      } else if (!usePanel && sidePanelMode === 'detail' && !detailModalOpen) {
+        setDetailModalOpen(true)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [detailModalOpen, selectedOperationId, sidePanelMode])
   // Register notification click → scroll to card + open detail
   // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
   useEffect(() => {
@@ -404,23 +375,19 @@ export default function FireStationDashboard() {
       setTimeout(() => {
         const operation = operations.find(op => op.id === incidentId)
         if (operation) {
-          const isLargeScreen = window.innerWidth >= 1536 // SIDEPANEL_BREAKPOINT
+          const isLargeScreen = window.innerWidth >= SIDE_PANEL_BREAKPOINT
           if (isLargeScreen) {
             // Side panel selection (same as onCardSelect / handleCardSelect)
-            setPanelSelectedId(incidentId)
-            setHoveredOperationId(incidentId)
-            setSidePanelMode(prev => prev === 'collapsed' ? 'detail' : prev)
+            openIncidentDetail(incidentId)
           } else {
             // Modal overlay (same as onCardClick / handleCardClick)
-            setSelectedOperationId(incidentId)
-            setHoveredOperationId(incidentId)
-            setDetailModalOpen(true)
+            openIncidentDetail(incidentId)
           }
         }
       }, 200)
     })
     return () => registerNavigateHandler(null)
-  }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations])
+  }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations, openIncidentDetail])
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -545,99 +512,6 @@ export default function FireStationDashboard() {
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
 
-  // Returns the resource categories (Personal / Fahrzeuge / Mittel) an incident
-  // is still missing. Vehicles are skipped for "zu Fuss" incidents, which by
-  // definition rück without apparatus.
-  // For a grouped incident the Auftrag owns the resources, so the stop's coverage
-  // is its own resources UNION the route's. This keeps the gate from crying
-  // "Ressourcen fehlen" on a route stop whose Auftrag is fully equipped.
-  const getMissingResources = useCallback((op: Operation): Array<'crew' | 'vehicles' | 'materials'> => {
-    const gr = op.groupId ? getGroupResources(op.groupId) : null
-    const crewCount = op.crew.length + (gr?.personnel.length ?? 0)
-    const vehicleCount = op.vehicles.length + (gr?.vehicles.length ?? 0)
-    const materialCount = op.materials.length + (gr?.materials.length ?? 0)
-    const missing: Array<'crew' | 'vehicles' | 'materials'> = []
-    if (crewCount === 0) missing.push("crew")
-    if (!op.zuFuss && vehicleCount === 0) missing.push("vehicles")
-    if (materialCount === 0) missing.push("materials")
-    return missing
-  }, [getGroupResources])
-
-  // Show disponiert transition dialog when moving to enroute. If the incident is
-  // missing any resources (Personal, Fahrzeuge or Mittel), gate behind an
-  // acknowledgment first so the operator doesn't silently dispatch it underequipped.
-  const triggerDisponiertDialog = useCallback((operationId: string) => {
-    const op = operations.find(o => o.id === operationId)
-    if (!op) return
-    if (getMissingResources(op).length > 0) {
-      setMissingResourcesAckOpId(op.id)
-    } else {
-      setDisponiertDialogOp(op)
-    }
-  }, [operations, getMissingResources])
-
-  // Gate before einsatz → beendet/rückfahrt: warn if the crew has no vehicle to drive
-  // back (walking back with the gear is what we're trying to avoid). Skipped for zu-Fuss
-  // incidents, where returning on foot is expected.
-  const triggerReturningVehicleCheck = useCallback((operationId: string) => {
-    const op = operations.find(o => o.id === operationId)
-    if (!op) return
-    const routeVehicles = op.groupId ? getGroupResources(op.groupId).vehicles.length : 0
-    if (!op.zuFuss && op.vehicles.length === 0 && routeVehicles === 0) setReturningVehicleAckOpId(op.id)
-  }, [operations, getGroupResources])
-
-  // When a card enters REKO without a reko person assigned, prompt the operator
-  // to assign one (mirrors the missing-resources gate before disponieren).
-  const triggerRekoCheck = useCallback((operationId: string) => {
-    const op = operations.find(o => o.id === operationId)
-    if (op && !op.assignedReko) setRekoMissingAckOp(op)
-  }, [operations])
-
-  // When a card is moved into REKO ABGESCHLOSSEN without a completed reko form,
-  // inform the operator (mirrors the missing reko-person gate). The happy path —
-  // a submitted form — auto-transitions and sets hasCompletedReko, so this only
-  // fires on a manual move without a filled-out form.
-  const triggerRekoFormCheck = useCallback((operationId: string) => {
-    const op = operations.find(o => o.id === operationId)
-    if (op && !op.hasCompletedReko) setRekoFormMissingAckOp(op)
-  }, [operations])
-
-  // After an incident is completed, prompt the operator to decide what to do with
-  // any materials that are still assigned (completion keeps them by default). Called
-  // from every completion path: drag-to-ABGESCHLOSSEN, move-right, and the card's
-  // "Einsatz abschliessen" context-menu item.
-  const promptMaterialDecision = useCallback((operationId: string) => {
-    const op = operations.find(o => o.id === operationId)
-    if (!op) return
-    if (op.groupId) {
-      // Route material is owned by the Auftrag and only returns once the whole
-      // route is done — so prompt only on the LAST open stop, over the ROUTE's
-      // materials. Earlier stops finishing leave the route (and its kit) running.
-      const routeMaterials = getGroupResources(op.groupId).materials
-      if (routeMaterials.length === 0) return
-      const siblingsOpen = operations.some(
-        o => o.groupId === op.groupId && o.id !== op.id && o.status !== "complete" && o.status !== "returning",
-      )
-      if (siblingsOpen) return
-      setMaterialDecisionOp(op)
-      return
-    }
-    if (op.materials.length > 0) setMaterialDecisionOp(op)
-  }, [operations, getGroupResources])
-
-  // Archive an incident immediately (status → complete). Mirrors dragging the card
-  // to ABGESCHLOSSEN: updateOperation auto-releases personnel + vehicles and keeps
-  // materials, then we prompt for the material decision.
-  const requestCompletion = useCallback((operationId: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (!operation || operation.status === "complete") return
-    updateOperation(operationId, { status: "complete" })
-    // Completing from the Reko-Meldung "Einsatz abschliessen" button should also
-    // dismiss the detail modal — the incident just moved to ABGESCHLOSSEN.
-    setDetailModalOpen(false)
-    promptMaterialDecision(operationId)
-  }, [operations, updateOperation, promptMaterialDecision])
-
   const setRouteStopStatus = useCallback((operationId: string, newStatus: OperationStatus) => {
     const operation = operations.find((op) => op.id === operationId)
     if (!operation || operation.status === "complete") return
@@ -646,21 +520,15 @@ export default function FireStationDashboard() {
     // already in must be a no-op — otherwise writing "incoming" back regresses a
     // reko/reko-done incident all the way to eingegangen, discarding its progress.
     if (toMirrorStatus(operation) === newStatus) return
-    if (newStatus === "complete") {
-      requestCompletion(operationId)
-      return
-    }
-    updateOperation(operationId, { status: newStatus })
-    if (newStatus === "enroute") triggerDisponiertDialog(operationId)
-    if (newStatus === "ready") triggerRekoCheck(operationId)
-    if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
-    if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
-  }, [operations, requestCompletion, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])
+    requestStatusChange(operationId, newStatus)
+  }, [operations, requestStatusChange])
 
-  // One-shot global sort: reorder every column's cards by a chosen key, all at
-  // once, and persist it (writes position). It is NOT a sticky mode — drag still
-  // works afterwards; the operator re-runs it if they want to re-sort.
-  const handleGlobalSort = useCallback((key: 'priority' | 'age' | 'auftrag' | 'type') => {
+  // One-shot column sort: persist the chosen column's order without turning off
+  // manual drag-and-drop ordering afterwards.
+  const handleColumnSort = useCallback((columnId: string, key: 'priority' | 'age' | 'auftrag' | 'type') => {
+    const column = columns.find((candidate) => candidate.id === columnId)
+    if (!column) return
+
     const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 }
     const byAge = (a: Operation, b: Operation) => a.dispatchTime.getTime() - b.dispatchTime.getTime()
     const groupName = (id: string | null) => (id ? groups.find((g) => g.id === id)?.name ?? '' : '')
@@ -683,15 +551,14 @@ export default function FireStationDashboard() {
           return byAge(a, b)
       }
     }
-    const ordered: string[] = []
-    for (const col of columns) {
-      const colOps = operations.filter((op) => col.status.includes(op.status)).sort(cmp)
-      for (const op of colOps) ordered.push(op.id)
-    }
-    const orderIndex = new Map(ordered.map((id, i) => [id, i]))
-    // Reorder the local array immediately (columns render in array order), then
-    // persist the new position sequence.
-    setOperations((prev) => [...prev].sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0)))
+    const columnOperations = operations.filter((op) => column.status.includes(op.status)).sort(cmp)
+    const ordered = columnOperations.map((op) => op.id)
+
+    // Replace only this column's slots so every other column keeps its order.
+    setOperations((prev) => {
+      let nextIndex = 0
+      return prev.map((op) => column.status.includes(op.status) ? columnOperations[nextIndex++] : op)
+    })
     reorderColumn(ordered)
     toast.success(tDash('sort.applied'))
   }, [operations, groups, setOperations, reorderColumn, tDash])
@@ -894,8 +761,7 @@ export default function FireStationDashboard() {
         if (hoveredOperationId) {
           const operation = operations.find(op => op.id === hoveredOperationId)
           if (operation) {
-            setSelectedOperationId(operation.id)
-            setDetailModalOpen(true)
+            openIncidentDetail(operation.id)
           }
         }
       },
@@ -946,6 +812,7 @@ export default function FireStationDashboard() {
     moveOperationLeft,
     updateOperation,
     toggleVehicleAssignment,
+    openIncidentDetail,
   ])
 
   // Hide sidebars on mobile by default
@@ -1084,8 +951,7 @@ export default function FireStationDashboard() {
       },
       onRefresh: refreshOperations,
       onOpenDetail: (op) => {
-        setSelectedOperationId(op.id)
-        setDetailModalOpen(true)
+        openIncidentDetail(op.id)
       },
       onRequestDelete: (op) => {
         setOperationToDelete(op)
@@ -1143,7 +1009,7 @@ export default function FireStationDashboard() {
     setDraggingItem,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel
-      setPanelSelectedId(operationId)
+      setSelectedOperationId(operationId)
       setHoveredOperationId(operationId)
     },
     onStatusChange: (operationId, newStatus) => {
@@ -1308,21 +1174,12 @@ export default function FireStationDashboard() {
     if (isDraggingOperationRef.current) {
       return
     }
-    setSelectedOperationId(operation.id)
-    setHoveredOperationId(operation.id) // Set hovered ID so keyboard shortcuts work on this operation
-    setDetailModalOpen(true)
+    openIncidentDetail(operation.id)
     broadcast("incident:selected", operation.id)
   }
 
   const handleCardSelect = (operation: Operation) => {
-    // Select operation for side panel view
-    setPanelSelectedId(operation.id)
-    setPanToNonce((n) => n + 1) // Recenter map even if the same alarm is re-clicked
-    setHoveredOperationId(operation.id) // Also update hovered for keyboard shortcuts
-    // Auto-open side panel in detail mode if collapsed
-    if (sidePanelMode === 'collapsed') {
-      setSidePanelMode('detail')
-    }
+    openIncidentDetail(operation.id)
   }
 
   // Derived state for convenience
@@ -1521,19 +1378,6 @@ export default function FireStationDashboard() {
     setAssignmentDialogOpen(true)
   }
 
-  // Open the assignment dialog for one category from a resource gate, remembering to
-  // return to that gate ('missing' checklist / 'returning' warning) once it closes.
-  const openGateAssign = (category: 'crew' | 'vehicles' | 'materials', opId: string, kind: 'missing' | 'returning') => {
-    setMissingResourcesAckOpId(null)
-    setReturningVehicleAckOpId(null)
-    setAssignReturnTo({ kind, opId })
-    // For a grouped incident the gate assigns to the Auftrag (route-owned), not
-    // the single stop — so the coverage the gate checks is the one we fill.
-    const op = operations.find((o) => o.id === opId)
-    if (op?.groupId) handleAssignRouteResource(category, op.groupId)
-    else handleOpenAssignmentDialog(category, opId)
-  }
-
   // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
   // an incident already in another route MOVES it (addStops reassigns group_id).
   const handleConfirmAddStops = async (incidentIds: string[]) => {
@@ -1670,14 +1514,6 @@ export default function FireStationDashboard() {
   const occupiedVehicleIds = new Set([...occupiedResourceIds.vehicle].filter((id) => !routeOwnIds.has(`vehicle:${id}`)))
   const occupiedMaterialIds = new Set([...occupiedResourceIds.material].filter((id) => !routeOwnIds.has(`material:${id}`)))
 
-  // Material-return dialog operates on the ROUTE's materials for a grouped
-  // incident (unassign by group-assignment id) and on the stop's own otherwise.
-  const materialDecisionItems: Array<{ id: string; assignmentId: string | null }> = materialDecisionOp
-    ? materialDecisionOp.groupId
-      ? getGroupResources(materialDecisionOp.groupId).materials.map((m) => ({ id: m.resourceId, assignmentId: m.assignmentId }))
-      : materialDecisionOp.materials.map((id) => ({ id, assignmentId: null }))
-    : []
-
   // Handle operation deletion from keyboard shortcut
   const handleDeleteOperationConfirm = async () => {
     if (!operationToDelete) return
@@ -1776,29 +1612,6 @@ export default function FireStationDashboard() {
                   <Kbd>S</Kbd>
                 </div>
               </div>
-
-              {isEditor && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      title={tDash('sort.label')}
-                      aria-label={tDash('sort.label')}
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuLabel>{tDash('sort.label')}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handleGlobalSort('priority')}>{tDash('sort.priority')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGlobalSort('age')}>{tDash('sort.age')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGlobalSort('auftrag')}>{tDash('sort.auftrag')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGlobalSort('type')}>{tDash('sort.type')}</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
 
               <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -1963,7 +1776,7 @@ export default function FireStationDashboard() {
                       onCardSelect={handleCardSelect}
                       onCardHover={setHoveredOperationId}
                       highlightedOperationId={highlightedOperationId}
-                      selectedOperationId={panelSelectedId}
+                      selectedOperationId={selectedOperationId}
                       hoveredOperationId={hoveredOperationId}
                       isDraggingRef={isDraggingOperationRef}
                       materials={materials}
@@ -1981,6 +1794,7 @@ export default function FireStationDashboard() {
                       doubleBookedCrewNames={doubleBookedPersons.names}
                       canDrag={isEditor}
                       onDragActiveChange={setBoardDragging}
+                      onSort={isEditor ? handleColumnSort : undefined}
                     />
                   )
                 })}
@@ -1992,37 +1806,42 @@ export default function FireStationDashboard() {
           <SidePanel
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
-            selectedOperation={panelSelectedOperation}
+            selectedOperation={selectedOperation}
             panToNonce={panToNonce}
             operations={filteredOperations}
             materials={materials}
             formatLocation={formatLocation}
             onSelectOperation={(op) => {
-              setPanelSelectedId(op.id)
+              setSelectedOperationId(op.id)
+              setDetailModalOpen(false)
               setPanToNonce((n) => n + 1) // Recenter on every marker/list click too
               setHoveredOperationId(op.id)
             }}
-            vehicleTypes={vehicleTypes}
             onUpdate={(updates) => {
-              if (panelSelectedOperation) {
-                updateOperation(panelSelectedOperation.id, updates)
+              if (selectedOperation) {
+                updateOperation(selectedOperation.id, updates)
               }
             }}
-            onDelete={async (operationId) => {
+            onDelete={isEditor ? async (operationId) => {
               try {
                 await deleteOperation(operationId)
-                setPanelSelectedId(null)
+                setSelectedOperationId(null)
               } catch (error) {
                 console.error('Failed to delete operation:', error)
                 toast.error(tCommon('deleteFailed'))
               }
-            }}
-            onAssignVehicle={assignVehicleToOperation}
-            onRemoveVehicle={removeVehicle}
-            onAssignResource={handleOpenAssignmentDialog}
-            onRemoveCrew={removeCrew}
-            onRemoveMaterial={removeMaterial}
+            } : undefined}
+            onAssignVehicle={isEditor ? assignVehicleToOperation : undefined}
+            onRemoveVehicle={isEditor ? removeVehicle : undefined}
+            onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
+            onRemoveCrew={isEditor ? removeCrew : undefined}
+            onRemoveMaterial={isEditor ? removeMaterial : undefined}
+            canEdit={isEditor}
+            diveraEnabled={isEditor && diveraEnabled}
+            onSendDivera={isEditor ? (op) => setDiveraDialogOp(op) : undefined}
+            onChangeStatus={isEditor ? requestStatusChange : undefined}
             onRequestComplete={isEditor ? requestCompletion : undefined}
+            onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
           />
 
           {showRightSidebar && (
@@ -2131,7 +1950,7 @@ export default function FireStationDashboard() {
         </div>
 
         {/* Desktop Footer - z-index lowered when modals open so dialog overlay covers it */}
-        <footer className={`relative bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border ${detailModalOpen || newEmergencyModalOpen || disponiertDialogOp ? 'z-40' : 'z-[60]'}`}>
+        <footer className={`relative bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border ${detailModalOpen || newEmergencyModalOpen || statusWorkflow.disponiertOperation ? 'z-40' : 'z-[60]'}`}>
           <div className="flex items-center justify-between gap-4">
             {/* Left: Primary action */}
             <div className="flex items-center gap-3">
@@ -2405,15 +2224,17 @@ export default function FireStationDashboard() {
         open={detailModalOpen}
         onOpenChange={setDetailModalOpen}
         onUpdate={handleOperationUpdate}
-        onDelete={handleOperationDelete}
+        onDelete={isEditor ? handleOperationDelete : undefined}
         materials={materials}
-        onAssignVehicle={handleVehicleAssign}
-        onRemoveVehicle={handleVehicleRemove}
-        onAssignResource={handleOpenAssignmentDialog}
-        onRemoveCrew={removeCrew}
-        onRemoveMaterial={removeMaterial}
-        diveraEnabled={diveraEnabled}
-        onSendDivera={(op) => setDiveraDialogOp(op)}
+        onAssignVehicle={isEditor ? handleVehicleAssign : undefined}
+        onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
+        onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
+        onRemoveCrew={isEditor ? removeCrew : undefined}
+        onRemoveMaterial={isEditor ? removeMaterial : undefined}
+        canEdit={isEditor}
+        diveraEnabled={isEditor && diveraEnabled}
+        onSendDivera={isEditor ? (op) => setDiveraDialogOp(op) : undefined}
+        onChangeStatus={isEditor ? requestStatusChange : undefined}
         onRequestComplete={isEditor ? requestCompletion : undefined}
         onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
       />
@@ -2437,16 +2258,7 @@ export default function FireStationDashboard() {
           if (!open) {
             // Route-scoped assign is over — drop back to per-incident mode.
             setRouteAssign(null)
-            // If this dialog was opened from a resource gate, return to that gate on
-            // close so the operator sees the updated state (checklist) or a resolved
-            // warning. Both gates derive their op live, and the gate coverage now
-            // folds in the Auftrag's resources, so route assigns reflect instantly.
-            if (assignReturnTo) {
-              const { kind, opId } = assignReturnTo
-              setAssignReturnTo(null)
-              if (kind === 'missing') setMissingResourcesAckOpId(opId)
-              else setReturningVehicleAckOpId(opId)
-            }
+            statusWorkflow.resumeGateAfterAssignment()
           }
         }}
         resourceType={assignmentResourceType}
@@ -2987,322 +2799,17 @@ export default function FireStationDashboard() {
         isPrinting={isPrintingBoard}
       />
 
-      {/* Missing-resources checklist — gate before disponieren. Each still-missing
-          category can be assigned inline; the operator returns here after each. */}
-      <AlertDialog
-        open={!!missingResourcesAckOp}
-        onOpenChange={(open) => !open && setMissingResourcesAckOpId(null)}
-      >
-        <AlertDialogContent>
-          {missingResourcesAckOp && (() => {
-            const op = missingResourcesAckOp
-            const missing = getMissingResources(op)
-            const allFilled = missing.length === 0
-            // When exactly one category is missing, name it directly instead of
-            // the generic "Ressourcen fehlen" — reads wrong when only Mittel lack.
-            const titleKey = allFilled
-              ? 'readyTitle'
-              : missing.length === 1
-                ? missing[0] === 'crew'
-                  ? 'titleCrewOnly'
-                  : missing[0] === 'vehicles'
-                    ? 'titleVehiclesOnly'
-                    : 'titleMaterialsOnly'
-                : 'title'
-            // Effective coverage = the stop's own resources UNION the Auftrag's.
-            const gr = op.groupId ? getGroupResources(op.groupId) : null
-            const crewCount = op.crew.length + (gr?.personnel.length ?? 0)
-            const vehicleNames = [...op.vehicles, ...(gr?.vehicles.map(v => v.name) ?? [])]
-            const materialCount = op.materials.length + (gr?.materials.length ?? 0)
-            const rows = [
-              { key: 'crew' as const, icon: Users, filled: crewCount > 0, summary: tMissing('personalSummary', { count: crewCount }) },
-              { key: 'vehicles' as const, icon: Truck, filled: op.zuFuss || vehicleNames.length > 0, summary: op.zuFuss ? tCommon('zuFuss') : vehicleNames.join(', ') },
-              { key: 'materials' as const, icon: Package, filled: materialCount > 0, summary: tMissing('mittelSummary', { count: materialCount }) },
-            ]
-            return (
-              <>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    {allFilled
-                      ? <CheckCircle2 className="h-5 w-5 text-success" />
-                      : <Package className="h-5 w-5 text-primary" />}
-                    {tMissing(titleKey)}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {tMissing.rich(allFilled ? 'readyIntro' : 'checklistIntro', {
-                      location: op.location,
-                      hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-                    })}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-
-                <div className="space-y-1.5 py-1">
-                  {/* Whole row is clickable — open the category to add or remove, whether
-                      it's still missing or already satisfied. */}
-                  {rows.map(({ key, icon: Icon, filled, summary }) => (
-                    <button
-                      key={key}
-                      onClick={() => openGateAssign(key, op.id, 'missing')}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40"
-                    >
-                      {filled
-                        ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
-                        : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning" />}
-                      <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium">{tRes(key)}</div>
-                        {filled && summary && <div className="truncate text-xs text-muted-foreground">{summary}</div>}
-                      </div>
-                      {filled ? (
-                        <span className="flex flex-shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                          <Plus className="h-3.5 w-3.5" />
-                          {tMissing('addMore')}
-                        </span>
-                      ) : (
-                        <span className="flex-shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-medium">
-                          {tCommon('assign')}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <AlertDialogFooter className={allFilled ? undefined : 'sm:justify-between'}>
-                  {!allFilled && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setDisponiertDialogOp(op)
-                        setMissingResourcesAckOpId(null)
-                      }}
-                    >
-                      {tMissing('dispatchAnyway')}
-                    </Button>
-                  )}
-                  <Button
-                    disabled={!allFilled}
-                    onClick={() => {
-                      setDisponiertDialogOp(op)
-                      setMissingResourcesAckOpId(null)
-                    }}
-                  >
-                    {tMissing('done')}
-                  </Button>
-                </AlertDialogFooter>
-              </>
-            )
-          })()}
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* No-vehicle warning — gate before einsatz → beendet/rückfahrt */}
-      <AlertDialog
-        open={!!returningVehicleAckOp}
-        onOpenChange={(open) => !open && setReturningVehicleAckOpId(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Footprints className="h-5 w-5 text-warning" />
-              {tReturning('title')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {returningVehicleAckOp && tReturning.rich('description', {
-                location: returningVehicleAckOp.location,
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={() => setReturningVehicleAckOpId(null)}>
-              {tReturning('endAnyway')}
-            </Button>
-            <Button
-              onClick={() => {
-                const op = returningVehicleAckOp
-                if (op) openGateAssign('vehicles', op.id, 'returning')
-              }}
-            >
-              {tReturning('assignVehicle')}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reko-person missing — gate when moving a card into the REKO column */}
-      <AlertDialog
-        open={!!rekoMissingAckOp}
-        onOpenChange={(open) => !open && setRekoMissingAckOp(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Binoculars className="h-5 w-5 text-primary" />
-              {tCommon('noRekoAssigned')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {rekoMissingAckOp && tReko.rich('description', {
-                location: rekoMissingAckOp.location,
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={() => setRekoMissingAckOp(null)}>
-              {tReko('proceedAnyway')}
-            </Button>
-            <Button
-              onClick={() => {
-                const op = rekoMissingAckOp
-                setRekoMissingAckOp(null)
-                if (op) handleOpenRekoAssignDialog(op.id)
-              }}
-            >
-              {tReko('assignReko')}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reko form not filled — gate when moving a card into REKO ABGESCHLOSSEN */}
-      <AlertDialog
-        open={!!rekoFormMissingAckOp}
-        onOpenChange={(open) => !open && setRekoFormMissingAckOp(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-primary" />
-              {tRekoForm('title')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {rekoFormMissingAckOp && tRekoForm.rich('description', {
-                location: rekoFormMissingAckOp.location,
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={() => setRekoFormMissingAckOp(null)}>
-              {tRekoForm('proceedAnyway')}
-            </Button>
-            <Button
-              onClick={() => {
-                const op = rekoFormMissingAckOp
-                setRekoFormMissingAckOp(null)
-                if (op) {
-                  setSelectedOperationId(op.id)
-                  setDetailModalOpen(true)
-                }
-              }}
-            >
-              {tRekoForm('openReko')}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Material decision on completion — release the materials or leave them on site.
-          Completion already happened (materials kept by default); this only decides
-          whether to additionally release them. Dismiss/cancel keeps them (safe default). */}
-      <AlertDialog
-        open={!!materialDecisionOp}
-        onOpenChange={(open) => !open && setMaterialDecisionOp(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              {tMat('title')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {materialDecisionOp && tMat.rich('description', {
-                location: materialDecisionOp.location,
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          {materialDecisionOp && (
-            <div className="max-h-64 space-y-1.5 overflow-y-auto py-1">
-              {materialDecisionItems.map(({ id: materialId }) => {
-                const choice = materialDecisions[materialId] ?? 'magazin'
-                const name = materials.find((m) => m.id === materialId)?.name ?? materialId
-                return (
-                  <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
-                    <div className="flex flex-shrink-0 gap-1">
-                      <Button
-                        size="sm"
-                        variant={choice === 'magazin' ? 'default' : 'outline'}
-                        className="h-7 px-2 text-xs"
-                        onClick={() => setMaterialDecisions((prev) => ({ ...prev, [materialId]: 'magazin' }))}
-                      >
-                        {tMat('toMagazinShort')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={choice === 'vorort' ? 'default' : 'outline'}
-                        className="h-7 px-2 text-xs"
-                        onClick={() => setMaterialDecisions((prev) => ({ ...prev, [materialId]: 'vorort' }))}
-                      >
-                        {tMat('onSiteShort')}
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={() => setMaterialDecisionOp(null)}>
-              {tMat('cancel')}
-            </Button>
-            <Button
-              onClick={() => {
-                const op = materialDecisionOp
-                const items = materialDecisionItems
-                setMaterialDecisionOp(null)
-                if (!op) return
-                const nameOf = (id: string) => materials.find((m) => m.id === id)?.name ?? id
-                const returnedItems = items.filter((it) => (materialDecisions[it.id] ?? 'magazin') === 'magazin')
-                const returned = returnedItems.map((it) => it.id)
-                const kept = items.filter((it) => (materialDecisions[it.id] ?? 'magazin') === 'vorort').map((it) => it.id)
-                for (const it of returnedItems) {
-                  // Grouped incident: release the route-owned material via its group
-                  // assignment; ungrouped: release the stop's own material.
-                  if (it.assignmentId && op.groupId) unassignGroupResource(op.groupId, it.assignmentId)
-                  else removeMaterial(op.id, it.id)
-                }
-                const description = [
-                  returned.length ? `${tMat('toastToMagazin')}: ${returned.map(nameOf).join(', ')}` : null,
-                  kept.length ? `${tMat('toastOnSite')}: ${kept.map(nameOf).join(', ')}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
-                toast.success(returned.length ? tDash('materialReturned') : tMat('leftOnSite'), { description })
-              }}
-            >
-              {tMat('confirm')}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Disponiert Transition Dialog */}
-      <DisponierTransitionDialog
-        open={!!disponiertDialogOp}
-        onOpenChange={(open) => !open && setDisponiertDialogOp(null)}
-        operation={disponiertDialogOpLive}
-        materials={materials}
+      <IncidentStatusWorkflowDialogs
+        controller={statusWorkflow}
         printerEnabled={printerEnabled}
         funkrufname={funkrufname}
         diveraEnabled={diveraEnabled}
-        onSendDivera={(op) => {
-          setDisponiertDialogOp(null)
-          setDiveraDialogOp(op)
+        onOpenAssignment={handleOpenAssignmentDialog}
+        onOpenDetail={(operationId) => {
+          openIncidentDetail(operationId)
         }}
+        onSendDivera={setDiveraDialogOp}
+        onRefresh={refreshOperations}
       />
 
       <DiveraSendDialog
