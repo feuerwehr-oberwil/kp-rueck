@@ -29,6 +29,7 @@ from app.models import (
     Setting,
     TrainingLocation,
 )
+from app.seed_training import FALLBACK_TRAINING_LOCATIONS, LEGACY_FALLBACK_COORDINATES, TRAINING_AREA_BOUNDS
 from app.services import training_photos
 from app.services.photo_storage import photo_storage
 from app.services.training import (
@@ -36,6 +37,18 @@ from app.services.training import (
     generate_training_emergency,
 )
 from app.services.training_photos import attach_training_photos, pick_pool_photos
+
+
+def test_fallback_training_locations_are_unique_and_inside_oberwil_bounds():
+    keys = {(street, house_number) for street, house_number, *_ in FALLBACK_TRAINING_LOCATIONS}
+
+    assert len(FALLBACK_TRAINING_LOCATIONS) > 1
+    assert len(keys) == len(FALLBACK_TRAINING_LOCATIONS)
+    for _, _, _, latitude, longitude in FALLBACK_TRAINING_LOCATIONS:
+        assert TRAINING_AREA_BOUNDS["min_lat"] <= latitude <= TRAINING_AREA_BOUNDS["max_lat"]
+        assert TRAINING_AREA_BOUNDS["min_lon"] <= longitude <= TRAINING_AREA_BOUNDS["max_lon"]
+        assert (latitude, longitude) != LEGACY_FALLBACK_COORDINATES
+
 
 # ============================================
 # Fixtures
