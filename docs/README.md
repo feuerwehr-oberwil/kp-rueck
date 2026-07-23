@@ -24,7 +24,7 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 
 | Doc | Status | What it is |
 | --- | --- | --- |
-| [`plans/README.md`](plans/README.md) | 🔵 | Post-launch feature and hardening plans, priority-ordered. The pre-publication reliability work is shipped (see the CHANGELOG); remaining plans cover emergency-plans integration and i18n. |
+| [`plans/README.md`](plans/README.md) | 🔵 | Post-launch feature and hardening plans, priority-ordered. The pre-publication reliability work is shipped (see the CHANGELOG); remaining plans include emergency plans, Reko material requests, material thresholds, Auftrag routing, and i18n. |
 
 ## Test protocols (repo root)
 
