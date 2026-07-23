@@ -115,16 +115,35 @@ function ContextMenuItem({
   className,
   inset,
   variant = 'default',
+  onPointerDown,
+  onPointerUp,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Item> & {
   inset?: boolean
   variant?: 'default' | 'destructive'
 }) {
+  // Radix's Item synthesizes a .click() on pointerup when the press did NOT start
+  // on the item. That fires when a right-click opens the menu flipped so an item
+  // lands under the cursor (e.g. lower cards in a column) — releasing the button
+  // activates it by accident (the "immediately triggers Zu Fuss" bug). Suppress
+  // only that path: preventDefault makes Radix's composed handler skip its
+  // synthesized click. Real clicks (press started on the item) and touch taps are
+  // unaffected, since their pressedInside is true.
+  const pressedInsideRef = React.useRef(false)
   return (
     <ContextMenuPrimitive.Item
       data-slot="context-menu-item"
       data-inset={inset}
       data-variant={variant}
+      onPointerDown={(e) => {
+        pressedInsideRef.current = true
+        onPointerDown?.(e)
+      }}
+      onPointerUp={(e) => {
+        onPointerUp?.(e)
+        if (!pressedInsideRef.current) e.preventDefault()
+        pressedInsideRef.current = false
+      }}
       className={cn(
         "focus:bg-muted focus:text-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
