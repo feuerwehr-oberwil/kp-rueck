@@ -578,7 +578,13 @@ function AuftragCard({
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent
+                  align="end"
+                  // The menu's exit-animation focus-restore lands AFTER the popover
+                  // opens and reads as a focus-outside, snapping the picker shut
+                  // (opens-then-closes). Keep focus put so the picker stays open.
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                >
                   <DropdownMenuItem onClick={onStartRename}>
                     <Pencil className="mr-2 h-4 w-4" />
                     {t("rename")}
@@ -606,7 +612,7 @@ function AuftragCard({
           </div>
           </div>
         </ContextMenuTrigger>
-        {canEdit && <ContextMenuContent className="w-48">
+        {canEdit && <ContextMenuContent className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
           <ContextMenuItem onClick={onStartRename}>
             <Pencil className="mr-2 h-4 w-4" />
             {t("rename")}
