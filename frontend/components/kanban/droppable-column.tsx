@@ -6,6 +6,16 @@ import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { DraggableOperation } from "./draggable-operation"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { ArrowUpDown } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // On large screens (2xl+), columns stay expanded — collapsing only helps on smaller screens
 const largeScreenQuery = "(min-width: 1536px)"
@@ -63,6 +73,8 @@ interface DroppableColumnProps {
   canDrag?: boolean
   /** Forwarded to cards: notifies the sync layer of drag start/end. */
   onDragActiveChange?: (dragging: boolean) => void
+  /** Editor-only: apply a one-shot persisted sort to this column. */
+  onSort?: (columnId: string, key: 'priority' | 'age' | 'auftrag' | 'type') => void
 }
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -77,7 +89,8 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.printerEnabled !== next.printerEnabled ||
     prev.materials !== next.materials ||
     prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
-    prev.canDrag !== next.canDrag
+    prev.canDrag !== next.canDrag ||
+    prev.onSort !== next.onSort
   ) {
     return false
   }
@@ -154,8 +167,10 @@ export const DroppableColumn = memo(function DroppableColumn({
   doubleBookedCrewNames,
   canDrag,
   onDragActiveChange,
+  onSort,
 }: DroppableColumnProps) {
   const t = useTranslations('kanban')
+  const tDash = useTranslations('kanban.dashboard')
   const columnTitle = t(`columns.${column.id}`)
   const ref = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -236,6 +251,29 @@ export const DroppableColumn = memo(function DroppableColumn({
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-tight text-foreground">{columnTitle}</h2>
           <div className="flex items-center gap-2">
+            {onSort && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="min-h-7 min-w-7"
+                    title={tDash('sort.label')}
+                    aria-label={`${columnTitle}: ${tDash('sort.label')}`}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{tDash('sort.label')}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onSort(column.id, 'priority')}>{tDash('sort.priority')}</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSort(column.id, 'age')}>{tDash('sort.age')}</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSort(column.id, 'auftrag')}>{tDash('sort.auftrag')}</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSort(column.id, 'type')}>{tDash('sort.type')}</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
               {operations.length}
             </span>

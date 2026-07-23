@@ -344,12 +344,12 @@
       "materialSearch": "Material suchen...",
       "sort": {
         "button": "Sortieren",
-        "label": "Alle Karten sortieren",
+        "label": "Spalte sortieren",
         "priority": "Nach Priorität",
         "age": "Nach Alter (älteste zuerst)",
         "auftrag": "Nach Auftrag",
         "type": "Nach Typ",
-        "applied": "Karten sortiert"
+        "applied": "Spalte sortiert"
       },
       "noPersonnelAvailable": "Keine Personen verfügbar",
       "scanCheckInQr": "Check-In QR-Code scannen",
