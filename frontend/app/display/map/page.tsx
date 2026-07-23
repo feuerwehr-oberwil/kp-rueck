@@ -15,6 +15,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { Loader2, Palette, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -299,9 +300,7 @@ function TokenDisplayMap({
     () => new Map((data?.incidents ?? []).map((incident) => [incident.id, {
       id: incident.id,
       location: incident.location_address ?? incident.title,
-      coordinates: incident.location_lat != null && incident.location_lng != null
-        ? [Number(incident.location_lat), Number(incident.location_lng)] as [number, number]
-        : [47.51637699933488, 7.561800450458299] as [number, number],
+      coordinates: apiCoordinatesToTuple(incident.location_lat, incident.location_lng),
       status: TOKEN_STATUS[incident.status] ?? "incoming",
     } as Operation])),
     [data],

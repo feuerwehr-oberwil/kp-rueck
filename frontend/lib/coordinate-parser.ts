@@ -11,6 +11,30 @@ export interface ParsedCoordinates {
   error?: string
 }
 
+export type IncidentCoordinates = [number, number] | null
+
+/** Convert nullable decimal strings from the API without inventing a location. */
+export function apiCoordinatesToTuple(
+  latitude: string | null | undefined,
+  longitude: string | null | undefined,
+): IncidentCoordinates {
+  if (latitude == null || longitude == null) return null
+
+  const lat = Number(latitude)
+  const lng = Number(longitude)
+  return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null
+}
+
+/** Serialize both coordinate fields together so clearing a location persists. */
+export function coordinatesToApiFields(coordinates: IncidentCoordinates | undefined): {
+  location_lat: string | null
+  location_lng: string | null
+} {
+  return coordinates
+    ? { location_lat: String(coordinates[0]), location_lng: String(coordinates[1]) }
+    : { location_lat: null, location_lng: null }
+}
+
 /**
  * Convert Swiss LV95 (CH1903+) coordinates to WGS84
  * LV95 is commonly used in Swiss emergency dispatch systems

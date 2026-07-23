@@ -24,7 +24,7 @@ import { reverseGeocode } from "@/lib/geocoding"
 import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
-import { haversineKm, isLocated } from "@/lib/utils/route-geo"
+import { haversineKm, isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 
 export type RouteStartMode = "magazin" | "vehicle" | "first"
 
@@ -190,7 +190,7 @@ export function useRoutePlanning(groupId: string | null | undefined) {
     (start: RouteStartMode): string[] => {
       if (!group) return []
 
-      const located = orderedStops.filter((s) => isLocated(s.op)) as { id: string; op: Operation }[]
+      const located = orderedStops.filter((s): s is { id: string; op: LocatedOperation } => isLocated(s.op))
       const unlocated = orderedStops.filter((s) => !isLocated(s.op))
 
       if (located.length <= 1) return group.stopIds

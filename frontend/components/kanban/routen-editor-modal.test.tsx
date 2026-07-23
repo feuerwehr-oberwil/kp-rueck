@@ -23,15 +23,13 @@ import type { Operation } from "@/lib/contexts/operations-context"
 
 // --- Fixtures ---------------------------------------------------------------
 
-const UNLOCATED: [number, number] = [47.51637699933488, 7.561800450458299]
-
 // Points on a line (lat 0, varying lng) so nearest-neighbour order is obvious.
-const COORDS: Record<string, [number, number]> = {
+const COORDS: Record<string, [number, number] | null> = {
   A: [0, 0],
   B: [0, 3],
   C: [0, 1],
   D: [0, 2],
-  E: UNLOCATED, // sentinel → unlocated, sinks to the end
+  E: null,
 }
 
 const makeOp = (id: string): Operation =>
