@@ -342,6 +342,15 @@
       "allEvents": "Alle Ereignisse",
       "personnelSearch": "Personal suchen...",
       "materialSearch": "Material suchen...",
+      "sort": {
+        "button": "Sortieren",
+        "label": "Alle Karten sortieren",
+        "priority": "Nach Priorität",
+        "age": "Nach Alter (älteste zuerst)",
+        "auftrag": "Nach Auftrag",
+        "type": "Nach Typ",
+        "applied": "Karten sortiert"
+      },
       "noPersonnelAvailable": "Keine Personen verfügbar",
       "scanCheckInQr": "Check-In QR-Code scannen",
       "boardPrintSent": "Board-Druckauftrag gesendet",
