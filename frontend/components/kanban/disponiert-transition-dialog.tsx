@@ -17,6 +17,9 @@ import { getMessageTemplates } from "@/lib/message-template"
 import { copyToClipboard } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { useEvent } from "@/lib/contexts/event-context"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
 interface DisponiertTransitionDialogProps {
   open: boolean
@@ -42,17 +45,40 @@ export function DisponierTransitionDialog({
   onSendDivera,
 }: DisponiertTransitionDialogProps) {
   const t = useTranslations('kanban')
+  const { groups, getGroupResources } = useGroups()
+  const { selectedEvent } = useEvent()
+  // Driver names weren't reaching the message before (the prop was never passed),
+  // so the WhatsApp "Fahrer:" line was always blank — load them here.
+  const liveVehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
 
   if (!operation) return null
+
+  const effectiveVehicleDrivers = vehicleDrivers ?? liveVehicleDrivers
+
+  // A grouped incident carries no resources itself — the Auftrag (route) owns
+  // them. Resolve the route's resources + stop position so both the Funkdurchsage
+  // and the WhatsApp message reflect what's actually assigned.
+  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const groupRes = auftrag ? getGroupResources(auftrag.id) : null
+  const stopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
+  const auftragCtx = auftrag
+    ? {
+        name: auftrag.name,
+        stopPos: stopIndex >= 0 ? stopIndex + 1 : operation.groupPosition + 1,
+        stopTotal: auftrag.stopIds.length,
+      }
+    : null
 
   const handleCopyWhatsApp = async () => {
     const { whatsappIncident } = await getMessageTemplates()
     const message = formatWhatsAppMessage({
       operation,
       materials,
-      vehicleDrivers,
+      vehicleDrivers: effectiveVehicleDrivers,
+      groupResources: groupRes,
+      auftrag: auftragCtx,
       template: whatsappIncident,
     })
     await copyToClipboard(message)
@@ -73,24 +99,34 @@ export function DisponierTransitionDialog({
     }
   }
 
+  // Effective resources = the incident's own UNION the Auftrag's (empty on a
+  // grouped stop, so the union is what's really assigned).
+  const effCrew = [...operation.crew, ...(groupRes?.personnel.map((p) => p.name) ?? [])]
+  const effVehicles = [...operation.vehicles, ...(groupRes?.vehicles.map((v) => v.name) ?? [])]
+  const effMaterials = [...operation.materials, ...(groupRes?.materials.map((m) => m.resourceId) ?? [])]
+  const effStay = new Map(operation.vehicleDriverStay ?? [])
+  for (const v of groupRes?.vehicles ?? []) {
+    if (v.driverStay !== undefined) effStay.set(v.name, v.driverStay)
+  }
+
   const location = operation.location || t('disponiert.addressPlaceholder')
-  const crewList = operation.crew.length > 0
-    ? operation.crew.join(", ")
+  const crewList = effCrew.length > 0
+    ? effCrew.join(", ")
     : null
   const isZuFuss = operation.zuFuss || false
-  const vehicleList = !isZuFuss && operation.vehicles.length > 0
-    ? operation.vehicles
+  const vehicleList = !isZuFuss && effVehicles.length > 0
+    ? effVehicles
         .map(name => {
           // Spell out whether each vehicle stays on scene or returns, so the
           // radio call matches what WhatsApp/Divera already announce.
-          const stay = operation.vehicleDriverStay?.get(name)
+          const stay = effStay.get(name)
           if (stay === undefined) return name
           return `${name} (${stay ? t('disponiert.staysOnSite') : t('disponiert.returns')})`
         })
         .join(", ")
     : null
-  const materialNames = operation.materials.length > 0
-    ? operation.materials
+  const materialNames = effMaterials.length > 0
+    ? effMaterials
         .map(id => {
           // Include the material's origin/depot, e.g. "Tauchpumpe Gr. (Pio)".
           const m = materials.find(m => m.id === id)
@@ -126,6 +162,11 @@ export function DisponierTransitionDialog({
             <p className="text-sm text-muted-foreground italic leading-relaxed">
               &quot;{t('disponiert.radioIntro', { funkrufname })} <span className="font-semibold text-foreground">{location}</span>{t('disponiert.radioDeploySuffix')}{crewList ? <> <span className="font-semibold text-foreground">{crewList}</span></> : null}{isZuFuss ? <> <span className="font-semibold text-foreground">{t('disponiert.radioZuFuss')}</span></> : vehicleList ? <> {t('disponiert.radioWith')} <span className="font-semibold text-foreground">{vehicleList}</span></> : null}{materialNames ? <> {t('disponiert.radioAnd')} <span className="font-semibold text-foreground">{materialNames}</span></> : null}.{rekoDangers ? <> {t('disponiert.radioSpecial')} <span className="font-semibold text-foreground">{rekoDangers}</span>.</> : null}&quot;
             </p>
+            {auftragCtx && (
+              <p className="text-xs text-muted-foreground">
+                {t('disponiert.auftragContext', { name: auftragCtx.name, pos: auftragCtx.stopPos, total: auftragCtx.stopTotal })}
+              </p>
+            )}
           </div>
 
           {/* Action buttons */}
