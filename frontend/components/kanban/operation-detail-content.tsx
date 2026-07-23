@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MapPin, Trash2, Plus, Truck, X, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints } from 'lucide-react'
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -613,26 +615,16 @@ export function OperationDetailContent({
               <div className="flex flex-wrap gap-2">
                 {operation.crew.length > 0 ? (
                   operation.crew.map((member) => (
-                    <Badge
+                    <RemovableChip
                       key={member}
                       variant="secondary"
-                      className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                      className="text-sm gap-1 pr-1 hover:bg-destructive/20"
+                      onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
+                      removeTitle={t('detail.removePerson')}
+                      removeButtonClassName="ml-1"
                     >
                       {member}
-                      {canEdit && onRemoveCrew && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onRemoveCrew(operation.id, member)
-                          }}
-                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title={t('detail.removePerson')}
-                          tabIndex={-1}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </Badge>
+                    </RemovableChip>
                   ))
                 ) : (
                   <p className="text-sm text-muted-foreground/60 italic">{t('detail.noCrew')}</p>
@@ -722,21 +714,16 @@ export function OperationDetailContent({
               </div>
               <div className="flex flex-wrap gap-2">
                 {operation.zuFuss && (
-                  <Badge variant="secondary" className="group text-sm gap-1">
+                  <RemovableChip
+                    variant="secondary"
+                    className="text-sm gap-1"
+                    onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
+                    removeTitle={t('common.removeZuFuss')}
+                    removeButtonClassName="ml-0.5 hover:text-destructive"
+                  >
                     <Footprints className="h-3.5 w-3.5" />
                     {t('common.zuFuss')}
-                    {canEdit && <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onUpdate({ zuFuss: false })
-                      }}
-                      className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-                      title={t('common.removeZuFuss')}
-                      tabIndex={-1}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>}
-                  </Badge>
+                  </RemovableChip>
                 )}
                 {operation.vehicles.length > 0 ? (
                   operation.vehicles.map((vehicleName) => {
@@ -745,11 +732,14 @@ export function OperationDetailContent({
                     const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
                     const assignmentId = operation.vehicleAssignments.get(vehicleName)
                     return (
-                      <Badge
+                      <RemovableChip
                         key={vehicleName}
                         variant="default"
-                        className="text-sm gap-1 pr-1 group transition-colors"
+                        className="text-sm gap-1 pr-1"
                         title={callsign ? t('common.funkrufname', { callsign }) : undefined}
+                        onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleName) : undefined}
+                        removeTitle={t('detail.removeVehicle')}
+                        removeButtonClassName="ml-0.5 hover:text-white cursor-pointer"
                       >
                         {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
                         {canEdit && assignmentId && (
@@ -799,18 +789,7 @@ export function OperationDetailContent({
                             )}
                           </button>
                         )}
-                        {canEdit && onRemoveVehicle && <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onRemoveVehicle(operation.id, vehicleName)
-                          }}
-                          className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white cursor-pointer"
-                          title={t('detail.removeVehicle')}
-                          tabIndex={-1}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>}
-                      </Badge>
+                      </RemovableChip>
                     )
                   })
                 ) : (
@@ -845,66 +824,32 @@ export function OperationDetailContent({
               <div className="flex flex-wrap gap-2">
                 {operation.materials.length > 0 ? (
                   (() => {
-                    const ungrouped: string[] = []
-                    const grouped: Record<string, string[]> = {}
-                    for (const matId of operation.materials) {
-                      const material = materials.find(m => m.id === matId)
-                      const groupId = material?.groupId
-                      const group = groupId ? materialGroups.find(g => g.id === groupId) : null
-                      if (group) {
-                        if (!grouped[group.id]) grouped[group.id] = []
-                        grouped[group.id].push(matId)
-                      } else {
-                        ungrouped.push(matId)
-                      }
-                    }
-                    // Only show as group if ALL materials in group are assigned
-                    const completeGroups: Record<string, string[]> = {}
-                    for (const [groupId, matIds] of Object.entries(grouped)) {
-                      const group = materialGroups.find(g => g.id === groupId)
-                      if (group && matIds.length === group.materialIds.length) {
-                        completeGroups[groupId] = matIds
-                      } else {
-                        ungrouped.push(...matIds)
-                      }
-                    }
+                    const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
                     return (
                       <>
-                        {Object.entries(completeGroups).map(([groupId, matIds]) => {
-                          const group = materialGroups.find(g => g.id === groupId)!
-                          return (
-                            <Badge
-                              key={`group-${groupId}`}
-                              variant="outline"
-                              className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                            >
-                              <Layers className="h-3 w-3 text-muted-foreground" />
-                              {group.name}
-                              {canEdit && onRemoveMaterial && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    for (const matId of matIds) {
-                                      onRemoveMaterial(operation.id, matId)
-                                    }
-                                  }}
-                                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title={t('common.removeNamed', { name: group.name })}
-                                  tabIndex={-1}
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              )}
-                            </Badge>
-                          )
-                        })}
+                        {completeGroups.map(({ group, materialIds: matIds }) => (
+                          <RemovableChip
+                            key={`group-${group.id}`}
+                            variant="outline"
+                            className="text-sm gap-1 pr-1 hover:bg-destructive/20"
+                            onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
+                            removeTitle={t('common.removeNamed', { name: group.name })}
+                            removeButtonClassName="ml-1"
+                          >
+                            <Layers className="h-3 w-3 text-muted-foreground" />
+                            {group.name}
+                          </RemovableChip>
+                        ))}
                         {ungrouped.map((matId) => {
                           const mat = materials.find(m => m.id === matId)
                           return (
-                          <Badge
+                          <RemovableChip
                             key={matId}
                             variant="outline"
-                            className="text-sm gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
+                            className="text-sm gap-1 pr-1 hover:bg-destructive/20"
+                            onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
+                            removeTitle={t('detail.removeMaterial')}
+                            removeButtonClassName="ml-1"
                           >
                             {mat?.name || matId}
                             {/* Origin/depot, e.g. "(Pio)" — shown here in the modal but
@@ -912,20 +857,7 @@ export function OperationDetailContent({
                             {mat?.category && (
                               <span className="text-xs text-muted-foreground">({mat.category})</span>
                             )}
-                            {canEdit && onRemoveMaterial && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onRemoveMaterial(operation.id, matId)
-                                }}
-                                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                title={t('detail.removeMaterial')}
-                                tabIndex={-1}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </Badge>
+                          </RemovableChip>
                           )
                         })}
                       </>

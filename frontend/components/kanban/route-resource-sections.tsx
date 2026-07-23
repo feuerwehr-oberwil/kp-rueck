@@ -13,9 +13,9 @@
 
 import type { ComponentType, ReactNode } from "react"
 import { useTranslations } from "next-intl"
-import { Users, Truck, Package, Plus, X } from "lucide-react"
+import { Users, Truck, Package, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { RemovableChip } from "@/components/ui/removable-chip"
 import type { GroupResources } from "@/lib/types/groups"
 
 /**
@@ -87,24 +87,16 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
         <div className="flex flex-wrap gap-2">
           {resources.personnel.length > 0 ? (
             resources.personnel.map((p) => (
-              <Badge
+              <RemovableChip
                 key={p.assignmentId}
                 variant="secondary"
-                className="group gap-1 pr-1 text-sm transition-colors hover:bg-destructive/20"
+                className="gap-1 pr-1 text-sm hover:bg-destructive/20"
+                onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
+                removeTitle={t("common.removeNamed", { name: p.name })}
+                removeButtonClassName="ml-1"
               >
                 {p.name}
-                {!readOnly && <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onUnassign(p.assignmentId)
-                  }}
-                  className="ml-1 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                  title={t("common.removeNamed", { name: p.name })}
-                  tabIndex={0}
-                >
-                  <X className="h-3 w-3" />
-                </button>}
-              </Badge>
+              </RemovableChip>
             ))
           ) : (
             <p className="text-sm italic text-muted-foreground/60">{t("detail.noCrew")}</p>
@@ -135,20 +127,16 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
         <div className="flex flex-wrap gap-2">
           {resources.vehicles.length > 0 ? (
             resources.vehicles.map((v) => (
-              <Badge key={v.assignmentId} variant="default" className="group gap-1 pr-1 text-sm transition-colors">
+              <RemovableChip
+                key={v.assignmentId}
+                variant="default"
+                className="gap-1 pr-1 text-sm"
+                onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
+                removeTitle={t("common.removeNamed", { name: v.name })}
+                removeButtonClassName="ml-0.5 cursor-pointer hover:text-white"
+              >
                 {v.name}
-                {!readOnly && <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onUnassign(v.assignmentId)
-                  }}
-                  className="ml-0.5 cursor-pointer opacity-70 transition-opacity hover:text-white focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                  title={t("common.removeNamed", { name: v.name })}
-                  tabIndex={0}
-                >
-                  <X className="h-3 w-3" />
-                </button>}
-              </Badge>
+              </RemovableChip>
             ))
           ) : (
             <p className="text-sm italic text-muted-foreground/60">{t("detail.noVehicles")}</p>
@@ -179,24 +167,16 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
         <div className="flex flex-wrap gap-2">
           {resources.materials.length > 0 ? (
             resources.materials.map((m) => (
-              <Badge
+              <RemovableChip
                 key={m.assignmentId}
                 variant="outline"
-                className="group gap-1 pr-1 text-sm transition-colors hover:bg-destructive/20"
+                className="gap-1 pr-1 text-sm hover:bg-destructive/20"
+                onRemove={!readOnly ? () => onUnassign(m.assignmentId) : undefined}
+                removeTitle={t("common.removeNamed", { name: m.name })}
+                removeButtonClassName="ml-1"
               >
                 {m.name}
-                {!readOnly && <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onUnassign(m.assignmentId)
-                  }}
-                  className="ml-1 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                  title={t("common.removeNamed", { name: m.name })}
-                  tabIndex={0}
-                >
-                  <X className="h-3 w-3" />
-                </button>}
-              </Badge>
+              </RemovableChip>
             ))
           ) : (
             <p className="text-sm italic text-muted-foreground/60">{t("detail.noMaterial")}</p>

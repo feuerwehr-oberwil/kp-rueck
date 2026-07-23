@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { RemovableChip } from "@/components/ui/removable-chip"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,13 +13,14 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, X, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints } from 'lucide-react'
+import { Clock, Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { getTimeSince, ageChipClass } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
@@ -398,22 +400,16 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5">
                   <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
-                    <Badge
+                    <RemovableChip
                       variant="secondary"
-                      className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                      className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                      onRemove={() => onRemoveReko?.()}
+                      removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
+                      removeButtonClassName="hover:text-destructive cursor-pointer"
+                      removeIconClassName="h-2.5 w-2.5"
                     >
                       <span>{operation.assignedReko.name}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onRemoveReko?.()
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                        title={t('common.removeNamed', { name: operation.assignedReko.name })}
-                      >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </Badge>
+                    </RemovableChip>
                     {/* Show arrival time if on site but report not yet submitted */}
                     {operation.rekoArrivedAt && !operation.hasCompletedReko && (
                       <span className="text-xs text-muted-foreground">
@@ -430,11 +426,11 @@ function DraggableOperationBase({
                     {operation.crew.map((crewName) => {
                       const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
                       return (
-                        <Badge
+                        <RemovableChip
                           key={crewName}
                           variant="secondary"
                           className={cn(
-                            "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default",
+                            "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
                             isConflict && "border border-warning/60 text-warning bg-warning/10",
                           )}
                           title={
@@ -442,20 +438,14 @@ function DraggableOperationBase({
                               ? t('card.doubleBookedTooltip', { name: crewName })
                               : undefined
                           }
+                          onRemove={() => onRemoveCrew(crewName)}
+                          removeTitle={t('common.removeNamed', { name: crewName })}
+                          removeButtonClassName="hover:text-destructive cursor-pointer"
+                          removeIconClassName="h-2.5 w-2.5"
                         >
                           {isConflict && <AlertTriangle className="h-2.5 w-2.5" />}
                           <span>{crewName}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onRemoveCrew(crewName)
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                            title={t('common.removeNamed', { name: crewName })}
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </Badge>
+                        </RemovableChip>
                       )
                     })}
                   </div>
@@ -466,33 +456,31 @@ function DraggableOperationBase({
                   <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {operation.zuFuss && (
-                      <Badge
+                      <RemovableChip
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                        onRemove={() => onToggleZuFuss?.()}
+                        removeTitle={t('common.removeZuFuss')}
+                        removeButtonClassName="hover:text-destructive cursor-pointer"
+                        removeIconClassName="h-2.5 w-2.5"
                       >
                         <Footprints className="h-3 w-3" />
                         <span>{t('common.zuFuss')}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onToggleZuFuss?.()
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                          title={t('common.removeZuFuss')}
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
+                      </RemovableChip>
                     )}
                     {operation.vehicles.map((vehicleName) => {
                       const callsign = operation.vehicleCallsigns.get(vehicleName)
                       const driverStay = operation.vehicleDriverStay?.get(vehicleName)
                       return (
-                      <Badge
+                      <RemovableChip
                         key={vehicleName}
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group transition-colors cursor-default"
+                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
                         title={callsign ? t('common.funkrufname', { callsign }) : undefined}
+                        onRemove={() => onRemoveVehicle(vehicleName)}
+                        removeTitle={t('common.removeNamed', { name: vehicleName })}
+                        removeButtonClassName="hover:text-destructive cursor-pointer"
+                        removeIconClassName="h-2.5 w-2.5"
                       >
                         <button
                           onClick={(e) => {
@@ -509,17 +497,7 @@ function DraggableOperationBase({
                             <Undo2 className="h-3 w-3 text-muted-foreground/40" />
                           )}
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onRemoveVehicle(vehicleName)
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                          title={t('common.removeNamed', { name: vehicleName })}
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
+                      </RemovableChip>
                       )
                     })}
                   </div>
@@ -530,81 +508,39 @@ function DraggableOperationBase({
                   <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {(() => {
-                      // Group assigned materials by their material group
-                      // Only show as group badge if ALL materials in the group are assigned
-                      const ungrouped: string[] = []
-                      const grouped: Record<string, string[]> = {}
-                      for (const materialId of operation.materials) {
-                        const material = materials.find(m => m.id === materialId)
-                        const groupId = material?.groupId
-                        const group = groupId ? materialGroups.find(g => g.id === groupId) : null
-                        if (group) {
-                          if (!grouped[group.id]) grouped[group.id] = []
-                          grouped[group.id].push(materialId)
-                        } else {
-                          ungrouped.push(materialId)
-                        }
-                      }
-                      // Check completeness — partial groups become ungrouped items
-                      const completeGroups: Record<string, string[]> = {}
-                      for (const [groupId, matIds] of Object.entries(grouped)) {
-                        const group = materialGroups.find(g => g.id === groupId)
-                        if (group && matIds.length === group.materialIds.length) {
-                          completeGroups[groupId] = matIds
-                        } else {
-                          ungrouped.push(...matIds)
-                        }
-                      }
+                      const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
                       return (
                         <>
                           {/* Complete groups shown as single group badge */}
-                          {Object.entries(completeGroups).map(([groupId, matIds]) => {
-                            const group = materialGroups.find(g => g.id === groupId)!
-                            return (
-                              <Badge
-                                key={`group-${groupId}`}
-                                variant="secondary"
-                                className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
-                              >
-                                <Layers className="h-2.5 w-2.5 text-muted-foreground" />
-                                <span>{group.name}</span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    // Remove all materials in this group from the operation
-                                    for (const matId of matIds) {
-                                      onRemoveMaterial(matId)
-                                    }
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                                  title={t('common.removeNamed', { name: group.name })}
-                                >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </Badge>
-                            )
-                          })}
+                          {completeGroups.map(({ group, materialIds: matIds }) => (
+                            <RemovableChip
+                              key={`group-${group.id}`}
+                              variant="secondary"
+                              className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                              onRemove={() => matIds.forEach((matId) => onRemoveMaterial(matId))}
+                              removeTitle={t('common.removeNamed', { name: group.name })}
+                              removeButtonClassName="hover:text-destructive cursor-pointer"
+                              removeIconClassName="h-2.5 w-2.5"
+                            >
+                              <Layers className="h-2.5 w-2.5 text-muted-foreground" />
+                              <span>{group.name}</span>
+                            </RemovableChip>
+                          ))}
                           {/* Ungrouped materials shown individually */}
                           {ungrouped.map((materialId, idx) => {
                             const material = materials.find(m => m.id === materialId)
                             return (
-                              <Badge
+                              <RemovableChip
                                 key={idx}
                                 variant="secondary"
-                                className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 group hover:bg-destructive/10 transition-colors cursor-default"
+                                className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                                onRemove={() => onRemoveMaterial(materialId)}
+                                removeTitle={t('common.removeNamed', { name: material?.name || materialId })}
+                                removeButtonClassName="hover:text-destructive cursor-pointer"
+                                removeIconClassName="h-2.5 w-2.5"
                               >
                                 <span>{material?.name || materialId}</span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    onRemoveMaterial(materialId)
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive cursor-pointer"
-                                  title={t('common.removeNamed', { name: material?.name || materialId })}
-                                >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </Badge>
+                              </RemovableChip>
                             )
                           })}
                         </>
