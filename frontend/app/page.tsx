@@ -2928,7 +2928,19 @@ export default function FireStationDashboard() {
         <AlertDialogContent>
           {missingResourcesAckOp && (() => {
             const op = missingResourcesAckOp
-            const allFilled = getMissingResources(op).length === 0
+            const missing = getMissingResources(op)
+            const allFilled = missing.length === 0
+            // When exactly one category is missing, name it directly instead of
+            // the generic "Ressourcen fehlen" — reads wrong when only Mittel lack.
+            const titleKey = allFilled
+              ? 'readyTitle'
+              : missing.length === 1
+                ? missing[0] === 'crew'
+                  ? 'titleCrewOnly'
+                  : missing[0] === 'vehicles'
+                    ? 'titleVehiclesOnly'
+                    : 'titleMaterialsOnly'
+                : 'title'
             // Effective coverage = the stop's own resources UNION the Auftrag's.
             const gr = op.groupId ? getGroupResources(op.groupId) : null
             const crewCount = op.crew.length + (gr?.personnel.length ?? 0)
@@ -2946,7 +2958,7 @@ export default function FireStationDashboard() {
                     {allFilled
                       ? <CheckCircle2 className="h-5 w-5 text-success" />
                       : <Package className="h-5 w-5 text-primary" />}
-                    {allFilled ? tMissing('readyTitle') : tMissing('title')}
+                    {tMissing(titleKey)}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
                     {tMissing.rich(allFilled ? 'readyIntro' : 'checklistIntro', {

@@ -546,20 +546,31 @@ export function ResourceAssignmentDialog({
               >
                 {t('assignmentDialog.all')}
               </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-full text-xs border transition-colors",
-                    categoryFilter === cat
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                  )}
-                >
-                  {cat}
-                </button>
-              ))}
+              {categories.map((cat) => {
+                // A material depot/location that matches an already-assigned
+                // vehicle (e.g. "MoWa") — flag it so the operator sees at a glance
+                // which stock is already on scene. Materials only; matched by name.
+                const vehiclePresent = resourceType === 'materials' && assignedVehicles.includes(cat)
+                const isActive = categoryFilter === cat
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(isActive ? null : cat)}
+                    title={vehiclePresent ? t('assignmentDialog.vehicleOnSceneHint', { name: cat }) : undefined}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : vehiclePresent
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
+                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                    )}
+                  >
+                    {vehiclePresent && <Truck className="h-3 w-3 flex-shrink-0" />}
+                    {cat}
+                  </button>
+                )
+              })}
             </div>
           )}
 
