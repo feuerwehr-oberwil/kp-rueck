@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models
 from .database import async_session_maker
+from .seed_training import seed_training_data
 
 # Stable UUIDs for the demo users. The demo reset truncates + re-seeds the
 # users table every few hours; using fixed IDs (instead of uuid4()) means a
@@ -716,6 +717,11 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
 
 async def seed_demo_database() -> None:
     """Seed the database with demo data for public demo deployment."""
+    # Training controls depend on these global template/location pools. Keep
+    # this outside the "already seeded" guard so existing demo deployments are
+    # repaired on startup as well as after a full demo reset.
+    await seed_training_data(skip_geocoding=True)
+
     async with async_session_maker() as db:
         try:
             # Check if data already exists
