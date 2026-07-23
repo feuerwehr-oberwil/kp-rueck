@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users, Footprints, Waypoints, ArrowUpDown } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, Binoculars, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users, Footprints, Waypoints } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -657,10 +657,12 @@ export default function FireStationDashboard() {
     if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
   }, [operations, requestCompletion, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])
 
-  // One-shot global sort: reorder every column's cards by a chosen key, all at
-  // once, and persist it (writes position). It is NOT a sticky mode — drag still
-  // works afterwards; the operator re-runs it if they want to re-sort.
-  const handleGlobalSort = useCallback((key: 'priority' | 'age' | 'auftrag' | 'type') => {
+  // One-shot column sort: persist the chosen column's order without turning off
+  // manual drag-and-drop ordering afterwards.
+  const handleColumnSort = useCallback((columnId: string, key: 'priority' | 'age' | 'auftrag' | 'type') => {
+    const column = columns.find((candidate) => candidate.id === columnId)
+    if (!column) return
+
     const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 }
     const byAge = (a: Operation, b: Operation) => a.dispatchTime.getTime() - b.dispatchTime.getTime()
     const groupName = (id: string | null) => (id ? groups.find((g) => g.id === id)?.name ?? '' : '')
@@ -683,15 +685,14 @@ export default function FireStationDashboard() {
           return byAge(a, b)
       }
     }
-    const ordered: string[] = []
-    for (const col of columns) {
-      const colOps = operations.filter((op) => col.status.includes(op.status)).sort(cmp)
-      for (const op of colOps) ordered.push(op.id)
-    }
-    const orderIndex = new Map(ordered.map((id, i) => [id, i]))
-    // Reorder the local array immediately (columns render in array order), then
-    // persist the new position sequence.
-    setOperations((prev) => [...prev].sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0)))
+    const columnOperations = operations.filter((op) => column.status.includes(op.status)).sort(cmp)
+    const ordered = columnOperations.map((op) => op.id)
+
+    // Replace only this column's slots so every other column keeps its order.
+    setOperations((prev) => {
+      let nextIndex = 0
+      return prev.map((op) => column.status.includes(op.status) ? columnOperations[nextIndex++] : op)
+    })
     reorderColumn(ordered)
     toast.success(tDash('sort.applied'))
   }, [operations, groups, setOperations, reorderColumn, tDash])
@@ -1777,29 +1778,6 @@ export default function FireStationDashboard() {
                 </div>
               </div>
 
-              {isEditor && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      title={tDash('sort.label')}
-                      aria-label={tDash('sort.label')}
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuLabel>{tDash('sort.label')}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handleGlobalSort('priority')}>{tDash('sort.priority')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGlobalSort('age')}>{tDash('sort.age')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGlobalSort('auftrag')}>{tDash('sort.auftrag')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGlobalSort('type')}>{tDash('sort.type')}</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
               <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-mono text-base font-semibold tabular-nums">
@@ -1981,6 +1959,7 @@ export default function FireStationDashboard() {
                       doubleBookedCrewNames={doubleBookedPersons.names}
                       canDrag={isEditor}
                       onDragActiveChange={setBoardDragging}
+                      onSort={isEditor ? handleColumnSort : undefined}
                     />
                   )
                 })}
