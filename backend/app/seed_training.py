@@ -929,6 +929,27 @@ def get_training_city_info() -> tuple[str, str]:
 # Use https://boundingbox.klokantech.com/ to find bounds for your area
 TRAINING_AREA_BOUNDS = get_training_area_bounds()
 
+# Deterministic production/demo fallback. These addresses and coordinates are
+# verified OpenStreetMap entries inside Oberwil BL; no network access is needed
+# while a deployment starts.
+FALLBACK_TRAINING_LOCATIONS = [
+    ("Mühlemattstrasse", "18", "commercial", 47.5098844, 7.5546250),
+    ("Hauptstrasse", "41", "commercial", 47.5139457, 7.5561373),
+    ("Mühlemattstrasse", "8", "commercial", 47.5110623, 7.5552960),
+    ("Bottmingerstrasse", "75", "commercial", 47.5157039, 7.5588034),
+    ("Hauptstrasse", "15", "commercial", 47.5147822, 7.5579469),
+    ("Binningerstrasse", "57", "commercial", 47.5163022, 7.5585081),
+    ("Bottmingerstrasse", "62", "commercial", 47.5164573, 7.5610098),
+    ("Hauptstrasse", "36", "commercial", 47.5140370, 7.5550833),
+    ("Hauptstrasse", "12", "commercial", 47.5148741, 7.5576526),
+    ("Sägestrasse", "9", "commercial", 47.5115481, 7.5570202),
+    ("Langegasse", "97", "residential", 47.5089777, 7.5601529),
+    ("Langegasse", "105", "residential", 47.5090535, 7.5612359),
+    ("Hohestrasse", "120", "commercial", 47.5209493, 7.5539767),
+]
+
+LEGACY_FALLBACK_COORDINATES = (47.5596, 7.5886)
+
 
 async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None:
     """
@@ -965,8 +986,6 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
             # Extract address components
             street = address.get("road")
             house_number = address.get("house_number")
-            postcode = address.get("postcode")
-            city = address.get("city") or address.get("town") or address.get("village")
 
             # Verify we got a valid address with street and house number
             if street and house_number:
@@ -1094,6 +1113,48 @@ async def seed_training_data(skip_geocoding: bool = False):
         # slow and rate-limited, so it must never re-run on every deploy.
         location_count = await session.scalar(select(func.count()).select_from(TrainingLocation))
         if location_count and location_count > 0:
+            # The original no-geocoding fallback labelled a coordinate in
+            # Basel as "Hauptstrasse 1, Oberwil". Replace only that exact known
+            # bad seed and preserve every custom/real location.
+            if skip_geocoding:
+                result = await session.execute(select(TrainingLocation))
+                existing_locations = list(result.scalars().all())
+                legacy_location = next(
+                    (
+                        location
+                        for location in existing_locations
+                        if location.street == "Hauptstrasse"
+                        and location.house_number == "1"
+                        and abs(float(location.latitude or 0) - LEGACY_FALLBACK_COORDINATES[0]) < 0.000001
+                        and abs(float(location.longitude or 0) - LEGACY_FALLBACK_COORDINATES[1]) < 0.000001
+                    ),
+                    None,
+                )
+                if legacy_location is not None:
+                    city, postal_code = get_training_city_info()
+                    existing_keys = {(location.street, location.house_number) for location in existing_locations}
+                    for index, (street, house_number, building_type, lat, lon) in enumerate(
+                        FALLBACK_TRAINING_LOCATIONS
+                    ):
+                        if index == 0:
+                            location = legacy_location
+                        elif (street, house_number) in existing_keys:
+                            continue
+                        else:
+                            location = TrainingLocation(id=uuid4())
+                            session.add(location)
+                        location.street = street
+                        location.house_number = house_number
+                        location.postal_code = postal_code
+                        location.city = city
+                        location.building_type = building_type
+                        location.latitude = lat
+                        location.longitude = lon
+                        location.is_active = True
+                    await session.commit()
+                    print(f"✅ Replaced legacy fallback with {len(FALLBACK_TRAINING_LOCATIONS)} Oberwil locations")
+                    return
+
             print(f"\n⏭️  Training locations already exist ({location_count} found). Skipping geocoding.")
             return
 
@@ -1102,16 +1163,15 @@ async def seed_training_data(skip_geocoding: bool = False):
         addresses = []
 
         if skip_geocoding:
-            print("\n⚠️  Skip geocoding enabled - using demo fallback location")
-            # Fallback: use generic demo location (configure for your area)
-            addresses = [("Hauptstrasse", "1", "commercial", 47.5596, 7.5886)]
+            print("\n⚠️  Skip geocoding enabled - using verified Oberwil fallback locations")
+            addresses = FALLBACK_TRAINING_LOCATIONS
         else:
             # Use reverse geocoding to find real addresses
             addresses = await fetch_real_addresses_reverse_geocode(target_count)
 
             if not addresses:
-                print("\n⚠️  Reverse geocoding failed - using demo fallback location")
-                addresses = [("Hauptstrasse", "1", "commercial", 47.5596, 7.5886)]
+                print("\n⚠️  Reverse geocoding failed - using verified Oberwil fallback locations")
+                addresses = FALLBACK_TRAINING_LOCATIONS
 
         print(f"\n📍 Seeding {len(addresses)} real addresses...")
 
