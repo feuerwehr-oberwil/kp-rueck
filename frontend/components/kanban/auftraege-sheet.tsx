@@ -215,7 +215,9 @@ export function AuftraegeSheet({
     if (!name) return
     setCreating(false)
     const created = await createGroup({ name, color: newColor })
-    if (created) setExpanded((prev) => new Set(prev).add(created.id))
+    // Collapse every existing Auftrag and expand only the new one, so the
+    // operator focuses on the route they just created.
+    if (created) setExpanded(new Set([created.id]))
   }
 
   return (
@@ -660,10 +662,14 @@ function AuftragCard({
               label={t("stopsCount", { count: total })}
               action={
                 <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" className="h-7 gap-1 px-2" onClick={() => onOpenRoutenEditor()}>
-                    <MapIcon className="h-3.5 w-3.5" />
-                    {t("routenEditor")}
-                  </Button>
+                  {/* A route only needs the editor once there's an actual route to
+                      plan — hide it for 0/1 stop, where it's just a single pin. */}
+                  {total >= 2 && (
+                    <Button size="sm" variant="ghost" className="h-7 gap-1 px-2" onClick={() => onOpenRoutenEditor()}>
+                      <MapIcon className="h-3.5 w-3.5" />
+                      {t("routenEditor")}
+                    </Button>
+                  )}
                   {/* Optimize wand — the menu picks the start anchor and runs immediately. */}
                   {canEdit && <RouteOptimizeMenu
                     options={optimizeStartOptions}
