@@ -860,7 +860,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}>
             <DropdownMenuItem onClick={onOpenDetail}>{t("openDetail")}</DropdownMenuItem>
             {!readOnly && <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
               {t("removeStop")}
@@ -870,7 +870,10 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
       </div>
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
+        <ContextMenuContent
+          className="w-48 max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
+          collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
+        >
           {/* Status jump — same four mirror columns the StopStatusControl caret offers. */}
           {!readOnly && (mirror === "complete" ? (["complete"] as MirrorStatus[]) : MIRROR_ORDER).map((s) => {
             const c = MIRROR_CONFIG[s]
