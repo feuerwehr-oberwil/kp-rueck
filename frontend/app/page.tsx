@@ -1780,9 +1780,13 @@ export default function FireStationDashboard() {
               {isEditor && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      title={tDash('sort.label')}
+                      aria-label={tDash('sort.label')}
+                    >
                       <ArrowUpDown className="h-4 w-4" />
-                      {tDash('sort.button')}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
