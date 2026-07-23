@@ -6,20 +6,13 @@
 
 import type { Operation } from "@/lib/contexts/operations-context"
 
-/**
- * The firestation-centre sentinel that operations-context assigns to incidents
- * without real coordinates (see `apiIncidentToOperation`). A stop sitting exactly
- * on it is treated as "unlocated" — kept off the route line and sunk to the end
- * when optimizing.
- */
-export const UNLOCATED_SENTINEL: readonly [number, number] = [47.51637699933488, 7.561800450458299]
+export type LocatedOperation = Operation & { coordinates: [number, number] }
 
-export function isLocated(op: Operation | undefined): op is Operation {
+export function isLocated(op: Operation | undefined): op is LocatedOperation {
   if (!op) return false
   if (!Array.isArray(op.coordinates)) return false
   const [lat, lng] = op.coordinates
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
-  return !(lat === UNLOCATED_SENTINEL[0] && lng === UNLOCATED_SENTINEL[1])
+  return Number.isFinite(lat) && Number.isFinite(lng)
 }
 
 /** Great-circle distance in kilometres (same haversine as assignment-lines.tsx). */

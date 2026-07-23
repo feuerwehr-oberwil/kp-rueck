@@ -8,6 +8,7 @@ import { DraggableOperation } from "./draggable-operation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown } from "lucide-react"
+import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +19,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 // On large screens (2xl+), columns stay expanded — collapsing only helps on smaller screens
-const largeScreenQuery = "(min-width: 1536px)"
 const subscribeLargeScreen = (cb: () => void) => {
-  const mql = window.matchMedia(largeScreenQuery)
+  const mql = window.matchMedia(SIDE_PANEL_MEDIA_QUERY)
   mql.addEventListener("change", cb)
   return () => mql.removeEventListener("change", cb)
 }
-const getIsLargeScreen = () => window.matchMedia(largeScreenQuery).matches
+const getIsLargeScreen = () => window.matchMedia(SIDE_PANEL_MEDIA_QUERY).matches
 const getIsLargeScreenServer = () => false
 
 function useIsLargeScreen() {

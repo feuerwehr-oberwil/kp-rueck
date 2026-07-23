@@ -1,17 +1,15 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
-import Link from "next/link"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Ruler, Loader2, Palette, Check, Waypoints, Milestone } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
-import { useIncidents, useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
@@ -21,8 +19,15 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
+import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
+import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
+import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
+import {
+  IncidentStatusWorkflowDialogs,
+  useIncidentStatusWorkflow,
+} from "@/components/kanban/incident-status-workflow"
 import type { Incident } from "@/lib/types/incidents"
-import { STATUS_LABELS, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, STATUS_GROUP_LABELS, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
+import { STATUS_LABELS, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api-client"
@@ -60,15 +65,31 @@ export default function MapPage() {
   const { incidents, formatLocation, refreshIncidents } = useIncidents()
   const {
     operations,
+    personnel,
     materials,
     updateOperation,
+    changeStatusToTop,
+    removeCrew,
+    removeMaterial,
     removeVehicle: removeVehicleFromOperation,
+    assignPersonToOperation,
+    assignMaterialToOperation,
     assignVehicleToOperation,
+    requestVehicleConflict,
     deleteOperation
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
   const { isAuthenticated, isEditor } = useAuth()
-  const { groups, createGroup, addStops } = useGroups()
+  const {
+    groups,
+    createGroup,
+    addStops,
+    removeStop,
+    assignResource: assignGroupResource,
+    unassignResource: unassignGroupResource,
+    getGroupResources,
+    occupiedResourceIds,
+  } = useGroups()
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
@@ -78,6 +99,16 @@ export default function MapPage() {
   )
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
+  const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
+  const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
+  const [routeAssign, setRouteAssign] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
+  const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
+  const [auftragPickerIncidentId, setAuftragPickerIncidentId] = useState<string | null>(null)
+  const [diveraEnabled, setDiveraEnabled] = useState(false)
+  const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
+  const [printerEnabled, setPrinterEnabled] = useState(false)
+  const [funkrufname, setFunkrufname] = useState("Omega")
   // Derive current operation from operations array to get real-time updates
   const selectedOperation = useMemo(() => {
     if (!selectedOperationId) return null
@@ -91,7 +122,7 @@ export default function MapPage() {
     active: true,
     completed: false, // Hidden by default (matches current behavior)
   })
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string }>>([])
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [showDistances, setShowDistances] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
@@ -139,14 +170,8 @@ export default function MapPage() {
   const [focusVehicleTrigger, setFocusVehicleTrigger] = useState(0)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const mapRef = useRef<any>(null)
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [isMounted, setIsMounted] = useState(false)
-
-  const selectedIncident = useMemo(
-    () => incidents.find((inc) => inc.id === selectedIncidentId),
-    [incidents, selectedIncidentId]
-  )
 
   // Cross-window sync (bidirectional)
   const { broadcast } = useCrossWindowSync({
@@ -203,14 +228,14 @@ export default function MapPage() {
     void planning.addStopAtLatLng(lat, lng)
   }
 
-  const handleDetailsClick = (incident: Incident) => {
+  const handleDetailsClick = useCallback((incident: Incident) => {
     // Find the corresponding operation
     const operation = operations.find(op => op.id === incident.id)
     if (operation) {
       setSelectedOperationId(operation.id)
       setDetailModalOpen(true)
     }
-  }
+  }, [operations])
 
   // Zoom in on a vehicle by its 1-5 shortcut number
   const focusVehicleByNumber = (vehicleNumber: number) => {
@@ -241,13 +266,164 @@ export default function MapPage() {
   }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes])
 
   // Use shared operation handlers hook
-  const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
+  const { handleOperationUpdate, handleVehicleRemove, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
     updateOperation,
     removeVehicle: removeVehicleFromOperation,
     assignVehicleToOperation,
     deleteOperation,
   })
+
+  const statusWorkflow = useIncidentStatusWorkflow({
+    operations,
+    materials,
+    changeStatusToTop,
+    getGroupResources,
+    removeMaterial,
+    unassignGroupResource,
+  })
+
+  const handleAssignRouteResource = (
+    resourceType: 'crew' | 'vehicles' | 'materials',
+    groupId: string,
+  ) => {
+    setRouteAssign({ groupId, resourceType })
+    setAssignmentResourceType(resourceType)
+    setAssignmentOperationId(null)
+    setAssignmentDialogOpen(true)
+  }
+
+  const handleOpenAssignmentDialog = (
+    resourceType: 'crew' | 'vehicles' | 'materials',
+    operationId: string,
+  ) => {
+    const operation = operations.find((item) => item.id === operationId)
+    if (operation?.groupId) {
+      handleAssignRouteResource(resourceType, operation.groupId)
+      return
+    }
+    setRouteAssign(null)
+    setAssignmentResourceType(resourceType)
+    setAssignmentOperationId(operationId)
+    setAssignmentDialogOpen(true)
+  }
+
+  const assignVehicleToGroupWithConflict = (groupId: string, vehicleId: string) => {
+    const vehicle = vehicleTypes.find((item) => item.id === vehicleId)
+    if (!vehicle) return
+
+    const groupConflicts = groups.filter((group) =>
+      group.id !== groupId
+      && group.assignments.some((assignment) => assignment.resourceType === 'vehicle' && assignment.resourceId === vehicleId),
+    )
+    const incidentConflicts = operations.filter((operation) => operation.vehicles.includes(vehicle.name))
+    if (groupConflicts.length === 0 && incidentConflicts.length === 0) {
+      void assignGroupResource(groupId, 'vehicle', vehicleId)
+      return
+    }
+
+    requestVehicleConflict({
+      vehicleId,
+      vehicleName: vehicle.name,
+      targetOperationId: groupId,
+      conflicts: [
+        ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+        ...incidentConflicts.map((operation) => ({ operationId: operation.id, operationLabel: operation.location })),
+      ],
+      customResolve: async (action) => {
+        if (action === 'move') {
+          const groupResults = await Promise.all(groupConflicts.map((group) => {
+            const assignment = group.assignments.find((item) => item.resourceType === 'vehicle' && item.resourceId === vehicleId)
+            return assignment ? unassignGroupResource(group.id, assignment.id) : true
+          }))
+          const incidentResults = await Promise.all(
+            incidentConflicts.map((operation) => removeVehicleFromOperation(operation.id, vehicle.name)),
+          )
+          if ([...groupResults, ...incidentResults].some((ok) => !ok)) return
+        }
+        await assignGroupResource(groupId, 'vehicle', vehicleId)
+      },
+    })
+  }
+
+  const assignVehicleToIncidentWithConflict = (
+    vehicleId: string,
+    vehicleName: string,
+    operationId: string,
+  ) => {
+    const groupConflicts = groups.filter((group) =>
+      group.assignments.some((assignment) => assignment.resourceType === 'vehicle' && assignment.resourceId === vehicleId),
+    )
+    if (groupConflicts.length === 0) {
+      assignVehicleToOperation(vehicleId, vehicleName, operationId)
+      return
+    }
+
+    requestVehicleConflict({
+      vehicleId,
+      vehicleName,
+      targetOperationId: operationId,
+      conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+      customResolve: async (action) => {
+        if (action === 'move') {
+          const results = await Promise.all(groupConflicts.map((group) => {
+            const assignment = group.assignments.find((item) => item.resourceType === 'vehicle' && item.resourceId === vehicleId)
+            return assignment ? unassignGroupResource(group.id, assignment.id) : true
+          }))
+          if (results.some((ok) => !ok)) return
+        }
+        assignVehicleToOperation(vehicleId, vehicleName, operationId)
+      },
+    })
+  }
+
+  const handleChooseAuftrag = async (groupId: string) => {
+    if (!auftragPickerIncidentId) return
+    const ok = await addStops(groupId, [auftragPickerIncidentId])
+    if (ok) {
+      const group = groups.find((item) => item.id === groupId)
+      toast.success(tKanban('dashboard.distributedToast', { name: group?.name ?? '' }))
+    }
+  }
+
+  const handleRemoveFromAuftrag = async () => {
+    if (!auftragPickerIncidentId) return
+    const operation = operations.find((item) => item.id === auftragPickerIncidentId)
+    if (!operation?.groupId) return
+    const ok = await removeStop(operation.groupId, operation.id)
+    if (ok) toast.success(tKanban('dashboard.removedFromAuftragToast'))
+  }
+
+  const assignmentOperation = assignmentOperationId
+    ? operations.find((operation) => operation.id === assignmentOperationId) ?? null
+    : null
+  const assignedResources = assignmentOperation
+    ? {
+        assignedPersonnel: assignmentOperation.crew,
+        assignedVehicles: assignmentOperation.vehicles,
+        assignedMaterials: assignmentOperation.materials,
+      }
+    : { assignedPersonnel: [], assignedVehicles: [], assignedMaterials: [] }
+  const routeGroupResources = routeAssign ? getGroupResources(routeAssign.groupId) : null
+  const routeOwnIds = routeAssign
+    ? new Set(
+        groups
+          .find((group) => group.id === routeAssign.groupId)
+          ?.assignments.map((assignment) => `${assignment.resourceType}:${assignment.resourceId}`) ?? [],
+      )
+    : new Set<string>()
+  const occupiedPersonnelIds = new Set(
+    [...occupiedResourceIds.personnel].filter((id) => !routeOwnIds.has(`personnel:${id}`)),
+  )
+  const occupiedVehicleIds = new Set(
+    [...occupiedResourceIds.vehicle].filter((id) => !routeOwnIds.has(`vehicle:${id}`)),
+  )
+  const occupiedMaterialIds = new Set(
+    [...occupiedResourceIds.material].filter((id) => !routeOwnIds.has(`material:${id}`)),
+  )
+  const diveraDialogOpLive = diveraDialogOp
+    ? operations.find((operation) => operation.id === diveraDialogOp.id) ?? diveraDialogOp
+    : null
 
   // Count incidents by status group (before filtering)
   const statusGroupCounts = useMemo(() => {
@@ -312,7 +488,7 @@ export default function MapPage() {
         (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
-    [incidents, searchQuery, statusFilters]
+    [incidents, searchQuery, statusFilters, tIncidents, tKanban]
   )
 
   // Toggle status filter
@@ -320,30 +496,86 @@ export default function MapPage() {
     setStatusFilters(prev => ({ ...prev, [group]: !prev[group] }))
   }
 
-  // Load vehicles and settings from API once authenticated
+  useEffect(() => {
+    if (!assignmentDialogOpen || assignmentResourceType !== 'crew' || !selectedEvent) {
+      setRekoPersonnelNames([])
+      return
+    }
+
+    let cancelled = false
+    apiClient.getEventSpecialFunctions(selectedEvent.id)
+      .then((functions) => {
+        if (cancelled) return
+        const names = functions
+          .filter((item) => item.function_type === 'reko')
+          .map((item) => personnel.find((person) => person.id === item.personnel_id)?.name)
+          .filter((name): name is string => name !== undefined)
+        setRekoPersonnelNames(names)
+      })
+      .catch((error) => {
+        console.error('Failed to load Reko personnel:', error)
+        if (!cancelled) setRekoPersonnelNames([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [assignmentDialogOpen, assignmentResourceType, personnel, selectedEvent])
+
+  // Load all vehicles for detail assignment while retaining the first five as
+  // numbered map shortcuts. Resolve Divera capability through the same settings
+  // checks as the board so a non-functional send button is never shown.
   useEffect(() => {
     if (!isAuthenticated) return
     const loadVehicles = async () => {
       try {
         const vehicles = await apiClient.getVehicles()
-        // Create vehicle types array with keyboard shortcuts (1-5), including IDs
-        const typesWithKeys = vehicles.slice(0, 5).map((vehicle, index) => ({
+        const typesWithKeys = vehicles.map((vehicle, index) => ({
           key: String(index + 1),
           name: vehicle.name,
-          id: vehicle.id
+          id: vehicle.id,
+          type: vehicle.type,
         }))
         setVehicleTypes(typesWithKeys)
       } catch (error) {
         console.error('Failed to load vehicles:', error)
       }
     }
-    loadVehicles()
+    const loadDiveraCapability = async () => {
+      try {
+        const settings = await apiClient.getAllSettings()
+        if (settings.funkrufname) setFunkrufname(settings.funkrufname)
+        if (settings['divera.alarm_enabled'] !== 'true') {
+          setDiveraEnabled(false)
+          return
+        }
+        try {
+          const status = await apiClient.getDiveraPollingStatus()
+          setDiveraEnabled(status.configured === true)
+        } catch {
+          setDiveraEnabled(true)
+        }
+      } catch {
+        setDiveraEnabled(false)
+      }
+    }
+    const loadPrinterCapability = async () => {
+      try {
+        const status = await apiClient.getPrinterStatus()
+        setPrinterEnabled(status.enabled)
+      } catch {
+        setPrinterEnabled(false)
+      }
+    }
+    void loadVehicles()
+    void loadDiveraCapability()
+    void loadPrinterCapability()
   }, [isAuthenticated])
 
   // Refresh incidents immediately when map page loads
   useEffect(() => {
     refreshIncidents()
-  }, [])
+  }, [refreshIncidents])
 
   // Clock update
   useEffect(() => {
@@ -884,10 +1116,111 @@ export default function MapPage() {
           open={detailModalOpen}
           onOpenChange={setDetailModalOpen}
           onUpdate={handleOperationUpdate}
-          onDelete={handleOperationDelete}
+          onDelete={isEditor ? handleOperationDelete : undefined}
           materials={materials}
-          onAssignVehicle={handleVehicleAssign}
-          onRemoveVehicle={handleVehicleRemove}
+          onAssignVehicle={isEditor ? assignVehicleToIncidentWithConflict : undefined}
+          onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
+          onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
+          onRemoveCrew={isEditor ? removeCrew : undefined}
+          onRemoveMaterial={isEditor ? removeMaterial : undefined}
+          canEdit={isEditor}
+          diveraEnabled={isEditor && diveraEnabled}
+          onSendDivera={isEditor ? setDiveraDialogOp : undefined}
+          onChangeStatus={isEditor ? statusWorkflow.requestStatusChange : undefined}
+          onRequestComplete={isEditor ? statusWorkflow.requestCompletion : undefined}
+          onDistributeToAuftrag={isEditor ? setAuftragPickerIncidentId : undefined}
+        />
+
+        <ResourceAssignmentDialog
+          open={assignmentDialogOpen}
+          onOpenChange={(open) => {
+            setAssignmentDialogOpen(open)
+            if (!open) {
+              setRouteAssign(null)
+              setAssignmentOperationId(null)
+              statusWorkflow.resumeGateAfterAssignment()
+            }
+          }}
+          resourceType={assignmentResourceType}
+          operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
+          assignTarget={routeAssign ? 'route' : 'incident'}
+          routeName={routeAssign ? groups.find((group) => group.id === routeAssign.groupId)?.name : undefined}
+          personnel={personnel}
+          vehicles={vehicleTypes}
+          materials={materials}
+          assignedPersonnel={routeGroupResources ? routeGroupResources.personnel.map((person) => person.name) : assignedResources.assignedPersonnel}
+          assignedVehicles={routeGroupResources ? routeGroupResources.vehicles.map((vehicle) => vehicle.name) : assignedResources.assignedVehicles}
+          assignedMaterials={routeGroupResources ? routeGroupResources.materials.map((material) => material.resourceId) : assignedResources.assignedMaterials}
+          rekoPersonnelNames={routeAssign ? [] : rekoPersonnelNames}
+          onAssignPerson={routeAssign
+            ? (personId) => void assignGroupResource(routeAssign.groupId, 'personnel', personId)
+            : assignPersonToOperation}
+          onAssignVehicle={routeAssign
+            ? (vehicleId) => assignVehicleToGroupWithConflict(routeAssign.groupId, vehicleId)
+            : assignVehicleToIncidentWithConflict}
+          onAssignMaterial={routeAssign
+            ? (materialId) => void assignGroupResource(routeAssign.groupId, 'material', materialId)
+            : assignMaterialToOperation}
+          onRemovePerson={routeAssign
+            ? (_operationId, personName) => {
+                const assignment = routeGroupResources?.personnel.find((person) => person.name === personName)
+                if (assignment) void unassignGroupResource(routeAssign.groupId, assignment.assignmentId)
+              }
+            : removeCrew}
+          onRemoveVehicle={routeAssign
+            ? (_operationId, vehicleName) => {
+                const assignment = routeGroupResources?.vehicles.find((vehicle) => vehicle.name === vehicleName)
+                if (assignment) void unassignGroupResource(routeAssign.groupId, assignment.assignmentId)
+              }
+            : removeVehicleFromOperation}
+          onRemoveMaterial={routeAssign
+            ? (_operationId, materialId) => {
+                const assignment = routeGroupResources?.materials.find((material) => material.resourceId === materialId)
+                if (assignment) void unassignGroupResource(routeAssign.groupId, assignment.assignmentId)
+              }
+            : removeMaterial}
+          zuFuss={assignmentOperation?.zuFuss ?? false}
+          onToggleZuFuss={assignmentOperation
+            ? () => updateOperation(assignmentOperation.id, { zuFuss: !assignmentOperation.zuFuss })
+            : undefined}
+          occupiedPersonnelIds={occupiedPersonnelIds}
+          occupiedVehicleIds={occupiedVehicleIds}
+          occupiedMaterialIds={occupiedMaterialIds}
+        />
+
+        <AuftragPickerDialog
+          open={auftragPickerIncidentId !== null}
+          onOpenChange={(open) => !open && setAuftragPickerIncidentId(null)}
+          groups={groups}
+          currentGroupId={
+            auftragPickerIncidentId
+              ? operations.find((operation) => operation.id === auftragPickerIncidentId)?.groupId ?? null
+              : null
+          }
+          onChoose={handleChooseAuftrag}
+          onCreate={(name) => createGroup({ name })}
+          onRemoveFromCurrent={handleRemoveFromAuftrag}
+        />
+
+        <DiveraSendDialog
+          open={diveraDialogOp !== null}
+          onOpenChange={(open) => !open && setDiveraDialogOp(null)}
+          operation={diveraDialogOpLive}
+          materials={materials}
+        />
+
+        <IncidentStatusWorkflowDialogs
+          controller={statusWorkflow}
+          printerEnabled={printerEnabled}
+          funkrufname={funkrufname}
+          diveraEnabled={diveraEnabled}
+          onOpenAssignment={handleOpenAssignmentDialog}
+          onOpenDetail={(operationId) => {
+            setSelectedOperationId(operationId)
+            setDetailModalOpen(true)
+          }}
+          onSendDivera={setDiveraDialogOp}
+          onRefresh={refreshIncidents}
         />
       </div>
 

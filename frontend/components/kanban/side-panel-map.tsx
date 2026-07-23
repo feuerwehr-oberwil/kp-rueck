@@ -9,6 +9,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import { apiClient, ApiVehiclePosition } from "@/lib/api-client"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { isLocated } from "@/lib/utils/route-geo"
 
 // Create simple priority-based marker icon
 function createOperationIcon(operation: Operation, isSelected: boolean = false): L.DivIcon {
@@ -112,9 +113,7 @@ function FitBounds({ operations, vehiclePositions = [] }: { operations: Operatio
     const points: [number, number][] = []
 
     for (const op of operations) {
-      if (op.coordinates && op.coordinates[0] && op.coordinates[1]) {
-        points.push([op.coordinates[0], op.coordinates[1]])
-      }
+      if (isLocated(op)) points.push(op.coordinates)
     }
 
     for (const vp of vehiclePositions) {
@@ -234,13 +233,7 @@ export default function SidePanelMapContent({
   // Filter active operations (not completed) with valid coordinates
   const mappableOperations = useMemo(
     () =>
-      operations.filter(
-        (op) =>
-          op.status !== "complete" &&
-          op.coordinates &&
-          op.coordinates[0] &&
-          op.coordinates[1]
-      ),
+      operations.filter((op) => op.status !== "complete").filter(isLocated),
     [operations]
   )
 
@@ -248,10 +241,10 @@ export default function SidePanelMapContent({
   const center: LatLngExpression = useMemo(() => {
     if (mappableOperations.length > 0) {
       const avgLat =
-        mappableOperations.reduce((sum, op) => sum + (op.coordinates[0] || 0), 0) /
+        mappableOperations.reduce((sum, op) => sum + op.coordinates[0], 0) /
         mappableOperations.length
       const avgLng =
-        mappableOperations.reduce((sum, op) => sum + (op.coordinates[1] || 0), 0) /
+        mappableOperations.reduce((sum, op) => sum + op.coordinates[1], 0) /
         mappableOperations.length
       return [avgLat, avgLng]
     }

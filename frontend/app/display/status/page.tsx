@@ -14,6 +14,7 @@ import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { apiClient, type ApiViewerData, type ApiIncident } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
+import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
 
 /** The view-model SituationBoard renders — fed by useStatusData (auth) or a token payload. */
 interface SituationData {
@@ -406,8 +407,6 @@ function MaterialRow({ material: m, assignedLocation }: { material: Material; as
  *  Crew/material assignments aren't in the token payload, so those degrade to
  *  empty — the status board still shows incidents, vehicles, and the roster. */
 function apiIncidentToOperation(a: ApiIncident): Operation {
-  const lat = a.location_lat != null ? parseFloat(a.location_lat) : 47.51637699933488
-  const lng = a.location_lng != null ? parseFloat(a.location_lng) : 7.561800450458299
   return {
     id: a.id,
     location: a.location_address || "",
@@ -418,7 +417,7 @@ function apiIncidentToOperation(a: ApiIncident): Operation {
     crew: [],
     priority: a.priority,
     status: API_STATUS_TO_INTERNAL[a.status] ?? "incoming",
-    coordinates: [lat, lng],
+    coordinates: apiCoordinatesToTuple(a.location_lat, a.location_lng),
     materials: [],
     notes: a.description ?? "",
     contact: a.contact ?? "",

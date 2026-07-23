@@ -20,7 +20,7 @@ import { Marker, Polyline, Tooltip } from "react-leaflet"
 import L from "leaflet"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
-import { isLocated } from "@/lib/utils/route-geo"
+import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
 import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "@/lib/types/incidents"
 
@@ -98,7 +98,7 @@ interface RouteRenderItem {
   color: string
   dimmed: boolean
   /** Located stops in group order, with their 1-based sequence badge. */
-  points: { id: string; op: Operation; seq: number }[]
+  points: { id: string; op: LocatedOperation; seq: number }[]
 }
 
 interface GroupRoutesProps {

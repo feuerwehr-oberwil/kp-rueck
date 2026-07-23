@@ -40,6 +40,7 @@ interface LocationInputProps {
   onCoordinatesChange: (lat: number | null, lon: number | null) => void
   disabled?: boolean
   autoFocus?: boolean
+  geocodeInitialAddress?: boolean
   /** Show error styling for validation feedback */
   error?: boolean
 }
@@ -52,6 +53,7 @@ export function LocationInput({
   onCoordinatesChange,
   disabled = false,
   autoFocus = false,
+  geocodeInitialAddress = true,
   error = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
@@ -71,6 +73,10 @@ export function LocationInput({
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const initialAddressRef = useRef(address)
+  const addressChangedRef = useRef(false)
+  const geocodeInputsRef = useRef({ address, latitude, longitude, onCoordinatesChange })
+  geocodeInputsRef.current = { address, latitude, longitude, onCoordinatesChange }
 
   // Fetch home_city setting on mount to prioritize search results
   useEffect(() => {
@@ -165,14 +171,17 @@ export function LocationInput({
 
   // Geocode address when it changes (if no coordinates set yet)
   useEffect(() => {
-    if (address && address.trim().length > 0 && (latitude === null || longitude === null)) {
-      geocodeAddress(address).then((coords) => {
-        if (coords) {
-          onCoordinatesChange(coords.lat, coords.lon)
-        }
+    if (disabled) return
+    if (address !== initialAddressRef.current) addressChangedRef.current = true
+    if (!geocodeInitialAddress && !addressChangedRef.current) return
+
+    const current = geocodeInputsRef.current
+    if (current.address && current.address.trim().length > 0 && (current.latitude === null || current.longitude === null)) {
+      geocodeAddress(current.address).then((coords) => {
+        if (coords) current.onCoordinatesChange(coords.lat, coords.lon)
       })
     }
-  }, [address]) // Only depend on address, not lat/lon to avoid infinite loop
+  }, [address, disabled, geocodeInitialAddress])
 
   const handleAddressSelect = (result: SearchResult) => {
     onAddressChange(result.formattedAddress)

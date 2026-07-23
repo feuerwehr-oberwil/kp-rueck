@@ -24,6 +24,7 @@ import {
 } from "@/lib/recent-removals"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
 import { UpdateBatcher } from "@/lib/update-batcher"
+import { apiCoordinatesToTuple, coordinatesToApiFields, type IncidentCoordinates } from "@/lib/coordinate-parser"
 
 // Re-export types for backward compatibility
 export type { Person, PersonStatus } from "./personnel-context"
@@ -52,7 +53,7 @@ export interface Operation {
   crew: string[]
   priority: "high" | "medium" | "low"
   status: OperationStatus
-  coordinates: [number, number]
+  coordinates: IncidentCoordinates
   materials: string[]
   notes: string
   contact: string
@@ -363,9 +364,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       crew: [],
       priority: incident.priority as "high" | "medium" | "low",
       status: statusMap[incident.status] || "incoming",
-      coordinates: incident.location_lat && incident.location_lng
-        ? [parseFloat(incident.location_lat), parseFloat(incident.location_lng)]
-        : [47.51637699933488, 7.561800450458299],
+      coordinates: apiCoordinatesToTuple(incident.location_lat, incident.location_lng),
       materials: [],
       notes: incident.description || "",
       contact: incident.contact || "",
@@ -1115,10 +1114,21 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   const updateOperation = (operationId: string, updates: Partial<Operation>) => {
-    const enhancedUpdates = updates.status ? { ...updates, statusChangedAt: new Date() } : updates
+    // LocationInput clears the address and coordinates together. Normalize both
+    // legacy `coordinates: undefined` and address-only clear callbacks without
+    // changing updates that simply omit coordinates.
+    const hasCoordinateUpdate = Object.prototype.hasOwnProperty.call(updates, "coordinates")
+    const normalizedUpdates = hasCoordinateUpdate
+      ? { ...updates, coordinates: updates.coordinates ?? null }
+      : updates.location === ""
+        ? { ...updates, coordinates: null }
+        : updates
+    const enhancedUpdates = normalizedUpdates.status
+      ? { ...normalizedUpdates, statusChangedAt: new Date() }
+      : normalizedUpdates
 
     // When completing an operation, auto-release personnel and vehicles (backend does this too)
-    const isCompletingOperation = updates.status === "complete"
+    const isCompletingOperation = normalizedUpdates.status === "complete"
 
     setOperations((ops) =>
       ops.map((op) => {
@@ -1194,8 +1204,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.priority !== undefined) apiUpdates.priority = batchedUpdates.priority
         if (batchedUpdates.status !== undefined) apiUpdates.status = statusToBackend[batchedUpdates.status] as ApiIncidentUpdate['status']
         if (batchedUpdates.coordinates !== undefined) {
-          apiUpdates.location_lat = batchedUpdates.coordinates[0]?.toString()
-          apiUpdates.location_lng = batchedUpdates.coordinates[1]?.toString()
+          Object.assign(apiUpdates, coordinatesToApiFields(batchedUpdates.coordinates))
         }
         if (batchedUpdates.notes !== undefined) apiUpdates.description = batchedUpdates.notes
         if (batchedUpdates.contact !== undefined) apiUpdates.contact = batchedUpdates.contact
@@ -1239,11 +1248,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Everything else debounces to coalesce rapid edits. Criticality is
       // decided on the MERGED batch so a follow-up non-critical edit can't
       // demote a pending critical write back to the slow path.
-      const merged = { ...(updateBatcherRef.current.getPending(operationId) ?? {}), ...updates }
+      const merged = { ...(updateBatcherRef.current.getPending(operationId) ?? {}), ...normalizedUpdates }
       const isCriticalUpdate =
         merged.location !== undefined || merged.coordinates !== undefined || merged.status !== undefined
       if (isCriticalUpdate) criticalUpdateInProgress.current = true
-      updateBatcherRef.current.schedule(operationId, updates, isCriticalUpdate ? 50 : 500, performUpdate)
+      updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? 50 : 500, performUpdate)
     } else {
       releaseAssignmentCooldown(3000)
     }
@@ -1335,8 +1344,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           type: (operation.incidentType || "elementarereignis") as ApiIncidentCreate['type'],
           priority: operation.priority as "low" | "medium" | "high",
           location_address: operation.location,
-          location_lat: operation.coordinates[0]?.toString(),
-          location_lng: operation.coordinates[1]?.toString(),
+          ...coordinatesToApiFields(operation.coordinates),
           status: "eingegangen" as const,
           description: operation.notes || null,
           contact: operation.contact || null,
@@ -1359,9 +1367,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           crew: [],
           priority: apiIncident.priority as "low" | "medium" | "high",
           status: "incoming",
-          coordinates: apiIncident.location_lat && apiIncident.location_lng
-            ? [parseFloat(apiIncident.location_lat), parseFloat(apiIncident.location_lng)]
-            : operation.coordinates,
+          coordinates: apiCoordinatesToTuple(apiIncident.location_lat, apiIncident.location_lng),
           materials: [],
           notes: apiIncident.description || "",
           contact: apiIncident.contact || "",
