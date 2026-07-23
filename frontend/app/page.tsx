@@ -9,13 +9,13 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, ExternalLink, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { QrShareSheet } from "@/components/kanban/qr-share-sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
@@ -298,12 +298,9 @@ export default function FireStationDashboard() {
     return true
   })
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
-  const [rekoCopied, setRekoCopied] = useState(false)
   const [displayToken, setDisplayToken] = useState<string | null>(null)
   const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
-  const [displayCopied, setDisplayCopied] = useState(false)
   const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
-  const [alarmCopied, setAlarmCopied] = useState(false)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
   // These dialogs hold a snapshot of the operation; derive the LIVE operation so a
@@ -1266,20 +1263,6 @@ export default function FireStationDashboard() {
     }
   }
 
-  const copyRekoDashboardUrlToClipboard = async () => {
-    if (!rekoDashboardUrl) return
-
-    try {
-      const { copyToClipboard } = await import('@/lib/utils')
-      await copyToClipboard(rekoDashboardUrl)
-      setRekoCopied(true)
-      toast.success(tCommon('linkCopied'))
-      setTimeout(() => setRekoCopied(false), 2000)
-    } catch (error) {
-      toast.error(tCommon('copyFailed'))
-    }
-  }
-
   const generateDisplayShare = async () => {
     // Toggle behavior: if already open, just close
     if (displaySheetOpen) {
@@ -1309,20 +1292,6 @@ export default function FireStationDashboard() {
     }
   }
 
-  const copyDisplayUrlToClipboard = async () => {
-    if (!displayUrl) return
-
-    try {
-      const { copyToClipboard } = await import('@/lib/utils')
-      await copyToClipboard(displayUrl)
-      setDisplayCopied(true)
-      toast.success(tCommon('linkCopied'))
-      setTimeout(() => setDisplayCopied(false), 2000)
-    } catch (error) {
-      toast.error(tCommon('copyFailed'))
-    }
-  }
-
   const generateAlarmQR = async () => {
     // Toggle behavior: if already open, just close
     if (alarmQrDialogOpen) {
@@ -1347,20 +1316,6 @@ export default function FireStationDashboard() {
       toast.error(tCommon('error'), {
         description: tDash('alarmLinkFailed'),
       })
-    }
-  }
-
-  const copyAlarmUrlToClipboard = async () => {
-    if (!alarmUrl) return
-
-    try {
-      const { copyToClipboard } = await import('@/lib/utils')
-      await copyToClipboard(alarmUrl)
-      setAlarmCopied(true)
-      toast.success(tCommon('linkCopied'))
-      setTimeout(() => setAlarmCopied(false), 2000)
-    } catch (error) {
-      toast.error(tCommon('copyFailed'))
     }
   }
 
@@ -2308,392 +2263,73 @@ export default function FireStationDashboard() {
 
 
       {/* Check-In QR Code Sheet */}
-      <Sheet modal={false} open={qrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'checkin' && setActiveFooterSheet(null)}>
-        <SheetContent
-          side="bottom"
-          hideCloseButton
-          overlayOffset="42px"
-          nonModal
-          className="max-w-3xl mx-auto px-6 py-4"
-          onInteractOutside={(e) => {
-            // Prevent closing when clicking on footer buttons
-            const target = e.target as HTMLElement
-            if (target.closest('footer')) {
-              e.preventDefault()
-            }
-          }}
-        >
-          <div className="flex items-start gap-6">
-            {/* QR Code */}
-            {checkInUrl && (
-              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
-                <QRCodeSVG
-                  value={checkInUrl}
-                  size={140}
-                  level="M"
-                  includeMargin={false}
-                />
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <SheetHeader className="p-0 mb-3">
-                <SheetTitle>{tDash('checkInSheetTitle')}</SheetTitle>
-                <SheetDescription>
-                  {tDash('checkInSheetDescription')}
-                </SheetDescription>
-              </SheetHeader>
-
-              {checkInUrl && (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={checkInUrl}
-                      readOnly
-                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copyCheckInUrlToClipboard}
-                      className="flex-shrink-0"
-                    >
-                      {copied ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      asChild
-                      className="flex-shrink-0 text-muted-foreground"
-                      title={tCommon('openInNewTab')}
-                    >
-                      <a href={checkInUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                    {printerEnabled && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePrintQR(checkInUrl, tDash('checkInSheetTitle'), tDash('checkInSheetHint'))}
-                        disabled={isPrintingQR}
-                        className="flex-shrink-0"
-                        title={tCommon('printQrCode')}
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {tDash('checkInSheetHint')}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <QrShareSheet
+        open={qrDialogOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'checkin' && setActiveFooterSheet(null)}
+        url={checkInUrl}
+        title={tDash('checkInSheetTitle')}
+        description={tDash('checkInSheetDescription')}
+        hint={tDash('checkInSheetHint')}
+        printerEnabled={printerEnabled}
+        isPrinting={isPrintingQR}
+        onPrint={checkInUrl ? () => handlePrintQR(checkInUrl, tDash('checkInSheetTitle'), tDash('checkInSheetHint')) : undefined}
+      />
 
       {/* Reko Dashboard QR Code Sheet */}
-      <Sheet modal={false} open={rekoQrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'reko' && setActiveFooterSheet(null)}>
-        <SheetContent
-          side="bottom"
-          hideCloseButton
-          overlayOffset="42px"
-          nonModal
-          className="max-w-3xl mx-auto px-6 py-4"
-          onInteractOutside={(e) => {
-            // Prevent closing when clicking on footer buttons
-            const target = e.target as HTMLElement
-            if (target.closest('footer')) {
-              e.preventDefault()
-            }
-          }}
-        >
-          <div className="flex items-start gap-6">
-            {/* QR Code */}
-            {rekoDashboardUrl && (
-              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
-                <QRCodeSVG
-                  value={rekoDashboardUrl}
-                  size={140}
-                  level="M"
-                  includeMargin={false}
-                />
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <SheetHeader className="p-0 mb-3">
-                <SheetTitle>{tDash('rekoSheetTitle')}</SheetTitle>
-                <SheetDescription>
-                  {tDash('rekoSheetDescription')}
-                </SheetDescription>
-              </SheetHeader>
-
-              {rekoDashboardUrl && (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={rekoDashboardUrl}
-                      readOnly
-                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copyRekoDashboardUrlToClipboard}
-                      className="flex-shrink-0"
-                    >
-                      {rekoCopied ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      asChild
-                      className="flex-shrink-0 text-muted-foreground"
-                      title={tCommon('openInNewTab')}
-                    >
-                      <a href={rekoDashboardUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                    {printerEnabled && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePrintQR(rekoDashboardUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint'))}
-                        disabled={isPrintingQR}
-                        className="flex-shrink-0"
-                        title={tCommon('printQrCode')}
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {tDash('rekoSheetHint')}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <QrShareSheet
+        open={rekoQrDialogOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'reko' && setActiveFooterSheet(null)}
+        url={rekoDashboardUrl}
+        title={tDash('rekoSheetTitle')}
+        description={tDash('rekoSheetDescription')}
+        hint={tDash('rekoSheetHint')}
+        printerEnabled={printerEnabled}
+        isPrinting={isPrintingQR}
+        onPrint={rekoDashboardUrl ? () => handlePrintQR(rekoDashboardUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint')) : undefined}
+      />
 
       {/* Display share QR Code Sheet */}
-      <Sheet modal={false} open={displaySheetOpen} onOpenChange={(open) => !open && activeFooterSheet === 'display' && setActiveFooterSheet(null)}>
-        <SheetContent
-          side="bottom"
-          hideCloseButton
-          overlayOffset="42px"
-          nonModal
-          className="max-w-3xl mx-auto px-6 py-4"
-          onInteractOutside={(e) => {
-            // Prevent closing when clicking on footer buttons
-            const target = e.target as HTMLElement
-            if (target.closest('footer')) {
-              e.preventDefault()
-            }
-          }}
-        >
-          <div className="flex items-start gap-6">
-            {/* QR Code */}
-            {displayUrl && (
-              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
-                <QRCodeSVG
-                  value={displayUrl}
-                  size={140}
-                  level="M"
-                  includeMargin={false}
-                />
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <SheetHeader className="p-0 mb-3">
-                <SheetTitle>{tDash('displaySheetTitle')}</SheetTitle>
-                <SheetDescription>
-                  {tDash('displaySheetDescription')}
-                </SheetDescription>
-              </SheetHeader>
-
-              {/* View selector — one token, three display targets */}
-              <div className="flex gap-1.5 mb-3">
-                {(['board', 'map', 'status'] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setDisplayView(v)}
-                    className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                      displayView === v
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-muted-foreground border-border hover:bg-muted'
-                    }`}
-                  >
-                    {tDash(`displayView.${v}`)}
-                  </button>
-                ))}
-              </div>
-
-              {displayUrl && (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={displayUrl}
-                      readOnly
-                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copyDisplayUrlToClipboard}
-                      className="flex-shrink-0"
-                    >
-                      {displayCopied ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      asChild
-                      className="flex-shrink-0 text-muted-foreground"
-                      title={tCommon('openInNewTab')}
-                    >
-                      <a href={displayUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                    {printerEnabled && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePrintQR(displayUrl, tDash('displaySheetTitle'), tDash('displaySheetHint'))}
-                        disabled={isPrintingQR}
-                        className="flex-shrink-0"
-                        title={tCommon('printQrCode')}
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {tDash('displaySheetHint')}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <QrShareSheet
+        open={displaySheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'display' && setActiveFooterSheet(null)}
+        url={displayUrl}
+        title={tDash('displaySheetTitle')}
+        description={tDash('displaySheetDescription')}
+        hint={tDash('displaySheetHint')}
+        printerEnabled={printerEnabled}
+        isPrinting={isPrintingQR}
+        onPrint={displayUrl ? () => handlePrintQR(displayUrl, tDash('displaySheetTitle'), tDash('displaySheetHint')) : undefined}
+      >
+        {/* View selector — one token, three display targets */}
+        <div className="flex gap-1.5 mb-3">
+          {(['board', 'map', 'status'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setDisplayView(v)}
+              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                displayView === v
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:bg-muted'
+              }`}
+            >
+              {tDash(`displayView.${v}`)}
+            </button>
+          ))}
+        </div>
+      </QrShareSheet>
 
       {/* Alarm Intake Link Sheet */}
-      <Sheet modal={false} open={alarmQrDialogOpen} onOpenChange={(open) => !open && activeFooterSheet === 'alarm' && setActiveFooterSheet(null)}>
-        <SheetContent
-          side="bottom"
-          hideCloseButton
-          overlayOffset="42px"
-          nonModal
-          className="max-w-3xl mx-auto px-6 py-4"
-          onInteractOutside={(e) => {
-            const target = e.target as HTMLElement
-            if (target.closest('footer')) {
-              e.preventDefault()
-            }
-          }}
-        >
-          <div className="flex items-start gap-6">
-            {/* QR Code */}
-            {alarmUrl && (
-              <div className="rounded-lg border p-3 bg-white flex-shrink-0">
-                <QRCodeSVG
-                  value={alarmUrl}
-                  size={140}
-                  level="M"
-                  includeMargin={false}
-                />
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <SheetHeader className="p-0 mb-3">
-                <SheetTitle>{tDash('alarmSheetTitle')}</SheetTitle>
-                <SheetDescription>
-                  {tDash('alarmSheetDescription')}
-                </SheetDescription>
-              </SheetHeader>
-
-              {alarmUrl && (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={alarmUrl}
-                      readOnly
-                      className="flex-1 rounded-md border px-3 py-1.5 text-xs bg-muted font-mono truncate"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copyAlarmUrlToClipboard}
-                      className="flex-shrink-0"
-                    >
-                      {alarmCopied ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      asChild
-                      className="flex-shrink-0 text-muted-foreground"
-                      title={tCommon('openInNewTab')}
-                    >
-                      <a href={alarmUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                    {printerEnabled && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePrintQR(alarmUrl, tDash('alarmSheetTitle'), tDash('alarmSheetHint'))}
-                        disabled={isPrintingQR}
-                        className="flex-shrink-0"
-                        title={tCommon('printQrCode')}
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {tDash('alarmSheetHint')}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <QrShareSheet
+        open={alarmQrDialogOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'alarm' && setActiveFooterSheet(null)}
+        url={alarmUrl}
+        title={tDash('alarmSheetTitle')}
+        description={tDash('alarmSheetDescription')}
+        hint={tDash('alarmSheetHint')}
+        printerEnabled={printerEnabled}
+        isPrinting={isPrintingQR}
+        onPrint={alarmUrl ? () => handlePrintQR(alarmUrl, tDash('alarmSheetTitle'), tDash('alarmSheetHint')) : undefined}
+      />
 
       {/* Vehicle Status Sheet */}
       <VehicleStatusSheet

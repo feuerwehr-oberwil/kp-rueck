@@ -2,18 +2,16 @@
 
 import { useState } from "react"
 import {
-  Sheet,
-  SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Printer } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useIsMobile } from "@/components/ui/use-mobile"
 
 export interface ThermoPrintOptions {
   includeIncidents: boolean
@@ -31,7 +29,6 @@ interface ThermoOptionsSheetProps {
 
 export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: ThermoOptionsSheetProps) {
   const t = useTranslations("print")
-  const isMobile = useIsMobile()
   const [options, setOptions] = useState<ThermoPrintOptions>({
     includeIncidents: true,
     includeCompleted: true,
@@ -48,20 +45,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
   }
 
   return (
-    <Sheet modal={isMobile} open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        hideCloseButton={!isMobile}
-        overlayOffset={isMobile ? undefined : "42px"}
-        nonModal={!isMobile}
-        className="max-w-3xl mx-auto px-6 py-4"
-        onInteractOutside={isMobile ? undefined : (e) => {
-          const target = e.target as HTMLElement
-          if (target.closest('footer')) {
-            e.preventDefault()
-          }
-        }}
-      >
+    <FooterSheet open={open} onOpenChange={onOpenChange} className="max-w-3xl mx-auto px-6 py-4">
         <div className="pr-8">
           <SheetHeader className="p-0 mb-4">
             <SheetTitle className="flex items-center gap-2">
@@ -134,7 +118,6 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+    </FooterSheet>
   )
 }
