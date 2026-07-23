@@ -1423,7 +1423,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
-    if (!operation || !person || (person.status === "assigned" && !person.isReko) || operation.crew.includes(personName)) {
+    // Block silently double-booking someone who's "assigned" — EXCEPT people
+    // busy in a special function (reko/driver/magazin). Those are surfaced in the
+    // crew dialog (badge) and assigned only through an explicit confirm, so let
+    // them through here instead of silently no-oping the confirmed assignment.
+    const hasSpecialFunction = person?.isReko || person?.isDriver || person?.isMagazin
+    if (!operation || !person || (person.status === "assigned" && !hasSpecialFunction) || operation.crew.includes(personName)) {
       return
     }
 

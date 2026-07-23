@@ -89,6 +89,10 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
 
   const specialFunctionBadges = renderSpecialFunctionBadges()
   const isDoubleBooked = (assignmentCount ?? 0) > 1
+  // "Occupied" = on an incident (assigned) OR tied up in a special function.
+  // Drivers/reko stay draggable, so without this they read as free — surface it
+  // clearly (amber status icon + left accent) so nobody gets double-booked unseen.
+  const isOccupied = person.status === "assigned" || person.isReko || person.isDriver || person.isMagazin
 
   return (
     <PersonContextMenu
@@ -114,6 +118,9 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
           !canDrag && person.status !== "assigned" && "cursor-pointer",
           // Double-booked: warn-colored border so operators see the conflict before tooltip
           isDoubleBooked && "border-warning/70 ring-1 ring-warning/30",
+          // Occupied-but-still-draggable (drivers/reko): amber left accent so their
+          // busy state is visible at a glance, not just via a subtle badge.
+          isOccupied && canDrag && !isDoubleBooked && "border-l-2 border-l-amber-500/60",
         )}
       >
         <div className="flex flex-col gap-2">
@@ -121,14 +128,17 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Status indicator - icon only, muted colors */}
               <div
-                className="flex items-center justify-center h-4 w-4 rounded flex-shrink-0 text-muted-foreground"
-                aria-label={person.status === "available" ? t('common.available') : t('common.inUse')}
-                title={person.status === "available" ? t('common.available') : t('common.inUse')}
+                className={cn(
+                  "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
+                  isOccupied ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
+                )}
+                aria-label={isOccupied ? t('common.inUse') : t('common.available')}
+                title={isOccupied ? t('common.inUse') : t('common.available')}
               >
-                {person.status === "available" ? (
-                  <Check className="h-3 w-3" />
-                ) : (
+                {isOccupied ? (
                   <Minus className="h-3 w-3" />
+                ) : (
+                  <Check className="h-3 w-3" />
                 )}
               </div>
 

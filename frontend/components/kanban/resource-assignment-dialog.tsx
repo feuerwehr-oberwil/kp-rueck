@@ -7,7 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight } from "lucide-react"
+import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { getActiveLocale } from "@/lib/i18n-messages"
@@ -86,6 +96,9 @@ export function ResourceAssignmentDialog({
   // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
   const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string>>(new Set())
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set())
+  // A special-function person pending a double-booking confirmation before they
+  // get ticked into the crew selection.
+  const [confirmPerson, setConfirmPerson] = useState<Person | null>(null)
 
   // Snapshot the assigned state into the local selection ONLY on the open
   // transition. Re-snapshotting whenever assignedPersonnel/assignedMaterials
@@ -122,19 +135,29 @@ export function ResourceAssignmentDialog({
   const selectablePersonnel = useMemo(() => {
     return personnel.filter(p => {
       const isAssignedToCrew = assignedPersonnel.includes(p.name)
-      const isRekoPersonnel = rekoPersonnelNames.includes(p.name)
 
       // Always show if already assigned to this operation's crew (allows deselection)
       if (isAssignedToCrew) return true
       if (occupiedPersonnelIds.has(p.id)) return false
 
-      // Don't show Reko personnel for new crew assignments
-      if (isRekoPersonnel) return false
+      // People with a special function (Reko / driver / magazin) used to be hidden
+      // outright. Show them now — flagged with a badge — so they can be assigned
+      // after an explicit "double-booking?" confirm instead of silently vanishing.
+      const hasSpecialFunction = p.isReko || p.isDriver || p.isMagazin || rekoPersonnelNames.includes(p.name)
+      if (hasSpecialFunction) return true
 
       // Show available personnel
       return p.status === 'available'
     })
   }, [personnel, rekoPersonnelNames, assignedPersonnel, occupiedPersonnelIds])
+
+  // Describe a person's special function for the badge + confirm copy, or null.
+  const specialFunctionOf = (p: Person): { label: string; Icon: typeof Car } | null => {
+    if (p.isDriver) return { label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car }
+    if (p.isReko || rekoPersonnelNames.includes(p.name)) return { label: t('common.reko'), Icon: Binoculars }
+    if (p.isMagazin) return { label: t('common.magazin'), Icon: Package2 }
+    return null
+  }
 
   const availableVehicles = useMemo(() => {
     // Show all vehicles — assigned ones appear checked and can be toggled off
@@ -242,18 +265,33 @@ export function ResourceAssignmentDialog({
   const isMaterialSelected = (materialId: string) => selectedMaterials.has(materialId)
 
   // Toggle selection for crew (local state only, doesn't call API)
-  const handleTogglePersonSelection = (person: Person) => {
+  const addPersonToSelection = (person: Person) => {
     setSelectedPersonnel(prev => {
       const next = new Set(prev)
-      if (next.has(person.name)) {
-        next.delete(person.name)
-      } else {
-        next.add(person.name)
-        setJustAssigned(person.id)
-        setTimeout(() => setJustAssigned(null), 600)
-      }
+      next.add(person.name)
       return next
     })
+    setJustAssigned(person.id)
+    setTimeout(() => setJustAssigned(null), 600)
+  }
+
+  const handleTogglePersonSelection = (person: Person) => {
+    // Deselecting is always immediate.
+    if (selectedPersonnel.has(person.name)) {
+      setSelectedPersonnel(prev => {
+        const next = new Set(prev)
+        next.delete(person.name)
+        return next
+      })
+      return
+    }
+    // Selecting someone already busy in a special function → confirm first, so a
+    // driver/reko/magazin isn't double-booked by a stray tap.
+    if (specialFunctionOf(person)) {
+      setConfirmPerson(person)
+      return
+    }
+    addPersonToSelection(person)
   }
 
   // Vehicles still use instant assignment
@@ -499,6 +537,7 @@ export function ResourceAssignmentDialog({
   }, [resourceType, selectedPersonnel, selectedMaterials, assignedPersonnel, assignedMaterials])
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Fixed (definite) height: gives flex-1 a real basis so the list scrolls
           internally instead of overflowing, and keeps the dialog the same size as
@@ -625,13 +664,15 @@ export function ResourceAssignmentDialog({
                   {sortedFilteredPersonnel.map((person) => {
                     const isSelected = isPersonSelected(person.name)
                     const wasJustAssigned = justAssigned === person.id
+                    const special = specialFunctionOf(person)
                     return (
                       <button
                         key={person.id}
                         onClick={() => handleTogglePersonSelection(person)}
                         className={cn(
                           "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                          isSelected && "border-primary/30 bg-primary/5"
+                          isSelected && "border-primary/30 bg-primary/5",
+                          special && !isSelected && "border-amber-500/40 bg-amber-500/5"
                         )}
                       >
                         {isSelected ? (
@@ -644,9 +685,14 @@ export function ResourceAssignmentDialog({
                         )}
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">{person.name}</p>
-                          {person.role && (
+                          {special ? (
+                            <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                              <special.Icon className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{special.label}</span>
+                            </span>
+                          ) : person.role ? (
                             <p className="text-xs text-muted-foreground truncate">{person.role}</p>
-                          )}
+                          ) : null}
                         </div>
                       </button>
                     )
@@ -905,5 +951,34 @@ export function ResourceAssignmentDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Double-booking guard: assigning a driver/reko/magazin to crew asks first. */}
+    <AlertDialog open={!!confirmPerson} onOpenChange={(o) => !o && setConfirmPerson(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('assignmentDialog.specialFnConfirmTitle')}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {confirmPerson
+              ? t('assignmentDialog.specialFnConfirmBody', {
+                  name: confirmPerson.name,
+                  func: specialFunctionOf(confirmPerson)?.label ?? '',
+                })
+              : ''}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (confirmPerson) addPersonToSelection(confirmPerson)
+              setConfirmPerson(null)
+            }}
+          >
+            {t('assignmentDialog.specialFnConfirmAction')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
