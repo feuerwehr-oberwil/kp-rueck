@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
-import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Users, Truck, Package, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Phone } from "lucide-react"
+import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Users, Truck, Package, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Phone, Waypoints } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type Operation, type Material, useOperations } from "@/lib/contexts/operations-context"
 import { getTimeSince } from "@/lib/kanban-utils"
@@ -27,6 +27,8 @@ import { TransferIncidentDialog } from "@/components/incidents/transfer-incident
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
@@ -236,6 +238,26 @@ function SidePanelDetail({
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
   const { personnel } = usePersonnel()
+  const { groups, getGroupResources, unassignResource } = useGroups()
+
+  // A grouped incident carries no resources itself — the Auftrag (route) owns
+  // them. Mirror the detail modal: show the route's roll-up in the resource
+  // sections and route any add/remove to the Auftrag, so the sidebar edits the
+  // same thing the modal and the Aufträge sheet do (instead of empty sections).
+  const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+  const viaAuftrag = auftrag ? (
+    <span
+      className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground"
+      title={t('detail.viaAuftrag', { name: auftrag.name })}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
+      />
+      {t('detail.viaAuftrag', { name: auftrag.name })}
+    </span>
+  ) : null
 
   // Use assignedReko directly from the operation (kept in sync by operations context)
   const assignedRekoPersonnel = operation?.assignedReko ?? null
@@ -514,7 +536,18 @@ function SidePanelDetail({
 
       {/* Resource Assignment Section */}
       <div className="space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground tracking-wide">{t('common.assignedResources')}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-semibold text-muted-foreground tracking-wide">{t('common.assignedResources')}</p>
+          {auftrag && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+              title={t('detail.viaAuftrag', { name: auftrag.name })}
+            >
+              <Waypoints className="h-3 w-3" />
+              {t('detail.viaAuftrag', { name: auftrag.name })}
+            </span>
+          )}
+        </div>
 
         {/* Reko Personnel - separate from Mannschaft */}
         <div className="space-y-2">
@@ -607,6 +640,18 @@ function SidePanelDetail({
           )}
         </div>
 
+        {/* Mannschaft / Fahrzeuge / Material. A grouped incident carries no
+            resources itself — the Auftrag owns them; render the route roll-up
+            through the shared section UI (assign/remove target the Auftrag). */}
+        {auftrag ? (
+          <RouteResourceSections
+            resources={auftragResources ?? { vehicles: [], personnel: [], materials: [] }}
+            viaLabel={viaAuftrag}
+            onAssign={(resourceType) => onAssignResource(resourceType, operation.id)}
+            onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
+          />
+        ) : (
+          <>
         {/* Crew */}
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -846,6 +891,8 @@ function SidePanelDetail({
             )}
           </div>
         </div>
+          </>
+        )}
       </div>
 
       {/* Action Buttons */}
