@@ -149,7 +149,7 @@ export function NewEmergencyModal({
         <DialogHeader>
           <div className="flex items-center gap-3">
             <Plus className="h-6 w-6 text-primary" />
-            <DialogTitle className="text-2xl">{t('common.newIncident')}</DialogTitle>
+            <DialogTitle>{t('common.newIncident')}</DialogTitle>
           </div>
           <DialogDescription className="text-base">
             {t('newEmergency.description')}

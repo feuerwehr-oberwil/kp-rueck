@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { MapPin, AlertCircle, Search } from "lucide-react"
+import { MapPin, AlertCircle, Search, Loader2 } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
 import { useTranslations } from "next-intl"
 
@@ -170,7 +170,8 @@ export function TransferIncidentDialog({
             onClick={handleTransfer}
             disabled={!selectedIncidentId || isTransferring}
           >
-            {isTransferring ? t('transfer.transferring') : t('transfer.transfer')}
+            {isTransferring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t('transfer.transfer')}
           </Button>
         </DialogFooter>
       </DialogContent>

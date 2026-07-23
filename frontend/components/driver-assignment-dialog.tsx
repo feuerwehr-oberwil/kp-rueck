@@ -2,16 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -386,7 +377,7 @@ export function DriverAssignmentDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
@@ -660,56 +651,36 @@ export function DriverAssignmentDialog({
       </Dialog>
 
       {/* Conflict confirmation dialog */}
-      <AlertDialog open={conflictDialog.open} onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              {t('conflictTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.rich('conflictDescription', {
-                name: conflictDialog.person?.name ?? '',
-                count: conflictDialog.conflictingOperations.length,
-                location: conflictDialog.conflictingOperations[0]?.location ?? '',
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{tCommon('cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConflictConfirm}>
-              {t('conflictConfirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={conflictDialog.open}
+        onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}
+        title={t('conflictTitle')}
+        description={t.rich('conflictDescription', {
+          name: conflictDialog.person?.name ?? '',
+          count: conflictDialog.conflictingOperations.length,
+          location: conflictDialog.conflictingOperations[0]?.location ?? '',
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
+        cancelText={tCommon('cancel')}
+        confirmText={t('conflictConfirm')}
+        onConfirm={handleConflictConfirm}
+      />
 
       {/* Reassign confirmation dialog (person drives another vehicle) */}
-      <AlertDialog open={reassignDialog.open} onOpenChange={(open) => setReassignDialog(prev => ({ ...prev, open }))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              {t('reassignTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.rich('reassignDescription', {
-                name: reassignDialog.person?.name ?? '',
-                fromVehicle: reassignDialog.fromVehicleName,
-                vehicle: vehicleName,
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{tCommon('cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReassignConfirm}>
-              {t('reassignConfirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={reassignDialog.open}
+        onOpenChange={(open) => setReassignDialog(prev => ({ ...prev, open }))}
+        title={t('reassignTitle')}
+        description={t.rich('reassignDescription', {
+          name: reassignDialog.person?.name ?? '',
+          fromVehicle: reassignDialog.fromVehicleName,
+          vehicle: vehicleName,
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
+        cancelText={tCommon('cancel')}
+        confirmText={t('reassignConfirm')}
+        onConfirm={handleReassignConfirm}
+      />
     </>
   )
 }

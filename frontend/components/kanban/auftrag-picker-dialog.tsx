@@ -84,7 +84,7 @@ export function AuftragPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[80vh] max-w-md flex-col gap-4">
+      <DialogContent className="flex max-h-[80vh] sm:max-w-md flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>

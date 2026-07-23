@@ -272,7 +272,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[88vh] w-full flex-col gap-4 overflow-hidden sm:max-w-[1080px]"
+        className="flex max-h-[88vh] w-full flex-col gap-4 overflow-hidden sm:max-w-6xl"
         {...dragGuardProps}
       >
         <DialogHeader className="flex-shrink-0">

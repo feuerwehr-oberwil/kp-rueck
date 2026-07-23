@@ -1,20 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useTranslations } from 'next-intl'
-import { Loader2 } from 'lucide-react'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface DeleteConfirmDialogProps {
   open: boolean
@@ -26,50 +12,7 @@ interface DeleteConfirmDialogProps {
   cancelText?: string
 }
 
-export function DeleteConfirmDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  onConfirm,
-  confirmText,
-  cancelText,
-}: DeleteConfirmDialogProps) {
-  const t = useTranslations('common.deleteConfirmDialog')
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const handleConfirm = async () => {
-    setIsDeleting(true)
-    try {
-      await onConfirm()
-      onOpenChange(false)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>{cancelText ?? t('cancel')}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault()
-              handleConfirm()
-            }}
-            disabled={isDeleting}
-            className={cn(buttonVariants({ variant: 'destructive' }))}
-          >
-            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {confirmText ?? t('confirm')}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
+/** Destructive confirmation — a thin alias for {@link ConfirmDialog}. */
+export function DeleteConfirmDialog(props: DeleteConfirmDialogProps) {
+  return <ConfirmDialog {...props} variant="destructive" />
 }

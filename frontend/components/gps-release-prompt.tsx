@@ -141,7 +141,7 @@ export function GpsReleasePrompt() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:justify-between">
-          <Button variant="ghost" onClick={() => setPrompt(null)} disabled={releasing}>
+          <Button variant="outline" onClick={() => setPrompt(null)} disabled={releasing}>
             {t('decline')}
           </Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">

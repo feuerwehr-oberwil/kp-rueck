@@ -9,16 +9,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { apiClient, type ApiEventSpecialFunctionResponse, type FunctionType } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -271,34 +262,27 @@ export function PersonContextMenu({
       </ContextMenu>
 
       {/* Conflict confirmation dialog */}
-      <AlertDialog open={conflictDialog.open} onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('personMenu.conflictTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.rich('personMenu.conflictDescription', {
-                strong: (chunks) => <strong>{chunks}</strong>,
-                name: personnelName,
-                assignment:
-                  conflictDialog.conflictingOperations.length === 1
-                    ? t('personMenu.conflictAssignedOne', {
-                        location: conflictDialog.conflictingOperations[0]?.location ?? '',
-                      })
-                    : t('personMenu.conflictAssignedMany', {
-                        count: conflictDialog.conflictingOperations.length,
-                      }),
-                function: getFunctionLabel(conflictDialog.functionType),
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConflictConfirm}>
-              {t('personMenu.confirmAction')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={conflictDialog.open}
+        onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}
+        title={t('personMenu.conflictTitle')}
+        description={t.rich('personMenu.conflictDescription', {
+          strong: (chunks) => <strong>{chunks}</strong>,
+          name: personnelName,
+          assignment:
+            conflictDialog.conflictingOperations.length === 1
+              ? t('personMenu.conflictAssignedOne', {
+                  location: conflictDialog.conflictingOperations[0]?.location ?? '',
+                })
+              : t('personMenu.conflictAssignedMany', {
+                  count: conflictDialog.conflictingOperations.length,
+                }),
+          function: getFunctionLabel(conflictDialog.functionType),
+        })}
+        cancelText={t('common.cancel')}
+        confirmText={t('personMenu.confirmAction')}
+        onConfirm={handleConflictConfirm}
+      />
     </>
   )
 }

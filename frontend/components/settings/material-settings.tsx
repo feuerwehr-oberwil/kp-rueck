@@ -17,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -297,7 +298,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
               {t('materials.addButton')}
             </Button>
             <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
-              <DialogContent>
+              <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                   <DialogTitle>
                     {editingMaterial ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
@@ -449,7 +450,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                         </FormItem>
                       )}
                     />
-                    <div className="flex justify-end gap-2">
+                    <DialogFooter>
                       <Button
                         type="button"
                         variant="outline"
@@ -462,7 +463,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {editingMaterial ? t('common.update') : t('common.create')}
                       </Button>
-                    </div>
+                    </DialogFooter>
                   </form>
                 </Form>
               </DialogContent>
@@ -727,7 +728,7 @@ function MaterialGroupSettings({
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editingGroup ? t('materials.groups.dialogEditTitle') : t('materials.groups.dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
@@ -782,13 +783,13 @@ function MaterialGroupSettings({
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={isSaving || !groupName.trim()}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingGroup ? t('common.update') : t('common.create')}
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
