@@ -431,6 +431,7 @@
       "radioWith": "mit",
       "radioAnd": "und",
       "radioSpecial": "Besonderes:",
+      "auftragContext": "Auftrag «{name}» · Stop {pos}/{total}",
       "copyWhatsapp": "WhatsApp-Nachricht kopieren",
       "sendDivera": "Aufgebot senden"
     },

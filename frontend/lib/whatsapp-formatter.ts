@@ -9,6 +9,7 @@
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { type ApiRekoReportResponse } from "@/lib/api-client"
+import { type GroupResources } from "@/lib/types/groups"
 import {
   renderMessageTemplate,
   DEFAULT_WHATSAPP_INCIDENT_TEMPLATE,
@@ -20,6 +21,12 @@ interface FormatWhatsAppMessageOptions {
   rekoReport?: ApiRekoReportResponse | null
   vehicleDrivers?: Map<string, string> // Map of vehicle name to driver name
   vehicleCallsigns?: Map<string, string> // Map of vehicle name to radio_call_sign
+  /** Resources owned by the incident's Auftrag (route). A grouped incident
+   *  carries none itself — the route does — so merge these in or the crew /
+   *  vehicle / material lines come out blank. */
+  groupResources?: GroupResources | null
+  /** Auftrag context to prepend (route name + stop position), when grouped. */
+  auftrag?: { name: string; stopPos: number; stopTotal: number } | null
   /** Editable template; falls back to the built-in default when omitted. */
   template?: string
 }
@@ -117,6 +124,8 @@ export function formatWhatsAppMessage({
   rekoReport,
   vehicleDrivers,
   vehicleCallsigns,
+  groupResources,
+  auftrag,
   template,
 }: FormatWhatsAppMessageOptions): string {
   const timestamp = new Date().toLocaleString("de-CH", {
@@ -127,18 +136,41 @@ export function formatWhatsAppMessage({
     minute: "2-digit",
   })
 
+  // A grouped incident's crew/vehicles/materials live on the Auftrag, so its own
+  // arrays are empty — merge the route's resources in before composing, or the
+  // message dispatches with no crew/vehicle/material.
+  const eff = groupResources
+    ? {
+        ...operation,
+        crew: [...operation.crew, ...groupResources.personnel.map((p) => p.name)],
+        vehicles: [...operation.vehicles, ...groupResources.vehicles.map((v) => v.name)],
+        materials: [...operation.materials, ...groupResources.materials.map((m) => m.resourceId)],
+        vehicleDriverStay: (() => {
+          const m = new Map(operation.vehicleDriverStay ?? [])
+          for (const v of groupResources.vehicles) {
+            if (v.driverStay !== undefined) m.set(v.name, v.driverStay)
+          }
+          return m
+        })(),
+      }
+    : operation
+
   const values: Record<string, string> = {
     type: getIncidentTypeLabel(operation.incidentType).toUpperCase(),
     location: operation.location?.trim() || "",
     notes: operation.notes?.trim() || "",
     contact: operation.contact?.trim() || "",
     internal_notes: operation.internalNotes?.trim() || "",
-    vehicles: buildVehicles(operation, vehicleDrivers, vehicleCallsigns),
-    crew: operation.crew.length > 0 ? operation.crew.join(", ") : "",
-    materials: buildMaterials(operation, materials),
+    vehicles: buildVehicles(eff, vehicleDrivers, vehicleCallsigns),
+    crew: eff.crew.length > 0 ? eff.crew.join(", ") : "",
+    materials: buildMaterials(eff, materials),
     reko: buildReko(rekoReport),
     timestamp,
   }
 
-  return renderMessageTemplate(template || DEFAULT_WHATSAPP_INCIDENT_TEMPLATE, values)
+  const body = renderMessageTemplate(template || DEFAULT_WHATSAPP_INCIDENT_TEMPLATE, values)
+  // Prepend the route context so the recipient sees this is one stop of a route.
+  return auftrag
+    ? `📋 Auftrag «${auftrag.name}» · Stop ${auftrag.stopPos}/${auftrag.stopTotal}\n\n${body}`
+    : body
 }
