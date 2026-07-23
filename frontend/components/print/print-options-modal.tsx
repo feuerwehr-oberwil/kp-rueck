@@ -2,12 +2,11 @@
 
 import { useState, useRef, useEffect } from "react"
 import {
-  Sheet,
-  SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -16,7 +15,6 @@ import { useTranslations } from "next-intl"
 import { PrintView, type PrintOptions } from "./print-view"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useIsMobile } from "@/components/ui/use-mobile"
 import { apiClient, type ApiVehicle, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 
 interface PrintOptionsModalProps {
@@ -28,7 +26,6 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
   const t = useTranslations("print")
   const { operations, personnel, materials } = useOperations()
   const { selectedEvent } = useEvent()
-  const isMobile = useIsMobile()
   const printRef = useRef<HTMLDivElement>(null)
 
   const [options, setOptions] = useState<PrintOptions>({
@@ -97,21 +94,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
 
   return (
     <>
-      <Sheet modal={isMobile} open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="bottom"
-          hideCloseButton={!isMobile}
-          overlayOffset={isMobile ? undefined : "42px"}
-          nonModal={!isMobile}
-          className="max-w-3xl mx-auto px-6 py-4"
-          onInteractOutside={isMobile ? undefined : (e) => {
-            // Prevent closing when clicking on footer buttons
-            const target = e.target as HTMLElement
-            if (target.closest('footer')) {
-              e.preventDefault()
-            }
-          }}
-        >
+      <FooterSheet open={open} onOpenChange={onOpenChange} className="max-w-3xl mx-auto px-6 py-4">
           <div className="pr-8">
             <SheetHeader className="p-0 mb-4">
               <SheetTitle className="flex items-center gap-2">
@@ -217,8 +200,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
               </Button>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+      </FooterSheet>
 
       {/* Hidden print view - rendered in DOM but only visible when printing */}
       {open && (

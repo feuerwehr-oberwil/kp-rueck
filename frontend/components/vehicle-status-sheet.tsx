@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
@@ -276,22 +277,13 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
 
   return (
     <>
-    <Sheet modal={isMobile} open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        hideCloseButton={!isMobile}
-        overlayOffset={isMobile ? undefined : "42px"}
-        nonModal={!isMobile}
-        className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4", isMobile ? "max-h-[70vh]" : "max-h-[85vh]")}
-        style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
-        onInteractOutside={isMobile ? undefined : (e) => {
-          // Prevent closing when clicking on footer buttons or dialogs
-          const target = e.target as HTMLElement
-          if (target.closest('footer') || target.closest('[role="dialog"]') || driverDialogOpen) {
-            e.preventDefault()
-          }
-        }}
-      >
+    <FooterSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4", isMobile ? "max-h-[70vh]" : "max-h-[85vh]")}
+      style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
+      shouldPreventClose={(target) => !!target.closest('[role="dialog"]') || driverDialogOpen}
+    >
         <SheetHeader className="p-0">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -515,8 +507,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
           )}
         </div>
 
-      </SheetContent>
-    </Sheet>
+    </FooterSheet>
 
     {/* Driver Assignment Dialog - Outside Sheet to prevent closing issues */}
     {selectedVehicleForDriver && eventId && (
