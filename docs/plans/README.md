@@ -31,9 +31,10 @@ made — do not re-litigate), implementation steps, and a test plan.
 | Order | # | Plan | Scope | Why here | Depends on |
 |-------|---|------|-------|----------|------------|
 | 1 | 09 | [Emergency plans integration (generic provider, SchlüHü first)](09-emergency-plans-integration.md) | Backend + frontend | Largest (~500 LOC), high field value, external dependency — a proper feature effort | — |
-| 2 | 11 | [Material depletion thresholds: co-located & dual-dimension](11-resource-alarm-linking.md) | Backend + frontend | Dual-dimension (location+type) material thresholds edited on the Material page; managed-string vocabulary + coordinated rename. Vehicle alarms / outbound-by-vehicle explicitly out | — |
-| 3 | 12 | [Aufträge: multi-stop group routing (Flächenlage batching)](12-auftrag-multi-stop-routing.md) | Backend + frontend + map | Group several incidents into an ordered route for one squad; storm/mass-incident batching. Stops = real incidents (Option A), suggested order, per-incident + copy-squad-to-all | — |
-| 4 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09/11/12 in one pass | 09, 11, 12 |
+| 2 | 13 | [Reko material requests and guided allocation](13-reko-material-requests.md) | Backend + frontend + training + migration | Large operational feature: structured Reko demand, normalized material kinds/capabilities, exact KP allocation, per-event exclusivity, and curated training profiles | — |
+| 3 | 11 | [Material depletion thresholds: co-located & dual-dimension](11-resource-alarm-linking.md) | Backend + frontend | Dual-dimension material thresholds; adapt to Plan 13's normalized kind/type model instead of creating a competing managed-string identity | 13 phase 1 |
+| 4 | 12 | [Aufträge: multi-stop group routing (Flächenlage batching)](12-auftrag-multi-stop-routing.md) | Backend + frontend + map | Group several incidents into an ordered route for one squad; Plan 13 reservations must cover Auftrag-owned material | — |
+| 5 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09/11/12/13 in one pass | 09, 11, 12, 13 |
 
 ## Shared conventions (apply to every plan)
 

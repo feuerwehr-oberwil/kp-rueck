@@ -4,6 +4,14 @@
 **Scope:** Backend + frontend. Material thresholds only (vehicles/outbound are out — see end).
 **Estimated size:** ≈ 150 LOC + tests; no DB migration (settings are JSON).
 
+> **Plan 13 compatibility (approved 2026-07-23):** Plan 13 introduces normalized
+> material kinds and capability tags and is now ordered before this plan. If Plan 13
+> is implemented first, its catalog model supersedes this plan's managed free-string
+> identity and coordinated type-rename decisions. Keep physical-copy location
+> thresholds, implement type/kind thresholds against the normalized catalog, and do
+> not create a second competing type vocabulary. If this plan is implemented first,
+> Plan 13 must migrate its strings and threshold keys into the normalized model.
+
 ## Goal
 
 Make a material category and its depletion warning feel like **one connected thing**,
