@@ -34,6 +34,7 @@ import {
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
+import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
@@ -54,23 +55,6 @@ interface MobileIncidentDetailSheetProps {
   onUpdateOperation?: (id: string, updates: Partial<Operation>) => void
   isEditor?: boolean
 }
-
-// Priority visual configuration (labels live in the incidents.priority messages)
-const priorityStyles = {
-  high: {
-    dot: "bg-destructive",
-    chevron: "text-destructive",
-  },
-  medium: {
-    dot: "bg-orange-500",
-    chevron: "text-orange-600 dark:text-orange-400",
-  },
-  low: {
-    dot: "bg-green-500",
-    chevron: "text-success",
-  },
-} as const
-
 
 const statusKeys: OperationStatus[] = ["incoming", "ready", "enroute", "active", "returning", "complete"]
 
@@ -200,7 +184,7 @@ export function MobileIncidentDetailSheet({
   if (!operation) return null
 
   const priority = operation.priority || "low"
-  const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
+  const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority as Priority], chevron: PRIORITY_TEXT_CLASSES[priority as Priority] }
   const timeReference = operation.statusChangedAt || operation.dispatchTime
   const canEdit = isEditor && !!onUpdateOperation
 
