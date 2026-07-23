@@ -21,6 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
+import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -640,6 +641,11 @@ export default function FireStationDashboard() {
   const setRouteStopStatus = useCallback((operationId: string, newStatus: OperationStatus) => {
     const operation = operations.find((op) => op.id === operationId)
     if (!operation || operation.status === "complete") return
+    // The stop control shows a lossy MIRROR of the real status: reko + reko_done
+    // both read as "Offen" (incoming). Re-selecting the bucket the incident is
+    // already in must be a no-op — otherwise writing "incoming" back regresses a
+    // reko/reko-done incident all the way to eingegangen, discarding its progress.
+    if (toMirrorStatus(operation) === newStatus) return
     if (newStatus === "complete") {
       requestCompletion(operationId)
       return

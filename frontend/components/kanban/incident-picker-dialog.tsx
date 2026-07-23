@@ -261,10 +261,20 @@ export function IncidentPickerDialog({
               eventHandlers={{ click: () => toggle(op.id) }}
             >
               <Tooltip direction="top" offset={[0, -10]}>
-                <span className="text-xs font-medium">
-                  {op.location || getIncidentTypeLabel(op.incidentType)}
-                  {otherGroup ? ` · ${otherGroup.name}` : ""}
-                </span>
+                <div className="text-xs leading-tight">
+                  {/* Match the stop-row hover: address primary, type secondary,
+                      Meldung below. Type falls back to primary when no address. */}
+                  <div className="font-medium">
+                    {op.location || getIncidentTypeLabel(op.incidentType)}
+                    {otherGroup ? ` · ${otherGroup.name}` : ""}
+                  </div>
+                  {op.location && (
+                    <div className="text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>
+                  )}
+                  {op.notes && (
+                    <div className="mt-0.5 max-w-[220px] whitespace-pre-wrap">{op.notes}</div>
+                  )}
+                </div>
               </Tooltip>
             </Marker>
           )
