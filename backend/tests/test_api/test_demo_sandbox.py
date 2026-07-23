@@ -1,5 +1,6 @@
 """Tests for the per-session demo sandbox endpoint (POST /api/demo/sandbox)."""
 
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.health import DEMO_SANDBOX_MAX, DEMO_SANDBOX_PREFIX
 from app.config import settings as app_settings
 from app.models import Event, Incident, IncidentAssignment, Personnel, StatusTransition
-from app.seed_demo import seed_demo_shared_resources
+from app.seed_demo import seed_demo_database, seed_demo_shared_resources
 
 
 @pytest.fixture
@@ -170,3 +171,22 @@ class TestSeedDemoEventContent:
             )
         ).scalar()
         assert checked_in == 10
+
+
+@pytest.mark.asyncio
+async def test_demo_seed_ensures_training_data_for_existing_database(monkeypatch):
+    """Existing demo deployments must receive templates on the next seed run."""
+    seed_training = AsyncMock()
+    existing_users = MagicMock()
+    existing_users.scalars.return_value.first.return_value = object()
+    db = AsyncMock()
+    db.execute.return_value = existing_users
+    db_context = AsyncMock()
+    db_context.__aenter__.return_value = db
+
+    monkeypatch.setattr("app.seed_demo.seed_training_data", seed_training)
+    monkeypatch.setattr("app.seed_demo.async_session_maker", MagicMock(return_value=db_context))
+
+    await seed_demo_database()
+
+    seed_training.assert_awaited_once_with(skip_geocoding=True)
