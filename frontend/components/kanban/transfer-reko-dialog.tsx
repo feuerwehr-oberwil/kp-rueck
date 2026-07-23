@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { ArrowRightLeft } from "lucide-react"
+import { ArrowLeft, ArrowRightLeft, Binoculars } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
+import { useOperations } from "@/lib/contexts/operations-context"
+import { MarkExistingRekoPersonnel } from "@/components/incidents/assign-reko-dialog"
 import { toast } from "sonner"
 
 interface TransferRekoDialogProps {
@@ -32,8 +34,16 @@ export function TransferRekoDialog({
   onTransferred,
 }: TransferRekoDialogProps) {
   const t = useTranslations('kanban')
+  const tAssign = useTranslations('incidents.assignReko')
   const { selectedEvent } = useEvent()
+  const { personnel, refreshOperations } = useOperations()
   const [isTransferring, setIsTransferring] = useState(false)
+  const [markMode, setMarkMode] = useState(false)
+  const [uncertainPersonnelIds, setUncertainPersonnelIds] = useState<ReadonlySet<string>>(new Set())
+
+  useEffect(() => {
+    if (open) setMarkMode(false)
+  }, [open])
 
   if (!fromPerson) return null
 
@@ -44,7 +54,7 @@ export function TransferRekoDialog({
     if (!selectedEvent) return
     setIsTransferring(true)
     try {
-      const result = await apiClient.transferRekoAssignments(
+      await apiClient.transferRekoAssignments(
         fromPerson.id,
         toPerson.id,
         selectedEvent.id,
@@ -58,6 +68,41 @@ export function TransferRekoDialog({
     }
   }
 
+  const handleMarkAndTransfer = async (toPerson: Person) => {
+    if (!selectedEvent) return
+    let roleAssigned = false
+    try {
+      await apiClient.assignSpecialFunction(selectedEvent.id, {
+        personnel_id: toPerson.id,
+        function_type: 'reko',
+        vehicle_id: null,
+      })
+      roleAssigned = true
+      await apiClient.transferRekoAssignments(fromPerson.id, toPerson.id, selectedEvent.id)
+      onTransferred()
+      onOpenChange(false)
+    } catch {
+      if (roleAssigned) {
+        try {
+          await apiClient.unassignSpecialFunction(selectedEvent.id, {
+            personnel_id: toPerson.id,
+            function_type: 'reko',
+            vehicle_id: null,
+          })
+        } catch (rollbackError) {
+          console.error('Failed to roll back Reko role assignment:', rollbackError)
+          setUncertainPersonnelIds((current) => new Set(current).add(toPerson.id))
+          try {
+            await refreshOperations()
+          } catch (refreshError) {
+            console.error('Failed to refresh Reko assignments:', refreshError)
+          }
+        }
+      }
+      toast.error(t('transferReko.markAndTransferFailed'))
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
@@ -68,26 +113,44 @@ export function TransferRekoDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
-          {targetOptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              {t('transferReko.noOthers')}
-            </p>
-          ) : (
-            targetOptions.map((person) => (
-              <Button
-                key={person.id}
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => handleTransfer(person)}
-                disabled={isTransferring}
-              >
-                <ArrowRightLeft className="h-4 w-4" />
-                {person.name}
-              </Button>
-            ))
-          )}
-        </div>
+        {markMode ? (
+          <div className="space-y-4">
+            <MarkExistingRekoPersonnel
+              personnel={personnel}
+              onSelect={handleMarkAndTransfer}
+              excludedPersonnelIds={uncertainPersonnelIds}
+            />
+            <Button variant="ghost" onClick={() => setMarkMode(false)}>
+              <ArrowLeft className="h-4 w-4" />
+              {tAssign('back')}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {targetOptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {t('transferReko.noOthers')}
+              </p>
+            ) : (
+              targetOptions.map((person) => (
+                <Button
+                  key={person.id}
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => handleTransfer(person)}
+                  disabled={isTransferring}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  {person.name}
+                </Button>
+              ))
+            )}
+            <Button className="w-full gap-2" onClick={() => setMarkMode(true)}>
+              <Binoculars className="h-4 w-4" />
+              {tAssign('markExisting')}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -3,12 +3,23 @@
     "demoBanner": {
       "resettingTitle": "Demo wird zurückgesetzt...",
       "resettingDescription": "Die Seite wird in wenigen Sekunden neu geladen.",
-      "sandboxMessage": "Demo-Modus — dies ist deine persönliche Übungslage · Reset in {time}",
-      "resetMessage": "Demo-Modus — wird in {time} zurückgesetzt",
-      "closeBanner": "Banner schliessen",
-      "timeHoursMinutes": "{hours}h {minutes}min",
-      "timeMinutes": "{minutes} min.",
-      "timeSeconds": "{seconds}s"
+      "ribbon": "DEMO",
+      "ariaLabel": "Demo-Instanz mit synthetischen Daten",
+      "welcome": {
+        "title": "Willkommen bei KP Rück",
+        "intro": "Dies ist eine öffentliche Demo mit erfundenen Daten. Du kannst das Einsatz-Dashboard frei ausprobieren.",
+        "sharedTitle": "Gemeinsam genutzte Demo",
+        "sharedDescription": "Beim Start wird für dich eine Übungslage angelegt. Sie ist jedoch nicht privat: Andere Besucher können sie finden, ansehen und bearbeiten. Bitte verändere oder lösche nur Einträge, die du selbst erstellt hast.",
+        "resetDescription": "Die Demo wird täglich um 00:00 Uhr zurückgesetzt. Dabei werden alle Änderungen gelöscht.",
+        "canTitle": "Das kannst du ausprobieren",
+        "canIncidents": "Einsätze erfassen, priorisieren und durch die Einsatzphasen bewegen",
+        "canResources": "Personal, Fahrzeuge und Material disponieren",
+        "canMap": "Standorte, Aufträge und Routen auf der Karte planen",
+        "canWorkflows": "Reko-Meldungen und weitere Einsatzabläufe testen",
+        "knowTitle": "Gut zu wissen",
+        "knowDescription": "Alle Daten sind synthetisch und haben keinen Bezug zu echten Einsätzen. Externe Alarmierung und angebundene Systeme sind in der Demo deaktiviert.",
+        "cta": "Los geht’s"
+      }
     },
     "protectedButton": {
       "editorOnlyTitle": "Diese Funktion ist nur für Editoren verfügbar",
@@ -521,6 +532,8 @@
       "changeStatus": "Status ändern",
       "copyWhatsapp": "WhatsApp kopieren",
       "diveraAlarm": "Aufgebot",
+      "eventWideRekoTransfer": "Alle offenen Rekos übertragen",
+      "eventWideRekoTransferTooltip": "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Event, nicht nur diesen Einsatz.",
       "allVehiclesAssigned": "Alle Fahrzeuge zugewiesen"
     },
     "sidePanel": {
@@ -593,6 +606,7 @@
     },
     "transferReko": {
       "failed": "Übertragung fehlgeschlagen",
+      "markAndTransferFailed": "Die Person konnte nicht als Reko-Ziel verwendet werden. Versuche es erneut.",
       "title": "Rekos übertragen",
       "description": "Offene Reko-Aufträge von {name} an eine andere Person übertragen.",
       "noOthers": "Keine anderen Reko-Personen verfügbar"

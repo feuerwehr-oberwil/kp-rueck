@@ -1,113 +1,57 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useTranslations } from "next-intl"
-import { translateOutsideReact } from "@/lib/i18n-messages"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
-import { cn, sanitizePhoneInput } from "@/lib/utils"
-import { FileText, Map as MapIcon, PanelRightClose, PanelRight, MapPin, Clock, Users, Truck, Package, FileCheck, Plus, X, Trash2, MessageCircle, ArrowRightLeft, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Phone, Waypoints } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { type Operation, type Material, useOperations } from "@/lib/contexts/operations-context"
-import { getTimeSince } from "@/lib/kanban-utils"
-import { getIncidentTypeLabel, incidentTypeKeys } from "@/lib/incident-types"
-import { LocationInput } from "@/components/location/location-input"
-import RekoReportSection from "@/components/reko/reko-report-section"
-import { toast } from "sonner"
-import { apiClient } from "@/lib/api-client"
-import { useEvent } from "@/lib/contexts/event-context"
-import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
-import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
-import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
-import { usePersonnel } from "@/lib/contexts/personnel-context"
-import { useGroups } from "@/lib/contexts/groups-context"
-import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
-import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
-import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
-import type { Incident } from "@/lib/types/incidents"
+import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
+import { useTranslations } from "next-intl"
+import { FileText, Map as MapIcon, PanelRight, PanelRightClose } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { translateOutsideReact } from "@/lib/i18n-messages"
+import { useEvent } from "@/lib/contexts/event-context"
+import type { Operation } from "@/lib/contexts/operations-context"
+import {
+  OperationDetailContent,
+  type OperationDetailContentProps,
+} from "@/components/kanban/operation-detail-content"
+import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 
-interface SidePanelProps {
+interface SidePanelProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active'> {
   mode: 'detail' | 'map' | 'collapsed'
   onModeChange: (mode: 'detail' | 'map' | 'collapsed') => void
   selectedOperation: Operation | null
   operations: Operation[]
-  materials: Material[]
   formatLocation: (address: string) => string
   onSelectOperation: (operation: Operation) => void
-  // Bumped on every selection click so the map recenters even when the same alarm is clicked again
   panToNonce?: number
-  vehicleTypes: Array<{ key: string; name: string; id: string; type: string }>
-  // Editing handlers
-  onUpdate: (updates: Partial<Operation>) => void
-  onDelete: (operationId: string) => void
-  onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
-  onRemoveVehicle: (operationId: string, vehicleName: string) => void
-  onAssignResource: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
-  onRemoveCrew: (operationId: string, crewName: string) => void
-  onRemoveMaterial: (operationId: string, materialId: string) => void
-  /** Editor-only: archive the incident (status → complete) via the shared
-      completion + material-decision flow. Surfaced in the Reko-Meldung card. */
-  onRequestComplete?: (operationId: string) => void
 }
-
-// Breakpoint for side panel visibility (in pixels)
-// Set to 1536px (2xl) - sidebar only on large external monitors, modal on laptops
-const SIDEPANEL_BREAKPOINT = 1536
 
 export function SidePanel({
   mode,
   onModeChange,
   selectedOperation,
   operations,
-  materials,
   formatLocation,
   onSelectOperation,
   panToNonce,
-  vehicleTypes,
-  onUpdate,
-  onDelete,
-  onAssignVehicle,
-  onRemoveVehicle,
-  onAssignResource,
-  onRemoveCrew,
-  onRemoveMaterial,
-  onRequestComplete,
+  ...detailProps
 }: SidePanelProps) {
   const t = useTranslations('kanban')
-  const [isWideEnough, setIsWideEnough] = useState(false)
+  const { selectedEvent } = useEvent()
+  const [isWideEnough, setIsWideEnough] = useState<boolean | null>(null)
 
-  // Detect screen width
   useEffect(() => {
-    const checkWidth = () => {
-      setIsWideEnough(window.innerWidth >= SIDEPANEL_BREAKPOINT)
-    }
+    const checkWidth = () => setIsWideEnough(window.innerWidth >= SIDE_PANEL_BREAKPOINT)
     checkWidth()
     window.addEventListener('resize', checkWidth)
     return () => window.removeEventListener('resize', checkWidth)
   }, [])
 
-  // Auto-collapse on smaller screens
   useEffect(() => {
-    if (!isWideEnough && mode !== 'collapsed') {
-      onModeChange('collapsed')
-    }
+    if (isWideEnough === false && mode !== 'collapsed') onModeChange('collapsed')
   }, [isWideEnough, mode, onModeChange])
 
-  // Don't render on small screens
-  if (!isWideEnough) {
-    return null
-  }
+  if (isWideEnough !== true) return null
 
-  // Collapsed state - floating button that overlays content
   if (mode === 'collapsed') {
     return (
       <Tooltip>
@@ -116,7 +60,7 @@ export function SidePanel({
             variant="secondary"
             size="icon"
             onClick={() => onModeChange('detail')}
-            className="fixed right-4 top-24 z-40 shadow-lg border border-border h-10 w-10 rounded-full"
+            className="fixed right-4 top-24 z-40 h-10 w-10 rounded-full border border-border shadow-lg"
           >
             <PanelRight className="h-5 w-5" />
           </Button>
@@ -127,8 +71,7 @@ export function SidePanel({
   }
 
   return (
-    <aside className="w-[420px] 2xl:w-[480px] border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
-      {/* Panel header with toggle tabs */}
+    <aside className="flex w-[420px] flex-col border-l border-border bg-card/30 backdrop-blur-sm 2xl:w-[480px]">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-1">
           <Button
@@ -152,11 +95,7 @@ export function SidePanel({
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onModeChange('collapsed')}
-            >
+            <Button variant="ghost" size="icon" onClick={() => onModeChange('collapsed')}>
               <PanelRightClose className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
@@ -164,23 +103,22 @@ export function SidePanel({
         </Tooltip>
       </div>
 
-      {/* Panel content */}
       <div className="flex-1 overflow-hidden">
         {mode === 'detail' && (
-          <SidePanelDetail
-            operation={selectedOperation}
-            materials={materials}
-            formatLocation={formatLocation}
-            vehicleTypes={vehicleTypes}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-            onAssignVehicle={onAssignVehicle}
-            onRemoveVehicle={onRemoveVehicle}
-            onAssignResource={onAssignResource}
-            onRemoveCrew={onRemoveCrew}
-            onRemoveMaterial={onRemoveMaterial}
-            onRequestComplete={onRequestComplete}
-          />
+          selectedOperation ? (
+            <div className="h-full p-4">
+              <OperationDetailContent
+                key={`${selectedEvent?.id ?? 'no-event'}:${selectedOperation.id}`}
+                {...detailProps}
+                operation={selectedOperation}
+                layout="panel"
+              />
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center p-4 text-muted-foreground">
+              <p className="text-center text-sm">{t('sidePanel.clickToView')}</p>
+            </div>
+          )
         )}
         {mode === 'map' && (
           <SidePanelMap
@@ -200,793 +138,16 @@ export function SidePanel({
   )
 }
 
-function SidePanelDetail({
-  operation,
-  materials,
-  formatLocation,
-  vehicleTypes,
-  onUpdate,
-  onDelete,
-  onAssignVehicle,
-  onRemoveVehicle,
-  onAssignResource,
-  onRemoveCrew,
-  onRemoveMaterial,
-  onRequestComplete,
-}: {
-  operation: Operation | null
-  materials: Material[]
-  formatLocation: (address: string) => string
-  vehicleTypes: Array<{ key: string; name: string; id: string; type: string }>
-  onUpdate: (updates: Partial<Operation>) => void
-  onDelete: (operationId: string) => void
-  onAssignVehicle: (vehicleId: string, vehicleName: string, operationId: string) => void
-  onRemoveVehicle: (operationId: string, vehicleName: string) => void
-  onAssignResource: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
-  onRemoveCrew: (operationId: string, crewName: string) => void
-  onRemoveMaterial: (operationId: string, materialId: string) => void
-  onRequestComplete?: (operationId: string) => void
-}) {
-  const t = useTranslations('kanban')
-  const { selectedEvent } = useEvent()
-  const { setOperations } = useOperations()
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, !!operation)
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
-  const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
-  const [isTransferring, setIsTransferring] = useState(false)
-  const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
-  const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
-  const { personnel } = usePersonnel()
-  const { groups, getGroupResources, unassignResource } = useGroups()
-
-  // A grouped incident carries no resources itself — the Auftrag (route) owns
-  // them. Mirror the detail modal: show the route's roll-up in the resource
-  // sections and route any add/remove to the Auftrag, so the sidebar edits the
-  // same thing the modal and the Aufträge sheet do (instead of empty sections).
-  const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
-  const viaAuftrag = auftrag ? (
-    <span
-      className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground"
-      title={t('detail.viaAuftrag', { name: auftrag.name })}
-    >
-      <span
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
-      />
-      {t('detail.viaAuftrag', { name: auftrag.name })}
-    </span>
-  ) : null
-
-  // Use assignedReko directly from the operation (kept in sync by operations context)
-  const assignedRekoPersonnel = operation?.assignedReko ?? null
-
-  // vehicleDrivers above is live-synced via useVehicleDrivers (WebSocket + custom event)
-
-  const {
-    copied: rekoCopied,
-    isCopying: isCopyingRekoLink,
-    copyDirectLink: handleCopyDirectRekoLink,
-    copyDashboardLink: handleCopyDashboardLink,
-  } = useRekoLinkActions({
-    incidentId: operation?.id ?? null,
-    assignedReko: assignedRekoPersonnel,
-    eventId: selectedEvent?.id ?? null,
-  })
-
-  const { isCopying: isCopyingWhatsApp, copy: handleCopyWhatsApp } =
-    useWhatsAppCopy({ operation, materials, vehicleDrivers })
-
-  // Handler for opening transfer dialog
-  const handleOpenTransfer = async () => {
-    if (!operation || !selectedEvent) {
-      toast.error(t('common.error'), { description: t('common.noEventSelected') })
-      return
-    }
-
-    try {
-      const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
-      const incidents: Incident[] = apiIncidents.map(inc => {
-        // Destructure to omit fields we need to transform
-        const { location_lat, location_lng, created_at, updated_at, status_changed_at, completed_at, reko_arrived_at, assigned_vehicles, ...rest } = inc
-        return {
-          ...rest,
-          location_lat: location_lat !== null ? parseFloat(location_lat) : null,
-          location_lng: location_lng !== null ? parseFloat(location_lng) : null,
-          created_at: new Date(created_at),
-          updated_at: new Date(updated_at),
-          status_changed_at: status_changed_at ? new Date(status_changed_at) : null,
-          completed_at: completed_at ? new Date(completed_at) : null,
-          reko_arrived_at: reko_arrived_at ? new Date(reko_arrived_at) : null,
-          assigned_vehicles: assigned_vehicles.map(v => ({
-            ...v,
-            assigned_at: new Date(v.assigned_at),
-          })),
-        }
-      })
-      setAvailableIncidents(incidents)
-      setTransferDialogOpen(true)
-    } catch (error) {
-      console.error('Failed to load incidents:', error)
-      toast.error(t('common.loadFailed'))
-    }
-  }
-
-  // Handler for transferring assignments
-  const handleTransfer = async (targetIncidentId: string) => {
-    if (!operation) return
-
-    try {
-      setIsTransferring(true)
-      await apiClient.transferAssignments(operation.id, targetIncidentId)
-      setTransferDialogOpen(false)
-    } catch (error: any) {
-      toast.error(t('common.transferFailed'), {
-        description: error?.message || t('common.transferFailedDescription')
-      })
-    } finally {
-      setIsTransferring(false)
-    }
-  }
-
-  if (!operation) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground p-4">
-        <p className="text-center text-sm">{t('sidePanel.clickToView')}</p>
-      </div>
-    )
-  }
-
-  const priority = operation.priority || 'low'
-  const timeInStatus = operation.statusChangedAt || operation.dispatchTime
-
-  return (
-    <div className="p-4 overflow-y-auto h-full space-y-4">
-      {/* Header with time info */}
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          <span className="font-mono text-muted-foreground">{getTimeSince(timeInStatus)}</span>
-        </div>
-        {operation.hasCompletedReko && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <FileCheck className="h-4 w-4" />
-            <span className="text-xs font-medium">{t('common.reko')}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Location - Editable */}
-      <LocationInput
-        address={operation.location}
-        latitude={operation.coordinates?.[0] ?? null}
-        longitude={operation.coordinates?.[1] ?? null}
-        onAddressChange={(address) => onUpdate({ location: address ?? '' })}
-        onCoordinatesChange={(lat, lon) => {
-          if (lat !== null && lon !== null) {
-            onUpdate({ coordinates: [lat, lon] })
-          }
-        }}
-      />
-
-      {/* Meldung - Editable */}
-      <div>
-        <Label htmlFor="panel-notes" className="text-xs font-semibold text-muted-foreground">{t('common.meldung')}</Label>
-        <Textarea
-          id="panel-notes"
-          placeholder={t('common.meldungPlaceholder')}
-          value={operation.notes}
-          onChange={(e) => onUpdate({ notes: e.target.value })}
-          className="mt-1 min-h-[80px] text-sm"
-        />
-      </div>
-
-      {/* Type & Priority - Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label id="panel-type-label" className="text-xs font-semibold text-muted-foreground">{t('common.einsatzart')}</Label>
-          <Select
-            value={operation.incidentType}
-            onValueChange={(value) => onUpdate({ incidentType: value })}
-          >
-            <SelectTrigger className="mt-1 h-9 text-sm w-full" aria-labelledby="panel-type-label" tabIndex={0}>
-              <SelectValue placeholder={t('sidePanel.selectPlaceholder')} />
-            </SelectTrigger>
-            <SelectContent>
-              {incidentTypeKeys.map((typeKey) => (
-                <SelectItem key={typeKey} value={typeKey}>
-                  {getIncidentTypeLabel(typeKey)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label id="panel-priority-label" className="text-xs font-semibold text-muted-foreground">{t('common.priority')}</Label>
-          <Select
-            value={operation.priority}
-            onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
-          >
-            <SelectTrigger className="mt-1 h-9 text-sm w-full" aria-labelledby="panel-priority-label" tabIndex={0}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">{t('common.priorityLow')}</SelectItem>
-              <SelectItem value="medium">{t('common.priorityMedium')}</SelectItem>
-              <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Contact - Editable */}
-      <div>
-        <Label htmlFor="panel-contact" className="text-xs font-semibold text-muted-foreground">{t('common.contact')}</Label>
-        <Input
-          id="panel-contact"
-          placeholder={t('common.contactPlaceholder')}
-          value={operation.contact}
-          onChange={(e) => onUpdate({ contact: e.target.value })}
-          className="mt-1 h-9 text-sm"
-        />
-      </div>
-
-      {/* Contact phone - Editable */}
-      <div>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="panel-contact-phone" className="text-xs font-semibold text-muted-foreground">{t('common.contactPhone')}</Label>
-          {operation.contactPhone.trim() && (
-            <a
-              href={`tel:${operation.contactPhone.replace(/\s+/g, '')}`}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-            >
-              <Phone className="h-3 w-3" />
-              {t('common.callContact')}
-            </a>
-          )}
-        </div>
-        <Input
-          id="panel-contact-phone"
-          type="tel"
-          inputMode="tel"
-          placeholder={t('common.contactPhonePlaceholder')}
-          value={operation.contactPhone}
-          onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
-          className="mt-1 h-9 text-sm"
-        />
-      </div>
-
-      {/* Internal Notes - Editable */}
-      <div>
-        <Label htmlFor="panel-internal" className="text-xs font-semibold text-muted-foreground">{t('common.notes')}</Label>
-        <Textarea
-          id="panel-internal"
-          placeholder={t('common.internalNotesPlaceholder')}
-          value={operation.internalNotes}
-          onChange={(e) => onUpdate({ internalNotes: e.target.value })}
-          className="mt-1 min-h-[60px] text-sm"
-        />
-      </div>
-
-      {/* Nachbarhilfe Toggle */}
-      <div className="rounded-lg border p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <Label htmlFor="panel-nachbarhilfe" className="text-xs font-semibold">{t('common.nachbarhilfe')}</Label>
-              <p className="text-xs text-muted-foreground">{t('sidePanel.nachbarhilfeShort')}</p>
-            </div>
-          </div>
-          <Switch
-            id="panel-nachbarhilfe"
-            checked={operation.nachbarhilfe || false}
-            onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
-          />
-        </div>
-        {operation.nachbarhilfe && (
-          <Input
-            placeholder={t('common.nachbarhilfePlaceholder')}
-            value={operation.nachbarhilfeNote || ''}
-            onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
-            className="h-8 text-sm"
-          />
-        )}
-      </div>
-
-      {/* Am Warten Toggle */}
-      <div className="rounded-lg border p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Timer className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <Label htmlFor="panel-am-warten" className="text-xs font-semibold">{t('common.amWarten')}</Label>
-              <p className="text-xs text-muted-foreground">{t('common.amWartenDescription')}</p>
-            </div>
-          </div>
-          <Switch
-            id="panel-am-warten"
-            checked={operation.amWarten || false}
-            onCheckedChange={(checked) => onUpdate({ amWarten: checked })}
-          />
-        </div>
-        {operation.amWarten && (
-          <Input
-            placeholder={t('common.amWartenPlaceholder')}
-            value={operation.amWartenNote || ''}
-            onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
-            className="h-8 text-sm"
-          />
-        )}
-      </div>
-
-      {/* Reko Reports Section */}
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground">{t('common.rekoReports')}</Label>
-        <div className="mt-1">
-          <RekoReportSection
-            incidentId={operation.id}
-            onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
-          />
-        </div>
-      </div>
-
-
-      {/* Resource Assignment Section */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs font-semibold text-muted-foreground tracking-wide">{t('common.assignedResources')}</p>
-          {auftrag && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
-              title={t('detail.viaAuftrag', { name: auftrag.name })}
-            >
-              <Waypoints className="h-3 w-3" />
-              {t('detail.viaAuftrag', { name: auftrag.name })}
-            </span>
-          )}
-        </div>
-
-        {/* Reko Personnel - separate from Mannschaft */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Search className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{t('common.reko')}</span>
-            </div>
-            <div className="flex gap-1">
-              {assignedRekoPersonnel && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setRekoTransferDialogOpen(true)}
-                  className="h-6 px-2 gap-1 text-xs"
-                  tabIndex={-1}
-                  title={t('sidePanel.transferRekoTooltip')}
-                >
-                  <ArrowRightLeft className="h-3 w-3" />
-                  {t('sidePanel.transfer')}
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setRekoDialogOpen(true)}
-                className="h-6 px-2 gap-1 text-xs"
-                tabIndex={0}
-              >
-                {assignedRekoPersonnel ? (
-                  <>
-                    <ArrowRightLeft className="h-3 w-3" />
-                    {t('common.switch')}
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-3 w-3" />
-                    {t('common.assign')}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {assignedRekoPersonnel ? (
-            <div className="space-y-2">
-              <Badge variant="secondary" className="text-xs">
-                <Search className="h-2.5 w-2.5 mr-1" />
-                {assignedRekoPersonnel.name}
-              </Badge>
-
-              {/* Link sharing buttons */}
-              <div className="flex gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCopyDirectRekoLink}
-                  disabled={isCopyingRekoLink}
-                  className="h-7 px-2 gap-1.5 text-xs flex-1"
-                  tabIndex={-1}
-                >
-                  {isCopyingRekoLink ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : rekoCopied === 'direct' ? (
-                    <Check className="h-3 w-3 text-muted-foreground" />
-                  ) : (
-                    <Link2 className="h-3 w-3" />
-                  )}
-                  {t('common.directLink')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCopyDashboardLink}
-                  disabled={isCopyingRekoLink}
-                  className="h-7 px-2 gap-1.5 text-xs flex-1"
-                  tabIndex={-1}
-                >
-                  {rekoCopied === 'dashboard' ? (
-                    <Check className="h-3 w-3 text-muted-foreground" />
-                  ) : (
-                    <LayoutDashboard className="h-3 w-3" />
-                  )}
-                  {t('common.dashboard')}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">{t('common.noRekoAssigned')}</p>
-          )}
-        </div>
-
-        {/* Mannschaft / Fahrzeuge / Material. A grouped incident carries no
-            resources itself — the Auftrag owns them; render the route roll-up
-            through the shared section UI (assign/remove target the Auftrag). */}
-        {auftrag ? (
-          <RouteResourceSections
-            resources={auftragResources ?? { vehicles: [], personnel: [], materials: [] }}
-            viaLabel={viaAuftrag}
-            onAssign={(resourceType) => onAssignResource(resourceType, operation.id)}
-            onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
-          />
-        ) : (
-          <>
-        {/* Crew */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{t('common.crewCount', { count: operation.crew.length })}</span>
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onAssignResource('crew', operation.id)}
-              className="h-6 px-2 gap-1 text-xs"
-              tabIndex={0}
-            >
-              <Plus className="h-3 w-3" />
-              {t('common.add')}
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {operation.crew.length > 0 ? (
-              operation.crew.map((member) => (
-                <Badge
-                  key={member}
-                  variant="secondary"
-                  className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                >
-                  {member}
-                  <button
-                    onClick={() => onRemoveCrew(operation.id, member)}
-                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    tabIndex={-1}
-                    aria-label={t('common.removeNamed', { name: member })}
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </Badge>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground">{t('sidePanel.noCrewShort')}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Vehicles */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-1.5">
-              <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{t('common.vehiclesCount', { count: operation.vehicles.length })}</span>
-            </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-6 px-2 gap-1 text-xs" tabIndex={0}>
-                  <Plus className="h-3 w-3" />
-                  {t('common.add')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-2" align="end">
-                <div className="space-y-1">
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                    {t('common.assignVehicle')}
-                  </div>
-                  <button
-                    onClick={() => onUpdate({ zuFuss: !operation.zuFuss })}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors",
-                      operation.zuFuss ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                    )}
-                  >
-                    <Footprints className="h-3.5 w-3.5" />
-                    <div className="text-left">
-                      <div className="font-medium text-xs">{t('common.zuFuss')}</div>
-                    </div>
-                  </button>
-                  <div className="border-t border-border my-1" />
-                  {vehicleTypes.map((vehicle) => {
-                    const isAssigned = operation.vehicles.includes(vehicle.name)
-                    return (
-                      <button
-                        key={vehicle.id}
-                        onClick={() => {
-                          if (isAssigned) {
-                            onRemoveVehicle(operation.id, vehicle.name)
-                          } else {
-                            onAssignVehicle(vehicle.id, vehicle.name, operation.id)
-                          }
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors",
-                          isAssigned ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                        )}
-                      >
-                        <Truck className={cn("h-3.5 w-3.5", isAssigned ? "text-primary" : "text-muted-foreground")} />
-                        <div className="text-left">
-                          <div className="font-medium text-xs">{vehicle.name}</div>
-                          <div className="text-xs text-muted-foreground">{vehicle.type}</div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {operation.zuFuss && (
-              <Badge variant="secondary" className="text-xs gap-1 group">
-                <Footprints className="h-3 w-3" />
-                {t('common.zuFuss')}
-                <button
-                  onClick={() => onUpdate({ zuFuss: false })}
-                  className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-                  title={t('common.removeZuFuss')}
-                  tabIndex={-1}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </Badge>
-            )}
-            {operation.vehicles.length > 0 ? (
-              operation.vehicles.map((vehicleName) => {
-                const driverName = vehicleDrivers.get(vehicleName)
-                const callsign = operation.vehicleCallsigns.get(vehicleName)
-                const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
-                const assignmentId = operation.vehicleAssignments.get(vehicleName)
-                return (
-                  <Badge
-                    key={vehicleName}
-                    variant="default"
-                    className="text-xs gap-1 pr-1 group transition-colors"
-                    title={callsign ? t('common.funkrufname', { callsign }) : undefined}
-                  >
-                    {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
-                    {assignmentId && (
-                      <button
-                        onClick={() => {
-                          const newValue = !driverStay
-                          setOperations((ops: Operation[]) =>
-                            ops.map((op: Operation) => {
-                              if (op.id === operation.id) {
-                                const newDriverStay = new Map(op.vehicleDriverStay)
-                                newDriverStay.set(vehicleName, newValue)
-                                return { ...op, vehicleDriverStay: newDriverStay }
-                              }
-                              return op
-                            })
-                          )
-                          apiClient.updateAssignment(operation.id, assignmentId, { driver_stay: newValue }).catch(() => {
-                            toast.error(t('common.updateFailed'))
-                            setOperations((ops: Operation[]) =>
-                              ops.map((op: Operation) => {
-                                if (op.id === operation.id) {
-                                  const revertDriverStay = new Map(op.vehicleDriverStay)
-                                  revertDriverStay.set(vehicleName, driverStay)
-                                  return { ...op, vehicleDriverStay: revertDriverStay }
-                                }
-                                return op
-                              })
-                            )
-                          })
-                        }}
-                        className={cn(
-                          "rounded px-1 py-0.5 text-[10px] font-medium transition-colors",
-                          driverStay
-                            ? "bg-white/20 text-white hover:bg-white/30"
-                            : "bg-white/10 text-white/60 hover:bg-white/20"
-                        )}
-                        title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
-                        tabIndex={-1}
-                      >
-                        {driverStay ? (
-                          <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> {t('common.driverStays')}</span>
-                        ) : (
-                          <span className="flex items-center gap-0.5"><Undo2 className="h-2.5 w-2.5" /> {t('common.driverReturns')}</span>
-                        )}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => onRemoveVehicle(operation.id, vehicleName)}
-                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
-                      tabIndex={-1}
-                      aria-label={t('common.removeNamed', { name: vehicleName })}
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </Badge>
-                )
-              })
-            ) : (
-              <p className="text-xs text-muted-foreground">{t('sidePanel.noVehiclesShort')}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Materials */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-1.5">
-              <Package className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{t('common.materialsCount', { count: operation.materials.length })}</span>
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onAssignResource('materials', operation.id)}
-              className="h-6 px-2 gap-1 text-xs"
-              tabIndex={0}
-            >
-              <Plus className="h-3 w-3" />
-              {t('common.add')}
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {operation.materials.length > 0 ? (
-              operation.materials.map((materialId) => {
-                const material = materials.find(m => m.id === materialId)
-                return (
-                  <Badge
-                    key={materialId}
-                    variant="outline"
-                    className="text-xs gap-1 pr-1 group hover:bg-destructive/20 transition-colors"
-                  >
-                    {material?.name || materialId}
-                    <button
-                      onClick={() => onRemoveMaterial(operation.id, materialId)}
-                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity rounded-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      tabIndex={-1}
-                      aria-label={t('common.removeNamed', { name: material?.name || materialId })}
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </Badge>
-                )
-              })
-            ) : (
-              <p className="text-xs text-muted-foreground">{t('sidePanel.noMaterialShort')}</p>
-            )}
-          </div>
-        </div>
-          </>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="pt-2 space-y-2 border-t border-border">
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopyWhatsApp}
-            disabled={isCopyingWhatsApp}
-            className="gap-1.5 text-xs"
-          >
-            <MessageCircle className="h-3.5 w-3.5" />
-            {isCopyingWhatsApp ? t('common.copying') : t('sidePanel.whatsapp')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenTransfer}
-            className="gap-1.5 text-xs"
-          >
-            <ArrowRightLeft className="h-3.5 w-3.5" />
-            {t('sidePanel.transfer')}
-          </Button>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowDeleteConfirm(true)}
-          className="w-full gap-1.5 text-xs text-destructive hover:text-destructive"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t('common.delete')}
-        </Button>
-      </div>
-
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        title={t('common.deleteIncidentTitle')}
-        description={t('common.deleteIncidentDescription', { name: formatLocation(operation.location) || getIncidentTypeLabel(operation.incidentType) })}
-        onConfirm={() => onDelete(operation.id)}
-      />
-
-      {/* Transfer Incident Dialog */}
-      <TransferIncidentDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        sourceIncident={operation as unknown as Incident}
-        sourceName={operation.location}
-        availableIncidents={availableIncidents}
-        onTransfer={handleTransfer}
-        isTransferring={isTransferring}
-      />
-
-      {/* Assign Reko Dialog */}
-      <AssignRekoDialog
-        open={rekoDialogOpen}
-        onOpenChange={setRekoDialogOpen}
-        incidentId={operation.id}
-        incidentTitle={operation.location}
-        onAssigned={() => {
-          // Assignment is handled by context via optimistic update + WebSocket/polling
-        }}
-      />
-
-      {/* Transfer Reko Assignments Dialog */}
-      {assignedRekoPersonnel && (
-        <TransferRekoDialog
-          open={rekoTransferDialogOpen}
-          onOpenChange={setRekoTransferDialogOpen}
-          fromPerson={assignedRekoPersonnel ? { id: assignedRekoPersonnel.id, name: assignedRekoPersonnel.name, role: '' as any, status: 'assigned' as any, roleSortOrder: 0 } : null}
-          rekoPersonnel={personnel.filter(p => p.isReko)}
-          onTransferred={() => {
-            // Refresh will happen via polling/WebSocket
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-// Dynamic import for Leaflet to avoid SSR issues
 const SidePanelMapContent = dynamic(
   () => import("./side-panel-map"),
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-muted-foreground">
         <p className="text-sm">{translateOutsideReact('kanban.sidePanel.mapLoading')}</p>
       </div>
     ),
-  }
+  },
 )
 
 function SidePanelMap({
