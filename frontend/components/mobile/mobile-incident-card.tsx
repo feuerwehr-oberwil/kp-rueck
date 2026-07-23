@@ -10,6 +10,7 @@ import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
+import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -17,29 +18,12 @@ interface MobileIncidentCardProps {
   formatLocation: (address: string) => string
 }
 
-// Priority visual configuration
-const priorityStyles = {
-  high: {
-    dot: "bg-red-500",
-    chevron: "text-red-600 dark:text-red-400",
-  },
-  medium: {
-    dot: "bg-orange-500",
-    chevron: "text-orange-600 dark:text-orange-400",
-  },
-  low: {
-    dot: "bg-green-500",
-    chevron: "text-green-600 dark:text-green-400",
-  },
-} as const
-
-
 function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIncidentCardProps) {
   const t = useTranslations("incidents.card")
   const tCard = useTranslations("kanban.card")
   const tDetail = useTranslations("incidents.mobileDetail")
-  const priority = operation.priority || "low"
-  const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
+  const priority = (operation.priority || "low") as Priority
+  const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority], chevron: PRIORITY_TEXT_CLASSES[priority] }
 
   // Get column color for the card
   const column = columns.find(col => col.status.includes(operation.status))

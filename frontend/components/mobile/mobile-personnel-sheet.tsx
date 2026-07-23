@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Search, Users } from "lucide-react"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
+import { RESOURCE_STATE_DOT_CLASSES, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 
 interface MobilePersonnelSheetProps {
   open: boolean
@@ -107,9 +108,7 @@ export function MobilePersonnelSheet({
                       <div
                         className={cn(
                           "h-2.5 w-2.5 rounded-full flex-shrink-0",
-                          person.status === "available"
-                            ? "bg-emerald-500"
-                            : "bg-amber-500"
+                          RESOURCE_STATE_DOT_CLASSES[person.status]
                         )}
                       />
 
@@ -152,9 +151,7 @@ export function MobilePersonnelSheet({
                         variant="outline"
                         className={cn(
                           "text-xs flex-shrink-0",
-                          person.status === "available"
-                            ? "text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800/50"
-                            : "text-amber-700 border-amber-200 dark:text-amber-400 dark:border-amber-800/50"
+                          RESOURCE_STATE_BADGE_CLASSES[person.status]
                         )}
                       >
                         {person.status === "available" ? t("available") : t("assigned")}

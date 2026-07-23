@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Ruler, Loader2, Palette, Check, Waypoints, Milestone } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
+import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
@@ -983,7 +984,7 @@ export default function MapPage() {
                             <div className="flex items-start gap-2 min-w-0 flex-1">
                               <div
                                 className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
-                                  incident.priority === "high" ? "bg-red-500" : incident.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
+                                  PRIORITY_DOT_CLASSES[(incident.priority ?? "low") as Priority]
                                 }`}
                                 title={incident.priority === "high" ? t('common.priorityHigh') : incident.priority === "medium" ? t('common.priorityMedium') : t('common.priorityLow')}
                               />

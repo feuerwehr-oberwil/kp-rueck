@@ -8,6 +8,8 @@ import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus, type StatusStats } from "@/lib/hooks/use-status-data"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
+import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
+import { RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
@@ -325,7 +327,7 @@ function VehicleRow({ vehicle: v }: { vehicle: VehicleWithStatus }) {
       "flex items-center gap-3 px-3 xl:px-4 py-2 xl:py-2.5 rounded-md",
       isDeployed ? "bg-muted/40" : "bg-muted/20"
     )}>
-      <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", isDeployed ? "bg-orange-500" : "bg-emerald-500")} />
+      <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", RESOURCE_STATE_DOT_CLASSES[isDeployed ? "assigned" : "available"])} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
           <span className="font-bold text-sm xl:text-base">{v.name}</span>
@@ -356,7 +358,7 @@ function IncidentRow({ operation: op }: { operation: Operation }) {
         <div className="flex items-start gap-2 min-w-0">
           <div className={cn(
             "w-2.5 h-2.5 xl:w-3 xl:h-3 rounded-full mt-1 shrink-0",
-            op.priority === "high" ? "bg-red-500" : op.priority === "medium" ? "bg-amber-500" : "bg-emerald-500"
+            PRIORITY_DOT_CLASSES[(op.priority ?? "low") as Priority]
           )} />
           <div className="min-w-0">
             <p className="text-sm xl:text-base font-semibold leading-tight truncate">{op.location}</p>
@@ -375,7 +377,7 @@ function PersonRow({ person: p, assignedLocation }: { person: Person; assignedLo
   const isAssigned = p.status === "assigned"
   return (
     <div className="flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm">
-      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", isAssigned ? "bg-orange-500" : "bg-emerald-500")} />
+      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[isAssigned ? "assigned" : "available"])} />
       <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
       {p.isDriver && p.driverVehicleName && (
         <span className="text-[10px] xl:text-xs text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
@@ -392,7 +394,7 @@ function MaterialRow({ material: m, assignedLocation }: { material: Material; as
   const isAssigned = m.status === "assigned"
   return (
     <div className="flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm">
-      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", isAssigned ? "bg-orange-500" : "bg-emerald-500")} />
+      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[isAssigned ? "assigned" : "available"])} />
       <span className="text-xs xl:text-sm truncate flex-1">{m.name}</span>
       {isAssigned && assignedLocation ? (
         <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedLocation}</span>

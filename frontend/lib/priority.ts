@@ -22,11 +22,30 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 export const PRIORITY_COLORS: Record<Priority, string> = {
   high: "#ef4444", // red — destructive
   medium: "#f59e0b", // amber — warning
-  low: "#22c55e", // green — low urgency
+  low: "#10b981", // emerald — low urgency
 }
 
 export const PRIORITY_ICONS: Record<Priority, LucideIcon> = {
   high: AlertTriangle,
   medium: AlertCircle,
   low: Info,
+}
+
+/**
+ * Tailwind classes for the small priority dot rendered on cards/lists.
+ * The single source that mobile cards, the token board, the map and the
+ * display board all draw from — before this, medium drifted between
+ * orange/yellow/amber and low between green/emerald across views.
+ */
+export const PRIORITY_DOT_CLASSES: Record<Priority, string> = {
+  high: "bg-red-500",
+  medium: "bg-amber-500",
+  low: "bg-emerald-500",
+}
+
+/** Matching text/icon tint (e.g. the up/down/flat priority chevron). */
+export const PRIORITY_TEXT_CLASSES: Record<Priority, string> = {
+  high: "text-red-600 dark:text-red-400",
+  medium: "text-amber-600 dark:text-amber-400",
+  low: "text-emerald-600 dark:text-emerald-400",
 }
