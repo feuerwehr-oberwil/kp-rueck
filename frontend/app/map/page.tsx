@@ -10,6 +10,7 @@ import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Rule
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
 import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
@@ -329,7 +330,7 @@ export default function MapPage() {
       targetOperationId: groupId,
       conflicts: [
         ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentConflicts.map((operation) => ({ operationId: operation.id, operationLabel: operation.location })),
+        ...incidentConflicts.map((operation) => ({ operationId: operation.id, operationLabel: getIncidentRefLabel(operation) })),
       ],
       customResolve: async (action) => {
         if (action === 'move') {

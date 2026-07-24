@@ -450,6 +450,10 @@
       "radioZuFuss": "zu Fuss",
       "radioWith": "mit",
       "radioAnd": "und",
+      "radioMaterialOnly": ", benötigtes Material:",
+      "radioNachbarhilfe": "Nachbarhilfe",
+      "radioNachbarhilfeWithNote": "Nachbarhilfe ({note})",
+      "noResourcesHint": "Noch keine Ressourcen zugewiesen.",
       "radioSpecial": "Besonderes:",
       "auftragContext": "Auftrag «{name}» · Stop {pos}/{total}",
       "copyWhatsapp": "WhatsApp-Nachricht kopieren",
@@ -588,6 +592,10 @@
       "specialFnConfirmTitle": "Doppelbelegung?",
       "specialFnConfirmBody": "{name} ist bereits im Einsatz ({func}). Trotzdem der Mannschaft zuweisen?",
       "specialFnConfirmAction": "Trotzdem zuweisen",
+      "occupiedElsewhere": "Im Einsatz",
+      "occupiedConfirmTitle": "Doppelbelegung?",
+      "occupiedConfirmBody": "{name} ist bereits zugewiesen: {label}. Trotzdem zuweisen?",
+      "occupiedConfirmAction": "Trotzdem zuweisen",
       "all": "Alle",
       "noVehicle": "Kein Fahrzeug",
       "groupSelected": "{selected}/{total} ausgewählt",
@@ -600,8 +608,8 @@
       "noAvailableVehicles": "Keine verfügbaren Fahrzeuge",
       "allVehiclesAssigned": "Alle Fahrzeuge sind bereits zugewiesen",
       "noMaterialsFound": "Keine Materialien gefunden",
-      "noSelectableMaterials": "Keine auswählbaren Materialien",
-      "allMaterialsAssigned": "Alle Materialien sind anderen Einsätzen zugewiesen",
+      "noSelectableMaterials": "Keine Materialien",
+      "allMaterialsAssigned": "Es sind keine Materialien erfasst",
       "changes": "Änderungen"
     },
     "transferReko": {
@@ -811,7 +819,13 @@
       "markError": "Die Person konnte nicht als Reko markiert werden. Versuche es erneut.",
       "back": "Zurück",
       "assigned": "Zugewiesen",
-      "assignmentCount": "{count, plural, one {# Einsatz} other {# Einsätze}}"
+      "recommended": "Empfohlen",
+      "openCount": "{count} offen",
+      "noOpenWork": "frei",
+      "doneCount": "{count} erledigt",
+      "distanceOpenTooltip": "Luftlinie zum nächstgelegenen offenen Reko-Auftrag",
+      "distanceLastTooltip": "Luftlinie zum zuletzt zugewiesenen Einsatz",
+      "distanceLastSuffix": "(zuletzt)"
     },
     "card": {
       "minutesAgo": "{minutes} Min",

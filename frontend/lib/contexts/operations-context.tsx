@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
 import { apiClient, ApiError, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { formatLocationForDisplay } from "@/lib/utils"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
@@ -1640,7 +1641,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // rather than silently double-booking it.
     const conflicts = operations
       .filter(op => op.id !== operationId && op.vehicles.includes(vehicleName))
-      .map(op => ({ operationId: op.id, operationLabel: op.location }))
+      .map(op => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) }))
     if (conflicts.length > 0) {
       setVehicleConflict({ vehicleId, vehicleName, targetOperationId: operationId, conflicts })
       return

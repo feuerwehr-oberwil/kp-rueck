@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2 } from "lucide-react"
+import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Siren } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { type Person, type Material } from "@/lib/contexts/operations-context"
+import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { cn } from "@/lib/utils"
 
@@ -68,10 +70,13 @@ export function ResourceAssignmentDialog({
   zuFuss = false,
   onToggleZuFuss,
   occupiedPersonnelIds = new Set(),
+  occupiedVehicleIds = new Set(),
   occupiedMaterialIds = new Set(),
 }: ResourceAssignmentDialogProps) {
   const t = useTranslations('kanban')
   const { materialGroups } = useMaterials()
+  const { operations } = useOperations()
+  const { groups, getGroupResources } = useGroups()
   const [searchQuery, setSearchQuery] = useState("")
   const [searchFocused, setSearchFocused] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
@@ -90,6 +95,9 @@ export function ResourceAssignmentDialog({
   // A special-function person pending a double-booking confirmation before they
   // get ticked into the crew selection.
   const [confirmPerson, setConfirmPerson] = useState<Person | null>(null)
+  // A material bound to another incident/Auftrag pending a "trotzdem zuweisen?"
+  // confirmation before it gets ticked into the selection.
+  const [confirmMaterial, setConfirmMaterial] = useState<Material | null>(null)
 
   // Snapshot the assigned state into the local selection ONLY on the open
   // transition. Re-snapshotting whenever assignedPersonnel/assignedMaterials
@@ -157,10 +165,56 @@ export function ResourceAssignmentDialog({
     return vehicles
   }, [vehicles])
 
-  // For materials: show available materials OR materials already assigned to THIS operation (for deselection)
-  const selectableMaterials = useMemo(() => {
-    return materials.filter(m => assignedMaterials.includes(m.id) || (m.status === 'available' && !occupiedMaterialIds.has(m.id)))
-  }, [materials, assignedMaterials, occupiedMaterialIds])
+  // For materials: show EVERYTHING — items bound to another incident/Auftrag stay
+  // visible (amber-flagged) and need an explicit confirm instead of vanishing.
+  const selectableMaterials = materials
+
+  // Where an occupied vehicle/material currently is, resolved from the
+  // operations + Auftrag contexts (no prop threading): vehicle name → label,
+  // material id → label. The current assign target never counts as "elsewhere" —
+  // note operationId holds the GROUP id when assignTarget === 'route'.
+  const { vehicleOccupancy, materialOccupancy } = useMemo(() => {
+    const vehicleMap = new Map<string, string>()
+    const materialMap = new Map<string, string>()
+    for (const op of operations) {
+      if (assignTarget === 'incident' && op.id === operationId) continue
+      const label = getIncidentRefLabel(op, 40)
+      for (const name of op.vehicles) if (!vehicleMap.has(name)) vehicleMap.set(name, label)
+      for (const id of op.materials) if (!materialMap.has(id)) materialMap.set(id, label)
+    }
+    for (const group of groups) {
+      if (assignTarget === 'route' && group.id === operationId) continue
+      const res = getGroupResources(group.id)
+      for (const v of res.vehicles) if (!vehicleMap.has(v.name)) vehicleMap.set(v.name, group.name)
+      for (const m of res.materials) if (!materialMap.has(m.resourceId)) materialMap.set(m.resourceId, group.name)
+    }
+    return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap }
+  }, [operations, groups, getGroupResources, assignTarget, operationId])
+
+  // Materials bound to ANOTHER incident/Auftrag (never the current target —
+  // anything in assignedMaterials is "here"). Status doubles as a fallback flag
+  // for occupancy we can't resolve to a concrete incident/route.
+  const occupiedElsewhereMaterialIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const m of materials) {
+      if (assignedMaterials.includes(m.id)) continue
+      if (materialOccupancy.has(m.id) || occupiedMaterialIds.has(m.id) || m.status === 'assigned') set.add(m.id)
+    }
+    return set
+  }, [materials, assignedMaterials, materialOccupancy, occupiedMaterialIds])
+
+  // Where a vehicle/material is bound elsewhere ("Im Einsatz" when the exact
+  // spot can't be resolved), or null when it's free or already on this target.
+  const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): string | null => {
+    if (assignedVehicles.includes(vehicle.name)) return null
+    if (vehicleOccupancy.has(vehicle.name)) return vehicleOccupancy.get(vehicle.name)!
+    if (occupiedVehicleIds.has(vehicle.id)) return t('assignmentDialog.occupiedElsewhere')
+    return null
+  }
+  const materialElsewhereLabel = (material: Material): string | null => {
+    if (!occupiedElsewhereMaterialIds.has(material.id)) return null
+    return materialOccupancy.get(material.id) ?? t('assignmentDialog.occupiedElsewhere')
+  }
 
   // Quick-filter categories for the active resource type (rank / location / type).
   const categories = useMemo(() => {
@@ -182,6 +236,9 @@ export function ResourceAssignmentDialog({
     const byType = new Map<string, string[]>()
     for (const m of selectableMaterials) {
       if (!m.type) continue
+      // Quick-select only auto-picks FREE materials — items bound to another
+      // incident/Auftrag are skipped silently (they need an individual confirm).
+      if (occupiedElsewhereMaterialIds.has(m.id)) continue
       const arr = byType.get(m.type) ?? []
       arr.push(m.id)
       byType.set(m.type, arr)
@@ -189,7 +246,7 @@ export function ResourceAssignmentDialog({
     return [...byType.entries()]
       .map(([type, ids]) => ({ type, ids }))
       .sort((a, b) => a.type.localeCompare(b.type))
-  }, [resourceType, selectableMaterials])
+  }, [resourceType, selectableMaterials, occupiedElsewhereMaterialIds])
 
   // Filter resources by search query + quick category filter
   const filteredPersonnel = useMemo(() => {
@@ -299,23 +356,41 @@ export function ResourceAssignmentDialog({
     }
   }
 
-  // Toggle selection for materials (local state only, doesn't call API)
-  const handleToggleMaterialSelection = (material: Material) => {
+  // Add a material to the local selection (free path or after the confirm).
+  const addMaterialToSelection = (materialId: string) => {
     setSelectedMaterials(prev => {
       const next = new Set(prev)
-      if (next.has(material.id)) {
-        next.delete(material.id)
-      } else {
-        next.add(material.id)
-        setJustAssigned(material.id)
-        setTimeout(() => setJustAssigned(null), 600)
-      }
+      next.add(materialId)
       return next
     })
+    setJustAssigned(materialId)
+    setTimeout(() => setJustAssigned(null), 600)
   }
 
-  // Toggle all materials in a group at once
+  // Toggle selection for materials (local state only, doesn't call API)
+  const handleToggleMaterialSelection = (material: Material) => {
+    // Deselecting is always immediate.
+    if (selectedMaterials.has(material.id)) {
+      setSelectedMaterials(prev => {
+        const next = new Set(prev)
+        next.delete(material.id)
+        return next
+      })
+      return
+    }
+    // Selecting a material bound to another incident/Auftrag → confirm first,
+    // mirroring the crew double-booking guard.
+    if (occupiedElsewhereMaterialIds.has(material.id)) {
+      setConfirmMaterial(material)
+      return
+    }
+    addMaterialToSelection(material.id)
+  }
+
+  // Toggle all materials in a group at once (callers pass FREE ids only —
+  // occupied-elsewhere items are excluded and stay individual-confirm-only)
   const handleToggleGroupSelection = (groupMaterialIds: string[]) => {
+    if (groupMaterialIds.length === 0) return
     setSelectedMaterials(prev => {
       const next = new Set(prev)
       const allSelected = groupMaterialIds.every(id => next.has(id))
@@ -568,7 +643,7 @@ export function ResourceAssignmentDialog({
               <button
                 onClick={() => setCategoryFilter(null)}
                 className={cn(
-                  "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                  "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   categoryFilter === null
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -588,7 +663,7 @@ export function ResourceAssignmentDialog({
                     onClick={() => setCategoryFilter(isActive ? null : cat)}
                     title={vehiclePresent ? t('assignmentDialog.vehicleOnSceneHint', { name: cat }) : undefined}
                     className={cn(
-                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
+                      "inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
                       isActive
                         ? "bg-primary text-primary-foreground border-primary"
                         : vehiclePresent
@@ -616,7 +691,7 @@ export function ResourceAssignmentDialog({
                     key={type}
                     onClick={() => handleToggleGroupSelection(ids)}
                     className={cn(
-                      "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                      "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                       allSelected
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -635,7 +710,7 @@ export function ResourceAssignmentDialog({
               <button
                 onClick={() => setShowOnlyAssignedVehicles((v) => !v)}
                 className={cn(
-                  "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                  "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   showOnlyAssignedVehicles
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -661,7 +736,7 @@ export function ResourceAssignmentDialog({
                         key={person.id}
                         onClick={() => handleTogglePersonSelection(person)}
                         className={cn(
-                          "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
                           isSelected && "border-primary/30 bg-primary/5",
                           special && !isSelected && "border-amber-500/40 bg-amber-500/5"
                         )}
@@ -697,7 +772,7 @@ export function ResourceAssignmentDialog({
                     <button
                       onClick={onToggleZuFuss}
                       className={cn(
-                        "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                        "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
                         zuFuss && "border-primary/30 bg-primary/5"
                       )}
                     >
@@ -715,13 +790,17 @@ export function ResourceAssignmentDialog({
                   {filteredVehicles.map((vehicle) => {
                     const isAssigned = isVehicleAssigned(vehicle.name)
                     const wasJustAssigned = justAssigned === vehicle.id
+                    // Already on another incident/Auftrag → amber flag with the
+                    // reference, matching the crew special-function treatment.
+                    const elsewhere = vehicleElsewhereLabel(vehicle)
                     return (
                       <button
                         key={vehicle.id}
                         onClick={() => handleToggleVehicle(vehicle)}
                         className={cn(
-                          "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                          isAssigned && "border-primary/30 bg-primary/5"
+                          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                          isAssigned && "border-primary/30 bg-primary/5",
+                          elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5"
                         )}
                       >
                         {isAssigned ? (
@@ -734,7 +813,14 @@ export function ResourceAssignmentDialog({
                         )}
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">{vehicle.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
+                          {elsewhere ? (
+                            <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                              <Siren className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{elsewhere}</span>
+                            </span>
+                          ) : (
+                            <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
+                          )}
                         </div>
                       </button>
                     )
@@ -746,12 +832,15 @@ export function ResourceAssignmentDialog({
                 <>
                   {/* Material groups */}
                   {groupedFilteredMaterials.groups.map(({ groupId, groupName, materials: groupMats }) => {
-                    const groupMatIds = groupMats.map(m => m.id)
-                    const allSelected = groupMatIds.every(id => selectedMaterials.has(id))
-                    const someSelected = groupMatIds.some(id => selectedMaterials.has(id))
-                    const selectedCount = groupMatIds.filter(id => selectedMaterials.has(id)).length
+                    // Only FREE items count towards select-all / "Alle" — a module
+                    // reads complete without its occupied-elsewhere items, which
+                    // must be picked individually (with confirm).
+                    const freeGroupMatIds = groupMats.filter(m => !occupiedElsewhereMaterialIds.has(m.id)).map(m => m.id)
+                    const allSelected = freeGroupMatIds.length > 0 && freeGroupMatIds.every(id => selectedMaterials.has(id))
+                    const selectedCount = groupMats.filter(m => selectedMaterials.has(m.id)).length
+                    const someSelected = selectedCount > 0
                     const isExpanded = expandedGroups.has(groupId)
-                    const wasJustAssigned = justAssigned === `group-${groupMatIds[0]}`
+                    const wasJustAssigned = justAssigned === `group-${freeGroupMatIds[0]}`
                     // Origin(s) of the module's items — distinct depots/locations.
                     const groupOrigins = [...new Set(groupMats.map(m => m.category).filter(Boolean))].join(", ")
                     return (
@@ -769,7 +858,7 @@ export function ResourceAssignmentDialog({
                               else next.add(groupId)
                               return next
                             })}
-                            className="px-2 py-3"
+                            className="cursor-pointer px-2 py-3"
                           >
                             {isExpanded
                               ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -778,8 +867,8 @@ export function ResourceAssignmentDialog({
                           </button>
                           {/* Select all toggle */}
                           <button
-                            onClick={() => handleToggleGroupSelection(groupMatIds)}
-                            className="flex-1 flex items-center justify-between py-3 pr-3 text-left"
+                            onClick={() => handleToggleGroupSelection(freeGroupMatIds)}
+                            className="flex-1 flex cursor-pointer items-center justify-between py-3 pr-3 text-left"
                           >
                             <div className="flex items-center gap-3">
                               {allSelected ? (
@@ -819,13 +908,15 @@ export function ResourceAssignmentDialog({
                             {groupMats.map((material) => {
                               const isSelected = isMaterialSelected(material.id)
                               const matJustAssigned = justAssigned === material.id
+                              const elsewhere = materialElsewhereLabel(material)
                               return (
                                 <button
                                   key={material.id}
                                   onClick={() => handleToggleMaterialSelection(material)}
                                   className={cn(
-                                    "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                                    isSelected && "border-primary/30 bg-primary/5"
+                                    "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                                    isSelected && "border-primary/30 bg-primary/5",
+                                    elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5"
                                   )}
                                 >
                                   {isSelected ? (
@@ -838,7 +929,14 @@ export function ResourceAssignmentDialog({
                                   )}
                                   <div className="min-w-0">
                                     <p className="font-medium text-sm truncate">{material.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{material.category}</p>
+                                    {elsewhere ? (
+                                      <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                                        <Siren className="h-3 w-3 flex-shrink-0" />
+                                        <span className="truncate">{elsewhere}</span>
+                                      </span>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground truncate">{material.category}</p>
+                                    )}
                                   </div>
                                 </button>
                               )
@@ -854,13 +952,15 @@ export function ResourceAssignmentDialog({
                       {groupedFilteredMaterials.ungrouped.map((material) => {
                         const isSelected = isMaterialSelected(material.id)
                         const wasJustAssigned = justAssigned === material.id
+                        const elsewhere = materialElsewhereLabel(material)
                         return (
                           <button
                             key={material.id}
                             onClick={() => handleToggleMaterialSelection(material)}
                             className={cn(
-                              "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                              isSelected && "border-primary/30 bg-primary/5"
+                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                              isSelected && "border-primary/30 bg-primary/5",
+                              elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5"
                             )}
                           >
                             {isSelected ? (
@@ -873,7 +973,14 @@ export function ResourceAssignmentDialog({
                             )}
                             <div className="min-w-0">
                               <p className="font-medium text-sm truncate">{material.name}</p>
-                              <p className="text-xs text-muted-foreground truncate">{material.category}</p>
+                              {elsewhere ? (
+                                <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                                  <Siren className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{elsewhere}</span>
+                                </span>
+                              ) : (
+                                <p className="text-xs text-muted-foreground truncate">{material.category}</p>
+                              )}
                             </div>
                           </button>
                         )
@@ -960,6 +1067,27 @@ export function ResourceAssignmentDialog({
       confirmText={t('assignmentDialog.specialFnConfirmAction')}
       onConfirm={() => {
         if (confirmPerson) addPersonToSelection(confirmPerson)
+      }}
+    />
+
+    {/* Double-booking guard: selecting a material that is already on another
+        incident/Auftrag asks first. Deselecting stays immediate. */}
+    <ConfirmDialog
+      open={!!confirmMaterial}
+      onOpenChange={(o) => !o && setConfirmMaterial(null)}
+      title={t('assignmentDialog.occupiedConfirmTitle')}
+      description={
+        confirmMaterial
+          ? t('assignmentDialog.occupiedConfirmBody', {
+              name: confirmMaterial.name,
+              label: materialElsewhereLabel(confirmMaterial) ?? t('assignmentDialog.occupiedElsewhere'),
+            })
+          : ''
+      }
+      cancelText={t('common.cancel')}
+      confirmText={t('assignmentDialog.occupiedConfirmAction')}
+      onConfirm={() => {
+        if (confirmMaterial) addMaterialToSelection(confirmMaterial.id)
       }}
     />
     </>

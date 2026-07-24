@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { MapPin } from "lucide-react"
 import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import {
@@ -56,20 +57,29 @@ export function GpsArrivalPrompt() {
     if (!isEditor || !onOperatorPage) return
     const unsubscribe = wsClient.on("gps_arrival_prompt", async (payload: Record<string, string>) => {
       if (!payload?.incident_id) return
+      // The WS payload label is address-only (built server-side); enrich it with
+      // type + Meldung so the operator knows WHICH incident without cross-checking.
+      let incidentLabel = payload.incident_label || t('fallbackIncident')
       // If the operator already moved the card past Disponiert, the bell
       // notification is enough — don't interrupt with a stale modal.
       try {
         const incident = await apiClient.getIncident(payload.incident_id)
         if (incident.status !== "disponiert") return
+        incidentLabel = getIncidentRefLabel({
+          location: incident.location_address || incident.title,
+          incidentType: incident.type ?? undefined,
+          notes: incident.description ?? undefined,
+        }, 40)
       } catch {
-        // Can't verify — show the prompt; the status endpoint re-checks on confirm.
+        // Can't verify — show the prompt with the payload label; the status
+        // endpoint re-checks on confirm.
       }
       // Last prompt wins; the operator handles one at a time. A re-broadcast for the
       // same incident simply refreshes the open dialog.
       setPrompt({
         incidentId: payload.incident_id,
         vehicleName: payload.vehicle_name || t('fallbackVehicle'),
-        incidentLabel: payload.incident_label || t('fallbackIncident'),
+        incidentLabel,
       })
     })
     return () => unsubscribe()

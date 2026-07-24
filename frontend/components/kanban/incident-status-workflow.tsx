@@ -50,6 +50,9 @@ export function useIncidentStatusWorkflow({
 }: UseIncidentStatusWorkflowOptions) {
   const [disponiertOperationId, setDisponiertOperationId] = useState<string | null>(null)
   const [missingResourcesOperationId, setMissingResourcesOperationId] = useState<string | null>(null)
+  // Status the incident was in BEFORE dispatch — Cancel in the missing-resources
+  // dialog reverts to it (the status change happens before the dialog opens).
+  const [missingResourcesReturnStatus, setMissingResourcesReturnStatus] = useState<OperationStatus | null>(null)
   const [returningVehicleOperationId, setReturningVehicleOperationId] = useState<string | null>(null)
   const [rekoMissingOperationId, setRekoMissingOperationId] = useState<string | null>(null)
   const [rekoFormMissingOperationId, setRekoFormMissingOperationId] = useState<string | null>(null)
@@ -83,11 +86,15 @@ export function useIncidentStatusWorkflow({
     }
   }, [getGroupResources])
 
-  const triggerDisponiertDialog = useCallback((operationId: string) => {
+  const triggerDisponiertDialog = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
     if (!operation) return
-    if (getMissingResources(operation).length > 0) setMissingResourcesOperationId(operation.id)
-    else setDisponiertOperationId(operation.id)
+    if (getMissingResources(operation).length > 0) {
+      setMissingResourcesOperationId(operation.id)
+      setMissingResourcesReturnStatus(previousStatus ?? null)
+    } else {
+      setDisponiertOperationId(operation.id)
+    }
   }, [getMissingResources, operationById])
 
   const triggerReturningVehicleCheck = useCallback((operationId: string) => {
@@ -130,8 +137,9 @@ export function useIncidentStatusWorkflow({
     const operation = operationById(operationId)
     if (!operation || operation.status === targetStatus) return
 
+    const previousStatus = operation.status
     changeStatusToTop(operationId, targetStatus)
-    if (targetStatus === "enroute") triggerDisponiertDialog(operationId)
+    if (targetStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     if (targetStatus === "ready") triggerRekoCheck(operationId)
     if (targetStatus === "rekoDone") triggerRekoFormCheck(operationId)
     if (targetStatus === "returning") triggerReturningVehicleCheck(operationId)
@@ -156,6 +164,14 @@ export function useIncidentStatusWorkflow({
     if (kind === "missing") setMissingResourcesOperationId(operationId)
     else triggerReturningVehicleCheck(operationId)
   }, [assignmentReturn, triggerReturningVehicleCheck])
+
+  const cancelMissingResources = useCallback(() => {
+    if (missingResourcesOperationId && missingResourcesReturnStatus) {
+      changeStatusToTop(missingResourcesOperationId, missingResourcesReturnStatus)
+    }
+    setMissingResourcesOperationId(null)
+    setMissingResourcesReturnStatus(null)
+  }, [changeStatusToTop, missingResourcesOperationId, missingResourcesReturnStatus])
 
   const materialDecisionOperation = operationById(materialDecisionOperationId)
   useEffect(() => setMaterialDecisions({}), [materialDecisionOperationId])
@@ -214,10 +230,15 @@ export function useIncidentStatusWorkflow({
     closeDisponiert: () => setDisponiertOperationId(null),
     openDisponiert: (operationId: string) => {
       setMissingResourcesOperationId(null)
+      setMissingResourcesReturnStatus(null)
       setDisponiertOperationId(operationId)
     },
     missingResourcesOperation: operationById(missingResourcesOperationId),
-    closeMissingResources: () => setMissingResourcesOperationId(null),
+    closeMissingResources: () => {
+      setMissingResourcesOperationId(null)
+      setMissingResourcesReturnStatus(null)
+    },
+    cancelMissingResources,
     returningVehicleOperation: effectiveReturningVehicleOperation,
     closeReturningVehicle: () => setReturningVehicleOperationId(null),
     rekoMissingOperation: operationById(rekoMissingOperationId),
@@ -368,9 +389,14 @@ export function IncidentStatusWorkflowDialogs({
                       {tMissing("dispatchAnyway")}
                     </Button>
                   )}
-                  <Button disabled={!allFilled} onClick={() => controller.openDisponiert(missingOperation.id)}>
-                    {tMissing("done")}
-                  </Button>
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button variant="outline" onClick={() => controller.cancelMissingResources()}>
+                      {tCommon("cancel")}
+                    </Button>
+                    <Button disabled={!allFilled} onClick={() => controller.openDisponiert(missingOperation.id)}>
+                      {tMissing("done")}
+                    </Button>
+                  </div>
                 </AlertDialogFooter>
               </>
             )

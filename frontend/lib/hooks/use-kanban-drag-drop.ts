@@ -18,7 +18,7 @@ interface UseKanbanDragDropProps {
   assignVehicleToOperation?: (vehicleId: string, vehicleName: string, operationId: string) => void
   setDraggingItem?: (item: Person | Material | Operation | null) => void
   onOperationDrop?: (operationId: string) => void
-  onStatusChange?: (operationId: string, newStatus: OperationStatus) => void
+  onStatusChange?: (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => void
   /** Aufträge (incident groups) — present so views without the Aufträge feature
    *  keep working unchanged. */
   groups?: IncidentGroup[]
@@ -280,7 +280,7 @@ export function useKanbanDragDrop({
 
               // Auto-select the dropped card
               onOperationDrop?.(draggedOp.id)
-              onStatusChange?.(draggedOp.id, targetOp.status as OperationStatus)
+              onStatusChange?.(draggedOp.id, targetOp.status as OperationStatus, draggedOp.status as OperationStatus)
             }
           }
           // Dropped on empty column area
@@ -294,7 +294,7 @@ export function useKanbanDragDrop({
 
               // Auto-select the dropped card
               onOperationDrop?.(draggedOp.id)
-              onStatusChange?.(draggedOp.id, newStatus)
+              onStatusChange?.(draggedOp.id, newStatus, draggedOp.status as OperationStatus)
             }
           }
         }

@@ -111,6 +111,41 @@ describe("shared incident detail status workflow", () => {
     expect(complete.result.current.materialDecisionOperation?.id).toBe("incident-1")
   })
 
+  it("reverts to the pre-dispatch status when the missing-resource gate is cancelled", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "ready" }))
+
+    act(() => result.current.requestStatusChange("incident-1", "enroute"))
+    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "enroute")
+    expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
+
+    act(() => result.current.cancelMissingResources())
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "ready")
+    expect(result.current.missingResourcesOperation).toBeNull()
+  })
+
+  it("keeps the cancel return status across the assignment suspend/resume round-trip", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation())
+
+    act(() => result.current.requestStatusChange("incident-1", "enroute"))
+    act(() => result.current.suspendGateForAssignment("missing", "incident-1"))
+    act(() => result.current.resumeGateAfterAssignment())
+    act(() => result.current.cancelMissingResources())
+
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "incoming")
+    expect(result.current.missingResourcesOperation).toBeNull()
+  })
+
+  it("cancel only closes the gate when no return status is known", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation())
+
+    act(() => result.current.triggerDisponiertDialog("incident-1"))
+    expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
+
+    act(() => result.current.cancelMissingResources())
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.missingResourcesOperation).toBeNull()
+  })
+
   it("returns to the missing-resource gate after its assignment dialog closes", () => {
     const { result } = renderWorkflow(operation())
     act(() => result.current.requestStatusChange("incident-1", "enroute"))
