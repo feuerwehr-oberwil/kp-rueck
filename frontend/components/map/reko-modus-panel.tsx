@@ -90,7 +90,11 @@ export function RekoModusPanel({
             <ArrowLeft className="h-4 w-4" />
             {t("back")}
           </Button>
-          <MarkExistingRekoPersonnel personnel={personnel} onSelect={handleMarkPerson} />
+          <MarkExistingRekoPersonnel
+            personnel={personnel}
+            onSelect={handleMarkPerson}
+            className="flex-1 min-h-0"
+          />
         </>
       ) : (
         <>
@@ -114,7 +118,7 @@ export function RekoModusPanel({
           <p className="text-xs text-muted-foreground">{t("emptyHint")}</p>
         </div>
       ) : (
-        <div className="space-y-2 overflow-y-auto">
+        <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
           {people.map((person) => {
             const openOps = openByPerson.get(person.id) ?? []
             const isSelected = person.id === selectedPersonId

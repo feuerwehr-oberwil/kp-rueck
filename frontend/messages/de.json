@@ -1111,7 +1111,8 @@
       "stopAdded": "Stop zur Route hinzugefügt.",
       "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
       "optimized": "Reihenfolge optimiert.",
-      "undo": "Rückgängig"
+      "undo": "Rückgängig",
+      "noGroups": "Noch keine Aufträge vorhanden"
     },
     "view": {
       "markerAria": "Einsatz: {label}",
