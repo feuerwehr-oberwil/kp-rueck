@@ -15,6 +15,7 @@ import { GpsSimBanner } from "./gps-sim-banner"
 import type { ColorByDimension, ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
@@ -60,9 +61,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false, 
 
   // D8: tabbable + screen-reader-friendly marker. The Enter/Space →
   // click delegation lives on the map container (see useEffect below).
-  const a11yLabel = incident.location_address
-    ? incident.location_address.split(',')[0].trim()
-    : incident.title
+  const a11yLabel = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()) || incident.title
   const html = `
     <style>
       @keyframes pulse {
@@ -529,6 +528,7 @@ interface MapViewProps {
   focusVehicleName?: string | null // Vehicle name to zoom to (keys 1-5)
   focusVehicleTrigger?: number // Counter to re-trigger zoom to the same vehicle
   markerAccents?: Map<string, string> // incidentId -> fill colour ("Färben nach")
+  highlightIncidentIds?: Set<string> // extra enlarged/pulsing markers (Reko-Modus)
   colorBy?: ColorByDimension // active "Färben nach" dimension (for the legend)
   colorGroups?: ColorGroup[] // legend entries for the active dimension
   // Aufträge (incident group) routes — read-only polyline display + Routenplanung.
@@ -560,6 +560,7 @@ export default function MapView({
   focusVehicleName = null,
   focusVehicleTrigger = 0,
   markerAccents,
+  highlightIncidentIds,
   colorBy = "priority",
   colorGroups = [],
   showGroupRoutes = false,
@@ -916,10 +917,9 @@ export default function MapView({
 
         {/* Incident Markers */}
         {mappableIncidents.map((incident) => {
-          const isHighlighted = selectedIncidentId === incident.id
-          const shortAddress = incident.location_address
-            ? incident.location_address.split(",")[0].trim()
-            : incident.title
+          const isHighlighted =
+            selectedIncidentId === incident.id || (highlightIncidentIds?.has(incident.id) ?? false)
+          const shortAddress = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()) || incident.title
           const crewCount = incident.assigned_vehicles.length + (("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0)
           return (
             <Marker

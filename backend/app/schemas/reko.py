@@ -1,6 +1,7 @@
 """Reko (reconnaissance) report + dashboard schemas."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -160,6 +161,14 @@ class AssignRekoPersonnelRequest(BaseModel):
     personnel_id: UUID
 
 
+class RekoOpenAssignmentInfo(BaseModel):
+    """Where a Reko person's open work is (for the assign dialog)."""
+
+    incident_id: UUID
+    incident_title: str
+    location_address: str | None = None
+
+
 class AvailableRekoPersonnel(BaseModel):
     """Available Reko personnel for assignment."""
 
@@ -167,6 +176,13 @@ class AvailableRekoPersonnel(BaseModel):
     name: str
     role: str | None = None
     assignment_count: int = 0
+    open_count: int = 0
+    done_count: int = 0
+    open_assignments: list[RekoOpenAssignmentInfo] = []
+    # Straight-line metres from the target incident to this person's nearest
+    # open assignment ("open") or, if none, their most recent one ("last").
+    distance_m: int | None = None
+    distance_source: Literal["open", "last"] | None = None
 
 
 class AvailableRekoPersonnelResponse(BaseModel):

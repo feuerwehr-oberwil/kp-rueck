@@ -1,11 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, User, Loader2, Binoculars, ArrowLeft } from "lucide-react"
+import { Search, User, Loader2, Binoculars, ArrowLeft, MapPin } from "lucide-react"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -97,6 +97,13 @@ export function MarkExistingRekoPersonnel({
   )
 }
 
+/** "≈ 400 m" below ~1 km, "≈ 1,2 km" above — rounded so it reads as an
+ *  estimate, not a measurement (it's straight-line, not driving distance). */
+function formatDistance(meters: number): string {
+  if (meters < 950) return `${Math.max(50, Math.round(meters / 50) * 50)} m`
+  return `${(meters / 1000).toFixed(1).replace(".", ",")} km`
+}
+
 interface AssignRekoDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -115,7 +122,7 @@ export function AssignRekoDialog({
   const t = useTranslations('incidents.assignReko')
   const tCommon = useTranslations('incidents.common')
   const { selectedEvent } = useEvent()
-  const { personnel: allPersonnel, refreshOperations } = useOperations()
+  const { personnel: allPersonnel, refreshOperations, formatLocation } = useOperations()
   const [personnel, setPersonnel] = useState<ApiAvailableRekoPersonnel[]>([])
   const [currentlyAssignedId, setCurrentlyAssignedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -123,6 +130,21 @@ export function AssignRekoDialog({
   const [error, setError] = useState<string | null>(null)
   const [markMode, setMarkMode] = useState(false)
   const [uncertainPersonnelIds, setUncertainPersonnelIds] = useState<ReadonlySet<string>>(new Set())
+
+  // Backend sorts by (open work, distance, name). Mark the top candidate as
+  // "Empfohlen" only when it is measurably better than the runner-up — a
+  // recommendation between indistinguishable options would be arbitrary.
+  const recommendedId = useMemo(() => {
+    const candidates = personnel.filter((p) => p.personnel_id !== currentlyAssignedId)
+    if (candidates.length < 2) return null
+    const [first, second] = candidates
+    const lessOpenWork = first.open_count < second.open_count
+    const closer =
+      first.open_count === second.open_count &&
+      first.distance_m !== null &&
+      (second.distance_m === null || first.distance_m < second.distance_m)
+    return lessOpenWork || closer ? first.personnel_id : null
+  }, [personnel, currentlyAssignedId])
 
   const loadAvailablePersonnel = useCallback(async () => {
     setLoading(true)
@@ -205,7 +227,7 @@ export function AssignRekoDialog({
             <Search className="h-5 w-5" />
             {t('title')}
           </DialogTitle>
-          <DialogDescription className="truncate">
+          <DialogDescription className="truncate" title={t('incidentLabel', { title: incidentTitle })}>
             {t('incidentLabel', { title: incidentTitle })}
           </DialogDescription>
         </DialogHeader>
@@ -250,46 +272,106 @@ export function AssignRekoDialog({
                 <div className="space-y-2">
                   {personnel.map((person) => {
                   const isCurrentlyAssigned = person.personnel_id === currentlyAssignedId
+                  const isRecommended = person.personnel_id === recommendedId
+                  const openChips = person.open_assignments ?? []
                   return (
                     <button
                       key={person.personnel_id}
                       onClick={() => handleAssign(person)}
                       disabled={assigning !== null || isCurrentlyAssigned}
                       className={cn(
-                        "w-full flex items-center justify-between p-3 rounded-lg border transition-all text-left",
+                        "w-full p-3 rounded-lg border transition-all text-left",
                         isCurrentlyAssigned
                           ? "border-success bg-success/10 cursor-default"
                           : "border-border/50 hover:border-primary/50 hover:bg-secondary/30",
                         assigning === person.personnel_id && "opacity-50 cursor-not-allowed"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <User className={cn(
-                          "h-5 w-5 flex-shrink-0",
-                          isCurrentlyAssigned ? "text-success" :
-                          person.assignment_count > 0 ? "text-orange-500" : "text-muted-foreground"
-                        )} />
-                        <div>
-                          <p className="font-medium text-sm">{person.name}</p>
-                          {person.role && (
-                            <p className="text-xs text-muted-foreground">{person.role}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <User className={cn(
+                            "h-5 w-5 flex-shrink-0",
+                            isCurrentlyAssigned ? "text-success" :
+                            person.open_count > 0 ? "text-amber-500" : "text-muted-foreground"
+                          )} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm truncate">{person.name}</p>
+                              {isRecommended && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/50 text-primary flex-shrink-0">
+                                  {t('recommended')}
+                                </Badge>
+                              )}
+                            </div>
+                            {person.role && (
+                              <p className="text-xs text-muted-foreground truncate">{person.role}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                          {isCurrentlyAssigned ? (
+                            <Badge variant="default" className="text-xs bg-success">
+                              {t('assigned')}
+                            </Badge>
+                          ) : (
+                            <>
+                              <p className="text-xs whitespace-nowrap">
+                                <span className={cn(
+                                  "font-medium",
+                                  person.open_count > 0
+                                    ? "text-amber-700 dark:text-amber-400"
+                                    : "text-emerald-700 dark:text-emerald-400"
+                                )}>
+                                  {person.open_count > 0
+                                    ? t('openCount', { count: person.open_count })
+                                    : t('noOpenWork')}
+                                </span>
+                                {person.done_count > 0 && (
+                                  <span className="text-muted-foreground">
+                                    {' · '}{t('doneCount', { count: person.done_count })}
+                                  </span>
+                                )}
+                              </p>
+                              {person.distance_m !== null && (
+                                <p
+                                  className="text-[11px] text-muted-foreground whitespace-nowrap"
+                                  title={person.distance_source === 'last' ? t('distanceLastTooltip') : t('distanceOpenTooltip')}
+                                >
+                                  ≈ {formatDistance(person.distance_m)}
+                                  {person.distance_source === 'last' && ` ${t('distanceLastSuffix')}`}
+                                </p>
+                              )}
+                            </>
+                          )}
+                          {assigning === person.personnel_id && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {isCurrentlyAssigned ? (
-                          <Badge variant="default" className="text-xs bg-success">
-                            {t('assigned')}
-                          </Badge>
-                        ) : person.assignment_count > 0 ? (
-                          <Badge variant="outline" className="text-xs">
-                            {t('assignmentCount', { count: person.assignment_count })}
-                          </Badge>
-                        ) : null}
-                        {assigning === person.personnel_id && (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        )}
-                      </div>
+                      {openChips.length > 0 && !isCurrentlyAssigned && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-8">
+                          {openChips.slice(0, 3).map((assignment) => {
+                            const chipLabel = formatLocation(assignment.location_address ?? '') || assignment.incident_title
+                            return (
+                            <span
+                              key={assignment.incident_id}
+                              className="inline-flex items-center gap-1 max-w-[180px] rounded bg-secondary/60 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                              title={chipLabel}
+                            >
+                              <MapPin className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">
+                                {chipLabel}
+                              </span>
+                            </span>
+                            )
+                          })}
+                          {openChips.length > 3 && (
+                            <span className="text-[11px] text-muted-foreground">
+                              +{openChips.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </button>
                   )
                 })}

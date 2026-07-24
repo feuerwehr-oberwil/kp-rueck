@@ -6,8 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Tag, Route, Ruler, Loader2, Palette, Check, Waypoints, Milestone } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { FileText, Clock, Users, Package, Truck, Search, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench } from "lucide-react"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
 import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -15,6 +15,7 @@ import { useIncidents, useOperations, type Operation } from "@/lib/contexts/oper
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
+import { RekoModusPanel } from "@/components/map/reko-modus-panel"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
@@ -77,6 +78,8 @@ export default function MapPage() {
     assignPersonToOperation,
     assignMaterialToOperation,
     assignVehicleToOperation,
+    assignRekoPersonToOperation,
+    removeReko,
     requestVehicleConflict,
     deleteOperation
   } = useOperations()
@@ -134,6 +137,9 @@ export default function MapPage() {
   const [planningGroupId, setPlanningGroupId] = useState<string | null>(null)
   const [planningAddMode, setPlanningAddMode] = useState(false)
   const [planningFocusStopId, setPlanningFocusStopId] = useState<string | null>(null)
+  // Reko-Modus — editor-only reko dispatching from the map (panel + marker taps).
+  const [rekoModeActive, setRekoModeActive] = useState(false)
+  const [rekoPersonId, setRekoPersonId] = useState<string | null>(null)
   // Shared routing hook — active only while planning a selected group.
   const planning = useRoutePlanning(planningActive ? planningGroupId : null)
   // id → Operation lookup for the GroupRoutes overlay (stops are real incidents).
@@ -198,6 +204,19 @@ export default function MapPage() {
       }
       return
     }
+    // In Reko-Modus with a selected person, tapping a marker toggles that
+    // person's reko assignment on the incident instead of selecting it.
+    if (rekoModeActive && rekoPersonId) {
+      const person = personnel.find((p) => p.id === rekoPersonId)
+      const operation = operations.find((op) => op.id === incidentId)
+      if (!person || !operation) return
+      if (operation.assignedReko?.id === rekoPersonId) {
+        removeReko(incidentId)
+      } else {
+        assignRekoPersonToOperation(person.id, person.name, incidentId)
+      }
+      return
+    }
     if (incidentId === selectedIncidentId) {
       // Re-clicking same incident - trigger pan
       setPanTrigger(prev => prev + 1)
@@ -210,6 +229,7 @@ export default function MapPage() {
 
   // Enter/exit Routenplanung; entering forces the route overlay on.
   const enterPlanning = () => {
+    exitRekoMode()
     setPlanningActive(true)
     setPlanningGroupId((prev) => prev ?? groups[0]?.id ?? null)
   }
@@ -217,6 +237,22 @@ export default function MapPage() {
     setPlanningActive(false)
     setPlanningAddMode(false)
     setPlanningFocusStopId(null)
+  }
+
+  // Enter/exit Reko-Modus; mutually exclusive with Routenplanung (both swap the
+  // sidebar). Entering auto-colours markers by reko person so each person's
+  // work reads apart on the map; exit restores the previous dimension.
+  const preRekoColorByRef = useRef<ColorByDimension>('priority')
+  const enterRekoMode = () => {
+    exitPlanning()
+    preRekoColorByRef.current = colorBy
+    setColorBy('reko')
+    setRekoModeActive(true)
+  }
+  const exitRekoMode = () => {
+    setRekoModeActive(false)
+    setRekoPersonId(null)
+    setColorBy((current) => (current === 'reko' ? preRekoColorByRef.current : current))
   }
 
   // Create a new Auftrag from the panel and select it for planning.
@@ -229,6 +265,16 @@ export default function MapPage() {
   const handleMapAddStop = (lat: number, lng: number) => {
     void planning.addStopAtLatLng(lat, lng)
   }
+
+  // Selecting an incident (marker tap, cross-window sync, ?highlight=) scrolls
+  // its card into view in the Einsätze panel so the expanded details are
+  // visible without hunting. 'nearest' keeps an already-visible card still.
+  useEffect(() => {
+    if (!selectedIncidentId) return
+    document
+      .getElementById(`map-incident-card-${selectedIncidentId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }, [selectedIncidentId])
 
   const handleDetailsClick = useCallback((incident: Incident) => {
     // Find the corresponding operation
@@ -436,6 +482,25 @@ export default function MapPage() {
     })
     return counts
   }, [incidents])
+
+  // Reko-Modus data: reko-marked people and their open (reko not yet done)
+  // incidents. The selected person's open incidents get enlarged markers so
+  // proximity between their work and unassigned incidents reads off the map.
+  const rekoPeople = useMemo(() => personnel.filter((p) => p.isReko), [personnel])
+  const rekoOpenByPerson = useMemo(() => {
+    const byPerson = new Map<string, Operation[]>()
+    for (const op of operations) {
+      if (!op.assignedReko || op.hasCompletedReko || op.status === 'complete') continue
+      const list = byPerson.get(op.assignedReko.id)
+      if (list) list.push(op)
+      else byPerson.set(op.assignedReko.id, [op])
+    }
+    return byPerson
+  }, [operations])
+  const rekoHighlightIds = useMemo(() => {
+    if (!rekoModeActive || !rekoPersonId) return undefined
+    return new Set((rekoOpenByPerson.get(rekoPersonId) ?? []).map((op) => op.id))
+  }, [rekoModeActive, rekoPersonId, rekoOpenByPerson])
 
   // "Färben nach": map each incident id → accent colour, plus a legend. Uses the
   // full operations (which carry reko/vehicle/type) rather than the lighter
@@ -772,6 +837,7 @@ export default function MapPage() {
               focusVehicleName={focusVehicleName}
               focusVehicleTrigger={focusVehicleTrigger}
               markerAccents={markerAccents}
+              highlightIncidentIds={rekoHighlightIds}
               colorBy={colorBy}
               colorGroups={colorLegend}
               showGroupRoutes={showGroupRoutes || planningActive}
@@ -795,7 +861,7 @@ export default function MapPage() {
             {/* On mobile the fixed bottom navbar overlays the page, so pad the
                 scrollable list past it (nav height + safe-area) — otherwise the
                 last incidents sit behind the bar and can't be scrolled into view. */}
-            <div className={`p-4 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''} ${planningActive ? 'h-full' : ''}`}>
+            <div className={`p-4 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''} ${planningActive || rekoModeActive ? 'h-full' : ''}`}>
               {planningActive ? (
                 <RoutenplanungPanel
                   groups={groups}
@@ -810,88 +876,93 @@ export default function MapPage() {
                   onExit={exitPlanning}
                   canEdit={isEditor}
                 />
+              ) : rekoModeActive ? (
+                <RekoModusPanel
+                  people={rekoPeople}
+                  openByPerson={rekoOpenByPerson}
+                  legendColors={new Map(colorLegend.map((g) => [g.key, g.color]))}
+                  selectedPersonId={rekoPersonId}
+                  onSelectPerson={setRekoPersonId}
+                  onExit={exitRekoMode}
+                />
               ) : (
               <>
               <h2 className="text-lg font-bold mb-3">
                 {t('page.incidentsHeading', { count: activeIncidents.length })}
               </h2>
 
-              {/* Status filter toggles */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => (
+              {/* Status filters — the only pill-style control: they change which
+                  incidents show (list + map). View options and modes live behind
+                  their own buttons below so three control families read apart. */}
+              <div className="inline-flex rounded-lg border border-border overflow-hidden mb-2">
+                {(['open', 'active', 'completed'] as StatusGroup[]).map((group, index) => (
                   <button
                     key={group}
                     onClick={() => toggleStatusFilter(group)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${index > 0 ? 'border-l border-border' : ''} ${
                       statusFilters[group]
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                     }`}
                   >
                     {t(`statusGroups.${group}`)} ({statusGroupCounts[group]})
                   </button>
                 ))}
-                <button
-                  onClick={() => setShowLabels(!showLabels)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
-                    showLabels
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-                  }`}
-                  title={showLabels ? t('page.labelsHide') : t('page.labelsShow')}
-                >
-                  <Tag className="h-3 w-3" />
-                  {t('page.labels')}
-                  {!isMobile && <Kbd className="text-[10px]">L</Kbd>}
-                </button>
-                <button
-                  onClick={() => setShowAssignmentLines(!showAssignmentLines)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
-                    showAssignmentLines
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-                  }`}
-                  title={showAssignmentLines ? t('page.linesHide') : t('page.linesShow')}
-                >
-                  <Route className="h-3 w-3" />
-                  {t('page.lines')}
-                  {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
-                </button>
-                <button
-                  onClick={() => setShowDistances(!showDistances)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
-                    showDistances
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-                  }`}
-                  title={showDistances ? t('page.distanceHide') : t('page.distanceShow')}
-                >
-                  <Ruler className="h-3 w-3" />
-                  {t('page.distance')}
-                </button>
+              </div>
 
-                {/* Färben nach — re-colors incident markers by a chosen dimension */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {/* Ansicht — every map display option in one popover. The button
+                    lights up subtly when any option differs from the defaults. */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
-                        colorBy !== 'priority'
-                          ? 'bg-primary text-primary-foreground border-primary'
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${
+                        !showLabels || !showAssignmentLines || showDistances || showGroupRoutes || colorBy !== 'priority'
+                          ? 'border-primary/50 bg-secondary/50 text-foreground'
                           : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                       }`}
-                      title={t('common.colorByTitle')}
+                      title={t('page.viewMenuLabel')}
                     >
-                      <Palette className="h-3 w-3" />
-                      {t('common.colorByButton', { label: t(`colorBy.${colorBy}`) })}
+                      <Layers className="h-3 w-3" />
+                      {t('page.view')}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuContent align="start" collisionPadding={8} className="w-60">
+                    <DropdownMenuLabel>{t('page.viewMenuLabel')}</DropdownMenuLabel>
+                    {/* e.preventDefault keeps the menu open so several options can
+                        be flipped in one visit (and the legend updates live). */}
+                    <DropdownMenuCheckboxItem
+                      checked={showLabels}
+                      onSelect={(e) => { e.preventDefault(); setShowLabels(!showLabels) }}
+                    >
+                      <span className="flex-1">{t('page.labels')}</span>
+                      {!isMobile && <Kbd className="text-[10px]">L</Kbd>}
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={showAssignmentLines}
+                      onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
+                    >
+                      <span className="flex-1">{t('page.lines')}</span>
+                      {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={showDistances}
+                      onSelect={(e) => { e.preventDefault(); setShowDistances(!showDistances) }}
+                    >
+                      <span className="flex-1">{t('page.distance')}</span>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={showGroupRoutes}
+                      onSelect={(e) => { e.preventDefault(); toggleGroupRoutes() }}
+                    >
+                      <span className="flex-1">{t('page.groupRoutes')}</span>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
                     {(['priority', 'reko', 'vehicle', 'type', 'auftrag'] as ColorByDimension[]).map((dim) => (
                       <DropdownMenuItem
                         key={dim}
-                        // Keep the menu open on select so the legend below updates
-                        // live as you switch dimensions (e.g. to Einsatzart).
                         onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
                         className="cursor-pointer justify-between"
                       >
@@ -915,30 +986,34 @@ export default function MapPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Aufträge (route) display — available to all viewers */}
-                <button
-                  onClick={toggleGroupRoutes}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 ${
-                    showGroupRoutes
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-                  }`}
-                  title={showGroupRoutes ? t('page.groupRoutesHide') : t('page.groupRoutesShow')}
-                >
-                  <Waypoints className="h-3 w-3" />
-                  {t('page.groupRoutes')}
-                </button>
-
-                {/* Routenplanung — editor-only route building on the big map */}
+                {/* Modus — editor tools that change what tapping the map does.
+                    Deliberately rounded-md (not pill) so tools read apart from
+                    filters; both modes swap the sidebar for their panel. */}
                 {isEditor && (
-                  <button
-                    onClick={enterPlanning}
-                    className="px-3 py-1.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1 bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                    title={t('page.routePlanning')}
-                  >
-                    <Milestone className="h-3 w-3" />
-                    {t('page.routePlanning')}
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                        title={t('page.modes')}
+                      >
+                        <Wrench className="h-3 w-3" />
+                        {t('page.modes')}
+                        <ChevronDown className="h-3 w-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    {/* The sidebar hugs the right screen edge — right-align the
+                        menu to its trigger so it can't clip off-screen. */}
+                    <DropdownMenuContent align="end" collisionPadding={8} className="w-52">
+                      <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
+                        <Milestone className="h-4 w-4" />
+                        {t('page.routePlanning')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
+                        <Binoculars className="h-4 w-4" />
+                        {t('rekoMode.title')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
 
@@ -971,6 +1046,7 @@ export default function MapPage() {
                     return (
                       <Card
                         key={incident.id}
+                        id={`map-incident-card-${incident.id}`}
                         className={`p-4 cursor-pointer transition-all hover:border-border ${
                           isExpanded
                             ? "border-primary ring-2 ring-primary/20 scale-[1.02]"
