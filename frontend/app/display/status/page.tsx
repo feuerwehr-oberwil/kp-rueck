@@ -45,6 +45,12 @@ function incidentLocationLabel(op: Operation): string {
   return formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)
 }
 
+/** Clickable "→ Einsatz" reference on an assigned resource row. */
+interface AssignmentRef {
+  operationId: string
+  label: string
+}
+
 export default function DisplayStatusPage() {
   const t = useTranslations('display.status')
   const searchParams = useSearchParams()
@@ -132,18 +138,20 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
 
   const totalActiveOps = operations.filter((op) => op.status !== "complete").length
 
+  // name/id → { incident id, short label } so the "→ Einsatz" reference is
+  // itself clickable and jumps straight to that incident's detail dialog.
   const personAssignment = useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, AssignmentRef>()
     for (const op of operations) {
-      for (const name of op.crew) map.set(name, incidentLocationLabel(op))
+      for (const name of op.crew) map.set(name, { operationId: op.id, label: incidentLocationLabel(op) })
     }
     return map
   }, [operations])
 
   const materialAssignment = useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, AssignmentRef>()
     for (const op of operations) {
-      for (const [matId] of op.materialAssignments) map.set(matId, incidentLocationLabel(op))
+      for (const [matId] of op.materialAssignments) map.set(matId, { operationId: op.id, label: incidentLocationLabel(op) })
     }
     return map
   }, [operations])
@@ -271,7 +279,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
               </div>
               <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                 {people.map((p) => (
-                  <PersonRow key={p.id} person={p} assignedLocation={personAssignment.get(p.name)} />
+                  <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.name)} onOpenIncident={setSelectedOperationId} />
                 ))}
               </div>
             </div>
@@ -298,7 +306,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
                 </div>
                 <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                   {items.map((m) => (
-                    <MaterialRow key={m.id} material={m} assignedLocation={materialAssignment.get(m.id)} />
+                    <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id)} onOpenIncident={setSelectedOperationId} />
                   ))}
                 </div>
               </div>
@@ -399,31 +407,45 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   )
 }
 
-function PersonRow({ person: p, assignedLocation }: { person: Person; assignedLocation?: string }) {
+function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; assignedTo?: AssignmentRef; onOpenIncident: (id: string) => void }) {
   const isAssigned = p.status === "assigned"
+  const clickable = isAssigned && !!assignedTo
   return (
-    <div className="flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm">
+    <div
+      className={cn(
+        "flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm",
+        clickable && "cursor-pointer transition-colors hover:bg-muted/60"
+      )}
+      onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
+    >
       <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[isAssigned ? "assigned" : "available"])} />
       <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
       {p.isDriver && p.driverVehicleName && (
         <span className="text-[10px] xl:text-xs text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}
-      {isAssigned && assignedLocation && (
-        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedLocation}</span>
+      {clickable && (
+        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
       )}
     </div>
   )
 }
 
-function MaterialRow({ material: m, assignedLocation }: { material: Material; assignedLocation?: string }) {
+function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Material; assignedTo?: AssignmentRef; onOpenIncident: (id: string) => void }) {
   const t = useTranslations('display.status')
   const isAssigned = m.status === "assigned"
+  const clickable = isAssigned && !!assignedTo
   return (
-    <div className="flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm">
+    <div
+      className={cn(
+        "flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm",
+        clickable && "cursor-pointer transition-colors hover:bg-muted/60"
+      )}
+      onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
+    >
       <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[isAssigned ? "assigned" : "available"])} />
       <span className="text-xs xl:text-sm truncate flex-1">{m.name}</span>
-      {isAssigned && assignedLocation ? (
-        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedLocation}</span>
+      {clickable ? (
+        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
       ) : (
         !isAssigned && <span className="text-[10px] xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
       )}

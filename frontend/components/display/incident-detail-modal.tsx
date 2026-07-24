@@ -10,13 +10,13 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { getTimeSince } from "@/lib/kanban-utils"
+import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
 import {
   Clock, Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
-  MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints,
+  MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints, Binoculars,
 } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -74,6 +74,8 @@ export function IncidentDetailModal({
   const { Icon: PriorityIcon, label: priorityLabel, iconColor: priorityIconColor } =
     priorityVisuals[operation.priority]
 
+  const statusColumnId = columns.find((c) => c.status.includes(operation.status))?.id
+
   const materialNames = operation.materials.map(id => {
     const mat = materials.find(m => m.id === id)
     return mat?.name ?? id
@@ -104,6 +106,7 @@ export function IncidentDetailModal({
               <span>{getIncidentTypeLabel(operation.incidentType)}</span>
             </div>
             <Badge variant="outline">{priorityLabel}</Badge>
+            {statusColumnId && <Badge variant="secondary">{tk(`columns.${statusColumnId}`)}</Badge>}
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span className="font-mono">
@@ -116,6 +119,11 @@ export function IncidentDetailModal({
 
           {/* Flags */}
           <div className="flex flex-wrap gap-2">
+            {operation.source === 'intake' && (
+              <Badge variant="outline" className="gap-1 border-sky-500/50 text-sky-600 dark:text-sky-400">
+                <Phone className="h-3 w-3" /> {t('board.intakeBadge')}
+              </Badge>
+            )}
             {operation.nachbarhilfe && (
               <Badge variant="outline" className="gap-1">
                 <Building2 className="h-3 w-3" /> {t('board.nachbarhilfe')}
@@ -184,13 +192,18 @@ export function IncidentDetailModal({
             </div>
           )}
 
-          {/* Contact */}
-          {operation.contact && (
+          {/* Contact (name and/or phone) */}
+          {(operation.contact || operation.contactPhone) && (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                 <Phone className="h-4 w-4" /> {t('board.contact')}
               </div>
-              <p className="text-sm">{operation.contact}</p>
+              {operation.contact && <p className="text-sm">{operation.contact}</p>}
+              {operation.contactPhone && (
+                <p className="text-sm font-mono">
+                  <span className="text-muted-foreground">{t('board.contactPhone')}:</span> {operation.contactPhone}
+                </p>
+              )}
             </div>
           )}
 
@@ -221,6 +234,27 @@ export function IncidentDetailModal({
                 <Timer className="h-4 w-4" /> {t('board.waitReason')}
               </div>
               <p className="text-sm">{operation.amWartenNote}</p>
+            </div>
+          )}
+
+          {/* Reko assignment (who scouts, since when on site) */}
+          {(operation.assignedReko || operation.rekoArrivedAt) && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <Binoculars className="h-4 w-4" /> {t('board.rekoHeading')}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {operation.assignedReko && (
+                  <Badge variant="secondary" className="text-sm">{operation.assignedReko.name}</Badge>
+                )}
+                {operation.rekoArrivedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    {t('board.rekoOnSite', {
+                      time: operation.rekoArrivedAt.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }),
+                    })}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

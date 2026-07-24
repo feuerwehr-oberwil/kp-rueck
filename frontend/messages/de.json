@@ -2637,7 +2637,11 @@
       "dangers": "Gefahren: {types}",
       "personnelNeed": "Personalbedarf:",
       "estimatedDuration": "Geschätzte Dauer:",
-      "durationHours": "{hours}h"
+      "durationHours": "{hours}h",
+      "contactPhone": "Telefon",
+      "intakeBadge": "Telefon / Walk-in",
+      "rekoHeading": "Reko",
+      "rekoOnSite": "vor Ort seit {time}"
     },
     "layout": {
       "pageMap": "Karte",
