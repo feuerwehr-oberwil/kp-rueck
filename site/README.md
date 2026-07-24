@@ -1,4 +1,4 @@
-# site/ — die öffentliche Landingpage (kp-rueck.ch)
+# site/ – die öffentliche Landingpage (kp-rueck.ch)
 
 Statische Seite, kein Build-Framework. Was hier liegt, ist die Seite:
 
@@ -27,7 +27,7 @@ zusätzliche Abhängigkeit), meldet sich in der Demo als Editor an, erzwingt das
 Board-Theme, überspringt den Willkommensdialog, blendet DEMO-Banderole und Toasts aus und
 schiesst jede Ansicht in 1500 × 937. Gegen eine nicht-öffentliche Instanz laufen
 `KP_RUECK_USER` / `KP_RUECK_PASS`. Neue Bilder kommen als neuer Eintrag in die `shots`-Liste im
-Skript **und** als `<img>` in `index.html` — die Dateinamen sind der Vertrag zwischen beiden.
+Skript **und** als `<img>` in `index.html` – die Dateinamen sind der Vertrag zwischen beiden.
 
 Zwei Dinge zur Demo: jeder Besuch legt eine eigene Übungslage an, und die Demo wird täglich um
 00:00 zurückgesetzt. Ein Capture-Lauf hinterlässt also eine zusätzliche Lage, die beim nächsten
@@ -55,5 +55,5 @@ unterscheidet sich: Inhalt, Bilder und die gegenseitige Verlinkung
 ## Hosten
 
 `site/` ist direkt ausrollbar (statische Dateien, keine Server-Logik). `dist/index.html` aus
-`build.mjs` ist dieselbe Seite als eine einzige Datei mit eingebetteten Schriften und Bildern —
+`build.mjs` ist dieselbe Seite als eine einzige Datei mit eingebetteten Schriften und Bildern –
 zum Weitergeben oder für einen Host, der nur eine Datei annimmt.
