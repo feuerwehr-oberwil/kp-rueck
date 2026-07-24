@@ -33,7 +33,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 // Home-town-free label for dialog texts; falls back to the incident type when
 // the address was only the home town (formatted location is then empty).
 function operationLabel(operation: Operation): string {
-  return formatLocationForDisplay(operation.location, getGlobalHomeCity())
+  return (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity()))
     || getIncidentTypeLabel(operation.incidentType)
 }
 

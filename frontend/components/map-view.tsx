@@ -62,7 +62,7 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false, 
 
   // D8: tabbable + screen-reader-friendly marker. The Enter/Space →
   // click delegation lives on the map container (see useEffect below).
-  const a11yLabel = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()) || incident.title
+  const a11yLabel = (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())) || incident.title
   const html = `
     <style>
       @keyframes pulse {
@@ -922,7 +922,7 @@ export default function MapView({
         {mappableIncidents.map((incident) => {
           const isHighlighted =
             selectedIncidentId === incident.id || (highlightIncidentIds?.has(incident.id) ?? false)
-          const shortAddress = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()) || incident.title
+          const shortAddress = (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())) || incident.title
           const crewCount = incident.assigned_vehicles.length + (("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0)
           return (
             <Marker

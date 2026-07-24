@@ -22,6 +22,7 @@ from ..crud import events as events_crud
 from ..crud import incidents as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
+from ..services import incident_display
 from ..services.tokens import generate_alarm_token, validate_alarm_token
 from ..websocket_manager import broadcast_incident_update
 from .incidents import trigger_sync_background
@@ -133,7 +134,7 @@ async def create_intake_alarm(
     background_tasks.add_task(trigger_sync_background)
 
     # Broadcast WebSocket update so the board updates live
-    incident_response = schemas.IncidentResponse.model_validate(new_incident)
+    incident_response = await incident_display.incident_with_display(db, new_incident)
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
 
     return {"id": str(new_incident.id)}

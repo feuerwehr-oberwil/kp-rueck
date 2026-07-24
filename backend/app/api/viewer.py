@@ -17,6 +17,7 @@ from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
 from ..crud import vehicles as vehicles_crud
 from ..database import get_db
+from ..services import incident_display
 from ..services.gps_simulation import gps_simulation
 from ..services.tokens import generate_viewer_token, validate_viewer_token
 from ..traccar import traccar_client
@@ -122,7 +123,7 @@ async def get_viewer_data(
 
     return {
         "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
-        "incidents": [schemas.IncidentResponse.model_validate(i).model_dump(mode="json") for i in incidents],
+        "incidents": [i.model_dump(mode="json") for i in await incident_display.incidents_with_display(db, incidents)],
         "groups": [group.model_dump(mode="json") for group in groups],
         "personnel": [schemas.Personnel.model_validate(p).model_dump(mode="json") for p in personnel],
         "materials": [schemas.Material.model_validate(m).model_dump(mode="json") for m in materials],

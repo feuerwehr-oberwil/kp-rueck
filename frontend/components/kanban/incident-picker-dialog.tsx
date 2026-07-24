@@ -253,7 +253,7 @@ export function IncidentPickerDialog({
           const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
           const isChecked = selected.has(op.id)
           const fill = isChecked ? "#ef4444" : otherGroup?.color ?? "#64748b"
-          const location = formatLocationForDisplay(op.location, getGlobalHomeCity())
+          const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
           return (
             <Marker
               key={op.id}
@@ -375,7 +375,7 @@ export function IncidentPickerDialog({
             candidates.map((op) => {
               const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
               const isChecked = selected.has(op.id)
-              const label = formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)
+              const label = (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
               return (
                 <label
                   key={op.id}

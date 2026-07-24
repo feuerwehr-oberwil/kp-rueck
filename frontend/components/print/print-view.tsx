@@ -142,7 +142,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                   {/* Header row */}
                   <div className="flex justify-between items-start border-b border-gray-300 pb-1 mb-1">
                     <div className="font-bold text-sm">
-                      {idx + 1}. {formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)}
+                      {idx + 1}. {(op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)}
                     </div>
                     <div className="text-right text-[10px]">
                       <span className={op.priority === "high" ? "font-bold" : ""}>

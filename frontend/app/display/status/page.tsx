@@ -3,14 +3,14 @@
 import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { Loader2, Binoculars, Package2 } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
 import { RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
@@ -18,7 +18,7 @@ import { type IncidentGroup } from "@/lib/types/groups"
 import { apiClient, type ApiViewerData } from "@/lib/api-client"
 import { buildSituationData, viewerGroupsToIncidentGroups, type SituationData } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
-import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 const STATUS_ORDER = ["incoming", "ready", "rekoDone", "enroute", "active", "returning"]
 
@@ -40,10 +40,9 @@ const STATUS_BG: Record<string, string> = {
   returning: "bg-muted/30",
 }
 
-/** Short display label for an incident location (falls back to the type). */
-function incidentLocationLabel(op: Operation): string {
-  return formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)
-}
+/** Short display label for an incident location (falls back to the type).
+ *  Server-computed (locationDisplay) — final on first paint, no reformat flash. */
+const incidentLocationLabel = getIncidentLocationLabel
 
 /** Clickable "→ Einsatz" reference on an assigned resource row. */
 interface AssignmentRef {
@@ -408,6 +407,7 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
 }
 
 function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; assignedTo?: AssignmentRef; onOpenIncident: (id: string) => void }) {
+  const tk = useTranslations('kanban')
   const isAssigned = p.status === "assigned"
   const clickable = isAssigned && !!assignedTo
   return (
@@ -420,6 +420,17 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
     >
       <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[isAssigned ? "assigned" : "available"])} />
       <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
+      {/* Special-function markers — same icon language as the board roster. */}
+      {p.isReko && (
+        <span className="inline-flex items-center gap-0.5 text-[10px] xl:text-xs text-muted-foreground shrink-0">
+          <Binoculars className="h-3 w-3" /> {tk('common.reko')}
+        </span>
+      )}
+      {p.isMagazin && (
+        <span className="inline-flex items-center gap-0.5 text-[10px] xl:text-xs text-muted-foreground shrink-0">
+          <Package2 className="h-3 w-3" /> {tk('common.magazin')}
+        </span>
+      )}
       {p.isDriver && p.driverVehicleName && (
         <span className="text-[10px] xl:text-xs text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}

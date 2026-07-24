@@ -33,8 +33,8 @@ import { MapPickerModal } from '@/components/location/map-picker-modal';
 
 // Toast line "Titel @ Adresse" with the home town stripped; the address part is
 // dropped entirely when it was only the home town.
-function incidentToastDescription(incident: { title: string; location_address?: string | null }): string {
-  const location = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity());
+function incidentToastDescription(incident: { title: string; location_address?: string | null; location_display?: string | null }): string {
+  const location = incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity());
   return location ? `${incident.title} @ ${location}` : incident.title;
 }
 

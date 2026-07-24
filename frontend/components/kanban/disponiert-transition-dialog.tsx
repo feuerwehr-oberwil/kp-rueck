@@ -115,7 +115,7 @@ export function DisponierTransitionDialog({
   }
 
   // Home-town-free address for the dialog text and Funkdurchsage quote.
-  const location = formatLocationForDisplay(operation.location, getGlobalHomeCity())
+  const location = (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity()))
     || t('disponiert.addressPlaceholder')
   const crewList = effCrew.length > 0
     ? effCrew.join(", ")

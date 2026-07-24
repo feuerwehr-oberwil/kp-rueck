@@ -218,6 +218,11 @@ class IncidentResponse(IncidentBase):
     reko_arrived_at: datetime | None = None
     # Field crew reported the incident finished; operator decides to close it.
     field_complete_reported_at: datetime | None = None
+    # Server-computed short label for location_address (home city stripped) so
+    # clients can render the final string on first paint — no reformat flash
+    # once the home_city setting loads client-side. "" when the address is only
+    # the home city; None when there is no address (or on older backends).
+    location_display: str | None = None
 
     @field_serializer("location_lat", "location_lng")
     def serialize_decimal(self, value):

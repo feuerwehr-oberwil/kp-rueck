@@ -49,7 +49,7 @@ export function getIncidentTypeLabel(type: string): string {
  * the type and (truncated) Meldung ride along whenever they exist.
  */
 export function getIncidentRefLabel(
-  op: { location: string; incidentType?: string; notes?: string },
+  op: { location: string; locationDisplay?: string; incidentType?: string; notes?: string },
   maxMeldungLength = 60,
 ): string {
   const type = op.incidentType ? getIncidentTypeLabel(op.incidentType) : ""
@@ -58,10 +58,24 @@ export function getIncidentRefLabel(
     ? `${meldung.slice(0, maxMeldungLength).trimEnd()}…`
     : meldung
   const detail = [type, shortMeldung].filter(Boolean).join(": ")
-  // Strip the home town ("…, 4104 Oberwil") like everywhere else. When the
-  // address was ONLY the home town the formatted location is empty — then the
-  // detail alone is the label (raw location as last resort).
-  const location = formatLocationForDisplay(op.location, getGlobalHomeCity())
+  // Home town is stripped server-side (locationDisplay); the client formatter
+  // only covers ops the server hasn't labelled yet. When the address was ONLY
+  // the home town the label is empty — then the detail alone is the label
+  // (raw location as last resort).
+  const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
   if (!location) return detail || op.location
   return detail ? `${location} (${detail})` : location
+}
+
+/**
+ * Canonical short label for an incident's location: the server-computed
+ * home-city-stripped label when present (renders final on first paint — no
+ * reformat flash), client-side formatting as fallback, and the incident type
+ * when the address carries no information beyond the home city.
+ */
+export function getIncidentLocationLabel(
+  op: { location: string; locationDisplay?: string; incidentType: string },
+): string {
+  const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
+  return location || getIncidentTypeLabel(op.incidentType)
 }

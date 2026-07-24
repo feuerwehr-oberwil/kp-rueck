@@ -55,7 +55,7 @@ export function MobilePersonnelSheet({
     if (person.status !== "assigned") return null
     const op = operations.find((o) => o.crew.includes(person.name))
     if (!op) return null
-    return formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)
+    return (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)
   }
 
   const availableCount = personnel.filter((p) => p.status === "available").length

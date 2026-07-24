@@ -89,7 +89,7 @@ export function TrainingGpsSimulation() {
     () =>
       operations
         .filter((op) => op.coordinates && op.status !== 'complete')
-        .map((op) => ({ id: op.id, label: formatLocationForDisplay(op.location, getGlobalHomeCity()) || op.incidentType })),
+        .map((op) => ({ id: op.id, label: (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || op.incidentType })),
     [operations],
   );
 

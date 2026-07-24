@@ -21,7 +21,7 @@ from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..services import alerting, divera_alarm
+from ..services import alerting, divera_alarm, incident_display
 from ..services import settings as settings_service
 from ..services.audit import log_action
 from ..services.divera_intake import (
@@ -256,7 +256,7 @@ async def attach_emergency_to_event(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST)
 
     # Convert to response schema
-    incident_response = schemas.IncidentResponse.model_validate(incident)
+    incident_response = await incident_display.incident_with_display(db, incident)
 
     # Broadcast WebSocket update for instant board refresh
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
@@ -343,13 +343,13 @@ async def bulk_attach_emergencies(
 
     # Broadcast all created incidents for instant board refresh
     for incident in created_incidents:
-        incident_response = schemas.IncidentResponse.model_validate(incident)
+        incident_response = await incident_display.incident_with_display(db, incident)
         background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
 
     logger.info(f"Bulk attach completed: {len(created_incidents)} incidents created, {len(errors)} errors")
 
     return schemas.BulkAttachEmergenciesResponse(
-        created=[schemas.IncidentResponse.model_validate(i) for i in created_incidents],
+        created=await incident_display.incidents_with_display(db, created_incidents),
         errors=errors,
     )
 

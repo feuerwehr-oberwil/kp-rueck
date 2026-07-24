@@ -84,6 +84,8 @@ export interface Incident {
   assigned_vehicles: AssignedVehicle[] // List of assigned vehicles
   has_completed_reko?: boolean // Whether a non-draft reko report exists
   reko_arrived_at?: Date | null // When reko personnel arrived on site
+  /** Server-computed short label for location_address (home city stripped). */
+  location_display?: string | null
 }
 
 /**

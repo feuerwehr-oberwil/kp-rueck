@@ -79,6 +79,9 @@ export interface ApiIncident {
   reko_arrived_at: string | null
   /** When the field crew reported the incident finished (operator decides to close) */
   field_complete_reported_at: string | null
+  /** Server-computed short label for location_address (home city stripped).
+   *  "" when the address is only the home city; null/absent when no address. */
+  location_display?: string | null
 }
 
 export interface ApiIncidentCreate {
