@@ -77,6 +77,7 @@ function SheetContent({
   elevated = false,
   nonModal = false,
   onInteractOutside,
+  style,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
@@ -104,7 +105,14 @@ function SheetContent({
             'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t rounded-t-xl',
           className,
         )}
-        style={side === 'bottom' && overlayOffset ? { bottom: overlayOffset } : undefined}
+        // Merge instead of letting a caller-provided `style` (even undefined,
+        // spread via props) clobber the computed footer offset — that exact
+        // clobbering made bottom sheets render flush to the viewport and clip
+        // behind the footer toolbar.
+        style={{
+          ...(side === 'bottom' && overlayOffset ? { bottom: overlayOffset } : undefined),
+          ...style,
+        }}
         {...props}
       >
         {children}
