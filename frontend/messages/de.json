@@ -1186,7 +1186,9 @@
       "openCount": "{count} offen",
       "free": "frei",
       "empty": "Keine Reko-Personen in diesem Event",
-      "emptyHint": "Markiere zuerst eine Person als Reko: Rechtsklick auf eine Person in der Seitenleiste des Boards."
+      "emptyHint": "Markiere zuerst eine Person als Reko: Rechtsklick auf eine Person in der Seitenleiste des Boards.",
+      "addPerson": "Person als Reko markieren",
+      "back": "Zurück"
     }
   },
   "settings": {

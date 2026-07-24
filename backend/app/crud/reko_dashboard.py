@@ -1,5 +1,6 @@
 """Reko Dashboard CRUD operations."""
 
+import math
 import uuid
 from datetime import UTC, datetime
 
@@ -7,6 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport
+
+
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> int:
+    """Straight-line distance in metres between two WGS84 points."""
+    r = 6371000.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return round(2 * r * math.asin(math.sqrt(a)))
 
 
 async def get_reko_personnel_for_event(
@@ -44,14 +55,31 @@ async def get_reko_personnel_for_event(
     personnel_map = {p.id: p for p in personnel_result.scalars().all()}
 
     # Get active incident assignments for these personnel in this event
-    # First, get all incidents for this event
+    # First, get all incidents for this event (with location, so callers can
+    # show where a person's open work is and compute proximity)
     incidents_result = await db.execute(
-        select(Incident.id).where(
+        select(
+            Incident.id,
+            Incident.title,
+            Incident.location_address,
+            Incident.location_lat,
+            Incident.location_lng,
+        ).where(
             Incident.event_id == event_id,
             Incident.deleted_at.is_(None),
         )
     )
-    incident_ids = [row[0] for row in incidents_result.all()]
+    incident_info = {
+        row.id: {
+            "incident_id": row.id,
+            "incident_title": row.title,
+            "location_address": row.location_address,
+            "location_lat": float(row.location_lat) if row.location_lat is not None else None,
+            "location_lng": float(row.location_lng) if row.location_lng is not None else None,
+        }
+        for row in incidents_result.all()
+    }
+    incident_ids = list(incident_info)
 
     # Count EVERY incident a reko person was ever assigned to — not just the
     # currently-active ones. Submitting a reko form unassigns the person
@@ -64,6 +92,7 @@ async def get_reko_personnel_for_event(
     #   - total: distinct incidents ever assigned (the "how busy" number)
     assigned_incidents: dict[uuid.UUID, set[uuid.UUID]] = {}
     active_incidents: dict[uuid.UUID, set[uuid.UUID]] = {}
+    last_assigned_incident: dict[uuid.UUID, tuple[datetime, uuid.UUID]] = {}
     completed_incident_ids: set[uuid.UUID] = set()
     if incident_ids:
         assignments_result = await db.execute(
@@ -71,6 +100,7 @@ async def get_reko_personnel_for_event(
                 IncidentAssignment.resource_id,
                 IncidentAssignment.incident_id,
                 IncidentAssignment.unassigned_at,
+                IncidentAssignment.assigned_at,
             ).where(
                 IncidentAssignment.incident_id.in_(incident_ids),
                 IncidentAssignment.resource_type == "personnel",
@@ -90,10 +120,13 @@ async def get_reko_personnel_for_event(
         )
         completed_incident_ids = {row[0] for row in completed_result.all()}
 
-        for resource_id, incident_id, unassigned_at in all_assignments:
+        for resource_id, incident_id, unassigned_at, assigned_at in all_assignments:
             assigned_incidents.setdefault(resource_id, set()).add(incident_id)
             if unassigned_at is None:
                 active_incidents.setdefault(resource_id, set()).add(incident_id)
+            previous = last_assigned_incident.get(resource_id)
+            if previous is None or assigned_at > previous[0]:
+                last_assigned_incident[resource_id] = (assigned_at, incident_id)
 
     # Build response
     result = []
@@ -107,6 +140,7 @@ async def get_reko_personnel_for_event(
                 for i in active_incidents.get(personnel.id, set())
                 if i not in completed_incident_ids
             }
+            last = last_assigned_incident.get(personnel.id)
             result.append(
                 {
                     "personnel_id": personnel.id,
@@ -115,6 +149,11 @@ async def get_reko_personnel_for_event(
                     "assignment_count": len(ever_assigned),
                     "open_count": len(open_ids),
                     "done_count": len(done_ids),
+                    "open_assignments": sorted(
+                        (incident_info[i] for i in open_ids),
+                        key=lambda info: info["incident_title"],
+                    ),
+                    "last_assignment": incident_info[last[1]] if last else None,
                 }
             )
 
@@ -355,5 +394,49 @@ async def get_available_reko_personnel_for_incident(
 
     # Get all Reko personnel for this event (with assignment counts)
     all_reko = await get_reko_personnel_for_event(db, event_id)
+
+    # Proximity: distance from the target incident to each person's nearest
+    # open assignment (their assigned incidents are the best proxy we have for
+    # where they currently are). Falls back to the most recent assignment when
+    # nothing is open. Straight-line distance is good enough at Gemeinde scale.
+    target_lat = float(incident.location_lat) if incident.location_lat is not None else None
+    target_lng = float(incident.location_lng) if incident.location_lng is not None else None
+    for person in all_reko:
+        person["distance_m"] = None
+        person["distance_source"] = None
+        if target_lat is None or target_lng is None:
+            continue
+        open_distances = [
+            _haversine_m(target_lat, target_lng, a["location_lat"], a["location_lng"])
+            for a in person["open_assignments"]
+            if a["location_lat"] is not None
+            and a["location_lng"] is not None
+            and a["incident_id"] != incident_id
+        ]
+        if open_distances:
+            person["distance_m"] = min(open_distances)
+            person["distance_source"] = "open"
+            continue
+        last = person["last_assignment"]
+        if (
+            last
+            and last["location_lat"] is not None
+            and last["location_lng"] is not None
+            and last["incident_id"] != incident_id
+        ):
+            person["distance_m"] = _haversine_m(
+                target_lat, target_lng, last["location_lat"], last["location_lng"]
+            )
+            person["distance_source"] = "last"
+
+    # Least open work first, then closest, then name — the operator sees the
+    # least-loaded nearby person on top.
+    all_reko.sort(
+        key=lambda p: (
+            p["open_count"],
+            p["distance_m"] if p["distance_m"] is not None else float("inf"),
+            p["name"],
+        )
+    )
 
     return all_reko, currently_assigned_id

@@ -118,11 +118,22 @@ export interface ApiRekoDashboardAssignmentsResponse {
   assignments: ApiRekoDashboardAssignment[]
 }
 
+export interface ApiRekoOpenAssignmentInfo {
+  incident_id: string
+  incident_title: string
+  location_address: string | null
+}
+
 export interface ApiAvailableRekoPersonnel {
   personnel_id: string
   name: string
   role: string | null
   assignment_count: number
+  open_count: number
+  done_count: number
+  open_assignments: ApiRekoOpenAssignmentInfo[]
+  distance_m: number | null
+  distance_source: 'open' | 'last' | null
 }
 
 export interface ApiAvailableRekoPersonnelResponse {
