@@ -115,6 +115,7 @@ export function DemoBanner() {
   return (
     <>
       <div
+        data-demo-ribbon
         className="pointer-events-none fixed top-[calc(15px+env(safe-area-inset-top))] -left-9 z-[150] w-[132px] -rotate-45 bg-amber-500 py-[3px] text-center text-[11px] font-extrabold tracking-[2px] text-amber-950 shadow-[0_1px_5px_rgba(20,28,40,0.35)]"
         role="note"
         aria-label={t('ariaLabel')}

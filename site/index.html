@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>KP Rück – Einsatzboard für den Kommandoposten</title>
+<meta name="description" content="KP Rück ersetzt die Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, quelloffen und selbst gehostet.">
+<link rel="stylesheet" href="landing.css">
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-gh" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 16 16">
+    <path d="M4.5 3.1a.7.7 0 0 1 1.05-.6l7.2 4.9a.7.7 0 0 1 0 1.2l-7.2 4.9a.7.7 0 0 1-1.05-.6z"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16">
+    <path d="M8.8 2.3a.9.9 0 0 0-1.3 1.25L10.4 6.6H2.2a.9.9 0 0 0 0 1.8h8.2l-2.9 3.05a.9.9 0 0 0 1.3 1.25l4.3-4.5a.9.9 0 0 0 0-1.2z"/>
+  </symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="#">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#1b2330"/>
+        <g>
+          <rect x="5.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#e8392b"/>
+          <rect x="5.5" y="14" width="6.5" height="5.2" rx="1.5" fill="#e7edf4"/>
+          <rect x="5.5" y="21" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+          <rect x="13.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#ffffff"/>
+          <rect x="13.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+          <rect x="21.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#d8e1ec"/>
+          <rect x="21.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+        </g>
+      </svg>
+      <span>KP Rück</span></a>
+    <nav aria-label="Hauptnavigation">
+      <a href="#einsatz">Funktionen</a>
+      <a href="#kontakt">Kontakt</a>
+      <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener" aria-label="KP Rück auf GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
+      <a class="cta" href="https://kp-rueck-demo.up.railway.app" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <p class="eyebrow">Milizfeuerwehr&nbsp;· Schweiz</p>
+    <h1>Das Einsatzboard für den Kommandoposten.</h1>
+    <p class="lede">KP Rück ersetzt die Magnettafel im rückwärtigen KP:
+      <strong>Einsätze, Personal, Fahrzeuge und Material</strong> auf einem Board –
+      live auf jedem Gerät im Raum, und der Code ist offen.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://kp-rueck-demo.up.railway.app" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo öffnen</a>
+      <span class="cta-note">Ohne Konto – Rolle wählen und loslegen</span>
+    </div>
+    <figure class="frame">
+      <div class="frame-bar" aria-hidden="true">
+        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
+        <span class="addr">BOARD · UNWETTER · 17 EINSÄTZE AKTIV</span>
+      </div>
+      <img src="shots/board.jpg" alt="Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material" width="1500" height="937">
+    </figure>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">Der Massstab</p>
+      <blockquote>«Wenn das Netz weg ist, führt <em>Papier</em>.»</blockquote>
+      <p class="expl">Ein Board, das beim Stromausfall schwarz wird, ist keine Führungsunterlage.
+        Darum druckt KP Rück im Hintergrund weiter: <strong>der Boardstand alle 15 Minuten auf den
+        Thermodrucker, ein Lageblatt nach dem kantonalen Führungsformular auf Knopfdruck, und eine
+        Ausfall-Anleitung, die vorher geschrieben wurde – nicht im Ereignis.</strong></p>
+    </div>
+  </section>
+
+  <section class="wrap" id="einsatz">
+    <div class="sec-head">
+      <p class="eyebrow">Vom Alarm bis zum Bericht</p>
+      <h2>Ein Ereignis, ein Board.</h2>
+      <p>So sieht eine Unwetternacht im KP aus – was am Board passiert, steht nachher im
+        Einsatzbericht.</p>
+    </div>
+    <div class="verlauf-list">
+      <article class="entry">
+        <div class="time">21:14</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Alarmeingang</p>
+          <h3>Die Meldungen kommen rein.</h3>
+          <p>Über das Meldeformular, per Telefon oder über den offenen Webhook aus dem
+            Alarmierungssystem (z.&nbsp;B. Divera). Der Operator übernimmt mit einem Klick –
+            aus der Meldung wird ein Einsatz auf dem Board.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:19</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Disposition</p>
+          <h3>Mannschaft und Fahrzeuge sind zugeteilt.</h3>
+          <p>Personal, Fahrzeuge und Material per Zug auf den Einsatz – wer schon anderswo
+            eingeteilt ist, wird gemeldet, bevor es zur Doppelzuteilung kommt. Wer eintrifft,
+            meldet sich per QR-Check-in selber an.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:26</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Karte</p>
+          <h3>Wer ist wo.</h3>
+          <p>Alle Einsätze auf einer Karte, dazu die Fahrzeuge mit GPS-Position. Trifft ein
+            Fahrzeug am Einsatzort ein, schlägt das Board den Statuswechsel gleich selber vor.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:48</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Reko</p>
+          <h3>Die Reko meldet zurück.</h3>
+          <p>Der Rekotrupp füllt das Formular am eigenen Handy aus – mit Fotos. Die Meldung hängt
+            am richtigen Einsatz, statt im Gruppenchat unterzugehen.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">23:30</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Board</p>
+          <h3>Alle sehen dasselbe Board.</h3>
+          <p>Der Beamer im KP, das Tablet am Tisch und das Handy des Fouriers zeigen denselben
+            Stand – ohne dass jemand «aktualisieren» drückt.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">06:40</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Bericht</p>
+          <h3>Der Einsatzbericht schreibt sich mit.</h3>
+          <p>Einsatztagebuch und Reaktionszeiten entstehen nebenbei und werden zum PDF.
+            Korrigiert wird mit neuen Einträgen, nicht mit dem Radiergummi – so bleibt die
+            Nacht belegbar.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Aus der Demo</p>
+      <h2>So sieht das aus.</h2>
+    </div>
+    <div class="shots-grid">
+      <figure class="shot">
+        <img src="shots/karte.jpg" alt="Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen" width="1500" height="937">
+        <figcaption>
+          <div class="cap-t">Karte</div>
+          <div class="cap-s">Einsätze, Fahrzeuge und Zuweisungen</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/disposition.jpg" alt="Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status" width="1500" height="937">
+        <figcaption>
+          <div class="cap-t">Fahrzeuge</div>
+          <div class="cap-s">Funkrufname, Fahrer, Ziel und Status</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/training.jpg" alt="Übungs-Steuerung: generierte Einsätze, Alarmwege und Automatik" width="1500" height="937">
+        <figcaption>
+          <div class="cap-t">Übung</div>
+          <div class="cap-s">Lagen einspeisen statt Lagen erfinden</div>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="offen">
+    <div class="sec-head">
+      <p class="eyebrow">Zwei Grundsätze</p>
+      <h2>Üben am Ernstfall-System – und quelloffen.</h2>
+    </div>
+    <div class="pillars-grid">
+      <div class="pillar">
+        <p class="tag">Übungsbetrieb</p>
+        <h3>Geübt wird am echten Werkzeug.</h3>
+        <p>Übungslagen laufen im gleichen System wie der Ernstfall, nur <strong>sauber davon
+          getrennt</strong>. Ein Generator speist Einsätze und Alarme ein – der KP-Dienst übt am
+          Gerät, das in der Einsatznacht auch dasteht, statt an einer Attrappe.</p>
+      </div>
+      <div class="pillar">
+        <p class="tag">Open Source · AGPL</p>
+        <h3>Eure Feuerwehr, eure Daten.</h3>
+        <p>Eine Instanz pro Feuerwehr, <strong>keine Lizenz pro Gerät</strong>, kein Vendor-Lock-in.
+          Selbst gehostet oder in der Cloud – der ganze Code steht auf
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sibling">
+    <div class="wrap">
+      <div class="sibling-txt">
+        <p class="eyebrow">Verwandtes Projekt</p>
+        <h2>KP Rück hält hinten den Überblick. KP Front führt vorne.</h2>
+        <p><strong>KP Front</strong> ersetzt am Einsatzort die Lagekarte und den Führungstisch:
+          taktische Zeichen, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Eigene App,
+          gleiche Handschrift – die beiden können sich Alarme übergeben, brauchen einander aber
+          nicht.</p>
+        <a class="btn btn-ghost" href="https://kp-front.ch">KP Front ansehen<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="kontakt">
+    <div class="contact-grid">
+      <div class="contact-side">
+        <p class="eyebrow">Kontakt</p>
+        <h2>Sag uns, was du denkst.</h2>
+        <p>Willst du KP Rück bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,
+          wie du es erwartest? Schreib uns – wir lesen alles.</p>
+        <p class="alt">Lieber direkt? <a href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch">bastian.eichenberger@feuerwehr-oberwil.ch</a>
+          oder eine <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub-Diskussion</a> starten.</p>
+      </div>
+      <form class="card" id="feedback-form">
+        <div class="field">
+          <label for="f-name">Name</label>
+          <input id="f-name" name="name" type="text" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label for="f-org">Feuerwehr / Organisation</label>
+          <input id="f-org" name="org" type="text" autocomplete="organization" placeholder="Optional">
+        </div>
+        <div class="field full">
+          <label for="f-mail">E-Mail</label>
+          <input id="f-mail" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field full">
+          <label for="f-msg">Nachricht</label>
+          <textarea id="f-msg" name="message" required placeholder="Was du loswerden willst …"></textarea>
+        </div>
+        <div class="form-foot">
+          <button class="btn btn-primary" type="submit">Nachricht senden</button>
+          <span class="form-note">Prototyp – das Formular sendet noch nicht.</span>
+        </div>
+        <div class="form-ok" role="status">
+          <strong>Gesendet.</strong>&nbsp;Danke für deine Nachricht – wir melden uns.
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-origin">KP Rück kommt aus der <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> und ist dort im Einsatz.
+      Jede Feuerwehr betreibt ihre eigene Instanz mit eigener Mannschaft, eigenen Fahrzeugen und eigenen Daten.</p>
+    <div class="foot-row">
+      <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://kp-rueck-demo.up.railway.app" target="_blank" rel="noopener">Demo</a>
+      <a href="https://kp-front.ch">KP Front</a>
+      <a href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch">Kontakt</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('feedback-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!this.reportValidity()) return;
+    this.classList.add('sent');
+  });
+
+  // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
+  // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
+  document.documentElement.classList.add('js');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .tenet .wrap, .sibling-txt, .contact-side, form.card');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { rootMargin: '0px 0px -60px' });
+    els.forEach(function (el) {
+      el.classList.add('reveal');
+      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      else io.observe(el);
+    });
+  }
+</script>
