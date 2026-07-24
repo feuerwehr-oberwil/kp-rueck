@@ -278,7 +278,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Wasser im Keller EFH",
             "type": "elementarereignis",
-            "priority": "medium",
+            "priority": "low",
             "location_address": "Allschwilerstrasse 14, 4104 Oberwil",
             "location_lat": 47.5201,
             "location_lng": 7.5559,
@@ -291,7 +291,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Ziegel auf Gehweg",
             "type": "elementarereignis",
-            "priority": "medium",
+            "priority": "low",
             "location_address": "Bahnhofstrasse 8, 4104 Oberwil",
             "location_lat": 47.5135,
             "location_lng": 7.5628,
@@ -350,7 +350,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Abgedecktes Dach Scheune",
             "type": "elementarereignis",
-            "priority": "high",
+            "priority": "medium",
             "location_address": "Rebbergstrasse 5, 4104 Oberwil",
             "location_lat": 47.5185,
             "location_lng": 7.5642,
@@ -361,7 +361,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Wasser im Keller Doppelhaus",
             "type": "elementarereignis",
-            "priority": "medium",
+            "priority": "low",
             "location_address": "Kirchgasse 3, 4104 Oberwil",
             "location_lat": 47.5151,
             "location_lng": 7.5598,
@@ -373,7 +373,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Überflutete Strasse",
             "type": "elementarereignis",
-            "priority": "high",
+            "priority": "medium",
             "location_address": "Ringstrasse 11, 4104 Oberwil",
             "location_lat": 47.5091,
             "location_lng": 7.5602,
@@ -384,7 +384,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Wasser im Keller Reihen-EFH",
             "type": "elementarereignis",
-            "priority": "medium",
+            "priority": "low",
             "location_address": "Schulstrasse 9, 4104 Oberwil",
             "location_lat": 47.5143,
             "location_lng": 7.5571,
@@ -397,7 +397,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Wasser in Tiefgarage Zentrum",
             "type": "elementarereignis",
-            "priority": "high",
+            "priority": "medium",
             "location_address": "Poststrasse 6, 4104 Oberwil",
             "location_lat": 47.5139,
             "location_lng": 7.5613,
@@ -473,7 +473,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         {
             "title": "Baum auf Strasse",
             "type": "elementarereignis",
-            "priority": "medium",
+            "priority": "low",
             "location_address": "Therwilerstrasse 25, 4104 Oberwil",
             "location_lat": 47.5098,
             "location_lng": 7.5567,
