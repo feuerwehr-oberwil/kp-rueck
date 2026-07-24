@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRightLeft, Binoculars } from "lucide-react"
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -151,6 +152,12 @@ export function TransferRekoDialog({
             </Button>
           </div>
         )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isTransferring}>
+            {t('common.cancel')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

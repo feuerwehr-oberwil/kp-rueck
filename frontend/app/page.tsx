@@ -620,10 +620,10 @@ export default function FireStationDashboard() {
       const previousStatus = operation.status
       updateOperation(operationId, { status: newStatus })
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-      if (newStatus === "ready") triggerRekoCheck(operationId)
-      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
-      if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
-      if (newStatus === "complete") promptMaterialDecision(operationId)
+      if (newStatus === "ready") triggerRekoCheck(operationId, previousStatus)
+      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId, previousStatus)
+      if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
+      if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
     }
   }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck, promptMaterialDecision])
 
@@ -1013,12 +1013,12 @@ export default function FireStationDashboard() {
     },
     onStatusChange: (operationId, newStatus, previousStatus) => {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-      if (newStatus === "ready") triggerRekoCheck(operationId)
-      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
-      if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
+      if (newStatus === "ready") triggerRekoCheck(operationId, previousStatus)
+      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId, previousStatus)
+      if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
       // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
       // (which keeps materials). Just prompt the material decision here.
-      if (newStatus === "complete") promptMaterialDecision(operationId)
+      if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
     },
     // Aufträge (route) drop targets — see auftraege-sheet.tsx for the registered
     // drop-target data contract (`group-row` / `group-stop`).
