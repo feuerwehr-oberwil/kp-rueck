@@ -63,9 +63,15 @@ export function useIncidentStatusWorkflow({
   // dialog reverts to it (the status change happens before the dialog opens).
   const [missingResourcesReturnStatus, setMissingResourcesReturnStatus] = useState<OperationStatus | null>(null)
   const [returningVehicleOperationId, setReturningVehicleOperationId] = useState<string | null>(null)
+  // Same Cancel-reverts pattern for the other post-change gates: each stores
+  // the status the incident was in BEFORE the change so Abbrechen can undo it.
+  const [returningVehicleReturnStatus, setReturningVehicleReturnStatus] = useState<OperationStatus | null>(null)
   const [rekoMissingOperationId, setRekoMissingOperationId] = useState<string | null>(null)
+  const [rekoMissingReturnStatus, setRekoMissingReturnStatus] = useState<OperationStatus | null>(null)
   const [rekoFormMissingOperationId, setRekoFormMissingOperationId] = useState<string | null>(null)
+  const [rekoFormMissingReturnStatus, setRekoFormMissingReturnStatus] = useState<OperationStatus | null>(null)
   const [materialDecisionOperationId, setMaterialDecisionOperationId] = useState<string | null>(null)
+  const [materialDecisionReturnStatus, setMaterialDecisionReturnStatus] = useState<OperationStatus | null>(null)
   const [rekoAssignmentOperationId, setRekoAssignmentOperationId] = useState<string | null>(null)
   const [assignmentReturn, setAssignmentReturn] = useState<AssignmentReturn | null>(null)
   const [materialDecisions, setMaterialDecisions] = useState<Record<string, "magazin" | "vorort">>({})
@@ -106,26 +112,38 @@ export function useIncidentStatusWorkflow({
     }
   }, [getMissingResources, operationById])
 
-  const triggerReturningVehicleCheck = useCallback((operationId: string) => {
+  const triggerReturningVehicleCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
     if (!operation) return
     const routeVehicleCount = operation.groupId ? getGroupResources(operation.groupId).vehicles.length : 0
     if (!operation.zuFuss && operation.vehicles.length === 0 && routeVehicleCount === 0) {
       setReturningVehicleOperationId(operation.id)
+      // The assignment round-trip re-triggers without previousStatus — keep
+      // the stored return status alive instead of overwriting it with null.
+      if (previousStatus) setReturningVehicleReturnStatus(previousStatus)
+    } else {
+      // Gate resolved (vehicle assigned / zu Fuss) — drop any stored revert.
+      setReturningVehicleReturnStatus(null)
     }
   }, [getGroupResources, operationById])
 
-  const triggerRekoCheck = useCallback((operationId: string) => {
+  const triggerRekoCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
-    if (operation && !operation.assignedReko) setRekoMissingOperationId(operation.id)
+    if (operation && !operation.assignedReko) {
+      setRekoMissingOperationId(operation.id)
+      setRekoMissingReturnStatus(previousStatus ?? null)
+    }
   }, [operationById])
 
-  const triggerRekoFormCheck = useCallback((operationId: string) => {
+  const triggerRekoFormCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
-    if (operation && !operation.hasCompletedReko) setRekoFormMissingOperationId(operation.id)
+    if (operation && !operation.hasCompletedReko) {
+      setRekoFormMissingOperationId(operation.id)
+      setRekoFormMissingReturnStatus(previousStatus ?? null)
+    }
   }, [operationById])
 
-  const promptMaterialDecision = useCallback((operationId: string) => {
+  const promptMaterialDecision = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
     if (!operation) return
     if (operation.groupId) {
@@ -136,10 +154,16 @@ export function useIncidentStatusWorkflow({
         && candidate.status !== "complete"
         && candidate.status !== "returning",
       )
-      if (!hasOpenSibling) setMaterialDecisionOperationId(operation.id)
+      if (!hasOpenSibling) {
+        setMaterialDecisionOperationId(operation.id)
+        setMaterialDecisionReturnStatus(previousStatus ?? null)
+      }
       return
     }
-    if (operation.materials.length > 0) setMaterialDecisionOperationId(operation.id)
+    if (operation.materials.length > 0) {
+      setMaterialDecisionOperationId(operation.id)
+      setMaterialDecisionReturnStatus(previousStatus ?? null)
+    }
   }, [getGroupResources, operationById, operations])
 
   const requestStatusChange = useCallback((operationId: string, targetStatus: OperationStatus) => {
@@ -149,10 +173,10 @@ export function useIncidentStatusWorkflow({
     const previousStatus = operation.status
     changeStatusToTop(operationId, targetStatus)
     if (targetStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-    if (targetStatus === "ready") triggerRekoCheck(operationId)
-    if (targetStatus === "rekoDone") triggerRekoFormCheck(operationId)
-    if (targetStatus === "returning") triggerReturningVehicleCheck(operationId)
-    if (targetStatus === "complete") promptMaterialDecision(operationId)
+    if (targetStatus === "ready") triggerRekoCheck(operationId, previousStatus)
+    if (targetStatus === "rekoDone") triggerRekoFormCheck(operationId, previousStatus)
+    if (targetStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
+    if (targetStatus === "complete") promptMaterialDecision(operationId, previousStatus)
   }, [changeStatusToTop, operationById, promptMaterialDecision, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])
 
   const requestCompletion = useCallback(
@@ -181,6 +205,38 @@ export function useIncidentStatusWorkflow({
     setMissingResourcesOperationId(null)
     setMissingResourcesReturnStatus(null)
   }, [changeStatusToTop, missingResourcesOperationId, missingResourcesReturnStatus])
+
+  const cancelReturningVehicle = useCallback(() => {
+    if (returningVehicleOperationId && returningVehicleReturnStatus) {
+      changeStatusToTop(returningVehicleOperationId, returningVehicleReturnStatus)
+    }
+    setReturningVehicleOperationId(null)
+    setReturningVehicleReturnStatus(null)
+  }, [changeStatusToTop, returningVehicleOperationId, returningVehicleReturnStatus])
+
+  const cancelRekoMissing = useCallback(() => {
+    if (rekoMissingOperationId && rekoMissingReturnStatus) {
+      changeStatusToTop(rekoMissingOperationId, rekoMissingReturnStatus)
+    }
+    setRekoMissingOperationId(null)
+    setRekoMissingReturnStatus(null)
+  }, [changeStatusToTop, rekoMissingOperationId, rekoMissingReturnStatus])
+
+  const cancelRekoFormMissing = useCallback(() => {
+    if (rekoFormMissingOperationId && rekoFormMissingReturnStatus) {
+      changeStatusToTop(rekoFormMissingOperationId, rekoFormMissingReturnStatus)
+    }
+    setRekoFormMissingOperationId(null)
+    setRekoFormMissingReturnStatus(null)
+  }, [changeStatusToTop, rekoFormMissingOperationId, rekoFormMissingReturnStatus])
+
+  const cancelMaterialDecision = useCallback(() => {
+    if (materialDecisionOperationId && materialDecisionReturnStatus) {
+      changeStatusToTop(materialDecisionOperationId, materialDecisionReturnStatus)
+    }
+    setMaterialDecisionOperationId(null)
+    setMaterialDecisionReturnStatus(null)
+  }, [changeStatusToTop, materialDecisionOperationId, materialDecisionReturnStatus])
 
   const materialDecisionOperation = operationById(materialDecisionOperationId)
   useEffect(() => setMaterialDecisions({}), [materialDecisionOperationId])
@@ -212,6 +268,7 @@ export function useIncidentStatusWorkflow({
       }
     }
     setMaterialDecisionOperationId(null)
+    setMaterialDecisionReturnStatus(null)
     return { returned: returnedItems.map((item) => item.id), kept }
   }, [materialDecisionItems, materialDecisionOperation, materialDecisions, removeMaterial, unassignGroupResource])
 
@@ -249,13 +306,29 @@ export function useIncidentStatusWorkflow({
     },
     cancelMissingResources,
     returningVehicleOperation: effectiveReturningVehicleOperation,
-    closeReturningVehicle: () => setReturningVehicleOperationId(null),
+    closeReturningVehicle: () => {
+      setReturningVehicleOperationId(null)
+      setReturningVehicleReturnStatus(null)
+    },
+    cancelReturningVehicle,
     rekoMissingOperation: operationById(rekoMissingOperationId),
-    closeRekoMissing: () => setRekoMissingOperationId(null),
+    closeRekoMissing: () => {
+      setRekoMissingOperationId(null)
+      setRekoMissingReturnStatus(null)
+    },
+    cancelRekoMissing,
     rekoFormMissingOperation: operationById(rekoFormMissingOperationId),
-    closeRekoFormMissing: () => setRekoFormMissingOperationId(null),
+    closeRekoFormMissing: () => {
+      setRekoFormMissingOperationId(null)
+      setRekoFormMissingReturnStatus(null)
+    },
+    cancelRekoFormMissing,
     materialDecisionOperation,
-    closeMaterialDecision: () => setMaterialDecisionOperationId(null),
+    closeMaterialDecision: () => {
+      setMaterialDecisionOperationId(null)
+      setMaterialDecisionReturnStatus(null)
+    },
+    cancelMaterialDecision,
     materialDecisionItems,
     materialDecisions,
     setMaterialDecision: (materialId: string, decision: "magazin" | "vorort") => {
@@ -265,6 +338,9 @@ export function useIncidentStatusWorkflow({
     rekoAssignmentOperation: operationById(rekoAssignmentOperationId),
     openRekoAssignment: (operationId: string) => {
       setRekoMissingOperationId(null)
+      // Assigning Reko is a "proceed" — the gate never resumes afterwards,
+      // so drop the stored revert status.
+      setRekoMissingReturnStatus(null)
       setRekoAssignmentOperationId(operationId)
     },
     closeRekoAssignment: () => setRekoAssignmentOperationId(null),
@@ -429,12 +505,17 @@ export function IncidentStatusWorkflowDialogs({
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
             <Button variant="ghost" onClick={controller.closeReturningVehicle}>{tReturning("endAnyway")}</Button>
-            <Button onClick={() => {
-              const operation = controller.returningVehicleOperation
-              if (operation) openAssignment("vehicles", operation.id, "returning")
-            }}>
-              {tReturning("assignVehicle")}
-            </Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={controller.cancelReturningVehicle}>
+                {tCommon("cancel")}
+              </Button>
+              <Button onClick={() => {
+                const operation = controller.returningVehicleOperation
+                if (operation) openAssignment("vehicles", operation.id, "returning")
+              }}>
+                {tReturning("assignVehicle")}
+              </Button>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -455,12 +536,17 @@ export function IncidentStatusWorkflowDialogs({
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
             <Button variant="ghost" onClick={controller.closeRekoMissing}>{tReko("proceedAnyway")}</Button>
-            <Button onClick={() => {
-              const operation = controller.rekoMissingOperation
-              if (operation) controller.openRekoAssignment(operation.id)
-            }}>
-              {tReko("assignReko")}
-            </Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={controller.cancelRekoMissing}>
+                {tCommon("cancel")}
+              </Button>
+              <Button onClick={() => {
+                const operation = controller.rekoMissingOperation
+                if (operation) controller.openRekoAssignment(operation.id)
+              }}>
+                {tReko("assignReko")}
+              </Button>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -481,13 +567,20 @@ export function IncidentStatusWorkflowDialogs({
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-between">
             <Button variant="ghost" onClick={controller.closeRekoFormMissing}>{tRekoForm("proceedAnyway")}</Button>
-            <Button onClick={() => {
-              const operation = controller.rekoFormMissingOperation
-              controller.closeRekoFormMissing()
-              if (operation) onOpenDetail(operation.id)
-            }}>
-              {tRekoForm("openReko")}
-            </Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={controller.cancelRekoFormMissing}>
+                {tCommon("cancel")}
+              </Button>
+              <Button onClick={() => {
+                const operation = controller.rekoFormMissingOperation
+                // closeRekoFormMissing also drops the revert status — opening
+                // the Reko details is a "proceed", not a cancel.
+                controller.closeRekoFormMissing()
+                if (operation) onOpenDetail(operation.id)
+              }}>
+                {tRekoForm("openReko")}
+              </Button>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -527,8 +620,8 @@ export function IncidentStatusWorkflowDialogs({
               })}
             </div>
           )}
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={controller.closeMaterialDecision}>{tMat("cancel")}</Button>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={controller.cancelMaterialDecision}>{tMat("cancel")}</Button>
             <Button onClick={() => {
               const { returned, kept } = controller.resolveMaterialDecision()
               const nameOf = (id: string) => controller.materials.find((material) => material.id === id)?.name ?? id

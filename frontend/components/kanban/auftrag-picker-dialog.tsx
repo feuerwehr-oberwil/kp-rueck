@@ -15,6 +15,7 @@ import { Route as RouteIcon, Plus, Check, Unlink } from "lucide-react"
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -164,6 +165,16 @@ export function AuftragPickerDialog({
               </Button>
             )}
           </div>
+        )}
+
+        {/* Explicit close — the inline create-row has its own ghost cancel, so the
+            footer only shows outside create mode to avoid two "Abbrechen"s. */}
+        {!creating && (
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+              {t("cancel")}
+            </Button>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

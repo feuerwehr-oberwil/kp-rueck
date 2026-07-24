@@ -77,6 +77,10 @@ export function DriverAssignmentDialog({
     fromVehicleName: string
   }>({ open: false, person: null, fromVehicleId: null, fromVehicleName: "" })
 
+  // Remove-driver confirmation (losing the driver function is consequential:
+  // the person is treated as a normal person afterwards)
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
+
   // Sync local state when props change (e.g., dialog reopened)
   useEffect(() => {
     if (open) {
@@ -406,9 +410,9 @@ export function DriverAssignmentDialog({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleRemoveDriver}
+                  onClick={() => setRemoveDialogOpen(true)}
                   disabled={isAssigning}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="cursor-pointer text-muted-foreground hover:text-foreground"
                 >
                   {isAssigning ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -681,6 +685,22 @@ export function DriverAssignmentDialog({
         cancelText={tCommon('cancel')}
         confirmText={t('reassignConfirm')}
         onConfirm={handleReassignConfirm}
+      />
+
+      {/* Remove-driver confirmation dialog */}
+      <ConfirmDialog
+        open={removeDialogOpen}
+        onOpenChange={setRemoveDialogOpen}
+        title={t('removeConfirmTitle')}
+        description={t.rich('removeConfirmDescription', {
+          name: localDriverName ?? '',
+          vehicle: vehicleName,
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
+        cancelText={tCommon('cancel')}
+        confirmText={t('removeConfirmAction')}
+        variant="destructive"
+        onConfirm={handleRemoveDriver}
       />
     </>
   )

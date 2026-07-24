@@ -44,6 +44,16 @@ export function PersonContextMenu({
     conflictingOperations: Array<{ id: string; location: string; crewName: string }>
   }>({ open: false, functionType: 'driver', conflictingOperations: [] })
 
+  // State for unassign confirmation dialog (removing a special function is
+  // consequential: the person drops out of Reko views / driver duty and is
+  // treated as a normal person afterwards)
+  const [unassignDialog, setUnassignDialog] = useState<{
+    open: boolean
+    functionType: FunctionType
+    vehicleId?: string
+    vehicleName?: string
+  }>({ open: false, functionType: 'driver' })
+
   // Load data lazily when context menu opens
   const handleOpenChange = useCallback(async (open: boolean) => {
     if (!open || !selectedEvent) return
@@ -211,7 +221,12 @@ export function PersonContextMenu({
                 key={vehicle.id}
                 onClick={() => {
                   if (isThisPersonDriver) {
-                    unassignFunction('driver', vehicle.id)
+                    setUnassignDialog({
+                      open: true,
+                      functionType: 'driver',
+                      vehicleId: vehicle.id,
+                      vehicleName: vehicle.name,
+                    })
                   } else {
                     assignFunction('driver', vehicle.id)
                   }
@@ -235,7 +250,7 @@ export function PersonContextMenu({
           <ContextMenuItem
             onClick={() => {
               if (hasFunction('reko')) {
-                unassignFunction('reko')
+                setUnassignDialog({ open: true, functionType: 'reko' })
               } else {
                 assignFunction('reko')
               }
@@ -249,7 +264,7 @@ export function PersonContextMenu({
           <ContextMenuItem
             onClick={() => {
               if (hasFunction('magazin')) {
-                unassignFunction('magazin')
+                setUnassignDialog({ open: true, functionType: 'magazin' })
               } else {
                 assignFunction('magazin')
               }
@@ -283,6 +298,36 @@ export function PersonContextMenu({
         cancelText={t('common.cancel')}
         confirmText={t('personMenu.confirmAction')}
         onConfirm={handleConflictConfirm}
+      />
+
+      {/* Unassign confirmation dialog (removing a special function) */}
+      <ConfirmDialog
+        open={unassignDialog.open}
+        onOpenChange={(open) => setUnassignDialog(prev => ({ ...prev, open }))}
+        title={t('personMenu.unassignTitle', {
+          function: getFunctionLabel(unassignDialog.functionType),
+        })}
+        description={
+          unassignDialog.functionType === 'reko'
+            ? t.rich('personMenu.unassignRekoDescription', {
+                strong: (chunks) => <strong>{chunks}</strong>,
+                name: personnelName,
+              })
+            : unassignDialog.functionType === 'driver'
+              ? t.rich('personMenu.unassignDriverDescription', {
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                  name: personnelName,
+                  vehicle: unassignDialog.vehicleName ?? '',
+                })
+              : t.rich('personMenu.unassignMagazinDescription', {
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                  name: personnelName,
+                })
+        }
+        cancelText={t('common.cancel')}
+        confirmText={t('personMenu.unassignConfirm')}
+        variant="destructive"
+        onConfirm={() => unassignFunction(unassignDialog.functionType, unassignDialog.vehicleId)}
       />
     </>
   )

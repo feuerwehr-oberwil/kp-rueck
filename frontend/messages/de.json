@@ -569,7 +569,12 @@
       "conflictDescription": "<strong>{name}</strong> ist aktuell {assignment}. Als {function} kann die Person nicht gleichzeitig einem Einsatz zugeteilt sein.",
       "conflictAssignedOne": "dem Einsatz «{location}» zugewiesen",
       "conflictAssignedMany": "{count} Einsätzen zugewiesen",
-      "confirmAction": "Vom Einsatz entfernen & zuweisen"
+      "confirmAction": "Vom Einsatz entfernen & zuweisen",
+      "unassignTitle": "{function}-Funktion entfernen?",
+      "unassignRekoDescription": "<strong>{name}</strong> verliert die Reko-Funktion und erscheint nicht mehr in den Reko-Ansichten (Reko-Dashboard, Karte). Bestehende Einsatz-Zuteilungen bleiben bestehen. Die Person gilt danach wieder als normale Einsatzkraft.",
+      "unassignDriverDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
+      "unassignMagazinDescription": "<strong>{name}</strong> verliert die Magazin-Funktion und gilt danach wieder als normale Einsatzkraft.",
+      "unassignConfirm": "Funktion entfernen"
     },
     "assignmentDialog": {
       "titleVehicles": "Fahrzeuge zuweisen",
@@ -917,6 +922,9 @@
       "reassignTitle": "Fahrer wechseln",
       "reassignDescription": "<strong>{name}</strong> fährt aktuell <strong>{fromVehicle}</strong>. Als Fahrer von <strong>{vehicle}</strong> übernehmen? Der bisherige Einsatz als Fahrer wird beendet.",
       "reassignConfirm": "Übernehmen",
+      "removeConfirmTitle": "Fahrer entfernen?",
+      "removeConfirmDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
+      "removeConfirmAction": "Fahrer entfernen",
       "addPersonButton": "Person hinzufügen",
       "addPersonHint": "Nicht eingecheckte Aushilfe (z. B. früherer Fahrer) direkt als Fahrer erfassen",
       "addNamePlaceholder": "Name der Person",
@@ -1188,7 +1196,10 @@
       "empty": "Keine Reko-Personen in diesem Event",
       "emptyHint": "Markiere zuerst eine Person als Reko: Rechtsklick auf eine Person in der Seitenleiste des Boards.",
       "addPerson": "Person als Reko markieren",
-      "back": "Zurück"
+      "back": "Zurück",
+      "overwriteTitle": "Reko-Person ersetzen?",
+      "overwriteDescription": "{current} ist diesem Einsatz bereits als Reko zugewiesen. Durch {next} ersetzen?",
+      "overwriteConfirm": "Ersetzen"
     }
   },
   "settings": {

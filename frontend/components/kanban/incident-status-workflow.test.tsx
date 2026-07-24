@@ -146,6 +146,75 @@ describe("shared incident detail status workflow", () => {
     expect(result.current.missingResourcesOperation).toBeNull()
   })
 
+  it("reverts to the previous status when the returning-vehicle gate is cancelled", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "rekoDone" }))
+
+    act(() => result.current.requestStatusChange("incident-1", "returning"))
+    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "returning")
+    expect(result.current.returningVehicleOperation?.id).toBe("incident-1")
+
+    act(() => result.current.cancelReturningVehicle())
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "rekoDone")
+    expect(result.current.returningVehicleOperation).toBeNull()
+  })
+
+  it("keeps the returning-vehicle return status across the assignment suspend/resume round-trip", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "rekoDone" }))
+
+    act(() => result.current.requestStatusChange("incident-1", "returning"))
+    act(() => result.current.suspendGateForAssignment("returning", "incident-1"))
+    expect(result.current.returningVehicleOperation).toBeNull()
+
+    // Resume re-triggers WITHOUT previousStatus — the stored return status must survive.
+    act(() => result.current.resumeGateAfterAssignment())
+    expect(result.current.returningVehicleOperation?.id).toBe("incident-1")
+
+    act(() => result.current.cancelReturningVehicle())
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "rekoDone")
+    expect(result.current.returningVehicleOperation).toBeNull()
+  })
+
+  it("reverts on cancel in the Reko gates", () => {
+    const reko = renderWorkflow(operation({ status: "enroute" }))
+    act(() => reko.result.current.requestStatusChange("incident-1", "ready"))
+    act(() => reko.result.current.cancelRekoMissing())
+    expect(reko.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "enroute")
+    expect(reko.result.current.rekoMissingOperation).toBeNull()
+
+    const rekoForm = renderWorkflow(operation({ status: "ready" }))
+    act(() => rekoForm.result.current.requestStatusChange("incident-1", "rekoDone"))
+    act(() => rekoForm.result.current.cancelRekoFormMissing())
+    expect(rekoForm.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "ready")
+    expect(rekoForm.result.current.rekoFormMissingOperation).toBeNull()
+  })
+
+  it("reverts the status and discards local decisions when the material decision is cancelled", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "returning", materials: ["material-1"] }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
+    expect(result.current.materialDecisionOperation?.id).toBe("incident-1")
+
+    act(() => result.current.setMaterialDecision("material-1", "vorort"))
+    expect(result.current.materialDecisions["material-1"]).toBe("vorort")
+
+    act(() => result.current.cancelMaterialDecision())
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "returning")
+    expect(result.current.materialDecisionOperation).toBeNull()
+    expect(result.current.materialDecisions).toEqual({})
+  })
+
+  it("cancel in the post-change gates only closes when no return status is known", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "rekoDone" }))
+
+    act(() => result.current.triggerReturningVehicleCheck("incident-1"))
+    expect(result.current.returningVehicleOperation?.id).toBe("incident-1")
+
+    act(() => result.current.cancelReturningVehicle())
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.returningVehicleOperation).toBeNull()
+  })
+
   it("returns to the missing-resource gate after its assignment dialog closes", () => {
     const { result } = renderWorkflow(operation())
     act(() => result.current.requestStatusChange("incident-1", "enroute"))
