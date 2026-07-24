@@ -16,6 +16,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
 import { RekoModusPanel } from "@/components/map/reko-modus-panel"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
@@ -140,6 +141,14 @@ export default function MapPage() {
   // Reko-Modus — editor-only reko dispatching from the map (panel + marker taps).
   const [rekoModeActive, setRekoModeActive] = useState(false)
   const [rekoPersonId, setRekoPersonId] = useState<string | null>(null)
+  // Tap on an incident that already has a different reko person → confirm
+  // before replacing them (guards against stray taps in dispatch mode).
+  const [rekoOverwrite, setRekoOverwrite] = useState<{
+    operationId: string
+    currentName: string
+    nextId: string
+    nextName: string
+  } | null>(null)
   // Shared routing hook — active only while planning a selected group.
   const planning = useRoutePlanning(planningActive ? planningGroupId : null)
   // id → Operation lookup for the GroupRoutes overlay (stops are real incidents).
@@ -212,6 +221,13 @@ export default function MapPage() {
       if (!person || !operation) return
       if (operation.assignedReko?.id === rekoPersonId) {
         removeReko(incidentId)
+      } else if (operation.assignedReko) {
+        setRekoOverwrite({
+          operationId: incidentId,
+          currentName: operation.assignedReko.name,
+          nextId: person.id,
+          nextName: person.name,
+        })
       } else {
         assignRekoPersonToOperation(person.id, person.name, incidentId)
       }
@@ -228,8 +244,11 @@ export default function MapPage() {
   }
 
   // Enter/exit Routenplanung; entering forces the route overlay on.
+  // Both modes clear the current selection so no stale highlight competes
+  // with the mode's own map emphasis.
   const enterPlanning = () => {
     exitRekoMode()
+    setSelectedIncidentId(null)
     setPlanningActive(true)
     setPlanningGroupId((prev) => prev ?? groups[0]?.id ?? null)
   }
@@ -245,6 +264,7 @@ export default function MapPage() {
   const preRekoColorByRef = useRef<ColorByDimension>('priority')
   const enterRekoMode = () => {
     exitPlanning()
+    setSelectedIncidentId(null)
     preRekoColorByRef.current = colorBy
     setColorBy('reko')
     setRekoModeActive(true)
@@ -852,16 +872,16 @@ export default function MapPage() {
             />
           </main>
 
-          {/* Active Emergencies - sidebar on desktop, bottom section on mobile */}
-          <aside className={`bg-card/30 backdrop-blur-sm overflow-y-auto ${
+          {/* Active Emergencies - sidebar on desktop, bottom section on mobile.
+              Flex column with its own inner scroller: in list mode the header
+              (title → search) sits outside the scroll container, so it can
+              never move — no sticky, no overscroll spring. */}
+          <aside className={`bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
             isMobile
               ? 'flex-1 border-t border-border'
               : 'w-80 border-l border-border flex-shrink-0'
           }`}>
-            {/* On mobile the fixed bottom navbar overlays the page, so pad the
-                scrollable list past it (nav height + safe-area) — otherwise the
-                last incidents sit behind the bar and can't be scrolled into view. */}
-            <div className={`p-4 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''} ${planningActive || rekoModeActive ? 'h-full' : ''}`}>
+            <div className={`${planningActive || rekoModeActive ? 'p-4 flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}`}>
               {planningActive ? (
                 <RoutenplanungPanel
                   groups={groups}
@@ -887,6 +907,9 @@ export default function MapPage() {
                 />
               ) : (
               <>
+              {/* Fixed header: title through search live outside the scroll
+                  container below, so they simply never move. */}
+              <div className="flex-shrink-0 p-4 pb-3 border-b border-border/50">
               <h2 className="text-lg font-bold mb-3">
                 {t('page.incidentsHeading', { count: activeIncidents.length })}
               </h2>
@@ -1018,7 +1041,7 @@ export default function MapPage() {
               </div>
 
               {/* Search bar */}
-              <div className="relative mb-4">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="map-search-input"
@@ -1034,7 +1057,12 @@ export default function MapPage() {
                   </div>
                 )}
               </div>
+              </div>
 
+              {/* On mobile the fixed bottom navbar overlays the page, so pad the
+                  scrollable list past it (nav height + safe-area) — otherwise the
+                  last incidents sit behind the bar and can't be scrolled into view. */}
+              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 pt-3 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''}`}>
               <div className="space-y-3">
                 {activeIncidents.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
@@ -1182,6 +1210,7 @@ export default function MapPage() {
                   })
                 )}
               </div>
+              </div>
               </>
               )}
             </div>
@@ -1299,6 +1328,31 @@ export default function MapPage() {
           }}
           onSendDivera={setDiveraDialogOp}
           onRefresh={refreshIncidents}
+        />
+
+        {/* Reko-Modus: replacing another person's reko needs a confirm */}
+        <ConfirmDialog
+          open={rekoOverwrite !== null}
+          onOpenChange={(open) => { if (!open) setRekoOverwrite(null) }}
+          title={t('rekoMode.overwriteTitle')}
+          description={
+            rekoOverwrite
+              ? t('rekoMode.overwriteDescription', {
+                  current: rekoOverwrite.currentName,
+                  next: rekoOverwrite.nextName,
+                })
+              : ''
+          }
+          confirmText={t('rekoMode.overwriteConfirm')}
+          onConfirm={() => {
+            if (!rekoOverwrite) return
+            assignRekoPersonToOperation(
+              rekoOverwrite.nextId,
+              rekoOverwrite.nextName,
+              rekoOverwrite.operationId,
+            )
+            setRekoOverwrite(null)
+          }}
         />
       </div>
 

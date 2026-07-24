@@ -18,12 +18,16 @@ interface MarkExistingRekoPersonnelProps {
   personnel: Person[]
   onSelect: (person: Person) => Promise<void>
   excludedPersonnelIds?: ReadonlySet<string>
+  /** Overrides the dialog-sized fixed height (e.g. `flex-1 min-h-0` when the
+   *  list fills a flex column like the map's Reko-Modus panel). */
+  className?: string
 }
 
 export function MarkExistingRekoPersonnel({
   personnel,
   onSelect,
   excludedPersonnelIds,
+  className,
 }: MarkExistingRekoPersonnelProps) {
   const t = useTranslations('incidents.assignReko')
   const [search, setSearch] = useState("")
@@ -43,7 +47,7 @@ export function MarkExistingRekoPersonnel({
   }
 
   return (
-    <div className="flex flex-col h-[300px]">
+    <div className={cn("flex flex-col", className ?? "h-[300px]")}>
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input

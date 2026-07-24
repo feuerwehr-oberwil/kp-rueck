@@ -14,6 +14,7 @@ import { MapLegend } from "./map-legend"
 import { GpsSimBanner } from "./gps-sim-banner"
 import type { ColorByDimension, ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
+import { OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
@@ -586,6 +587,8 @@ export default function MapView({
   const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
   // Tracks live zoom so vehicle markers can shrink when zoomed out.
   const [mapZoom, setMapZoom] = useState<number>(13)
+  // Hovered incident marker → its label swaps to the rich detail card.
+  const [hoveredIncidentId, setHoveredIncidentId] = useState<string | null>(null)
 
   // Vehicle positions from Traccar GPS
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
@@ -928,21 +931,49 @@ export default function MapView({
               icon={createIncidentIcon(incident, isHighlighted, markerAccents?.get(incident.id) ?? null)}
               eventHandlers={{
                 click: () => onMarkerClick?.(incident.id),
+                mouseover: () => setHoveredIncidentId(incident.id),
+                mouseout: () =>
+                  setHoveredIncidentId((current) => (current === incident.id ? null : current)),
               }}
             >
-              {showLabels && (
-                <Tooltip
-                  direction="right"
-                  offset={[14, 0]}
-                  permanent={true}
-                  className="incident-label"
-                >
-                  <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
-                  {crewCount > 0 && (
-                    <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }}>({crewCount})</span>
-                  )}
-                </Tooltip>
-              )}
+              {(() => {
+                // Hover shows the full picture (type, status, crew, reko, …)
+                // via the Operation lookup; the permanent label stays short.
+                // Token/display mode has no operations — labels stay short there.
+                const hoverOperation =
+                  hoveredIncidentId === incident.id ? operationsById?.get(incident.id) : undefined
+                if (showLabels) {
+                  return (
+                    <Tooltip
+                      direction="right"
+                      offset={[14, 0]}
+                      permanent={true}
+                      // Forward clicks to the marker so the label is as tappable
+                      // as the dot (selection, Reko-Modus assignment, …).
+                      interactive={true}
+                      className="incident-label"
+                    >
+                      {hoverOperation ? (
+                        <OperationHoverCard operation={hoverOperation} />
+                      ) : (
+                        <>
+                          <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
+                          {crewCount > 0 && (
+                            <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }}>({crewCount})</span>
+                          )}
+                        </>
+                      )}
+                    </Tooltip>
+                  )
+                }
+                // Labels hidden: no permanent label, but hovering still reveals
+                // the detail card when we can resolve the operation.
+                return hoverOperation ? (
+                  <Tooltip direction="right" offset={[14, 0]} permanent={true} className="incident-label">
+                    <OperationHoverCard operation={hoverOperation} />
+                  </Tooltip>
+                ) : null
+              })()}
             </Marker>
           )
         })}

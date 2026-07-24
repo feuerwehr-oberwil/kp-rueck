@@ -138,38 +138,53 @@ export function RoutenplanungPanel({
         {/* Picker + create: wrap so the "Neuer Auftrag" button drops to its own
             line in a narrow panel instead of overflowing the width. */}
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={groupId ?? undefined} onValueChange={(v) => onGroupIdChange(v)}>
-            <SelectTrigger className="h-9 min-w-[7rem] flex-1">
-              <SelectValue placeholder={t("selectGroupPlaceholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: g.color ?? "var(--muted-foreground)" }}
-                    />
-                    {g.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {canEdit && <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon-sm"
-                variant="outline"
-                className="shrink-0"
-                onClick={startCreate}
-                aria-label={t("newAuftrag")}
-              >
+          {groups.length === 0 ? (
+            // No Aufträge yet: an empty picker is a dead end — offer creation
+            // directly (editors) or say why there's nothing to pick (viewers).
+            canEdit ? (
+              <Button size="sm" variant="outline" className="h-9 flex-1" onClick={startCreate}>
                 <Plus className="h-4 w-4" />
+                {t("newAuftrag")}
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("newAuftrag")}</TooltipContent>
-          </Tooltip>}
+            ) : (
+              <p className="text-xs text-muted-foreground py-2">{t("noGroups")}</p>
+            )
+          ) : (
+            <>
+              <Select value={groupId ?? undefined} onValueChange={(v) => onGroupIdChange(v)}>
+                <SelectTrigger className="h-9 min-w-[7rem] flex-1">
+                  <SelectValue placeholder={t("selectGroupPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: g.color ?? "var(--muted-foreground)" }}
+                        />
+                        {g.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {canEdit && <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={startCreate}
+                    aria-label={t("newAuftrag")}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("newAuftrag")}</TooltipContent>
+              </Tooltip>}
+            </>
+          )}
         </div>
 
         {creating && (
