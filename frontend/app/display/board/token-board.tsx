@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { apiClient, type ApiIncident, type ApiEvent, type ApiIncidentGroup } from '@/lib/api-client'
+import { apiClient, type ApiIncident, type ApiEvent, type ApiIncidentGroup, type ApiViewerData } from '@/lib/api-client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone, WifiOff } from 'lucide-react'
@@ -10,6 +10,8 @@ import { columns, getTimeSince, ageChipClass } from '@/lib/kanban-utils'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
 import { type OperationStatus } from '@/lib/contexts/operations-context'
+import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
+import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
 
 // Read-only board rendered from a share token (no login). Mirrors the command
 // post board but sourced from the public viewer-data endpoint, which returns
@@ -40,7 +42,7 @@ const priorityStyles = {
   low: { icon: 'text-muted-foreground/50', card: '' },
 } as const
 
-function TokenIncidentCard({ incident, groups }: { incident: ApiIncident; groups: ApiIncidentGroup[] }) {
+function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiIncident; groups: ApiIncidentGroup[]; onClick: () => void }) {
   const t = useTranslations('display.tokenBoard')
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -64,9 +66,10 @@ function TokenIncidentCard({ incident, groups }: { incident: ApiIncident; groups
   return (
     <Card
       className={cn(
-        'border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all',
+        'border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all cursor-pointer hover:border-border hover:bg-card',
         priorityConfig?.card,
       )}
+      onClick={onClick}
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
@@ -161,7 +164,7 @@ function TokenIncidentCard({ incident, groups }: { incident: ApiIncident; groups
   )
 }
 
-function TokenColumn({ column, incidents, groups }: { column: typeof columns[number]; incidents: ApiIncident[]; groups: ApiIncidentGroup[] }) {
+function TokenColumn({ column, incidents, groups, onIncidentClick }: { column: typeof columns[number]; incidents: ApiIncident[]; groups: ApiIncidentGroup[]; onIncidentClick: (incidentId: string) => void }) {
   const t = useTranslations('display.tokenBoard')
   const tk = useTranslations('kanban')
   return (
@@ -172,7 +175,7 @@ function TokenColumn({ column, incidents, groups }: { column: typeof columns[num
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-2 rounded-lg min-h-[200px]">
         {incidents.map((incident) => (
-          <TokenIncidentCard key={incident.id} incident={incident} groups={groups} />
+          <TokenIncidentCard key={incident.id} incident={incident} groups={groups} onClick={() => onIncidentClick(incident.id)} />
         ))}
       </div>
     </div>
@@ -185,6 +188,8 @@ export function TokenBoard({ token }: { token: string }) {
   const [event, setEvent] = useState<ApiEvent | null>(null)
   const [incidents, setIncidents] = useState<ApiIncident[]>([])
   const [groups, setGroups] = useState<ApiIncidentGroup[]>([])
+  const [payload, setPayload] = useState<ApiViewerData | null>(null)
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [showCompleted, setShowCompleted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -205,6 +210,7 @@ export function TokenBoard({ token }: { token: string }) {
       setEvent(data.event)
       setIncidents(data.incidents)
       setGroups(data.groups ?? [])
+      setPayload(data)
       setError(null)
       setLastRefresh(new Date())
       hasDataRef.current = true
@@ -236,6 +242,15 @@ export function TokenBoard({ token }: { token: string }) {
     })
     return grouped
   }, [incidents])
+
+  // Detail dialog: rebuild the operation view-model (crew, materials, vehicles
+  // from the payload's assignments) so tapping a card shows the full picture.
+  const situation = useMemo(() => (payload ? buildSituationData(payload) : null), [payload])
+  const detailGroups = useMemo(() => (payload ? viewerGroupsToIncidentGroups(payload) : []), [payload])
+  const selectedOperation = useMemo(
+    () => situation?.operations.find((op) => op.id === selectedIncidentId) ?? null,
+    [situation, selectedIncidentId],
+  )
 
   const isStale = lastRefresh !== null && currentTime.getTime() - lastRefresh.getTime() > 30_000
 
@@ -290,7 +305,7 @@ export function TokenBoard({ token }: { token: string }) {
       <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
         <div className="flex h-full gap-3">
           {columns.filter((c) => !c.collapsible).map((column) => (
-            <TokenColumn key={column.id} column={column} incidents={incidentsByColumn[column.id] || []} groups={groups} />
+            <TokenColumn key={column.id} column={column} incidents={incidentsByColumn[column.id] || []} groups={groups} onIncidentClick={setSelectedIncidentId} />
           ))}
           {(() => {
             const completeCol = columns.find((c) => c.collapsible)
@@ -306,12 +321,21 @@ export function TokenBoard({ token }: { token: string }) {
                   {showCompleted ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                   <span className="[writing-mode:vertical-rl] rotate-180">{t('completedColumn', { count: completeIncidents.length })}</span>
                 </button>
-                {showCompleted && <TokenColumn column={completeCol} incidents={completeIncidents} groups={groups} />}
+                {showCompleted && <TokenColumn column={completeCol} incidents={completeIncidents} groups={groups} onIncidentClick={setSelectedIncidentId} />}
               </>
             )
           })()}
         </div>
       </main>
+
+      <IncidentDetailModal
+        operation={selectedOperation}
+        open={!!selectedOperation}
+        onOpenChange={(open) => { if (!open) setSelectedIncidentId(null) }}
+        personnelOverride={situation?.personnel ?? []}
+        materialsOverride={situation?.materials ?? []}
+        groupsOverride={detailGroups}
+      />
 
       <footer className="bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 border-t border-border">
         <div className="flex items-center justify-between">
