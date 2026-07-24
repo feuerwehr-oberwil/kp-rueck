@@ -33,6 +33,17 @@ Zwei Dinge zur Demo: jeder Besuch legt eine eigene Übungslage an, und die Demo 
 00:00 zurückgesetzt. Ein Capture-Lauf hinterlässt also eine zusätzliche Lage, die beim nächsten
 Reset wieder verschwindet.
 
+## Kontakt
+
+Die Seite hat bewusst **kein Formular**: Rückmeldungen laufen über vorausgefüllte
+GitHub-Issue-Templates (`.github/ISSUE_TEMPLATE/bug_report.md` und `feature_request.md`) und
+über die Mailadresse. Anhänge zieht man ins Issue, es gibt keine Kontingente und wir betreiben
+kein Backend dafür.
+
+Wer die Templates umbenennt, muss die `?template=…`-Links in `index.html` mitziehen. Sobald ein
+eigener Endpoint für Nachrichten mit Anhängen steht, kann das Formular wieder an derselben
+Stelle einziehen (die Markup-Variante steht in der Git-Historie).
+
 ## Design
 
 Das Aussehen («Schweizer Plakat × Tageslicht») steckt komplett in `landing.css`, und **diese

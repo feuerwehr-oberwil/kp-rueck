@@ -65,6 +65,34 @@ const shots = [
       await page.waitForTimeout(1200)
     },
   },
+  {
+    name: 'auftraege',
+    path: '/',
+    settle: 1500,
+    prep: async (page) => {
+      await page.getByRole('button', { name: /^Aufträge$/ }).click()
+      await page.waitForTimeout(1500)
+    },
+  },
+  {
+    name: 'alarm',
+    path: '/',
+    settle: 1500,
+    prep: async (page) => {
+      await page.getByRole('button', { name: /^Alarm$/ }).click()
+      await page.waitForTimeout(1800)
+    },
+  },
+  {
+    name: 'drucken',
+    path: '/',
+    settle: 1500,
+    prep: async (page) => {
+      await page.getByRole('button', { name: /^Drucken$/ }).click()
+      await page.waitForTimeout(1500)
+    },
+  },
+  { name: 'display', path: '/display/board', settle: 4000, note: 'Beamer-Ansicht im KP' },
   { name: 'training', path: '/training', settle: 2500 },
 ]
 

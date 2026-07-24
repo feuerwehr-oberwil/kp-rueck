@@ -17,6 +17,15 @@
   <symbol id="i-arrow" viewBox="0 0 16 16">
     <path d="M8.8 2.3a.9.9 0 0 0-1.3 1.25L10.4 6.6H2.2a.9.9 0 0 0 0 1.8h8.2l-2.9 3.05a.9.9 0 0 0 1.3 1.25l4.3-4.5a.9.9 0 0 0 0-1.2z"/>
   </symbol>
+  <symbol id="i-bug" viewBox="0 0 16 16">
+    <path d="M8 1.2A6.8 6.8 0 1 0 8 14.8 6.8 6.8 0 0 0 8 1.2zm0 3.1a.95.95 0 0 1 .95 1l-.22 3.4a.73.73 0 0 1-1.46 0l-.22-3.4a.95.95 0 0 1 .95-1zm0 6.2a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1z"/>
+  </symbol>
+  <symbol id="i-idea" viewBox="0 0 16 16">
+    <path d="M8 1.2a4.8 4.8 0 0 0-2.95 8.58c.4.32.63.75.7 1.22l.08.5h4.34l.08-.5c.07-.47.3-.9.7-1.22A4.8 4.8 0 0 0 8 1.2zM6.25 12.9a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5z"/>
+  </symbol>
+  <symbol id="i-mail" viewBox="0 0 16 16">
+    <path d="M2 4.6c0-.77.63-1.4 1.4-1.4h9.2c.77 0 1.4.63 1.4 1.4v.2L8 8.4 2 4.8zm0 1.95 5.6 3.36c.25.15.55.15.8 0L14 6.55v4.85c0 .77-.63 1.4-1.4 1.4H3.4A1.4 1.4 0 0 1 2 11.4z"/>
+  </symbol>
 </svg>
 
 <header class="top">
@@ -36,7 +45,7 @@
       </svg>
       <span>KP Rück</span></a>
     <nav aria-label="Hauptnavigation">
-      <a href="#einsatz">Funktionen</a>
+      <a href="#funktionen">Funktionen</a>
       <a href="#kontakt">Kontakt</a>
       <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener" aria-label="KP Rück auf GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
       <a class="cta" href="https://kp-rueck-demo.up.railway.app" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
@@ -73,6 +82,44 @@
         Thermodrucker, ein Lageblatt nach dem kantonalen Führungsformular auf Knopfdruck, und eine
         Ausfall-Anleitung, die vorher geschrieben wurde – nicht im Ereignis.</strong></p>
     </div>
+  </section>
+
+  <section class="wrap" id="ausfall">
+    <div class="sec-head">
+      <p class="eyebrow">Redundanz</p>
+      <h2>Drei Stufen, bevor der KP blind ist.</h2>
+      <p>KP Rück läuft üblicherweise in der Cloud – bequem, aber abhängig vom Uplink des
+        Magazins. Darum ist der Rückweg gestuft gebaut: jede Stufe funktioniert ohne die
+        darüber.</p>
+    </div>
+    <div class="pillars-grid three">
+      <div class="pillar">
+        <p class="tag">Stufe 1</p>
+        <h3>Mehrere Geräte am selben Stand.</h3>
+        <p>Tablet, Beamer-Anzeige und Handy hängen live am gleichen Board. Fällt ein Gerät aus
+          oder friert ein, macht das nächste weiter – es gibt nichts zu retten und nichts
+          nachzutragen.</p>
+      </div>
+      <div class="pillar">
+        <p class="tag">Stufe 2</p>
+        <h3>Eine zweite Instanz im Magazin.</h3>
+        <p>KP Rück lässt sich zusätzlich lokal betreiben. Der eingebaute Abgleich hält
+          <strong>Ereignisse, Einsätze, Personal, Fahrzeuge, Material und Einstellungen</strong>
+          zwischen Cloud und lokaler Datenbank auf Stand – mit Status und Verlauf jedes Laufs in
+          den Einstellungen. Die Karte kann aus dem eigenen Kachelserver kommen, der Drucker
+          hängt ohnehin im LAN.</p>
+      </div>
+      <div class="pillar">
+        <p class="tag">Stufe 3</p>
+        <h3>Papier führt.</h3>
+        <p>Der Boardstand geht alle 15 Minuten auf den Thermodrucker, das Lageblatt auf
+          Knopfdruck. Fällt alles aus, wird das letzte Blatt zum Board; beim Wiederanlauf
+          überträgt <strong>eine</strong> Person die Papierzeilen zurück.</p>
+      </div>
+    </div>
+    <p class="contact-note">Ehrlich dazu: Stufe 2 hält die Daten bereit, sie schaltet nicht von
+      selber um – wer sie als Ausfallsicherung nutzt, übt den Wechsel vorher. Die Ausfall-SOP
+      dazu liegt im Repo, nicht nur im Kopf.</p>
   </section>
 
   <section class="wrap" id="einsatz">
@@ -147,29 +194,116 @@
     <div class="sec-head">
       <p class="eyebrow">Aus der Demo</p>
       <h2>So sieht das aus.</h2>
+      <p>Alle Bilder sind aus der öffentlichen Demo aufgenommen – keine Montagen. Klick auf
+        «Demo öffnen», und du stehst an demselben Board.</p>
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="shots/karte.jpg" alt="Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen" width="1500" height="937">
+        <img src="shots/display.jpg" alt="Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Beamer-Ansicht</div>
+          <div class="cap-s">Für die Wand im KP: alle Phasen nebeneinander, ohne Bedienelemente</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/karte.jpg" alt="Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Karte</div>
           <div class="cap-s">Einsätze, Fahrzeuge und Zuweisungen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/disposition.jpg" alt="Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status" width="1500" height="937">
+        <img src="shots/disposition.jpg" alt="Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Fahrzeuge</div>
-          <div class="cap-s">Funkrufname, Fahrer, Ziel und Status</div>
+          <div class="cap-s">Funkrufname, Fahrer, Ziel und Status auf einen Blick</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/training.jpg" alt="Übungs-Steuerung: generierte Einsätze, Alarmwege und Automatik" width="1500" height="937">
+        <img src="shots/alarm.jpg" alt="Alarm-Link: QR-Code und Link für Meldungen von aussen" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Meldungen von aussen</div>
+          <div class="cap-s">Link oder QR-Code – Telefonmeldung und Laufkundschaft ohne Konto</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/auftraege.jpg" alt="Aufträge: mehrere Einsätze zu einer Route gebündelt" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Aufträge</div>
+          <div class="cap-s">Mehrere Einsätze als eine Route an einen Trupp</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/drucken.jpg" alt="Status drucken: Auswahl der Listen für den Ausdruck" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Drucken</div>
+          <div class="cap-s">Boardstand aufs Papier – automatisch oder auf Knopfdruck</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/training.jpg" alt="Übungs-Steuerung: generierte Einsätze, Alarmwege und Automatik" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Übung</div>
           <div class="cap-s">Lagen einspeisen statt Lagen erfinden</div>
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="funktionen">
+    <div class="sec-head">
+      <p class="eyebrow">Funktionsumfang</p>
+      <h2>Was alles drin ist.</h2>
+      <p>Gewachsen an echten Ereignissen und Übungen, nicht an einer Featureliste. Alles, was von
+        aussen dazukommt – Alarmierung, GPS, Drucker – ist <strong>optional</strong>: KP Rück
+        läuft vollständig ohne.</p>
+    </div>
+    <div class="feature-cols">
+      <div class="fgroup">
+        <h3>Board &amp; Disposition</h3>
+        <ul class="flist">
+          <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Zug von links nach rechts</li>
+          <li>Personal, Fahrzeuge und Material zuteilen, mit Warnung bei Doppelbelegung</li>
+          <li>Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar</li>
+          <li>Aufträge: mehrere Einsätze als geordnete Route an einen Trupp</li>
+          <li>QR-Check-in für alle, die im Magazin eintreffen</li>
+          <li>Beamer-Ansicht für die Wand im KP</li>
+          <li>Befehlspalette und Tastaturkürzel für die schnelle Hand</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Alarm &amp; Meldungen</h3>
+        <ul class="flist">
+          <li><strong>Offener Webhook</strong> – jedes Dispositionssystem kann Einsätze eröffnen</li>
+          <li>Adapter für Divera 24/7 <span class="opt">optional</span></li>
+          <li>Meldeformular per Link oder QR für Telefon und Laufkundschaft</li>
+          <li>Eingang im Pool, Übernahme mit einem Klick</li>
+          <li>Ausalarmierung der Mannschaft aus dem Board heraus <span class="opt">optional</span></li>
+          <li>Reko-Meldungen mit Fotos, direkt vom Handy des Trupps</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Karte &amp; Fahrzeuge</h3>
+        <ul class="flist">
+          <li>Alle Einsätze nach Priorität und Status auf einer Karte</li>
+          <li>Fahrzeugpositionen per GPS <span class="opt">optional</span></li>
+          <li>Statusvorschlag, sobald ein Fahrzeug am Einsatzort eintrifft</li>
+          <li>Zuweisungen als Linie: welches Fahrzeug gehört zu welchem Einsatz</li>
+          <li>Kartenkacheln auch aus dem eigenen Server im Magazin</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Nachher &amp; Betrieb</h3>
+        <ul class="flist">
+          <li><strong>Einsatzbericht als PDF</strong> mit Einsatztagebuch und Reaktionszeiten</li>
+          <li>Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird</li>
+          <li>Import und Export als Excel</li>
+          <li>Übungsmodus mit Generator und simulierten Fahrten, sauber vom Ernstfall getrennt</li>
+          <li>Thermodruck im Magazin über einen eigenen Druck-Agenten <span class="opt">optional</span></li>
+          <li>Rollen: bearbeiten oder nur mitlesen, dunkle Oberfläche fürs abgedunkelte KP</li>
+          <li>Eine Instanz pro Feuerwehr, mit eigener Mannschaft und eigenem Fuhrpark</li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -216,35 +350,37 @@
         <p class="eyebrow">Kontakt</p>
         <h2>Sag uns, was du denkst.</h2>
         <p>Willst du KP Rück bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,
-          wie du es erwartest? Schreib uns – wir lesen alles.</p>
-        <p class="alt">Lieber direkt? <a href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch">bastian.eichenberger@feuerwehr-oberwil.ch</a>
-          oder eine <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub-Diskussion</a> starten.</p>
+          wie du es erwartest? Melde dich – wir lesen alles.</p>
+        <p class="alt">Für Fragen und offene Ideen gibt es die
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub-Diskussionen</a>.
+          Sicherheitslücken bitte nicht öffentlich melden – siehe <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">SECURITY.md</a>.</p>
       </div>
-      <form class="card" id="feedback-form">
-        <div class="field">
-          <label for="f-name">Name</label>
-          <input id="f-name" name="name" type="text" autocomplete="name" required>
-        </div>
-        <div class="field">
-          <label for="f-org">Feuerwehr / Organisation</label>
-          <input id="f-org" name="org" type="text" autocomplete="organization" placeholder="Optional">
-        </div>
-        <div class="field full">
-          <label for="f-mail">E-Mail</label>
-          <input id="f-mail" name="email" type="email" autocomplete="email" required>
-        </div>
-        <div class="field full">
-          <label for="f-msg">Nachricht</label>
-          <textarea id="f-msg" name="message" required placeholder="Was du loswerden willst …"></textarea>
-        </div>
-        <div class="form-foot">
-          <button class="btn btn-primary" type="submit">Nachricht senden</button>
-          <span class="form-note">Prototyp – das Formular sendet noch nicht.</span>
-        </div>
-        <div class="form-ok" role="status">
-          <strong>Gesendet.</strong>&nbsp;Danke für deine Nachricht – wir melden uns.
-        </div>
-      </form>
+      <div class="contact-ways">
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Fehler melden</span>
+            <span class="way-s">Was ist passiert, was hättest du erwartet? Screenshots ziehst du direkt ins Formular.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Etwas wünschen</span>
+            <span class="way-s">Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreib den Fall, nicht die Lösung.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <a class="way" href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch?subject=KP%20R%C3%BCck">
+          <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Direkt schreiben</span>
+            <span class="way-s">Ohne GitHub-Konto, oder wenn etwas nicht öffentlich stehen soll – auch für «wir würden das gerne bei uns ausprobieren».</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+      </div>
     </div>
   </section>
 </main>
@@ -264,17 +400,11 @@
 </footer>
 
 <script>
-  document.getElementById('feedback-form').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (!this.reportValidity()) return;
-    this.classList.add('sent');
-  });
-
   // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .tenet .wrap, .sibling-txt, .contact-side, form.card');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
