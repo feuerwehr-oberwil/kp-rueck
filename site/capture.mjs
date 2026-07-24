@@ -9,7 +9,7 @@
  * Fährt eine echte Instanz mit Playwright an, meldet sich als Editor an, schaltet
  * auf das dunkle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
  * Toasts) aus und legt die Bilder in site/shots/ ab. Die Bildnamen sind der Vertrag
- * mit site/index.html — wer hier umbenennt, muss dort mitziehen.
+ * mit site/index.html – wer hier umbenennt, muss dort mitziehen.
  *
  * Gegen eine nicht-öffentliche Instanz: KP_RUECK_USER / KP_RUECK_PASS setzen.
  */
@@ -24,7 +24,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
 
 const DEFAULT_BASE = 'https://kp-rueck-demo.up.railway.app'
-const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 — dieselbe Kachelform wie bei KP Front
+const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform wie bei KP Front
 const QUALITY = 82
 
 const argv = process.argv.slice(2)
