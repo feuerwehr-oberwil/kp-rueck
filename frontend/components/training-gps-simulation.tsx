@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { Satellite, Play, Square, Home, Gauge } from 'lucide-react';
 import { useGpsSimSpeed, GPS_SIM_SPEED_MIN, GPS_SIM_SPEED_MAX } from '@/lib/hooks/use-gps-sim-speed';
 import { formatEta, liveDrive } from '@/lib/gps-sim';
+import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
 
 const MAGAZIN_TARGET = '__magazin__';
 
@@ -88,7 +89,7 @@ export function TrainingGpsSimulation() {
     () =>
       operations
         .filter((op) => op.coordinates && op.status !== 'complete')
-        .map((op) => ({ id: op.id, label: op.location || op.incidentType })),
+        .map((op) => ({ id: op.id, label: formatLocationForDisplay(op.location, getGlobalHomeCity()) || op.incidentType })),
     [operations],
   );
 

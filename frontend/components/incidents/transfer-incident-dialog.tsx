@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { MapPin, AlertCircle, Search, Loader2 } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
 import { useTranslations } from "next-intl"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 
 interface TransferIncidentDialogProps {
   open: boolean
@@ -107,7 +108,9 @@ export function TransferIncidentDialog({
               )}
             </div>
           ) : (
-            targetIncidents.map((incident) => (
+            targetIncidents.map((incident) => {
+              const address = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())
+              return (
               <button
                 key={incident.id}
                 onClick={() => setSelectedIncidentId(incident.id)}
@@ -122,11 +125,12 @@ export function TransferIncidentDialog({
                   <div className="flex items-start gap-2">
                     <MapPin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-sm truncate">
-                        {incident.location_address || incident.title}
+                      <h4 className="font-semibold text-sm truncate" title={address || incident.title}>
+                        {address || incident.title}
                       </h4>
-                      {incident.location_address && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {/* title is usually a copy of the raw address — only show it when it adds information */}
+                      {address && incident.title !== incident.location_address && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5" title={incident.title}>
                           {incident.title}
                         </p>
                       )}
@@ -158,7 +162,8 @@ export function TransferIncidentDialog({
                   </div>
                 </div>
               </button>
-            ))
+              )
+            })
           )}
         </div>
 

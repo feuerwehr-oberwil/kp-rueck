@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { User, Clock, FileText, ArrowLeft, CheckCircle } from 'lucide-react'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { wsClient } from '@/lib/websocket-client'
+import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
 type ViewMode = 'list' | 'assignments'
 
@@ -356,9 +357,9 @@ export default function RekoDashboardPage() {
                   <h3 className={`font-medium ${isHistorical ? 'text-muted-foreground' : ''}`}>
                     {assignment.incident_title}
                   </h3>
-                  {assignment.location_address && (
+                  {formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity()) && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {assignment.location_address}
+                      {formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())}
                     </p>
                   )}
                   {assignment.has_completed_reko && (

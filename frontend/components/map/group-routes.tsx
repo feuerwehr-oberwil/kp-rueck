@@ -21,6 +21,8 @@ import L from "leaflet"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
 import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "@/lib/types/incidents"
 
@@ -164,7 +166,7 @@ export function GroupRoutes({
               >
                 <Tooltip direction="top" offset={[0, -14]}>
                   <span className="text-xs font-medium">
-                    {seq}. {op.location}
+                    {seq}. {formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)}
                   </span>
                 </Tooltip>
               </Marker>

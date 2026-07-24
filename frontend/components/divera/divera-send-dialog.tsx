@@ -22,6 +22,8 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { formatAlarmMessage, formatAlarmTitle } from "@/lib/divera-formatter"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -173,7 +175,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
             {t("title")}
           </DialogTitle>
           <DialogDescription>
-            {t("description", { location: operation.location })}
+            {t("description", { location: formatLocationForDisplay(operation.location, getGlobalHomeCity()) || getIncidentTypeLabel(operation.incidentType) })}
           </DialogDescription>
         </DialogHeader>
 

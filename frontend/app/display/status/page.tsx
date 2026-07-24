@@ -15,7 +15,7 @@ import { type Operation, type OperationStatus } from "@/lib/contexts/operations-
 import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { apiClient, type ApiViewerData, type ApiIncident } from "@/lib/api-client"
-import { cn } from "@/lib/utils"
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
 
 /** The view-model SituationBoard renders — fed by useStatusData (auth) or a token payload. */
@@ -130,7 +130,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   const personAssignment = useMemo(() => {
     const map = new Map<string, string>()
     for (const op of operations) {
-      for (const name of op.crew) map.set(name, op.location)
+      for (const name of op.crew) map.set(name, formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType))
     }
     return map
   }, [operations])
@@ -138,7 +138,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   const materialAssignment = useMemo(() => {
     const map = new Map<string, string>()
     for (const op of operations) {
-      for (const [matId] of op.materialAssignments) map.set(matId, op.location)
+      for (const [matId] of op.materialAssignments) map.set(matId, formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType))
     }
     return map
   }, [operations])
@@ -361,7 +361,7 @@ function IncidentRow({ operation: op }: { operation: Operation }) {
             PRIORITY_DOT_CLASSES[(op.priority ?? "low") as Priority]
           )} />
           <div className="min-w-0">
-            <p className="text-sm xl:text-base font-semibold leading-tight truncate">{op.location}</p>
+            <p className="text-sm xl:text-base font-semibold leading-tight truncate" title={formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)}>{formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)}</p>
             <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
 import { apiClient, ApiError, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
-import { formatLocationForDisplay } from "@/lib/utils"
+import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
@@ -184,6 +184,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // caused the same effect churn as isLoading.
   const isInitialLoadRef = useRef(true)
   const [homeCity, setHomeCity] = useState<string>("")
+  // Mirror into the module-level store so non-React helpers
+  // (getIncidentRefLabel) can strip the home city from addresses too.
+  useEffect(() => {
+    setGlobalHomeCity(homeCity)
+  }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   // When a vehicle is assigned to an incident with no driver yet, hold it here so the
   // UI can open driver assignment. Null when there's nothing to prompt for.
@@ -1883,7 +1888,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // local optimistic delete has no backend row to restore.
       if (isLoaded) {
         toast(translateOutsideReact('notifications.operations.deletedTitle'), {
-          description: operation.location,
+          description: getIncidentRefLabel(operation),
           duration: 8000,
           action: {
             label: translateOutsideReact('notifications.operations.undoLabel'),

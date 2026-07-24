@@ -1,4 +1,5 @@
 import { translateOutsideReact } from '@/lib/i18n-messages'
+import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
 // Incident types mapping - matches database constraint
 export const incidentTypeLabels: Record<string, string> = {
@@ -57,5 +58,10 @@ export function getIncidentRefLabel(
     ? `${meldung.slice(0, maxMeldungLength).trimEnd()}…`
     : meldung
   const detail = [type, shortMeldung].filter(Boolean).join(": ")
-  return detail ? `${op.location} (${detail})` : op.location
+  // Strip the home town ("…, 4104 Oberwil") like everywhere else. When the
+  // address was ONLY the home town the formatted location is empty — then the
+  // detail alone is the label (raw location as last resort).
+  const location = formatLocationForDisplay(op.location, getGlobalHomeCity())
+  if (!location) return detail || op.location
+  return detail ? `${location} (${detail})` : location
 }

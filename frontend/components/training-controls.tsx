@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import {
   Zap,
@@ -29,6 +30,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MapPickerModal } from '@/components/location/map-picker-modal';
+
+// Toast line "Titel @ Adresse" with the home town stripped; the address part is
+// dropped entirely when it was only the home town.
+function incidentToastDescription(incident: { title: string; location_address?: string | null }): string {
+  const location = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity());
+  return location ? `${incident.title} @ ${location}` : incident.title;
+}
 
 export function TrainingControls() {
   const t = useTranslations('training');
@@ -92,7 +100,7 @@ export function TrainingControls() {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'normal', count: 1 });
       const incident = incidents[0];
       toast.success(t('controls.toastGenerated'), {
-        description: `${incident.title} @ ${incident.location_address}`,
+        description: incidentToastDescription(incident),
       });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
@@ -110,7 +118,7 @@ export function TrainingControls() {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { category: 'critical', count: 1 });
       const incident = incidents[0];
       toast.success(t('controls.toastGeneratedCritical'), {
-        description: `${incident.title} @ ${incident.location_address}`,
+        description: incidentToastDescription(incident),
       });
     } catch (error) {
       console.error('❌ Failed to generate emergency:', error);
@@ -128,7 +136,7 @@ export function TrainingControls() {
       const incidents = await apiClient.generateTrainingEmergency(selectedEvent.id, { count: 1, source: 'intake' });
       const incident = incidents[0];
       toast.success(t('controls.toastPhoneGenerated'), {
-        description: `${incident.title} @ ${incident.location_address}`,
+        description: incidentToastDescription(incident),
       });
     } catch (error) {
       console.error('❌ Failed to generate telefon alarm:', error);
@@ -174,7 +182,7 @@ export function TrainingControls() {
           : { kind: 'seeded', locationId: selectedLocationId },
       );
       toast.success(t('controls.toastDispatched'), {
-        description: `${incident.title} @ ${incident.location_address}`,
+        description: incidentToastDescription(incident),
       });
     } catch {
       toast.error(t('common.error'), {
