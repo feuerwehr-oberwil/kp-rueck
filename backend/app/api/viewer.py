@@ -8,16 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
+from ..crud import assignments as assignments_crud
 from ..crud import events as events_crud
 from ..crud import groups as groups_crud
 from ..crud import incidents as incidents_crud
 from ..crud import materials as materials_crud
 from ..crud import personnel as personnel_crud
+from ..crud import special_functions as special_functions_crud
 from ..crud import vehicles as vehicles_crud
 from ..database import get_db
 from ..services.gps_simulation import gps_simulation
 from ..services.tokens import generate_viewer_token, validate_viewer_token
 from ..traccar import traccar_client
+from .special_functions import _enrich_assignments
 
 logger = logging.getLogger(__name__)
 
@@ -104,13 +107,18 @@ async def get_viewer_data(
     incidents = await incidents_crud.get_incidents(db, event_id=event_id)
     groups = await groups_crud.list_groups_by_event(db, event_id)
 
-    # Global resources (personnel/materials/vehicles are not event-scoped) so
-    # the shared Status + Map displays have the full roster, availability and
-    # live GPS — matching the logged-in display.
-    personnel = await personnel_crud.get_all_personnel(db)
+    # Checked-in roster for this event (same scoping as the logged-in display),
+    # plus materials/vehicles and live GPS. Assignments + special functions let
+    # the client derive event-scoped availability (assigned vs. available) —
+    # the raw Personnel.availability field never reflects incident assignments.
+    personnel = await personnel_crud.get_all_personnel(db, checked_in_only=True, event_id=event_id)
     materials = await materials_crud.get_all_materials(db)
     vehicles = await vehicles_crud.get_all_vehicles(db)
     vehicle_positions = await _viewer_vehicle_positions()
+    assignments = await assignments_crud.get_assignments_by_event(db, event_id)
+    special_functions = await _enrich_assignments(
+        db, await special_functions_crud.get_event_special_functions(db, event_id)
+    )
 
     return {
         "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
@@ -120,4 +128,9 @@ async def get_viewer_data(
         "materials": [schemas.Material.model_validate(m).model_dump(mode="json") for m in materials],
         "vehicles": [schemas.Vehicle.model_validate(v).model_dump(mode="json") for v in vehicles],
         "vehicle_positions": vehicle_positions,
+        "assignments": {
+            str(incident_id): [a.model_dump(mode="json") for a in assignment_list]
+            for incident_id, assignment_list in assignments.items()
+        },
+        "special_functions": [sf.model_dump(mode="json") for sf in special_functions],
     }

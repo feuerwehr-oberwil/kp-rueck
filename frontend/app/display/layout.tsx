@@ -126,17 +126,14 @@ export default function DisplayLayout({
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
-      <main className="flex-1 overflow-hidden">
-        {children}
-      </main>
-
-      {/* Control bar — lives at the bottom (footer), auto-hides on sub-pages.
+      {/* Control bar — top navbar on desktop, bottom bar on mobile (order-last
+          keeps it thumb-reachable there). Auto-hides on sub-pages (desktop only;
+          on mobile it stays pinned — it's the only nav there).
           Token/viewer mode omits the back link so there's no path to the editor. */}
-      <footer
+      <header
         className={cn(
-          "flex items-center justify-between gap-3 border-t border-border bg-card/50 backdrop-blur-sm px-3 py-2 sm:py-1.5 min-h-10 shrink-0 transition-all duration-300",
-          // Auto-hide only from sm up; on mobile the bar stays pinned (it's the only nav there).
-          isSubPage && !barVisible && "sm:translate-y-full sm:opacity-0 sm:pointer-events-none sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-50"
+          "order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-card/50 backdrop-blur-sm px-3 py-2 sm:py-1.5 min-h-10 shrink-0 transition-all duration-300",
+          isSubPage && !barVisible && "sm:-translate-y-full sm:opacity-0 sm:pointer-events-none sm:absolute sm:inset-x-0 sm:top-0 sm:z-50"
         )}
       >
         <div className="flex flex-1 items-center gap-2 min-w-0">
@@ -215,7 +212,11 @@ export default function DisplayLayout({
             </span>
           </div>
         </div>
-      </footer>
+      </header>
+
+      <main className="flex-1 overflow-hidden">
+        {children}
+      </main>
     </div>
   )
 }

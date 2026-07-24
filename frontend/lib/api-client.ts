@@ -88,6 +88,10 @@ export interface ApiViewerData {
   vehicle_positions: ApiVehiclePosition[]
   /** Present when the public viewer endpoint exposes Auftrag data. */
   groups?: ApiIncidentGroup[]
+  /** incident_id → assignments; lets the displays derive event-scoped
+   *  availability (assigned vs. available) like the logged-in board. */
+  assignments?: Record<string, ApiAssignment[]>
+  special_functions?: ApiEventSpecialFunctionResponse[]
 }
 
 class ApiClient {

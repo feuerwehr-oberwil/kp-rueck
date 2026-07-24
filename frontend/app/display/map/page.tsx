@@ -4,18 +4,20 @@ import { useState, useEffect, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
-import { useIncidents, useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { apiClient, type ApiIncident, type ApiViewerData } from "@/lib/api-client"
 import type { Incident } from "@/lib/types/incidents"
-import type { AssignedVehicle } from "@/lib/types/incidents"
+import type { AssignedVehicle, StatusGroup, IncidentStatus } from "@/lib/types/incidents"
+import { STATUS_TO_GROUP } from "@/lib/types/incidents"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
-import { Loader2, Palette, Check } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Loader2, Check, Layers, ChevronDown } from "lucide-react"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
-import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
+import { buildSituationData, viewerGroupsToIncidentGroups } from "@/lib/viewer-data"
+import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -25,6 +27,27 @@ const MapView = dynamic(() => import("@/components/map-view"), {
     </div>
   ),
 })
+
+/** All map display options in one bag so both auth and token variants share them. */
+interface MapViewOptions {
+  statusFilters: Record<StatusGroup, boolean>
+  showLabels: boolean
+  showAssignmentLines: boolean
+  showDistances: boolean
+  showGroupRoutes: boolean
+  colorBy: ColorByDimension
+}
+
+const DEFAULT_VIEW_OPTIONS: MapViewOptions = {
+  statusFilters: { open: true, active: true, completed: false },
+  showLabels: true,
+  showAssignmentLines: true,
+  // Routes stay on by default here — the display is a passive monitor, so
+  // Auftrag context should be visible without anyone touching the screen.
+  showGroupRoutes: true,
+  showDistances: false,
+  colorBy: 'priority',
+}
 
 /**
  * /display/map — Full-bleed map display for command post monitors.
@@ -40,7 +63,40 @@ export default function DisplayMapPage() {
   const { isAuthenticated } = useAuth()
 
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
+  const [detailIncidentId, setDetailIncidentId] = useState<string | null>(null)
   const [panTrigger, setPanTrigger] = useState(0)
+
+  // View options — mirrors the filters on the normal map view. "Färben nach"
+  // shares the persisted setting with the board/map; the storage listener keeps
+  // the display in sync when the mode is switched from another window.
+  const [options, setOptions] = useState<MapViewOptions>(DEFAULT_VIEW_OPTIONS)
+  useEffect(() => {
+    const read = (value: string | null) => {
+      if (value === 'reko' || value === 'vehicle' || value === 'type' || value === 'priority' || value === 'auftrag') {
+        setOptions((prev) => ({ ...prev, colorBy: value }))
+      }
+    }
+    read(localStorage.getItem(COLOR_BY_STORAGE_KEY))
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === COLOR_BY_STORAGE_KEY) read(e.newValue)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  const setColorBy = (value: ColorByDimension) => {
+    setOptions((prev) => ({ ...prev, colorBy: value }))
+    if (typeof window !== 'undefined') localStorage.setItem(COLOR_BY_STORAGE_KEY, value)
+  }
+  const toggleOption = (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes') => {
+    setOptions((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+  const toggleStatusFilter = (group: StatusGroup) => {
+    setOptions((prev) => ({
+      ...prev,
+      statusFilters: { ...prev.statusFilters, [group]: !prev.statusFilters[group] },
+    }))
+  }
 
   // Cross-window sync
   const { broadcast } = useCrossWindowSync({
@@ -52,6 +108,8 @@ export default function DisplayMapPage() {
     },
   })
 
+  // A marker tap selects (and broadcasts, so a board next to this monitor
+  // highlights the card) AND opens the read-only incident detail dialog.
   const handleMarkerClick = (incidentId: string) => {
     if (incidentId === selectedIncidentId) {
       setPanTrigger((p) => p + 1)
@@ -59,29 +117,29 @@ export default function DisplayMapPage() {
       setSelectedIncidentId(incidentId)
       broadcast("incident:selected", incidentId)
     }
+    setDetailIncidentId(incidentId)
+  }
+
+  const sharedProps = {
+    selectedIncidentId,
+    onMarkerClick: handleMarkerClick,
+    panTrigger,
+    options,
+    onToggleStatusFilter: toggleStatusFilter,
+    onToggleOption: toggleOption,
+    onSetColorBy: setColorBy,
+    detailIncidentId,
+    onCloseDetail: () => setDetailIncidentId(null),
   }
 
   // If authenticated (editor mode), use contexts directly
   if (isAuthenticated && !token) {
-    return (
-      <AuthenticatedDisplayMap
-        selectedIncidentId={selectedIncidentId}
-        onMarkerClick={handleMarkerClick}
-        panTrigger={panTrigger}
-      />
-    )
+    return <AuthenticatedDisplayMap {...sharedProps} />
   }
 
   // Token mode — poll viewer data
   if (token) {
-    return (
-      <TokenDisplayMap
-        token={token}
-        selectedIncidentId={selectedIncidentId}
-        onMarkerClick={handleMarkerClick}
-        panTrigger={panTrigger}
-      />
-    )
+    return <TokenDisplayMap token={token} {...sharedProps} />
   }
 
   // No auth, no token
@@ -92,17 +150,190 @@ export default function DisplayMapPage() {
   )
 }
 
+interface DisplayMapVariantProps {
+  selectedIncidentId: string | null
+  onMarkerClick: (id: string) => void
+  panTrigger: number
+  options: MapViewOptions
+  onToggleStatusFilter: (group: StatusGroup) => void
+  onToggleOption: (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes') => void
+  onSetColorBy: (value: ColorByDimension) => void
+  detailIncidentId: string | null
+  onCloseDetail: () => void
+}
+
+/** Compact overlay with the same view filters as the normal map: status pills
+ *  plus an "Ansicht" popover (labels, lines, distances, routes, Färben nach). */
+function DisplayMapControls({
+  options,
+  statusCounts,
+  onToggleStatusFilter,
+  onToggleOption,
+  onSetColorBy,
+  colorLegend,
+}: {
+  options: MapViewOptions
+  statusCounts: Record<StatusGroup, number>
+  onToggleStatusFilter: (group: StatusGroup) => void
+  onToggleOption: (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes') => void
+  onSetColorBy: (value: ColorByDimension) => void
+  colorLegend: ColorGroup[]
+}) {
+  const t = useTranslations('map')
+  const optionsChanged =
+    !options.showLabels || !options.showAssignmentLines || options.showDistances
+    || !options.showGroupRoutes || options.colorBy !== 'priority'
+
+  return (
+    <div className="absolute top-4 right-4 z-30 flex flex-wrap items-center justify-end gap-2">
+      {/* Status filters — pills, matching the normal map view */}
+      <div className="inline-flex rounded-lg border border-border overflow-hidden shadow-md backdrop-blur-sm">
+        {(['open', 'active', 'completed'] as StatusGroup[]).map((group, index) => (
+          <button
+            key={group}
+            onClick={() => onToggleStatusFilter(group)}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${index > 0 ? 'border-l border-border' : ''} ${
+              options.statusFilters[group]
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background/80 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {t(`statusGroups.${group}`)} ({statusCounts[group]})
+          </button>
+        ))}
+      </div>
+
+      {/* Ansicht — labels/lines/distances/routes + Färben nach + legend */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg border shadow-md backdrop-blur-sm transition-colors flex items-center gap-1.5 ${
+              optionsChanged
+                ? 'border-primary/50 bg-secondary/80 text-foreground'
+                : 'bg-background/80 text-muted-foreground border-border hover:bg-muted'
+            }`}
+            title={t('page.viewMenuLabel')}
+          >
+            <Layers className="h-3 w-3" />
+            {t('page.view')}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuLabel>{t('page.viewMenuLabel')}</DropdownMenuLabel>
+          {/* e.preventDefault keeps the menu open so several options can be
+              flipped in one visit (and the legend updates live). */}
+          <DropdownMenuCheckboxItem
+            checked={options.showLabels}
+            onSelect={(e) => { e.preventDefault(); onToggleOption('showLabels') }}
+          >
+            {t('page.labels')}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={options.showAssignmentLines}
+            onSelect={(e) => { e.preventDefault(); onToggleOption('showAssignmentLines') }}
+          >
+            {t('page.lines')}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={options.showDistances}
+            onSelect={(e) => { e.preventDefault(); onToggleOption('showDistances') }}
+          >
+            {t('page.distance')}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={options.showGroupRoutes}
+            onSelect={(e) => { e.preventDefault(); onToggleOption('showGroupRoutes') }}
+          >
+            {t('page.groupRoutes')}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
+          {(['priority', 'reko', 'vehicle', 'type', 'auftrag'] as ColorByDimension[]).map((dim) => (
+            <DropdownMenuItem
+              key={dim}
+              onSelect={(e) => { e.preventDefault(); onSetColorBy(dim) }}
+              className="cursor-pointer justify-between"
+            >
+              {t(`colorBy.${dim}`)}
+              {options.colorBy === dim && <Check className="h-3.5 w-3.5" />}
+            </DropdownMenuItem>
+          ))}
+          {colorLegend.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto">
+                {colorLegend.map((g) => (
+                  <div key={g.key} className="flex items-center gap-2 text-xs">
+                    <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
+                    <span className="truncate">{g.label}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
+/** incidentId → accent colour + legend for the active "Färben nach" dimension. */
+function useColorAccents(operations: Operation[], colorBy: ColorByDimension, groups: IncidentGroup[]) {
+  const tMap = useTranslations('map')
+
+  const markerAccents = useMemo(() => {
+    // Priority uses the markers' built-in priority fill — no override.
+    if (colorBy === 'priority') return undefined
+    const m = new Map<string, string>()
+    for (const op of operations) {
+      const g = colorGroupFor(op, colorBy, groups)
+      m.set(op.id, g ? g.color : COLOR_NONE)
+    }
+    return m
+  }, [operations, colorBy, groups])
+
+  const colorLegend = useMemo<ColorGroup[]>(() => {
+    if (colorBy === 'priority') return []
+    const map = new Map<string, ColorGroup>()
+    let hasNone = false
+    for (const op of operations) {
+      const g = colorGroupFor(op, colorBy, groups)
+      if (g) { if (!map.has(g.key)) map.set(g.key, g) }
+      else hasNone = true
+    }
+    const arr = [...map.values()]
+    if (hasNone) {
+      const noneLabel = colorBy === 'auftrag' ? tMap('common.noAuftrag') : tMap('common.noAssignment')
+      arr.push({ key: '__none__', label: noneLabel, color: COLOR_NONE })
+    }
+    return arr
+  }, [operations, colorBy, groups, tMap])
+
+  return { markerAccents, colorLegend }
+}
+
+function countByStatusGroup(statuses: string[]): Record<StatusGroup, number> {
+  const counts: Record<StatusGroup, number> = { open: 0, active: 0, completed: 0 }
+  for (const status of statuses) {
+    const group = STATUS_TO_GROUP[status as IncidentStatus]
+    if (group) counts[group]++
+  }
+  return counts
+}
+
 function AuthenticatedDisplayMap({
   selectedIncidentId,
   onMarkerClick,
   panTrigger,
-}: {
-  selectedIncidentId: string | null
-  onMarkerClick: (id: string) => void
-  panTrigger: number
-}) {
-  const tMap = useTranslations('map')
-  const { refreshIncidents } = useIncidents()
+  options,
+  onToggleStatusFilter,
+  onToggleOption,
+  onSetColorBy,
+  detailIncidentId,
+  onCloseDetail,
+}: DisplayMapVariantProps) {
+  const { incidents, refreshIncidents } = useIncidents()
   const { operations } = useOperations()
   const { groups } = useGroups()
 
@@ -111,57 +342,20 @@ function AuthenticatedDisplayMap({
   }, [])
 
   // id → Operation lookup for the read-only Auftrag route overlay (stops are
-  // real incidents). Routes are drawn always-on here — this is a wall monitor,
-  // so there is no toggle chrome; matches how /map renders GroupRoutes.
+  // real incidents). Matches how /map renders GroupRoutes.
   const operationsById = useMemo(
     () => new Map(operations.map((op) => [op.id, op] as const)),
     [operations],
   )
 
-  // "Färben nach" — same persisted setting as the board/map. The storage
-  // listener keeps the display in sync when the mode is switched from
-  // another window (e.g. the main map next to this monitor).
-  const [colorBy, setColorBy] = useState<ColorByDimension>('priority')
-  useEffect(() => {
-    const read = (value: string | null) => {
-      if (value === 'reko' || value === 'vehicle' || value === 'type' || value === 'priority') setColorBy(value)
-    }
-    read(localStorage.getItem(COLOR_BY_STORAGE_KEY))
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === COLOR_BY_STORAGE_KEY) read(e.newValue)
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
-  const setColorByPersisted = (value: ColorByDimension) => {
-    setColorBy(value)
-    if (typeof window !== 'undefined') localStorage.setItem(COLOR_BY_STORAGE_KEY, value)
-  }
-
-  const markerAccents = useMemo(() => {
-    // Priority uses the markers' built-in priority fill — no override.
-    if (colorBy === 'priority') return undefined
-    const m = new Map<string, string>()
-    for (const op of operations) {
-      const g = colorGroupFor(op, colorBy)
-      m.set(op.id, g ? g.color : COLOR_NONE)
-    }
-    return m
-  }, [operations, colorBy])
-
-  const colorLegend = useMemo<ColorGroup[]>(() => {
-    if (colorBy === 'priority') return []
-    const map = new Map<string, ColorGroup>()
-    let hasNone = false
-    for (const op of operations) {
-      const g = colorGroupFor(op, colorBy)
-      if (g) { if (!map.has(g.key)) map.set(g.key, g) }
-      else hasNone = true
-    }
-    const arr = [...map.values()]
-    if (hasNone) arr.push({ key: '__none__', label: tMap('common.noAssignment'), color: COLOR_NONE })
-    return arr
-  }, [operations, colorBy, tMap])
+  const { markerAccents, colorLegend } = useColorAccents(operations, options.colorBy, groups)
+  const statusCounts = useMemo(
+    () => countByStatusGroup(incidents.map((inc) => inc.status)),
+    [incidents],
+  )
+  const detailOperation = detailIncidentId
+    ? operations.find((op) => op.id === detailIncidentId) ?? null
+    : null
 
   return (
     <div className="relative w-full h-full">
@@ -169,61 +363,33 @@ function AuthenticatedDisplayMap({
         selectedIncidentId={selectedIncidentId}
         onMarkerClick={onMarkerClick}
         panTrigger={panTrigger}
-        showAssignmentLines={true}
-        statusFilters={{ open: true, active: true, completed: false }}
+        statusFilters={options.statusFilters}
+        showAssignmentLines={options.showAssignmentLines}
+        showDistances={options.showDistances}
+        showLabels={options.showLabels}
         markerAccents={markerAccents}
-        colorBy={colorBy}
+        colorBy={options.colorBy}
         colorGroups={colorLegend}
-        showGroupRoutes={true}
+        showGroupRoutes={options.showGroupRoutes}
         groups={groups}
         operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
       />
 
-      {/* Färben nach — compact overlay control for the display monitor */}
-      <div className="absolute top-4 right-4 z-30">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={`px-3 py-1.5 text-xs font-medium rounded-full border shadow-md backdrop-blur-sm transition-colors flex items-center gap-1 ${
-                colorBy !== 'priority'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background/80 text-muted-foreground border-border hover:bg-muted'
-              }`}
-              title={tMap('common.colorByTitle')}
-            >
-              <Palette className="h-3 w-3" />
-              {tMap('common.colorByButton', { label: tMap(`colorBy.${colorBy}`) })}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>{tMap('common.colorByMenuLabel')}</DropdownMenuLabel>
-            {(['priority', 'reko', 'vehicle', 'type'] as ColorByDimension[]).map((dim) => (
-              <DropdownMenuItem
-                key={dim}
-                onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
-                className="cursor-pointer justify-between"
-              >
-                {tMap(`colorBy.${dim}`)}
-                {colorBy === dim && <Check className="h-3.5 w-3.5" />}
-              </DropdownMenuItem>
-            ))}
-            {colorLegend.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto">
-                  {colorLegend.map((g) => (
-                    <div key={g.key} className="flex items-center gap-2 text-xs">
-                      <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
-                      <span className="truncate">{g.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <DisplayMapControls
+        options={options}
+        statusCounts={statusCounts}
+        onToggleStatusFilter={onToggleStatusFilter}
+        onToggleOption={onToggleOption}
+        onSetColorBy={onSetColorBy}
+        colorLegend={colorLegend}
+      />
+
+      <IncidentDetailModal
+        operation={detailOperation}
+        open={!!detailOperation}
+        onOpenChange={(open) => { if (!open) onCloseDetail() }}
+      />
     </div>
   )
 }
@@ -256,22 +422,18 @@ function apiIncidentToIncident(a: ApiIncident): Incident {
   }
 }
 
-const TOKEN_STATUS: Record<string, OperationStatus> = {
-  eingegangen: "incoming", reko: "ready", reko_done: "rekoDone", disponiert: "enroute",
-  einsatz: "active", einsatz_beendet: "returning", abschluss: "complete",
-}
-
 function TokenDisplayMap({
   token,
   selectedIncidentId,
   onMarkerClick,
   panTrigger,
-}: {
-  token: string
-  selectedIncidentId: string | null
-  onMarkerClick: (id: string) => void
-  panTrigger: number
-}) {
+  options,
+  onToggleStatusFilter,
+  onToggleOption,
+  onSetColorBy,
+  detailIncidentId,
+  onCloseDetail,
+}: DisplayMapVariantProps & { token: string }) {
   const [data, setData] = useState<ApiViewerData | null>(null)
 
   useEffect(() => {
@@ -296,29 +458,27 @@ function TokenDisplayMap({
     () => (data?.incidents ?? []).map(apiIncidentToIncident),
     [data]
   )
-  const routeOperations = useMemo(
-    () => new Map((data?.incidents ?? []).map((incident) => [incident.id, {
-      id: incident.id,
-      location: incident.location_address ?? incident.title,
-      coordinates: apiCoordinatesToTuple(incident.location_lat, incident.location_lng),
-      status: TOKEN_STATUS[incident.status] ?? "incoming",
-    } as Operation])),
+  // Full operation view-model (crew/materials/reko from the payload's
+  // assignments) — feeds the route overlay, "Färben nach" and the detail dialog.
+  const situation = useMemo(() => (data ? buildSituationData(data) : null), [data])
+  const operations = useMemo(() => situation?.operations ?? [], [situation])
+  const operationsById = useMemo(
+    () => new Map(operations.map((op) => [op.id, op] as const)),
+    [operations],
+  )
+  const groups = useMemo<IncidentGroup[]>(
+    () => (data ? viewerGroupsToIncidentGroups(data) : []),
     [data],
   )
-  const groups = useMemo<IncidentGroup[]>(() => (data?.groups ?? []).map((group) => ({
-    id: String(group.id),
-    eventId: String(group.event_id),
-    name: group.name,
-    color: group.color ?? null,
-    notes: group.notes ?? null,
-    position: group.position,
-    createdAt: new Date(group.created_at),
-    updatedAt: new Date(group.updated_at),
-    createdBy: group.created_by ? String(group.created_by) : null,
-    stopIds: group.stop_ids.map(String),
-    assignments: [],
-    progress: group.progress ?? { total: group.stop_ids.length, done: 0 },
-  })), [data])
+
+  const { markerAccents, colorLegend } = useColorAccents(operations, options.colorBy, groups)
+  const statusCounts = useMemo(
+    () => countByStatusGroup((data?.incidents ?? []).map((inc) => inc.status)),
+    [data],
+  )
+  const detailOperation = detailIncidentId
+    ? operations.find((op) => op.id === detailIncidentId) ?? null
+    : null
 
   if (!data) {
     return (
@@ -334,15 +494,38 @@ function TokenDisplayMap({
         selectedIncidentId={selectedIncidentId}
         onMarkerClick={onMarkerClick}
         panTrigger={panTrigger}
-        showAssignmentLines={true}
-        statusFilters={{ open: true, active: true, completed: false }}
+        statusFilters={options.statusFilters}
+        showAssignmentLines={options.showAssignmentLines}
+        showDistances={options.showDistances}
+        showLabels={options.showLabels}
+        markerAccents={markerAccents}
+        colorBy={options.colorBy}
+        colorGroups={colorLegend}
         incidentsOverride={incidents}
         vehiclesOverride={data.vehicles}
         positionsOverride={data.vehicle_positions}
-        showGroupRoutes={groups.length > 0}
+        showGroupRoutes={options.showGroupRoutes && groups.length > 0}
         groups={groups}
-        operationsById={routeOperations}
+        operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
+      />
+
+      <DisplayMapControls
+        options={options}
+        statusCounts={statusCounts}
+        onToggleStatusFilter={onToggleStatusFilter}
+        onToggleOption={onToggleOption}
+        onSetColorBy={onSetColorBy}
+        colorLegend={colorLegend}
+      />
+
+      <IncidentDetailModal
+        operation={detailOperation}
+        open={!!detailOperation}
+        onOpenChange={(open) => { if (!open) onCloseDetail() }}
+        personnelOverride={situation?.personnel ?? []}
+        materialsOverride={situation?.materials ?? []}
+        groupsOverride={groups}
       />
     </div>
   )
