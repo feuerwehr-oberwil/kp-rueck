@@ -12,7 +12,7 @@ import { STATUS_LABELS } from "@/lib/types/incidents"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
-import { cn } from "@/lib/utils"
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -328,6 +328,13 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 const isClickable = !!vehicle.incident_id
                 const auftragName = auftragByVehicleId.get(vehicle.id)
                 const showDurationWarning = vehicle.assignment_duration_minutes && vehicle.assignment_duration_minutes >= 120
+                // Where the vehicle is: Auftrag name, else home-town-free incident
+                // address (title is usually the raw address, so format it too).
+                const deploymentLabel = auftragName
+                  ? t('vehicleStatus.auftragLabel', { name: auftragName })
+                  : (formatLocationForDisplay(vehicle.incident_location_address || '', getGlobalHomeCity())
+                    || formatLocationForDisplay(vehicle.incident_title || '', getGlobalHomeCity())
+                    || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')))
 
                 return (
                   <div
@@ -398,10 +405,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             ) : (
                               <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                             )}
-                            <span className={cn("truncate", auftragName && "font-medium")}>
-                              {auftragName
-                                ? t('vehicleStatus.auftragLabel', { name: auftragName })
-                                : (vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')))}
+                            <span className={cn("truncate", auftragName && "font-medium")} title={deploymentLabel}>
+                              {deploymentLabel}
                             </span>
                           </div>
                           {vehicle.assignment_duration_minutes !== null && (
@@ -457,10 +462,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           ) : (
                             <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                           )}
-                          <span className={cn("text-sm truncate", auftragName && "font-medium")}>
-                            {auftragName
-                              ? t('vehicleStatus.auftragLabel', { name: auftragName })
-                              : (vehicle.incident_location_address || vehicle.incident_title || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')))}
+                          <span className={cn("text-sm truncate", auftragName && "font-medium")} title={deploymentLabel}>
+                            {deploymentLabel}
                           </span>
                         </div>
 

@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl"
 import type { Operation, Person, Material } from "@/lib/contexts/operations-context"
 import type { ApiVehicle } from "@/lib/api-client"
 import { translateOutsideReact } from "@/lib/i18n-messages"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import dynamic from "next/dynamic"
 
 // Dynamically import Leaflet components (no SSR)
@@ -140,7 +142,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                   {/* Header row */}
                   <div className="flex justify-between items-start border-b border-gray-300 pb-1 mb-1">
                     <div className="font-bold text-sm">
-                      {idx + 1}. {op.location}
+                      {idx + 1}. {formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)}
                     </div>
                     <div className="text-right text-[10px]">
                       <span className={op.priority === "high" ? "font-bold" : ""}>

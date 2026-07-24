@@ -61,6 +61,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
@@ -127,6 +128,7 @@ export function AuftraegeSheet({
 }: AuftraegeSheetProps) {
   const t = useTranslations("kanban.auftraege")
   const isMobile = useIsMobile()
+  const footerOffset = useFooterOffset(open && !isMobile)
   const { dragGuardProps } = useDialogDragGuard(open)
   const {
     groups,
@@ -226,7 +228,7 @@ export function AuftraegeSheet({
         <SheetContent
           side="bottom"
           hideCloseButton={!isMobile}
-          overlayOffset={isMobile ? undefined : "42px"}
+          overlayOffset={isMobile ? undefined : footerOffset}
           nonModal={!isMobile}
           className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4", isMobile ? "max-h-[75vh]" : "max-h-[85vh]")}
           style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
@@ -845,7 +847,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
           </Tooltip>
         ) : (
           <div className="min-w-0 flex-1">
-            <div className="truncate">{op?.location ? formatLocation(op.location) : incidentId}</div>
+            <div className="truncate" title={op?.location ? formatLocation(op.location) : undefined}>{op?.location ? formatLocation(op.location) : incidentId}</div>
             {op && <div className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>}
           </div>
         )}

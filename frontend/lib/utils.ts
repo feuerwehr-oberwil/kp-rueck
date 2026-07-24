@@ -5,6 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Module-level mirror of the home-city setting so non-React helpers (e.g.
+// getIncidentRefLabel) can format addresses. Kept in sync by
+// operations-context whenever the setting loads/changes — same pattern as
+// translateOutsideReact in lib/i18n-messages.
+let globalHomeCity = ''
+
+export function setGlobalHomeCity(city: string): void {
+  globalHomeCity = city
+}
+
+export function getGlobalHomeCity(): string {
+  return globalHomeCity
+}
+
 /**
  * Format a full address for display based on home city.
  * If the address is in the home city, show "Street HouseNumber".

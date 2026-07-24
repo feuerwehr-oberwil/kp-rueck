@@ -586,7 +586,8 @@
       "selectedCount": "{selected} ausgewählt, {available} verfügbar",
       "vehiclesAssigned": "{count} Fahrzeug(e) zugewiesen",
       "zuFussSuffix": ", Zu Fuss",
-      "quickSelectByType": "Schnellauswahl:",
+      "quickSelectByType": "Nach Typ:",
+      "showAllPersonnel": "Alle anzeigen",
       "vehicleOnSceneHint": "{name} ist bereits diesem Einsatz zugewiesen",
       "driverBadge": "Fahrer",
       "specialFnConfirmTitle": "Doppelbelegung?",
@@ -1069,7 +1070,10 @@
       "groupRoutes": "Aufträge",
       "groupRoutesShow": "Aufträge anzeigen",
       "groupRoutesHide": "Aufträge ausblenden",
-      "routePlanning": "Routenplanung"
+      "routePlanning": "Routenplanung",
+      "view": "Ansicht",
+      "viewMenuLabel": "Kartenansicht",
+      "modes": "Modus"
     },
     "planning": {
       "title": "Routenplanung",
@@ -1173,6 +1177,16 @@
       "vehicle": "Fahrzeug",
       "type": "Einsatzart",
       "auftrag": "Auftrag"
+    },
+    "rekoMode": {
+      "title": "Reko-Modus",
+      "exit": "Fertig",
+      "hintSelect": "Reko-Person wählen, dann Einsätze auf der Karte antippen.",
+      "hintAssign": "Einsatz antippen: {name} zuweisen. Bereits zugewiesenen Einsatz antippen: Zuweisung entfernen.",
+      "openCount": "{count} offen",
+      "free": "frei",
+      "empty": "Keine Reko-Personen in diesem Event",
+      "emptyHint": "Markiere zuerst eine Person als Reko: Rechtsklick auf eine Person in der Seitenleiste des Boards."
     }
   },
   "settings": {

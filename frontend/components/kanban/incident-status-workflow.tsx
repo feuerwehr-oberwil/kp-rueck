@@ -27,6 +27,15 @@ import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
+
+// Home-town-free label for dialog texts; falls back to the incident type when
+// the address was only the home town (formatted location is then empty).
+function operationLabel(operation: Operation): string {
+  return formatLocationForDisplay(operation.location, getGlobalHomeCity())
+    || getIncidentTypeLabel(operation.incidentType)
+}
 
 type ResourceType = "crew" | "vehicles" | "materials"
 type AssignmentReturn = { kind: "missing" | "returning"; operationId: string }
@@ -350,7 +359,7 @@ export function IncidentStatusWorkflowDialogs({
                   </AlertDialogTitle>
                   <AlertDialogDescription>
                     {tMissing.rich(allFilled ? "readyIntro" : "checklistIntro", {
-                      location: missingOperation.location,
+                      location: operationLabel(missingOperation),
                       hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
                     })}
                   </AlertDialogDescription>
@@ -368,7 +377,7 @@ export function IncidentStatusWorkflowDialogs({
                       <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium">{tRes(key)}</div>
-                        {filled && summary && <div className="truncate text-xs text-muted-foreground">{summary}</div>}
+                        {filled && summary && <div className="truncate text-xs text-muted-foreground" title={summary}>{summary}</div>}
                       </div>
                       {filled ? (
                         <span className="flex flex-shrink-0 items-center gap-1 text-xs text-muted-foreground">
@@ -413,7 +422,7 @@ export function IncidentStatusWorkflowDialogs({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {controller.returningVehicleOperation && tReturning.rich("description", {
-                location: controller.returningVehicleOperation.location,
+                location: operationLabel(controller.returningVehicleOperation),
                 hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
               })}
             </AlertDialogDescription>
@@ -439,7 +448,7 @@ export function IncidentStatusWorkflowDialogs({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {controller.rekoMissingOperation && tReko.rich("description", {
-                location: controller.rekoMissingOperation.location,
+                location: operationLabel(controller.rekoMissingOperation),
                 hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
               })}
             </AlertDialogDescription>
@@ -465,7 +474,7 @@ export function IncidentStatusWorkflowDialogs({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {controller.rekoFormMissingOperation && tRekoForm.rich("description", {
-                location: controller.rekoFormMissingOperation.location,
+                location: operationLabel(controller.rekoFormMissingOperation),
                 hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
               })}
             </AlertDialogDescription>
@@ -492,7 +501,7 @@ export function IncidentStatusWorkflowDialogs({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {controller.materialDecisionOperation && tMat.rich("description", {
-                location: controller.materialDecisionOperation.location,
+                location: operationLabel(controller.materialDecisionOperation),
                 hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
               })}
             </AlertDialogDescription>
@@ -504,7 +513,7 @@ export function IncidentStatusWorkflowDialogs({
                 const name = controller.materials.find((material) => material.id === materialId)?.name ?? materialId
                 return (
                   <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium" title={name}>{name}</span>
                     <div className="flex flex-shrink-0 gap-1">
                       <Button size="sm" variant={choice === "magazin" ? "default" : "outline"} className="h-7 px-2 text-xs" onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
                         {tMat("toMagazinShort")}
@@ -554,7 +563,7 @@ export function IncidentStatusWorkflowDialogs({
           open
           onOpenChange={(open) => !open && controller.closeRekoAssignment()}
           incidentId={controller.rekoAssignmentOperation.id}
-          incidentTitle={controller.rekoAssignmentOperation.location}
+          incidentTitle={operationLabel(controller.rekoAssignmentOperation)}
           onAssigned={() => {
             void onRefresh()
             controller.closeRekoAssignment()

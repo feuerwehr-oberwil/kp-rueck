@@ -11,7 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.health import DEMO_SANDBOX_MAX, DEMO_SANDBOX_PREFIX
 from app.config import settings as app_settings
-from app.models import Event, Incident, IncidentAssignment, Personnel, StatusTransition
+from app.models import (
+    Event,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
+    Personnel,
+    StatusTransition,
+)
 from app.seed_demo import seed_demo_database, seed_demo_shared_resources
 
 
@@ -52,7 +60,8 @@ class TestDemoSandbox:
         assert event.archived_at is None
 
         incidents = (await db_session.execute(select(Incident).where(Incident.event_id == event_id))).scalars().all()
-        assert len(incidents) == 1
+        # One fire Einsatz + four Auftrag stops
+        assert len(incidents) == 5
 
         incident_ids = [i.id for i in incidents]
         assignment_count = (
@@ -129,9 +138,7 @@ class TestDemoSandbox:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_viewer_can_create_sandbox(
-        self, viewer_client: AsyncClient, demo_mode, shared_resources
-    ):
+    async def test_viewer_can_create_sandbox(self, viewer_client: AsyncClient, demo_mode, shared_resources):
         # Viewers get their own Demo-Lage too (not a shared base event), so the
         # sandbox endpoint must accept read-only demo users.
         response = await viewer_client.post("/api/demo/sandbox")
@@ -145,7 +152,7 @@ class TestSeedDemoEventContent:
     """Regression: the shared content function fills an event with the full scenario."""
 
     @pytest.mark.asyncio
-    async def test_single_active_incident_with_checkins(self, db_session: AsyncSession, shared_resources):
+    async def test_fire_plus_equipped_auftrag_with_checkins(self, db_session: AsyncSession, shared_resources):
         from app.models import EventAttendance
         from app.seed_demo import seed_demo_event_content
 
@@ -157,10 +164,44 @@ class TestSeedDemoEventContent:
         await db_session.commit()
 
         incidents = (await db_session.execute(select(Incident).where(Incident.event_id == event.id))).scalars().all()
-        assert len(incidents) == 1
-        assert incidents[0].status == "einsatz"
-        # Map view: the incident has coordinates
+        assert len(incidents) == 5
+        # Map view: every incident has coordinates
         assert all(i.location_lat and i.location_lng for i in incidents)
+
+        # Exactly ONE fire Einsatz — active, staffed, not part of the Auftrag
+        fires = [i for i in incidents if i.type == "brandbekaempfung"]
+        assert len(fires) == 1
+        assert fires[0].status == "einsatz"
+        assert fires[0].group_id is None
+
+        # ONE Auftrag with four ordered tree-clearing stops
+        groups = (
+            (await db_session.execute(select(IncidentGroup).where(IncidentGroup.event_id == event.id))).scalars().all()
+        )
+        assert len(groups) == 1
+        auftrag = groups[0]
+        stops = [i for i in incidents if i.group_id == auftrag.id]
+        assert len(stops) == 4
+        assert sorted(s.group_position for s in stops) == [0, 1, 2, 3]
+
+        # The Auftrag is fully equipped at the route (group) level:
+        # a vehicle, three crew, and a Motorsäge
+        group_assignments = (
+            (
+                await db_session.execute(
+                    select(IncidentGroupAssignment).where(
+                        IncidentGroupAssignment.incident_group_id == auftrag.id,
+                        IncidentGroupAssignment.unassigned_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        by_type = {}
+        for a in group_assignments:
+            by_type[a.resource_type] = by_type.get(a.resource_type, 0) + 1
+        assert by_type == {"vehicle": 1, "personnel": 3, "material": 1}
 
         # A realistic subset of personnel is pre-checked-in for this event
         checked_in = (

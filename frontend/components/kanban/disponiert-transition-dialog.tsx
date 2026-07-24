@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
-import { copyToClipboard } from "@/lib/utils"
+import { copyToClipboard, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -114,7 +114,9 @@ export function DisponierTransitionDialog({
     if (v.driverStay !== undefined) effStay.set(v.name, v.driverStay)
   }
 
-  const location = operation.location || t('disponiert.addressPlaceholder')
+  // Home-town-free address for the dialog text and Funkdurchsage quote.
+  const location = formatLocationForDisplay(operation.location, getGlobalHomeCity())
+    || t('disponiert.addressPlaceholder')
   const crewList = effCrew.length > 0
     ? effCrew.join(", ")
     : null
@@ -183,7 +185,7 @@ export function DisponierTransitionDialog({
         <DialogHeader>
           <DialogTitle>{t('disponiert.title')}</DialogTitle>
           <DialogDescription>
-            {t('disponiert.description', { location: operation.location })}
+            {t('disponiert.description', { location })}
           </DialogDescription>
         </DialogHeader>
 

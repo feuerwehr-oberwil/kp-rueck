@@ -7,6 +7,7 @@ import L from "leaflet"
 import type { Incident } from "@/lib/types/incidents"
 import type { ApiVehiclePosition } from "@/lib/api-client"
 import { STATUS_TO_GROUP, type IncidentStatus } from "@/lib/types/incidents"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 
 interface AssignmentLine {
   vehicleName: string
@@ -155,7 +156,8 @@ export function AssignmentLines({
           vehicleName: vehicle.name,
           vehiclePosition: [vp.latitude, vp.longitude],
           incidentPosition: [incident.location_lat, incident.location_lng],
-          incidentTitle: incident.title || incident.location_address || t('assignmentLines.incidentFallback'),
+          // title is usually the raw address, so strip the home town from either
+          incidentTitle: formatLocationForDisplay(incident.title || incident.location_address || '', getGlobalHomeCity()) || t('assignmentLines.incidentFallback'),
           distanceMeters: distanceMeters(
             vp.latitude,
             vp.longitude,

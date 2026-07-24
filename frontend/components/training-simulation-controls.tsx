@@ -61,7 +61,7 @@ export function TrainingSimulationControls() {
   const t = useTranslations('training.simulation');
   const tCommon = useTranslations('training.common');
   const { selectedEvent } = useEvent();
-  const { operations, changeStatusToTop } = useOperations();
+  const { operations, changeStatusToTop, formatLocation } = useOperations();
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   // Track per-incident advance state so each row's button spins independently.
   const [advancingIds, setAdvancingIds] = useState<Set<string>>(new Set());
@@ -307,8 +307,8 @@ export function TrainingSimulationControls() {
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium" title={op.location}>
-                          {op.location || op.incidentType}
+                        <div className="truncate font-medium" title={formatLocation(op.location) || op.incidentType}>
+                          {formatLocation(op.location) || op.incidentType}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {getOperationStatusLabel(op.status)}

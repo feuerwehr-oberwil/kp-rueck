@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Search, Users } from "lucide-react"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
-import { cn } from "@/lib/utils"
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { RESOURCE_STATE_DOT_CLASSES, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 
 interface MobilePersonnelSheetProps {
@@ -53,7 +54,8 @@ export function MobilePersonnelSheet({
   const getAssignedIncident = (person: Person): string | null => {
     if (person.status !== "assigned") return null
     const op = operations.find((o) => o.crew.includes(person.name))
-    return op ? op.location : null
+    if (!op) return null
+    return formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)
   }
 
   const availableCount = personnel.filter((p) => p.status === "available").length
@@ -125,7 +127,7 @@ export function MobilePersonnelSheet({
                           )}
                         </div>
                         {assignedTo && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          <p className="text-xs text-muted-foreground truncate mt-0.5" title={assignedTo}>
                             {assignedTo}
                           </p>
                         )}

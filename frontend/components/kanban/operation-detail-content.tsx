@@ -973,7 +973,7 @@ export function OperationDetailContent({
         open={transferDialogOpen}
         onOpenChange={setTransferDialogOpen}
         sourceIncident={operation as unknown as Incident}
-        sourceName={operation.location}
+        sourceName={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
         availableIncidents={availableIncidents}
         onTransfer={handleTransfer}
         isTransferring={isTransferring}
@@ -984,7 +984,7 @@ export function OperationDetailContent({
         open={rekoDialogOpen}
         onOpenChange={setRekoDialogOpen}
         incidentId={operation.id}
-        incidentTitle={operation.location}
+        incidentTitle={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
         onAssigned={() => void refreshOperations()}
       />
 

@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cn } from "@/lib/utils"
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
@@ -253,6 +253,7 @@ export function IncidentPickerDialog({
           const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
           const isChecked = selected.has(op.id)
           const fill = isChecked ? "#ef4444" : otherGroup?.color ?? "#64748b"
+          const location = formatLocationForDisplay(op.location, getGlobalHomeCity())
           return (
             <Marker
               key={op.id}
@@ -265,10 +266,10 @@ export function IncidentPickerDialog({
                   {/* Match the stop-row hover: address primary, type secondary,
                       Meldung below. Type falls back to primary when no address. */}
                   <div className="font-medium">
-                    {op.location || getIncidentTypeLabel(op.incidentType)}
+                    {location || getIncidentTypeLabel(op.incidentType)}
                     {otherGroup ? ` · ${otherGroup.name}` : ""}
                   </div>
-                  {op.location && (
+                  {location && (
                     <div className="text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>
                   )}
                   {op.notes && (
@@ -374,6 +375,7 @@ export function IncidentPickerDialog({
             candidates.map((op) => {
               const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
               const isChecked = selected.has(op.id)
+              const label = formatLocationForDisplay(op.location, getGlobalHomeCity()) || getIncidentTypeLabel(op.incidentType)
               return (
                 <label
                   key={op.id}
@@ -385,8 +387,8 @@ export function IncidentPickerDialog({
                   <Checkbox checked={isChecked} onCheckedChange={() => toggle(op.id)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">
-                        {op.location || getIncidentTypeLabel(op.incidentType)}
+                      <span className="truncate text-sm font-medium" title={label}>
+                        {label}
                       </span>
                       {otherGroup && (
                         <span

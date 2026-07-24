@@ -8,7 +8,7 @@ per-session sandbox endpoint (POST /api/demo/sandbox): it fills an existing
 event with the demo scenario, looking up the shared resources by name.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import bcrypt
@@ -164,9 +164,15 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
 async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None:
     """Fill an existing event with the demo scenario content.
 
-    Creates incidents, assignments, special functions, and status transitions
-    for the given event. Shared resources (vehicles/personnel/materials) are
-    looked up by name from the DB — they are NOT created here.
+    The scenario is deliberately small but shows both core features:
+    - ONE active, fully-staffed fire Einsatz (Brandbekämpfung, Oberwil)
+    - ONE fully-equipped Auftrag ("Sturmholz Oberwil"): an ordered route of
+      four tree-clearing stops after a storm front, with vehicle + crew +
+      Motorsäge assigned at the route (group) level
+
+    Also creates the check-ins, special functions, and status transitions.
+    Shared resources (vehicles/personnel/materials) are looked up by name
+    from the DB — they are NOT created here.
 
     Flushes but does not commit; the caller controls the transaction.
     """
@@ -191,42 +197,54 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     now = datetime.now()
 
     # ============================================
-    # INCIDENTS (a realistic spread across all board columns, Basel-Landschaft)
-    # The Oberwil "Wasser im Keller EFH" stays the fully-staffed active Einsatz;
-    # the others fill the remaining kanban columns so the demo board looks alive.
+    # EINSATZ — the one active fire (fully staffed)
     # ============================================
-    incidents_data = [
-        # --- EINGEGANGEN (6) ---
-        {
-            "title": "Ölspur auf Fahrbahn",
-            "type": "oelwehr",
-            "priority": "low",
-            "location_address": "Hauptstrasse 40, 4104 Oberwil",
-            "location_lat": 47.5148,
-            "location_lng": 7.5605,
-            "status": "eingegangen",
-            "description": "Ölspur über ca. 200m nach Verkehrsunfall gemeldet.",
-        },
-        {
-            "title": "Rauchentwicklung Mehrfamilienhaus",
-            "type": "brandbekaempfung",
-            "priority": "high",
-            "location_address": "Mühlemattstrasse 12, 4104 Oberwil",
-            "location_lat": 47.5172,
-            "location_lng": 7.5588,
-            "status": "eingegangen",
-            "description": "Rauch aus Kellerfenster gemeldet, Bewohner alarmiert.",
-        },
-        {
-            "title": "Person in Aufzug eingeschlossen",
-            "type": "technische_hilfeleistung",
-            "priority": "medium",
-            "location_address": "Bahnhofstrasse 8, 4104 Oberwil",
-            "location_lat": 47.5135,
-            "location_lng": 7.5628,
-            "status": "eingegangen",
-            "description": "Zwei Personen in steckengebliebenem Lift.",
-        },
+    fire = models.Incident(
+        id=uuid4(),
+        created_by=editor_id,
+        event_id=event.id,
+        position=0,
+        title="Brand Dachstock Einfamilienhaus",
+        type="brandbekaempfung",
+        priority="high",
+        location_address="Langegasse 28, 4104 Oberwil",
+        location_lat=47.5144091848039,
+        location_lng=7.5612134821807935,
+        status="einsatz",
+        description=(
+            "Rauch aus dem Dachstock gemeldet, bei Eintreffen Flammen im Dachbereich. "
+            "Bewohner haben das Gebäude selbstständig verlassen. "
+            "Löschangriff über die Fassade läuft."
+        ),
+        contact="Bühler Werner (Nachbar, Melder)",
+        contact_phone="061 401 12 34",
+    )
+    db.add(fire)
+
+    # ============================================
+    # AUFTRAG — "Sturmholz Oberwil" (ordered route of tree-clearing stops)
+    # Stops are real incidents carrying group_id/group_position; the vehicle,
+    # crew and Motorsäge ride on the Auftrag itself (route-level assignments),
+    # shared across all stops.
+    # ============================================
+    auftrag = models.IncidentGroup(
+        id=uuid4(),
+        event_id=event.id,
+        name="Sturmholz Oberwil",
+        color="#10b981",
+        notes="Sturmschäden nach Gewitterfront: Sturmholz räumen, Stopps in Routenreihenfolge abarbeiten.",
+        position=0,
+        created_by=editor_id,
+    )
+    db.add(auftrag)
+    # Flush the Auftrag first: Incident.group_id has no ORM relationship (the
+    # group's `incidents` is viewonly), so the unit of work would not order the
+    # inserts and the stops' FK would fail otherwise.
+    await db.flush()
+
+    # Route stops in group_position order (first stop already done, second in
+    # progress — so the Auftrag progress roll-up shows real numbers).
+    stops_data = [
         {
             "title": "Baum auf Strasse",
             "type": "elementarereignis",
@@ -234,200 +252,59 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "location_address": "Therwilerstrasse 25, 4104 Oberwil",
             "location_lat": 47.5098,
             "location_lng": 7.5567,
-            "status": "eingegangen",
-            "description": "Umgestürzter Baum blockiert Fahrbahn nach Sturm.",
-        },
-        {
-            "title": "Wasserrohrbruch Tiefgarage",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Allschwilerstrasse 14, 4104 Oberwil",
-            "location_lat": 47.5201,
-            "location_lng": 7.5559,
-            "status": "eingegangen",
-            "description": "Wasser tritt in Tiefgarage ein, mehrere Fahrzeuge betroffen.",
-        },
-        {
-            "title": "Gasgeruch gemeldet",
-            "type": "chemiewehr",
-            "priority": "high",
-            "location_address": "Reinacherstrasse 30, 4104 Oberwil",
-            "location_lat": 47.5119,
-            "location_lng": 7.5662,
-            "status": "eingegangen",
-            "description": "Anwohner meldet Gasgeruch im Treppenhaus.",
-        },
-        # --- REKO (3) ---
-        {
-            "title": "Brand Gartenhaus",
-            "type": "brandbekaempfung",
-            "priority": "medium",
-            "location_address": "Rebbergstrasse 5, 4104 Oberwil",
-            "location_lat": 47.5185,
-            "location_lng": 7.5642,
-            "status": "reko",
-            "description": "Gartenhaus in Vollbrand, Reko läuft.",
-        },
-        {
-            "title": "Unfall mit Betriebsmittelaustritt",
-            "type": "strassenrettung",
-            "priority": "high",
-            "location_address": "Ziegeleistrasse 18, 4104 Oberwil",
-            "location_lat": 47.5162,
-            "location_lng": 7.5521,
-            "status": "reko",
-            "description": "PW-Unfall, Betriebsstoffe ausgetreten.",
-        },
-        {
-            "title": "Überflutete Unterführung",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Bahnhofstrasse 22, 4104 Oberwil",
-            "location_lat": 47.5128,
-            "location_lng": 7.5635,
-            "status": "reko",
-            "description": "Unterführung nach Starkregen überflutet.",
-        },
-        # --- REKO ABGESCHLOSSEN (3) ---
-        {
-            "title": "Kellerbrand abgeklärt",
-            "type": "brandbekaempfung",
-            "priority": "medium",
-            "location_address": "Kirchgasse 3, 4104 Oberwil",
-            "location_lat": 47.5151,
-            "location_lng": 7.5598,
-            "status": "reko_done",
-            "description": "Reko abgeschlossen, Brandherd lokalisiert.",
-        },
-        {
-            "title": "Tierrettung Katze",
-            "type": "gerettete_tiere",
-            "priority": "low",
-            "location_address": "Schulstrasse 9, 4104 Oberwil",
-            "location_lat": 47.5143,
-            "location_lng": 7.5571,
-            "status": "reko_done",
-            "description": "Katze auf Baum, Lage erkundet.",
-        },
-        {
-            "title": "Ausgelaufenes Heizöl",
-            "type": "oelwehr",
-            "priority": "medium",
-            "location_address": "Poststrasse 6, 4104 Oberwil",
-            "location_lat": 47.5139,
-            "location_lng": 7.5613,
-            "status": "reko_done",
-            "description": "Heizöl im Keller, Ausmass erkundet.",
-        },
-        # --- DISPONIERT / ANFAHRT (2) ---
-        {
-            "title": "Fahrzeugbrand Parkplatz",
-            "type": "brandbekaempfung",
-            "priority": "high",
-            "location_address": "Wasserturmstrasse 2, 4104 Oberwil",
-            "location_lat": 47.5210,
-            "location_lng": 7.5601,
-            "status": "disponiert",
-            "description": "PW brennt auf Parkplatz, Kräfte auf Anfahrt.",
-        },
-        {
-            "title": "Sturmschaden Dach",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Ringstrasse 11, 4104 Oberwil",
-            "location_lat": 47.5091,
-            "location_lng": 7.5602,
-            "status": "disponiert",
-            "description": "Dachziegel lösen sich, Absperrung nötig.",
-        },
-        # --- EINSATZ (2) ---
-        {
-            "title": "Wasser im Keller EFH",
-            "type": "elementarereignis",
-            "priority": "medium",
-            "location_address": "Langegasse 28, 4104 Oberwil",
-            "location_lat": 47.5144091848039,
-            "location_lng": 7.5612134821807935,
-            "status": "einsatz",
-            "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
-        },
-        {
-            "title": "Wohnungsbrand 2. OG",
-            "type": "brandbekaempfung",
-            "priority": "high",
-            "location_address": "Gartenstrasse 18, 4104 Oberwil",
-            "location_lat": 47.5167,
-            "location_lng": 7.5624,
-            "status": "einsatz",
-            "description": "Zimmerbrand, Löscharbeiten laufen, eine Person gerettet.",
-            "nachbarhilfe": True,
-            "nachbarhilfe_note": "Nachbarwehr Therwil aufgeboten",
-        },
-        # --- BEENDET / RÜCKFAHRT (2) ---
-        {
-            "title": "Auslaufende Betriebsstoffe Garage",
-            "type": "oelwehr",
-            "priority": "medium",
-            "location_address": "Bättwilerstrasse 7, 4104 Oberwil",
-            "location_lat": 47.5108,
-            "location_lng": 7.5548,
             "status": "einsatz_beendet",
-            "description": "Betriebsstoffe gebunden, Rückbau läuft.",
+            "description": "Umgestürzte Fichte blockiert beide Fahrspuren. Zersägt und an den Strassenrand geräumt.",
         },
         {
-            "title": "Kleinbrand Container",
-            "type": "brandbekaempfung",
-            "priority": "low",
-            "location_address": "Ziegeleistrasse 40, 4104 Oberwil",
-            "location_lat": 47.5178,
-            "location_lng": 7.5533,
-            "status": "einsatz_beendet",
-            "description": "Containerbrand gelöscht, Rückfahrt.",
-        },
-        # --- ABGESCHLOSSEN (3) ---
-        {
-            "title": "Ölspur Hauptstrasse",
-            "type": "oelwehr",
-            "priority": "low",
-            "location_address": "Hauptstrasse 55, 4104 Oberwil",
-            "location_lat": 47.5155,
-            "location_lng": 7.5595,
-            "status": "abschluss",
-            "description": "Ölspur gebunden und gereinigt. Einsatz abgeschlossen.",
+            "title": "Baum auf Stromleitung",
+            "type": "elementarereignis",
+            "priority": "high",
+            "location_address": "Rebbergstrasse 31, 4104 Oberwil",
+            "location_lat": 47.5188,
+            "location_lng": 7.5648,
+            "status": "einsatz",
+            "description": "Ast liegt auf der Niederspannungsleitung. Netzbetreiber informiert, Strasse gesperrt.",
         },
         {
-            "title": "Wespennest entfernt",
-            "type": "diverse_einsaetze",
-            "priority": "low",
-            "location_address": "Rebbergstrasse 22, 4104 Oberwil",
-            "location_lat": 47.5192,
-            "location_lng": 7.5651,
-            "status": "abschluss",
-            "description": "Wespennest entfernt, Einsatz beendet.",
-        },
-        {
-            "title": "Türöffnung für Rettungsdienst",
-            "type": "technische_hilfeleistung",
+            "title": "Baum droht auf Hausdach zu stürzen",
+            "type": "elementarereignis",
             "priority": "medium",
             "location_address": "Lettenweg 4, 4104 Oberwil",
             "location_lat": 47.5122,
             "location_lng": 7.5583,
-            "status": "abschluss",
-            "description": "Türöffnung erfolgt, Übergabe an Sanität.",
+            "status": "disponiert",
+            "description": "Angebrochene Birke neigt sich über das Hausdach. Sicherung und kontrollierter Abtrag mit Motorsäge nötig.",
+        },
+        {
+            "title": "Bäume auf Waldweg",
+            "type": "elementarereignis",
+            "priority": "low",
+            "location_address": "Bättwilerstrasse (Waldrand), 4104 Oberwil",
+            "location_lat": 47.5108,
+            "location_lng": 7.5548,
+            "status": "eingegangen",
+            "description": "Mehrere Bäume über dem Waldweg. Keine Personen gefährdet, Räumung sobald Kapazität frei.",
         },
     ]
 
-    # Position orders cards within each status column (0-based per column).
-    position_by_status: dict[str, int] = {}
-    incidents: dict[str, models.Incident] = {}
-    for inc in incidents_data:
-        pos = position_by_status.get(inc["status"], 0)
-        position_by_status[inc["status"]] = pos + 1
-        incident = models.Incident(
-            id=uuid4(), created_by=editor_id, event_id=event.id, position=pos, **inc
+    # Position orders cards within each status column (0-based per column);
+    # the fire already occupies einsatz/0.
+    position_by_status: dict[str, int] = {"einsatz": 1}
+    stops: dict[str, models.Incident] = {}
+    for group_pos, stop_data in enumerate(stops_data):
+        pos = position_by_status.get(stop_data["status"], 0)
+        position_by_status[stop_data["status"]] = pos + 1
+        stop = models.Incident(
+            id=uuid4(),
+            created_by=editor_id,
+            event_id=event.id,
+            position=pos,
+            group_id=auftrag.id,
+            group_position=group_pos,
+            **stop_data,
         )
-        db.add(incident)
-        incidents[incident.title] = incident
+        db.add(stop)
+        stops[stop.title] = stop
 
     await db.flush()
 
@@ -437,40 +314,16 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     # personnel panel is pre-populated with available firefighters.
     # ============================================
     checked_in_names = [
-        # Offiziere
         "Müller Hans",
         "Schneider Peter",
         "Weber Martin",
-        "Fischer Thomas",
-        "Ackermann Reto",
-        # Wachtmeister
         "Hoffmann Lisa",
         "Schmidt Daniel",
-        "Koch René",
         "Baumann Michael",
-        "Keller Marco",
-        "Brunner Sarah",
-        "Bühler Nadja",
-        "Frei Marc",
-        "Suter Beat",
-        "Widmer Anna",
-        # Korporal
         "Steiner Lukas",
-        "Meier Andrea",
-        "Graf Sven",
-        "Roth Til",
-        "Gerber Elias",
-        "Lüthi Sophie",
-        "Kaufmann Nico",
         "Moser Lea",
-        "Wenger Tim",
-        # Mannschaft (first 6)
         "Zimmermann Fabian",
         "Wyss Fabio",
-        "Künzli Klara",
-        "Studer Samuel",
-        "Schwarz Jan",
-        "Hartmann Mischa",
     ]
     for name in checked_in_names:
         db.add(
@@ -484,48 +337,44 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         )
 
     # ============================================
-    # INCIDENT ASSIGNMENTS (crew + vehicle + pumps on site)
+    # ASSIGNMENTS
+    # Fire: TLF + crew directly on the incident. Auftrag: vehicle + crew +
+    # Motorsäge on the GROUP (route-owned, shared across all stops).
     # ============================================
-    def assign(incident_title: str, resource_type: str, resource):
-        return models.IncidentAssignment(
-            id=uuid4(),
-            incident_id=incidents[incident_title].id,
-            resource_type=resource_type,
-            resource_id=resource.id,
-            assigned_by=editor_id,
+    fire_assignments = [
+        ("vehicle", vehicle["TLF"]),
+        ("personnel", person["Müller Hans"]),
+        ("personnel", person["Hoffmann Lisa"]),
+        ("personnel", person["Zimmermann Fabian"]),
+    ]
+    for resource_type, resource in fire_assignments:
+        db.add(
+            models.IncidentAssignment(
+                id=uuid4(),
+                incident_id=fire.id,
+                resource_type=resource_type,
+                resource_id=resource.id,
+                assigned_by=editor_id,
+            )
         )
 
-    assignments = [
-        assign("Wasser im Keller EFH", "vehicle", vehicle["Trawa"]),
-        assign("Wasser im Keller EFH", "personnel", person["Schneider Peter"]),
-        assign("Wasser im Keller EFH", "personnel", person["Hoffmann Lisa"]),
-        assign("Wasser im Keller EFH", "personnel", person["Zimmermann Fabian"]),
-        assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Gr.", "TLF")]),
-        assign("Wasser im Keller EFH", "material", material[("Tauchpumpe Kl.", "TLF")]),
-        # Wohnungsbrand is covered by the neighbouring brigade (Nachbarwehr),
-        # so it has no own vehicle/crew — see the nachbarhilfe flag on the incident.
-        # Disponiert — Fahrzeugbrand fought with the TLF
-        assign("Fahrzeugbrand Parkplatz", "vehicle", vehicle["TLF"]),
-        assign("Fahrzeugbrand Parkplatz", "personnel", person["Müller Hans"]),
-        assign("Fahrzeugbrand Parkplatz", "personnel", person["Graf Sven"]),
-        # Winding down — Betriebsstoffe Garage
-        assign("Auslaufende Betriebsstoffe Garage", "vehicle", vehicle["Mawa"]),
-        assign("Auslaufende Betriebsstoffe Garage", "personnel", person["Wyss Fabio"]),
-        assign("Auslaufende Betriebsstoffe Garage", "personnel", person["Roth Til"]),
-        # Sturmschaden Dach (disponiert) — crew + Pio + Motorsäge
-        assign("Sturmschaden Dach", "vehicle", vehicle["Pio"]),
-        assign("Sturmschaden Dach", "personnel", person["Baumann Michael"]),
-        assign("Sturmschaden Dach", "personnel", person["Moser Lea"]),
-        assign("Sturmschaden Dach", "material", material[("Motorsäge Gr.", "Pio")]),
-        # Kleinbrand Container (winding down) — crew only, vehicle already released
-        assign("Kleinbrand Container", "personnel", person["Widmer Anna"]),
-        # In-progress Reko — reko person on site, form still pending
-        assign("Brand Gartenhaus", "personnel", person["Keller Marco"]),
-        assign("Unfall mit Betriebsmittelaustritt", "personnel", person["Brunner Sarah"]),
-        assign("Überflutete Unterführung", "personnel", person["Frei Marc"]),
+    auftrag_assignments = [
+        ("vehicle", vehicle["Pio"]),
+        ("personnel", person["Weber Martin"]),
+        ("personnel", person["Baumann Michael"]),
+        ("personnel", person["Moser Lea"]),
+        ("material", material[("Motorsäge Gr.", "Pio")]),
     ]
-    for assignment in assignments:
-        db.add(assignment)
+    for resource_type, resource in auftrag_assignments:
+        db.add(
+            models.IncidentGroupAssignment(
+                id=uuid4(),
+                incident_group_id=auftrag.id,
+                resource_type=resource_type,
+                resource_id=resource.id,
+                assigned_by=editor_id,
+            )
+        )
 
     # ============================================
     # SPECIAL FUNCTIONS
@@ -535,152 +384,26 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         (person["Weber Martin"], "driver", vehicle["Pio"]),
         (person["Schmidt Daniel"], "reko", None),
         (person["Steiner Lukas"], "magazin", None),
-        # Drivers for the other staffed incidents (each on a distinct vehicle)
-        (person["Koch René"], "driver", vehicle["Mowa"]),
-        (person["Schneider Peter"], "driver", vehicle["Trawa"]),
-        (person["Wyss Fabio"], "driver", vehicle["Mawa"]),
-        # Additional Reko-capable officers/wachtmeister
-        (person["Keller Marco"], "reko", None),
-        (person["Brunner Sarah"], "reko", None),
-        (person["Frei Marc"], "reko", None),
-        (person["Suter Beat"], "reko", None),
-        (person["Gerber Elias"], "reko", None),
     ]
-    special_functions = [
-        models.EventSpecialFunction(
-            id=uuid4(),
-            event_id=event.id,
-            personnel_id=p.id,
-            function_type=function_type,
-            vehicle_id=v.id if v else None,
-            assigned_by=editor_id,
-        )
-        for p, function_type, v in special_functions_data
-    ]
-    for sf in special_functions:
-        db.add(sf)
-
-    # ============================================
-    # COMPLETED REKO REPORTS
-    # Reko results for incidents that already passed reconnaissance, so the
-    # Reko-Ergebnis (detail + display) and the reko dashboard show real data.
-    # Each report has a matching historical (already-unassigned) crew record for
-    # its author, so the dashboard's done/total counts add up.
-    # (title, author, is_relevant, dangers, power_supply, effort, summary)
-    # ============================================
-    reko_reports_data = [
-        (
-            "Kellerbrand abgeklärt", "Suter Beat", True,
-            {"fire": True, "fire_danger": True, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 6, "vehicles_needed": ["TLF"], "equipment_needed": ["Motorsäge Gr."], "estimated_duration_hours": 2.0},
-            "Kellerbrand gelöscht, Nachkontrolle und Belüftung nötig.",
-        ),
-        (
-            "Tierrettung Katze", "Schmidt Daniel", False,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
-            "Katze auf Baum, Rettung mit Leiter möglich.",
-        ),
-        (
-            "Ausgelaufenes Heizöl", "Gerber Elias", True,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": True, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 4, "vehicles_needed": ["Pio"], "equipment_needed": ["Ölbindemittel", "Ölsperre"], "estimated_duration_hours": 1.5},
-            "Heizöl aus Tank ausgelaufen, Bindemittel und Ölsperre erforderlich.",
-        ),
-        (
-            "Sturmschaden Dach", "Frei Marc", True,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": True, "chemical": False, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 4, "vehicles_needed": ["Pio"], "equipment_needed": ["Motorsäge Gr."], "estimated_duration_hours": 2.0},
-            "Dachziegel gelöst, Absturzgefahr, Sicherung und Abdeckung nötig.",
-        ),
-        (
-            "Wasser im Keller EFH", "Schmidt Daniel", True,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": True, "other_notes": None},
-            "emergency_needed",
-            {"personnel_count": 5, "vehicles_needed": ["TLF"], "equipment_needed": ["Tauchpumpe Gr.", "Wassersauger"], "estimated_duration_hours": 3.0},
-            "Keller ~30cm unter Wasser, Strom abgestellt, Auspumpen läuft.",
-        ),
-        (
-            "Auslaufende Betriebsstoffe Garage", "Suter Beat", True,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": True, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 3, "vehicles_needed": ["Mawa"], "equipment_needed": ["Ölbindemittel"], "estimated_duration_hours": 1.0},
-            "Betriebsstoffe in Garage gebunden, Lüftung sichergestellt.",
-        ),
-        (
-            "Kleinbrand Container", "Keller Marco", True,
-            {"fire": True, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 3, "vehicles_needed": ["TLF"], "equipment_needed": [], "estimated_duration_hours": 0.5},
-            "Containerbrand rasch gelöscht, keine Ausbreitung.",
-        ),
-        (
-            "Ölspur Hauptstrasse", "Brunner Sarah", True,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": True, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": ["Ölbindemittel"], "estimated_duration_hours": 1.0},
-            "Ölspur auf ~50m gebunden und gereinigt.",
-        ),
-        (
-            "Wespennest entfernt", "Frei Marc", False,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
-            "Wespennest unter Dachvorsprung entfernt.",
-        ),
-        (
-            "Türöffnung für Rettungsdienst", "Suter Beat", True,
-            {"fire": False, "fire_danger": False, "explosion": False, "collapse": False, "chemical": False, "electrical": False, "other_notes": None},
-            "available",
-            {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
-            "Türöffnung schonend durchgeführt, Übergabe an Sanität.",
-        ),
-    ]
-    for i, (title, author, is_relevant, dangers, power, effort, summary) in enumerate(reko_reports_data):
-        author_p = person[author]
+    for p, function_type, v in special_functions_data:
         db.add(
-            models.RekoReport(
+            models.EventSpecialFunction(
                 id=uuid4(),
-                incident_id=incidents[title].id,
-                token=f"demo-reko-{i}",
-                arrived_at=now - timedelta(minutes=30),
-                submitted_at=now - timedelta(minutes=10),
-                is_relevant=is_relevant,
-                dangers_json=dangers,
-                effort_json=effort,
-                power_supply=power,
-                summary_text=summary,
-                submitted_by_personnel_id=author_p.id,
-                is_draft=False,
-            )
-        )
-        # Reko author assignment: ACTIVE only for reko_done incidents (so the board
-        # shows who did the reko via assignedReko), HISTORICAL for later stages so
-        # nobody is shown as actively assigned to two emergencies at once. Done/total
-        # dashboard counts derive from the completed report + the assignment row.
-        status = incidents[title].status
-        db.add(
-            models.IncidentAssignment(
-                id=uuid4(),
-                incident_id=incidents[title].id,
-                resource_type="personnel",
-                resource_id=author_p.id,
+                event_id=event.id,
+                personnel_id=p.id,
+                function_type=function_type,
+                vehicle_id=v.id if v else None,
                 assigned_by=editor_id,
-                unassigned_at=None if status == "reko_done" else now,
             )
         )
 
     # ============================================
     # STATUS TRANSITIONS
     # ============================================
-    def transition(incident_title: str, from_status: str, to_status: str, notes: str | None = None):
+    def transition(incident: models.Incident, from_status: str, to_status: str, notes: str | None = None):
         return models.StatusTransition(
             id=uuid4(),
-            incident_id=incidents[incident_title].id,
+            incident_id=incident.id,
             from_status=from_status,
             to_status=to_status,
             user_id=editor_id,
@@ -688,26 +411,18 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         )
 
     transitions = [
-        transition("Wasser im Keller EFH", "eingegangen", "disponiert", "TLF disponiert"),
-        transition("Wasser im Keller EFH", "disponiert", "einsatz", "Vor Ort, Pumpen laufen"),
-        # Wohnungsbrand — eingegangen → disponiert → einsatz
-        transition("Wohnungsbrand 2. OG", "eingegangen", "disponiert", "Nachbarwehr aufgeboten"),
-        transition("Wohnungsbrand 2. OG", "disponiert", "einsatz", "Löscharbeiten laufen"),
-        # Fahrzeugbrand — eingegangen → disponiert
-        transition("Fahrzeugbrand Parkplatz", "eingegangen", "disponiert", "Trawa auf Anfahrt"),
-        # Betriebsstoffe Garage — full trail to einsatz_beendet
-        transition("Auslaufende Betriebsstoffe Garage", "eingegangen", "disponiert", "Mawa disponiert"),
-        transition("Auslaufende Betriebsstoffe Garage", "disponiert", "einsatz", "Vor Ort"),
-        transition("Auslaufende Betriebsstoffe Garage", "einsatz", "einsatz_beendet", "Rückbau, Rückfahrt"),
-        # Reko incidents — eingegangen → reko
-        transition("Brand Gartenhaus", "eingegangen", "reko", "Reko unterwegs"),
-        transition("Unfall mit Betriebsmittelaustritt", "eingegangen", "reko", "Reko unterwegs"),
-        # Reko-done incidents — eingegangen → reko → reko_done
-        transition("Kellerbrand abgeklärt", "reko", "reko_done", "Reko abgeschlossen"),
-        transition("Ausgelaufenes Heizöl", "reko", "reko_done", "Reko abgeschlossen"),
-        # Abschluss incidents — closed out
-        transition("Ölspur Hauptstrasse", "einsatz", "abschluss", "Einsatz abgeschlossen"),
-        transition("Türöffnung für Rettungsdienst", "einsatz", "abschluss", "Übergabe erfolgt"),
+        # Fire — eingegangen → disponiert → einsatz
+        transition(fire, "eingegangen", "disponiert", "TLF disponiert"),
+        transition(fire, "disponiert", "einsatz", "Vor Ort, Löschangriff läuft"),
+        # Auftrag stop 1 — full trail to einsatz_beendet
+        transition(stops["Baum auf Strasse"], "eingegangen", "disponiert", "Erster Stopp der Sturmholz-Route"),
+        transition(stops["Baum auf Strasse"], "disponiert", "einsatz", "Vor Ort, Räumung läuft"),
+        transition(stops["Baum auf Strasse"], "einsatz", "einsatz_beendet", "Fahrbahn frei, weiter zum nächsten Stopp"),
+        # Auftrag stop 2 — in progress
+        transition(stops["Baum auf Stromleitung"], "eingegangen", "disponiert", "Zweiter Stopp der Route"),
+        transition(stops["Baum auf Stromleitung"], "disponiert", "einsatz", "Vor Ort, Netzbetreiber informiert"),
+        # Auftrag stop 3 — dispatched
+        transition(stops["Baum droht auf Hausdach zu stürzen"], "eingegangen", "disponiert", "Dritter Stopp der Route"),
     ]
     for t in transitions:
         db.add(t)

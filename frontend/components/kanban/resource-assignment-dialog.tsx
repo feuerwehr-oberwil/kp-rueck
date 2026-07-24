@@ -47,6 +47,10 @@ interface ResourceAssignmentDialogProps {
   occupiedMaterialIds?: Set<string>
 }
 
+/** Where an occupied resource currently is: `short` is length-capped for the
+ *  card subtitle, `full` untruncated for the hover title and confirm copy. */
+type OccupancyLabel = { short: string; full: string }
+
 export function ResourceAssignmentDialog({
   open,
   onOpenChange,
@@ -87,6 +91,12 @@ export function ResourceAssignmentDialog({
   // Vehicles-only quick filter: when on, show only vehicles already assigned to
   // this incident.
   const [showOnlyAssignedVehicles, setShowOnlyAssignedVehicles] = useState(false)
+  // Materials-only quick filter: functional type (e.g. "Wasser") — narrows the
+  // visible list like the depot chips, never pre-selects anything.
+  const [typeFilter, setTypeFilter] = useState<string | null>(null)
+  // Crew-only quick filter: when on, also show people already assigned to
+  // another incident/Auftrag (amber-flagged, confirm-guarded).
+  const [showOccupiedPersonnel, setShowOccupiedPersonnel] = useState(false)
 
   // Local selection state for crew and materials (deferred assignment)
   // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
@@ -98,6 +108,9 @@ export function ResourceAssignmentDialog({
   // A material bound to another incident/Auftrag pending a "trotzdem zuweisen?"
   // confirmation before it gets ticked into the selection.
   const [confirmMaterial, setConfirmMaterial] = useState<Material | null>(null)
+  // A person bound to another incident/Auftrag pending the same confirmation
+  // (takes precedence over the special-function confirm — one confirm is enough).
+  const [confirmOccupiedPerson, setConfirmOccupiedPerson] = useState<Person | null>(null)
 
   // Snapshot the assigned state into the local selection ONLY on the open
   // transition. Re-snapshotting whenever assignedPersonnel/assignedMaterials
@@ -120,12 +133,16 @@ export function ResourceAssignmentDialog({
       setSearchQuery("")
       setSearchFocused(false)
       setCategoryFilter(null)
+      setTypeFilter(null)
       setShowOnlyAssignedVehicles(false)
+      setShowOccupiedPersonnel(false)
     }
   }, [open])
   useEffect(() => {
     setCategoryFilter(null)
+    setTypeFilter(null)
     setShowOnlyAssignedVehicles(false)
+    setShowOccupiedPersonnel(false)
   }, [resourceType])
 
   // Get resources that can be shown in the dialog
@@ -137,6 +154,9 @@ export function ResourceAssignmentDialog({
 
       // Always show if already assigned to this operation's crew (allows deselection)
       if (isAssignedToCrew) return true
+      // Quick filter ON: show everyone — people bound elsewhere appear
+      // amber-flagged and need a confirm before selection.
+      if (showOccupiedPersonnel) return true
       if (occupiedPersonnelIds.has(p.id)) return false
 
       // People with a special function (Reko / driver / magazin) used to be hidden
@@ -148,7 +168,7 @@ export function ResourceAssignmentDialog({
       // Show available personnel
       return p.status === 'available'
     })
-  }, [personnel, rekoPersonnelNames, assignedPersonnel, occupiedPersonnelIds])
+  }, [personnel, rekoPersonnelNames, assignedPersonnel, occupiedPersonnelIds, showOccupiedPersonnel])
 
   // Describe a person's special function for the badge + confirm copy, or null.
   const specialFunctionOf = (p: Person): { label: string; Icon: typeof Car } | null => {
@@ -169,26 +189,32 @@ export function ResourceAssignmentDialog({
   // visible (amber-flagged) and need an explicit confirm instead of vanishing.
   const selectableMaterials = materials
 
-  // Where an occupied vehicle/material currently is, resolved from the
+  // Where an occupied vehicle/material/person currently is, resolved from the
   // operations + Auftrag contexts (no prop threading): vehicle name → label,
-  // material id → label. The current assign target never counts as "elsewhere" —
-  // note operationId holds the GROUP id when assignTarget === 'route'.
-  const { vehicleOccupancy, materialOccupancy } = useMemo(() => {
-    const vehicleMap = new Map<string, string>()
-    const materialMap = new Map<string, string>()
+  // material id → label, person name → label (crew arrays hold names). Labels
+  // carry a truncated `short` for the card plus an untruncated `full` for the
+  // hover title / confirm copy. The current assign target never counts as
+  // "elsewhere" — note operationId holds the GROUP id when assignTarget === 'route'.
+  const { vehicleOccupancy, materialOccupancy, personOccupancy } = useMemo(() => {
+    const vehicleMap = new Map<string, OccupancyLabel>()
+    const materialMap = new Map<string, OccupancyLabel>()
+    const personMap = new Map<string, OccupancyLabel>()
     for (const op of operations) {
       if (assignTarget === 'incident' && op.id === operationId) continue
-      const label = getIncidentRefLabel(op, 40)
+      const label = { short: getIncidentRefLabel(op, 40), full: getIncidentRefLabel(op, 1000) }
       for (const name of op.vehicles) if (!vehicleMap.has(name)) vehicleMap.set(name, label)
       for (const id of op.materials) if (!materialMap.has(id)) materialMap.set(id, label)
+      for (const name of op.crew) if (!personMap.has(name)) personMap.set(name, label)
     }
     for (const group of groups) {
       if (assignTarget === 'route' && group.id === operationId) continue
       const res = getGroupResources(group.id)
-      for (const v of res.vehicles) if (!vehicleMap.has(v.name)) vehicleMap.set(v.name, group.name)
-      for (const m of res.materials) if (!materialMap.has(m.resourceId)) materialMap.set(m.resourceId, group.name)
+      const label = { short: group.name, full: group.name }
+      for (const v of res.vehicles) if (!vehicleMap.has(v.name)) vehicleMap.set(v.name, label)
+      for (const m of res.materials) if (!materialMap.has(m.resourceId)) materialMap.set(m.resourceId, label)
+      for (const p of res.personnel) if (!personMap.has(p.name)) personMap.set(p.name, label)
     }
-    return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap }
+    return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap, personOccupancy: personMap }
   }, [operations, groups, getGroupResources, assignTarget, operationId])
 
   // Materials bound to ANOTHER incident/Auftrag (never the current target —
@@ -203,17 +229,28 @@ export function ResourceAssignmentDialog({
     return set
   }, [materials, assignedMaterials, materialOccupancy, occupiedMaterialIds])
 
-  // Where a vehicle/material is bound elsewhere ("Im Einsatz" when the exact
-  // spot can't be resolved), or null when it's free or already on this target.
-  const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): string | null => {
+  // Where a vehicle/material/person is bound elsewhere ("Im Einsatz" when the
+  // exact spot can't be resolved), or null when it's free or already on this
+  // target.
+  const genericElsewhereLabel = (): OccupancyLabel => {
+    const generic = t('assignmentDialog.occupiedElsewhere')
+    return { short: generic, full: generic }
+  }
+  const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): OccupancyLabel | null => {
     if (assignedVehicles.includes(vehicle.name)) return null
     if (vehicleOccupancy.has(vehicle.name)) return vehicleOccupancy.get(vehicle.name)!
-    if (occupiedVehicleIds.has(vehicle.id)) return t('assignmentDialog.occupiedElsewhere')
+    if (occupiedVehicleIds.has(vehicle.id)) return genericElsewhereLabel()
     return null
   }
-  const materialElsewhereLabel = (material: Material): string | null => {
+  const materialElsewhereLabel = (material: Material): OccupancyLabel | null => {
     if (!occupiedElsewhereMaterialIds.has(material.id)) return null
-    return materialOccupancy.get(material.id) ?? t('assignmentDialog.occupiedElsewhere')
+    return materialOccupancy.get(material.id) ?? genericElsewhereLabel()
+  }
+  const personElsewhereLabel = (person: Person): OccupancyLabel | null => {
+    if (assignedPersonnel.includes(person.name)) return null
+    if (personOccupancy.has(person.name)) return personOccupancy.get(person.name)!
+    if (occupiedPersonnelIds.has(person.id) || person.status === 'assigned') return genericElsewhereLabel()
+    return null
   }
 
   // Quick-filter categories for the active resource type (rank / location / type).
@@ -229,24 +266,20 @@ export function ResourceAssignmentDialog({
     return [...new Set(source)].sort((a, b) => a.localeCompare(b))
   }, [resourceType, selectablePersonnel, availableVehicles, selectableMaterials])
 
-  // Second grouping for materials: functional type (e.g. "Wasser") for one-tap
-  // select-all across depots — independent of the category (depot) filter.
+  // Second chip row for materials: functional type (e.g. "Wasser") as a quick
+  // FILTER across depots — narrows the visible list like the depot chips,
+  // selects nothing. Counts ALL listed materials of the type, occupied or not.
   const materialTypeGroups = useMemo(() => {
-    if (resourceType !== 'materials') return [] as { type: string; ids: string[] }[]
-    const byType = new Map<string, string[]>()
+    if (resourceType !== 'materials') return [] as { type: string; count: number }[]
+    const byType = new Map<string, number>()
     for (const m of selectableMaterials) {
       if (!m.type) continue
-      // Quick-select only auto-picks FREE materials — items bound to another
-      // incident/Auftrag are skipped silently (they need an individual confirm).
-      if (occupiedElsewhereMaterialIds.has(m.id)) continue
-      const arr = byType.get(m.type) ?? []
-      arr.push(m.id)
-      byType.set(m.type, arr)
+      byType.set(m.type, (byType.get(m.type) ?? 0) + 1)
     }
     return [...byType.entries()]
-      .map(([type, ids]) => ({ type, ids }))
+      .map(([type, count]) => ({ type, count }))
       .sort((a, b) => a.type.localeCompare(b.type))
-  }, [resourceType, selectableMaterials, occupiedElsewhereMaterialIds])
+  }, [resourceType, selectableMaterials])
 
   // Filter resources by search query + quick category filter
   const filteredPersonnel = useMemo(() => {
@@ -282,6 +315,7 @@ export function ResourceAssignmentDialog({
     const query = searchQuery.trim().toLowerCase()
     return selectableMaterials.filter(m => {
       if (categoryFilter && m.category !== categoryFilter) return false
+      if (typeFilter && m.type !== typeFilter) return false
       if (!query) return true
       // Match material name or category
       if (m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)) return true
@@ -292,7 +326,7 @@ export function ResourceAssignmentDialog({
       }
       return false
     })
-  }, [selectableMaterials, searchQuery, materialGroups, categoryFilter])
+  }, [selectableMaterials, searchQuery, materialGroups, categoryFilter, typeFilter])
 
   // Sort the material list by category sort order, then assigned-first, then
   // name — feeds the group split so order within each group respects the setting.
@@ -331,6 +365,13 @@ export function ResourceAssignmentDialog({
         next.delete(person.name)
         return next
       })
+      return
+    }
+    // Selecting someone bound to another incident/Auftrag → confirm first,
+    // mirroring the material double-booking guard. Takes precedence over the
+    // special-function confirm — one confirm is enough.
+    if (personElsewhereLabel(person)) {
+      setConfirmOccupiedPerson(person)
       return
     }
     // Selecting someone already busy in a special function → confirm first, so a
@@ -387,7 +428,7 @@ export function ResourceAssignmentDialog({
     addMaterialToSelection(material.id)
   }
 
-  // Toggle all materials in a group at once (callers pass FREE ids only —
+  // Toggle all materials in a group at once (group headers pass FREE ids only —
   // occupied-elsewhere items are excluded and stay individual-confirm-only)
   const handleToggleGroupSelection = (groupMaterialIds: string[]) => {
     if (groupMaterialIds.length === 0) return
@@ -679,28 +720,46 @@ export function ResourceAssignmentDialog({
             </div>
           )}
 
-          {/* Materials: second grouping — quick-select all available items of a
-              functional type (e.g. "Wasser") in one tap, across all depots. */}
+          {/* Materials: second chip row — FILTER the list to one functional type
+              (e.g. "Wasser") across all depots. Filters only, selects nothing. */}
           {resourceType === 'materials' && materialTypeGroups.length > 1 && (
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-0.5 text-xs text-muted-foreground">{t('assignmentDialog.quickSelectByType')}</span>
-              {materialTypeGroups.map(({ type, ids }) => {
-                const allSelected = ids.length > 0 && ids.every((id) => selectedMaterials.has(id))
+              {materialTypeGroups.map(({ type, count }) => {
+                const isActive = typeFilter === type
                 return (
                   <button
                     key={type}
-                    onClick={() => handleToggleGroupSelection(ids)}
+                    onClick={() => setTypeFilter(isActive ? null : type)}
                     className={cn(
                       "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
-                      allSelected
+                      isActive
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                     )}
                   >
-                    {type} ({ids.length})
+                    {type} ({count})
                   </button>
                 )
               })}
+            </div>
+          )}
+
+          {/* Crew-only quick filter: also show people already assigned to
+              another incident/Auftrag (default hides them). */}
+          {resourceType === 'crew' && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setShowOccupiedPersonnel((v) => !v)}
+                className={cn(
+                  "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
+                  showOccupiedPersonnel
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                {t('assignmentDialog.showAllPersonnel')}
+              </button>
             </div>
           )}
 
@@ -731,6 +790,9 @@ export function ResourceAssignmentDialog({
                     const isSelected = isPersonSelected(person.name)
                     const wasJustAssigned = justAssigned === person.id
                     const special = specialFunctionOf(person)
+                    // Already on another incident/Auftrag → amber flag with the
+                    // reference, taking precedence over the special-function badge.
+                    const elsewhere = personElsewhereLabel(person)
                     return (
                       <button
                         key={person.id}
@@ -738,7 +800,7 @@ export function ResourceAssignmentDialog({
                         className={cn(
                           "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
                           isSelected && "border-primary/30 bg-primary/5",
-                          special && !isSelected && "border-amber-500/40 bg-amber-500/5"
+                          (elsewhere || special) && !isSelected && "border-amber-500/40 bg-amber-500/5"
                         )}
                       >
                         {isSelected ? (
@@ -750,9 +812,20 @@ export function ResourceAssignmentDialog({
                           <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         )}
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{person.name}</p>
-                          {special ? (
-                            <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                          <p className="font-medium text-sm truncate" title={person.name}>{person.name}</p>
+                          {elsewhere ? (
+                            <span
+                              title={elsewhere.full}
+                              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                            >
+                              <Siren className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{elsewhere.short}</span>
+                            </span>
+                          ) : special ? (
+                            <span
+                              title={special.label}
+                              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                            >
                               <special.Icon className="h-3 w-3 flex-shrink-0" />
                               <span className="truncate">{special.label}</span>
                             </span>
@@ -812,11 +885,14 @@ export function ResourceAssignmentDialog({
                           <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         )}
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{vehicle.name}</p>
+                          <p className="font-medium text-sm truncate" title={vehicle.name}>{vehicle.name}</p>
                           {elsewhere ? (
-                            <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                            <span
+                              title={elsewhere.full}
+                              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                            >
                               <Siren className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{elsewhere}</span>
+                              <span className="truncate">{elsewhere.short}</span>
                             </span>
                           ) : (
                             <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
@@ -928,11 +1004,14 @@ export function ResourceAssignmentDialog({
                                     <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                                   )}
                                   <div className="min-w-0">
-                                    <p className="font-medium text-sm truncate">{material.name}</p>
+                                    <p className="font-medium text-sm truncate" title={material.name}>{material.name}</p>
                                     {elsewhere ? (
-                                      <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                                      <span
+                                        title={elsewhere.full}
+                                        className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                                      >
                                         <Siren className="h-3 w-3 flex-shrink-0" />
-                                        <span className="truncate">{elsewhere}</span>
+                                        <span className="truncate">{elsewhere.short}</span>
                                       </span>
                                     ) : (
                                       <p className="text-xs text-muted-foreground truncate">{material.category}</p>
@@ -972,11 +1051,14 @@ export function ResourceAssignmentDialog({
                               <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                             )}
                             <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{material.name}</p>
+                              <p className="font-medium text-sm truncate" title={material.name}>{material.name}</p>
                               {elsewhere ? (
-                                <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                                <span
+                                  title={elsewhere.full}
+                                  className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                                >
                                   <Siren className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{elsewhere}</span>
+                                  <span className="truncate">{elsewhere.short}</span>
                                 </span>
                               ) : (
                                 <p className="text-xs text-muted-foreground truncate">{material.category}</p>
@@ -1080,7 +1162,7 @@ export function ResourceAssignmentDialog({
         confirmMaterial
           ? t('assignmentDialog.occupiedConfirmBody', {
               name: confirmMaterial.name,
-              label: materialElsewhereLabel(confirmMaterial) ?? t('assignmentDialog.occupiedElsewhere'),
+              label: materialElsewhereLabel(confirmMaterial)?.full ?? t('assignmentDialog.occupiedElsewhere'),
             })
           : ''
       }
@@ -1088,6 +1170,27 @@ export function ResourceAssignmentDialog({
       confirmText={t('assignmentDialog.occupiedConfirmAction')}
       onConfirm={() => {
         if (confirmMaterial) addMaterialToSelection(confirmMaterial.id)
+      }}
+    />
+
+    {/* Double-booking guard: selecting a person already on another
+        incident/Auftrag asks first. Deselecting stays immediate. */}
+    <ConfirmDialog
+      open={!!confirmOccupiedPerson}
+      onOpenChange={(o) => !o && setConfirmOccupiedPerson(null)}
+      title={t('assignmentDialog.occupiedConfirmTitle')}
+      description={
+        confirmOccupiedPerson
+          ? t('assignmentDialog.occupiedConfirmBody', {
+              name: confirmOccupiedPerson.name,
+              label: personElsewhereLabel(confirmOccupiedPerson)?.full ?? t('assignmentDialog.occupiedElsewhere'),
+            })
+          : ''
+      }
+      cancelText={t('common.cancel')}
+      confirmText={t('assignmentDialog.occupiedConfirmAction')}
+      onConfirm={() => {
+        if (confirmOccupiedPerson) addPersonToSelection(confirmOccupiedPerson)
       }}
     />
     </>
