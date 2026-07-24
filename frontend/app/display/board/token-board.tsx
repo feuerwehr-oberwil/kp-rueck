@@ -173,7 +173,7 @@ function TokenColumn({ column, incidents, groups, onIncidentClick }: { column: t
         <h2 className="text-balance text-sm font-semibold text-foreground">{tk(`columns.${column.id}`)}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{t('incidentCount', { count: incidents.length })}</p>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto p-2 rounded-lg min-h-[200px]">
+      <div className="flex-1 min-h-0 space-y-3 overflow-y-auto p-2 rounded-lg">
         {incidents.map((incident) => (
           <TokenIncidentCard key={incident.id} incident={incident} groups={groups} onClick={() => onIncidentClick(incident.id)} />
         ))}
@@ -302,7 +302,9 @@ export function TokenBoard({ token }: { token: string }) {
         </div>
       </header>
 
-      <main className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
+      {/* min-h-0 lets the columns scroll internally instead of the last card
+          getting clipped at the container edge. */}
+      <main className="flex-1 min-h-0 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
         <div className="flex h-full gap-3">
           {columns.filter((c) => !c.collapsible).map((column) => (
             <TokenColumn key={column.id} column={column} incidents={incidentsByColumn[column.id] || []} groups={groups} onIncidentClick={setSelectedIncidentId} />
@@ -336,16 +338,6 @@ export function TokenBoard({ token }: { token: string }) {
         materialsOverride={situation?.materials ?? []}
         groupsOverride={detailGroups}
       />
-
-      <footer className="bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 border-t border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Eye className="h-4 w-4" />
-            <span>{t('footerReadOnly')}</span>
-          </div>
-          <div className="text-xs text-muted-foreground">{t('incidentCount', { count: incidents.length })}</div>
-        </div>
-      </footer>
     </div>
   )
 }

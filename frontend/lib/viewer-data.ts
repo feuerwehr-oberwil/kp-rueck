@@ -53,7 +53,7 @@ export function viewerIncidentToOperation(a: ApiIncident): Operation {
     notes: a.description ?? "",
     contact: a.contact ?? "",
     contactPhone: a.contact_phone ?? "",
-    internalNotes: "",
+    internalNotes: a.internal_notes ?? "",
     nachbarhilfe: a.nachbarhilfe ?? false,
     nachbarhilfeNote: a.nachbarhilfe_note ?? "",
     amWarten: a.am_warten ?? false,
