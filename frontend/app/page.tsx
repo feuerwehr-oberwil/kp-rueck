@@ -42,7 +42,7 @@ import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
@@ -617,8 +617,9 @@ export default function FireStationDashboard() {
     if (currentColumnIndex < columns.length - 1) {
       const nextColumn = columns[currentColumnIndex + 1]
       const newStatus = nextColumn.status[0] as OperationStatus
+      const previousStatus = operation.status
       updateOperation(operationId, { status: newStatus })
-      if (newStatus === "enroute") triggerDisponiertDialog(operationId)
+      if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
       if (newStatus === "ready") triggerRekoCheck(operationId)
       if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
       if (newStatus === "returning") triggerReturningVehicleCheck(operationId)
@@ -634,8 +635,9 @@ export default function FireStationDashboard() {
     if (currentColumnIndex > 0) {
       const prevColumn = columns[currentColumnIndex - 1]
       const newStatus = prevColumn.status[0] as OperationStatus
+      const previousStatus = operation.status
       updateOperation(operationId, { status: newStatus })
-      if (newStatus === "enroute") triggerDisponiertDialog(operationId)
+      if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     }
   }, [operations, updateOperation, triggerDisponiertDialog])
 
@@ -673,7 +675,7 @@ export default function FireStationDashboard() {
       targetOperationId: groupId,
       conflicts: [
         ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: op.location })),
+        ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
       ],
       customResolve: async (action) => {
         if (action === "move") {
@@ -1009,8 +1011,8 @@ export default function FireStationDashboard() {
       setSelectedOperationId(operationId)
       setHoveredOperationId(operationId)
     },
-    onStatusChange: (operationId, newStatus) => {
-      if (newStatus === "enroute") triggerDisponiertDialog(operationId)
+    onStatusChange: (operationId, newStatus, previousStatus) => {
+      if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
       if (newStatus === "ready") triggerRekoCheck(operationId)
       if (newStatus === "rekoDone") triggerRekoFormCheck(operationId)
       if (newStatus === "returning") triggerReturningVehicleCheck(operationId)

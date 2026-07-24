@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { type Person, type Operation, useOperations } from "@/lib/contexts/operations-context"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 
 interface DriverAssignmentDialogProps {
@@ -123,7 +124,7 @@ export function DriverAssignmentDialog({
   const getPersonConflicts = (person: Person) => {
     return operations
       .filter(op => op.crew.includes(person.name))
-      .map(op => ({ id: op.id, location: op.location, crewName: person.name }))
+      .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), crewName: person.name }))
   }
 
   // Check if person is assigned to any incident
@@ -436,7 +437,7 @@ export function DriverAssignmentDialog({
               <button
                 type="button"
                 onClick={() => setShowAddForm(true)}
-                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
               >
                 <UserPlus className="h-4 w-4" />
                 <span>{t('addPersonButton')}</span>
@@ -502,7 +503,7 @@ export function DriverAssignmentDialog({
                           disabled={isAssigning || isCurrentDriver}
                           className={cn(
                             "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
-                            !isCurrentDriver && "hover:border-primary/50 hover:bg-secondary/30",
+                            !isCurrentDriver && "cursor-pointer hover:border-primary/50 hover:bg-secondary/30",
                             isCurrentDriver && "opacity-50 cursor-not-allowed"
                           )}
                         >
@@ -564,7 +565,7 @@ export function DriverAssignmentDialog({
                             disabled={isAssigning || isCurrentDriver}
                             className={cn(
                               "flex-1 min-w-0 flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
-                              !isCurrentDriver && "hover:border-primary/50 hover:bg-secondary/30",
+                              !isCurrentDriver && "cursor-pointer hover:border-primary/50 hover:bg-secondary/30",
                               isCurrentDriver && "opacity-50 cursor-not-allowed"
                             )}
                           >

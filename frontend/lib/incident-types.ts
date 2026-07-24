@@ -40,3 +40,22 @@ export const incidentTypeKeys = (() => {
 export function getIncidentTypeLabel(type: string): string {
   return type in incidentTypeLabels ? translateOutsideReact(`incidents.types.${type}`) : type
 }
+
+/**
+ * Incident reference for conflict prompts, badges and similar cross-incident
+ * mentions: "Hauptstrasse 5 (Brandbekämpfung: Rauch aus Fenster…)". Address
+ * alone loses the operator once several incidents run in the same street, so
+ * the type and (truncated) Meldung ride along whenever they exist.
+ */
+export function getIncidentRefLabel(
+  op: { location: string; incidentType?: string; notes?: string },
+  maxMeldungLength = 60,
+): string {
+  const type = op.incidentType ? getIncidentTypeLabel(op.incidentType) : ""
+  const meldung = (op.notes ?? "").trim()
+  const shortMeldung = meldung.length > maxMeldungLength
+    ? `${meldung.slice(0, maxMeldungLength).trimEnd()}…`
+    : meldung
+  const detail = [type, shortMeldung].filter(Boolean).join(": ")
+  return detail ? `${op.location} (${detail})` : op.location
+}

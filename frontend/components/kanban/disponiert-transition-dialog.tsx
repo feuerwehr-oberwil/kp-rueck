@@ -21,6 +21,11 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
+// Bold highlight for the variable parts of the Funkdurchsage quote.
+const highlight = (text: string) => (
+  <span className="font-semibold text-foreground">{text}</span>
+)
+
 interface DisponiertTransitionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -137,10 +142,40 @@ export function DisponierTransitionDialog({
         .join(", ")
     : null
 
-  // Reko dangers for "besonderes" section
+  // Reko dangers + Nachbarhilfe combine into one "Besonderes:" list.
   const rekoDangers = operation.rekoSummary?.hasDangers && operation.rekoSummary.dangerTypes.length > 0
     ? operation.rekoSummary.dangerTypes.join(", ")
     : null
+  const nachbarhilfeText = operation.nachbarhilfe
+    ? operation.nachbarhilfeNote
+      ? t('disponiert.radioNachbarhilfeWithNote', { note: operation.nachbarhilfeNote })
+      : t('disponiert.radioNachbarhilfe')
+    : null
+  const specialList = [rekoDangers, nachbarhilfeText].filter(Boolean).join(", ") || null
+
+  // Deployment part of the quote ("…, es rücken aus …"). Null when nothing is
+  // assigned — the quote then ends after the location and a hint is shown below.
+  const hasResources = Boolean(crewList || vehicleList || materialNames)
+  // vehicleList is already null when zuFuss, so "und" only follows a real
+  // vehicle part; materials otherwise attach with "mit".
+  const materialConnector = vehicleList ? t('disponiert.radioAnd') : t('disponiert.radioWith')
+  const deployment = crewList ? (
+    <>
+      {t('disponiert.radioDeploySuffix')} {highlight(crewList)}
+      {isZuFuss ? <> {highlight(t('disponiert.radioZuFuss'))}</> : null}
+      {vehicleList ? <> {t('disponiert.radioWith')} {highlight(vehicleList)}</> : null}
+      {materialNames ? <> {materialConnector} {highlight(materialNames)}</> : null}
+    </>
+  ) : vehicleList ? (
+    <>
+      {t('disponiert.radioDeploySuffix')} {highlight(vehicleList)}
+      {materialNames ? <> {t('disponiert.radioWith')} {highlight(materialNames)}</> : null}
+    </>
+  ) : materialNames ? (
+    <>
+      {t('disponiert.radioMaterialOnly')} {highlight(materialNames)}
+    </>
+  ) : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -160,8 +195,13 @@ export function DisponierTransitionDialog({
               {t('disponiert.funkdurchsage')}
             </div>
             <p className="text-sm text-muted-foreground italic leading-relaxed">
-              &quot;{t('disponiert.radioIntro', { funkrufname })} <span className="font-semibold text-foreground">{location}</span>{t('disponiert.radioDeploySuffix')}{crewList ? <> <span className="font-semibold text-foreground">{crewList}</span></> : null}{isZuFuss ? <> <span className="font-semibold text-foreground">{t('disponiert.radioZuFuss')}</span></> : vehicleList ? <> {t('disponiert.radioWith')} <span className="font-semibold text-foreground">{vehicleList}</span></> : null}{materialNames ? <> {t('disponiert.radioAnd')} <span className="font-semibold text-foreground">{materialNames}</span></> : null}.{rekoDangers ? <> {t('disponiert.radioSpecial')} <span className="font-semibold text-foreground">{rekoDangers}</span>.</> : null}&quot;
+              &quot;{t('disponiert.radioIntro', { funkrufname })} {highlight(location)}{deployment}.{specialList ? <> {t('disponiert.radioSpecial')} {highlight(specialList)}.</> : null}&quot;
             </p>
+            {!hasResources && (
+              <p className="text-xs text-muted-foreground">
+                {t('disponiert.noResourcesHint')}
+              </p>
+            )}
             {auftragCtx && (
               <p className="text-xs text-muted-foreground">
                 {t('disponiert.auftragContext', { name: auftragCtx.name, pos: auftragCtx.stopPos, total: auftragCtx.stopTotal })}

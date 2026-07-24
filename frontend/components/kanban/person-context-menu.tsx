@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { apiClient, type ApiEventSpecialFunctionResponse, type FunctionType } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { toast } from "sonner"
 import { Car, Binoculars, Package2, Check } from 'lucide-react'
 
@@ -82,7 +83,7 @@ export function PersonContextMenu({
   const getConflictingOperations = () => {
     return operations
       .filter(op => op.crew.includes(personnelName))
-      .map(op => ({ id: op.id, location: op.location, crewName: personnelName }))
+      .map(op => ({ id: op.id, location: getIncidentRefLabel(op, 40), crewName: personnelName }))
   }
 
   const assignFunction = async (functionType: FunctionType, vehicleId?: string) => {
