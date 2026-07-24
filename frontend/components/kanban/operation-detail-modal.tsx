@@ -28,7 +28,7 @@ export function OperationDetailModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby={undefined} className="!w-[90vw] !h-[85vh] !max-w-6xl !pb-2 flex flex-col overflow-hidden">
-        <DialogTitle className="sr-only">{formatLocationForDisplay(operation.location, getGlobalHomeCity()) || operation.incidentType}</DialogTitle>
+        <DialogTitle className="sr-only">{(operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.incidentType}</DialogTitle>
         <OperationDetailContent
           key={`${selectedEvent?.id ?? 'no-event'}:${operation.id}`}
           {...contentProps}

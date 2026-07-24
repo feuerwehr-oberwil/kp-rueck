@@ -157,7 +157,7 @@ export function AssignmentLines({
           vehiclePosition: [vp.latitude, vp.longitude],
           incidentPosition: [incident.location_lat, incident.location_lng],
           // title is usually the raw address, so strip the home town from either
-          incidentTitle: formatLocationForDisplay(incident.title || incident.location_address || '', getGlobalHomeCity()) || t('assignmentLines.incidentFallback'),
+          incidentTitle: (incident.location_display ?? formatLocationForDisplay(incident.title || incident.location_address || '', getGlobalHomeCity())) || t('assignmentLines.incidentFallback'),
           distanceMeters: distanceMeters(
             vp.latitude,
             vp.longitude,

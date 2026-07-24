@@ -45,7 +45,7 @@ export function OperationHoverCard({
   const tKanban = useTranslations("kanban")
   const tIncidents = useTranslations("incidents")
   const address =
-    formatLocationForDisplay(operation.location, getGlobalHomeCity()) || operation.location
+    (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.location
   const crewShown = operation.crew.slice(0, 3)
 
   return (

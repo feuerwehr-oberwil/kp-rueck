@@ -11,8 +11,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { columns, getTimeSince, ageChipClass } from "@/lib/kanban-utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { IncidentDetailModal, priorityVisuals } from "@/components/display/incident-detail-modal"
 import { Clock, Truck, Users, Siren, Package, ChevronRight, Waypoints } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -236,7 +235,7 @@ function DisplayOperationCard({
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="font-bold text-sm leading-tight break-words">{formatLocationForDisplay(operation.location, getGlobalHomeCity()) || getIncidentTypeLabel(operation.incidentType)}</h3>
+              <h3 className="font-bold text-sm leading-tight break-words">{getIncidentLocationLabel(operation)}</h3>
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex-shrink-0">
                 {priorityLabel}
               </span>

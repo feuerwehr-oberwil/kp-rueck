@@ -43,6 +43,7 @@ from ..schemas import (
     SimulateVehicleBreakdownResponse,
     TrainingLocationResponse,
 )
+from ..services import incident_display
 from ..services.divera_intake import broadcast_emergency_received
 from ..services.tokens import generate_form_token
 from ..services.training import (
@@ -136,7 +137,7 @@ async def generate_emergencies(
     # Convert to response models and broadcast WebSocket updates
     responses = []
     for incident in incidents:
-        incident_response = IncidentResponse.model_validate(incident)
+        incident_response = await incident_display.incident_with_display(db, incident)
         responses.append(incident_response)
         # Broadcast WebSocket update for each created incident
         background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
@@ -187,7 +188,7 @@ async def manual_dispatch(
             location_override=(request.address, request.latitude, request.longitude),
         )
 
-    response = IncidentResponse.model_validate(incident)
+    response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "create")
     return response
 
@@ -352,7 +353,7 @@ async def simulate_field_complete(
     await db.commit()
     await db.refresh(incident)
 
-    response = IncidentResponse.model_validate(incident)
+    response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
     return response
 
@@ -392,7 +393,7 @@ async def simulate_reko_arrived(
     await reko_crud.mark_reko_arrived(db, incident_id, token)
 
     await db.refresh(incident)
-    response = IncidentResponse.model_validate(incident)
+    response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
     return response
 
@@ -475,7 +476,7 @@ async def simulate_reko(
     response_data.incident_contact = incident.contact
 
     # Broadcast updates
-    incident_response = IncidentResponse.model_validate(incident)
+    incident_response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
 
     return response_data
@@ -553,7 +554,7 @@ async def simulate_escalation(
     await db.commit()
     await db.refresh(incident)
 
-    response = IncidentResponse.model_validate(incident)
+    response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
     return response
 

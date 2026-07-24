@@ -109,7 +109,7 @@ export function TransferIncidentDialog({
             </div>
           ) : (
             targetIncidents.map((incident) => {
-              const address = formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())
+              const address = incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())
               return (
               <button
                 key={incident.id}

@@ -85,7 +85,7 @@ function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiInciden
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-base text-foreground leading-tight break-words">
-                {formatLocation(incident.location_address || incident.title, t('unknown'))}
+                {incident.location_display || formatLocation(incident.location_address || incident.title, t('unknown'))}
               </h3>
               {incident.title && incident.location_address && incident.title !== incident.location_address && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{incident.title}</p>

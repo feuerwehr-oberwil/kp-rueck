@@ -403,6 +403,7 @@ function apiIncidentToIncident(a: ApiIncident): Incident {
     type: a.type,
     priority: a.priority,
     location_address: a.location_address,
+    location_display: a.location_display ?? null,
     location_lat: a.location_lat != null ? parseFloat(a.location_lat) : null,
     location_lng: a.location_lng != null ? parseFloat(a.location_lng) : null,
     status: a.status,

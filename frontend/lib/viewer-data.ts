@@ -41,6 +41,7 @@ export function viewerIncidentToOperation(a: ApiIncident): Operation {
   return {
     id: a.id,
     location: a.location_address || a.title,
+    locationDisplay: a.location_display ?? undefined,
     vehicle: "" as unknown as Operation["vehicle"],
     vehicles: (a.assigned_vehicles ?? []).map((v) => v.name),
     incidentType: a.type,

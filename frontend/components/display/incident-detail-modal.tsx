@@ -11,8 +11,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
 import {
   Clock, Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
@@ -94,7 +93,7 @@ export function IncidentDetailModal({
               className={cn("h-5 w-5 flex-shrink-0", priorityIconColor)}
               aria-label={t('board.priorityAria', { label: priorityLabel })}
             />
-            <span className="break-words">{formatLocationForDisplay(operation.location, getGlobalHomeCity()) || getIncidentTypeLabel(operation.incidentType)}</span>
+            <span className="break-words">{getIncidentLocationLabel(operation)}</span>
           </DialogTitle>
         </DialogHeader>
 

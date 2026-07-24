@@ -17,6 +17,7 @@ from ..config import settings
 from ..crud import events as events_crud
 from ..crud import incidents as crud
 from ..database import get_db
+from ..services import incident_display
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_group_update, broadcast_incident_update
 
@@ -91,7 +92,7 @@ async def list_incidents(
         limit=limit,
         status=status,
     )
-    return incidents
+    return await incident_display.incidents_with_display(db, incidents)
 
 
 @router.get("/sync-version")
@@ -190,7 +191,7 @@ async def get_incident(
     incident = await crud.get_incident(db, incident_id)
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
-    return incident
+    return await incident_display.incident_with_display(db, incident)
 
 
 @router.post("/", response_model=schemas.IncidentResponse, status_code=status.HTTP_201_CREATED)
@@ -241,7 +242,7 @@ async def create_incident(
     background_tasks.add_task(trigger_sync_background)
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
-    incident_response = schemas.IncidentResponse.model_validate(new_incident)
+    incident_response = await incident_display.incident_with_display(db, new_incident)
 
     # Broadcast WebSocket update
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
@@ -283,7 +284,7 @@ async def update_incident(
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
-    incident_response = schemas.IncidentResponse.model_validate(incident)
+    incident_response = await incident_display.incident_with_display(db, incident)
 
     # Broadcast WebSocket update
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
@@ -350,7 +351,7 @@ async def update_status(
         raise HTTPException(status_code=404, detail="Incident not found")
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
-    incident_response = schemas.IncidentResponse.model_validate(incident)
+    incident_response = await incident_display.incident_with_display(db, incident)
 
     # Broadcast WebSocket update for status change
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
@@ -570,7 +571,7 @@ async def restore_incident(
     # Re-fetch with populated relationships (assigned_vehicles, reko flags, …) so
     # the response mirrors GET /{id} and the frontend can consume it directly.
     populated = await crud.get_incident(db, incident_id)
-    incident_response = schemas.IncidentResponse.model_validate(populated or incident)
+    incident_response = await incident_display.incident_with_display(db, populated or incident)
 
     # Broadcast WebSocket update (mirror the update path) so other clients
     # re-show the restored card.

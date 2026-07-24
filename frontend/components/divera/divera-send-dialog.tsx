@@ -175,7 +175,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
             {t("title")}
           </DialogTitle>
           <DialogDescription>
-            {t("description", { location: formatLocationForDisplay(operation.location, getGlobalHomeCity()) || getIncidentTypeLabel(operation.incidentType) })}
+            {t("description", { location: (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || getIncidentTypeLabel(operation.incidentType) })}
           </DialogDescription>
         </DialogHeader>
 

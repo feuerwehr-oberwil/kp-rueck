@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
 import { apiClient, ApiError, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -47,6 +47,9 @@ export interface RekoSummary {
 export interface Operation {
   id: string
   location: string
+  /** Server-computed short location label (home city stripped). Absent on
+   *  locally-created optimistic operations until the next server sync. */
+  locationDisplay?: string
   vehicle: VehicleType
   vehicles: string[]
   incidentType: string
@@ -363,6 +366,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return {
       id: incident.id,
       location: incident.location_address || incident.title,
+      locationDisplay: incident.location_display ?? undefined,
       vehicle: null,
       vehicles: [],
       incidentType: incident.type || "elementarereignis",
@@ -560,6 +564,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setOperations(ops)
       setPersonnel(eventScopedPersonnel)
       setMaterials(eventScopedMaterials)
+      // Sync the module-level mirror BEFORE the state batch renders: the
+      // mirror-effect runs only after render, so helpers reading it
+      // (getIncidentRefLabel & co.) would format the first paint without the
+      // home city and visibly re-render to the short label later.
+      setGlobalHomeCity(settings.home_city || "")
       setHomeCity(settings.home_city || "")
       setLastSyncAt(new Date())
     } catch (error) {
@@ -791,7 +800,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations(ops)
         setPersonnel(eventScopedPersonnel)
         setMaterials(eventScopedMaterials)
-        setHomeCity(settings.home_city || "")
+        // Sync the module-level mirror BEFORE the state batch renders: the
+      // mirror-effect runs only after render, so helpers reading it
+      // (getIncidentRefLabel & co.) would format the first paint without the
+      // home city and visibly re-render to the short label later.
+      setGlobalHomeCity(settings.home_city || "")
+      setHomeCity(settings.home_city || "")
         setIsLoaded(true)
         setLastSyncAt(new Date())
         isInitialLoadRef.current = false
@@ -1366,6 +1380,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const newOperation: Operation = {
           id: apiIncident.id,
           location: apiIncident.location_address || apiIncident.title,
+          locationDisplay: apiIncident.location_display ?? undefined,
           vehicle: operation.vehicle,
           vehicles: [],
           incidentType: operation.incidentType,
@@ -1904,7 +1919,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Prefer the server-computed labels (location_display) so first paint shows
+  // the final string; the client formatter only covers addresses the server
+  // hasn't labelled (optimistic local ops, free-form strings).
+  const serverLocationLabels = useMemo(() => {
+    const labels = new Map<string, string>()
+    for (const op of operations) {
+      if (op.locationDisplay !== undefined) labels.set(op.location, op.locationDisplay)
+    }
+    return labels
+  }, [operations])
+
   const formatLocation = (fullAddress: string): string => {
+    const serverLabel = serverLocationLabels.get(fullAddress)
+    if (serverLabel !== undefined) return serverLabel
     return formatLocationForDisplay(fullAddress, homeCity)
   }
 
@@ -1988,6 +2016,7 @@ export function useIncidents() {
     type: op.incidentType as ApiIncident['type'],
     priority: op.priority as "low" | "medium" | "high",
     location_address: op.location,
+    location_display: op.locationDisplay ?? null,
     location_lat: op.coordinates?.[0] ?? null,
     location_lng: op.coordinates?.[1] ?? null,
     status: operationToIncidentStatus[op.status] as ApiIncident['status'],
