@@ -53,9 +53,10 @@ export function getTileBaseUrl(): string {
 /**
  * Get the direct backend URL for WebSocket connections.
  *
- * WebSocket connections cannot go through the Next.js API proxy (/backend-api)
- * because API routes only handle HTTP, not WebSocket upgrades. On Railway/production,
- * the WS client must connect directly to the backend domain.
+ * WebSocket connections cannot go through the Next.js API proxy (/backend-api) because API
+ * routes only handle HTTP, not WebSocket upgrades. A single-origin deployment therefore
+ * relies on its reverse proxy routing /socket.io to the backend; Railway, which has no such
+ * proxy, is addressed directly by hostname convention.
  */
 export function getWsUrl(): string {
   // Explicit WS URL takes highest priority
@@ -70,17 +71,22 @@ export function getWsUrl(): string {
     return apiUrl.replace(/^http/, 'ws')
   }
 
-  // Runtime fallback for non-localhost deployments without build-time env vars:
-  // Derive backend URL from current hostname using Railway naming convention
+  // Runtime fallback for deployments with no build-time env var.
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
+    const { hostname, origin } = window.location
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      // Railway pattern: frontend=X.up.railway.app → backend=X-api.up.railway.app
-      const parts = hostname.split('.')
-      if (parts.length >= 3) {
+      // Railway runs the frontend and backend as two services on two hostnames with no
+      // shared proxy in front, so the socket has to be addressed directly by convention:
+      // X.up.railway.app → X-api.up.railway.app.
+      if (hostname.endsWith('.up.railway.app')) {
+        const parts = hostname.split('.')
         return `wss://${parts[0]}-api.${parts.slice(1).join('.')}`
       }
-      return `wss://${hostname}`
+      // Everywhere else the deployment sits behind ONE origin that routes /socket.io to
+      // the backend (deploy/Caddyfile), so same-origin is correct. Applying the Railway
+      // guess here would point at a hostname that doesn't exist — and hardcoding wss://
+      // would break a plain-HTTP LAN install, hence deriving the scheme from the origin.
+      return origin.replace(/^http/, 'ws')
     }
   }
 
