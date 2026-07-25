@@ -8,6 +8,7 @@ import { useSearchParams, usePathname } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useDisplayErrorRecovery } from "@/components/display-error"
 
 const displayPages = [
   { href: "/display/map", labelKey: "pageMap", icon: Map },
@@ -58,6 +59,11 @@ export default function DisplayLayout({
   const token = searchParams.get("token")
   const isIndexPage = pathname === "/display"
   const isSubPage = !isIndexPage
+
+  // Clears the error-boundary retry backoff once this display has been up and
+  // healthy for a while, so an unrelated fault hours later starts from the
+  // shortest retry delay instead of the capped one.
+  useDisplayErrorRecovery()
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [tokenEvent, setTokenEvent] = useState<{ name: string; training_flag: boolean } | null>(null)
@@ -114,10 +120,13 @@ export default function DisplayLayout({
   }, [])
 
   const toggleFullscreen = () => {
+    // Both APIs reject (rather than throw) when the browser refuses — no user
+    // gesture, or a permissions-policy block. Swallow it: an unhandled
+    // rejection helps nobody on a wall display.
     if (document.fullscreenElement) {
-      document.exitFullscreen()
+      void document.exitFullscreen().catch(() => {})
     } else {
-      document.documentElement.requestFullscreen()
+      void document.documentElement.requestFullscreen().catch(() => {})
     }
   }
 
