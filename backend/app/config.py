@@ -45,7 +45,12 @@ class Settings(BaseSettings):
     description: str = "API for firefighting operations dashboard"
 
     # Uvicorn
-    host: str = "0.0.0.0"
+    # Binds all interfaces on purpose: the process only ever listens inside its container, and
+    # the only thing that reaches it is Caddy on the compose network. Binding 127.0.0.1 instead
+    # would make the container unreachable from the proxy — the service would simply not work.
+    # What is actually exposed to the host is decided by `ports:` in docker-compose.yml, and the
+    # backend publishes none. nosec B104: the finding does not apply to a containerised service.
+    host: str = "0.0.0.0"  # nosec B104
     port: int = 8000
     reload: bool = False  # Set to False in production
 
