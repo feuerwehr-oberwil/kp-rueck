@@ -25,6 +25,8 @@ const SHOTS = join(HERE, 'shots')
 
 const DEFAULT_BASE = 'https://kp-rueck-demo.up.railway.app'
 const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform wie bei KP Front
+// Die öffentlichen Formulare sind für das Handy gebaut; enger Ausschnitt, gleiches Verhältnis.
+const FORM_VIEWPORT = { width: 900, height: 562 }
 const QUALITY = 82
 
 const argv = process.argv.slice(2)
@@ -69,32 +71,70 @@ const shots = [
     name: 'auftraege',
     path: '/',
     settle: 1500,
+    note: 'Auftrag aufgeklappt: die Einsätze der Route mit den nächsten Schritten',
     prep: async (page) => {
       await page.getByRole('button', { name: /^Aufträge$/ }).click()
       await page.waitForTimeout(1500)
+      // Den bestehenden Auftrag aufklappen, damit die Route und die nächsten
+      // Schritte sichtbar werden (nicht «Neuer Auftrag» erwischen).
+      await page.getByText(/erledigt$/).first().click()
+      await page.waitForTimeout(2000)
     },
   },
   {
-    name: 'alarm',
+    name: 'meldung',
     path: '/',
     settle: 1500,
+    viewport: FORM_VIEWPORT,
+    note: 'Das öffentliche Meldeformular (Telefon/Laufkundschaft), über den Teilen-Link',
     prep: async (page) => {
-      await page.getByRole('button', { name: /^Alarm$/ }).click()
-      await page.waitForTimeout(1800)
+      const url = await openShareLink(page, /^Alarm$/)
+      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      await page.waitForTimeout(3500)
+      // Beispielmeldung eintippen (nicht abschicken) — ein leeres Formular mit rot
+      // markiertem Pflichtfeld sieht nach Fehler aus, nicht nach Werkzeug.
+      await page.getByPlaceholder(/Brennt im Keller/i).fill('Wasser läuft über die Lichtschächte in den Heizungsraum')
+      await page.getByPlaceholder(/Name der meldenden Person/i).fill('Marina Kaufmann')
+      await page.getByPlaceholder(/079/).fill('079 123 45 67')
+      // Das Tippen scrollt mit — für das Bild zurück an den Anfang des Formulars
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await page.waitForTimeout(600)
     },
   },
   {
-    name: 'drucken',
+    name: 'reko',
     path: '/',
     settle: 1500,
+    viewport: FORM_VIEWPORT,
+    note: 'Das Reko-Formular auf dem Handy des Trupps, über den Teilen-Link',
     prep: async (page) => {
-      await page.getByRole('button', { name: /^Drucken$/ }).click()
-      await page.waitForTimeout(1500)
+      const url = await openShareLink(page, /^Reko$/)
+      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      await page.waitForTimeout(3000)
+      // Erst die Personenauswahl, dann der offene Einsatz — Ziel ist das Formular
+      await page.locator('button, [role=button]').filter({ hasText: /offen/ }).first().click()
+      await page.waitForTimeout(2000)
+      const openForm = page.getByRole('button', { name: /Formular öffnen/i }).first()
+      if (await openForm.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await openForm.click()
+        await page.waitForTimeout(3000)
+      }
     },
   },
   { name: 'display', path: '/display/board', settle: 4000, note: 'Beamer-Ansicht im KP' },
   { name: 'training', path: '/training', settle: 2500 },
 ]
+
+/** Öffnet ein Teilen-Sheet (Alarm / Reko) und liest die tokenisierte URL daraus.
+ *  Damit landen die echten öffentlichen Formulare im Bild statt nur des QR-Dialogs. */
+const openShareLink = async (page, buttonName) => {
+  await page.getByRole('button', { name: buttonName }).click()
+  const field = page.locator('input[readonly]').first()
+  await field.waitFor({ timeout: 15000 })
+  const url = await field.inputValue()
+  if (!/token=/.test(url)) throw new Error(`Kein Token im Teilen-Link: ${url}`)
+  return url
+}
 
 /** Demo- und Laufzeit-Chrome, die im Marketing-Bild nichts zu suchen hat. */
 // Der Attribut-Selektor auf die Tailwind-Klassen fängt Instanzen ab, die noch vor
@@ -153,11 +193,15 @@ const run = async () => {
   if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
 
   for (const shot of wanted) {
+    await page.setViewportSize(shot.viewport ?? VIEWPORT)
     await page.goto(base + shot.path, { waitUntil: 'domcontentloaded' })
-    await page.addStyleTag({ content: HIDE_CSS })
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(shot.settle)
     if (shot.prep) await shot.prep(page)
+    // Erst hier ausblenden: prep() navigiert teils weg, ein früheres addStyleTag
+    // wäre dann wieder verloren.
+    await page.addStyleTag({ content: HIDE_CSS })
+    await page.waitForTimeout(250)
     const path = join(SHOTS, `${shot.name}.jpg`)
     await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
     console.log(`  ✓ ${shot.name}.jpg  (${shot.path})`)
