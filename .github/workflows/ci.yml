@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           version: "latest"
 
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           version: "latest"
 
@@ -100,7 +100,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           version: "latest"
 
@@ -110,9 +110,12 @@ jobs:
       - name: Install bandit
         run: uv tool install bandit
 
+      # Blocking. It was advisory while one finding was outstanding; that finding was reviewed
+      # (B104 in config.py — does not apply to a containerised service) and annotated, so the
+      # scan is clean and a NEW medium-or-worse finding must now be dealt with rather than
+      # scrolled past. Annotate a false positive at the line with `# nosec BXXX` and a reason.
       - name: Security scan with Bandit
         run: uv tool run bandit -r app -ll -ii -x app/tests
-        continue-on-error: true  # TODO: Make blocking once security issues are reviewed
 
   backend-test:
     name: Backend Tests
@@ -140,7 +143,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           version: "latest"
 
@@ -164,7 +167,7 @@ jobs:
           SECRET_KEY: ci-test-secret-key-not-for-production-use-1234567890
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           file: backend/coverage.xml
           flags: backend
@@ -185,12 +188,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -213,12 +216,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -241,12 +244,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -269,12 +272,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -317,12 +320,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           version: "latest"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
@@ -331,7 +334,7 @@ jobs:
         run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -372,7 +375,7 @@ jobs:
           CI: true
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -393,7 +396,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Write .env (compose reads it before anything else)
         run: |
@@ -414,7 +417,7 @@ jobs:
         run: docker compose config -q
 
       - name: Build backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           load: true
@@ -425,7 +428,7 @@ jobs:
       # Built WITHOUT NEXT_PUBLIC_API_URL on purpose: the published image must not carry any
       # one station's API URL. The browser calls /backend-api on its own origin instead.
       - name: Build frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           target: runner
@@ -435,7 +438,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
 
       - name: Build tileserver image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./tileserver/Dockerfile
@@ -447,7 +450,7 @@ jobs:
       # Not booted (it needs a printer on the LAN), but built so a broken Dockerfile can't
       # reach a release.
       - name: Build print-agent image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./print-agent
           load: true
